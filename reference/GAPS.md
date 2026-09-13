@@ -294,6 +294,16 @@ out of fold, both directions). The sheet already says it, so no edit; this is th
 the adjudication settles, and the 192 split claims in front of the adjudicator hold it by
 name.
 
+**Reported by all four labellers on 1449850**, a card game, without seeing each other's
+work: "I sit and watch the opponent combo for ten minutes and cannot do anything" is the
+commonest complaint in that set and each labeller split it differently between `gameplay`
+(the turn structure that allows it), `difficulty` (going first wins, an unstoppable board)
+and `multiplayer` (what playing against people is like). The sheet's balance rule covers the
+second reading; the first and third are the same claim seen from the mechanic and from the
+opponent, and a rule that says a complaint about what other players are allowed to do is
+`difficulty` when it is about winning and `multiplayer` when it is about the experience of
+the match would cut it. Every card and fighting game will raise it.
+
 ### Addictive, could not stop playing: one report, a dozen claims
 
 Filed under `atmosphere` by its "pulls you in, lose whole evenings" example, but it reads as a
