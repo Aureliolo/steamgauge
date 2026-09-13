@@ -68,7 +68,8 @@ way and one the other. A decision about which platform gets which build is `poli
 build runs on this machine is `compatibility`.
 
 **The same seam with a rival rather than a predecessor**, reported on 1665460 ("better than
-FIFA") and 1716740 ("worse than Freelancer", "like Fallout 4 without the exploration"). The
+FIFA"), 1716740 ("worse than Freelancer", "like Fallout 4 without the exploration"),
+228380 ("the better Flatout") and 1778820 ("SF6 is the superior product"). The
 proposed RULE names only the game's own predecessor, so labellers split a comparison with
 another studio's game between `genre` and `verdict` and flagged it. The rule should say
 "another game" rather than "its predecessor": the difference named is `genre`, better or worse
@@ -327,6 +328,13 @@ second reading; the first and third are the same claim seen from the mechanic an
 opponent, and a rule that says a complaint about what other players are allowed to do is
 `difficulty` when it is about winning and `multiplayer` when it is about the experience of
 the match would cut it. Every card and fighting game will raise it.
+
+**Luck deciding the outcome is the same seam again, three reports**: shooting RNG on 2878980,
+blueprint and loot RNG deciding a run on 1336490, and "a guessing game, a 50-50" on the
+fighting game 1778820. Each labeller split it between `difficulty` (the outcome is not down
+to skill) and `gameplay` (the mechanic that produces it). The balance rule already sends
+"unfair" to `difficulty`; it should say in as many words that a complaint that luck decides
+who wins is `difficulty`, and a description of how the random system works is `gameplay`.
 
 ### Addictive, could not stop playing: one report, a dozen claims
 
