@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Every update from every ecosystem lands in one weekly PR: crates, the Rust toolchain, GitHub Actions, and every pin in the Python lock file, transitive ones included, since a pip freeze lists them all.",
+    "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR the same morning.",
+    "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published. Vulnerability fixes skip the wait and the schedule."
+  ],
+  "extends": [
+    "config:best-practices",
+    "group:all"
+  ],
+  "timezone": "Europe/Zurich",
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "separateMajorMinor": false,
+  "separateMultipleMajor": false,
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["dependencies", "security"]
+  },
+  "semanticCommits": "disabled",
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "The manifests name the versions the binary is built with, so an in-range update moves the manifest as well as the lock rather than leaving the two to drift apart.",
+      "matchManagers": ["cargo"],
+      "rangeStrategy": "bump"
+    }
+  ],
+  "pip_requirements": {
+    "description": "requirements.txt holds loose floors on purpose and is left alone; requirements.lock is the pip freeze a run was actually made with, and every pin in it is kept current.",
+    "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
+  }
+}
