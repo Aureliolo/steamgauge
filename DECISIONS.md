@@ -865,7 +865,7 @@ Three points of agreement at the same coverage is past the two-point bar a rerun
 configuration sets. Two games the split has frozen since, labelled after wave9 and trained on by
 neither reader, land with the rest: over all ten, 84.7% of 5,266 claims answered at 80.0%, macro F1
 0.661. What this run cannot do is divide the gain between its two causes, because it carries both:
-the lines, and about twelve thousand labels more than wave9 had, most of them teaching draws aimed
+the lines, and seventeen thousand labels more than wave9 had, most of them teaching draws aimed
 at the starved rows. With 202 `licensing` labels no subject is thin enough to go silent, and all 26
 got a line of their own, from `performance` at 0.23 to `vr` at 0.98.
 
