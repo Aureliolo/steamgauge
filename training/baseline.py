@@ -153,12 +153,28 @@ def main():
         "choose between models cannot also say how the chosen one does, and these baselines "
         "choose nothing, so the frozen set is the right one to quote them on.",
     )
+    parser.add_argument(
+        "--key",
+        default=None,
+        help="score on exactly the claims in a frontier key rather than on a whole split. A "
+        "stratified sample of twenty a subject and a natural distribution that is a quarter "
+        "`verdict` are two different questions, and a table with a row from each is not a "
+        "comparison however carefully each row was measured.",
+    )
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
     claims = claimdata.load(args.data)
     train, validation, test = claimdata.split_by_game(claims, seed=args.split_seed)
     held = test if args.frozen else validation
+    if args.key:
+        # The key names frozen claims, so the training half is untouched by this and nothing the
+        # baselines fit on has seen them.
+        by_claim = {(one.app_id, one.review_id, one.claim_index): one for one in claims}
+        held = [
+            by_claim[(row["app_id"], row["review_id"], row["claim_index"])]
+            for row in json.loads(Path(args.key).read_text(encoding="utf-8"))
+        ]
     subjects = claimdata.subjects_in(claims)
     truth = [subjects.index(claim.subject) for claim in held]
 
@@ -188,7 +204,11 @@ def main():
         Path(args.out).write_text(
             json.dumps(
                 {
-                    "held_out": "frozen" if args.frozen else "validation",
+                    "held_out": (
+                        "frontier sample"
+                        if args.key
+                        else "frozen" if args.frozen else "validation"
+                    ),
                     "games": sorted({claim.app_id for claim in held}),
                     "claims": len(held),
                     "data_fingerprint": claimdata.fingerprint(claims),

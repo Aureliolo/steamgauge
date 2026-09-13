@@ -200,18 +200,26 @@ Three things are reported together, and separating them is what makes the number
 
 ### What it is worth against the alternatives
 
-Measured over frozen games, which chose nothing about the model. Every row abstains where it is
-unsure, and every row is scored only on what it answered, because a score that quietly drops
-the declined claims is a score for a classifier nobody is running.
+Measured over one set of 471 claims drawn from the frozen games, twenty a subject, which chose
+nothing about any row. Every row abstains where it is unsure, and every row is scored only on
+what it answered, because a score that quietly drops the declined claims is a score for a
+classifier nobody is running.
 
 | | answers | accuracy where it answers | macro F1 |
 |---|---|---|---|
-| the commonest subject | everything | 23.3% | 0.015 |
-| TF-IDF bag of words | 32% | 44.1% | 0.347 |
-| nearest subject centroid over an untuned encoder | 5% | 42.3% | 0.372 |
+| the commonest subject | never reaches the promise | 4.9% | 0.004 |
+| TF-IDF bag of words | 34% | 75.3% | 0.412 |
+| nearest subject centroid over an untuned encoder | 6% | 90.0% | 0.439 |
 | this reader, 278M parameters (2026-09-11) | 61% | 74.8% | 0.525 |
 | **this reader, 560M parameters** | **79%** | **77.2%** | **0.652** |
 | Claude Opus 5, given the same sheet | 99.6% | 87.0% | 0.873 |
+
+**Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
+quarter of which is `verdict`, the commonest-subject baseline scores 23.3% rather than 4.9% and
+TF-IDF answers a third of claims at 75.1%. A stratified sample is the harder question and the
+useful one, because the rows a reader has to get right are the rare ones. Both sets of figures
+are kept, in `reference/baselines-frontier-sample.json` and `reference/baselines-frozen.json`,
+and a row from one does not belong in a table with a row from the other.
 
 The third row is what this project did before it trained anything, and it is why the rebuild
 happened: cosine distance to a prototype cannot say "this is about nothing", so at the accuracy

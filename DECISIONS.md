@@ -709,10 +709,14 @@ games that chose nothing:
 | nearest subject centroid, untuned backbone | 0.423 | 0.372 | 0.442 | **5%** |
 | the trained reader, claim alone, 278M | 0.605 | 0.504 | 0.216 | 58% |
 | the same, claim in review, at the rate that suits it | 0.667 | 0.555 | 0.160 | 77% |
-| the same again, on a backbone of twice the size | **0.709** | **0.611** | **0.127** | **84%** |
+| the same again, on a backbone of twice the size | 0.709 | 0.611 | 0.127 | 84% |
+| the same again, on nineteen thousand more labels (`wave11`) | **0.737** | **0.673** | **0.106** | **90%** |
 
-The last three rows are one change at a time, each measured on the frozen games, each promising
-75% and delivering it: 0.749, 0.751 and 0.763. Reading the claim inside its review and training
+The last four rows are one change at a time, each measured on the frozen games, each promising
+75% and delivering it: 0.749, 0.751, 0.763 and 0.772. The last row is the reader that ships,
+scored here at one threshold so that it stands in the same column as the rows above it; with the
+line per subject it carries it answers 82.9% of frozen claims at 80.7% agreement, and the two
+frozen games added since the row above it was measured are in its figures and not in theirs. Reading the claim inside its review and training
 at the learning rate that suits that is worth nineteen points of coverage; the bigger backbone
 is worth seven more on top and most of the macro F1.
 
@@ -721,6 +725,21 @@ it stopped. Cosine distance to a prototype has no way to say "this is about noth
 confidences carry almost no ordering: asked to be right three times in four, it can answer one
 claim in twenty. The bag of words is the honest floor, it takes seconds to fit, and a
 278M-parameter encoder that could not clear it would not be earning its electricity.
+
+**The same three baselines on the frontier sample, and a comparison that was not one.** The
+table above is the corpus as it comes, a quarter of it `verdict`. The frontier comparison is a
+stratified draw, twenty claims a subject, and the README was quoting baseline rows from the
+first beside reader and frontier rows from the second. On the sample the baselines are a
+different animal: the commonest subject falls to 0.049 accuracy and still never reaches the
+promise, the bag of words answers 34% at 0.753 with macro F1 0.412, and the centroid answers 6%
+at 0.900 with 0.439. Every row of that table is now the same 471 claims (`baseline.py --key`,
+`reference/baselines-frontier-sample.json`), and both distributions are kept because each
+answers a different question.
+
+The same table also put each baseline's accuracy over all claims in a column headed "accuracy
+where it answers", which read as though the bag of words were right 44.1% of the time on the
+third of claims it answered when it was right 75.1% of the time. The error was in this
+project's favour, which is the kind that survives longest. Corrected 2026-09-13.
 
 ### One threshold for twenty-six subjects is the wrong shape, and it hides the worst of it
 
