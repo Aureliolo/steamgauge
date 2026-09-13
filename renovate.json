@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Every update from every ecosystem lands in one PR on Monday morning: crates, the Rust toolchain, GitHub Actions, and every pin in the Python lock file, transitive ones included, since a pip freeze lists them all. Vulnerability fixes ride in it too rather than as PRs of their own; everything is taken to its latest version, so a vulnerable version never survives the week.",
+    "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR on Tuesday, after Monday's has had a day to be merged.",
+    "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published."
+  ],
+  "extends": [
+    "config:best-practices",
+    "group:all"
+  ],
+  "timezone": "Europe/Zurich",
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on tuesday"]
+  },
+  "separateMajorMinor": false,
+  "separateMultipleMajor": false,
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": false,
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
+  "semanticCommits": "disabled",
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "The manifests name the versions the binary is built with, so an in-range update moves the manifest as well as the lock rather than leaving the two to drift apart.",
+      "matchManagers": ["cargo"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "A digest update is aged at lookup against the release its tag resolves to, but the branch's stability check reads a timestamp field digest updates never carry, and a lock file refresh has no release to age at all. Left at the default, every pinned action held the one combined PR at pending for good. Optional still ages whatever does carry a timestamp.",
+      "matchUpdateTypes": ["pinDigest", "digest", "lockFileMaintenance"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    }
+  ],
+  "pip_requirements": {
+    "description": "requirements.txt holds loose floors on purpose and is left alone; requirements.lock is the pip freeze a run was actually made with, and every pin in it is kept current.",
+    "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
+  }
+}

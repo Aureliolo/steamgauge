@@ -43,8 +43,8 @@ jobs:
             features: "--features coreml"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --release --locked --target ${{ matrix.target }} --bin steamgauge ${{ matrix.features }}
 
@@ -66,7 +66,7 @@ jobs:
           rm -rf "staging/${{ matrix.asset }}"
           ls -la staging/
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: build-${{ matrix.target }}
           path: staging/*
@@ -80,15 +80,15 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: staging
           pattern: build-*
           merge-multiple: true
 
-      - uses: anchore/sbom-action@v0
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           format: cyclonedx-json
           output-file: staging/sbom.cyclonedx.json
@@ -102,11 +102,11 @@ jobs:
             | sort | xargs sha256sum > SHA256SUMS
           cat SHA256SUMS
 
-      - uses: actions/attest-build-provenance@v4
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: staging/steamgauge-*.tar.gz
 
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign checksums with cosign
         working-directory: staging
         run: cosign sign-blob --yes SHA256SUMS --bundle SHA256SUMS.cosign.bundle
