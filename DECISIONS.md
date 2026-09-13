@@ -720,6 +720,15 @@ frozen games added since the row above it was measured are in its figures and no
 at the learning rate that suits that is worth nineteen points of coverage; the bigger backbone
 is worth seven more on top and most of the macro F1.
 
+**The frozen set grew from eight games to ten on 2026-09-13**, because a game's role comes from
+a hash of its id and two games labelled that day fell inside the frozen fifth. Every row above
+except the last was measured on the eight; the last was measured on the ten, and so are the
+baselines retaken the same day: commonest subject 0.258 and still never reaching the promise,
+bag of words 0.494 with macro F1 0.420 answering 42%, nearest centroid 0.429 and 0.373 answering
+10%. The shape is the same and the gap the last column measures is wider, not narrower, so
+nothing in the argument below turns on which set a row came from; a reader compared across that
+line to a tenth of a point would be reading more into it than is there.
+
 The third row is what this project did before it trained anything, and the last column is why
 it stopped. Cosine distance to a prototype has no way to say "this is about nothing", so its
 confidences carry almost no ordering: asked to be right three times in four, it can answer one

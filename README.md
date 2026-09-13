@@ -215,8 +215,8 @@ classifier nobody is running.
 | Claude Opus 5, given the same sheet | 99.6% | 87.0% | 0.873 |
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
-quarter of which is `verdict`, the commonest-subject baseline scores 23.3% rather than 4.9% and
-TF-IDF answers a third of claims at 75.1%. A stratified sample is the harder question and the
+quarter of which is `verdict`, the commonest-subject baseline scores 25.8% rather than 4.9% and
+TF-IDF answers two fifths of claims at 75.1% rather than a third. A stratified sample is the harder question and the
 useful one, because the rows a reader has to get right are the rare ones. Both sets of figures
 are kept, in `reference/baselines-frontier-sample.json` and `reference/baselines-frozen.json`,
 and a row from one does not belong in a table with a row from the other.
