@@ -367,6 +367,10 @@ def main():
 
     card = run / "MODEL_CARD.md"
     metrics = record["validation"]
+    # A card that quotes one threshold for a reader that abstains per subject describes a reader
+    # nobody runs, and the card is what somebody reads before pointing this at a game of theirs.
+    drawn = [one for one in lines or [] if one is not None]
+    silent = sum(1 for one in lines or [] if one is None)
 
     # The card quotes the frozen games. A card is read by somebody deciding whether to run this
     # on a game of their own, and the validation figure answers a different question: how well
@@ -399,6 +403,19 @@ def main():
                 f"{at_threshold.get('coverage', 0):.0%} of claims at "
                 f"{at_threshold.get('accuracy') or 0:.3f} accuracy"
                 + wilson_note(at_threshold),
+                *(
+                    [
+                        f"- **What ships abstains per subject**, not at that one line: "
+                        f"{len(drawn)} of {len(subjects)} subjects carry a line of their own, "
+                        f"{min(drawn):.2f} to {max(drawn):.2f}"
+                        + (f", and {silent} are declined outright" if silent else "")
+                        + ". The coverage above is what this run measured itself at, under one "
+                        "threshold; `steamgauge measure-claims` over the frozen games is the "
+                        "figure for the rule that ships, and it answers less of them more often."
+                    ]
+                    if lines
+                    else []
+                ),
                 f"- Area under the risk-coverage curve {frozen.get('aurc', 0):.3f} (lower is "
                 f"better; it says whether the model knows when it does not know)",
                 f"- Trained on {record['claims']['train']} claims, validated on "

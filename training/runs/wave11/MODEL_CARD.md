@@ -10,6 +10,7 @@ says nothing, and that is a supported answer rather than a failure.
 - Polarity macro F1 0.849
 - Calibration error 0.170
 - Below 0.64 confidence it says nothing, which leaves it answering 90% of claims at 0.772 accuracy, somewhere in [0.760, 0.783] over 5025 claims
+- **What ships abstains per subject**, not at that one line: 26 of 26 subjects carry a line of their own, 0.18 to 0.99. The coverage above is what this run measured itself at, under one threshold; `steamgauge measure-claims` over the frozen games is the figure for the rule that ships, and it answers less of them more often.
 - Area under the risk-coverage curve 0.106 (lower is better; it says whether the model knows when it does not know)
 - Trained on 27681 claims, validated on 4658, measured on 5579
 - Data fingerprint `8a01195c332f2484`, code `4275955a43a8`
