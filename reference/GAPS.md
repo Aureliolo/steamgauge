@@ -33,6 +33,16 @@ the story is great" belongs to `story`; and add "worth every penny", "waste of m
 "refunded it" to the `price` examples, which is where the second reading found labellers
 already putting them when they disagreed.
 
+### `controls` and `accessibility` both claim key remapping: reported on 920210
+
+`controls` lists "keybindings" and `accessibility` lists "remappable controls", and neither
+has a RULE pointing at the other, so "I wish I could remap the keys" fits both descriptions
+and the labeller flagged every one. The line the sheet already draws elsewhere is between
+the thing and the option for it: how the keys are laid out and whether they respond is
+`controls`; whether the game lets you change them is `accessibility`, which is where "the
+settings players need in order to play at all" already points. The revision adds that
+sentence as a RULE on `controls`.
+
 ## Needs a rule, not a category
 
 ### Comparison with the predecessor: three reports, two eras
