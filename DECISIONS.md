@@ -882,6 +882,21 @@ study predicted. It is the trade worth making here because the rows it silences 
 reader reads worst, and a mention rate nobody can trust is worth less than a missing one that
 says so. `wave10` showed the same shape (88.2% at 78.5% against 84.7% at 80.0%).
 
+**The lines `wave11` ships with**, drawn on five folds of the non-frozen games at a 75% floor,
+against the single threshold of 0.64 they replace. No subject is declined outright:
+
+| line | subjects |
+|---|---|
+| below 0.40 | `mods` 0.18, `verdict` 0.20, `performance` 0.26, `audio` 0.31, `compatibility` 0.36, `language` 0.39 |
+| 0.40 to 0.79 | `price` 0.46, `offtopic` 0.55, `controls` 0.64, `community` 0.65, `graphics` 0.71, `updates` 0.76, `bugs` 0.76, `gameplay` 0.78 |
+| 0.80 to 0.94 | `monetisation` 0.81, `tutorial` 0.84, `story` 0.84, `multiplayer` 0.90, `licensing` 0.91, `content` 0.91, `accessibility` 0.94 |
+| 0.95 and up | `difficulty` 0.95, `policy` 0.95, `genre` 0.96, `atmosphere` 0.97, `vr` 0.99 |
+
+Read it as a map of what the reader knows: it will call `mods` or `verdict` on almost any hint,
+and it has to be nearly certain before it says `vr` or `atmosphere`. The rows at the top are the
+ones the second labeller and the frontier reader also disagree about most, which is the argument
+that the boundary is at fault rather than the reader.
+
 ### The weakest subjects are bad boundaries, and the labellers disagree first
 
 The table above named the subjects the shipped threshold should not be answering. The obvious
