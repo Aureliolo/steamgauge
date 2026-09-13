@@ -57,6 +57,16 @@ A one-line RULE on `genre` would absorb most of it: a comparison with the game's
 predecessor is `genre` when the difference itself is the point, and `verdict` when it is only
 better or worse.
 
+**Reported by all three labellers on 2338770**, a yearly sports title: "exact same game as
+last year, copy-paste, a reskin" is the commonest complaint in that set and sits between
+`genre` (the predecessor comparison), `content` (nothing new in it) and `updates` (nothing
+changed). All three filed it `genre` and flagged it. The rule above covers it once it says so:
+a yearly release judged against last year's is the predecessor case, whatever the wording.
+The same set raised "PC only gets the last-gen version", between `policy` (the publisher's
+decision), `compatibility` (what this platform gets) and `updates`; two labellers went one
+way and one the other. A decision about which platform gets which build is `policy`; how the
+build runs on this machine is `compatibility`.
+
 ### Praise or blame for the studio that is not about patches: five reports
 
 "Applaud the devs for taking a risk", "hope Bandai sells the IP", "director replacement is
