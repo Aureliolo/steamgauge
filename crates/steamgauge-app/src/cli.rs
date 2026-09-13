@@ -324,6 +324,11 @@ enum Command {
         /// Claims per forward pass, when `--by-neighbour`.
         #[arg(long, default_value_t = 256)]
         embed_batch: usize,
+        /// Fish for these starved subjects only, when `--by-neighbour`. The rest still vote
+        /// against, so a draw for `licensing` alone is a draw for `licensing` and not for
+        /// whatever else is rare.
+        #[arg(long, num_args = 1..)]
+        only: Vec<String>,
     },
 
     /// Score stored readings against a claim reference set.
@@ -711,6 +716,7 @@ async fn encoder_work(command: Command) -> Result<()> {
             precision,
             model_dir,
             embed_batch,
+            only,
             ..
         } => {
             run_mine_by_neighbour(
@@ -719,10 +725,13 @@ async fn encoder_work(command: Command) -> Result<()> {
                 claims,
                 batch_size,
                 &reference,
-                model_dir,
-                model.into(),
-                precision.into(),
-                embed_batch,
+                Neighbours {
+                    model_dir,
+                    encoder: model.into(),
+                    precision: precision.into(),
+                    embed_batch,
+                    only,
+                },
             )
             .await
         }
@@ -2327,29 +2336,37 @@ async fn load_encoder(
     Ok(steamgauge_core::Embedder::load(&cache, encoder, precision)?)
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "clap owns the shape of the arguments and a draw needs every one of them"
-)]
+/// How a retrieval draw fishes: which encoder, how, and for which subjects.
+struct Neighbours {
+    model_dir: Option<PathBuf>,
+    encoder: steamgauge_core::Encoder,
+    precision: steamgauge_core::model::Precision,
+    embed_batch: usize,
+    only: Vec<String>,
+}
+
 async fn run_mine_by_neighbour(
     app_ids: &[u32],
     out: &std::path::Path,
     claims: usize,
     batch_size: usize,
     reference: &std::path::Path,
-    model_dir: Option<PathBuf>,
-    encoder: steamgauge_core::Encoder,
-    precision: steamgauge_core::model::Precision,
-    embed_batch: usize,
+    how: Neighbours,
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
     for &app_id in app_ids {
         steamgauge_core::embed::latest_snapshot(out, app_id)?;
     }
     let interactive = std::io::stderr().is_terminal();
-    let mut embedder = load_encoder(model_dir, encoder, precision).await?;
+    let mut embedder = load_encoder(how.model_dir, how.encoder, how.precision).await?;
+    let embed_batch = how.embed_batch;
 
-    let lines = steamgauge_core::mine::Lines::cast(&mut embedder, reference, embed_batch)?;
+    let lines = steamgauge_core::mine::Lines::cast(
+        &mut embedder,
+        reference,
+        embed_batch,
+        (!how.only.is_empty()).then_some(how.only.as_slice()),
+    )?;
     let (cast, against) = lines.cast_count();
     eprintln!("fishing with the labelled claims of each starved subject:");
     for (subject, count) in cast {
@@ -2420,6 +2437,15 @@ async fn run_mine_by_neighbour(
         anyhow::bail!("nothing caught; read these games with a current reader first");
     }
     println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
+    say_margins(&by_line, reference);
+    Ok(())
+}
+
+/// What each retrieval line caught across every game drawn, and how to read it.
+fn say_margins(
+    by_line: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
+    reference: &std::path::Path,
+) {
     println!(
         "\nwhat each line caught, and by what margin over the nearest common subject. The\n\
          narrowest is the figure to read: below zero, the line was scraping the floor for a\n\
@@ -2429,7 +2455,7 @@ async fn run_mine_by_neighbour(
         "  {:<16} {:>6} {:>8} {:>10}",
         "line", "caught", "widest", "narrowest"
     );
-    for (subject, (count, widest, narrowest)) in &by_line {
+    for (subject, (count, widest, narrowest)) in by_line {
         if *count == 0 {
             println!("  {subject:<16} {count:>6}");
         } else {
@@ -2442,7 +2468,6 @@ async fn run_mine_by_neighbour(
          Every row lands as subset `retrieved`, which trains the model and measures nothing.",
         reference.display()
     );
-    Ok(())
 }
 
 async fn run_embed(

@@ -399,12 +399,27 @@ impl Lines {
     /// # Errors
     ///
     /// Fails if the reference sets cannot be read or the forward pass fails.
+    /// `only` narrows the lines to some of the starved subjects. The others do not stop
+    /// voting: they join the common subjects on the far side of the margin, so a draw aimed at
+    /// `licensing` alone keeps `policy` claims about licence agreements out of it. A draw for
+    /// one row is how a row that no game picked for the others will fill gets filled, which
+    /// is what `licensing` needed after ten games of retrieval gave it sixteen labels.
     pub fn cast(
         embedder: &mut crate::embed::Embedder,
         reference_root: &Path,
         batch_size: usize,
+        only: Option<&[String]>,
     ) -> Result<Self> {
-        let subjects: Vec<&'static str> = PROBES.iter().map(|probe| probe.subject).collect();
+        let subjects: Vec<&'static str> = PROBES
+            .iter()
+            .map(|probe| probe.subject)
+            .filter(|subject| only.is_none_or(|wanted| wanted.iter().any(|w| w == subject)))
+            .collect();
+        if subjects.is_empty() {
+            return Err(Error::NoReferenceSet {
+                path: reference_root.to_path_buf(),
+            });
+        }
         let labelled = crate::claimset::labelled_claims(reference_root)?;
 
         let mut texts: Vec<String> = Vec::new();
