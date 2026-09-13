@@ -93,6 +93,13 @@ that changed after people had bought it"), and the labeller flagged every one th
 as the owner's decision. The RULE proposed above for the studio settles this the same way: a
 patch is `updates`; the decision behind it, where the claim names it, is `policy`.
 
+**Reported again on 245170's declined draw**, with a third reading the first report did not
+have: where a removal names what went (an outfit, an armband, an announcer's voice), the
+labeller filed it under the thing removed, `graphics` or `audio`, and generic removals under
+`policy`. The rule needs a third clause: the complaint is about the removal, not about the art
+or sound itself, so a named removal is `updates` or `policy` by the same test and never the
+row of the thing that was taken out.
+
 ### Cannot log in: one report
 
 "Can't log in", "needs a phone number to play", on 2357570. `bugs` when the login is broken,
