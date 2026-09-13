@@ -1,9 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Every update from every ecosystem lands in one weekly PR: crates, the Rust toolchain, GitHub Actions, and every pin in the Python lock file, transitive ones included, since a pip freeze lists them all.",
-    "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR the same morning.",
-    "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published. Vulnerability fixes skip the wait and the schedule."
+    "Every update from every ecosystem lands in one PR on Monday morning: crates, the Rust toolchain, GitHub Actions, and every pin in the Python lock file, transitive ones included, since a pip freeze lists them all. Vulnerability fixes ride in it too rather than as PRs of their own; everything is taken to its latest version, so a vulnerable version never survives the week.",
+    "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR on Tuesday, after Monday's has had a day to be merged.",
+    "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published."
   ],
   "extends": [
     "config:best-practices",
@@ -13,15 +13,15 @@
   "schedule": ["before 6am on monday"],
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 6am on monday"]
+    "schedule": ["before 6am on tuesday"]
   },
   "separateMajorMinor": false,
   "separateMultipleMajor": false,
   "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
-  "osvVulnerabilityAlerts": true,
+  "osvVulnerabilityAlerts": false,
   "vulnerabilityAlerts": {
-    "labels": ["dependencies", "security"]
+    "enabled": false
   },
   "semanticCommits": "disabled",
   "labels": ["dependencies"],
