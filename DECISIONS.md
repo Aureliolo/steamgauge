@@ -932,6 +932,18 @@ threshold, so its 90.1% at 77.2% answers a different question, and the third imp
 now `score-export` when a reader needs checking in a hurry. `frontier.py` applied the single
 threshold to every subject until 2026-09-13 and would have quietly reported the wrong reader.
 
+**The reader was also carrying the wrong figures about itself.** `reader.json` ships
+`usual_declined` and a block of what the model did on games it never saw, and a report of a game
+nobody has labelled prints both: *it answers 90% of them and names the same subject 77% of the
+time*. Both came from the training record at the single threshold, so the reader that declines
+about a sixth of its claims was advertising a tenth, and the warning for a corpus declined far
+above usual measures against exactly that number. It would have fired on ordinary games. Where
+lines are exported the figures now come from the same folds the lines were drawn on, 41 games and
+32,339 claims under the rule that ships, and carry `measured_on` so nobody has to guess which
+question they answer: 80.4% answered at 76.9%. That is a shade under what the frozen games then
+measured (82.9% at 80.7%), which is the direction an estimate fitted on its own data should err
+in, and it is the estimate available at export time rather than an hour later.
+
 ### The weakest subjects are bad boundaries, and the labellers disagree first
 
 The table above named the subjects the shipped threshold should not be answering. The obvious
