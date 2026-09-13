@@ -25,28 +25,28 @@ jobs:
           # option is CUDA, which is NVIDIA-only and would add roughly 750 MB.
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            binary: census
-            asset: census-x86_64-unknown-linux-gnu
+            binary: steamgauge
+            asset: steamgauge-x86_64-unknown-linux-gnu
             features: ""
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            binary: census.exe
-            asset: census-x86_64-pc-windows-msvc
+            binary: steamgauge.exe
+            asset: steamgauge-x86_64-pc-windows-msvc
             features: "--features directml"
           # Apple Silicon only: ONNX Runtime publishes no prebuilt binary for Intel macOS,
           # and building it from source in CI is not worth it for a platform Apple has
           # stopped shipping.
           - os: macos-latest
             target: aarch64-apple-darwin
-            binary: census
-            asset: census-aarch64-apple-darwin
+            binary: steamgauge
+            asset: steamgauge-aarch64-apple-darwin
             features: "--features coreml"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --release --locked --target ${{ matrix.target }} --bin census ${{ matrix.features }}
+      - run: cargo build --release --locked --target ${{ matrix.target }} --bin steamgauge ${{ matrix.features }}
 
       # Windows binaries gain a SignPath Foundation signature once the project is enrolled.
       # macOS has no free certificate authority, so those assets carry provenance only and
@@ -104,7 +104,7 @@ jobs:
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
-          subject-path: staging/census-*.tar.gz
+          subject-path: staging/steamgauge-*.tar.gz
 
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign checksums with cosign
@@ -117,7 +117,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         working-directory: staging
         run: |
-          for asset in census-*.tar.gz; do
+          for asset in steamgauge-*.tar.gz; do
             gh attestation verify "$asset" --repo "${{ github.repository }}"
           done
           cosign verify-blob SHA256SUMS \
