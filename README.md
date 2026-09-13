@@ -411,11 +411,12 @@ These rules keep those figures honest:
   moved to make the number look better would be the old classifier again, and the share it
   declines is still printed beside every rate.
 
-  The model carries what it usually declines, measured on the eight frozen games, so a corpus
-  that declines far above it can be reported as a finding rather than a footnote. Read across
-  forty games of the library, thirty-two of which it had never seen, the average share declined
-  is **15.9%** against the **15.8%** it carries, and no game reaches the 1.2 times that would
-  trip the warning. The figure travels.
+  The model carries what it usually declines, drawn from the folds its abstention lines were
+  fitted on, so a corpus that declines far above it can be reported as a finding rather than a
+  footnote. Read across the whole library, 51 games and 20.1 million claims, the average game
+  declines **16.4%** against the **19.6%** it carries, and exactly one game reaches the 1.2 times
+  that trips the warning: a card game at 25.1%, whose own labellers kept splitting on the same
+  boundary. The figure travels, and it is pitched high enough to stay quiet on ordinary games.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
   an accuracy, and that promise is measured on the games that chose it. On eleven games the
