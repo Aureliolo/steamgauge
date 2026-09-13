@@ -833,6 +833,24 @@ labels and whatever the adjudication settles, and exporting twice to change one 
 would mean measuring the model twice on the frozen games. One export, both changes, one frozen
 read.
 
+**Exported with lines as `wave10`, 2026-09-13, and measured on the frozen games.** The same eight
+games and the same 3,456 labelled claims wave9 was measured on, by `measure-claims` over readings
+made by each reader:
+
+| reader | answered | agreement | macro F1 |
+|---|---|---|---|
+| `wave9`, one line | 84.3% | 76.6% | 0.612 |
+| `wave10`, a line per subject | 83.7% | 79.5% | 0.646 |
+
+Three points of agreement at the same coverage is past the two-point bar a rerun of one
+configuration sets. Two games the split has frozen since, labelled after wave9 and trained on by
+neither reader, land with the rest: over all ten, 84.7% of 5,266 claims answered at 80.0%, macro F1
+0.661. What this run cannot do is divide the gain between its two causes, because it carries both:
+the lines, and about twelve thousand labels more than wave9 had, most of them teaching draws aimed
+at the starved rows. With 202 `licensing` labels no subject is thin enough to go silent, and all 26
+got a line of their own, from `performance` at 0.23 to `vr` at 0.98. `wave10` is installed; the
+reader that ships is the same command run again once the declined draw is labelled.
+
 ### The weakest subjects are bad boundaries, and the labellers disagree first
 
 The table above named the subjects the shipped threshold should not be answering. The obvious
