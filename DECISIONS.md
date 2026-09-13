@@ -1237,19 +1237,46 @@ Then, in order:
    | draw | games | labels | on a starved row | `vr` | `accessibility` | `community` | `licensing` |
    |---|---|---|---|---|---|---|---|
    | lexical probes | 9 | 1,800 | 848 (47%) | 56 | 44 | 67 | 13 |
-   | retrieval, by margin | 7 | 1,400 | 935 (67%) | 61 | 102 | 77 | 16 |
+   | retrieval, by margin | 10 | 2,000 | 1,328 (66%) | 93 | 139 | 126 | 19 |
 
    Game by game the gap is wider than the totals show, because the two draws were run on the
    same corpora and the retrieval draw could not take a review the probes had already taken.
    On 553850 the probes landed 39% and retrieval 74%; on 438100, 68% against 90%; on 546560,
    `vr` went from 8 labels to 39, because retrieval finds the comfort-and-tracking sense the
    sheet means where the probe found the word. On 296970, a game `mine-check` said held almost
-   nothing, retrieval landed 70 of 200. `accessibility` more than doubled from the seven
-   retrieval games alone.
+   nothing, retrieval landed 70 of 200. Before either draw `accessibility` had 60 labels, `vr`
+   41 and `community` 98; the probes added 44, 56 and 67, and retrieval 139, 93 and 126.
 
-   `licensing` did not move under either method, 13 and 16, and that is the same finding as
+   `licensing` did not move under either method, 13 and 19, and that is the same finding as
    before: it needs games that adapt something, and none of these do. It is the one row the
    next draw has to be aimed at by choosing games rather than by choosing claims.
+
+   **So it was, 2026-09-13, and the row went from 64 labels to 202.** Six games that adapt
+   something (two football games, a football manager, a basketball game, a rally game and a
+   card game) were drawn with `--only licensing`, 150 claims each, every other subject's
+   labelled claims voting against as before. Only the twenty `licensing` queries cast, and the
+   narrowest margin was -0.031, which is the scrape-the-floor figure the run prints for a
+   subject the game barely holds; the draw was still worth labelling, and a word probe over
+   the drawn text (licence, official, real team) said which games before a labeller was spent:
+
+   | game | licence words in the draw | `licensing` labels of 150 |
+   |---|---|---|
+   | 3551340 | 34 | 30 |
+   | 1665460 | 20 | 36 |
+   | 2669320 | 18 | 33 |
+   | 1449850 | 18 | 22 |
+   | 690790 | 14 | 15 |
+   | 2878980 | 4 | 2 |
+
+   138 `licensing` labels from 899 claims, at a cost of six labellers, against 32 from the
+   whole random set. The basketball game is the instructive miss: it holds every licence there
+   is, so nobody reviewing it mentions one, and the retrieval had nothing to find. A row that
+   is starved because the games do not hold it is filled by choosing games, and the word probe
+   is a free check on whether a chosen game actually holds it.
+
+   Two labellers on these sets hit the same seam independently, a real competition that is
+   missing (`licensing` by the RULE, `content` by the description), and each drew the line
+   differently; `reference/GAPS.md` has the entry and the rule that settles it.
 
    Two things about the run itself. It was slow twice for reasons that had nothing to do with
    the method: the first release binary was built without `--features directml` and ran the
