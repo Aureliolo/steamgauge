@@ -471,9 +471,9 @@ These rules keep those figures honest:
   flattering it. Shuffling reviews from several games into each batch would remove it, at the
   cost of routing the labels back per game before they can be ingested.
 
-- **A claim is split mechanically, and the splitting is sometimes wrong.** Across thirty
-  labelled games it is **15.8%** of claims, between 8.9% and 26.2% depending on the game, and
-  every rule in the splitter came from one of those reports. The commonest failure was a
+- **A claim is split mechanically, and the splitting is sometimes wrong.** Across the forty-nine
+  randomly drawn sets it is **15.2%** of claims, between 6.8% and 40.4% depending on the game,
+  and every rule in the splitter came from one of those reports. The commonest failure was a
   sentence that names three subjects at once: "stunning visuals, calm music, epic story" was
   one claim carrying three, so two of them went uncounted; a list of short comma-separated
   parts is now that many claims. The rate is measured rather than assumed, because it is the
