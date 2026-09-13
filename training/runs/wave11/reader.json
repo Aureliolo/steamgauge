@@ -64,12 +64,13 @@
   "trained_from": "intfloat/multilingual-e5-large",
   "data_fingerprint": "8a01195c332f2484",
   "run_id": "wave11",
-  "usual_declined": 0.09930094999103778,
+  "usual_declined": 0.19580073595349268,
   "frozen": {
-    "games": 10,
-    "claims": 5579,
-    "coverage": 0.9006990500089622,
-    "accuracy": 0.7717412935323383,
-    "macro_f1": 0.6727810599764837
+    "games": 41,
+    "claims": 32339,
+    "coverage": 0.8041992640465073,
+    "accuracy": 0.7690237243818971,
+    "macro_f1": 0.7545631736120526,
+    "measured_on": "out-of-fold"
   }
 }

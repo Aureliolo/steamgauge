@@ -111,7 +111,7 @@ def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
     """
     from confidence import most_coverage, pooled_folds, softmax
 
-    logits, truth, _, theirs = pooled_folds(Path(oof).glob("*.npz"))
+    logits, truth, app_ids, theirs = pooled_folds(Path(oof).glob("*.npz"))
     if sorted(theirs) != sorted(subjects):
         raise SystemExit("the folds and this run do not know the same subjects")
 
@@ -125,7 +125,40 @@ def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
         mine = predicted == theirs.index(name)
         line = most_coverage(confidence[mine], correct[mine], min_accuracy) if mine.any() else None
         lines.append(None if line is None else round(float(line), 4))
-    return lines
+
+    # What those lines answer and agree on, over the same out-of-fold claims. The run record's
+    # own coverage is at one threshold, and a reader that carries it describes a rule it does not
+    # apply: every report of an unlabelled game prints these two figures as what its rates are
+    # worth, and the warning for a corpus declined far more than usual is measured against them.
+    at = np.array([np.inf if line is None else line for line in lines], dtype=float)
+    mine = np.array([subjects.index(theirs[one]) for one in predicted])
+    answered = confidence >= at[mine]
+    carried = {
+        "games": int(len(set(app_ids.tolist()))),
+        "claims": int(len(truth)),
+        "coverage": float(answered.mean()),
+        "accuracy": float(correct[answered].mean()) if answered.any() else 0.0,
+        "macro_f1": macro_f1(predicted[answered], truth[answered], len(theirs)),
+        # Not the frozen games: these are the folds, each scoring games its own training never
+        # saw. Whoever reads the figure should know which question it answers.
+        "measured_on": "out-of-fold",
+    }
+    return lines, carried
+
+
+def macro_f1(predicted, truth, classes: int) -> float:
+    """Unweighted mean F1 over the subjects that appear, so a rare row counts as much as a common one."""
+    scores = []
+    for one in range(classes):
+        hit = ((predicted == one) & (truth == one)).sum()
+        said = (predicted == one).sum()
+        was = (truth == one).sum()
+        if not was:
+            continue
+        precision = hit / said if said else 0.0
+        recall = hit / was
+        scores.append(0.0 if not (precision + recall) else 2 * precision * recall / (precision + recall))
+    return float(np.mean(scores)) if scores else 0.0
 
 
 def main():
@@ -307,10 +340,23 @@ def main():
     # declined far more than usual. That is the one number a reader of a new game's report
     # has no other way to get, and a corpus declined at twice the usual rate is a corpus about
     # something the taxonomy lacks.
-    frozen = record.get("test", {}).get("at_validation_threshold", {})
-    usual_declined = 1.0 - frozen["coverage"] if frozen.get("coverage") is not None else None
+    lines, carried = (
+        subject_lines(args.lines_from, subjects, args.min_accuracy)
+        if args.lines_from
+        else (None, None)
+    )
+    at_one_line = record.get("test", {}).get("at_validation_threshold", {})
+    if carried is None and at_one_line.get("coverage") is not None:
+        carried = {
+            "games": len(record.get("games", {}).get("test", [])),
+            "claims": record.get("claims", {}).get("test"),
+            "coverage": at_one_line.get("coverage"),
+            "accuracy": at_one_line.get("accuracy"),
+            "macro_f1": record.get("test", {}).get("macro_f1"),
+            "measured_on": "frozen games",
+        }
+    usual_declined = 1.0 - carried["coverage"] if carried else None
 
-    lines = subject_lines(args.lines_from, subjects, args.min_accuracy) if args.lines_from else None
     if lines is not None:
         silent = [name for name, line in zip(subjects, lines) if line is None]
         drawn = sum(1 for line in lines if line is not None)
@@ -335,16 +381,10 @@ def main():
                 "usual_declined": usual_declined,
                 # What this model did on games it never saw, carried so that a report of a
                 # game with no reference set can still say what its rates are worth. Without
-                # it, the only honest thing such a report can say is nothing.
-                "frozen": {
-                    "games": len(record.get("games", {}).get("test", [])),
-                    "claims": record.get("claims", {}).get("test"),
-                    "coverage": frozen.get("coverage"),
-                    "accuracy": frozen.get("accuracy"),
-                    "macro_f1": record.get("test", {}).get("macro_f1"),
-                }
-                if frozen.get("coverage") is not None
-                else None,
+                # it, the only honest thing such a report can say is nothing. Under the rule
+                # that ships: with lines, the folds; without them, the frozen games at the one
+                # threshold, which is the same rule the reader then applies.
+                "frozen": carried,
             },
             indent=2,
         ),
