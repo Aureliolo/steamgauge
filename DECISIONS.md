@@ -878,10 +878,12 @@ at the starved rows. With 202 `licensing` labels no subject is thin enough to go
 got a line of their own, from `performance` at 0.23 to `vr` at 0.98.
 
 **`wave11` ships, 2026-09-13.** The same command over 37,918 labels, which is every label in the
-set: nineteen thousand more than `wave9` had, and 2,200 of the 2,400 declined teaching claims
-(916440 and 949230 were left undrawn when the labeller's quota ran out, and a second labeller
-writing into one set is a worse fault than two games' worth of teaching claims missing). Ten
-frozen games, 5,266 labelled claims:
+set as it stood: nineteen thousand more than `wave9` had, and 2,200 of the 2,400 declined
+teaching claims. The last 200, on 916440 and 949230, were labelled after the export when the
+labeller's quota came back, and they stay out of this reader: two hundred claims in thirty-eight
+thousand cannot move a figure whose noise bar is two points wide, and a retrain nobody could
+tell from a rerun is not a retrain. They are in the set for whatever trains next. Ten frozen
+games, 5,266 labelled claims:
 
 | reader | labels | answered | agreement | macro F1 |
 |---|---|---|---|---|
