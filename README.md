@@ -210,21 +210,22 @@ the declined claims is a score for a classifier nobody is running.
 | TF-IDF bag of words | 32% | 44.1% | 0.347 |
 | nearest subject centroid over an untuned encoder | 5% | 42.3% | 0.372 |
 | this reader, 278M parameters (2026-09-11) | 61% | 74.8% | 0.525 |
-| **this reader, 560M parameters** | **85%** | **73.6%** | **0.648** |
+| **this reader, 560M parameters** | **79%** | **77.2%** | **0.652** |
 | Claude Opus 5, given the same sheet | 99.6% | 87.0% | 0.873 |
 
 The third row is what this project did before it trained anything, and it is why the rebuild
 happened: cosine distance to a prototype cannot say "this is about nothing", so at the accuracy
 it promises it can answer one claim in twenty.
 
-The fourth and fifth rows are the same labels and the same claims, and what separates them is
-reading each claim inside its review and a backbone of twice the size. Twenty-four points of
-coverage and a tenth of a point of macro F1, for two training runs and no new labelling. A
+The fourth and fifth rows are the same claims, and three things separate them: reading each
+claim inside its review, a backbone of twice the size, and nineteen thousand more labels, many
+of them drawn at the subjects the reader was worst at. Eighteen points of coverage, two and a
+half of accuracy and thirteen hundredths of macro F1. A
 forty-configuration sweep of everything else, measured the same way, moved nothing outside its
 own noise: `DECISIONS.md` has the table and what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by thirteen points of accuracy and fifteen of coverage.** What it is not is
+than this, by ten points of accuracy and twenty of coverage.** What it is not is
 affordable: that comparison cost 405,000 tokens for 471 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
@@ -391,14 +392,16 @@ These rules keep those figures honest:
   would commit to. The share it declined is printed beside it, and a large one is a finding
   about the corpus rather than a footnote.
 
-  **That share used to be most of the corpus and is now a sixth of it.** Trained on
-  thirty-six games, the model answers **84%** of the labelled claims in games it has never seen
-  and agrees with a labeller on **76%** of those. Sixteen games ago it answered an eighth of
+  **That share used to be most of the corpus and is now a sixth of it.** Labelled across
+  fifty-one games, the model answers **83%** of the labelled claims in games it has never seen
+  and agrees with a labeller on **81%** of those. Sixteen games ago it answered an eighth of
   them at 62%. What moved it, measured one change at a time on games it never saw: more labels,
   then reading each claim inside the review it came from and training at the rate that suits
-  that (58% to 77%), then a backbone twice the size (77% to 84%). A threshold moved to make the
-  number look better would be the old classifier again, and the share it declines is still
-  printed beside every rate.
+  that (58% to 77%), then a backbone twice the size (77% to 84%), then nineteen thousand more
+  labels, most of them drawn at the subjects it read worst, and an abstention line per subject
+  instead of one for all of them (84% answered at 76% agreement, to 83% at 81%). A threshold
+  moved to make the number look better would be the old classifier again, and the share it
+  declines is still printed beside every rate.
 
   The model carries what it usually declines, measured on the eight frozen games, so a corpus
   that declines far above it can be reported as a finding rather than a footnote. Read across

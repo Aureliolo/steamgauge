@@ -848,8 +848,39 @@ neither reader, land with the rest: over all ten, 84.7% of 5,266 claims answered
 0.661. What this run cannot do is divide the gain between its two causes, because it carries both:
 the lines, and about twelve thousand labels more than wave9 had, most of them teaching draws aimed
 at the starved rows. With 202 `licensing` labels no subject is thin enough to go silent, and all 26
-got a line of their own, from `performance` at 0.23 to `vr` at 0.98. `wave10` is installed; the
-reader that ships is the same command run again once the declined draw is labelled.
+got a line of their own, from `performance` at 0.23 to `vr` at 0.98.
+
+**`wave11` ships, 2026-09-13.** The same command over 37,918 labels, which is every label in the
+set: nineteen thousand more than `wave9` had, and 2,200 of the 2,400 declined teaching claims
+(916440 and 949230 were left undrawn when the labeller's quota ran out, and a second labeller
+writing into one set is a worse fault than two games' worth of teaching claims missing). Ten
+frozen games, 5,266 labelled claims:
+
+| reader | labels | answered | agreement | macro F1 |
+|---|---|---|---|---|
+| `wave10` | 35,718 | 84.7% | 80.0% | 0.661 |
+| `wave11` | 37,918 | 82.9% | 80.7% | 0.642 |
+
+**Nothing in that is a finding.** Two points of coverage is what the same configuration run twice
+is worth on this card, and the two readers sit inside it in opposite directions. `wave11` ships
+because it is the one trained on every label, not because it measured better; a project that
+picks whichever rerun landed higher is fitting the frozen games. On the eight games `wave9` was
+measured on, the three readers read 84.3% at 76.6%, 83.7% at 79.5% and 81.8% at 79.8%: the
+agreement gain from `wave9` holds, the coverage drift between the last two does not signify.
+
+**What the lines themselves cost and bought, one reader and two rules.** Training scores `wave11`
+on the same frozen games at the single threshold it transferred from validation, and the tool
+scores it with the exported lines. Same weights, same claims, same labels:
+
+| rule | answered | agreement |
+|---|---|---|
+| one threshold, 0.64 | 90.1% | 77.2% |
+| a line per subject | 82.9% | 80.7% |
+
+Seven points of coverage for three and a half of agreement, and the same trade the out-of-fold
+study predicted. It is the trade worth making here because the rows it silences are the ones the
+reader reads worst, and a mention rate nobody can trust is worth less than a missing one that
+says so. `wave10` showed the same shape (88.2% at 78.5% against 84.7% at 80.0%).
 
 ### The weakest subjects are bad boundaries, and the labellers disagree first
 
