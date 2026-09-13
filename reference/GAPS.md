@@ -128,6 +128,17 @@ claims "usually lead with atmosphere words" and the sheet sends faithfulness to 
 Two readers who could not see each other's work naming the same boundary is the strongest
 evidence in this file, and the rule is still not written.
 
+### A real competition that is missing: two reports, on the licensing draws
+
+"No Liga MX", "no World Cup mode", "add the Czech league", "the national teams are gone", on
+1665460 and 2669320, the sets drawn to teach the `licensing` row. The RULE says a real name
+missing is `licensing`, and `content` says wanting more game is `content`; a missing league
+is both, and each labeller drew the line in a different place: one at teams and leagues
+against tournaments and modes, the other at "very realistic football" against anything named.
+Both flagged nearly all of it. The rule that settles it: a named real-world team, league,
+competition or player that is absent, wrong or generic is `licensing` however it is phrased;
+`content` keeps only a mode or feature that names nothing real.
+
 ### A VR complaint whose cause is not the headset: reported by the frontier reader
 
 Claims about stutter over wireless streaming, or about a mod that makes a flat game playable
