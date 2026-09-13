@@ -246,21 +246,20 @@ Over the claims read twice **and** answered by the model, split by what each gam
 
 | The model | games | claims | two labellers agree | model, where they did | where they split |
 |---|---|---|---|---|---|
-| **never saw** | 6 | 103 | **93.2%** | **81.2%** [0.723, 0.878] | 85.7% of 7 |
-| chose its threshold on | 3 | 64 | 92.2% | 76.3% | 80.0% of 5 |
-| trained on | 17 | 456 | 89.0% | 94.6% | 94.0% of 50 |
+| **never saw** | 6 | 194 | **90.2%** | **85.1%** [0.791, 0.897] | 84.2% of 19 |
+| chose its threshold on | 4 | 143 | 89.5% | 79.7% | 93.3% of 15 |
+| trained on | 20 | 896 | 85.6% | 99.7% | 97.7% of 129 |
 
 Only the first row is a measurement. The third is the model reciting labels it was trained
-on, and it is in the table precisely because the gap between 94.6% and 81.2% is what holding
-whole games back is for: a tool that pooled all three would report 90.4% and mean nothing by
+on, and it is in the table precisely because the gap between 99.7% and 85.1% is what holding
+whole games back is for: a tool that pooled all three would report 94.9% and mean nothing by
 it. The first pooled figure this was run on did exactly that, before the placement the trainer
-uses was ported into the tool and a test pinned the eight frozen games and the four validation
-ones against it.
+uses was ported into the tool and a test pinned the frozen and validation games against it.
 
 So the honest sentence about the current reader is: **on games it has never seen, over claims
 it commits to, where two independent labellers reached the same subject, it agrees with them
-81.2% of the time**, against a ceiling of 93.2%. Ninety-six claims is a thin plank, and the
-interval says so. Widening it is what the hand-adjudicated set is for; more model-written
+85.1% of the time**, against a ceiling of 90.2%. A hundred and seventy-five claims is a thin
+plank, and the interval says so. Widening it is what the hand-adjudicated set is for; more model-written
 second opinions would only move the ceiling, not the floor.
 
 ### The splitter changed under the labels, and the labels held
@@ -1075,7 +1074,7 @@ every claim, more accurately, on a sheet it was handed once.
 
 Two things to hold onto rather than explain away:
 
-- **The labels were made by a frontier model.** Two labellers agree with each other 93.2% of
+- **The labels were made by a frontier model.** Two labellers agree with each other 90.2% of
   the time on frozen claims, so 87% is close to that ceiling but below it. Some of this figure
   is models of a kind agreeing with each other, and the user's hand-adjudicated gold set is
   what will say how much.
