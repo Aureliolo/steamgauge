@@ -60,7 +60,8 @@ better or worse.
 **Reported by all three labellers on 2338770**, a yearly sports title: "exact same game as
 last year, copy-paste, a reskin" is the commonest complaint in that set and sits between
 `genre` (the predecessor comparison), `content` (nothing new in it) and `updates` (nothing
-changed). All three filed it `genre` and flagged it. The rule above covers it once it says so:
+changed). All three filed it `genre` and flagged it, and 2669320's declined draw raised it
+again for another yearly football game. The rule above covers it once it says so:
 a yearly release judged against last year's is the predecessor case, whatever the wording.
 The same set raised "PC only gets the last-gen version", between `policy` (the publisher's
 decision), `compatibility` (what this platform gets) and `updates`; two labellers went one
@@ -336,9 +337,10 @@ opponent, and a rule that says a complaint about what other players are allowed 
 `difficulty` when it is about winning and `multiplayer` when it is about the experience of
 the match would cut it. Every card and fighting game will raise it.
 
-**Luck deciding the outcome is the same seam again, three reports**: shooting RNG on 2878980,
-blueprint and loot RNG deciding a run on 1336490, and "a guessing game, a 50-50" on the
-fighting game 1778820. Each labeller split it between `difficulty` (the outcome is not down
+**Luck deciding the outcome is the same seam again, five reports**: shooting RNG on 2878980,
+blueprint and loot RNG deciding a run on 1336490, "a guessing game, a 50-50" on the fighting
+game 1778820, and "scripting, the game decides who wins" on both football games, 1665460 and
+2669320. Each labeller split it between `difficulty` (the outcome is not down
 to skill) and `gameplay` (the mechanic that produces it). The balance rule already sends
 "unfair" to `difficulty`; it should say in as many words that a complaint that luck decides
 who wins is `difficulty`, and a description of how the random system works is `gameplay`.
