@@ -126,6 +126,16 @@ the shooting) against `story` (the world). The labeller used `genre` for noun li
 `gameplay` for verb loops, all at low confidence. The sheet should say that a list naming what
 the game is about, with no judgement attached, is `genre`.
 
+### How well the computer plays: two reports
+
+Enemy AI that is too dumb or too sharp on 553850 and 597180's declined draws, and AI helpers
+that path-find badly or get stuck on 1248130. `difficulty` ("how hard it is to beat"),
+`gameplay` ("how it behaves") and, for the helpers, `bugs` ("a system malfunctioning"). The
+labellers filed by effect: too easy or too hard is `difficulty`, a stuck helper is `bugs`. That
+is the right cut and the sheet should say it: AI judged by how much challenge it gives is
+`difficulty`, AI that visibly fails at what it is meant to do is `bugs`, and how it decides
+what to do, described without either, is `gameplay`.
+
 ### A publisher's decision reversed, celebrated in memes: one report, a tenth of that game
 
 Helldivers 2 (553850) after Sony withdrew the account requirement: "DEMOCRACY HAS
@@ -279,7 +289,7 @@ point is solo against co-op and `verdict` when the friends are incidental. "The 
 is its cousin, between `multiplayer` (nobody online) and `updates` (nobody developing), and
 the same labeller marked it contested.
 
-### A community's salute on its own: one report, forty claims
+### A community's salute on its own: two reports, forty claims and more
 
 "Rock and Stone!", about forty times in Deep Rock Galactic's set, sometimes as the whole
 review. It works as an endorsement and passes no judgement in its words, so the labeller
@@ -289,6 +299,13 @@ revision decides it in one line under `verdict`: a community's own catchphrase u
 salute is a verdict, and it is praise. Twenty games have one ("Praise the Sun", "For Rock and
 Stone", "Ave Nex Alea"), and `offtopic` is the wrong bucket for a reviewer declaring
 themselves a fan.
+
+**Reported again on 553850's declined draw**, with a wrinkle the first report did not have:
+"Managed Democracy has been saved", "KILL THE CLANKERS", in-universe roleplay written while the
+community was protesting the account requirement. The labeller split them between `verdict`,
+`offtopic` and `policy`. The rule above settles the salute; what it has to add is that the
+salute stays `verdict` even when the review around it is a protest, because the label is about
+the claim, and a protest is `policy` only where the claim itself names the decision.
 
 ### Destruction and physics: one report, and it is what that game is
 
