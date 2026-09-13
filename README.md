@@ -432,9 +432,12 @@ These rules keep those figures honest:
   2026-09-12 the first two agreed to a fifth of a point and the third was eight below, which
   turned out to be the reader building its window out of the padding inside a tokenizer file.
   Nothing about the output looked wrong, which is the argument for keeping all three. Fixed,
-  the tool reads the eight frozen games from their captures and reports 84.3% answered at 76.6%
-  where training reports 84.2% at 76.3% for the same claims: three tenths of a point across two
-  languages, two windowings and two corpora.
+  the tool reads the frozen games from their captures and reports 82.9% answered at 80.7% where
+  Python over the exported claims reports 82.5% at 80.3%: four tenths of a point across two
+  languages, two windowings and two corpora. Training's own figure is no longer the third
+  opinion, because it scores at a single threshold and the reader that ships abstains per
+  subject; at that single threshold it reports 90.1% at 77.2% on the same games, which is the
+  cost of the lines rather than a disagreement.
 
 - **Claim share is verbosity-weighted and never a headline.** Counting opinions instead of
   people lets whoever writes most set the numbers, which is the same distortion this tool

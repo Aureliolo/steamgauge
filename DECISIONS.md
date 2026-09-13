@@ -916,6 +916,14 @@ and it has to be nearly certain before it says `vr` or `atmosphere`. The rows at
 ones the second labeller and the frontier reader also disagree about most, which is the argument
 that the boundary is at fault rather than the reader.
 
+**Two implementations of that rule agree, which is the check that catches a wrong reader.**
+Python over the exported claims answers 82.5% of 5,579 frozen claims at 80.3%; the tool over its
+own reading of the same games answers 82.9% of the 5,266 whose spans it still cuts, at 80.7%.
+Four tenths of a point. Training is no longer the third opinion on this: it scores at one
+threshold, so its 90.1% at 77.2% answers a different question, and the third implementation is
+now `score-export` when a reader needs checking in a hurry. `frontier.py` applied the single
+threshold to every subject until 2026-09-13 and would have quietly reported the wrong reader.
+
 ### The weakest subjects are bad boundaries, and the labellers disagree first
 
 The table above named the subjects the shipped threshold should not be answering. The obvious
