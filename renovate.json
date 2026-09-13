@@ -30,6 +30,11 @@
       "description": "The manifests name the versions the binary is built with, so an in-range update moves the manifest as well as the lock rather than leaving the two to drift apart.",
       "matchManagers": ["cargo"],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "A digest update is aged at lookup against the release its tag resolves to, but the branch's stability check reads a timestamp field digest updates never carry, and a lock file refresh has no release to age at all. Left at the default, every pinned action held the one combined PR at pending for good. Optional still ages whatever does carry a timestamp.",
+      "matchUpdateTypes": ["pinDigest", "digest", "lockFileMaintenance"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ],
   "pip_requirements": {
