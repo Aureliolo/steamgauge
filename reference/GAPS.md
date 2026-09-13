@@ -107,6 +107,25 @@ row of the thing that was taken out.
 `policy` when the requirement is the complaint, and the labeller could not always tell which
 the reviewer meant. Related to the "will not start" gap below and settled by the same rule.
 
+### Unfinished, not ready, should not have been released: two reports
+
+"Alpha state", "wait until they fix it", "should never have left early access", on 1272080
+and 3551340. `content` owns "feels finished", `updates` owns blame at the studio, and `verdict`
+owns a judgement with nothing named, and the claim is all three at once. One labeller split it
+by whether the sentence addressed the developers (`updates`) or described the game
+(`verdict`); the other by whether it was about work still owed (`updates`) or about how thin
+the game is (`content`). The rule that settles it: the state of the game as released, with no
+missing thing named, is `verdict`; a named missing thing is `content`; anything addressed to
+the developers or waiting on their work is `updates`.
+
+### A premise list: one report
+
+"Dwarves, beer, space, guns, bugs" on 548430, a string of nouns that sells the game rather
+than judging any part of it. `genre` ("what kind of game") against `gameplay` (the mining and
+the shooting) against `story` (the world). The labeller used `genre` for noun lists and
+`gameplay` for verb loops, all at low confidence. The sheet should say that a list naming what
+the game is about, with no judgement attached, is `genre`.
+
 ### A publisher's decision reversed, celebrated in memes: one report, a tenth of that game
 
 Helldivers 2 (553850) after Sony withdrew the account requirement: "DEMOCRACY HAS
