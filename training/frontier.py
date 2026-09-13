@@ -28,6 +28,21 @@ HERE = Path(__file__).resolve().parent
 BATCH = 50
 
 
+def abstention_line(provenance: dict, subject: int) -> float:
+    """What the reader needs to be sure of before it answers, for the subject it picked.
+
+    A reader that declines `vr` below 0.98 and answers `performance` at 0.23 is not the reader
+    one line describes, so scoring it against a single threshold measures a model nobody ships.
+    `null` is a subject declined outright, and an export without the array is every reader
+    shipped before the lines existed. This mirrors `Provenance::line_for` in `reader.rs`.
+    """
+    lines = provenance.get("thresholds")
+    if not lines:
+        return provenance["threshold"]
+    one = lines[subject]
+    return float("inf") if one is None else one
+
+
 def drawn(claims, per_subject, seed):
     """A stratified draw, so the starved rows are measured rather than rounded away.
 
@@ -177,7 +192,6 @@ def score_reader(model_dir: Path, key: Path, data: str):
 
     provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
     subjects = provenance["subjects"]
-    threshold = provenance["threshold"]
     wanted = json.loads(key.read_text(encoding="utf-8"))
 
     held = {(c.app_id, c.review_id, c.claim_index): c for c in claimdata.load(data)}
@@ -204,7 +218,7 @@ def score_reader(model_dir: Path, key: Path, data: str):
     )
     outputs = [out.name for out in session.get_outputs()]
 
-    confidence, predicted, polarity = [], [], []
+    confidence, predicted, picked, polarity = [], [], [], []
     for at in range(0, len(claims), 64):
         chunk = list(range(at, min(at + 64, len(claims))))
         encoded = [tokenizer.encode(*cut.pair(i)) for i in chunk]
@@ -221,7 +235,9 @@ def score_reader(model_dir: Path, key: Path, data: str):
             exp = np.exp(subject_logits[row] - subject_logits[row].max())
             probabilities = exp / exp.sum()
             confidence.append(float(probabilities.max()))
-            predicted.append(subjects[int(probabilities.argmax())])
+            chosen = int(probabilities.argmax())
+            picked.append(chosen)
+            predicted.append(subjects[chosen])
             polarity.append(
                 claimdata.POLARITIES[int(np.argmax(polarity_logits[row]))]
                 if int(np.argmax(polarity_logits[row])) < len(claimdata.POLARITIES)
@@ -231,7 +247,11 @@ def score_reader(model_dir: Path, key: Path, data: str):
     answers = [
         {
             "id": row["id"],
-            "subject": predicted[at] if confidence[at] >= threshold else "unsure",
+            "subject": (
+                predicted[at]
+                if confidence[at] >= abstention_line(provenance, picked[at])
+                else "unsure"
+            ),
             "polarity": polarity[at],
         }
         for at, row in enumerate(wanted)
@@ -332,6 +352,10 @@ def main():
         found["model"] = reader["trained_from"]
         found["trained_on"] = reader["data_fingerprint"]
         found["threshold"] = reader["threshold"]
+        # Naming one threshold for a reader that abstains per subject describes a run nobody can
+        # reproduce from the row, so the lines it actually used travel with the figure.
+        if reader.get("thresholds"):
+            found["thresholds"] = dict(zip(reader["subjects"], reader["thresholds"], strict=True))
         print(json.dumps(found, indent=2))
         if args.out:
             Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")
