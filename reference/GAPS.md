@@ -67,6 +67,13 @@ decision), `compatibility` (what this platform gets) and `updates`; two labeller
 way and one the other. A decision about which platform gets which build is `policy`; how the
 build runs on this machine is `compatibility`.
 
+**The same seam with a rival rather than a predecessor**, reported on 1665460 ("better than
+FIFA") and 1716740 ("worse than Freelancer", "like Fallout 4 without the exploration"). The
+proposed RULE names only the game's own predecessor, so labellers split a comparison with
+another studio's game between `genre` and `verdict` and flagged it. The rule should say
+"another game" rather than "its predecessor": the difference named is `genre`, better or worse
+alone is `verdict`.
+
 ### Praise or blame for the studio that is not about patches: five reports
 
 "Applaud the devs for taking a risk", "hope Bandai sells the IP", "director replacement is
@@ -166,6 +173,13 @@ in VR, sit between `vr`, `performance` and `mods` with nothing to choose between
 `vr` row is about playing in VR; it does not say whether a VR-specific performance problem is
 `vr` or `performance`, and the same question will arise for every VR game added. With two VR
 games now drawn (546560, 438100), this stops being hypothetical.
+
+**Reported again by a claim labeller on 1716740**, from the other side: physics-driven hands
+(an item misaligned in the grip, a crouch that does not register, a rifle stock that
+jitters) sit between `controls` ("clunky controls"), `vr` ("the controllers in your hands")
+and `gameplay`, and neither RULE settles which owns a hand interaction. The line to draw:
+anything that exists only because the player's body is tracked is `vr`; the same complaint
+about a gamepad or a mouse is `controls`.
 
 ### A claim that carries two subjects because it was cut wrong
 
