@@ -99,6 +99,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             language: None,
             depth: Depth::Deep,
             splitter: steamgauge_core::claims::SPLITTER_VERSION.to_owned(),
+            batch_size: Some(steamgauge_core::read::DEFAULT_READ_BATCH),
             claims: reviews * 3,
             forward_passes: reviews * 2,
             // Over half, as every real reading currently is, so the page renders the caveat

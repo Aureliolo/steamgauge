@@ -492,6 +492,46 @@ the first 128 tokens of a review rather than all of it, which is both wrong and 
 bigger model paid more for the extra work than the smaller one did. Every timing in this
 section was retaken after the fix.
 
+### The batch was 128 because nothing had measured it
+
+The last unmeasured thing in the reading path, and it was left open on the grounds that a batch
+is padded to its longest member, so a different size composes batches differently, and in half
+precision that moves a borderline answer. Deciding it during a library read would leave half a
+library answered one way and half the other, which is the sort of quiet inconsistency this
+project exists to avoid, so it was to be settled first and never was.
+
+Both halves are now measured. The same game of 216,778 claims, alternating sizes with a
+cool-down between runs so that each starts from the same card temperature:
+
+| claims per pass | | | | the read's own memory |
+|---|---|---|---|---|
+| 128 | 169s | 180s | 170s | 1.9 GB |
+| 512 | 153s | 153s | 158s | 4.0 GB |
+
+**Eleven per cent, for twice the card memory.** The first attempt at this measured three rounds
+of 128, 256 and 512 back to back and got 184s, 159s, 159s, then 160s, 166s, 179s, then 325s,
+309s, 335s: half an hour of reading heats the card until it reads at half the rate, which is
+five times larger than anything a batch size does and reverses the order if a round is compared
+against a round rather than a run against its neighbour. The rounds that disagreed were thrown
+out rather than averaged in.
+
+What a larger batch buys is not less padding. The window of 16,384 claims is sorted by length
+before it is cut into batches, so a batch of 128 already holds claims of a size and has almost
+no padding in it; what 512 buys is a card that is not waiting on the next launch, which is the
+same thing the context measurement found when it noted that a GPU running 21-token batches is
+mostly idle. That is also why it stops: 256 landed within three per cent of 512 in the rounds
+that were fair, and nothing above 512 moved at all.
+
+The cost in answers is what `diff-readings` was written to say, and it is **131 answers of
+216,778, six in ten thousand**: 72 claims the reader declined at 128 and answers at 512, 54 the
+other way, and 5 that change subject. Confidence drifts 3.15e-4 on average. On a small game it
+is one or two claims in 17,305. So the fear that kept the question open was right in kind and
+wrong in size, and the answer is not to hold the batch still but to record it: a reading now
+says which size answered it, beside which splitter cut it and which run read it.
+
+The library was read at 128 and stays that way until the next reader re-reads it, which every
+new reader does anyway. A game read in the meantime is read at 512 and says so.
+
 ## The tool was reading a window of nothing, and every answer looked plausible
 
 Found 2026-09-12, an hour after the context model shipped. Training said the reader answered
