@@ -529,7 +529,13 @@ A fifteen-line braille drawing, a nine-line ASCII hand, a zalgo block: one pictu
 a claim per line, each of which is not words at all. Recognisable by what a line is made of
 rather than by what it says: a line with no letter or digit in it, in a run of such lines, is
 part of a picture. Three or more in a row are one claim, which the reader will decline and
-which is the right answer for a drawing. Goes in `claims-5` with the box template.
+which is the right answer for a drawing.
+
+**Done in `claims-5`** with the box template, with one addition and one limit. A drawn line
+has to be more than one character, or a review that wraps on ":" would read as a drawing.
+And a picture is only its own claim where the review is nothing else: a drawing between two
+sentences is absorbed into the point around it rather than standing alone, because the
+alternative is a claim of pure punctuation in the middle of a review that has words.
 
 ### Two shapes that may not be fixable mechanically
 
@@ -558,8 +564,11 @@ rule follows from what the reviewer did:
   one claim about graphics rather than a heading and a word.
 - A run of them under one heading is one claim, not one per box.
 
-Goes in `claims-5`, with whatever the last labellers report, because the whole library has to
-be read again after a splitter changes and there is no sense doing that twice.
+**Done in `claims-5`**, and the set of marks is wider than the three the reports showed.
+`▢`, `✓` and `✔` are the same template in a different font, and a bare "x" or "X" followed by
+a space is how somebody without any of those fonts answers it, so all of them tick. The blank
+boxes are what identifies the template, since nobody types one of those by accident, which
+is why an "x" counts only inside a review that has three blank boxes in it.
 
 ### A review with no punctuation at all, reported on 553850 and 3551340
 

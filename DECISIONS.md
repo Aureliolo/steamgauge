@@ -558,6 +558,7 @@ a day of work going quietly wrong.
 | `score-export` | does the reader agree with the trainer on the claims the trainer exported? |
 | `encoder-cost` | what does the processor half of a reading cost, and where inside it? |
 | `check-readings` | does every reading say what its own rows hold? |
+| `diff-readings` | where do two readings of the same corpus disagree, claim by claim? |
 | `check-draws` | does a handout still name the claims this build cuts, before a labelling run is spent on it? |
 | `stale-splits` | how much of what labellers called a bad split does this build still split that way? |
 | `mine-check` | what is each fishing line for a starved subject actually catching? |
