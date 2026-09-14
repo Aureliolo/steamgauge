@@ -744,6 +744,7 @@ mod tests {
                 language: None,
                 depth: crate::read::Depth::Deep,
                 splitter: crate::claims::SPLITTER_VERSION.to_owned(),
+                batch_size: Some(crate::read::DEFAULT_READ_BATCH),
                 claims: 300_000,
                 forward_passes: 300_000,
                 unclassified_claims: 0,

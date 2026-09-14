@@ -41,7 +41,14 @@ use crate::{
 };
 
 /// Claims per forward pass. Claims are short, so this is larger than the review-level default.
-pub const DEFAULT_READ_BATCH: usize = 128;
+///
+/// Measured rather than guessed, on a game of 216,778 claims, alternating with a cool-down
+/// between runs so each starts from the same card temperature: 169s, 180s and 170s at 128
+/// against 153s, 153s and 158s at 512, for twice the card memory (1.9 GB against 4.0 GB) and 131
+/// answers in 216,778 that come out differently. Nothing above 512 moves. The window is sorted
+/// by length before it is cut into batches, so a larger batch saves no padding; what it buys is
+/// a card that is not waiting on the next launch.
+pub const DEFAULT_READ_BATCH: usize = 512;
 
 #[derive(Debug, Clone)]
 pub struct ReadOptions {
@@ -266,6 +273,14 @@ pub struct ReadReport {
     /// whatever sentence sits there now, so the readings say which cut they mean.
     #[serde(default)]
     pub splitter: String,
+    /// Claims per forward pass. A batch is padded to its longest member, so its composition
+    /// decides where half precision rounds, and on a game of 216,778 claims 131 of them answer
+    /// differently at 512 than at 128. Six in ten thousand is not a reason to hold the size
+    /// still, and it is a reason for a reading to say which size answered it.
+    ///
+    /// `None` on a reading written before this was recorded, which is not the same as zero.
+    #[serde(default)]
+    pub batch_size: Option<usize>,
     pub claims: u64,
     /// How many claims the model was actually asked about. A claim written a thousand times
     /// is one question, and this is what says how much of the corpus was repetition rather
@@ -921,6 +936,7 @@ impl Counting {
             language: options.language.clone(),
             depth: options.depth,
             splitter: crate::claims::SPLITTER_VERSION.to_owned(),
+            batch_size: Some(options.batch_size),
             claims: self.claims,
             forward_passes: 0,
             unclassified_claims: self.unclassified,
@@ -1260,6 +1276,7 @@ mod tests {
             language: None,
             depth: Depth::Deep,
             splitter: String::new(),
+            batch_size: None,
             claims: 1_000,
             forward_passes: 1_000,
             unclassified_claims: 900,

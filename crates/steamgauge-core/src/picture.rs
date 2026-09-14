@@ -209,6 +209,7 @@ mod tests {
             language: None,
             depth: crate::read::Depth::Deep,
             splitter: String::new(),
+            batch_size: None,
             claims: 3_000,
             forward_passes: 3_000,
             unclassified_claims: 0,
