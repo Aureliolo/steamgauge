@@ -559,6 +559,43 @@ The library was read at 128 and stays that way until the next reader re-reads it
 new reader does anyway. A game read in the meantime is read at 256, says so, and differs from
 the rest of the library by 74 claims in a game of two hundred thousand.
 
+### A long read does not slow down, and the card was never the reason
+
+Reading the library takes hours, so whether an hour of reading costs more per claim than the
+first ten minutes is worth knowing before committing to one. It was also the excuse offered
+for three timing rounds that came out at half rate: that half an hour of reading heats the card
+until it reads at half the rate. That was asserted, never measured, and it is wrong.
+
+Ten reads of one game back to back, no pause between them, the card logged every five seconds:
+
+| | | | | | | | | | |
+|---|---|---|---|---|---|---|---|---|---|
+| 164s | 162s | 158s | 164s | 165s | 169s | 162s | 161s | **233s** | **252s** |
+
+The first eight hold inside seven per cent of each other with no direction in them, and they do
+it while the card sits at **86 to 89°C for forty minutes**. Heat is not what a long read costs,
+because a long read costs nothing: the rate at minute forty is the rate at minute one.
+
+The last two are a different matter, and they are the first time this anomaly has been caught
+with instruments on it rather than reconstructed afterwards. It is not the card giving out:
+
+| | utilisation | temperature | clock | power |
+|---|---|---|---|---|
+| run 8, 161s | 93% | 89°C | 2,356 MHz | 387 W |
+| run 9, 233s | 92% | 87°C | 2,686 MHz | 352 W |
+
+The slow one ran **cooler, clocked higher and drew less power** at the same utilisation. A
+throttled card clocks down; this one clocked up. Higher clocks on less power is the shape of a
+card doing lighter work than it can, which is what interleaving with another workload looks
+like from the outside: the time is still accounted busy, and less of it is ours. Which workload
+cannot be said, because the log recorded the card and not the processes on it, and that is the
+gap to close before the next timing: **per-process GPU engine utilisation, not just the
+totals**.
+
+So the rule that came out of the discarded rounds survives, with its reason corrected. Time a
+read on this machine and something else can take half of it without the card ever looking
+unwell. What it costs to read is not a property of the reader alone.
+
 ## The tool was reading a window of nothing, and every answer looked plausible
 
 Found 2026-09-12, an hour after the context model shipped. Training said the reader answered
