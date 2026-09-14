@@ -35,6 +35,21 @@
       "description": "A digest update is aged at lookup against the release its tag resolves to, but the branch's stability check reads a timestamp field digest updates never carry, and a lock file refresh has no release to age at all. Left at the default, every pinned action held the one combined PR at pending for good. Optional still ages whatever does carry a timestamp.",
       "matchUpdateTypes": ["pinDigest", "digest", "lockFileMaintenance"],
       "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "Held until the ONNX export moves to the exporter torch now defaults to. Training is fine on transformers 5, but half precision through the TorchScript exporter writes a graph whose LayerNormalization takes one float input and one half one, which onnxruntime refuses to load. The dynamo exporter writes a loadable graph that passes the parity check and puts the weights beside it as external data, which the install step, the reader and publish.py each assume is one file. Measured 2026-09-14; DECISIONS records it.",
+      "matchPackageNames": ["transformers"],
+      "allowedVersions": "<5"
+    },
+    {
+      "description": "huggingface_hub 1 is what transformers 5 wants, and it goes when transformers goes.",
+      "matchPackageNames": ["huggingface_hub"],
+      "allowedVersions": "<1"
+    },
+    {
+      "description": "tokenizers follows transformers: 4.57 will not take 0.23.",
+      "matchPackageNames": ["tokenizers"],
+      "allowedVersions": "<0.23"
     }
   ],
   "pip_requirements": {
