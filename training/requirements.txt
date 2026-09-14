@@ -8,9 +8,10 @@ torch>=2.4
 # Held below 5 and 1 deliberately. Training is fine on transformers 5, and measured a shade
 # better on one epoch, but `.half()` then the TorchScript ONNX exporter leaves
 # LayerNormalization with one float input and one half one, and onnxruntime refuses the graph.
-# The exporter torch now defaults to does produce a loadable graph and passes the parity check,
-# but it writes the weights beside the graph as external data, which the install step, the
-# reader and `publish.py` all assume is one file. Taking these two means doing that first.
+# The exporter torch now defaults to writes a graph that loads, keeps its weights in one file
+# and answers identically, and then dies on a Reshape node inside the DirectML provider four
+# seconds into a read the traced graph does at 909 claims a second. Until that graph runs on
+# this card, these three stay where they are. DECISIONS has the measurements.
 transformers>=4.44,<5
 tokenizers>=0.19,<0.23
 huggingface_hub>=0.25,<1
