@@ -13,7 +13,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 |---|---|
 | Rust core, **Tauri desktop shell**, and a CLI beside it | done: one binary, a window when opened with no arguments and the pipeline when given any |
 | Compiled binary for Windows, Linux and macOS; the user downloads it, double-clicks it, and works entirely in the UI | built for all three by the release workflow, DirectML on Windows and CoreML on Apple Silicon; the claim reader is fetched by checksum on first use once one is published |
-| The UI is first class, not a wrapper over the pipeline, and has to be good enough to look at | the window crawls, reads, shows the counts with their measured error, opens every row onto its claims and every word that stands out onto the claims that use it. Not yet: the report page's timeline, languages and induced subjects, and a language switch |
+| The UI is first class, not a wrapper over the pipeline, and has to be good enough to look at | the window crawls, reads, shows the counts with their measured error, opens every row onto its claims and every word that stands out onto the claims that use it, draws the timeline, lists the languages, shows the induced subjects, and switches which language is counted without re-crawling |
 | Results also export as one self-contained HTML page that fetches nothing | done |
 | Name: **SteamGauge**, binary `steamgauge` | done 2026-09-11, renamed from `steam-review-census`. A census counts heads; this reads opinions, and "to gauge opinion" is the phrase for it. `gauge` alone was left to ThoughtWorks' test framework and npm's progress bar |
 
@@ -23,14 +23,14 @@ State means: **done** is built and in use; **partial** is built for one case and
 |---|---|
 | Headline figure is the **mention rate**, always labelled as such | done |
 | Every other percentage says which denominator it uses | done |
-| **Deep, claim-level by default**: a review is split into the points it makes, and each point carries a category | done; the splitter is `claims-4` and the reading pass counts per claim |
+| **Deep, claim-level by default**: a review is split into the points it makes, and each point carries a category | done; the splitter is `claims-5` and the reading pass counts per claim |
 | Shallow is the opt-out, and neither depth drops a review | done; `--depth shallow`, recorded in the reading and named on the page as not comparable |
-| Taxonomy is a **fixed core spine plus induced game-specific extras** | spine done (`core-5`); the induction chain runs end to end: `steamgauge distinct` draws the sample, an agent reads it against `reference/induction-brief.txt`, `steamgauge ingest-induced` refuses any subject without three real reviews behind it, and the report shows what survives under the table with its evidence and no invented rate. First run on 296970 (Renowned Explorers): nine subjects returned, nine kept, every one refining a spine row or naming something the spine cannot (mood combat, the explorer roster, the oddball enemies, save-scumming), each with four to fourteen reviews behind it |
+| Taxonomy is a **fixed core spine plus induced game-specific extras** | spine done (`core-6`); the induction chain runs end to end: `steamgauge distinct` draws the sample, an agent reads it against `reference/induction-brief.txt`, `steamgauge ingest-induced` refuses any subject without three real reviews behind it, and the report shows what survives under the table with its evidence and no invented rate. First run on 296970 (Renowned Explorers): nine subjects returned, nine kept, every one refining a spine row or naming something the spine cannot (mood combat, the explorer roster, the oddball enemies, save-scumming), each with four to fourteen reviews behind it |
 | Extras are discovered by an **LLM reading an embedding-diverse sample** | the sample is farthest-point traversal over a hash-drawn pool of four thousand vectors, measured to put a mechanics review, a localisation joke, a crash report and a difficulty complaint in its first eight picks. The reading is one agent call per game, 70k tokens on Opus for a 120-review handout, run one at a time behind the labellers |
 | Categories are assigned across the full corpus by a **linear probe over embeddings** | superseded: a fine-tuned encoder with abstention, which is a probe that can say no |
 | **Corrected prevalence**: the measured error corrects the rate rather than sitting beside it | done, per subject, where the model finds it better than chance |
 | **Summarise, per category, what people praise and complain about** | built without a paraphrase: each side of a subject shows the words it uses that the other does not, counted by reviewers and ranked by log-odds z-score against the other side, and every word opens onto the claims it was counted from. Counted during the reading pass in bounded memory. A written summary by a hosted model is the upgrade, when one is configured |
-| **Build an overall picture of the game from those summaries** | **not built** |
+| **Build an overall picture of the game from those summaries** | done as a paragraph assembled from the counts: which subjects are raised most and by what share of reviews, which way each leans, and the words that stand out on each side. Every clause is a number with words around it, nothing is inferred, and a subject nobody raises is not mentioned. A written summary by a hosted model remains the upgrade |
 | **Click through from any number to the reviews behind it** | done in the app, every subject opens onto its claims a page at a time; the report quotes eight per subject |
 | Helpfulness bias ships as a column on every category | done |
 | Irony and ratings that disagree with the text are flagged, not filed away | flagged on labelled reviews only |
@@ -73,12 +73,12 @@ State means: **done** is built and in use; **partial** is built for one case and
 
 | Decided | State |
 |---|---|
-| Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for 33 of 36 games, one labeller at a time on the user's instruction |
+| Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
 | **Opus spot-checks the labels** | done as a blind second reading of a tenth: 1,400 claims over thirty games, subject kappa 0.85 |
-| Roughly 400 labels to start | 17,249 claims and counting, target 20,000 |
-| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. Not started: it waits on `core-6`, because adjudicating against a sheet about to change spends the one resource that cannot be spent twice. The tool for it is the app's own claim view with the labels hidden |
-| 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done, 36 games drawn |
-| Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 36 drawn that is 8 frozen (214490, 620980, 774361, 1057090, 1274570, 1466860, 1809540, 2881650), 4 validation (275850, 1295660, 1465360, 1601580), 24 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
+| Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
+| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user |
+| 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
+| Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 frozen (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
 | Measured error **corrects the reported prevalence** | done, on the report page, per subject where the model finds it better than chance |
 | The sets are a silver standard, and the README says so rather than calling them gold | done |
 
@@ -1376,8 +1376,8 @@ nothing. Two are missing, and no amount of further labelling closes either.
    below which the exercise has produced nothing.
 
    **The tool exists as of 2026-09-11.** `steamgauge gold` writes one self-contained page
-   holding 1,000 blind claims from the eight frozen games and the 27 the two labellers split
-   on there. A letter picks a subject, a digit the polarity, and a claim with both moves on by
+   holding 1,000 blind claims from the frozen games and every claim the two labellers split on
+   there, which as the set has grown to ten frozen games is 194 of them. A letter picks a subject, a digit the polarity, and a claim with both moves on by
    itself; answers are kept as they are made, because fourteen hundred claims is not one
    sitting. `steamgauge ingest-gold` reads them back and prints the share that matches the
    labeller already on record, which is the first figure in this project that may be called
@@ -1554,6 +1554,7 @@ Built since this list was first written: the report page on readings, the polari
 corrected prevalence, the second reading and its comparison, the fetch-by-checksum path, the
 words that stand out on each side of a subject, the paragraph, the bake-off, the timeline,
 languages and induced subjects in the window, the sweep, the language switch, `claims-4` and
-the span join that let it ship mid-run, the adjudication page and the ingest behind it, the
-frontier comparison, the configuration sweep and the tool that reads it (`training/sweep.py`),
-and the teaching draw.
+the span join that let it ship mid-run, `claims-5` after it, the adjudication page and the
+ingest behind it, the frontier comparison, the configuration sweep and the tool that reads it
+(`training/sweep.py`), the teaching draw, the abstention line per subject, and the reading
+batch settled at 256.
