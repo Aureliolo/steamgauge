@@ -537,6 +537,12 @@ is one or two claims in 17,305. So the fear that kept the question open was righ
 wrong in size, and the answer is not to hold the batch still but to record it: a reading now
 says which size answered it, beside which splitter cut it and which run read it.
 
+All 131 are the batch and none of them is the card. Two readings of that game at 128, from
+different runs hours apart, differ by **nothing at all**: no answer, no polarity, and a
+confidence drift of exactly zero. The same holds at 512. A reading is reproducible to the bit
+at a fixed size, which is what makes the 131 a measurement of the size rather than of the
+hardware, and it is the same check that licensed the scheduling work above.
+
 The library was read at 128 and stays that way until the next reader re-reads it, which every
 new reader does anyway. A game read in the meantime is read at 512 and says so.
 
