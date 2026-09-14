@@ -13,7 +13,7 @@ torch>=2.4
 # reader and `publish.py` all assume is one file. Taking these two means doing that first.
 transformers>=4.44,<5
 tokenizers>=0.19,<0.23
-huggingface_hub>=0.25,<1
+huggingface_hub>=1.31,<2
 scikit-learn>=1.5
 numpy>=1.26
 onnx>=1.16
