@@ -12,7 +12,7 @@ it uploaded and writes them into reader.rs.
     python publish.py --run runs/wave2 --model-repo <user>/steam-review-claim-reader \
         --data-repo <user>/steam-review-claims
 
-Needs a Hugging Face token with write access, from `huggingface-cli login` or HF_TOKEN.
+Needs a Hugging Face token with write access, from `hf auth login` or HF_TOKEN.
 """
 
 from __future__ import annotations

@@ -518,6 +518,28 @@ windowing, and `steamgauge measure-claims` scores what the tool wrote over a cor
 itself. Any two of those disagreeing by more than a point is a bug, and each removes one
 suspect: the tool's own figure was perfectly plausible on its own.
 
+### transformers 5 is held, and the exporter is what holds it
+
+Renovate offered transformers 4.57 to 5.17 and huggingface_hub 0.36 to 1.31 on 2026-09-14. CI
+passed, which means nothing here: CI never trains and never exports. Trained under 5.17, one
+epoch of the shipped configuration came out at 0.637 accuracy against `wave11`'s 0.622, so the
+training half is fine. The export is not. `.half()` on the model and then torch's TorchScript
+ONNX exporter writes a graph whose `LayerNormalization` takes one float input and one half one,
+and onnxruntime refuses to load it at all, which is the good failure: loud, immediate, and not a
+model that quietly answers differently.
+
+The exporter torch now defaults to does write a loadable graph, and it agrees with the
+full-precision model to 8.75e-03 with no answer changed, which is the same range the current
+export lives in. It also writes the weights beside the graph as external data rather than in it,
+and three things assume a single file: `finalise.sh` copies `model.onnx` into
+`models/claim-reader`, the reader loads that path, and `publish.py` uploads it. So the upgrade
+is a day's work on the packaging, not a version bump, and the pins in `requirements.txt` and the
+rules in `renovate.json` say so rather than leaving the offer to be re-made every Monday.
+
+What came out of the same audit: `optimum`, `datasets` and `pyarrow` were in the requirements
+and imported nowhere. The lock is thirty entries shorter without them, and `optimum`'s own
+major upgrade left the weekly PR with them.
+
 ### What is there to run when something looks wrong
 
 Each of these answers one question and is a `cargo run --release -p steamgauge-core --example`

@@ -5,16 +5,19 @@
 # CPU build, install it from the CUDA index first:
 #   pip install torch --index-url https://download.pytorch.org/whl/cu124
 torch>=2.4
-transformers>=4.44
-tokenizers>=0.19
-datasets>=2.20
+# Held below 5 and 1 deliberately. Training is fine on transformers 5, and measured a shade
+# better on one epoch, but `.half()` then the TorchScript ONNX exporter leaves
+# LayerNormalization with one float input and one half one, and onnxruntime refuses the graph.
+# The exporter torch now defaults to does produce a loadable graph and passes the parity check,
+# but it writes the weights beside the graph as external data, which the install step, the
+# reader and `publish.py` all assume is one file. Taking these two means doing that first.
+transformers>=4.44,<5
+tokenizers>=0.19,<0.23
+huggingface_hub>=0.25,<1
 scikit-learn>=1.5
 numpy>=1.26
-pyarrow>=17
 onnx>=1.16
 onnxruntime-gpu>=1.19
-optimum[onnxruntime]>=1.21
-huggingface_hub>=0.25
 # The DeBERTa candidates in the bake-off ship a SentencePiece model rather than a tokenizer
 # JSON, and converting it to a fast tokenizer needs both of these.
 sentencepiece>=0.2
