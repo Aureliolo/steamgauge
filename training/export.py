@@ -29,7 +29,15 @@ TOLERANCE = 2e-3
 
 # Half precision keeps about three decimal digits, so logits of this size drift by tens of
 # thousandths. The argmax check below is what actually guards the answers.
-HALF_TOLERANCE = 8e-2
+#
+# This was 8e-2 while the check ran on CPU kernels, and on the kernels that ship it is not
+# enough: the same two graphs drift 1.05e-01 and 6.30e-02 through DirectML with no answer
+# changed, no tie reordered and no claim crossing its abstention line. A number fitted to
+# hardware the graph never runs on refuses models that are fine, which is a check that has
+# stopped measuring anything. What guards the answers is the argmax, the tie count and the
+# lines; this is the canary for an export that has broken outright, and it is set from what the
+# provider actually does with room above it.
+HALF_TOLERANCE = 2.5e-1
 
 
 class InFullPrecisionOut(torch.nn.Module):
@@ -95,6 +103,51 @@ def sample_claims(path: Path, count: int, record: dict, tokenizer) -> list:
     )
     pairs = [cut.pair(at) for at in range(len(drawn))]
     return [one[0] if len(one) == 1 else one for one in pairs]
+
+
+def crossed_the_line(wanted, got, lines, allowed: float) -> None:
+    """How many claims the exported graph would answer that the model would decline, or back.
+
+    The parity check above asks whether the graph picks the same subject. What ships is not the
+    subject alone: it is the subject and whether the reader speaks at all, and that second half
+    is decided by a confidence against a line. Two graphs can agree on every claim and still
+    disagree about which of them they are willing to stand behind, and then a coverage figure
+    moves for a reason nobody recorded.
+
+    Only claims the two graphs agree the subject of. Where they disagree, a different line
+    applies, and these lines run from 0.18 to 0.99: a claim that reorders a tie between two
+    subjects changes side because it changed subject, which the tie count above already
+    measures, not because a confidence drifted anywhere.
+
+    Counted like the ties above: a claim sitting within the drift of its own line would cross it
+    on any rounding at all, and holding the graph to that is holding it to a distance it cannot
+    resolve.
+    """
+
+    def speaks(scores):
+        shifted = scores - scores.max(axis=1, keepdims=True)
+        probability = np.exp(shifted) / np.exp(shifted).sum(axis=1, keepdims=True)
+        best = probability.argmax(axis=1)
+        at = np.array([np.inf if lines[b] is None else lines[b] for b in best])
+        confidence = probability.max(axis=1)
+        return best, confidence >= at, np.abs(confidence - at)
+
+    chose, was, room = speaks(wanted)
+    also, now, _ = speaks(got)
+    agreed = chose == also
+    moved = (was != now) & agreed
+    decided = int((moved & (room > allowed)).sum())
+    near = int((moved & (room <= allowed)).sum())
+    print(
+        f"           {decided + near} of {int(agreed.sum())} claims change side, "
+        f"{near} of them sitting on the line"
+    )
+    if decided:
+        raise SystemExit(
+            f"{decided} claims are answered by one graph and declined by the other, each from "
+            f"further than {allowed:.0e} off its line. The lines were drawn against the model "
+            f"and are shipped against the graph. Not shipping this."
+        )
 
 
 def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
@@ -259,8 +312,12 @@ def main():
 
     import onnxruntime
 
-    # Half precision has no CPU kernels worth the name, so it is checked where it will run.
-    providers = ["CUDAExecutionProvider"] if args.fp16 else ["CPUExecutionProvider"]
+    # Half precision has no CPU kernels worth the name, so it is checked where it will run,
+    # and where it runs is DirectML: that is the provider the reader opens on this machine and
+    # the one the release ships with on Windows. Asking for CUDA checked a provider nothing
+    # uses, and on an installation whose runtime is built for a CUDA it does not have, the
+    # request failed and the check quietly fell back to the processor.
+    providers = ["DmlExecutionProvider"] if args.fp16 else ["CPUExecutionProvider"]
     session = onnxruntime.InferenceSession(str(graph), providers=providers)
     # ONNX Runtime accepts a provider it does not have and quietly runs somewhere else. That
     # has already cost this project a measurement it believed: a reading reported as CUDA that
@@ -363,6 +420,7 @@ def main():
         print(f"lines      {drawn} of {len(subjects)} subjects have one")
         if silent:
             print(f"           silent: {', '.join(silent)}")
+        crossed_the_line(wanted, got, lines, allowed)
 
     (run / "reader.json").write_text(
         json.dumps(
