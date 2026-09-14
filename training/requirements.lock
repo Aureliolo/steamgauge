@@ -25,7 +25,7 @@ narwhals==2.26.0
 networkx==3.6.1
 numpy==2.5.3
 onnx==1.22.0
-onnxruntime-gpu==1.30.0
+onnxruntime-directml==1.24.4
 packaging==26.3
 pluggy==1.6.0
 protobuf==7.36.1

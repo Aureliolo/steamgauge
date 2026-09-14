@@ -18,7 +18,12 @@ huggingface_hub>=0.25,<1
 scikit-learn>=1.5
 numpy>=1.26
 onnx>=1.16
-onnxruntime-gpu>=1.19
+# DirectML rather than the CUDA build, because the only thing here that asks for a card is the
+# export's parity check, and the graph it is checking ships to a reader that opens DirectML.
+# The CUDA build also wants a CUDA runtime newer than the one torch is built against, so it
+# could not create its provider at all and the check fell back to the processor without
+# failing. Everything else in here pins CPU on purpose.
+onnxruntime-directml>=1.19
 # The DeBERTa candidates in the bake-off ship a SentencePiece model rather than a tokenizer
 # JSON, and converting it to a fast tokenizer needs both of these.
 sentencepiece>=0.2
