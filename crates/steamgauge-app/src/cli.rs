@@ -591,8 +591,8 @@ enum Command {
         /// models/claim-reader in the working tree if there is one, else the platform cache.
         #[arg(long)]
         model: Option<PathBuf>,
-        /// Claims per forward pass. The default reads about a tenth faster than a quarter of
-        /// it and asks the card for twice the memory, so lower it on a small one.
+        /// Claims per forward pass. The default reads about a tenth faster than half of it and
+        /// asks the card for 2.5 GB; doubling it again buys nothing. Lower it on a small card.
         #[arg(long, default_value_t = steamgauge_core::read::DEFAULT_READ_BATCH)]
         batch_size: usize,
         /// Count only reviews written in this language. The capture stays whole either way.

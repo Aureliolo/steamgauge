@@ -500,51 +500,64 @@ precision that moves a borderline answer. Deciding it during a library read woul
 library answered one way and half the other, which is the sort of quiet inconsistency this
 project exists to avoid, so it was to be settled first and never was.
 
-Both halves are now measured. The same game of 216,778 claims, alternating sizes, each run
-beginning with the card back at idle clocks, and a log of what was on the card throughout:
+Both halves are now measured. The same game of 216,778 claims, the sizes run in a mirrored
+order so that anything drifting over the half hour falls on each of them both early and late,
+and the card logged every five seconds throughout:
 
-| claims per pass | | | | the read's own memory |
-|---|---|---|---|---|
-| 128 | 169s | 180s | 170s | 1.9 GB |
-| 512 | 153s | 153s | 158s | 4.0 GB |
+| claims per pass | | | mean | the read's own memory | answers moved from 128 |
+|---|---|---|---|---|---|
+| 128 | 196s | 171s | 183s | 1.9 GB | |
+| 256 | 167s | 164s | **165s** | **2.5 GB** | 74 |
+| 512 | 164s | 167s | **165s** | 3.9 GB | 131 |
 
-**Eleven per cent, for twice the card memory.** The first attempt measured three rounds of 128,
-256 and 512 back to back and got 184s, 159s, 159s, then 160s, 166s, 179s, then 325s, 309s,
-335s. A third round at half the rate of the first two, in a different order, is not a batch
-size: **this card is not the reading's alone.** It is shared with whatever else the machine is
-running, and those rounds were taken without any record of what that was, so what slowed them
-down cannot be recovered. They were thrown out rather than explained.
+**256 and 512 are the same speed**, to within less than the spread of either one, and 256 asks
+the card for 1.4 GB less. Between two sizes that read a corpus in the same time, the one that
+leaves more of the card alone is the better default, and the one that moves fewer answers away
+from the library already on disk is better again. So the default is 256, and it stops there
+because doubling it a third time changes nothing but the memory.
 
-The sweep that decided it was taken with the card sampled every ten seconds, and its memory sat
-in exactly three bands for twenty-six minutes: 2.1 GB with nothing of ours running, 4.1 GB
-through a batch of 128, 6.2 GB through a batch of 512. Nothing else loaded onto the card while
-it ran, five of the six runs began with the card at its idle clock, and the sixth, which began
-with the card already busy, is the slowest 512 of the three. That is why these six are quoted
-and the nine before them are not: a timing taken on a shared card without watching the card is
-not a timing, which is the same lesson as measuring a proxy instead of the thing.
+**512 shipped first, on a comparison 256 was never in.** The runs that chose it were 128
+against 512 only, and they left the obvious question of where in between it flattens unasked.
+That is a worse mistake than the batch being wrong, because the number it produced was true:
+512 really is faster than 128, and quoting that as the reason to prefer 512 skipped the
+alternative that is just as fast and half the size.
+
+Before either of those there were three rounds of 128, 256 and 512 run back to back: 184s,
+159s, 159s, then 160s, 166s, 179s, then 325s, 309s, 335s. A third round at half the rate of the
+first two, in a different order, is not a batch size. **This card is not the reading's alone**:
+it carries whatever else the machine is running, and those rounds were taken without any record
+of what that was, so what slowed them cannot be recovered. They are discarded rather than
+explained.
+
+Nor does it ever go quiet. The intended criterion was that every run start from the idle clock,
+and on a desktop that is being used, none of them do: the six above began between 690 and 975
+MHz because other windows keep the card clocked. What can be had is the mirrored order, a log
+that shows no compute load beyond what each batch accounts for, and the spread quoted beside
+the mean rather than hidden by it. The one run that stands out, 196s at 128, is the only one
+that began above 900 MHz, which should have made it faster and did not.
 
 What a larger batch buys is not less padding. The window of 16,384 claims is sorted by length
-before it is cut into batches, so a batch of 128 already holds claims of a size and has almost
-no padding in it; what 512 buys is a card that is not waiting on the next launch, which is the
-same thing the context measurement found when it noted that a GPU running 21-token batches is
-mostly idle. That is also why it stops: 256 landed within three per cent of 512 in the rounds
-that were fair, and nothing above 512 moved at all.
+before it is cut into batches, so even a batch of 128 already holds claims of a size and has
+almost no padding in it; what the larger batch buys is a card that is not waiting on the next
+launch, which is the same thing the context measurement found when it noted that a GPU running
+21-token batches is mostly idle. By 256 it has stopped waiting, which is why 512 adds nothing.
 
-The cost in answers is what `diff-readings` was written to say, and it is **131 answers of
-216,778, six in ten thousand**: 72 claims the reader declined at 128 and answers at 512, 54 the
-other way, and 5 that change subject. Confidence drifts 3.15e-4 on average. On a small game it
-is one or two claims in 17,305. So the fear that kept the question open was right in kind and
-wrong in size, and the answer is not to hold the batch still but to record it: a reading now
-says which size answered it, beside which splitter cut it and which run read it.
+The cost in answers is what `diff-readings` was written to say. Each doubling moves about 75
+claims of the 216,778: **74 between 128 and 256**, 81 between 256 and 512, and 131 end to end,
+with the declines going both ways in roughly equal number and a confidence drift around 2e-4.
+Three in ten thousand. So the fear that kept the question open was right in kind and wrong in
+size, and the answer is not to hold the batch still but to record it: a reading now says which
+size answered it, beside which splitter cut it and which run read it.
 
-All 131 are the batch and none of them is the card. Two readings of that game at 128, from
-different runs hours apart, differ by **nothing at all**: no answer, no polarity, and a
-confidence drift of exactly zero. The same holds at 512. A reading is reproducible to the bit
-at a fixed size, which is what makes the 131 a measurement of the size rather than of the
-hardware, and it is the same check that licensed the scheduling work above.
+None of those are the card. Two readings of that game at one size, from runs hours apart,
+differ by **nothing at all**: no answer, no polarity, and a confidence drift of exactly zero,
+at 128 and again at 512. A reading is reproducible to the bit at a fixed size, which is what
+makes these counts a measurement of the size rather than of the hardware, and it is the same
+check that licensed the scheduling work above.
 
 The library was read at 128 and stays that way until the next reader re-reads it, which every
-new reader does anyway. A game read in the meantime is read at 512 and says so.
+new reader does anyway. A game read in the meantime is read at 256, says so, and differs from
+the rest of the library by 74 claims in a game of two hundred thousand.
 
 ## The tool was reading a window of nothing, and every answer looked plausible
 

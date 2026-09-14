@@ -42,13 +42,13 @@ use crate::{
 
 /// Claims per forward pass. Claims are short, so this is larger than the review-level default.
 ///
-/// Measured rather than guessed, on a game of 216,778 claims, alternating sizes with the card
-/// back at its idle clock before each run and watched throughout: 169s, 180s and 170s at 128
-/// against 153s, 153s and 158s at 512, for twice the card memory (1.9 GB against 4.0 GB) and 131
-/// answers in 216,778 that come out differently. Nothing above 512 moves. The window is sorted
-/// by length before it is cut into batches, so a larger batch saves no padding; what it buys is
-/// a card that is not waiting on the next launch.
-pub const DEFAULT_READ_BATCH: usize = 512;
+/// Measured rather than guessed, on a game of 216,778 claims, sizes run in a mirrored order and
+/// the card watched throughout: 183s at 128 against 165s at both 256 and 512. The two larger
+/// sizes are the same speed to within the spread of a single size, and 256 asks the card for
+/// 2.5 GB where 512 asks for 3.9 GB, so the smaller of two equals wins. The window is sorted by
+/// length before it is cut into batches, so a larger batch saves no padding; what it buys is a
+/// card that is not waiting on the next launch, and by 256 it is no longer waiting.
+pub const DEFAULT_READ_BATCH: usize = 256;
 
 #[derive(Debug, Clone)]
 pub struct ReadOptions {
@@ -274,9 +274,9 @@ pub struct ReadReport {
     #[serde(default)]
     pub splitter: String,
     /// Claims per forward pass. A batch is padded to its longest member, so its composition
-    /// decides where half precision rounds, and on a game of 216,778 claims 131 of them answer
-    /// differently at 512 than at 128. Six in ten thousand is not a reason to hold the size
-    /// still, and it is a reason for a reading to say which size answered it.
+    /// decides where half precision rounds, and each doubling moves about 75 answers of a
+    /// game's 216,778. Three in ten thousand is not a reason to hold the size still, and it is
+    /// a reason for a reading to say which size answered it.
     ///
     /// `None` on a reading written before this was recorded, which is not the same as zero.
     #[serde(default)]
