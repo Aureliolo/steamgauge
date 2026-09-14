@@ -479,6 +479,13 @@ These rules keep those figures honest:
   parts is now that many claims. The rate is measured rather than assumed, because it is the
   one error in this pipeline that no amount of training fixes.
 
+  Those reports were made against five earlier sets of rules, and every round of fixes since
+  answered some of them. Re-cutting all 31,019 randomly drawn claims with the splitter this
+  build ships leaves **9.8%** cut the way the labeller objected to, so five points of the 15.2
+  are rules that have since landed (`--example stale-splits`). It is a floor rather than the
+  new rate: a claim the splitter now cuts differently is not thereby cut correctly, and nothing
+  here can see a claim that was cut well before a rule and badly after it.
+
   A label names the span of the review it was written about, not a position in a list, so the
   splitter can change under a labelled set: a label whose span the new splitter no longer cuts
   as one claim is counted as unjoined and said, rather than scored against whatever sentence

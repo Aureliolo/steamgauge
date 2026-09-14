@@ -295,23 +295,36 @@ by however many indexes had shifted, which is how it was first run and why the g
 
 ### The splitter has run out of punctuation, and the rest is grammar
 
-Labellers have flagged 3,194 claims, 16.9% of the set, as badly cut. That number is quoted by
-the training summary and it is measured against whatever splitter cut the claim on the day, so
-five versions of rules later it says more about the past than about this build.
-`cargo run --release -p steamgauge-core --example stale-splits` re-cuts each flagged claim's
-review with the splitter this build has: **two fifths are already cut differently, and the rate
-that survives is 10.1% rather than 16.9%.**
+Labellers have flagged 5,656 claims of the 37,918 in the set as badly cut, and 4,716 of the
+31,019 drawn at random, which is the 15.2% the README quotes. That number is measured against
+whatever splitter cut the claim on the day, so five versions of rules later it says more about
+the past than about this build. `cargo run --release -p steamgauge-core --example stale-splits`
+re-cuts each flagged claim's review with the splitter this build has:
 
-What survives is not punctuation. Of the flagged claims, 2,059 hold no line break and at most
-one comma of any kind, and 1,042 join their clauses with "and", "but" or "although": "The story
-and graphics were outstanding" is two subjects in four words, and "画面配乐玩法都是一流" is
-three in six characters with nothing between them. No rule about commas, colons or line breaks
-reaches any of those. A splitter that knows sentence terminators and markup and nothing else has
-reached what it can do, and the remaining ten per cent is either a grammar problem, which this
-project deliberately refuses to put a model into, or a label problem: a claim that really is
-about two subjects is being asked for one.
+| drawn | claims | called badly split | still cut that way |
+|---|---|---|---|
+| random | 31,019 | 4,716 (15.2%) | 3,031 (**9.8%**) |
+| retrieved | 2,899 | 341 (11.8%) | 202 (7.0%) |
+| declined | 2,200 | 289 (13.1%) | 215 (9.8%) |
+| mined | 1,800 | 310 (17.2%) | 254 (14.1%) |
 
-So there is no `claims-6` on the strength of this, and the 16.9% in the training summary should
+A third of every objection is answered, and five points of the fifteen the random draws reported
+are rules that have since landed. It is a floor and not the new rate: a claim cut differently
+now is not thereby cut correctly, and nothing here can see a claim a rule made worse. The mined
+draw is the highest because it is fished for by lexical probe, which catches long sentences that
+name several things.
+
+What survives is not punctuation. Of the 3,702 claims still cut the way they were objected to,
+2,249 (60.8%) hold no line break and at most one comma of any kind, and 1,695 (45.8%) join their
+clauses with "and", "but" or "although": "The story and graphics were outstanding" is two
+subjects in four words, and "画面配乐玩法都是一流" is three in six characters with nothing
+between them. No rule about commas, colons or line breaks reaches any of those. A splitter that
+knows sentence terminators and markup and nothing else has reached what it can do, and the
+remaining ten per cent is either a grammar problem, which this project deliberately refuses to
+put a model into, or a label problem: a claim that really is about two subjects is being asked
+for one.
+
+So there is no `claims-6` on the strength of this, and the rate in the training summary should
 be read as a historical flag rather than a property of the current cut. What a future splitter
 change costs is unchanged: every reading is re-read, and every label whose span it no longer
 cuts is dropped from the measurement.
