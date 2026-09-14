@@ -530,11 +530,18 @@ model that quietly answers differently.
 
 The exporter torch now defaults to does write a loadable graph, and it agrees with the
 full-precision model to 8.75e-03 with no answer changed, which is the same range the current
-export lives in. It also writes the weights beside the graph as external data rather than in it,
-and three things assume a single file: `finalise.sh` copies `model.onnx` into
-`models/claim-reader`, the reader loads that path, and `publish.py` uploads it. So the upgrade
-is a day's work on the packaging, not a version bump, and the pins in `requirements.txt` and the
-rules in `renovate.json` say so rather than leaving the offer to be re-made every Monday.
+export lives in. Told to keep its weights inside the graph it writes one 1,121 MB file, so the
+packaging this file first blamed is not the obstacle. **The obstacle is that the graph does not
+run here.** Timed on the same capture through `--model`, which installs nothing: the traced
+graph reads 17,305 claims at 909 a second, and the dynamo graph fails four seconds in on a
+`Reshape` node inside the DirectML provider. That is the same wall the comment in `export.py`
+has described since the exporter was first tried, when the graph ran but partitioned itself
+across host and device at sixty claims a second; a provider that cannot run the graph at all is
+the harder version of it.
+
+So the prerequisite is not a day on packaging. It is a dynamo graph DirectML will run, which is
+somebody else's bug to fix, and the pins in `requirements.txt` and the rules in `renovate.json`
+hold the offer until it is. It also needs `onnxscript` back, which left with `optimum`'s tail.
 
 What came out of the same audit: `optimum`, `datasets` and `pyarrow` were in the requirements
 and imported nowhere. The lock is thirty entries shorter without them, and `optimum`'s own

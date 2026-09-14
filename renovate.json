@@ -37,7 +37,7 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
-      "description": "Held until the ONNX export moves to the exporter torch now defaults to. Training is fine on transformers 5, but half precision through the TorchScript exporter writes a graph whose LayerNormalization takes one float input and one half one, which onnxruntime refuses to load. The dynamo exporter writes a loadable graph that passes the parity check and puts the weights beside it as external data, which the install step, the reader and publish.py each assume is one file. Measured 2026-09-14; DECISIONS records it.",
+      "description": "Held until a dynamo-exported graph runs on DirectML. Training is fine on transformers 5, but half precision through the TorchScript exporter writes a graph whose LayerNormalization takes one float input and one half one, which onnxruntime refuses to load. The dynamo exporter writes a graph that loads, keeps its weights in one file and agrees with the model to 8.75e-03 with no answer changed, and then fails on a Reshape node inside the DirectML provider four seconds into a read the traced graph does at 909 claims a second. Measured 2026-09-14; DECISIONS records it.",
       "matchPackageNames": ["transformers"],
       "allowedVersions": "<5"
     },
