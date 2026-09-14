@@ -500,20 +500,28 @@ precision that moves a borderline answer. Deciding it during a library read woul
 library answered one way and half the other, which is the sort of quiet inconsistency this
 project exists to avoid, so it was to be settled first and never was.
 
-Both halves are now measured. The same game of 216,778 claims, alternating sizes with a
-cool-down between runs so that each starts from the same card temperature:
+Both halves are now measured. The same game of 216,778 claims, alternating sizes, each run
+beginning with the card back at idle clocks, and a log of what was on the card throughout:
 
 | claims per pass | | | | the read's own memory |
 |---|---|---|---|---|
 | 128 | 169s | 180s | 170s | 1.9 GB |
 | 512 | 153s | 153s | 158s | 4.0 GB |
 
-**Eleven per cent, for twice the card memory.** The first attempt at this measured three rounds
-of 128, 256 and 512 back to back and got 184s, 159s, 159s, then 160s, 166s, 179s, then 325s,
-309s, 335s: half an hour of reading heats the card until it reads at half the rate, which is
-five times larger than anything a batch size does and reverses the order if a round is compared
-against a round rather than a run against its neighbour. The rounds that disagreed were thrown
-out rather than averaged in.
+**Eleven per cent, for twice the card memory.** The first attempt measured three rounds of 128,
+256 and 512 back to back and got 184s, 159s, 159s, then 160s, 166s, 179s, then 325s, 309s,
+335s. A third round at half the rate of the first two, in a different order, is not a batch
+size: **this card is not the reading's alone.** It is shared with whatever else the machine is
+running, and those rounds were taken without any record of what that was, so what slowed them
+down cannot be recovered. They were thrown out rather than explained.
+
+The sweep that decided it was taken with the card sampled every ten seconds, and its memory sat
+in exactly three bands for twenty-six minutes: 2.1 GB with nothing of ours running, 4.1 GB
+through a batch of 128, 6.2 GB through a batch of 512. Nothing else loaded onto the card while
+it ran, five of the six runs began with the card at its idle clock, and the sixth, which began
+with the card already busy, is the slowest 512 of the three. That is why these six are quoted
+and the nine before them are not: a timing taken on a shared card without watching the card is
+not a timing, which is the same lesson as measuring a proxy instead of the thing.
 
 What a larger batch buys is not less padding. The window of 16,384 claims is sorted by length
 before it is cut into batches, so a batch of 128 already holds claims of a size and has almost

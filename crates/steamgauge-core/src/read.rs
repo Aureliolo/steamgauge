@@ -42,8 +42,8 @@ use crate::{
 
 /// Claims per forward pass. Claims are short, so this is larger than the review-level default.
 ///
-/// Measured rather than guessed, on a game of 216,778 claims, alternating with a cool-down
-/// between runs so each starts from the same card temperature: 169s, 180s and 170s at 128
+/// Measured rather than guessed, on a game of 216,778 claims, alternating sizes with the card
+/// back at its idle clock before each run and watched throughout: 169s, 180s and 170s at 128
 /// against 153s, 153s and 158s at 512, for twice the card memory (1.9 GB against 4.0 GB) and 131
 /// answers in 216,778 that come out differently. Nothing above 512 moves. The window is sorted
 /// by length before it is cut into batches, so a larger batch saves no padding; what it buys is
