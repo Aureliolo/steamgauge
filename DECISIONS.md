@@ -689,6 +689,7 @@ Three more on the Python side, run against a model directory rather than a captu
 | `training/confidence.py` | what should confidence be scored by, and where does the line go, subject by subject? |
 | `training/confusion.py` | what does the reader mistake for what, and is a weak subject starved or badly bounded? |
 | `training/adjust.py` | does shifting the logits by the class priors buy anything? |
+| `training/language.py` | how well does the reader read each language, and on how much evidence? |
 
 The last three read out-of-fold logits with `--oof` and should be run that way. Four validation
 games give intervals eight points wide and figures that move; five folds
@@ -1360,6 +1361,53 @@ put the claims where they belong. The remaining 146 revisit claims, spread one t
 across thirty games, are left unlabelled on that measurement: at 1.6% net yield they are worth
 about two labels, and the labeller slot they would take is worth a hundred on the mined draw.
 A revisit is for a subject that was born after its claims were labelled, and for nothing else.
+
+### The reference set is a fifth more English than the corpus it speaks for
+
+Found 2026-09-15, from the outside: another session asked whether a complaint in an English
+review of a 63%-Japanese game reflected the game or its translation, and answering it meant
+asking what the reader's Japanese is worth. The answer is that nobody knows.
+
+The frozen games cannot answer it: they hold 4,017 English claims and 55 Japanese, so the
+Japanese interval runs from 52.3% to 76.6% and is compatible with the reader being fine and
+with it being ten points worse. The first instinct was to spend labeller quota on it.
+
+**The evidence already existed.** Every non-frozen game is held out by exactly one
+cross-validation fold, the folds are already on disk because the shipped abstention lines are
+drawn from them, and the language of each claim is in the label set beside it. Joining the two
+gives 32,339 claims answered by a model that never trained on the game they came from, which is
+six times the frozen set and thirty times its Japanese. `training/language.py` does the join.
+
+| | library | out-of-fold claims | agreement |
+|---|---|---|---|
+| english | 52.5% | 22,989 | 70.4% [69.8, 71.0] |
+| german | 3.7% | 1,224 | 72.2% [69.6, 74.7] |
+| french | 2.6% | 810 | 72.2% [69.0, 75.2] |
+| turkish | ~1% | 399 | 71.7% [67.1, 75.9] |
+| brazilian | 3.8% | 642 | 66.0% [62.3, 69.6] |
+| spanish | 3.7% | 672 | 65.9% [62.3, 69.4] |
+| russian | 6.6% | 1,197 | 64.6% [61.8, 67.2] |
+| polish | ~1% | 341 | 64.5% [59.3, 69.4] |
+| japanese | 63% of one game | 342 | 64.0% [58.8, 68.9] |
+| **schinese** | **15.5%** | **2,088** | **63.9% [61.9, 66.0]** |
+| **koreana** | 1.9% | 365 | **59.5% [54.3, 64.4]** |
+
+So it is not unmeasured and it is not fine. German, French and Turkish match English or beat
+it. **Simplified Chinese is 6.5 points below English on intervals that do not overlap, and
+Korean is eleven below.** Chinese is one review in six of the whole library: the second-largest
+language in the corpus is read measurably worse than the first, and no report page says so.
+
+The protocol draws "roughly seven claims in ten English" deliberately, so the set is not
+inherited from whichever language a corpus happens to favour. That was decided when the library
+was smaller and never re-examined against what it grew into: **the library is 52.5% English and
+the reference set is 71%.** The deficit tracks it. This is a training-data problem before it is
+anything else, and the fix competes with the mined draw for the same labeller quota, which is
+the first time languages and starved subjects have wanted the same resource.
+
+The lesson about method is worth as much as the finding: the answer to "we have no evidence
+about X" was a directory of logits that had been sitting there for four days, written for a
+different question. Before spending a resource that cannot be spent twice, check what the last
+measurement already paid for.
 
 ## The corpus stopped being a corpus of games people like
 

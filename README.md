@@ -296,8 +296,9 @@ lets the set report its own reliability rather than only its agreement with a cl
 The mix of languages is chosen rather than inherited. A corpus is whatever languages its
 players happen to write in, and drawing straight from it would train the model mostly on
 whichever one that is. Roughly seven claims in ten are English and the rest are drawn from
-everything else the corpus holds, so the model holds up in the languages the reports do not
-default to.
+everything else the corpus holds, so the model is trained on the languages the reports do not
+default to. Whether it reads them as well is a separate question, it is answered for four of
+them, and the limits below say what the answer is.
 
 The protocol is fixed so it can be repeated, and so a disagreement with it is about the method
 rather than about somebody's afternoon:
@@ -393,6 +394,46 @@ These rules keep those figures honest:
   says which set it is over, and switching the language recounts from the same capture. The
   reason for the default is that evidence nobody can read is evidence nobody can check, and
   being able to open a rate and read what is behind it is the whole design.
+
+- **The reader is measurably worse in seven of the languages it reads, and the library is only
+  half English.** The library is **52.5% English** over 7.5 million reviews, with Simplified
+  Chinese at 15.5%, Russian at 6.6% and a long tail after that. The reference set drawn to
+  stand for it is 71% English: a fifth more English than the corpus it speaks about, which was
+  a readability choice made when the library was smaller and never re-examined.
+
+  Measured over 32,339 claims held out by cross-validation, each answered by a model that never
+  trained on the game it came from (`training/language.py`):
+
+  | | claims | agreement | 95% interval |
+  |---|---|---|---|
+  | english | 22,989 | 70.4% | [69.8, 71.0] |
+  | german | 1,224 | 72.2% | [69.6, 74.7] |
+  | french | 810 | 72.2% | [69.0, 75.2] |
+  | turkish | 399 | 71.7% | [67.1, 75.9] |
+  | brazilian | 642 | 66.0% | [62.3, 69.6] |
+  | spanish | 672 | 65.9% | [62.3, 69.4] |
+  | russian | 1,197 | 64.6% | [61.8, 67.2] |
+  | polish | 341 | 64.5% | [59.3, 69.4] |
+  | japanese | 342 | 64.0% | [58.8, 68.9] |
+  | **schinese** | **2,088** | **63.9%** | **[61.9, 66.0]** |
+  | **koreana** | **365** | **59.5%** | **[54.3, 64.4]** |
+
+  German, French and Turkish match English or beat it. **Simplified Chinese is 6.5 points below
+  it on intervals that do not overlap, and Korean is eleven points below.** Chinese is one
+  review in six of the library, so this is not a tail case: it is the second-largest language
+  in the corpus, read worse than the first, and nothing on a report page currently says so.
+  Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
+  the same picture.
+
+  Twelve of the twenty-nine languages have fewer than a hundred held-out claims and are not
+  quotable at all. Of the 52 games read, three have a commonest language that is not English,
+  and one of them is 63% Japanese.
+
+  Two things follow, and only one of them is fixed. A rate over a mostly-Chinese or
+  mostly-Korean corpus is worth less than the same rate over an English one, and this file now
+  says so. The tool itself does not yet say it on the page, and the deficit is a training-data
+  problem rather than a measurement one: the reference set has to stop being 71% English before
+  the reader stops being better at English.
 
 - **The model declines claims it is not sure about, and those are counted rather than hidden.**
   A claim below the threshold gets no subject and is reported as unclassified. That is a real
