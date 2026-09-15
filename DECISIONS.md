@@ -314,6 +314,28 @@ now is not thereby cut correctly, and nothing here can see a claim a rule made w
 draw is the highest because it is fished for by lexical probe, which catches long sentences that
 name several things.
 
+Broken out by language, the same tool answers a question the pooled figure cannot, since four
+claims in five are English. **The splitter is not much worse outside English and is best on
+Japanese**, which has the least punctuation to work with and the most reason to be feared:
+
+| | called badly split | still cut that way |
+|---|---|---|
+| japanese | 17.4% | **5.2%** |
+| german | 11.7% | 7.5% |
+| koreana | 15.8% | 7.8% |
+| russian | 15.4% | 8.9% |
+| polish | **34.7%** | **9.0%** |
+| english | 14.6% | 9.8% |
+| schinese | 14.2% | 10.0% |
+| brazilian | 18.6% | 13.2% |
+| spanish | 15.9% | 14.2% |
+
+Polish is the reason to break it out at all. It was flagged at more than double every other
+language and is now below English: `claims-5` answered three quarters of what its labellers
+objected to. Spanish and Brazilian Portuguese are the two where the rate has barely moved, and
+they are the languages where the reading gap survives the hedged claims being dropped, which is
+a coincidence worth one look before it is believed.
+
 What survives is not punctuation. Of the 3,702 claims still cut the way they were objected to,
 2,249 (60.8%) hold no line break and at most one comma of any kind, and 1,695 (45.8%) join their
 clauses with "and", "but" or "although": "The story and graphics were outstanding" is two
@@ -1436,10 +1458,13 @@ Three different problems wearing one face, and they want different work:
 
 - **Korean, Chinese, Russian, Brazilian Portuguese: about half is labelling.** Korean's ten and
   a half points become five. What is left is real and smaller than it looked.
-- **Polish is the splitter.** Its `split_wrong` rate is **34.7%**, more than double every other
-  language, against a median claim of 33 characters. Two thirds of its gap disappears on
-  settled claims. Polish claims are being cut badly, not read badly, and no amount of labelling
-  or weighting touches that.
+- **Polish was the splitter, and the splitter is already fixed.** 34.7% of Polish claims were
+  flagged badly cut, more than double any other language. But that flag is what a labeller said
+  against the splitter of the day, and `stale-splits` broken out by language says only **9.0%
+  are still cut that way, below English's 9.8%**. `claims-5` fixed three quarters of it. What
+  survives is the labels: they were written on the bad cuts, at the highest low-confidence rate
+  of any language (27.3%), and two thirds of Polish's gap disappears once those hedged claims
+  are dropped. Polish needs its labels revisited, not its splitter touched.
 - **Japanese and Spanish are the reading.** They are the only languages whose gap *grows* when
   the doubtful claims are dropped. That is the model, and it is the case for weighting or for
   labels.
