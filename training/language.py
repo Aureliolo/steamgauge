@@ -65,13 +65,18 @@ def main() -> None:
     claim_index = np.concatenate([part["claim_index"] for part in parts])
 
     # The language lives with the label, not with the logits, so the two are joined on the claim
-    # the labeller was actually shown.
-    spoken = {
-        (claim.review_id, claim.claim_index): claim.language
-        for claim in claimdata.load(Path(args.data))
+    # the labeller was actually shown. The labeller's own doubt comes across with it, because a
+    # language the model reads badly and a language the labeller was unsure in look identical in
+    # an agreement figure and are not the same problem at all.
+    labelled = {
+        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(args.data))
     }
-    languages = np.array(
-        [spoken.get((str(rid), int(at)), "") for rid, at in zip(review_ids, claim_index)]
+    beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
+    languages = np.array([one.language if one else "" for one in beside])
+    # What the labeller was sure of: not contested, and not hedged. Scoring the reader against a
+    # label its author doubted measures the doubt as much as the reading.
+    settled = np.array(
+        [bool(one and not one.ambiguous and one.confidence == "high") for one in beside]
     )
     missing = int((languages == "").sum())
 
@@ -82,7 +87,14 @@ def main() -> None:
     print(f"{len(truth):,} out-of-fold claims over {len(subjects)} subjects")
     if missing:
         print(f"  {missing} carry no language in the label set and are left out")
-    print(f"\n{'language':12}{'claims':>8}{'share':>8}{'agreement':>11}{'95% interval':>20}")
+    print(
+        f"  {int(settled.sum()):,} were labelled without hedging "
+        f"({100 * settled.mean():.0f}%), which is the second column"
+    )
+    print(
+        f"\n{'language':12}{'claims':>8}{'share':>8}{'agreement':>11}{'95% interval':>20}"
+        f"{'settled only':>15}{'hedged':>9}"
+    )
 
     whole = int((languages != "").sum())
     rows = []
@@ -93,13 +105,16 @@ def main() -> None:
         total = int(mine.sum())
         hits = int(correct[mine].sum())
         low, high = wilson(hits, total)
-        rows.append((total, name, hits / total, low, high))
+        sure = mine & settled
+        clean = correct[sure].mean() if sure.any() else float("nan")
+        rows.append((total, name, hits / total, low, high, clean, 1.0 - sure.sum() / total))
 
-    for total, name, rate, low, high in sorted(rows, reverse=True):
+    for total, name, rate, low, high, clean, hedged in sorted(rows, reverse=True):
         thin = "" if total >= args.min_claims else "   thin"
         print(
             f"{name:12}{total:>8,}{100 * total / whole:>7.1f}%{100 * rate:>10.1f}%"
-            f"   [{100 * low:>5.1f}, {100 * high:>5.1f}]{thin}"
+            f"   [{100 * low:>5.1f}, {100 * high:>5.1f}]{100 * clean:>14.1f}%"
+            f"{100 * hedged:>8.0f}%{thin}"
         )
 
     enough = [row for row in rows if row[0] >= args.min_claims]
@@ -107,15 +122,31 @@ def main() -> None:
         f"\n{len(enough)} of {len(rows)} languages have {args.min_claims} claims or more; "
         f"the rest are listed for completeness and should not be quoted"
     )
-    if enough:
-        english = next((row for row in enough if row[1] == "english"), None)
-        if english:
-            worst = min(enough, key=lambda row: row[2])
-            best = max(enough, key=lambda row: row[2])
-            print(
-                f"against english at {100 * english[2]:.1f}%, the measured spread runs from "
-                f"{worst[1]} at {100 * worst[2]:.1f}% to {best[1]} at {100 * best[2]:.1f}%"
-            )
+    english = next((row for row in enough if row[1] == "english"), None)
+    if not english:
+        return
+    worst = min(enough, key=lambda row: row[2])
+    best = max(enough, key=lambda row: row[2])
+    print(
+        f"against english at {100 * english[2]:.1f}%, the measured spread runs from "
+        f"{worst[1]} at {100 * worst[2]:.1f}% to {best[1]} at {100 * best[2]:.1f}%"
+    )
+    # A gap that shrinks once the hedged claims are dropped was partly the labelling; one that
+    # survives is the reading. They want different work and the difference is not visible in an
+    # agreement figure, which is the whole reason this column exists.
+    print("\nhow much of each gap survives on the claims the labeller was sure of:")
+    for _, name, rate, _, _, clean, _ in sorted(enough, key=lambda row: row[2]):
+        if name == "english":
+            continue
+        whole_gap = 100 * (rate - english[2])
+        settled_gap = 100 * (clean - english[5])
+        if whole_gap >= 0:
+            continue
+        kept = settled_gap / whole_gap if whole_gap else 0.0
+        print(
+            f"  {name:11}{whole_gap:>6.1f} points against english, {settled_gap:>5.1f} once "
+            f"hedged claims are dropped ({100 * kept:.0f}% of it survives)"
+        )
 
 
 if __name__ == "__main__":

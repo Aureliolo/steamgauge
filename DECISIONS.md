@@ -1404,6 +1404,51 @@ the reference set is 71%.** The deficit tracks it. This is a training-data probl
 anything else, and the fix competes with the mined draw for the same labeller quota, which is
 the first time languages and starved subjects have wanted the same resource.
 
+### Half of that deficit is the labeller, not the reader
+
+The obvious reading of the table above is that the model is worse in those languages. Measured,
+it is not one thing. The labeller's own doubt travels with every claim: `ambiguous` when they
+called the boundary contested, `confidence: low` when they hedged. Scoring a reader against a
+label its author doubted measures the doubt as much as the reading, and the doubt is not spread
+evenly across languages.
+
+Across the eleven languages with enough claims, a language's hedging rate predicts its
+agreement almost exactly: **r = -0.78 between low-confidence rate and agreement, and -0.92 with
+Polish left out.** The labeller hedged on 67% of Korean and Japanese claims against 56% of
+German, French and Turkish.
+
+So the same measurement, restricted to the 40% of claims the labeller marked neither contested
+nor low-confidence:
+
+| | all claims | settled only | how much of the gap survives |
+|---|---|---|---|
+| english | 70.4% | 89.3% | |
+| tchinese | -5.1 | -1.2 | 24% |
+| polish | -5.9 | -2.0 | **34%** |
+| koreana | -10.9 | -5.1 | 47% |
+| brazilian | -4.3 | -2.4 | 56% |
+| schinese | -6.4 | -3.8 | 58% |
+| russian | -5.8 | -3.5 | 60% |
+| **japanese** | -6.3 | **-7.7** | **122%** |
+| **spanish** | -4.5 | **-6.3** | **143%** |
+
+Three different problems wearing one face, and they want different work:
+
+- **Korean, Chinese, Russian, Brazilian Portuguese: about half is labelling.** Korean's ten and
+  a half points become five. What is left is real and smaller than it looked.
+- **Polish is the splitter.** Its `split_wrong` rate is **34.7%**, more than double every other
+  language, against a median claim of 33 characters. Two thirds of its gap disappears on
+  settled claims. Polish claims are being cut badly, not read badly, and no amount of labelling
+  or weighting touches that.
+- **Japanese and Spanish are the reading.** They are the only languages whose gap *grows* when
+  the doubtful claims are dropped. That is the model, and it is the case for weighting or for
+  labels.
+
+One confound, stated rather than resolved: every label here was written by Claude Fable 5.1, so
+"the labeller was less sure in Korean" may mean those claims are genuinely harder or may mean
+that model is weaker in Korean. Nothing in this set separates the two, and a human adjudication
+of a non-English sample is the only thing that would.
+
 The lesson about method is worth as much as the finding: the answer to "we have no evidence
 about X" was a directory of logits that had been sitting there for four days, written for a
 different question. Before spending a resource that cannot be spent twice, check what the last

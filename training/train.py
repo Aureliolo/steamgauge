@@ -68,6 +68,7 @@ class Claims(Dataset):
         mark=False,
         balance=0.0,
         prefix=False,
+        language_balance=0.0,
     ):
         self.claims = claims
         self.ambiguous_weight = ambiguous_weight
@@ -87,6 +88,19 @@ class Claims(Dataset):
             commonest = max(counts.values()) if counts else 1
             self.balance = {
                 subject: (commonest / count) ** balance for subject, count in counts.items()
+            }
+        # The same dial for the language a claim is written in, and for the same reason. The
+        # set is 71% English against a library that is 52.5%, and the reader is measurably
+        # worse in Simplified Chinese and Korean than in English on evidence that does not
+        # overlap. A claim is a claim whichever language it is in; the loss did not think so.
+        self.language_balance = {}
+        if language_balance:
+            spoken = {}
+            for claim in claims:
+                spoken[claim.language] = spoken.get(claim.language, 0) + 1
+            commonest = max(spoken.values()) if spoken else 1
+            self.language_balance = {
+                name: (commonest / count) ** language_balance for name, count in spoken.items()
             }
         self.tokenizer = tokenizer
         self.subjects = {name: index for index, name in enumerate(subjects)}
@@ -190,7 +204,11 @@ class Claims(Dataset):
             weight *= self.ambiguous_weight
         if claim.split_wrong:
             weight *= self.split_wrong_weight
-        return weight * self.balance.get(claim.subject, 1.0)
+        return (
+            weight
+            * self.balance.get(claim.subject, 1.0)
+            * self.language_balance.get(claim.language, 1.0)
+        )
 
 
 class ClaimReader(torch.nn.Module):
@@ -462,6 +480,7 @@ def run(args) -> dict:
                 args.mark,
                 args.balance if name == "train" else 0.0,
                 args.prefix,
+                args.language_balance if name == "train" else 0.0,
             ),
             batch_size=args.batch_size,
             shuffle=name == "train",
@@ -603,6 +622,7 @@ def run(args) -> dict:
         "mark": args.mark,
         "prefix": args.prefix,
         "balance": args.balance,
+        "language_balance": args.language_balance,
         "ambiguous_weight": args.ambiguous_weight,
         "split_wrong_weight": args.split_wrong_weight,
         "polarity_weight": args.polarity_weight,
@@ -697,6 +717,15 @@ def parse():
         help="how hard to weight rare subjects up, as an exponent on the ratio between a "
         "subject's count and the commonest subject's. 0 is off, 1 is full inverse frequency, "
         "0.5 is the square root of it. Macro F1 is the figure this moves.",
+    )
+    parser.add_argument(
+        "--language-balance",
+        type=float,
+        default=0.0,
+        help="the same exponent for the language a claim is written in. The set is 71%% "
+        "English against a library that is 52.5%%, and the reader reads Simplified Chinese "
+        "and Korean measurably worse than English. `training/language.py` is the figure this "
+        "is meant to move.",
     )
     parser.add_argument(
         "--ambiguous-weight",
