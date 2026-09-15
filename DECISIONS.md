@@ -705,6 +705,36 @@ The interval printed beside a coverage figure is about 1.8 points, and it is the
 is the noise in scoring one finished model on 2,615 claims and says nothing about training the
 same thing again. A configuration has to clear **4.3 points** before it has changed anything.
 
+### Coverage and accuracy do not have the same noise, and one bar for both is wrong
+
+Every refusal in this document is gated on the same sentence: is the gap bigger than the seed
+spread? The spread being quoted was three seeds, at another learning rate, on a label set
+nineteen thousand claims smaller, and it was carried forward as "about two points" long after
+the configuration it described stopped being the one that ships. So it was measured again, on
+the configuration that ships and the labels it ships with: five seeds, nothing else changed.
+
+| seed | answered | agreement | macro F1 |
+|---|---|---|---|
+| 1 | 89.3% | 77.5% | 0.677 |
+| 2 | 89.7% | 77.6% | 0.673 |
+| 3 | 89.3% | 77.7% | 0.687 |
+| 4 | 90.4% | 78.1% | 0.686 |
+| 5 | **91.7%** | 77.4% | 0.677 |
+| | 2.42 points, sd 1.02 | **0.70 points, sd 0.27** | 1.39 points, sd 0.61 |
+
+Two points of coverage was right. **Seven tenths of a point of agreement was not**, and that is
+the finding: these two figures are quoted side by side, refused side by side, and they are not
+equally noisy. Coverage moves three and a half times as much. A bar wide enough for coverage,
+applied to agreement, throws away every real improvement smaller than three standard deviations,
+and this project has been refusing candidates on exactly that arithmetic. The gate is now two
+numbers, because it was always two questions.
+
+**Four seeds said 1.11 points and the fifth said 2.42.** The spread nearly doubled on the last
+run, which is what a spread estimated from a handful of samples does, and it is worth writing
+down next to the number it produced: five is enough to gate a decision on and not enough to
+quote to two decimal places. Anything relying on this being tighter than it is should be
+measured again with more.
+
 Worse than that, and found on 2026-09-12: **the seed is not the only thing that moves.** Two
 pairs in this sweep are the same configuration, the same seed, the same labels and the same
 trainer, run twice at different commits that did not touch `train.py`, and they land 2.1 and 1.8
@@ -1029,7 +1059,11 @@ set as it stood: nineteen thousand more than `wave9` had, and 2,200 of the 2,400
 teaching claims. The last 200, on 916440 and 949230, were labelled after the export when the
 labeller's quota came back, and they stay out of this reader: two hundred claims in thirty-eight
 thousand cannot move a figure whose noise bar is two points wide, and a retrain nobody could
-tell from a rerun is not a retrain. They are in the set for whatever trains next. Ten frozen
+tell from a rerun is not a retrain. Trained anyway on 2026-09-15, to check rather than assume:
+`wave12` answers 89.3% at 77.5% against this reader's 90.1% at 77.2%, which is inside the seed
+spread on both counts. Two hundred labels in thirty-eight thousand bought nothing measurable,
+as expected, and it cost seventeen minutes to stop guessing. They are in the set for whatever
+trains next. Ten frozen
 games, 5,266 labelled claims:
 
 | reader | labels | answered | agreement | macro F1 |
