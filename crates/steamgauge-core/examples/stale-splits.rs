@@ -26,6 +26,7 @@ struct Row {
     split_wrong: Option<bool>,
     app_id: u32,
     subset: Option<String>,
+    language: Option<String>,
 }
 
 /// Whether a claim holds nothing a splitter could have cut on.
@@ -80,6 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut missing = 0_usize;
     let mut by_game: HashMap<u32, (usize, usize)> = HashMap::new();
     let mut by_subset: HashMap<String, Tally> = HashMap::new();
+    let mut by_language: HashMap<String, Tally> = HashMap::new();
     let mut unreachable_by_punctuation = 0_usize;
     let mut joined = 0_usize;
     let mut shown = 0_usize;
@@ -90,10 +92,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .entry(row.subset.clone().unwrap_or_else(|| "unsaid".to_owned()))
             .or_default();
         subset.seen += 1;
+        let tongue = by_language
+            .entry(row.language.clone().unwrap_or_else(|| "unsaid".to_owned()))
+            .or_default();
+        tongue.seen += 1;
         if row.split_wrong != Some(true) {
             continue;
         }
         subset.flagged += 1;
+        tongue.flagged += 1;
         flagged += 1;
         let Some(review) = row.review.as_deref() else {
             missing += 1;
@@ -105,6 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             still += 1;
             entry.0 += 1;
             subset.still += 1;
+            tongue.still += 1;
             if no_punctuation_to_cut_on(&row.text) {
                 unreachable_by_punctuation += 1;
             }
@@ -150,13 +158,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     breakdown(by_subset, by_game);
+    // A splitter written against one language's punctuation can be much worse in another and
+    // never say so: the rate pooled over everything is four fifths a statement about English.
+    table("\nby language", by_language, 100);
     Ok(())
 }
 
 /// The rate one draw at a time, and the games with the most left to fix.
 fn breakdown(by_subset: HashMap<String, Tally>, by_game: HashMap<u32, (usize, usize)>) {
-    let mut draws: Vec<(String, Tally)> = by_subset.into_iter().collect();
+    table("", by_subset, 0);
+
+    let mut worst: Vec<(u32, (usize, usize))> = by_game.into_iter().collect();
+    worst.sort_by_key(|(_, (still, _))| std::cmp::Reverse(*still));
+    for (app_id, (still, gone)) in worst.into_iter().take(8) {
+        println!("  app {app_id}: {still} still, {gone} fixed");
+    }
+}
+
+/// One tally per row, commonest first, skipping rows too small to read.
+fn table(title: &str, tallies: HashMap<String, Tally>, floor: usize) {
+    let mut draws: Vec<(String, Tally)> = tallies
+        .into_iter()
+        .filter(|(_, tally)| tally.seen >= floor)
+        .collect();
     draws.sort_by_key(|(_, tally)| std::cmp::Reverse(tally.seen));
+    if !title.is_empty() {
+        println!("{title}");
+    }
     println!("\n            claims  called badly split  still cut that way");
     for (name, tally) in draws {
         #[expect(
@@ -172,11 +200,5 @@ fn breakdown(by_subset: HashMap<String, Tally>, by_game: HashMap<u32, (usize, us
             tally.still,
             share(tally.still),
         );
-    }
-
-    let mut worst: Vec<(u32, (usize, usize))> = by_game.into_iter().collect();
-    worst.sort_by_key(|(_, (still, _))| std::cmp::Reverse(*still));
-    for (app_id, (still, gone)) in worst.into_iter().take(8) {
-        println!("  app {app_id}: {still} still, {gone} fixed");
     }
 }
