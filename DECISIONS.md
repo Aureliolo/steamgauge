@@ -1439,6 +1439,12 @@ agreement almost exactly: **r = -0.78 between low-confidence rate and agreement,
 Polish left out.** The labeller hedged on 67% of Korean and Japanese claims against 56% of
 German, French and Turkish.
 
+The obvious objection is that hedging and mis-splitting travel together: a labeller handed a
+badly cut claim would hedge on it and flag the cut, so the correlation might be measuring the
+splitter of the day rather than the language. It is not. Dropping every claim anybody flagged
+as badly cut takes the hedging range from 14.5-27.3% down to 11.6-20.7% and leaves the
+correlation where it was, at **-0.80**.
+
 So the same measurement, restricted to the 40% of claims the labeller marked neither contested
 nor low-confidence:
 
