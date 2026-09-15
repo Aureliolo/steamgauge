@@ -296,8 +296,9 @@ lets the set report its own reliability rather than only its agreement with a cl
 The mix of languages is chosen rather than inherited. A corpus is whatever languages its
 players happen to write in, and drawing straight from it would train the model mostly on
 whichever one that is. Roughly seven claims in ten are English and the rest are drawn from
-everything else the corpus holds, so the model holds up in the languages the reports do not
-default to.
+everything else the corpus holds, so the model is trained on the languages the reports do not
+default to. Whether it reads them as well is a separate question, it is answered for four of
+them, and the limits below say what the answer is.
 
 The protocol is fixed so it can be repeated, and so a disagreement with it is about the method
 rather than about somebody's afternoon:
@@ -393,6 +394,36 @@ These rules keep those figures honest:
   says which set it is over, and switching the language recounts from the same capture. The
   reason for the default is that evidence nobody can read is evidence nobody can check, and
   being able to open a rate and read what is behind it is the whole design.
+
+- **How well the reader reads a language is measured for five of them, and the library is only
+  half English.** The frozen games hold 5,579 claims and 72% of them are English. The library
+  they are meant to stand for is **52.5% English** over 7.5 million reviews, with Simplified
+  Chinese at 15.5%, Russian at 6.6% and a long tail after that. The reference set is a fifth
+  more English than the corpus it is used to make claims about, which is a choice that was made
+  for readability and never re-examined against what the census actually turned out to hold.
+
+  What that leaves measured, on the frozen games:
+
+  | | claims | agreement | 95% interval |
+  |---|---|---|---|
+  | english | 4,017 | 74.0% | [72.6, 75.3] |
+  | russian | 291 | 68.0% | [62.5, 73.1] |
+  | schinese | 260 | 71.2% | [65.4, 76.3] |
+  | german | 191 | 81.2% | [75.0, 86.1] |
+  | polish | 166 | 77.7% | [70.8, 83.4] |
+
+  **Eighteen of the twenty-five languages in the set have fewer than a hundred claims**, and
+  below that the interval is wider than any difference worth reporting: Japanese has 55 claims
+  and an interval from 52.3% to 76.6%, which is compatible with the reader being much worse
+  than it is in English and with it being no different at all. So a report on a corpus that is
+  mostly Japanese, Korean, French or Turkish is produced by a reader whose accuracy there has
+  not been established, and the tool does not currently say so on the page. Of the 52 games
+  read, three have a commonest language that is not English, and one of them is 63% Japanese.
+
+  This is a gap in the evidence, not a known defect: the four non-English languages that are
+  measured sit between six points below English and seven above it, which is what one would
+  hope for from a multilingual encoder. It is stated here because a rate whose reliability is
+  unmeasured should say so rather than inherit the English figure by silence.
 
 - **The model declines claims it is not sure about, and those are counted rather than hidden.**
   A claim below the threshold gets no subject and is reported as unclassified. That is a real

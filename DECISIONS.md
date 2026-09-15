@@ -1361,6 +1361,39 @@ across thirty games, are left unlabelled on that measurement: at 1.6% net yield 
 about two labels, and the labeller slot they would take is worth a hundred on the mined draw.
 A revisit is for a subject that was born after its claims were labelled, and for nothing else.
 
+### The reference set is a fifth more English than the corpus it speaks for
+
+Found 2026-09-15, from the outside: another session asked whether a complaint in an English
+review of a 63%-Japanese game reflected the game or its translation, and answering it meant
+asking what the reader's Japanese is worth. The answer is that nobody knows.
+
+| | library | frozen claims | measured agreement |
+|---|---|---|---|
+| english | 52.5% | 4,017 (72%) | 74.0% [72.6, 75.3] |
+| schinese | 15.5% | 260 (4.7%) | 71.2% [65.4, 76.3] |
+| russian | 6.6% | 291 (5.2%) | 68.0% [62.5, 73.1] |
+| german | 3.7% | 191 (3.4%) | 81.2% [75.0, 86.1] |
+| polish | ~1% | 166 (3.0%) | 77.7% [70.8, 83.4] |
+| japanese | small overall, 63% of one game | **55 (1.0%)** | 65.5% **[52.3, 76.6]** |
+
+The protocol draws "roughly seven claims in ten English" deliberately, so that the set is not
+inherited from whichever language a corpus happens to favour. That choice was made when the
+library was smaller and never re-examined against what it grew into: **the library is 52.5%
+English and the evidence is 72%**. Simplified Chinese is one review in six of the corpus and
+one claim in twenty-one of the evidence.
+
+**Eighteen of the twenty-five languages have fewer than a hundred claims.** At that size the
+interval is wider than the effect: Japanese at 55 claims spans 52.3% to 76.6%, which cannot
+distinguish a reader that is fine from one that is ten points worse. Three of the 52 games read
+have a commonest language that is not English.
+
+Nothing here says the reader is bad at those languages. The four non-English languages that are
+measured land between six points below English and seven above, which is what a multilingual
+encoder should do. What it says is that a report on a mostly-Japanese corpus currently inherits
+the English figure by silence, and the honest fix is either evidence or a sentence on the page.
+The README carries the sentence as of this entry; the evidence needs labeller quota pointed at
+languages rather than at subjects, which is the first time those two have competed for it.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games
