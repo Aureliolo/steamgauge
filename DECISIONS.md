@@ -676,6 +676,7 @@ a day of work going quietly wrong.
 | `encoder-cost` | what does the processor half of a reading cost, and where inside it? |
 | `check-readings` | does every reading say what its own rows hold? |
 | `diff-readings` | where do two readings of the same corpus disagree, claim by claim? |
+| `find-claims` | does this corpus actually say a particular thing, how often, and in which language? |
 | `check-draws` | does a handout still name the claims this build cuts, before a labelling run is spent on it? |
 | `stale-splits` | how much of what labellers called a bad split does this build still split that way? |
 | `mine-check` | what is each fishing line for a starved subject actually catching? |
