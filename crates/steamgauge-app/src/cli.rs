@@ -531,6 +531,13 @@ enum Command {
         /// How many claims to draw blind.
         #[arg(long, default_value_t = 1000)]
         blind: usize,
+        /// How many claims both labellers already agreed about to mix in, indistinguishable
+        /// from the blind ones. The rest of the set measures the reader where the labellers
+        /// were unsure or working alone; without a few of these, nothing ever tests the
+        /// assumption everything else rests on, that two labellers agreeing means both were
+        /// right rather than both wrong the same way.
+        #[arg(long, default_value_t = 50)]
+        settled: usize,
         /// Which games' disagreements to include. The blind sample is always frozen, because
         /// that is what makes it a measurement; a disagreement measures nothing and settles a
         /// boundary, and a boundary settled on one game is settled for every game.
@@ -835,6 +842,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             reference,
             to,
             blind,
+            settled,
             splits,
             seed,
             language,
@@ -844,6 +852,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
         } => run_gold(
             reference,
             *blind,
+            *settled,
             (*splits).into(),
             *seed,
             language,
@@ -1493,13 +1502,14 @@ enum Delivery<'a> {
 fn run_gold(
     reference: &std::path::Path,
     blind: usize,
+    settled: usize,
     splits: steamgauge_core::gold::Splits,
     seed: u64,
     languages: &[String],
     delivery: Delivery<'_>,
 ) -> Result<()> {
     let (questions, found) =
-        steamgauge_core::gold::draw(reference, blind, splits, seed, languages)?;
+        steamgauge_core::gold::draw(reference, blind, settled, splits, seed, languages)?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1517,6 +1527,11 @@ fn run_gold(
         );
     }
     println!("blind      {} claims, no answer shown", found.blind);
+    println!(
+        "settled    {} of them are claims both labellers agreed about, mixed in and not \
+         marked, as a check on the labels themselves",
+        found.settled
+    );
     println!(
         "split      {} claims two labellers answered differently",
         found.split

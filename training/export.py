@@ -150,8 +150,15 @@ def crossed_the_line(wanted, got, lines, allowed: float) -> None:
         )
 
 
-def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
-    """One abstention threshold per subject, drawn from the cross-validation folds.
+def abstention_lines(
+    oof: str, data: str, subjects: list[str], min_accuracy: float, min_claims: int
+):
+    """One abstention threshold per subject and one per language, from the same folds.
+
+    A claim is answered only when it clears both. The subject line holds the promise for each
+    subject's own predictions and the language line holds it for each language's, and neither
+    carries the other: 71% of the set is English, so a line drawn per subject is a line drawn
+    mostly from English claims and every other language is marked against it.
 
     Fitted on every non-frozen game at once rather than leave-one-game-out, because this is the
     threshold that ships and it should see every claim there is. What a line is *worth* is a
@@ -179,13 +186,37 @@ def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
         line = most_coverage(confidence[mine], correct[mine], min_accuracy) if mine.any() else None
         lines.append(None if line is None else round(float(line), 4))
 
+    spoken = languages_of(Path(oof).glob("*.npz"), data)
+    by_language = {}
+    for name in sorted(set(spoken.tolist())):
+        if not name:
+            continue
+        mine = spoken == name
+        # A language with too little labelled evidence declines rather than borrowing the line
+        # its neighbours were given. Pooling is right on the subject axis, where the rare
+        # subjects share a reader; here it produced Indonesian answering three quarters of its
+        # eight claims at a third right, under a line fitted almost entirely on English.
+        if int(mine.sum()) < min_claims:
+            by_language[name] = None
+            continue
+        line = most_coverage(confidence[mine], correct[mine], min_accuracy)
+        by_language[name] = None if line is None else round(float(line), 4)
+
     # What those lines answer and agree on, over the same out-of-fold claims. The run record's
     # own coverage is at one threshold, and a reader that carries it describes a rule it does not
     # apply: every report of an unlabelled game prints these two figures as what its rates are
     # worth, and the warning for a corpus declined far more than usual is measured against them.
     at = np.array([np.inf if line is None else line for line in lines], dtype=float)
     mine = np.array([subjects.index(theirs[one]) for one in predicted])
-    answered = confidence >= at[mine]
+    # Both bars, because two promises made separately are not one promise made jointly. The
+    # per-subject line alone recovers 2.8 of the 11.1 points Korean loses and leaves the rest:
+    # a Korean prediction clears a bar drawn from English claims and is then wrong a third of
+    # the time, which is the same defect the per-subject line was introduced to fix.
+    spoken_at = np.array(
+        [np.inf if by_language.get(name) is None else by_language[name] for name in spoken],
+        dtype=float,
+    )
+    answered = (confidence >= at[mine]) & (confidence >= spoken_at)
     carried = {
         "games": int(len(set(app_ids.tolist()))),
         "claims": int(len(truth)),
@@ -196,7 +227,25 @@ def subject_lines(oof: str, subjects: list[str], min_accuracy: float):
         # saw. Whoever reads the figure should know which question it answers.
         "measured_on": "out-of-fold",
     }
-    return lines, carried
+    return lines, by_language, carried
+
+
+def languages_of(paths, data):
+    """Each out-of-fold claim's language, joined on the claim the labeller was shown.
+
+    The fold files carry the review and claim index for exactly this: the logits know nothing
+    about language and the label set knows nothing about the model.
+    """
+    import claimdata
+
+    parts = [np.load(path, allow_pickle=False) for path in sorted(paths)]
+    review_ids = np.concatenate([part["review_id"] for part in parts])
+    claim_index = np.concatenate([part["claim_index"] for part in parts])
+    labelled = {
+        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))
+    }
+    beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
+    return np.array([one.language if one else "" for one in beside])
 
 
 def macro_f1(predicted, truth, classes: int) -> float:
@@ -237,6 +286,15 @@ def main():
         "outright. Without this the reader carries the one threshold it always has.",
     )
     parser.add_argument("--min-accuracy", type=float, default=0.75)
+    parser.add_argument(
+        "--min-language-claims",
+        type=int,
+        default=100,
+        help="a language with fewer out-of-fold claims than this declines every claim rather "
+        "than being given a line. Below a hundred the interval on a fitted line is wider than "
+        "the promise it is meant to keep, and pooling instead put Indonesian on an English line "
+        "and had it answer eight claims at a third right.",
+    )
     args = parser.parse_args()
 
     # `runs/<name>` names a run of this project wherever the command was typed from, so a
@@ -397,10 +455,16 @@ def main():
     # declined far more than usual. That is the one number a reader of a new game's report
     # has no other way to get, and a corpus declined at twice the usual rate is a corpus about
     # something the taxonomy lacks.
-    lines, carried = (
-        subject_lines(args.lines_from, subjects, args.min_accuracy)
+    lines, by_language, carried = (
+        abstention_lines(
+            args.lines_from,
+            args.data,
+            subjects,
+            args.min_accuracy,
+            args.min_language_claims,
+        )
         if args.lines_from
-        else (None, None)
+        else (None, None, None)
     )
     at_one_line = record.get("test", {}).get("at_validation_threshold", {})
     if carried is None and at_one_line.get("coverage") is not None:
@@ -414,12 +478,17 @@ def main():
         }
     usual_declined = 1.0 - carried["coverage"] if carried else None
 
-    if lines is not None:
+    if lines is not None and by_language is not None:
         silent = [name for name, line in zip(subjects, lines) if line is None]
         drawn = sum(1 for line in lines if line is not None)
         print(f"lines      {drawn} of {len(subjects)} subjects have one")
         if silent:
             print(f"           silent: {', '.join(silent)}")
+        quiet = sorted(name for name, line in by_language.items() if line is None)
+        spoke = sum(1 for line in by_language.values() if line is not None)
+        print(f"languages  {spoke} of {len(by_language)} have one")
+        if quiet:
+            print(f"           silent: {', '.join(quiet)}")
         crossed_the_line(wanted, got, lines, allowed)
 
     (run / "reader.json").write_text(
@@ -429,6 +498,10 @@ def main():
                 "subjects": subjects,
                 "threshold": threshold,
                 "thresholds": lines,
+                # A language absent from this map has too little labelled evidence to promise
+                # anything and declines. Absent as a whole on a reader exported before the
+                # language axis existed, and then only the subject lines govern.
+                "language_thresholds": by_language,
                 "max_tokens": record["max_length"],
                 "context": record.get("context", False),
                 "mark": record.get("mark", False),

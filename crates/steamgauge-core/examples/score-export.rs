@@ -26,6 +26,7 @@ struct Row {
     review_offset: Option<usize>,
     subject: String,
     app_id: u32,
+    language: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 claim: &row.text,
                 review: row.review.as_deref().unwrap_or(&row.text),
                 at: row.review_offset.unwrap_or(0),
+                language: &row.language,
             };
             let windows = reader.windows_for(std::slice::from_ref(&asked));
             println!("CLAIM {:?}", row.text);
@@ -75,6 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 claim: &row.text,
                 review: row.review.as_deref().unwrap_or(&row.text),
                 at: row.review_offset.unwrap_or(0),
+                language: &row.language,
             })
             .collect();
         for (row, reading) in chunk.iter().zip(reader.read(&asked)?) {

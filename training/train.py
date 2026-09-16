@@ -441,6 +441,16 @@ def run(args) -> dict:
     np.random.seed(args.seed)
 
     claims = claimdata.load(args.data)
+    if args.only_language:
+        # Dropped before the split rather than inside the training half, so the frozen games
+        # are scored on the same languages they are taught: a model trained on English and
+        # measured on everything is being marked on a paper it never sat.
+        kept = [claim for claim in claims if claim.language in args.only_language]
+        print(
+            f"{len(kept)} of {len(claims)} claims are "
+            f"{' or '.join(args.only_language)}; the rest are dropped"
+        )
+        claims = kept
     train, validation, test = claimdata.split_by_game(
         claims, seed=args.split_seed, fold=args.fold, folds=args.folds
     )
@@ -460,6 +470,12 @@ def run(args) -> dict:
         print(f"training on {len(kept)} of the training games, by hash order")
 
     print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (frozen)")
+
+    if args.batch_size % args.accumulate:
+        raise SystemExit(
+            f"--batch-size {args.batch_size} does not divide into {args.accumulate} passes"
+        )
+    micro = args.batch_size // args.accumulate
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(args.backbone, trust_remote_code=True)
@@ -482,14 +498,15 @@ def run(args) -> dict:
                 args.prefix,
                 args.language_balance if name == "train" else 0.0,
             ),
-            batch_size=args.batch_size,
+            batch_size=micro if name == "train" else args.batch_size,
             shuffle=name == "train",
             num_workers=0,
         )
         for name, part in (("train", train), ("validation", validation), ("test", test))
     }
 
-    steps = len(loaders["train"]) * args.epochs
+    per_epoch = math.ceil(len(loaders["train"]) / args.accumulate)
+    steps = per_epoch * args.epochs
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
     schedule = get_linear_schedule_with_warmup(optimiser, int(steps * 0.1), steps)
     scaler = torch.amp.GradScaler(device, enabled=device == "cuda")
@@ -506,8 +523,9 @@ def run(args) -> dict:
     for epoch in range(args.epochs):
         model.train()
         running = 0.0
+        taken = 0
+        optimiser.zero_grad(set_to_none=True)
         for step, batch in enumerate(loaders["train"]):
-            optimiser.zero_grad(set_to_none=True)
             with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
                 subject, polarity, _ = model(
                     batch["input_ids"].to(device), batch["attention_mask"].to(device)
@@ -520,16 +538,26 @@ def run(args) -> dict:
                     polarity, batch["polarity"].to(device), reduction="none"
                 )
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
-            scaler.scale(loss).backward()
+            scaler.scale(loss / args.accumulate).backward()
+            running += float(loss.detach())
+
+            # The gradient is only whole once every pass of the batch has contributed, and
+            # clipping a partial one would clip a different quantity than the batch's own norm.
+            if (step + 1) % args.accumulate and step + 1 < len(loaders["train"]):
+                continue
             scaler.unscale_(optimiser)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimiser)
             scaler.update()
             schedule.step()
-            running += float(loss.detach())
-            if step % 50 == 0:
+            optimiser.zero_grad(set_to_none=True)
+            taken += 1
+            # Counted in optimiser steps rather than passes: every pass that is not the last of
+            # its batch has already gone back to the top, so a count of those reports progress
+            # only on the passes this line never sees.
+            if taken % 50 == 1:
                 print(
-                    f"  epoch {epoch + 1} step {step}/{len(loaders['train'])} "
+                    f"  epoch {epoch + 1} step {taken}/{per_epoch} "
                     f"loss {running / (step + 1):.4f}",
                     flush=True,
                 )
@@ -615,6 +643,7 @@ def run(args) -> dict:
         "backbone": args.backbone,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
+        "accumulate": args.accumulate,
         "learning_rate": args.learning_rate,
         "max_length": args.max_length,
         "context": args.context,
@@ -623,6 +652,7 @@ def run(args) -> dict:
         "prefix": args.prefix,
         "balance": args.balance,
         "language_balance": args.language_balance,
+        "only_language": args.only_language,
         "ambiguous_weight": args.ambiguous_weight,
         "split_wrong_weight": args.split_wrong_weight,
         "polarity_weight": args.polarity_weight,
@@ -662,6 +692,15 @@ def parse():
     parser.add_argument("--backbone", default="xlm-roberta-base")
     parser.add_argument("--epochs", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--accumulate",
+        type=int,
+        default=1,
+        help="split each batch into this many passes before the optimiser steps. The batch the "
+        "model learns from is unchanged, so a run that will not fit on the card at a longer "
+        "window stays comparable with one that does; halving the batch instead would move two "
+        "things at once and answer neither.",
+    )
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--polarity-weight", type=float, default=0.5)
@@ -717,6 +756,14 @@ def parse():
         help="how hard to weight rare subjects up, as an exponent on the ratio between a "
         "subject's count and the commonest subject's. 0 is off, 1 is full inverse frequency, "
         "0.5 is the square root of it. Macro F1 is the figure this moves.",
+    )
+    parser.add_argument(
+        "--only-language",
+        action="append",
+        default=[],
+        help="train and measure on these languages alone, repeated once per language. For "
+        "answering whether the multilingual half of the set costs the English half anything, "
+        "which is a question about what to ship rather than a way to ship it.",
     )
     parser.add_argument(
         "--language-balance",

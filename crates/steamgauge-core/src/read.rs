@@ -481,17 +481,21 @@ pub fn read_corpus(
 /// rather than by the review's id, which keeps the saving wherever a review was written twice
 /// and is where most of a corpus's repetition is: "Great game." is a whole review thousands of
 /// times over.
-fn key(context: bool, review: &[u8; 32], index: usize, claim: &str) -> [u8; 32] {
-    if context {
-        use sha2::{Digest, Sha256};
+fn key(context: bool, review: &[u8; 32], index: usize, claim: &str, language: &str) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
 
-        let mut hasher = Sha256::new();
+    let mut hasher = Sha256::new();
+    if context {
         hasher.update(review);
         hasher.update(index.to_le_bytes());
-        hasher.finalize().into()
     } else {
-        crate::embed::sha256_bytes(claim)
+        hasher.update(claim.as_bytes());
     }
+    // The language is part of the question now that the abstention line is drawn per language:
+    // "10/10" in a Russian review and the same two characters in an English one clear different
+    // bars, and a cache keyed on the text alone would hand the first answer to the second.
+    hasher.update(language.as_bytes());
+    hasher.finalize().into()
 }
 
 /// What two copies of one review have in common and two different reviews never do.
@@ -513,6 +517,7 @@ struct Queued {
     claim: String,
     review: Arc<str>,
     at: usize,
+    language: Arc<str>,
 }
 
 impl Queued {
@@ -521,6 +526,7 @@ impl Queued {
             claim: &self.claim,
             review: &self.review,
             at: self.at,
+            language: &self.language,
         }
     }
 }
@@ -598,13 +604,14 @@ fn read_and_count(
         } else {
             Arc::clone(&nothing)
         };
+        let language: Arc<str> = Arc::from(row.language.as_str());
         let mut spans = Vec::with_capacity(claims.len());
         let mut at = 0;
         for (index, claim) in claims.iter().enumerate() {
             let starts = at;
             at += claim.len() + 1;
             spans.push((starts, starts + claim.len()));
-            let key = key(context, &fingerprint, index, claim);
+            let key = key(context, &fingerprint, index, claim, &language);
             if answers.contains_key(&key) {
                 continue;
             }
@@ -616,6 +623,7 @@ fn read_and_count(
                 claim: claim.to_string(),
                 review: Arc::clone(&review),
                 at: starts,
+                language: Arc::clone(&language),
             });
             if window.len() >= LENGTH_WINDOW {
                 drain(model, options.batch_size, &mut window, &mut answers)?;
@@ -732,6 +740,7 @@ fn judge(
     claims: &[&str],
     review: &[u8; 32],
     context: bool,
+    language: &str,
     answers: &HashMap<[u8; 32], Reading>,
 ) -> Verdict {
     let mut praise = vec![false; CORE_SPINE.len()];
@@ -742,7 +751,7 @@ fn judge(
     let mut unclassified = 0;
 
     for (index, claim) in claims.iter().enumerate() {
-        let Some(reading) = answers.get(&key(context, review, index, claim)) else {
+        let Some(reading) = answers.get(&key(context, review, index, claim, language)) else {
             unclassified += 1;
             continue;
         };
@@ -843,7 +852,13 @@ impl Counting {
         }
 
         let pieces = review.claims();
-        let verdict = judge(&pieces, &review.fingerprint, context, answers);
+        let verdict = judge(
+            &pieces,
+            &review.fingerprint,
+            context,
+            &row.language,
+            answers,
+        );
         self.claims += verdict.claims as u64;
         self.unclassified += verdict.unclassified as u64;
         if verdict.subjects.is_empty() {
@@ -886,7 +901,13 @@ impl Counting {
             }
         }
         for (index, claim) in pieces.iter().enumerate() {
-            let reading = answers.get(&key(context, &review.fingerprint, index, claim));
+            let reading = answers.get(&key(
+                context,
+                &review.fingerprint,
+                index,
+                claim,
+                &row.language,
+            ));
             if let Some(reading) = reading
                 && let Some(subject) = reading.subject
             {
@@ -1198,28 +1219,56 @@ mod tests {
     fn the_same_claim_is_one_question_alone_and_one_per_review_in_context() {
         let (short, long) = (review_key("Great game."), review_key("Great game. Buy it."));
         let (a, b) = (
-            key(false, &short, 0, "Great game."),
-            key(false, &long, 3, "Great game."),
+            key(false, &short, 0, "Great game.", "english"),
+            key(false, &long, 3, "Great game.", "english"),
         );
         assert_eq!(a, b, "read alone, a repeated claim is asked once");
 
         let (a, b) = (
-            key(true, &short, 0, "Great game."),
-            key(true, &long, 3, "Great game."),
+            key(true, &short, 0, "Great game.", "english"),
+            key(true, &long, 3, "Great game.", "english"),
         );
         assert_ne!(
             a, b,
             "read in context, the same words in two different reviews are two questions"
         );
         assert_eq!(
-            key(true, &short, 0, "Great game."),
-            key(true, &review_key("Great game."), 0, "Great game."),
+            key(true, &short, 0, "Great game.", "english"),
+            key(
+                true,
+                &review_key("Great game."),
+                0,
+                "Great game.",
+                "english"
+            ),
             "two copies of one review give one window, so they are one question"
         );
         assert_eq!(
             a,
-            key(true, &short, 0, "whatever the splitter now calls it"),
+            key(
+                true,
+                &short,
+                0,
+                "whatever the splitter now calls it",
+                "english"
+            ),
             "filed by the review rather than the claim, so both passes agree however it reads"
+        );
+    }
+
+    #[test]
+    fn one_claim_in_two_languages_is_two_questions() {
+        let alone = review_key("10/10");
+        assert_ne!(
+            key(false, &alone, 0, "10/10", "english"),
+            key(false, &alone, 0, "10/10", "russian"),
+            "the abstention line is drawn per language, so the same two characters clear \
+             different bars and a cache keyed on the text alone would answer one with the other"
+        );
+        assert_ne!(
+            key(true, &alone, 0, "10/10", "english"),
+            key(true, &alone, 0, "10/10", "russian"),
+            "a window read in two languages is two questions for the same reason"
         );
     }
 

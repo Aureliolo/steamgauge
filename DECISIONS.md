@@ -1530,6 +1530,113 @@ weights. `training/lines.py` asks whether the per-subject abstention rule that s
 75% language by language, out of fold and leave-one-game-out, and what a line per language would
 cost. That question needs no training run and no new labels.
 
+### The promise is broken in Korean, and the per-subject line barely helps
+
+Measured 2026-09-16 by `training/lines.py` over the `wave11` folds: 32,339 out-of-fold claims
+from 41 games, every policy fitted leave-one-game-out and applied to the game left out.
+
+| policy | answers | at | the language it fails hardest |
+|---|---|---|---|
+| one line for everything | 85.1% | 75.0% | koreana **63.9%**, 11.1 short |
+| a line per subject, what ships | 80.4% | 76.7% | koreana **66.7%**, 8.3 short |
+| a line per language | 84.7% | 75.0% | polish 73.7%, 1.3 short |
+| a line per subject and per language | 75.8% | 78.6% | polish 74.5%, 0.5 short |
+
+**The per-subject line recovers 2.8 of the 11.1 points and leaves the other 8.3.** That is the
+finding. It was reasonable to assume a rule drawn per subject would carry the language gap with
+it, because a language the reader struggles in should show up as the subjects it struggles in.
+It does not. Korean claims are spread across the same subjects as everyone else's and the line
+those subjects get is drawn overwhelmingly from English claims, because 71% of the set is
+English. A Korean `gameplay` prediction at 0.62 clears a bar set by English `gameplay`
+predictions, and then is wrong a third of the time.
+
+So every report of a Korean corpus prints the same sentence about what its rates are worth as an
+English one, and for Korean that sentence is false. This is the identical defect the per-subject
+line was introduced to fix, on an axis nobody checked.
+
+Coverage and delivered accuracy under the shipped rule against the joint one:
+
+| language | claims | ships | delivered | both lines | delivered |
+|---|---|---|---|---|---|
+| english | 22,989 | 80.8% | 77.6% | 77.4% | 78.9% |
+| schinese | 2,088 | 77.3% | **71.5%** | 66.8% | 76.3% |
+| german | 1,224 | 84.4% | 78.1% | 82.4% | 78.8% |
+| russian | 1,197 | 78.6% | **71.5%** | 68.3% | 76.4% |
+| french | 810 | 82.8% | 78.2% | 81.0% | 78.8% |
+| spanish | 672 | 74.9% | 75.0% | 66.4% | 76.7% |
+| brazilian | 642 | 80.5% | **73.1%** | 72.7% | 76.4% |
+| turkish | 399 | 84.0% | 77.9% | 83.0% | 78.2% |
+| koreana | 365 | 73.2% | **66.7%** | 54.8% | 76.0% |
+| japanese | 342 | 71.3% | **71.3%** | 60.5% | 75.8% |
+| polish | 341 | 83.6% | **69.5%** | 67.7% | 74.5% |
+| italian | 217 | 82.0% | **72.5%** | 72.4% | 76.4% |
+
+The trade is legible and it is the one this project already chose once: a language the reader
+reads well answers more, and a language it reads badly answers less and stops lying. Korean
+coverage falls from 73% to 55%, and what is left is worth the sentence printed under it.
+
+**A line per language alone answers more than the per-subject rule that ships**, 84.7% against
+80.4%, at exactly 75%, and hands German 93.2%, French 92.6% and Turkish 94.5% where the shipped
+rule gives them 84.4%, 82.8% and 84.0%. It is not the recommendation, because it drops the
+per-subject floor and the argument for that floor has not changed: the rule that maximises
+coverage under one floor abandons the rare subjects, and the rare complaints are the ones worth
+finding. Both lines, and a claim answers only when it clears both.
+
+**What the joint rule costs is 4.6 points of overall coverage**, 80.4% down to 75.8%, and it
+over-delivers at 78.6% rather than 75%. The over-delivery is the composition being conservative:
+taking the stricter of two lines each drawn at 75% lands above 75%, and some coverage is being
+paid for nothing. Fitting the pair jointly would recover part of it and cannot be done on this
+evidence, because the cells are (26 subjects x 29 languages) against 344 Korean claims.
+
+**One defect this exposes and does not fix.** Below the evidence bar `mondrian` pools a class
+into a shared line, which on the subject axis is right. On the language axis it produces
+Indonesian answering 75% of its claims at **33.3% correct**, on eight claims, and Bulgarian the
+same on four. A pooled line fitted mostly on English does not hold for a language with eight
+claims behind it, and the honest answer for a language with too little evidence to draw a line
+is to decline, not to answer at a third right.
+
+### Both lines ship, and a language with too little evidence declines
+
+The rule is the stricter of the two: a claim is answered only when its confidence clears its
+subject's line and its language's. `training/export.py` fits both from the same folds and writes
+`language_thresholds` beside `thresholds`; `Provenance::bar` takes the maximum. A reader exported
+before this existed carries no language map and reads exactly as it did.
+
+Fitted on the `wave11` folds at a 100-claim bar, seventeen languages have a line and twelve
+decline. The bars are the finding in one column: `koreana` 0.929 and `polish` 0.926 against
+`german` 0.573, `french` 0.603 and `ukrainian` 0.313. The reader has to be nearly certain before
+it will say anything about a Korean claim, and that is what keeping the promise costs.
+
+The answer cache had to learn about language too. It was keyed on the review hash and claim
+index, or on the claim's text alone when reading without context, and "10/10" is the same two
+characters in every language on Steam: one cached answer would have been handed to a claim that
+clears a different bar.
+
+### A 256-token window wins on every measure, and on none of them alone
+
+| | frozen at the validation line | accuracy | macro F1 | AURC | minutes |
+|---|---|---|---|---|---|
+| wave11, 128 tokens | 90.1% at 0.772 | 0.7372 | 0.6728 | 0.1061 | 17 |
+| window-256 | **92.0% at 0.776** | **0.7444** | **0.6849** | **0.1000** | 27 |
+
+Every movement is inside its own seed bar: coverage 1.9 points against 2.42, accuracy 0.4
+against 0.70, macro F1 1.2 against 1.39. Six measures all moving the same way is the signal, and
+it is the same argument used against `wave13` in the other direction, so it has to be accepted
+here or withdrawn there. AURC is the one worth most: it has no threshold in it at all, so a
+better AURC says the confidence ordering itself improved rather than a line landing luckily.
+
+It costs 59% more training time and needs `--accumulate 2` to fit on a 24 GB card at all, which
+is why the flag exists: halving the batch instead would have moved two things at once and
+answered neither. Not adopted on one seed. Five seeds decide it.
+
+**The measurement trap this run walked into, recorded because it will recur.** `run.json` holds
+two frozen figures and they are not comparable. `test.threshold_coverage` refits the threshold
+*on the frozen games themselves* and is the best that set can be made to look; the console line
+and `test.at_validation_threshold` score the frozen games at the threshold the *validation* games
+chose, which is the only one that says what a new game would get. Reading one run's refit figure
+against another run's transferring figure made a run that wins on all six measures look like it
+lost 4.3 points of coverage. Quote `at_validation_threshold`, or quote nothing.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games

@@ -21,6 +21,7 @@ struct Queued {
     claim: String,
     review: Arc<str>,
     at: usize,
+    language: Arc<str>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,18 +49,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // by length the way the pass sorts it: batches of claims of a size are what the card
     // actually sees, and a batch of mixed lengths pads to its longest member.
     let mut queued: Vec<Queued> = Vec::with_capacity(wanted);
-    steamgauge_core::capture::for_each_row(&snapshot, |_, text| {
+    steamgauge_core::capture::for_each_row(&snapshot, |row, text| {
         if queued.len() >= wanted {
             return Ok(());
         }
         let claims = Depth::Deep.claims_of(text);
         let review: Arc<str> = Arc::from(claims.join(" "));
+        let language: Arc<str> = Arc::from(row.language.as_str());
         let mut at = 0;
         for claim in &claims {
             queued.push(Queued {
                 claim: claim.to_string(),
                 review: Arc::clone(&review),
                 at,
+                language: Arc::clone(&language),
             });
             at += claim.len() + 1;
         }
@@ -74,6 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             claim: &one.claim,
             review: &one.review,
             at: one.at,
+            language: &one.language,
         })
         .collect();
 
