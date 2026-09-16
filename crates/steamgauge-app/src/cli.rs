@@ -539,6 +539,14 @@ enum Command {
         /// Changing this draws a different blind sample. The same seed draws the same one.
         #[arg(long, default_value_t = 1)]
         seed: u64,
+        /// Only ask about claims in these languages, repeated once per language. A person
+        /// cannot adjudicate a language they do not read, and a question they cannot answer is
+        /// worse than one never asked: it lands in the count and whatever they put is noise in
+        /// the one label here allowed to be called truth. Restricting it makes the sample a
+        /// random sample of those languages rather than of the corpus, and every figure from
+        /// it has to say so.
+        #[arg(long)]
+        language: Vec<String>,
         /// Serve the page from this machine instead of writing it, so every answer lands on
         /// disk as it is made. Opened as a file, the page keeps answers in the browser and
         /// only the Export button gets them out, which puts a thousand questions of somebody's
@@ -829,6 +837,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             blind,
             splits,
             seed,
+            language,
             serve,
             answers,
             port,
@@ -837,6 +846,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             *blind,
             (*splits).into(),
             *seed,
+            language,
             if *serve {
                 Delivery::Served {
                     answers,
@@ -1485,18 +1495,27 @@ fn run_gold(
     blind: usize,
     splits: steamgauge_core::gold::Splits,
     seed: u64,
+    languages: &[String],
     delivery: Delivery<'_>,
 ) -> Result<()> {
-    let (questions, found) = steamgauge_core::gold::draw(reference, blind, splits, seed)?;
+    let (questions, found) =
+        steamgauge_core::gold::draw(reference, blind, splits, seed, languages)?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
             reference.display()
         );
     }
-    let page = steamgauge_core::gold::render(&questions, found);
+    let page = steamgauge_core::gold::render(&questions, &found);
 
     println!("games      {} frozen", found.games);
+    if !languages.is_empty() {
+        println!(
+            "languages  {} only, so every figure from this is about {} rather than the corpus",
+            languages.join(" and "),
+            languages.join(" and ")
+        );
+    }
     println!("blind      {} claims, no answer shown", found.blind);
     println!(
         "split      {} claims two labellers answered differently",

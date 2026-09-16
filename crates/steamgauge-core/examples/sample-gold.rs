@@ -84,8 +84,9 @@ fn main() {
         split: 1,
         games: 8,
         agreed: 244,
+        languages: Vec::new(),
     };
 
-    std::fs::write(&to, render(&questions, found)).expect("the page could not be written");
+    std::fs::write(&to, render(&questions, &found)).expect("the page could not be written");
     println!("{to}");
 }

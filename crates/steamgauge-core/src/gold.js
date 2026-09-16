@@ -20,6 +20,9 @@
   var at = firstUnanswered();
   var notice = "";
   var kept = SERVED ? "saved" : "";
+  // When the question now on screen was put there, so an answer can record how long it took.
+  var shownAt = Math.floor(Date.now() / 1000);
+  var showing = -1;
 
   function load() {
     try {
@@ -220,6 +223,12 @@
 
   function render() {
     if (at >= questions.length) return renderDone();
+    // Only when the question changes: a redraw after each keypress would reset the clock and
+    // every claim would look like it took as long as its last answer.
+    if (at !== showing) {
+      showing = at;
+      shownAt = Math.floor(Date.now() / 1000);
+    }
     var question = questions[at];
     var mine = answers[keyOf(question)] || {};
 
@@ -406,8 +415,14 @@
       app_id: question.app_id,
       review_id: question.review_id,
       index: question.index,
+      // When the question was first put in front of somebody and when they last touched it.
+      // Two claims a second is somebody clicking through rather than reading, and a rate is
+      // also the only honest way to cost this work before asking anybody to be paid for it.
+      shown_at: shownAt,
+      answered_at: 0,
     };
     mine[field] = value;
+    mine.answered_at = Math.floor(Date.now() / 1000);
     answers[key] = mine;
     save();
     // Moving on the moment both halves of an answer exist is what makes fourteen hundred
@@ -435,6 +450,22 @@
         set(question, "polarity", button.getAttribute("data-tone"));
       };
     });
+    // A long review opens at its top and the claim can be anywhere in it, so without this the
+    // reader hunts for the highlight before they can start. Centred rather than scrolled just
+    // into view, because a claim resting against the bottom edge of the box is read with no
+    // idea what follows it, and what follows it is half of why the review is here at all.
+    var highlight = app.querySelector(".review mark");
+    if (highlight) {
+      var box = highlight.parentNode;
+      // Measured as rectangles rather than offsets: `offsetTop` is relative to the nearest
+      // positioned ancestor, the review box is not one, and the difference is the whole page.
+      var seen = highlight.getBoundingClientRect();
+      var frame = box.getBoundingClientRect();
+      box.scrollTop = Math.max(
+        0,
+        box.scrollTop + (seen.top - frame.top) - box.clientHeight / 2 + seen.height / 2
+      );
+    }
     var mine = answers[keyOf(question)] || {};
     var ambiguous = document.getElementById("ambiguous");
     if (ambiguous) ambiguous.onclick = function () { set(question, "ambiguous", !mine.ambiguous); };
