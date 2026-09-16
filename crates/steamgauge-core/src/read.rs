@@ -335,6 +335,13 @@ pub struct ReadReport {
     #[serde(default)]
     pub said: Vec<crate::said::SaidAbout>,
     pub languages: Vec<(String, u64)>,
+    /// The languages in this corpus the reader has no line for, and the reviews written in
+    /// them. Those reviews are read and declined in full, so without this the page shows a
+    /// corpus declined far above the usual rate and offers no reason: the reason is that the
+    /// reference set holds too few claims in that language to promise anything, which is a
+    /// fact about the labels rather than about the game.
+    #[serde(default)]
+    pub unread_languages: Vec<(String, u64)>,
     /// What was said month by month, oldest first.
     pub months: Vec<Month>,
     #[serde(skip)]
@@ -649,7 +656,10 @@ fn read_and_count(
     drain(model, options.batch_size, &mut window, &mut answers)?;
     settle(&mut pending, &mut counting, context, &answers, on_progress)?;
     let forward_passes = answers.len() as u64;
-    Ok((counting.finish(app_id, options)?, forward_passes))
+    Ok((
+        counting.finish(app_id, options, model.provenance())?,
+        forward_passes,
+    ))
 }
 
 /// Counts every review whose answers are in, and says how far the walk has got.
@@ -931,7 +941,12 @@ impl Counting {
         Ok(())
     }
 
-    fn finish(mut self, app_id: u32, options: &ReadOptions) -> Result<ReadReport> {
+    fn finish(
+        mut self,
+        app_id: u32,
+        options: &ReadOptions,
+        provenance: &crate::reader::Provenance,
+    ) -> Result<ReadReport> {
         if self.rows.len() > 0 {
             let batch = self.rows.take(&self.schema)?;
             self.writer.write(&batch)?;
@@ -947,6 +962,11 @@ impl Counting {
 
         let mut ranked: Vec<(String, u64)> = self.languages.into_iter().collect();
         ranked.sort_by_key(|(name, count)| (std::cmp::Reverse(*count), name.clone()));
+        let unread: Vec<(String, u64)> = ranked
+            .iter()
+            .filter(|(name, _)| provenance.line_for_language(name).is_infinite())
+            .cloned()
+            .collect();
         let mut months: Vec<Month> = self.calendar.into_values().collect();
         months.sort_by(|left, right| left.label.cmp(&right.label));
 
@@ -998,6 +1018,7 @@ impl Counting {
                     .collect::<Vec<_>>(),
             ),
             languages: ranked,
+            unread_languages: unread,
             months,
             elapsed: Duration::default(),
         })
@@ -1346,6 +1367,7 @@ mod tests {
             subjects: Vec::new(),
             said: Vec::new(),
             languages: Vec::new(),
+            unread_languages: Vec::new(),
             months: Vec::new(),
             elapsed: Duration::ZERO,
         };

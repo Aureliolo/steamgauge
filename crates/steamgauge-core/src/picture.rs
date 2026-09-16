@@ -230,6 +230,7 @@ mod tests {
             subjects,
             said,
             languages: Vec::new(),
+            unread_languages: Vec::new(),
             months: Vec::new(),
             elapsed: std::time::Duration::ZERO,
         }

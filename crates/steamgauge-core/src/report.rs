@@ -779,6 +779,7 @@ mod tests {
                     .collect(),
                 said: Vec::new(),
                 languages: Vec::new(),
+                unread_languages: Vec::new(),
                 months: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
             },

@@ -1613,6 +1613,35 @@ fn languages(out: &mut String, app: &AppReport) {
         percent(not_english)
     );
 
+    // A corpus declined far above the usual rate looks like a corpus about something the
+    // taxonomy lacks, and here it is not: the reader holds its promise per language, and a
+    // language the reference set barely covers has no line to answer above. Without this the
+    // page shows the decline and gives the wrong reason for it by omission.
+    if !app.reading.unread_languages.is_empty() {
+        let silent: u64 = app
+            .reading
+            .unread_languages
+            .iter()
+            .map(|(_, count)| count)
+            .sum();
+        let named: Vec<String> = app
+            .reading
+            .unread_languages
+            .iter()
+            .take(LANGUAGES_SHOWN)
+            .map(|(name, _)| language_name(name))
+            .collect();
+        let _ = writeln!(
+            out,
+            "<p class=\"note\">{} of them are in a language the reader declines outright \
+             ({}): the reference set holds too few claims there to keep its accuracy promise, \
+             so it says nothing rather than guessing. That is a gap in the labels, not a \
+             finding about this game.</p>",
+            percent(share_of(silent, total)),
+            escape(&named.join(", "))
+        );
+    }
+
     let widest = app
         .reading
         .languages
@@ -2165,6 +2194,7 @@ mod tests {
                     ],
                     said: vec![said_about_bugs()],
                     languages: vec![("english".to_owned(), 600), ("schinese".to_owned(), 400)],
+                    unread_languages: Vec::new(),
                     months: vec![
                         crate::read::Month {
                             label: "2024-01".to_owned(),
@@ -3252,6 +3282,30 @@ mod tests {
         assert_eq!(percent(0.0004), "<0.1%");
         assert_eq!(percent(0.0), "0.0%");
         assert_eq!(percent(0.1234), "12.3%");
+    }
+
+    #[test]
+    fn a_language_the_reader_declines_is_named_rather_than_left_as_a_silence() {
+        // Without the sentence the page shows a corpus declined far above the usual rate and
+        // gives no reason, and the reason a reader would reach for, that this game is about
+        // something the taxonomy lacks, is the wrong one.
+        let mut report = sample_report("It crashes.");
+        report.apps[0].reading.unread_languages = vec![("indonesian".to_owned(), 250)];
+        let page = render(&report);
+        assert!(
+            page.contains("declines outright"),
+            "the page shows the decline and never says it is the labels"
+        );
+        assert!(
+            page.contains("Indonesian"),
+            "the page will not say which language it cannot read"
+        );
+
+        let quiet = render(&sample_report("It crashes."));
+        assert!(
+            !quiet.contains("declines outright"),
+            "a corpus in languages the reader has lines for is told it has a gap it does not"
+        );
     }
 
     #[test]

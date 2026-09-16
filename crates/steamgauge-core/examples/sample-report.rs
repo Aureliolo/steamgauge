@@ -131,7 +131,11 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
                 ("english".to_owned(), reviews * 6 / 10),
                 ("schinese".to_owned(), reviews * 3 / 10),
                 ("russian".to_owned(), reviews / 10),
+                ("indonesian".to_owned(), reviews / 50),
             ],
+            // A language the reference set barely covers, so the sample page shows the sentence
+            // that explains a decline the rest of the page would otherwise leave unexplained.
+            unread_languages: vec![("indonesian".to_owned(), reviews / 50)],
             months: months(app_id),
             elapsed: std::time::Duration::from_secs(90),
         },
