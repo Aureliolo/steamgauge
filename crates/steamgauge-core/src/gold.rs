@@ -56,7 +56,7 @@ pub struct Answered {
 }
 
 /// What a draw turned out to be.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct GoldDraw {
     pub blind: usize,
     pub split: usize,
@@ -64,6 +64,10 @@ pub struct GoldDraw {
     /// Claims the two labellers answered the same way, which are not worth a person's time:
     /// counted so the page can say what share of the set was never in question.
     pub agreed: usize,
+    /// Which languages the person was asked about, empty for all of them. A sample restricted
+    /// to what the adjudicator reads is a random sample of those languages and not of the
+    /// corpus, and the figure it produces has to say so.
+    pub languages: Vec<String>,
 }
 
 /// Which games' disagreements to put in front of a person.
@@ -92,6 +96,7 @@ pub fn draw(
     blind_wanted: usize,
     splits: Splits,
     seed: u64,
+    languages: &[String],
 ) -> Result<(Vec<Question>, GoldDraw)> {
     let mut blind: Vec<([u8; 32], Question)> = Vec::new();
     let mut split: Vec<Question> = Vec::new();
@@ -138,6 +143,13 @@ pub fn draw(
             let Some(rejoined) = around.get(label.review_id.as_str()) else {
                 continue;
             };
+            // A person cannot adjudicate a language they do not read, and a question they cannot
+            // answer is worse than one that was never asked: it sits in the count, it cannot be
+            // skipped honestly, and whatever they put is noise wearing the one label in this
+            // project that is allowed to be called truth.
+            if !languages.is_empty() && !languages.iter().any(|one| one == &label.language) {
+                continue;
+            }
             let Some((at, text)) = rejoined.find(label.index) else {
                 continue;
             };
@@ -184,6 +196,7 @@ pub fn draw(
         .collect();
     found.blind = questions.len();
     found.split = split.len();
+    found.languages = languages.to_vec();
     questions.extend(split);
     Ok((questions, found))
 }
@@ -234,7 +247,7 @@ const SCRIPT: &str = include_str!("gold.js");
 
 /// Renders the page a person adjudicates on: one file, fetching nothing, sending nothing.
 #[must_use]
-pub fn render(questions: &[Question], found: GoldDraw) -> String {
+pub fn render(questions: &[Question], found: &GoldDraw) -> String {
     let categories: Vec<serde_json::Value> = CORE_SPINE
         .iter()
         .map(|category| {
@@ -256,6 +269,7 @@ pub fn render(questions: &[Question], found: GoldDraw) -> String {
         "split": found.split,
         "games": found.games,
         "agreed": found.agreed,
+        "languages": found.languages,
     });
 
     format!(
@@ -329,7 +343,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(&root, 100, Splits::Frozen, 1).unwrap();
+        let (frozen_only, counts) = draw(&root, 100, Splits::Frozen, 1, &[]).unwrap();
         assert!(
             frozen_only
                 .iter()
@@ -348,7 +362,7 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1).unwrap();
+        let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1, &[]).unwrap();
         assert_eq!(
             wider.split, 2,
             "the training game's disagreement was left out"
@@ -366,7 +380,7 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, 100, Splits::None, 1).unwrap();
+        let (none, quiet) = draw(&root, 100, Splits::None, 1, &[]).unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
 
@@ -435,7 +449,7 @@ mod tests {
             language: "english".to_owned(),
             shown: None,
         }];
-        let page = render(&questions, GoldDraw::default());
+        let page = render(&questions, &GoldDraw::default());
         assert!(page.contains("Runs badly"));
         for category in CORE_SPINE {
             assert!(page.contains(category.id), "{} is missing", category.id);
@@ -458,7 +472,7 @@ mod tests {
             language: "english".to_owned(),
             shown: None,
         }];
-        let page = render(&questions, GoldDraw::default());
+        let page = render(&questions, &GoldDraw::default());
         assert!(
             page.contains("\"shown\":null"),
             "an answer on the page is an answer in the reader's head"

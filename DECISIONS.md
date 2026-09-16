@@ -314,6 +314,28 @@ now is not thereby cut correctly, and nothing here can see a claim a rule made w
 draw is the highest because it is fished for by lexical probe, which catches long sentences that
 name several things.
 
+Broken out by language, the same tool answers a question the pooled figure cannot, since four
+claims in five are English. **The splitter is not much worse outside English and is best on
+Japanese**, which has the least punctuation to work with and the most reason to be feared:
+
+| | called badly split | still cut that way |
+|---|---|---|
+| japanese | 17.4% | **5.2%** |
+| german | 11.7% | 7.5% |
+| koreana | 15.8% | 7.8% |
+| russian | 15.4% | 8.9% |
+| polish | **34.7%** | **9.0%** |
+| english | 14.6% | 9.8% |
+| schinese | 14.2% | 10.0% |
+| brazilian | 18.6% | 13.2% |
+| spanish | 15.9% | 14.2% |
+
+Polish is the reason to break it out at all. It was flagged at more than double every other
+language and is now below English: `claims-5` answered three quarters of what its labellers
+objected to. Spanish and Brazilian Portuguese are the two where the rate has barely moved, and
+they are the languages where the reading gap survives the hedged claims being dropped, which is
+a coincidence worth one look before it is believed.
+
 What survives is not punctuation. Of the 3,702 claims still cut the way they were objected to,
 2,249 (60.8%) hold no line break and at most one comma of any kind, and 1,695 (45.8%) join their
 clauses with "and", "but" or "although": "The story and graphics were outstanding" is two
@@ -1404,10 +1426,109 @@ the reference set is 71%.** The deficit tracks it. This is a training-data probl
 anything else, and the fix competes with the mined draw for the same labeller quota, which is
 the first time languages and starved subjects have wanted the same resource.
 
+### Half of that deficit is the labeller, not the reader
+
+The obvious reading of the table above is that the model is worse in those languages. Measured,
+it is not one thing. The labeller's own doubt travels with every claim: `ambiguous` when they
+called the boundary contested, `confidence: low` when they hedged. Scoring a reader against a
+label its author doubted measures the doubt as much as the reading, and the doubt is not spread
+evenly across languages.
+
+Across the eleven languages with enough claims, a language's hedging rate predicts its
+agreement almost exactly: **r = -0.78 between low-confidence rate and agreement, and -0.92 with
+Polish left out.** The labeller hedged on 67% of Korean and Japanese claims against 56% of
+German, French and Turkish.
+
+The obvious objection is that hedging and mis-splitting travel together: a labeller handed a
+badly cut claim would hedge on it and flag the cut, so the correlation might be measuring the
+splitter of the day rather than the language. It is not. Dropping every claim anybody flagged
+as badly cut takes the hedging range from 14.5-27.3% down to 11.6-20.7% and leaves the
+correlation where it was, at **-0.80**.
+
+So the same measurement, restricted to the 40% of claims the labeller marked neither contested
+nor low-confidence:
+
+| | all claims | settled only | how much of the gap survives |
+|---|---|---|---|
+| english | 70.4% | 89.3% | |
+| tchinese | -5.1 | -1.2 | 24% |
+| polish | -5.9 | -2.0 | **34%** |
+| koreana | -10.9 | -5.1 | 47% |
+| brazilian | -4.3 | -2.4 | 56% |
+| schinese | -6.4 | -3.8 | 58% |
+| russian | -5.8 | -3.5 | 60% |
+| **japanese** | -6.3 | **-7.7** | **122%** |
+| **spanish** | -4.5 | **-6.3** | **143%** |
+
+Three different problems wearing one face, and they want different work:
+
+- **Korean, Chinese, Russian, Brazilian Portuguese: about half is labelling.** Korean's ten and
+  a half points become five. What is left is real and smaller than it looked.
+- **Polish was the splitter, and the splitter is already fixed.** 34.7% of Polish claims were
+  flagged badly cut, more than double any other language. But that flag is what a labeller said
+  against the splitter of the day, and `stale-splits` broken out by language says only **9.0%
+  are still cut that way, below English's 9.8%**. `claims-5` fixed three quarters of it. What
+  survives is the labels: they were written on the bad cuts, at the highest low-confidence rate
+  of any language (27.3%), and two thirds of Polish's gap disappears once those hedged claims
+  are dropped. Polish needs its labels revisited, not its splitter touched.
+- **Japanese and Spanish are the reading.** They are the only languages whose gap *grows* when
+  the doubtful claims are dropped. That is the model, and it is the case for weighting or for
+  labels.
+
+One confound, stated rather than resolved: every label here was written by Claude Fable 5.1, so
+"the labeller was less sure in Korean" may mean those claims are genuinely harder or may mean
+that model is weaker in Korean. Nothing in this set separates the two, and a human adjudication
+of a non-English sample is the only thing that would.
+
 The lesson about method is worth as much as the finding: the answer to "we have no evidence
 about X" was a directory of logits that had been sitting there for four days, written for a
 different question. Before spending a resource that cannot be spent twice, check what the last
 measurement already paid for.
+
+### Weighting the languages made every language worse, and so did dropping them
+
+Two runs, at opposite ends of the same dial, against `wave11` on the same 4,017 frozen English
+claims and the same frozen games. `wave13` gives a claim weight by the inverse of its language's
+share, the mirror of the per-subject balance already in `train.py`. `english-only` drops every
+non-English claim before the split, so the frozen games are scored on the languages the model
+was taught.
+
+| frozen claims | claims | wave11 | wave13, weighted | english only |
+|---|---|---|---|---|
+| english | 4,017 | **74.0%** | 73.9% | 73.5% |
+| russian | 291 | **68.0%** | 66.7% | |
+| schinese | 260 | **71.2%** | 70.8% | |
+| german | 191 | **81.2%** | 77.5% | |
+| polish | 166 | **77.7%** | 77.1% | |
+| brazilian | 142 | **70.4%** | 69.0% | |
+| spanish | 122 | **75.4%** | 72.1% | |
+
+**Every language with a hundred claims or more got worse under weighting, including the six it
+upweighted.** Six of six moving the same way is not a thin-sample accident; it is the same
+result the subject axis has already returned four times. Loss reweighting at three exponents and
+post-hoc logit adjustment all failed to fix the subject tail, and the reason recorded there
+holds here unchanged: no reweighting of a gradient invents evidence the model has barely seen.
+Japanese has 348 labelled claims in the whole set and Korean 344. Weighting them more heavily
+does not make them more numerous; it makes the model fit them harder, and the frozen games say
+what that costs. The gains in the table's tail, French at 47 claims and Italian at 16, are
+single claims moving a percentage by two points and should not be read.
+
+The other end of the dial says the same thing from the other side. Training on English alone
+costs English **0.5 points of accuracy and 1.3 of coverage**, both inside the measured seed bar,
+so the honest reading is that it changes nothing. That answers the question it was run for: a
+separate high-accuracy English model has nothing to be more accurate with. One confound is
+stated rather than resolved, and it points the same way: `english-only` also saw 29% less data,
+so its loss could be volume rather than language. That excuse was available to it and it still
+did not win. A better English model needs more English labels, not fewer foreign ones.
+
+So the language axis is not a training problem. English is flat from one end of the weighting
+dial to the other, which means the non-English claims are neither helping English nor hurting
+it. They are free, and the reader should keep reading them.
+
+What remains open is the **promise**, which is a different mechanism entirely: the line, not the
+weights. `training/lines.py` asks whether the per-subject abstention rule that ships keeps its
+75% language by language, out of fold and leave-one-game-out, and what a line per language would
+cost. That question needs no training run and no new labels.
 
 ## The corpus stopped being a corpus of games people like
 
