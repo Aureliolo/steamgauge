@@ -1485,6 +1485,51 @@ about X" was a directory of logits that had been sitting there for four days, wr
 different question. Before spending a resource that cannot be spent twice, check what the last
 measurement already paid for.
 
+### Weighting the languages made every language worse, and so did dropping them
+
+Two runs, at opposite ends of the same dial, against `wave11` on the same 4,017 frozen English
+claims and the same frozen games. `wave13` gives a claim weight by the inverse of its language's
+share, the mirror of the per-subject balance already in `train.py`. `english-only` drops every
+non-English claim before the split, so the frozen games are scored on the languages the model
+was taught.
+
+| frozen claims | claims | wave11 | wave13, weighted | english only |
+|---|---|---|---|---|
+| english | 4,017 | **74.0%** | 73.9% | 73.5% |
+| russian | 291 | **68.0%** | 66.7% | |
+| schinese | 260 | **71.2%** | 70.8% | |
+| german | 191 | **81.2%** | 77.5% | |
+| polish | 166 | **77.7%** | 77.1% | |
+| brazilian | 142 | **70.4%** | 69.0% | |
+| spanish | 122 | **75.4%** | 72.1% | |
+
+**Every language with a hundred claims or more got worse under weighting, including the six it
+upweighted.** Six of six moving the same way is not a thin-sample accident; it is the same
+result the subject axis has already returned four times. Loss reweighting at three exponents and
+post-hoc logit adjustment all failed to fix the subject tail, and the reason recorded there
+holds here unchanged: no reweighting of a gradient invents evidence the model has barely seen.
+Japanese has 348 labelled claims in the whole set and Korean 344. Weighting them more heavily
+does not make them more numerous; it makes the model fit them harder, and the frozen games say
+what that costs. The gains in the table's tail, French at 47 claims and Italian at 16, are
+single claims moving a percentage by two points and should not be read.
+
+The other end of the dial says the same thing from the other side. Training on English alone
+costs English **0.5 points of accuracy and 1.3 of coverage**, both inside the measured seed bar,
+so the honest reading is that it changes nothing. That answers the question it was run for: a
+separate high-accuracy English model has nothing to be more accurate with. One confound is
+stated rather than resolved, and it points the same way: `english-only` also saw 29% less data,
+so its loss could be volume rather than language. That excuse was available to it and it still
+did not win. A better English model needs more English labels, not fewer foreign ones.
+
+So the language axis is not a training problem. English is flat from one end of the weighting
+dial to the other, which means the non-English claims are neither helping English nor hurting
+it. They are free, and the reader should keep reading them.
+
+What remains open is the **promise**, which is a different mechanism entirely: the line, not the
+weights. `training/lines.py` asks whether the per-subject abstention rule that ships keeps its
+75% language by language, out of fold and leave-one-game-out, and what a line per language would
+cost. That question needs no training run and no new labels.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games
