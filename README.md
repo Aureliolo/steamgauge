@@ -453,23 +453,38 @@ These rules keep those figures honest:
   would commit to. The share it declined is printed beside it, and a large one is a finding
   about the corpus rather than a footnote.
 
-  **That share used to be most of the corpus and is now a sixth of it.** Labelled across
-  fifty-one games, the model answers **83%** of the labelled claims in games it has never seen
-  and agrees with a labeller on **81%** of those. Sixteen games ago it answered an eighth of
+  **That share used to be most of the corpus and is now a fifth of it.** Labelled across
+  fifty-one games, the model answers **78%** of the labelled claims in games it has never seen
+  and agrees with a labeller on **82%** of those. Sixteen games ago it answered an eighth of
   them at 62%. What moved it, measured one change at a time on games it never saw: more labels,
   then reading each claim inside the review it came from and training at the rate that suits
   that (58% to 77%), then a backbone twice the size (77% to 84%), then nineteen thousand more
-  labels, most of them drawn at the subjects it read worst, and an abstention line per subject
-  instead of one for all of them (84% answered at 76% agreement, to 83% at 81%). A threshold
-  moved to make the number look better would be the old classifier again, and the share it
-  declines is still printed beside every rate.
+  labels, most of them drawn at the subjects it read worst, an abstention line per subject
+  instead of one for all of them (84% answered at 76% agreement, to 83% at 81%), and a line per
+  language on top of that (83% at 81%, to **78% at 82%**). A threshold moved to make the number
+  look better would be the old classifier again, and the share it declines is still printed
+  beside every rate.
+
+  **The last of those spent coverage on purpose and this is what it bought.** The language line
+  declined 240 answers the subject line had allowed, and those 240 were right **55%** of the
+  time against 80.7% for the answered set as a whole. That is the population it was aimed at:
+  answers the reader was confident enough to give in a language where the confidence was not
+  earned. Macro F1 went up rather than down, 0.642 to 0.645, which is the check that the
+  accuracy was not bought by quietly abandoning the rare subjects.
 
   The model carries what it usually declines, drawn from the folds its abstention lines were
   fitted on, so a corpus that declines far above it can be reported as a finding rather than a
-  footnote. Read across the whole library, 51 games and 20.1 million claims, the average game
-  declines **16.4%** against the **19.6%** it carries, and exactly one game reaches the 1.2 times
-  that trips the warning: a card game at 25.1%, whose own labellers kept splitting on the same
-  boundary. The figure travels, and it is pitched high enough to stay quiet on ordinary games.
+  footnote. It now carries **25.0%**, where the subject-only rule carried 19.6%.
+
+  The library-wide check of that figure is one rule out of date and is reported as such. Read
+  across 51 games and 20.1 million claims **under the subject-only rule**, the average game
+  declined 16.4% against the 19.6% it carried, and exactly one game reached the 1.2 times that
+  trips the warning: a card game at 25.1%, whose own labellers kept splitting on the same
+  boundary. That said the figure travels and is pitched high enough to stay quiet on ordinary
+  games. Whether it still does under the language line has not been measured, because it means
+  reading the library again. The ten frozen games have been read under it: they decline **23.6%**
+  on average against the 25.0% carried, none of them reaches 1.2 times it, and the spread runs
+  20.5% to 27.0%. The same shape, one rule on, on a tenth of the evidence.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
   an accuracy, and that promise is measured on the games that chose it. On eleven games the
