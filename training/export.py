@@ -57,6 +57,36 @@ class InFullPrecisionOut(torch.nn.Module):
         return subject.float(), polarity.float(), pooled.float()
 
 
+def spoken_note(by_language: dict | None) -> list[str]:
+    """What the language axis does, for somebody reading the card rather than the code.
+
+    A reader that declines a whole language is not a reader with a slightly lower coverage in
+    it, and the difference has to survive into the one file that travels with the graph. Which
+    languages are silent is the part nobody would guess: it is a fact about how much of the
+    reference set is written in them, not about the model's grasp of them.
+    """
+    if not by_language:
+        return []
+    spoke = sorted(name for name, line in by_language.items() if line is not None)
+    quiet = sorted(name for name, line in by_language.items() if line is None)
+    drawn = [line for line in by_language.values() if line is not None]
+    if not drawn:
+        return []
+    note = (
+        f"- **And per language**: {len(spoke)} of {len(by_language)} carry a line, "
+        f"{min(drawn):.2f} to {max(drawn):.2f}. A claim answers only when it clears both its "
+        f"subject's line and its language's, because a line drawn per subject is drawn mostly "
+        f"from English claims and out of fold it leaves Korean 8.3 points under the promise it "
+        f"prints."
+    )
+    if quiet:
+        note += (
+            f" {len(quiet)} languages are declined outright, having too few labelled claims to "
+            f"promise anything: {', '.join(quiet)}."
+        )
+    return [note]
+
+
 def wilson_note(at_threshold: dict) -> str:
     """The range an accuracy from a couple of hundred claims is entitled to claim.
 
@@ -280,10 +310,11 @@ def main():
         "--lines-from",
         default=None,
         help="a directory of cross-validation fold logits (`train.py --save-logits`), from "
-        "which to draw one abstention threshold per subject. One threshold keeps the promise "
-        "on average and breaks it subject by subject; a line per subject holds it for each "
-        "subject's own predictions, and a subject no threshold can make reliable is declined "
-        "outright. Without this the reader carries the one threshold it always has.",
+        "which to draw one abstention threshold per subject and one per language. One threshold "
+        "keeps the promise on average and breaks it both subject by subject and language by "
+        "language; a claim answers only when it clears both of its lines, and a subject or a "
+        "language no threshold can make reliable is declined outright. Without this the reader "
+        "carries the one threshold it always has.",
     )
     parser.add_argument("--min-accuracy", type=float, default=0.75)
     parser.add_argument(
@@ -576,13 +607,14 @@ def main():
                 + wilson_note(at_threshold),
                 *(
                     [
-                        f"- **What ships abstains per subject**, not at that one line: "
-                        f"{len(drawn)} of {len(subjects)} subjects carry a line of their own, "
-                        f"{min(drawn):.2f} to {max(drawn):.2f}"
+                        f"- **What ships abstains per subject and per language**, not at that "
+                        f"one line: {len(drawn)} of {len(subjects)} subjects carry a line of "
+                        f"their own, {min(drawn):.2f} to {max(drawn):.2f}"
                         + (f", and {silent} are declined outright" if silent else "")
                         + ". The coverage above is what this run measured itself at, under one "
                         "threshold; `steamgauge measure-claims` over the frozen games is the "
-                        "figure for the rule that ships, and it answers less of them more often."
+                        "figure for the rule that ships, and it answers less of them more often.",
+                        *spoken_note(by_language),
                     ]
                     if lines
                     else []

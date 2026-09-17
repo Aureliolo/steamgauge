@@ -1269,6 +1269,24 @@ more than any further arithmetic on the ones already labelled.
 **Three epochs instead of five.** 0.588 accuracy and 52% coverage against 0.639 and 67%. The
 model was not overfitting at five; it was underfitting at three.
 
+**Seven epochs instead of five.** The other side of the same question, measured 2026-09-17 on
+the frozen games at the threshold the validation games chose: 91.6% at 0.771 against wave11's
+90.1% at 0.772, accuracy 0.7408 against 0.7372, macro F1 0.6783 against 0.6728. Read as a table
+of wins it looks like a small gain, and it is not one.
+
+**AURC is flat, 0.1056 against 0.1061, and the calibration error is 12% worse, 0.1910 against
+0.1699.** AURC has no threshold in it, so it measures the ordering the abstention line is drawn
+through rather than where the line happened to land. Two more epochs did not improve the
+ordering; they made the model more confident without making it more right, and the extra
+coverage is the line sliding down a curve of the same shape. That is what overfitting looks like
+before it reaches the accuracy column, and it is the answer the three-epoch entry above left
+open: five is not a floor the model was underfitting against, it is where this model stops
+learning and starts hardening.
+
+The rule this leaves behind is worth more than the result. A configuration that moves coverage
+and accuracy while AURC stands still has not been improved, it has been re-thresholded, and the
+two are told apart by the one column that has no threshold in it.
+
 ### The frontier model wins, and that is the finding
 
 Measured 2026-09-11, with Claude Opus 5 as the frontier model. It was given the category sheet
