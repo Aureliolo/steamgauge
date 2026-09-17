@@ -476,15 +476,20 @@ These rules keep those figures honest:
   fitted on, so a corpus that declines far above it can be reported as a finding rather than a
   footnote. It now carries **25.0%**, where the subject-only rule carried 19.6%.
 
-  The library-wide check of that figure is one rule out of date and is reported as such. Read
-  across 51 games and 20.1 million claims **under the subject-only rule**, the average game
-  declined 16.4% against the 19.6% it carried, and exactly one game reached the 1.2 times that
-  trips the warning: a card game at 25.1%, whose own labellers kept splitting on the same
-  boundary. That said the figure travels and is pitched high enough to stay quiet on ordinary
-  games. Whether it still does under the language line has not been measured, because it means
-  reading the library again. The ten frozen games have been read under it: they decline **23.6%**
-  on average against the 25.0% carried, none of them reaches 1.2 times it, and the spread runs
-  20.5% to 27.0%. The same shape, one rule on, on a tenth of the evidence.
+  Read across the whole library under that rule, 52 games and 20.2 million claims, the average
+  game declines **22.6%** against the 25.0% it carries, the spread runs 16.6% to 31.0%, and
+  exactly one game reaches the 1.2 times that trips the warning. Under the subject-only rule the
+  same was true of a different one, a card game at 25.1% against a 19.6% expectation. The figure
+  travels, and it is still pitched high enough to stay quiet on ordinary games.
+
+  **The one it fires on is a different game than before, and why is the interesting part.**
+  1449850 declines 31.0%, and almost none of that is the twelve languages declined outright,
+  which are 1.1% of its reviews. It is that the corpus is 12% Simplified Chinese and 8% Korean,
+  the two languages whose lines are highest, 0.839 and 0.929 against English's 0.660. So the
+  warning now has two causes where it had one: a corpus about something the taxonomy lacks, and a
+  corpus written in the languages the reference set covers worst. Those want opposite responses,
+  the first a category and the second more labels, and **nothing on the page yet tells a reader
+  which of the two they are looking at**.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
   an accuracy, and that promise is measured on the games that chose it. On eleven games the
