@@ -839,6 +839,20 @@ mod tests {
     }
 
     #[test]
+    fn a_reader_whose_languages_all_declined_says_nothing_rather_than_everything() {
+        // The two empty cases mean opposite things and the difference is the whole promise. No
+        // map at all is a reader exported before the axis existed and it reads as it always
+        // did; an empty map is a reader that drew the axis and found no language it could keep
+        // a promise in, and answering those claims anyway is the failure the axis was added for.
+        // It costs every answer, which is the loudest a mistake here can be, and that is wanted.
+        let silent = speaking(&[Some(0.55)], serde_json::json!({}));
+        assert!(silent.bar(0, "english").is_infinite());
+
+        let old = speaking(&[Some(0.55)], serde_json::Value::Null);
+        assert!((old.bar(0, "english") - 0.55).abs() < f32::EPSILON);
+    }
+
+    #[test]
     fn offsets_that_do_not_describe_the_review_give_a_window_of_nothing() {
         // Not behaviour to rely on: a warning about where the offsets have to come from. A
         // tokenizer file saved by a trainer carries that trainer's padding and truncation, so
