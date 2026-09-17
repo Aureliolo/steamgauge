@@ -5,10 +5,14 @@
 //! claims themselves, and the only reason that has not happened is that there was nothing to
 //! read them on.
 //!
-//! Two draws, because they answer different questions:
+//! Three draws, because they answer different questions:
 //!
 //! - **Blind.** A random sample of frozen claims with no answer shown, which is the only kind
 //!   of reading that produces an accuracy figure rather than a ratification.
+//! - **Settled.** A few claims both labellers already agreed about, mixed into the blind ones
+//!   and indistinguishable from them. The rest of the set is drawn from claims one labeller
+//!   read alone or two read differently, so without these nothing ever checks the assumption
+//!   the whole silver standard rests on: that two labellers agreeing means both were right.
 //! - **Split.** The claims two labellers answered differently, with both answers shown, which
 //!   is what settles a boundary rather than measuring one.
 //!
@@ -64,6 +68,11 @@ pub struct GoldDraw {
     /// Claims the two labellers answered the same way, which are not worth a person's time:
     /// counted so the page can say what share of the set was never in question.
     pub agreed: usize,
+    /// How many of those agreed claims were put in front of the person anyway, mixed into the
+    /// blind ones and indistinguishable from them. Without a few, the set measures the reader
+    /// only where the labellers were unsure or alone, and never tests the assumption the rest
+    /// of it rests on: that two labellers agreeing means both were right.
+    pub settled: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
@@ -94,11 +103,13 @@ pub enum Splits {
 pub fn draw(
     reference: &Path,
     blind_wanted: usize,
+    settled_wanted: usize,
     splits: Splits,
     seed: u64,
     languages: &[String],
 ) -> Result<(Vec<Question>, GoldDraw)> {
     let mut blind: Vec<([u8; 32], Question)> = Vec::new();
+    let mut settled: Vec<([u8; 32], Question)> = Vec::new();
     let mut split: Vec<Question> = Vec::new();
     let mut found = GoldDraw::default();
 
@@ -164,9 +175,18 @@ pub fn draw(
                 shown: None,
             };
 
+            // The same key for both pools, so a control claim lands wherever its review lands
+            // rather than in a block of its own. A person who can tell which questions are the
+            // control is answering a different question on them.
+            let rank =
+                crate::bounded::rank(seed, "gold-blind", &format!("{app_id}#{}", label.review_id));
+
             if let Some(other) = twice.get(&(label.review_id.as_str(), label.index)) {
                 if other.subject == label.subject {
                     found.agreed += 1;
+                    if frozen {
+                        settled.push((rank, question));
+                    }
                 } else if splits != Splits::None {
                     split.push(Question {
                         shown: Some(vec![answered(label), answered(other)]),
@@ -181,22 +201,22 @@ pub fn draw(
             if !frozen {
                 continue;
             }
-            blind.push((
-                crate::bounded::rank(seed, "gold-blind", &format!("{app_id}#{}", label.review_id)),
-                question,
-            ));
+            blind.push((rank, question));
         }
     }
 
     blind.sort_by_key(|(key, _)| *key);
-    let mut questions: Vec<Question> = blind
-        .into_iter()
-        .take(blind_wanted)
-        .map(|(_, question)| question)
-        .collect();
-    found.blind = questions.len();
+    settled.sort_by_key(|(key, _)| *key);
+    blind.truncate(blind_wanted);
+    settled.truncate(settled_wanted);
+    found.blind = blind.len();
+    found.settled = settled.len();
     found.split = split.len();
     found.languages = languages.to_vec();
+
+    blind.append(&mut settled);
+    blind.sort_by_key(|(key, _)| *key);
+    let mut questions: Vec<Question> = blind.into_iter().map(|(_, question)| question).collect();
     questions.extend(split);
     Ok((questions, found))
 }
@@ -266,6 +286,7 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "taxonomy": crate::CORE_SPINE_VERSION,
         "splitter": crate::claims::SPLITTER_VERSION,
         "blind": found.blind,
+        "settled": found.settled,
         "split": found.split,
         "games": found.games,
         "agreed": found.agreed,
@@ -343,7 +364,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(&root, 100, Splits::Frozen, 1, &[]).unwrap();
+        let (frozen_only, counts) = draw(&root, 100, 0, Splits::Frozen, 1, &[]).unwrap();
         assert!(
             frozen_only
                 .iter()
@@ -362,7 +383,7 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1, &[]).unwrap();
+        let (everywhere, wider) = draw(&root, 100, 0, Splits::Everywhere, 1, &[]).unwrap();
         assert_eq!(
             wider.split, 2,
             "the training game's disagreement was left out"
@@ -380,9 +401,43 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, 100, Splits::None, 1, &[]).unwrap();
+        let (none, quiet) = draw(&root, 100, 0, Splits::None, 1, &[]).unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_settled_control_is_asked_blind_or_it_measures_nothing() {
+        let root = std::env::temp_dir().join(format!("steamgauge-settled-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        a_reference_set(&root);
+
+        let (without, none) = draw(&root, 100, 0, Splits::None, 1, &[]).unwrap();
+        assert_eq!(none.settled, 0);
+        assert_eq!(without.len(), none.blind);
+
+        let (with, counts) = draw(&root, 100, 5, Splits::None, 1, &[]).unwrap();
+        assert_eq!(
+            counts.settled, 1,
+            "the frozen game's agreed claim is the only control there is to draw"
+        );
+        assert_eq!(
+            counts.blind, none.blind,
+            "a control displaced a blind claim"
+        );
+        assert_eq!(with.len(), counts.blind + counts.settled);
+        assert!(
+            with.iter().all(|question| question.shown.is_none()),
+            "a control that shows what the labellers said tells the adjudicator which questions \
+             are the control, and they answer those ones differently"
+        );
+        assert!(
+            with.iter().all(|question| question.app_id == 214_490),
+            "a control drawn from a training game measures the model against itself"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }

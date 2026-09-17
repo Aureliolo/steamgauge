@@ -429,11 +429,23 @@ These rules keep those figures honest:
   quotable at all. Of the 52 games read, three have a commonest language that is not English,
   and one of them is 63% Japanese.
 
-  Two things follow, and only one of them is fixed. A rate over a mostly-Chinese or
-  mostly-Korean corpus is worth less than the same rate over an English one, and this file now
-  says so. The tool itself does not yet say it on the page, and the deficit is a training-data
-  problem rather than a measurement one: the reference set has to stop being 71% English before
-  the reader stops being better at English.
+  Two separate things were wrong here, and they wanted different fixes.
+
+  **The promise was broken, and that is fixed.** The reader says a claim it answers is right
+  three times in four. Measured out of fold under the rule that used to ship, a line per subject,
+  Korean delivered **66.7%** against that promise, Polish 69.5%, Chinese 71.5%, Japanese 71.3%.
+  The per-subject line does not carry the language gap with it, because 71% of the set is English
+  and so is the line every other language is marked against. The line is now drawn per language
+  as well, and a claim is answered only when it clears both: every language lands at or above
+  75%, Korean at 76.0%. The reader pays for it in coverage, 80.4% down to 75.8% overall and
+  Korean 73% down to 55%, which is the trade this project has taken every other time it has been
+  offered. A language with fewer than a hundred labelled claims now declines rather than
+  borrowing a line fitted on English, which had been answering eight Indonesian claims at 33%.
+
+  **The reading is still worse, and that is a training-data problem.** Nothing above changes the
+  agreement column: the reader still understands a Korean claim less well than an English one,
+  it just no longer claims otherwise. Half of that deficit traces to the labeller rather than the
+  reader, and the rest needs the reference set to stop being 71% English.
 
 - **The model declines claims it is not sure about, and those are counted rather than hidden.**
   A claim below the threshold gets no subject and is reported as unclassified. That is a real

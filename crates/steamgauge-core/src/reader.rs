@@ -82,6 +82,21 @@ pub struct Provenance {
     /// entirely on a reader exported before this existed, and then `threshold` governs.
     #[serde(default)]
     pub thresholds: Option<Vec<Option<f32>>>,
+    /// One line per language, and a claim answers only when it clears this as well as its
+    /// subject's.
+    ///
+    /// The subject lines do not carry the language gap with them, which was the assumption
+    /// until it was measured: 71% of the labelled set is English, so a line drawn for
+    /// `gameplay` is drawn overwhelmingly from English `gameplay` claims, and a Korean
+    /// prediction clearing it is then wrong a third of the time. Out of fold the per-subject
+    /// rule leaves Korean 8.3 points under the promise it prints.
+    ///
+    /// A language absent from the map declines every claim: below a hundred labelled claims
+    /// nothing here can be promised, and the alternative already measured is Indonesian
+    /// answering three quarters of its eight claims at a third right. Absent as a whole on a
+    /// reader exported before this existed, and then the subject lines govern alone.
+    #[serde(default)]
+    pub language_thresholds: Option<std::collections::HashMap<String, Option<f32>>>,
     pub max_tokens: usize,
     /// Whether the model was trained on the claim with its review around it. A model trained
     /// one way and read the other is answering a question in a form it has never seen, and
@@ -131,6 +146,29 @@ impl Provenance {
             Some(None) => f32::INFINITY,
             None => self.threshold,
         }
+    }
+
+    /// The line this language has to clear, on top of its subject's.
+    ///
+    /// Zero where the reader carries no language lines at all, so a graph exported before this
+    /// existed reads exactly as it did. Infinity where the reader carries them and this
+    /// language is not among them, because a language with too little evidence to draw a line
+    /// has too little to make a promise with either.
+    #[must_use]
+    pub fn line_for_language(&self, language: &str) -> f32 {
+        match self.language_thresholds.as_ref() {
+            None => 0.0,
+            Some(lines) => match lines.get(language) {
+                Some(Some(line)) => *line,
+                _ => f32::INFINITY,
+            },
+        }
+    }
+
+    /// The bar a claim in this language, read as this subject, actually has to clear.
+    #[must_use]
+    pub fn bar(&self, class: usize, language: &str) -> f32 {
+        self.line_for(class).max(self.line_for_language(language))
     }
 }
 
@@ -255,6 +293,9 @@ pub struct Prepared {
     cols: usize,
     ids: Vec<i64>,
     mask: Vec<i64>,
+    /// Each row's language, carried because the bar a claim clears is drawn per language as
+    /// well as per subject and the graph's output says nothing about which language it read.
+    languages: Vec<String>,
 }
 
 /// Written by hand for the same reason the reader's is: the tokenizers hold megabytes each.
@@ -439,6 +480,7 @@ impl ClaimReader {
             cols,
             ids,
             mask,
+            languages,
         } = prepared;
         if rows == 0 {
             return Ok(Vec::new());
@@ -461,8 +503,11 @@ impl ClaimReader {
                 let (best, confidence) = softmax_best(subject.row(row).as_slice().unwrap_or(&[]));
                 let (polar, _) = softmax_best(polarity.row(row).as_slice().unwrap_or(&[]));
                 Reading {
-                    subject: (confidence >= self.provenance.line_for(best))
-                        .then(|| self.order.get(best).copied().unwrap_or(best)),
+                    subject: (confidence
+                        >= self
+                            .provenance
+                            .bar(best, languages.get(row).map_or("", String::as_str)))
+                    .then(|| self.order.get(best).copied().unwrap_or(best)),
                     confidence,
                     polarity: Polarity::from_index(polar),
                 }
@@ -509,6 +554,7 @@ impl Encoder {
                 .iter()
                 .flat_map(|e| e.get_attention_mask().iter().map(|&m| i64::from(m)))
                 .collect(),
+            languages: asked.iter().map(|one| one.language.to_owned()).collect(),
         })
     }
 
@@ -650,6 +696,10 @@ fn centred(offsets: &[(usize, usize)], at: usize, length: usize, budget: usize) 
 #[derive(Debug, Clone, Copy)]
 pub struct Asked<'a> {
     pub claim: &'a str,
+    /// The review's language, as the capture reports it. The abstention line is drawn per
+    /// language as well as per subject, so a claim asked without one is a claim the reader
+    /// cannot hold its promise on.
+    pub language: &'a str,
     /// The claims of the review joined back together: what the labeller read, and so what
     /// the model was trained against. The capture's own text carries the markup and list
     /// bullets the splitter removed, and asking the model about that instead would put the
@@ -721,6 +771,63 @@ mod tests {
         assert!((found.line_for(2) - 0.69).abs() < f32::EPSILON);
     }
 
+    fn speaking(lines: &[Option<f32>], spoken: serde_json::Value) -> Provenance {
+        let mut written = serde_json::json!({
+            "spine_version": crate::CORE_SPINE_VERSION,
+            "subjects": ["verdict", "vr", "licensing"],
+            "threshold": 0.69,
+            "max_tokens": 128,
+            "thresholds": lines,
+        });
+        written["language_thresholds"] = spoken;
+        serde_json::from_value(written).expect("a provenance")
+    }
+
+    #[test]
+    fn a_reader_with_no_language_lines_reads_exactly_as_it_did() {
+        let found = provenance(Some(vec![Some(0.55), Some(0.94), None]));
+        assert!(
+            found.line_for_language("koreana").abs() < f32::EPSILON,
+            "a graph exported before the language axis existed must not start declining"
+        );
+        assert!((found.bar(0, "koreana") - 0.55).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn a_claim_clears_the_stricter_of_its_two_lines() {
+        let found = speaking(
+            &[Some(0.55), Some(0.94), None],
+            serde_json::json!({"english": 0.51, "koreana": 0.88}),
+        );
+        // The subject is the binding half in English and the language is in Korean, which is
+        // the whole point: one line drawn mostly from English claims does not hold for a
+        // language that is 1% of the set.
+        assert!((found.bar(0, "english") - 0.55).abs() < f32::EPSILON);
+        assert!((found.bar(0, "koreana") - 0.88).abs() < f32::EPSILON);
+        assert!(
+            found.bar(2, "english").is_infinite(),
+            "a silenced subject stays silent however well its language reads"
+        );
+    }
+
+    #[test]
+    fn a_language_with_too_little_evidence_declines_rather_than_borrowing_a_line() {
+        let found = speaking(
+            &[Some(0.55)],
+            serde_json::json!({"english": 0.51, "indonesian": null}),
+        );
+        assert!(
+            found.bar(0, "indonesian").is_infinite(),
+            "a language the export could not draw a line for answered eight claims at a third \
+             right when it borrowed one"
+        );
+        assert!(
+            found.bar(0, "swahili").is_infinite(),
+            "a language absent from the map has no evidence at all, which is less than too \
+             little, so it cannot be answered either"
+        );
+    }
+
     #[test]
     fn offsets_that_do_not_describe_the_review_give_a_window_of_nothing() {
         // Not behaviour to rely on: a warning about where the offsets have to come from. A
@@ -762,16 +869,19 @@ mod tests {
                 claim: "It runs badly.",
                 review: &first,
                 at: 0,
+                language: "english",
             },
             Asked {
                 claim: "Worth the money.",
                 review: &second,
                 at: 0,
+                language: "english",
             },
             Asked {
                 claim: "Worth the money.",
                 review: &first,
                 at: 15,
+                language: "english",
             },
         ];
 

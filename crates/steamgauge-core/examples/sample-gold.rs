@@ -81,6 +81,7 @@ fn main() {
 
     let found = GoldDraw {
         blind: 4,
+        settled: 1,
         split: 1,
         games: 8,
         agreed: 244,

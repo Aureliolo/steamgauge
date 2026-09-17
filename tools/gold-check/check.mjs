@@ -99,9 +99,10 @@ const PROBE = `(function () {
     document.querySelectorAll('button.pick.chosen').length === 1 &&
     document.querySelectorAll('button.tone.chosen').length >= 1);
 
-  // A flagged claim must wait. The flags are what the whole exercise is for and they used to
-  // sit below the polarity, so completing an answer took the page away before the reader could
-  // reach one, and the only way back was an arrow they had no reason to press.
+  // What holds the page is a flag pressed last, not a flag existing. Flagging and then
+  // answering is the ordinary order and has no reason to wait; flagging after answering must
+  // wait, because those are the claims the whole exercise is for and a page that leaves while
+  // the reader reaches for the key is how one of them gets lost.
   press('ArrowRight');
   press('ArrowRight');
   var third = at();
@@ -110,11 +111,14 @@ const PROBE = `(function () {
   var picked = document.querySelector('button.pick kbd').textContent;
   press(picked);
   press('1');
-  check('a flagged claim was carried away by its own answer', at() === third);
+  check('answering a flagged claim left the page where it was', at() === third + 1);
+
+  press('ArrowLeft');
+  check('the flagged claim does not come back', at() === third);
   check('a flagged claim does not show it is flagged',
     document.querySelectorAll('button.tone.chosen').length >= 2);
   press('0');
-  check('unflagging a claim does not let it move on again', at() === third + 1);
+  check('flagging an answered claim carried the page away from it', at() === third);
 
   // Back to somewhere with a question still on it. The sample page holds five, and the checks
   // below answer another, so walking to the end here would leave them reading the finished

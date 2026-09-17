@@ -353,14 +353,11 @@
     html.push("</div>");
     html.push("</div>");
 
-    var flagged = mine.ambiguous || mine.split_wrong || mine.unsure;
     html.push(
       '<p class="note"><kbd>&larr;</kbd> and <kbd>&rarr;</kbd> move, a letter picks a subject, ' +
         "<kbd>1</kbd>&ndash;<kbd>3</kbd> praise, complaint or neither. " +
-        (flagged
-          ? "This one is flagged, so it waits for <kbd>&rarr;</kbd> rather than moving on by " +
-            "itself."
-          : "Pick both and it moves on by itself.") +
+        "Pick both and it moves on by itself; flag it <em>after</em> answering and it waits " +
+        "for <kbd>&rarr;</kbd>." +
         " <kbd>0</kbd> two subjects fit, <kbd>9</kbd> cut wrong, <kbd>8</kbd> not sure. " +
         (SERVED
           ? "Every answer is written to disk as you make it."
@@ -428,12 +425,12 @@
     // Moving on the moment both halves of an answer exist is what makes fourteen hundred
     // claims possible: the reader never touches a "next" button.
     //
-    // Except on a claim the reader has flagged. The flags are optional and the rows are
-    // ordered so they come before the polarity, but somebody who decides a claim is contested
-    // after answering it would otherwise watch the page leave while they reached for the key,
-    // and those are the claims the whole exercise is for. A flagged claim waits for an arrow.
-    var flagged = mine.ambiguous || mine.split_wrong || mine.unsure;
-    if (mine.subject && mine.polarity && !flagged) {
+    // What holds the page is a flag pressed last, not a flag existing. Somebody who decides a
+    // claim is contested after answering it would otherwise watch the page leave while they
+    // reached for the key, and those are the claims the whole exercise is for. Flagging first
+    // and then answering is the ordinary way round, and it has no reason to wait.
+    var flag = field === "ambiguous" || field === "split_wrong" || field === "unsure";
+    if (mine.subject && mine.polarity && !flag) {
       at += 1;
     }
     render();
