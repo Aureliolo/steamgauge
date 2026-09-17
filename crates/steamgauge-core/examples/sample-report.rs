@@ -137,6 +137,12 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             // A language the reference set barely covers, so the sample page shows the sentence
             // that explains a decline the rest of the page would otherwise leave unexplained.
             unread_languages: vec![("indonesian".to_owned(), reviews / 50)],
+            // The larger of the two causes, so the sample page shows both sentences and the
+            // check can see that they say different things about the same decline.
+            strict_languages: vec![
+                ("schinese".to_owned(), reviews * 3 / 10),
+                ("russian".to_owned(), reviews / 10),
+            ],
             months: months(app_id),
             elapsed: std::time::Duration::from_secs(90),
         },

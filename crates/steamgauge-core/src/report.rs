@@ -781,6 +781,7 @@ mod tests {
                 said: Vec::new(),
                 languages: Vec::new(),
                 unread_languages: Vec::new(),
+                strict_languages: Vec::new(),
                 months: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
             },

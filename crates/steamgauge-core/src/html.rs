@@ -1589,6 +1589,51 @@ fn built_from(app: &AppReport) -> String {
     )
 }
 
+/// Why a corpus in these languages declines more than usual, which is two different answers.
+///
+/// A decline far above the usual rate reads as a corpus about something the taxonomy lacks,
+/// and that is one of two causes now. The other is that the reader draws its line per language
+/// and holds a harder one where the reference set is thinnest, so a corpus weighted towards
+/// those declines more for a reason that has nothing to do with the game. The first wants a
+/// category and the second wants labels, and a page that names neither leaves a reader to
+/// assume the rarer one.
+fn why_it_declines(out: &mut String, app: &AppReport, total: u64) {
+    let mut say = |share: &[(String, u64)], sentence: &str| {
+        if share.is_empty() {
+            return;
+        }
+        let counted: u64 = share.iter().map(|(_, count)| count).sum();
+        let named: Vec<String> = share
+            .iter()
+            .take(LANGUAGES_SHOWN)
+            .map(|(name, _)| language_name(name))
+            .collect();
+        let _ = writeln!(
+            out,
+            "<p class=\"note\">{}",
+            sentence
+                .replace("{share}", &percent(share_of(counted, total)))
+                .replace("{names}", &escape(&named.join(", ")))
+        );
+    };
+
+    say(
+        &app.reading.unread_languages,
+        "{share} of them are in a language the reader declines outright ({names}): the \
+         reference set holds too few claims there to keep its accuracy promise, so it says \
+         nothing rather than guessing. That is a gap in the labels, not a finding about this \
+         game.</p>",
+    );
+    // Almost always the larger of the two, and the one a reader would otherwise misread.
+    say(
+        &app.reading.strict_languages,
+        "{share} are in a language the reader has to be surer about than English before it \
+         will answer at all ({names}). A corpus weighted towards those declines more than \
+         usual for that reason rather than for anything about the game, and what it wants is \
+         more labels in those languages.</p>",
+    );
+}
+
 /// What the reader is entitled to conclude, next to the numbers rather than in a footnote.
 /// What language the corpus is in, which Steam's own page cannot show a reader at all.
 fn languages(out: &mut String, app: &AppReport) {
@@ -1613,34 +1658,7 @@ fn languages(out: &mut String, app: &AppReport) {
         percent(not_english)
     );
 
-    // A corpus declined far above the usual rate looks like a corpus about something the
-    // taxonomy lacks, and here it is not: the reader holds its promise per language, and a
-    // language the reference set barely covers has no line to answer above. Without this the
-    // page shows the decline and gives the wrong reason for it by omission.
-    if !app.reading.unread_languages.is_empty() {
-        let silent: u64 = app
-            .reading
-            .unread_languages
-            .iter()
-            .map(|(_, count)| count)
-            .sum();
-        let named: Vec<String> = app
-            .reading
-            .unread_languages
-            .iter()
-            .take(LANGUAGES_SHOWN)
-            .map(|(name, _)| language_name(name))
-            .collect();
-        let _ = writeln!(
-            out,
-            "<p class=\"note\">{} of them are in a language the reader declines outright \
-             ({}): the reference set holds too few claims there to keep its accuracy promise, \
-             so it says nothing rather than guessing. That is a gap in the labels, not a \
-             finding about this game.</p>",
-            percent(share_of(silent, total)),
-            escape(&named.join(", "))
-        );
-    }
+    why_it_declines(out, app, total);
 
     let widest = app
         .reading
@@ -2196,6 +2214,7 @@ mod tests {
                     said: vec![said_about_bugs()],
                     languages: vec![("english".to_owned(), 600), ("schinese".to_owned(), 400)],
                     unread_languages: Vec::new(),
+                    strict_languages: Vec::new(),
                     months: vec![
                         crate::read::Month {
                             label: "2024-01".to_owned(),
@@ -3306,6 +3325,31 @@ mod tests {
         assert!(
             !quiet.contains("declines outright"),
             "a corpus in languages the reader has lines for is told it has a gap it does not"
+        );
+    }
+
+    #[test]
+    fn a_corpus_in_the_harder_languages_is_told_that_rather_than_left_to_guess() {
+        // The two sentences answer the same question, "why is this declining so much", with
+        // opposite work: a category against more labels. A page carrying only the first offers
+        // the rarer cause for the commoner one, because the silenced languages are usually a
+        // rounding error beside the strict ones.
+        let mut report = sample_report("It crashes.");
+        report.apps[0].reading.strict_languages = vec![("schinese".to_owned(), 400)];
+        let page = render(&report);
+        assert!(
+            page.contains("surer about than English"),
+            "a corpus weighted to the languages the reader is least sure in is not told so"
+        );
+        assert!(
+            page.contains("more labels in those languages"),
+            "the page names the cause and not the work it asks for"
+        );
+
+        let quiet = render(&sample_report("It crashes."));
+        assert!(
+            !quiet.contains("surer about than English"),
+            "an English corpus is told it leans on languages it does not have"
         );
     }
 
