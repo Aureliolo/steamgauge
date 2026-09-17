@@ -117,6 +117,16 @@ pub struct Provenance {
     pub trained_from: String,
     #[serde(default)]
     pub data_fingerprint: String,
+    /// A hash of the rule this reader abstains by: the one threshold, every subject's line and
+    /// every language's.
+    ///
+    /// The weights and the rule are separate identities and only one of them had a name. Lines
+    /// are drawn from the folds and can be redrawn without retraining, so two readers can share
+    /// a `run_id`, a set of weights and a label set and still answer differently. A reading that
+    /// carried only the run id could not be reconciled with one made under the other rule, and
+    /// the two would sit in the same library looking like the same measurement.
+    #[serde(default)]
+    pub lines_fingerprint: String,
     /// The training run this reader came out of. Every candidate of one generation shares a
     /// backbone and a label set, so this is the only thing that tells two of them apart.
     #[serde(default)]
@@ -826,6 +836,20 @@ mod tests {
             "a language absent from the map has no evidence at all, which is less than too \
              little, so it cannot be answered either"
         );
+    }
+
+    #[test]
+    fn a_reader_whose_languages_all_declined_says_nothing_rather_than_everything() {
+        // The two empty cases mean opposite things and the difference is the whole promise. No
+        // map at all is a reader exported before the axis existed and it reads as it always
+        // did; an empty map is a reader that drew the axis and found no language it could keep
+        // a promise in, and answering those claims anyway is the failure the axis was added for.
+        // It costs every answer, which is the loudest a mistake here can be, and that is wanted.
+        let silent = speaking(&[Some(0.55)], serde_json::json!({}));
+        assert!(silent.bar(0, "english").is_infinite());
+
+        let old = speaking(&[Some(0.55)], serde_json::Value::Null);
+        assert!((old.bar(0, "english") - 0.55).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -712,10 +712,16 @@ Three more on the Python side, run against a model directory rather than a captu
 | `training/confusion.py` | what does the reader mistake for what, and is a weak subject starved or badly bounded? |
 | `training/adjust.py` | does shifting the logits by the class priors buy anything? |
 | `training/language.py` | how well does the reader read each language, and on how much evidence? |
+| `training/lines.py` | is the accuracy the reader promises actually delivered, language by language, and what does each abstention rule cost? |
 
-The last three read out-of-fold logits with `--oof` and should be run that way. Four validation
+The last four read out-of-fold logits with `--oof` and should be run that way. Four validation
 games give intervals eight points wide and figures that move; five folds
 (`crossval.sh`, seven minutes each) give all twenty-eight non-frozen games and intervals of two.
+
+`lines.py` is the one to reach for when a promise is suspected rather than a score: it fits every
+policy leave-one-game-out, so a language that reads well because one of its games is easy cannot
+fit its own line and then be marked on it. It is how the per-subject rule was found to be keeping
+its 75% on average and breaking it in Korean by 8.3 points.
 
 ## Most of a sweep is the seed
 
@@ -1269,6 +1275,24 @@ more than any further arithmetic on the ones already labelled.
 **Three epochs instead of five.** 0.588 accuracy and 52% coverage against 0.639 and 67%. The
 model was not overfitting at five; it was underfitting at three.
 
+**Seven epochs instead of five.** The other side of the same question, measured 2026-09-17 on
+the frozen games at the threshold the validation games chose: 91.6% at 0.771 against wave11's
+90.1% at 0.772, accuracy 0.7408 against 0.7372, macro F1 0.6783 against 0.6728. Read as a table
+of wins it looks like a small gain, and it is not one.
+
+**AURC is flat, 0.1056 against 0.1061, and the calibration error is 12% worse, 0.1910 against
+0.1699.** AURC has no threshold in it, so it measures the ordering the abstention line is drawn
+through rather than where the line happened to land. Two more epochs did not improve the
+ordering; they made the model more confident without making it more right, and the extra
+coverage is the line sliding down a curve of the same shape. That is what overfitting looks like
+before it reaches the accuracy column, and it is the answer the three-epoch entry above left
+open: five is not a floor the model was underfitting against, it is where this model stops
+learning and starts hardening.
+
+The rule this leaves behind is worth more than the result. A configuration that moves coverage
+and accuracy while AURC stands still has not been improved, it has been re-thresholded, and the
+two are told apart by the one column that has no threshold in it.
+
 ### The frontier model wins, and that is the finding
 
 Measured 2026-09-11, with Claude Opus 5 as the frontier model. It was given the category sheet
@@ -1688,11 +1712,33 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
    **The tool exists as of 2026-09-11.** `steamgauge gold` writes one self-contained page
    holding 1,000 blind claims from the frozen games and every claim the two labellers split on
-   there, which as the set has grown to ten frozen games is 194 of them. A letter picks a subject, a digit the polarity, and a claim with both moves on by
-   itself; answers are kept as they are made, because fourteen hundred claims is not one
-   sitting. `steamgauge ingest-gold` reads them back and prints the share that matches the
-   labeller already on record, which is the first figure in this project that may be called
-   accuracy. Chrome drives the page in CI.
+   there, which as the set has grown to ten frozen games is 194 of them. A letter picks a
+   subject, a digit the polarity, and a claim with both moves on by itself; answers are kept as
+   they are made, because fourteen hundred claims is not one sitting. `steamgauge ingest-gold`
+   reads them back and prints the share that matches the labeller already on record, which is
+   the first figure in this project that may be called accuracy. Chrome drives the page in CI.
+
+   **`--language`, because the adjudicator reads two of them.** A question somebody cannot
+   answer is worse than one never asked: it sits in the count, it cannot be declined honestly,
+   and whatever they put is noise wearing the only label here allowed to be called truth. The
+   draw restricted to English and German is 1,144 questions, 1,117 and 27. What it produces is a
+   random sample of those two languages rather than of the corpus, and every figure from it has
+   to say so.
+
+   **`--settled`, because nothing else checks the labels at the easy end.** Every other question
+   is drawn from a claim one labeller read alone or two read differently, so the set measures
+   the reader exactly where the labellers were unsure and nowhere else. Fifty claims both
+   labellers agreed about are mixed in unmarked, at their own reviews' places in the order, and
+   they are the only thing that can test the assumption the whole silver standard rests on: that
+   two labellers agreeing means both were right rather than both wrong the same way. Scoring
+   them separately from the blind draw is not optional, because they are the easy end by
+   construction.
+
+   **What holds the page is a flag pressed last, not a flag existing.** The first rule was that
+   any flagged claim waits for an arrow, which meant flagging and then answering, the ordinary
+   order, left the reader pressing a key nothing told them about on every flagged claim. The
+   page now advances when the polarity completes the answer and waits only when the flag came
+   after it, which is the case the rule was for.
 
    **`--serve` as of 2026-09-12, and it is the way to run it.** The page as written keeps
    answers in `localStorage` and only the Export button gets them out, which puts the sole copy
