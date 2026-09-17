@@ -117,6 +117,16 @@ pub struct Provenance {
     pub trained_from: String,
     #[serde(default)]
     pub data_fingerprint: String,
+    /// A hash of the rule this reader abstains by: the one threshold, every subject's line and
+    /// every language's.
+    ///
+    /// The weights and the rule are separate identities and only one of them had a name. Lines
+    /// are drawn from the folds and can be redrawn without retraining, so two readers can share
+    /// a `run_id`, a set of weights and a label set and still answer differently. A reading that
+    /// carried only the run id could not be reconciled with one made under the other rule, and
+    /// the two would sit in the same library looking like the same measurement.
+    #[serde(default)]
+    pub lines_fingerprint: String,
     /// The training run this reader came out of. Every candidate of one generation shares a
     /// backbone and a label set, so this is the only thing that tells two of them apart.
     #[serde(default)]

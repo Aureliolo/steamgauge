@@ -311,6 +311,11 @@ pub struct ReadReport {
     /// game the old one read and the corpus quietly holds two models' answers.
     #[serde(default)]
     pub read_with: String,
+    /// Which abstention rule the reader was carrying. The run id names the weights; the lines
+    /// are drawn separately and can be redrawn without retraining, so two readings of one
+    /// corpus by one run id can hold different answers and this is what says why.
+    #[serde(default)]
+    pub read_by_rule: String,
     /// What this model usually declines, on games it never saw, so this corpus's share can be
     /// read against something.
     #[serde(default)]
@@ -468,6 +473,7 @@ pub fn read_corpus(
         model: model.provenance().trained_from.clone(),
         trained_on: model.provenance().data_fingerprint.clone(),
         read_with: model.provenance().run_id.clone(),
+        read_by_rule: model.provenance().lines_fingerprint.clone(),
         usual_declined: model.provenance().usual_declined,
         frozen: model.provenance().frozen,
         context,
@@ -988,6 +994,7 @@ impl Counting {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            read_by_rule: String::new(),
             usual_declined: None,
             frozen: None,
             context: false,
@@ -1357,6 +1364,7 @@ mod tests {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            read_by_rule: String::new(),
             usual_declined: Some(0.73),
             frozen: None,
             context: false,

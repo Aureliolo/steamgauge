@@ -11,6 +11,7 @@ real claims, and a disagreement fails the run rather than printing a warning.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -55,6 +56,25 @@ class InFullPrecisionOut(torch.nn.Module):
     def forward(self, input_ids, attention_mask):
         subject, polarity, pooled = self.inner(input_ids, attention_mask)
         return subject.float(), polarity.float(), pooled.float()
+
+
+def rule_fingerprint(threshold: float, subjects, lines, by_language) -> str:
+    """A hash of the rule the reader abstains by, recorded beside the weights.
+
+    Two readers can share a training run, a set of weights and a label set and still answer
+    differently, because the lines they abstain at are drawn separately and can be redrawn
+    without retraining anything. `run_id` names the weights and says nothing about the rule, so
+    a reading made under one rule and a reading made under another both claim the same reader
+    and nothing reconciles the numbers. This is what tells them apart.
+    """
+    digest = hashlib.sha256()
+    digest.update(f"{threshold:.6f}\n".encode())
+    for name, line in zip(subjects, lines or []):
+        digest.update(f"subject/{name}/{'' if line is None else f'{line:.6f}'}\n".encode())
+    for name in sorted(by_language or {}):
+        line = by_language[name]
+        digest.update(f"language/{name}/{'' if line is None else f'{line:.6f}'}\n".encode())
+    return digest.hexdigest()[:16]
 
 
 def spoken_note(by_language: dict | None) -> list[str]:
@@ -539,6 +559,13 @@ def main():
                 "prefix": record.get("prefix", False),
                 "trained_from": record["backbone"],
                 "data_fingerprint": record["data_fingerprint"],
+                # The weights and the rule are separate identities. Redrawing the lines without
+                # retraining gives a reader that answers differently under the same `run_id`,
+                # and a reading that cannot say which rule made it cannot be reconciled with
+                # one made under the other.
+                "lines_fingerprint": rule_fingerprint(
+                    threshold, subjects, lines, by_language
+                ),
                 "run_id": run.name,
                 "usual_declined": usual_declined,
                 # What this model did on games it never saw, carried so that a report of a

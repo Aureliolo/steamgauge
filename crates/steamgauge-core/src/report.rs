@@ -755,6 +755,7 @@ mod tests {
                 model: "test".to_owned(),
                 trained_on: String::new(),
                 read_with: String::new(),
+                read_by_rule: String::new(),
                 usual_declined: None,
                 frozen: None,
                 context: false,
