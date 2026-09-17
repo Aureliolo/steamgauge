@@ -94,6 +94,7 @@
   "prefix": false,
   "trained_from": "intfloat/multilingual-e5-large",
   "data_fingerprint": "8a01195c332f2484",
+  "lines_fingerprint": "a3f35274baf9ca90",
   "run_id": "wave11",
   "usual_declined": 0.25040972200748324,
   "frozen": {
