@@ -347,6 +347,16 @@ pub struct ReadReport {
     /// fact about the labels rather than about the game.
     #[serde(default)]
     pub unread_languages: Vec<(String, u64)>,
+    /// The languages in this corpus the reader has to be surer about than English before it
+    /// will answer, and the reviews written in them.
+    ///
+    /// A corpus declined far above the usual rate has two possible causes now and they want
+    /// opposite work: it is about something the taxonomy lacks, or it is written in the
+    /// languages the reference set covers worst. The first wants a category and the second
+    /// wants labels. Silenced languages are usually a rounding error next to this one, so
+    /// without it the page offers the rarer explanation for the commoner cause.
+    #[serde(default)]
+    pub strict_languages: Vec<(String, u64)>,
     /// What was said month by month, oldest first.
     pub months: Vec<Month>,
     #[serde(skip)]
@@ -973,6 +983,23 @@ impl Counting {
             .filter(|(name, _)| provenance.line_for_language(name).is_infinite())
             .cloned()
             .collect();
+        // English is the anchor because it is what every other figure in this project is
+        // compared against and what 71% of the reference set is written in. A reader with no
+        // English line has nothing to anchor to and reports nothing rather than a bar drawn
+        // from whichever language happened to sort first.
+        let english = provenance.line_for_language("english");
+        let strict: Vec<(String, u64)> = if english.is_finite() {
+            ranked
+                .iter()
+                .filter(|(name, _)| {
+                    let line = provenance.line_for_language(name);
+                    line.is_finite() && line > english
+                })
+                .cloned()
+                .collect()
+        } else {
+            Vec::new()
+        };
         let mut months: Vec<Month> = self.calendar.into_values().collect();
         months.sort_by(|left, right| left.label.cmp(&right.label));
 
@@ -1026,6 +1053,7 @@ impl Counting {
             ),
             languages: ranked,
             unread_languages: unread,
+            strict_languages: strict,
             months,
             elapsed: Duration::default(),
         })
@@ -1376,6 +1404,7 @@ mod tests {
             said: Vec::new(),
             languages: Vec::new(),
             unread_languages: Vec::new(),
+            strict_languages: Vec::new(),
             months: Vec::new(),
             elapsed: Duration::ZERO,
         };
