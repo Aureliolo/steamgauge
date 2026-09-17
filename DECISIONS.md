@@ -1293,6 +1293,51 @@ The rule this leaves behind is worth more than the result. A configuration that 
 and accuracy while AURC stands still has not been improved, it has been re-thresholded, and the
 two are told apart by the one column that has no threshold in it.
 
+### A 256-token window is better on every mean and clears nothing, and the fifth seed is why
+
+Measured 2026-09-17, five seeds against the five the shipped configuration already had, every
+figure from the frozen games at the threshold the validation games chose. The seeds are paired:
+the same seed fixes the same head initialisation and the same shuffle in both configurations, so
+the difference can be read seed by seed rather than as two clouds.
+
+| | wave11, 128 tokens | window-256 |
+|---|---|---|
+| coverage | 90.23 [89.30, 91.72] | **91.80** [90.80, 93.87] |
+| accuracy at the line | 0.7760 | 0.7763 |
+| accuracy | 0.7407 [0.7365, 0.7440] | **0.7429** [0.7406, 0.7444] |
+| macro F1 | 0.6791 [0.6728, 0.6871] | **0.6857** [0.6798, 0.6932] |
+| AURC | 0.1052 [0.1029, 0.1073] | **0.1016** [0.1000, 0.1061] |
+
+It wins the mean of all five and separates on none of them.
+
+| seed | wave11 AURC | window-256 | difference |
+|---|---|---|---|
+| 1 | 0.1061 | 0.1000 | -0.0061 |
+| 2 | 0.1073 | 0.1010 | -0.0063 |
+| 3 | 0.1040 | 0.1001 | -0.0038 |
+| 4 | 0.1029 | 0.1007 | -0.0021 |
+| **5** | 0.1059 | **0.1061** | **+0.0002** |
+
+Paired t is -2.96 on 4 df, about p = 0.04; the sign test, which assumes nothing about the shape,
+gives four of five at p = 0.19. The whole result turns on whether a t-test with five pairs and
+one reversal is worth believing. **Not adopted.** The effect is real and consistently signed and
+it sits inside the noise this project has twice been caught by, and it costs a much longer
+training run and gradient accumulation to fit a 24 GB card at all.
+
+**The method failure is the part worth keeping.** At three seeds and again at four, this was
+written up as "the ranges do not touch" and "the worst window seed beats the best wave11 seed".
+Both were true of the seeds in hand and both were wrong, because seed 5 landed at 0.1061, inside
+wave11's range, and the pre-registered question (does it stay under wave11's best of 0.1029?)
+came back no.
+
+That is the second time in this project a fifth seed has overturned a conclusion drawn at four.
+The first was the seed bar itself, declared too generous at 1.11 points until the fifth seed
+took it to 2.42. Twice is a pattern: **nothing is concluded from four seeds here, however clean
+the four look, and a range that does not overlap at n=4 is not a finding.** The reason it keeps
+being the fifth is not mystical, it is that four samples of a quantity with this much spread
+routinely look separated by luck, and the check that catches it is the next sample rather than
+any amount of rereading the first four.
+
 ### The frontier model wins, and that is the finding
 
 Measured 2026-09-11, with Claude Opus 5 as the frontier model. It was given the category sheet
