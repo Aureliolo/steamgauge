@@ -8,6 +8,10 @@ data/
 # the seed recorded in the manifest, so nothing is lost by keeping them out.
 reference/**/sample.json
 reference/**/batches/
+# What a labeller hands back, before the ingest checks it against the draw and writes
+# `labels.json`. Every field survives the merge, so the accepted labelling is the record and
+# these are the working copy it was built from.
+reference/**/returned/
 # The diverse handouts carry review text too; the subjects induced from them do not.
 reference/distinct/*.json
 corpus/
