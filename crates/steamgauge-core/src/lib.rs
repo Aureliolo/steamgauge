@@ -66,6 +66,12 @@ pub enum Error {
     #[error("a shard task failed: {detail}")]
     ShardPanicked { detail: String },
 
+    /// A write that would have destroyed work rather than adding to it. The reference sets are
+    /// not in version control, so a merge that replaces a labelling with nothing is a loss
+    /// with no undo, and refusing costs only the command being run again correctly.
+    #[error("{0}")]
+    Refused(String),
+
     /// A model file that does not match its pinned hash would change every number the tool
     /// reports without anything appearing to go wrong, so it is refused rather than used.
     #[error("model file {file} failed verification: expected {expected}, got {actual}")]

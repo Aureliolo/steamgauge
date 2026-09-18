@@ -98,6 +98,7 @@ pub fn draw(
     wanted: usize,
     english_share: f64,
     seed: u64,
+    subset: &str,
 ) -> Result<Vec<DrawnReview>> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     // Two draws rather than one, so the mix is decided rather than inherited. A corpus is
@@ -138,7 +139,7 @@ pub fn draw(
             id: id.to_owned(),
             app_id,
             language: language.to_owned(),
-            subset: "random".to_owned(),
+            subset: subset.to_owned(),
             claims,
             asked: None,
         };
@@ -469,7 +470,7 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
 /// Sets beside a game's random draw that add claims to train on rather than answers to
 /// compare. Every one of them is labelled as its own `subset`, and no prevalence figure
 /// counts a row from any of them.
-pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved"];
+pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved", "multilingual"];
 
 /// Draws the claims the reader would not answer, as a set to teach it on.
 ///
@@ -909,6 +910,21 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         (left.review_id.as_str(), left.index).cmp(&(right.review_id.as_str(), right.index))
     });
 
+    // A merge that placed nothing is a merge aimed at the wrong set, and writing its result
+    // replaces that set's labelling with the empty intersection. On 2026-09-18 this destroyed
+    // the first labelling of four games, 2,068 labels, because the returned files belonged to
+    // a draw beside the one being merged into and the default `--to` is the set itself. The
+    // labels were recoverable from the training export; the record of which splitter cut them
+    // and which sheet they answered was not, and cannot be, because most games mix both.
+    if labels.is_empty() && !report.unknown.is_empty() {
+        return Err(crate::Error::Refused(format!(
+            "none of the {} labels name a claim {} drew, so this is another set's work: \
+             nothing was written. Name the set they belong to with --to.",
+            report.unknown.len(),
+            dir.display()
+        )));
+    }
+
     std::fs::write(dir.join("labels.json"), serde_json::to_vec_pretty(&labels)?)?;
     Ok((labels, report))
 }
@@ -1060,6 +1076,51 @@ mod tests {
                 .collect(),
             asked: None,
         }
+    }
+
+    #[test]
+    fn a_merge_that_places_nothing_writes_nothing() {
+        // The default target is the set itself, so pointing a returned batch at the wrong one
+        // is a single missing flag away, and the labels that do not fit are exactly the labels
+        // of another draw. Writing the empty intersection then replaces a labelling that is in
+        // no version control with nothing at all. This is not hypothetical: it destroyed 2,068
+        // labels across four games before the check existed.
+        let dir = std::env::temp_dir().join(format!("steamgauge-refuse-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        write_set(&dir, &[review("a", &["The combat is superb."])], 1).unwrap();
+
+        let sheet = Sheet {
+            splitter: "claims-5".to_owned(),
+            taxonomy: crate::CORE_SPINE_VERSION.to_owned(),
+            produced_by: "a-labeller".to_owned(),
+        };
+        let mine = dir.join("returned");
+        std::fs::create_dir_all(&mine).unwrap();
+        std::fs::write(
+            mine.join("batch-000.json"),
+            serde_json::json!([{
+                "review_id": "somebody-elses-review", "index": 0, "subject": "gameplay",
+                "polarity": "praise", "ironic": false, "confidence": "high",
+                "ambiguous": false, "split_wrong": false
+            }])
+            .to_string(),
+        )
+        .unwrap();
+
+        let refused = ingest(&dir, &mine, &sheet);
+        assert!(
+            refused.is_err(),
+            "a merge naming only another set's claims was accepted"
+        );
+        let held: Vec<ClaimLabel> =
+            serde_json::from_slice(&std::fs::read(dir.join("labels.json")).unwrap_or_default())
+                .unwrap_or_default();
+        assert!(
+            held.is_empty(),
+            "the set had no labels to lose here, but the file was written anyway"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

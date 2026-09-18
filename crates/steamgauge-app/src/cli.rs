@@ -249,6 +249,14 @@ enum Command {
         /// Where to write the sets. Each game gets a directory under it.
         #[arg(long, default_value = "reference/claims")]
         to: PathBuf,
+        /// Name this draw as something other than the random one, which puts it in its own
+        /// directory beside the random draw and marks every review with it. A draw that chose
+        /// its reviews by anything but chance is not a sample of the corpus: `--english 0`
+        /// makes a set that says nothing about what share of a corpus is written in Chinese,
+        /// and adding it to the random draw would quietly change what every prevalence figure
+        /// is a figure about. Naming it keeps it trainable and keeps it out of those.
+        #[arg(long, default_value = "random")]
+        subset: String,
     },
 
     /// Draw the claims the reader would not answer, for a labeller to teach it on.
@@ -812,7 +820,19 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             seed,
             english,
             to,
-        } => run_sample_claims(app_ids, out, *reviews, *batch_size, *seed, *english, to),
+            subset,
+        } => run_sample_claims(
+            app_ids,
+            out,
+            &Draw {
+                reviews: *reviews,
+                batch_size: *batch_size,
+                seed: *seed,
+                english: *english,
+                to,
+                subset,
+            },
+        ),
         Command::Declined {
             app_ids,
             out,
@@ -1045,21 +1065,44 @@ fn share(part: u64, whole: u64) -> String {
     format!("{:.1}%", part as f64 / whole as f64 * 100.0)
 }
 
-fn run_sample_claims(
-    app_ids: &[u32],
-    out: &std::path::Path,
+/// What a draw is: how many reviews, of which languages, under which name.
+struct Draw<'a> {
     reviews: usize,
     batch_size: usize,
     seed: u64,
     english: f64,
-    to: &std::path::Path,
-) -> Result<()> {
+    to: &'a std::path::Path,
+    subset: &'a str,
+}
+
+fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> Result<()> {
+    let Draw {
+        reviews,
+        batch_size,
+        seed,
+        english,
+        to,
+        subset,
+    } = *how;
+    // A draw that chose its reviews by anything other than chance is not a sample of the
+    // corpus, and every prevalence figure this project prints is taken over the ones that are.
+    // So a named draw lands in its own directory beside the random one and says so on every
+    // review, the same way the teaching draws do; the two are never added together.
+    if subset != "random" && !steamgauge_core::claimset::TEACHING_SETS.contains(&subset) {
+        anyhow::bail!(
+            "`{subset}` is not a draw this build knows: {}",
+            steamgauge_core::claimset::TEACHING_SETS.join(", ")
+        );
+    }
     let mut languages: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let (mut all_reviews, mut all_claims, mut all_batches) = (0, 0, 0);
 
     for &app_id in app_ids {
-        let dir = to.join(app_id.to_string());
-        let drawn = steamgauge_core::claimset::draw(out, app_id, reviews, english, seed)?;
+        let mut dir = to.join(app_id.to_string());
+        if subset != "random" {
+            dir = dir.join(subset);
+        }
+        let drawn = steamgauge_core::claimset::draw(out, app_id, reviews, english, seed, subset)?;
         let report = steamgauge_core::claimset::write_set(&dir, &drawn, batch_size)?;
         for review in &drawn {
             *languages.entry(review.language.clone()).or_default() += 1;
