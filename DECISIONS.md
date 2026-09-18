@@ -74,7 +74,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Decided | State |
 |---|---|
 | Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
-| **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read a sample of its own, and what that settled is below |
+| **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read 26 of the 49 games in full, 16,310 claims, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
 | **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
@@ -1748,6 +1748,55 @@ only instrument that settles correctness rather than convergence.
 The disagreements that remain are mostly the sheet, not the language. The two commonest are
 `gameplay` against `graphics` and `offtopic` against `policy`, nine each, and both are boundary
 questions `core-6` does not answer sharply. Those would show up in English too.
+
+### Half the set has been read twice, and the labellers' own doubt sorts it
+
+Opus read 26 of the 49 labelled games in full, blind, from batches regenerated with no labels in
+them: 16,310 claims in `<set>/opus`. The run stopped on a weekly quota with 23 games and 12,614
+claims still drawn and waiting, so every figure here is over half a corpus and will move.
+
+| | claims | subject | kappa |
+|---|---|---|---|
+| Fable against Opus, everything read twice | 16,310 | 87.0% | 0.855 |
+| frozen games only | 3,271 | 88.4% | 0.868 |
+| validation games only | 3,204 | 86.6% | 0.850 |
+
+**The hedge flags are the finding.** Split the same claims by whether either labeller marked
+`low` confidence, `ambiguous` or `split_wrong`:
+
+| | claims | subject | kappa |
+|---|---|---|---|
+| neither flagged | 7,161 | **99.0%** | 0.988 |
+| either flagged | 9,149 | 77.7% | 0.756 |
+
+Two models that share no weights land on the same subject 99.0% of the time on the claims both
+were sure about. That is not a silver standard on that slice, and it is a claim the first
+labelling could not make at any sample size, because one model agreeing with itself is not
+evidence. It also means the set sorts itself: the 44% neither reader doubted needs no
+adjudication, and the 56% either doubted is where a person's time is worth spending. The gold
+page should draw from the second group, not uniformly.
+
+**`genre` does not survive a second reader**, and two others are close behind:
+
+| first reader said | claims | held | went instead |
+|---|---|---|---|
+| genre | 698 | **73.9%** | verdict 128 |
+| updates | 1,016 | 81.6% | verdict 81 |
+| offtopic | 1,477 | 82.1% | verdict 77 |
+| controls | 352 | 95.2% | gameplay 8 |
+| audio | 161 | 95.7% | gameplay 1 |
+
+"Great deck builder" is a genre statement to one reader and a verdict to the other, and `core-6`
+does not settle it. This is a defect in the sheet, not in the labelling, and it caps what any
+model trained on the sheet can reach for those classes no matter how many labels it sees.
+Compare `controls` and `audio` above: where the sheet draws a line, two readers find it.
+
+**Opus hedges more than Fable everywhere**, 50.9% against 39.1%. Comparing hedge rates between
+the two models says nothing; comparing one model's rate across languages or subjects does.
+
+Nothing here shows either model is right. Two models sharing a blind spot look exactly like two
+models agreeing. What it does give is 2,116 claims the two answered differently, 72 of them with
+both readers confident, and that short list is the most valuable thing a person could adjudicate.
 
 ### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
 
