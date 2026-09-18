@@ -378,6 +378,15 @@ enum Command {
         /// Changing this asks about different reviews. The same seed asks about the same ones.
         #[arg(long, default_value_t = 1)]
         seed: u64,
+        /// Which draw to read again, for the teaching sets that live in their own
+        /// subdirectory. The game's random draw by default.
+        #[arg(long)]
+        subset: Option<String>,
+        /// Directory inside the set to write the fresh batches into, which is also where the
+        /// reading will be ingested. A set can hold several independent readings, one per
+        /// labeller; naming them keeps a new one from landing on an older one's answers.
+        #[arg(long, default_value = "second")]
+        into: String,
     },
 
     /// Draw the reviews of a corpus that are least like each other, for finding what this
@@ -435,6 +444,11 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
+        /// Which reading to compare the set's own labels against, as a directory inside each
+        /// set. Two labellers who read different shares of a set produce different figures,
+        /// so the answer is only meaningful beside the name of the reading it came from.
+        #[arg(long, default_value = "second")]
+        labels: String,
     },
 
     /// Score the model against a label two labellers both reached, and say how often they
@@ -941,8 +955,22 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
             share,
             batch_size,
             seed,
-        } => run_second_opinion(app_ids, reference, *share, *batch_size, *seed),
-        Command::CompareLabels { app_ids, reference } => run_compare_labels(app_ids, reference),
+            subset,
+            into,
+        } => run_second_opinion(
+            app_ids,
+            reference,
+            *share,
+            *batch_size,
+            *seed,
+            subset.as_deref(),
+            into,
+        ),
+        Command::CompareLabels {
+            app_ids,
+            reference,
+            labels,
+        } => run_compare_labels(app_ids, reference, labels),
         Command::Ceiling {
             app_ids,
             out,
@@ -1739,7 +1767,17 @@ fn run_second_opinion(
     share: f64,
     batch_size: usize,
     seed: u64,
+    subset: Option<&str>,
+    into: &str,
 ) -> Result<()> {
+    if let Some(subset) = subset
+        && !steamgauge_core::claimset::TEACHING_SETS.contains(&subset)
+    {
+        anyhow::bail!(
+            "`{subset}` is not a draw this build knows: {}",
+            steamgauge_core::claimset::TEACHING_SETS.join(", ")
+        );
+    }
     let wanted = if app_ids.is_empty() {
         labelled_sets(reference)?
     } else {
@@ -1751,9 +1789,21 @@ fn run_second_opinion(
 
     let (mut reviews, mut claims, mut batches) = (0, 0, 0);
     for app_id in wanted {
-        let dir = reference.join(app_id.to_string());
+        let mut dir = reference.join(app_id.to_string());
+        if let Some(subset) = subset {
+            dir = dir.join(subset);
+        }
+        // Fresh batches over a reading that already exists would ask for the same work twice
+        // and, once ingested, the answers would land on top of the ones already there.
+        let target = dir.join(into);
+        if target.join("labels.json").exists() {
+            anyhow::bail!(
+                "{} already holds a labelling; name a different reading with --into",
+                target.display()
+            );
+        }
         let drawn = steamgauge_core::claimset::draw_second(&dir, share, seed)?;
-        let report = steamgauge_core::claimset::write_set(&dir.join("second"), &drawn, batch_size)?;
+        let report = steamgauge_core::claimset::write_set(&target, &drawn, batch_size)?;
         reviews += report.reviews;
         claims += report.claims;
         batches += report.batches;
@@ -1767,7 +1817,8 @@ fn run_second_opinion(
     println!(
         "\nHand these to a different labeller from the one that did the first pass, and give \
          it\nthe same sheet and nothing else. A second opinion that can see the first is not a\n\
-         second opinion. Ingest with --to <set>/second, then `steamgauge compare-labels`."
+         second opinion. Ingest with --to <set>/{into}, then `steamgauge compare-labels \
+         --labels {into}`."
     );
     Ok(())
 }
@@ -1824,14 +1875,14 @@ fn run_distinct(
 }
 
 /// Every set named, or every set that has been labelled twice.
-fn read_twice(app_ids: &[u32], reference: &std::path::Path) -> Result<Vec<u32>> {
+fn read_twice(app_ids: &[u32], reference: &std::path::Path, labels: &str) -> Result<Vec<u32>> {
     let wanted: Vec<u32> = if app_ids.is_empty() {
         labelled_sets(reference)?
             .into_iter()
             .filter(|app_id| {
                 reference
                     .join(app_id.to_string())
-                    .join("second")
+                    .join(labels)
                     .join("labels.json")
                     .is_file()
             })
@@ -1841,7 +1892,7 @@ fn read_twice(app_ids: &[u32], reference: &std::path::Path) -> Result<Vec<u32>> 
     };
     if wanted.is_empty() {
         anyhow::bail!(
-            "no set under {} has a second labelling yet; run `steamgauge second-opinion` first",
+            "no set under {} has a `{labels}` labelling yet; run `steamgauge second-opinion` first",
             reference.display()
         );
     }
@@ -1852,7 +1903,7 @@ fn read_twice(app_ids: &[u32], reference: &std::path::Path) -> Result<Vec<u32>> 
 fn run_ceiling(app_ids: &[u32], out: &std::path::Path, reference: &std::path::Path) -> Result<()> {
     use steamgauge_core::measure::{Role, SPLIT_SEED, role};
 
-    let wanted = read_twice(app_ids, reference)?;
+    let wanted = read_twice(app_ids, reference, "second")?;
     let pct =
         |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
 
@@ -1980,8 +2031,8 @@ fn print_ceiling_block(
     );
 }
 
-fn run_compare_labels(app_ids: &[u32], reference: &std::path::Path) -> Result<()> {
-    let wanted = read_twice(app_ids, reference)?;
+fn run_compare_labels(app_ids: &[u32], reference: &std::path::Path, labels: &str) -> Result<()> {
+    let wanted = read_twice(app_ids, reference, labels)?;
 
     let pct =
         |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
@@ -2013,7 +2064,7 @@ fn run_compare_labels(app_ids: &[u32], reference: &std::path::Path) -> Result<()
         let dir = reference.join(app_id.to_string());
         let pairs = steamgauge_core::reliability::paired(
             &dir.join("labels.json"),
-            &dir.join("second").join("labels.json"),
+            &dir.join(labels).join("labels.json"),
         )?;
         let found = steamgauge_core::reliability::over(&pairs);
 

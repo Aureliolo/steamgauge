@@ -74,7 +74,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Decided | State |
 |---|---|
 | Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
-| **Opus spot-checks the labels** | done as a blind second reading of a tenth: 1,400 claims over thirty games, subject kappa 0.85 |
+| **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read a sample of its own, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
 | **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
@@ -1544,10 +1544,10 @@ Three different problems wearing one face, and they want different work:
   the doubtful claims are dropped. That is the model, and it is the case for weighting or for
   labels.
 
-One confound, stated rather than resolved: every label here was written by Claude Fable 5.1, so
+One confound, stated here and settled below: every label here was written by Claude Fable 5.1, so
 "the labeller was less sure in Korean" may mean those claims are genuinely harder or may mean
-that model is weaker in Korean. Nothing in this set separates the two, and a human adjudication
-of a non-English sample is the only thing that would.
+that model is weaker in Korean. A second model reading the same claims separates them, and one
+has now done so: see "The labels are not worse in any language".
 
 The lesson about method is worth as much as the finding: the answer to "we have no evidence
 about X" was a directory of logits that had been sitting there for four days, written for a
@@ -1680,6 +1680,93 @@ The answer cache had to learn about language too. It was keyed on the review has
 index, or on the claim's text alone when reading without context, and "10/10" is the same two
 characters in every language on Steam: one cached answer would have been handed to a claim that
 clears a different bar.
+
+### The non-English half got 1,717 more claims, and a draw now has to say what it is
+
+Thirteen games gained a `multilingual` draw: 1,717 claims in Chinese (simplified and
+traditional), Japanese, Korean, Thai, Russian, German, French, Spanish, Portuguese and Italian.
+The per-language lines were fitted on a set where twelve languages had too little evidence to
+carry a line at all, which is the fallback the lines exist to replace.
+
+The draw is made with `--english 0.0`, and that selects on **Steam's own language tag**, not on
+the text. A review tagged `koreana` and written in English is drawn as Korean. Six of the eight
+labellers reported it independently, so it is a property of the data rather than of one batch:
+treat a per-language figure as a figure about the tag, which is also what the reader sees at
+inference, so the two agree and neither is measuring the script.
+
+A draw like this cannot land beside the random sample. Prevalence figures are computed over
+whatever is in the game's directory, so a deliberately skewed selection merged into the random
+one silently rewrites what that game is claimed to be about, with nothing in the file recording
+the skew. `sample-claims --subset` names the draw and places it in its own subdirectory, and the
+name is validated against `TEACHING_SETS`, the four the reader knows: `declined`, `mined`,
+`retrieved`, `multilingual`.
+
+### The labels are not worse in any language, and the Korean deficit is the reader's
+
+Opus read 1,062 of the new non-English claims blind, from the same batch files Fable was given,
+over six games chosen for how much Chinese, Japanese and Korean they carry. Two models
+converging is the only instrument available for the question, because "the labeller hedged in
+Korean" and "Korean claims are harder" look identical inside one model's output.
+
+| | claims | subject agreement | kappa |
+|---|---|---|---|
+| Fable against Opus, English random draws | 1,400 | 86.0% | 0.838 |
+| **Fable against Opus, non-English draws** | **1,062** | **87.6%** | **0.864** |
+
+Non-English agreement is not lower. Per language, with Wilson intervals because a thirty-claim
+row has no business using a normal approximation:
+
+| language | n | agreement | 95% interval |
+|---|---|---|---|
+| schinese | 257 | 84.4% | 79.5 to 88.3 |
+| german | 136 | 91.2% | 85.2 to 94.9 |
+| french | 100 | 86.0% | 77.9 to 91.5 |
+| brazilian | 97 | 83.5% | 74.9 to 89.6 |
+| russian | 84 | 91.7% | 83.8 to 95.9 |
+| koreana | 82 | 84.1% | 74.7 to 90.5 |
+| japanese | 78 | 88.5% | 79.5 to 93.8 |
+| tchinese | 35 | 97.1% | 85.4 to 99.5 |
+| thai | 30 | 86.7% | 70.4 to 94.7 |
+
+**Every interval contains the English figure of 86.0%.** Not one language is distinguishable
+from English at this sample size, Korean included. So the Korean supervision is as sound as the
+English supervision, and the reader needing 0.929 confidence before it will speak about a Korean
+claim is a fact about the reader, not an echo of shaky labels. That is a harder problem than a
+labelling problem and it belongs to the model.
+
+Hedging is the one place the two models part. Fable marked 62.2% of Korean claims low-confidence
+or ambiguous, the highest of any language with enough claims to say so; Opus hedged on Korean at
+63.4% but hedged about as much everywhere (60.7% Chinese, 63.1% Russian, 58.0% French), so its
+rate carries no signal about Korean and Fable's does. Fable is more hesitant in Korean than
+elsewhere while still landing on the same subject as Opus 84% of the time, which is a
+calibration quirk rather than a comprehension one.
+
+What this does not show: that either model is *right*. Two models sharing a blind spot look
+exactly like two models agreeing, and nothing here would catch it. The gold page is still the
+only instrument that settles correctness rather than convergence.
+
+The disagreements that remain are mostly the sheet, not the language. The two commonest are
+`gameplay` against `graphics` and `offtopic` against `policy`, nine each, and both are boundary
+questions `core-6` does not answer sharply. Those would show up in English too.
+
+### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
+
+`ingest-claims` merges by intersection: it takes the labels that name a claim the target set
+drew, and writes the result. Pointed at the wrong set the intersection is empty, so it wrote an
+empty file over a finished labelling. Four games lost 2,068 labels that way, 1517290 losing 161
+of them without that being noticed in the first report.
+
+Two beliefs made it worse and both were false. `reference/claims/*/labels.json` **is** tracked in
+git: only the review text is ignored, so the labels were never gone and `git checkout HEAD --`
+returned them with their exact `splitter` and `taxonomy` values. A recovery script written to
+rebuild them from `training/data/claims.jsonl` was built on the opposite belief and is deleted.
+Check what version control holds before describing anything as lost.
+
+The fix is a refusal, not a warning. `Error::Refused` fires when a merge would place no label at
+all while holding labels it could not place: that is the signature of a merge aimed at the wrong
+set, and it is never the signature of an honest one, because a real merge places at least one.
+`a_merge_that_places_nothing_writes_nothing` holds it. The cost of the refusal is running the
+command again with `--to`; the cost of its absence was four games.
 
 ### A 256-token window wins on every measure, and on none of them alone
 
