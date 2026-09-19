@@ -99,8 +99,16 @@ impl Adjudication {
 
     /// Writes the answers beside the target and renames, so a crash mid-write cannot leave a
     /// half-written file where the whole adjudication used to be.
+    ///
+    /// Merged into what is already held rather than replacing it. The page posts everything it
+    /// knows, and it knows only what is in this browser's storage, which is keyed by the sheet
+    /// and the size of the draw. Redraw the page and that key changes, so a fresh session would
+    /// post an empty list over a finished adjudication and the one artefact here that cannot be
+    /// recomputed would be gone. An answer is addressed by its claim, so the two merge cleanly
+    /// and a re-answer of the same claim wins.
     fn keep(&self, body: &[u8]) -> Result<()> {
-        serde_json::from_slice::<serde_json::Value>(body)?;
+        let incoming: Vec<serde_json::Value> = serde_json::from_slice(body)?;
+        let body = &serde_json::to_vec_pretty(&self.merged(incoming))?;
         if let Some(parent) = self
             .answers
             .parent()
@@ -112,6 +120,30 @@ impl Adjudication {
         std::fs::write(&beside, body)?;
         std::fs::rename(&beside, &self.answers)?;
         Ok(())
+    }
+
+    /// What is already on disk, with the incoming answers laid over it by claim.
+    fn merged(&self, incoming: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+        let key = |row: &serde_json::Value| {
+            format!(
+                "{}#{}#{}",
+                row.get("app_id").unwrap_or(&serde_json::Value::Null),
+                row.get("review_id").unwrap_or(&serde_json::Value::Null),
+                row.get("index").unwrap_or(&serde_json::Value::Null),
+            )
+        };
+        let held: Vec<serde_json::Value> = std::fs::read(&self.answers)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+
+        let answering: std::collections::HashSet<String> = incoming.iter().map(key).collect();
+        let mut merged: Vec<serde_json::Value> = held
+            .into_iter()
+            .filter(|row| !answering.contains(&key(row)))
+            .collect();
+        merged.extend(incoming);
+        merged
     }
 }
 
@@ -195,6 +227,42 @@ mod tests {
         assert!(page.keep(b"{not json").is_err());
         assert_eq!(super::answers_held(&target), 1);
         assert!(!target.with_extension("json.part").exists());
+    }
+
+    #[test]
+    fn a_fresh_session_cannot_post_away_a_finished_adjudication() {
+        // The page posts what this browser holds, and its storage is keyed by the sheet and the
+        // size of the draw. Redrawing changes that key, so the next session opens empty; if the
+        // post replaced the file, an afternoon of answers would be gone and nothing could
+        // recompute them.
+        let dir = crate::tempdir::Dir::new();
+        let target = dir.path().join("gold-answers.json");
+        let page = Adjudication::new("<p>hello</p>".to_owned(), target.clone());
+
+        page.keep(
+            br#"[{"app_id":1,"review_id":"r1","index":0,"subject":"verdict"},
+                       {"app_id":1,"review_id":"r2","index":0,"subject":"bugs"}]"#,
+        )
+        .expect("valid answers are written");
+        assert_eq!(super::answers_held(&target), 2);
+
+        // A new draw of the same set: empty storage, one fresh answer, and the two earlier ones
+        // must survive it.
+        page.keep(br#"[{"app_id":1,"review_id":"r3","index":0,"subject":"story"}]"#)
+            .expect("a later session merges");
+        assert_eq!(super::answers_held(&target), 3);
+
+        // Answering the same claim again is a correction and replaces it rather than doubling it.
+        page.keep(br#"[{"app_id":1,"review_id":"r1","index":0,"subject":"graphics"}]"#)
+            .expect("a re-answer merges");
+        assert_eq!(super::answers_held(&target), 3);
+        let held: Vec<serde_json::Value> =
+            serde_json::from_slice(&std::fs::read(&target).expect("the file")).expect("json");
+        let again = held
+            .iter()
+            .find(|row| row["review_id"] == "r1")
+            .expect("the re-answered claim");
+        assert_eq!(again["subject"], "graphics");
     }
 
     #[test]

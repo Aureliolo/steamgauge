@@ -1818,6 +1818,36 @@ Nothing here shows either model is right. Two models sharing a blind spot look e
 models agreeing. What it does give is 2,116 claims the two answered differently, 72 of them with
 both readers confident, and that short list is the most valuable thing a person could adjudicate.
 
+### What the gold pass will be, settled before a single question is asked
+
+The adjudication happens once and never again, so everything that decides which claims are put in
+front of a person is settled first. Decided 2026-09-19:
+
+- **English only.** The draw would otherwise be 27% Chinese, Russian, German, Japanese, Korean and
+  Thai. A question the adjudicator cannot read is worse than one never asked: it sits in the
+  count, it cannot be skipped honestly, and whatever goes in it wears the one label here allowed
+  to be called truth. The cost is stated rather than hidden: this produces an accuracy figure
+  about English, it cannot validate the per-language lines, and the Korean and Chinese promises
+  stay measured model against model.
+- **1,000 blind claims**, which is roughly plus or minus 2.5 points on the figure. Five hundred
+  would be 3.5, wide enough to swallow the difference between two model versions.
+- **The 39 answers in amended rows are asked again.** Of the 110 already given, 39 were answered
+  under wording that has since moved and the file never recorded which sheet they answered. They
+  are set aside in `gold-reask.json`, so the second answer can be read against the first. The
+  other 71 are in categories the amendment did not touch and carry over.
+
+Three things had to be fixed before any of that was safe, and all three were the same shape as
+bugs this project has already paid for:
+
+- The page recorded the sheet and the splitter; the **exported answers did not**. Every answer now
+  carries both, stamped per row rather than per file, because answers get merged and re-exported
+  separately. `ingest-gold` refuses a batch answering different wording from the build's.
+- `serve` **replaced** the answer file with whatever the page posted. The page posts what browser
+  storage holds, and that storage is keyed by the sheet and the size of the draw, so redrawing
+  opens an empty session that would have posted nothing over a finished adjudication. Answers now
+  merge by claim, and `a_fresh_session_cannot_post_away_a_finished_adjudication` holds it.
+- The draw could not see the second model's reading at all, and asked disagreements in file order.
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. Those names appear in
