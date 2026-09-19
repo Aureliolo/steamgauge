@@ -46,6 +46,11 @@ pub struct Question {
     pub before: String,
     pub after: String,
     pub language: String,
+    /// Which rules cut this claim, carried from the label rather than read off the build. The
+    /// reference set holds three splitters at once and a frozen sample keeps the one it was
+    /// drawn under, so an answer stamped with whatever the binary happens to be today would
+    /// name rules the person was never shown.
+    pub splitter: String,
     /// What the labellers said, shown only for a split: `None` on a blind question, because an
     /// answer on the page is an answer in the reader's head.
     pub shown: Option<Vec<Answered>>,
@@ -205,6 +210,7 @@ pub fn draw(
                 before: rejoined.text[..at].to_owned(),
                 after: rejoined.text[at + text.len()..].to_owned(),
                 language: label.language.clone(),
+                splitter: label.splitter.clone(),
                 shown: None,
             };
 
@@ -355,7 +361,6 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "questions": questions,
         "categories": categories,
         "taxonomy": crate::taxonomy::sheet(),
-        "splitter": crate::claims::SPLITTER_VERSION,
         "blind": found.blind,
         "settled": found.settled,
         "split": found.split,
@@ -772,6 +777,7 @@ mod tests {
             before: String::new(),
             after: " and I love it".to_owned(),
             language: "english".to_owned(),
+            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());
@@ -795,6 +801,7 @@ mod tests {
             before: String::new(),
             after: String::new(),
             language: "english".to_owned(),
+            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());

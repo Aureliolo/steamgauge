@@ -561,7 +561,9 @@
       // whose sheet nobody can name is the one label here that cannot be checked against
       // anything, and an unnamed one already cost 39 answers.
       mine.sheet = data.taxonomy;
-      mine.splitter = data.splitter;
+      // From the question, not the file: the set holds claims cut under three different
+      // splitters, so one stamp for the whole export would be wrong for most of it.
+      mine.splitter = question.splitter;
       rows.push(mine);
     });
     return rows;

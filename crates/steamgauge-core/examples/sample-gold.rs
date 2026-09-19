@@ -20,6 +20,7 @@ fn question(id: &str, claim: &str, review: &str, shown: Option<Vec<Answered>>) -
         before: review[..at].to_owned(),
         after: review[at + claim.len()..].to_owned(),
         language: "english".to_owned(),
+        splitter: steamgauge_core::claims::SPLITTER_VERSION.to_owned(),
         shown,
     }
 }

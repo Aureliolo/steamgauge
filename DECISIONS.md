@@ -2059,6 +2059,75 @@ count, because 960 people did tick it. For training it is duplicated boilerplate
 a string rather than a skill, and it should be deduplicated there. Same rows, opposite
 treatment, and the two must not be confused.
 
+### What the splitter was doing to copypasta, measured rather than assumed
+
+`empty-claims` is the instrument: it runs the live splitter over a capture and counts the
+claims that carry no proposition, by cause. Measured over eight games, 4.3M claims, before and
+after. The share of claims that say nothing went from 1.17%, 2.13% and 2.48% on the first three
+games to 0.38%, 0.33% and 0.43%, and almost all of what is left is a deliberate keep.
+
+| cause | before | after |
+|---|---|---|
+| no word in it: `.`, `:)`, a rule of equals signs, braille art | 21,362 | 0 |
+| nothing but Steam's censorship hearts | 3,512 | 0 |
+| a ticked option cut off from its heading | 2,592 | 704 |
+| an option the reviewer left blank | 7 | 0 |
+| digits with nothing said about them: `9/10`, `666` | 18,118 | 14,958 |
+
+Five things were wrong, and only the first was the one that started the search.
+
+**The heading was consumed by the first tick.** `held.take()` meant "Recommended for:" reached
+`\u{2611} Teens` and nothing after it, so `\u{2611} Adults` and `\u{2611} Grandma` arrived as
+words. They were the commonest unanswerable claims in the corpus, 898 and 460 in one game.
+
+**The mark list was six characters and the corpus uses ten.** The single commonest template on
+Steam is drawn with `\u{1F532}` and `\u{2705}`, neither of which the splitter knew: 23,927 and
+6,657 lines read as prose. `\u{1F533}` and `\u{2B1C}` likewise, confirmed as blanks by 96% and
+64% of the reviews using them also carrying a separate tick.
+
+**A picture was treated as a template.** Anything with three drawn lines took the template
+path, where prose is a heading waiting for an answer that never comes, so the whole review came
+back as one claim: 334 reviews across six captures, 324,693 characters of Chinese, Russian and
+Thai prose, each read as a single point. A template is now what somebody filled in, and
+drawings fall out of the emptiness rule instead.
+
+**A bar was read as a column.** Reviewers draw a score as
+`\u{1F533}\u{1F533}\u{1F533}\u{1F532}\u{1F532} 8/10`. Once the square buttons were marks, that
+was eight rejections and the only written part of the line was inside them. A mark with another
+mark behind it is a bar.
+
+**"Has a letter in it" is not "says something".** The first emptiness rule kept every drawing in
+the corpus, because a lenny face has `\u{0296}` in it and a shrug has `\u{30C4}`. A claim needs
+a word: two alphanumerics in a row, or one character of a script that writes a word in one,
+since `\u{597D}` is a complete review and 4,130 people left it.
+
+**The cross is left alone, on purpose.** `\u{274C}` is a rejected option in one template and a
+listed fault in the next, 52 reviews to 83 across six captures. Reading it as a rejection
+deletes complaints people made, and there is no reading of it that is right more often than
+wrong, so it stays ordinary text.
+
+Two things this does not fix. 704 ticked options still have no heading to recover, because
+their templates never had one, and their text is mostly self-describing. And `9/10` stays a
+claim: a number is a verdict, `666` is a Chinese reviewer saying the game is excellent, and
+only a date range like `2020/12/10-2024/1/1` is genuinely empty.
+
+`claims-6` makes all 52 readings on disk stale. That is the version's job and they refuse
+themselves until each game is read again.
+
+### One text, a hundred accounts, and why that is not the splitter's problem
+
+2,907 reviews of the 1.48M in six captures, 0.196%, are a single text posted by three or more
+different accounts: 335 distinct texts, the largest a Chinese review of CDPR pasted by 115
+separate accounts. The drawings among them stop producing claims now, but the ones with real
+prose in them still count once per posting.
+
+Not fixed here, and not obviously a defect. The reader already asks about each distinct claim
+once, so this costs nothing to run; what it changes is prevalence, where 115 postings of one
+opinion count as 115. That is either a review-bombing campaign distorting a rate or it is 115
+people who each chose to endorse a text, and deciding which is an editorial judgement about
+whose opinion counts, not a bug fix. Recorded so the number is known when somebody wants to
+make that call.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games

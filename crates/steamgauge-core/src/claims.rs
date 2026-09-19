@@ -42,25 +42,51 @@ use crate::Result;
 /// ends on a comma has not finished, and an emoticon belongs to the sentence before it.
 /// `claims-5` is the copypasta: a ballot-box template is the boxes the reviewer ticked and
 /// not the ones they left blank, and a drawing made of punctuation is one claim rather than
-/// one per line.
-pub const SPLITTER_VERSION: &str = "claims-5";
+/// one per line. `claims-6` finishes that: a heading introduces every box under it rather
+/// than only the first one ticked, so an answer keeps the words that say what it answers; a
+/// template is what somebody filled in rather than any column of lines, so a review with a
+/// picture in it is split as prose instead of arriving as one claim; the marks a template can
+/// be drawn with are the ones the corpus uses rather than the six typographic boxes; and a
+/// piece with no word in it is not a claim at all.
+pub const SPLITTER_VERSION: &str = "claims-6";
 
 /// The marks a review template offers as options, ticked or left blank.
 ///
-/// One review in seven hundred is one of these, and they hold 1.8% of every claim in the
-/// reference set: a single Deep Rock Galactic review came back as fifty-eight claims, of
-/// which fifty-three were options its author never chose.
-const BALLOT_BOXES: [char; 6] = [
-    '\u{2610}', '\u{2611}', '\u{2612}', '\u{25A1}', '\u{2713}', '\u{2714}',
+/// One review in five hundred and fifty is one of these, counted over 1.6M reviews, and four
+/// of every five lines in them is an option nobody took: a single Deep Rock Galactic review
+/// came back as fifty-eight claims, of which fifty-three were options its author never chose.
+/// Every one is either a hollow box or a check. A cross on its own is deliberately absent:
+/// `\u{274C}` and its kin are a rejected option in one template and a listed fault in the
+/// next, and reading a fault as a rejection deletes a complaint somebody made. Counted over
+/// six captures, the crosses split 83 reviews to 52 between those two meanings, so there is
+/// no reading of them that is right more often than it is wrong.
+const BALLOT_BOXES: [char; 10] = [
+    '\u{2610}',
+    '\u{2611}',
+    '\u{2612}',
+    '\u{25A1}',
+    '\u{2713}',
+    '\u{2714}',
+    '\u{2705}',
+    '\u{1F532}',
+    '\u{1F533}',
+    '\u{2B1C}',
 ];
 
 /// The marks that count as ticked. A reviewer who fills a template in with an "x" is
 /// answering it as surely as one who has a font with a tick in it.
-const TICKED: [char; 5] = ['\u{2611}', '\u{2612}', '\u{2713}', '\u{2714}', 'x'];
+const TICKED: [char; 6] = [
+    '\u{2611}', '\u{2612}', '\u{2713}', '\u{2714}', '\u{2705}', 'x',
+];
 
-/// How many lines of punctuation in a row are a picture rather than a sentence. Two could be
-/// a shrug and a face; three is somebody drawing.
-const LINES_OF_A_DRAWING: usize = 3;
+/// What Steam leaves where its filter objected to a word. Whatever the reviewer wrote is gone,
+/// so a claim made only of these is one whose content the platform deleted, not one that is
+/// merely terse.
+const CENSORED: char = '\u{2665}';
+
+/// How many boxes make a template rather than a turn of phrase. Two could be somebody typing
+/// a checkmark to agree with themselves; three is a form.
+const BOXES_OF_A_TEMPLATE: usize = 3;
 
 /// The most a comma-separated part may weigh for a sentence of three or more of them to be
 /// read as a list of points. "Stunning visual, calm music, epic story" is three of weight
@@ -205,7 +231,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
     // A template has already decided what its claims are, and they are short on purpose: an
     // answer to a heading is "Beautiful", which the fragment joiner would glue to the next
     // answer and the list splitter would cut again.
-    let filled_in = a_template_or_a_drawing(text);
+    let filled_in = a_filled_in_template(text);
     let pieces = filled_in.clone().unwrap_or_else(|| {
         join_the_fragments(text, pieces)
             .into_iter()
@@ -223,12 +249,15 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             // between, which are lines the reviewer declined. They are inside it because a
             // span is one range of bytes; they are not inside what anybody said.
             let cleaned = if filled_in.is_some() {
-                without_the_unchosen(&cleaned)
+                the_heading_and_its_answer(&cleaned)
             } else {
-                cleaned
+                // A form nobody filled in is not a template, so the split above treated it as
+                // prose. Its blank lines are still options the reviewer declined, and they
+                // mean the opposite of what they say wherever they turn up.
+                without_the_declined(cleaned)
             };
             let cleaned = cleaned.trim();
-            if cleaned.is_empty() {
+            if carries_no_proposition(cleaned) {
                 return None;
             }
             let claim = if cleaned.len() == piece.len() {
@@ -241,31 +270,64 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
         .collect()
 }
 
-/// Drops the lines of a template the reviewer left blank, and the rules between sections.
-fn without_the_unchosen(piece: &str) -> String {
+/// Drops the lines of a form its author left blank, wherever they sit.
+///
+/// Returned untouched where there are none, which is all but one claim in a thousand: every
+/// claim in the corpus passes through here and rebuilding each one line by line to change
+/// nothing would also cost the borrow the caller hands back.
+fn without_the_declined(piece: String) -> String {
+    if !piece
+        .lines()
+        .any(|line| option_mark(line.trim()) == Some(false))
+    {
+        return piece;
+    }
     piece
         .lines()
-        .filter(|line| {
-            let bare = line.trim();
-            !bare.is_empty() && option_mark(bare) != Some(false) && !is_a_drawn_line(line)
-        })
+        .filter(|line| option_mark(line.trim()) != Some(false))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-/// Cuts a review that is a filled-in template, or a picture, into what it actually says.
+/// Reduces a template piece to its heading and the one answer it is about.
+///
+/// The span runs from the heading to a ticked option and passes over everything between: the
+/// options the reviewer declined, and any they ticked that already have a piece of their own.
+/// Both sit inside the bytes; neither is inside what this claim says.
+fn the_heading_and_its_answer(piece: &str) -> String {
+    let lines: Vec<&str> = piece.lines().collect();
+    let answer = lines
+        .iter()
+        .rposition(|line| option_mark(line.trim()) == Some(true));
+    lines
+        .iter()
+        .enumerate()
+        .filter(|(which, line)| {
+            let bare = line.trim();
+            !bare.is_empty()
+                && !is_a_drawn_line(line)
+                && (option_mark(bare).is_none() || Some(*which) == answer)
+        })
+        .map(|(_, line)| *line)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Cuts a review that is a filled-in template into what its author actually chose.
 ///
 /// Steam reviews are full of a copypasta: a heading, then a column of options with one
 /// ticked. Split by sentence it comes back as dozens of claims, nearly all of them options
 /// the reviewer passed over, and four labellers in a row flagged every fragment. The ticked
-/// boxes are the review; the blank ones are the ones somebody else would have ticked.
+/// boxes are the review; the blank ones are the ones somebody else would have ticked, and
+/// the heading above them is what says whether ticking one was praise or a complaint.
 ///
-/// A drawing goes the same way: fifteen lines of braille or a hand made of brackets, cut into
-/// a claim per line, none of which is words. Recognised by what a line is made of rather than
-/// what it says, so it holds in every script.
+/// Drawings are not handled here. Braille art and hands made of brackets used to come through
+/// this path, on the grounds that both arrive as a column of lines, but a picture has no
+/// answer in it to hang the rest of the review on: every paragraph came back glued into one
+/// claim. They fall out on their own now, having no word and no number in them.
 ///
-/// `None` where the review is neither, which is all but one in seven hundred.
-fn a_template_or_a_drawing(text: &str) -> Option<Vec<(usize, usize)>> {
+/// `None` where the review is not one, which is all but one in five hundred and fifty.
+fn a_filled_in_template(text: &str) -> Option<Vec<(usize, usize)>> {
     let lines: Vec<(usize, &str)> = text
         .split_inclusive('\n')
         .scan(0, |at, line| {
@@ -279,8 +341,14 @@ fn a_template_or_a_drawing(text: &str) -> Option<Vec<(usize, usize)>> {
         .iter()
         .filter(|(_, line)| line.trim_start().starts_with(BALLOT_BOXES))
         .count();
-    let drawn = longest_run(&lines, is_a_drawn_line);
-    if boxed < LINES_OF_A_DRAWING && drawn < LINES_OF_A_DRAWING {
+    // Nothing ticked is nothing filled in, so there is no template here even where the boxes
+    // are: a picture drawn out of squares is a picture. Taking the split over for those handed
+    // back every paragraph of the review glued into a single claim, which cost 334 reviews
+    // across six captures a third of a million characters of prose read as one point.
+    let answered = lines
+        .iter()
+        .any(|(_, line)| option_mark(line.trim()) == Some(true));
+    if boxed < BOXES_OF_A_TEMPLATE || !answered {
         return None;
     }
 
@@ -288,6 +356,7 @@ fn a_template_or_a_drawing(text: &str) -> Option<Vec<(usize, usize)>> {
     // front of it: "{ Graphics }" and "Beautiful" are one claim about graphics.
     let mut pieces: Vec<(usize, usize)> = Vec::new();
     let mut held: Option<usize> = None;
+    let mut used = false;
     for (at, line) in &lines {
         let end = at + line.len();
         let bare = line.trim();
@@ -295,12 +364,21 @@ fn a_template_or_a_drawing(text: &str) -> Option<Vec<(usize, usize)>> {
             // An option nobody chose. Not a claim, and not a heading for the next one.
             Some(false) => {}
             Some(true) => {
-                let from = held.take().unwrap_or(*at);
-                pieces.push((from, end));
+                // The heading is not consumed. "Recommended for:" introduces every box under
+                // it, and a reviewer who ticks three of them has said three things about the
+                // audience, not one thing and two loose words.
+                pieces.push((held.unwrap_or(*at), end));
+                used = true;
             }
             None => {
                 if bare.is_empty() || is_a_drawn_line(line) {
                     continue;
+                }
+                // A line below an answered group starts a new one, and heads the options
+                // under it rather than the ones already answered above.
+                if used {
+                    held = None;
+                    used = false;
                 }
                 // Anything that is not an option is a heading for the options under it,
                 // unless nothing follows, in which case it is a claim of its own.
@@ -308,17 +386,12 @@ fn a_template_or_a_drawing(text: &str) -> Option<Vec<(usize, usize)>> {
             }
         }
     }
-    if let Some(from) = held {
+    if let Some(from) = held
+        && !used
+    {
         pieces.push((from, text.len()));
     }
-    // A review that is nothing but a drawing is one claim, which the reader declines. Falling
-    // back to the sentence split here would hand back the picture a line at a time, which is
-    // the shape this exists to stop.
-    Some(if pieces.is_empty() {
-        vec![(0, text.len())]
-    } else {
-        pieces
-    })
+    Some(pieces)
 }
 
 /// Whether a line is one of a template's options, and whether the reviewer chose it.
@@ -330,6 +403,13 @@ fn option_mark(bare: &str) -> Option<bool> {
     let mut chars = bare.chars();
     let first = chars.next()?;
     if BALLOT_BOXES.contains(&first) {
+        // A mark with another mark behind it is a bar, not a box: reviewers draw a score as
+        // "\u{1F533}\u{1F533}\u{1F533}\u{1F532}\u{1F532} 8/10", and read as options those are
+        // eight rejections of nothing followed by the only part anybody wrote.
+        let next = chars.next();
+        if next.is_some_and(|after| BALLOT_BOXES.contains(&after)) {
+            return None;
+        }
         return Some(TICKED.contains(&first));
     }
     let crossed = first == 'x' || first == 'X';
@@ -348,21 +428,60 @@ pub fn is_a_declined_option(claim: &str) -> bool {
     option_mark(claim.trim_start()) == Some(false)
 }
 
+/// Whether a claim holds nothing anybody could agree or disagree with.
+///
+/// Three things arrive here shaped like text. Punctuation and emoji without a word: a review
+/// that is `.` or `:)` or a rule of equals signs. Steam's censorship hearts, where the content
+/// is not absent but deleted, so there is nothing left to read even in principle. And the
+/// empty remainder of a template whose options were all declined.
+///
+/// Digits survive, because a review that is only `9/10` is a verdict, and `666` is a Chinese
+/// reviewer saying the game is excellent. A number is a claim; a full stop is not.
+///
+/// What it looks for is a word, not a letter. A face drawn out of punctuation usually has one
+/// letter buried in it, `\u{0296}` in the lenny face and `\u{30C4}` in the shrug, so anything
+/// asking only for a letter keeps every drawing in the corpus. A word is two alphanumerics in
+/// a row, or one character of a script that writes a whole word in one: `\u{597D}` is a
+/// complete review meaning "good" and 4,130 people left it.
+///
+/// Emitting one of these costs what a real claim costs and returns noise. Two labellers put on
+/// `.` will disagree, because there is nothing to agree about, and the disagreement then reads
+/// as a hard boundary in the sheet rather than as a piece of grit in the corpus.
+fn carries_no_proposition(claim: &str) -> bool {
+    let mut run = 0_usize;
+    for ch in claim.chars() {
+        if ch == CENSORED || !ch.is_alphanumeric() {
+            run = 0;
+            continue;
+        }
+        run += 1;
+        if run >= 2 || writes_a_word_in_one_character(ch) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Whether one character of this script is a word on its own.
+///
+/// Han, kana and Hangul write a word in a character or two, so the two-character test that
+/// separates a drawing from a word in an alphabet would throw away the shortest reviews in a
+/// third of the corpus.
+fn writes_a_word_in_one_character(ch: char) -> bool {
+    matches!(ch,
+        '\u{3040}'..='\u{30FF}'      // kana
+        | '\u{3400}'..='\u{4DBF}'    // Han, extension A
+        | '\u{4E00}'..='\u{9FFF}'    // Han
+        | '\u{AC00}'..='\u{D7AF}'    // Hangul syllables
+        | '\u{F900}'..='\u{FAFF}'    // Han, compatibility
+    )
+}
+
 /// Whether a line is part of a picture: it has something on it, and none of it is a letter
 /// or a digit in any script.
 fn is_a_drawn_line(line: &str) -> bool {
     let bare = line.trim();
     !bare.is_empty() && bare.chars().count() > 1 && !bare.chars().any(char::is_alphanumeric)
-}
-
-/// The longest run of consecutive lines the test holds for.
-fn longest_run(lines: &[(usize, &str)], test: impl Fn(&str) -> bool) -> usize {
-    let (mut longest, mut running) = (0, 0);
-    for (_, line) in lines {
-        running = if test(line) { running + 1 } else { 0 };
-        longest = longest.max(running);
-    }
-    longest
 }
 
 /// Runs a boundary that begins at `end` out over any further terminators and the whitespace
@@ -1186,6 +1305,150 @@ mod tests {
             claims[0]
         );
         assert!(claims[1].contains("Gameplay"), "got {:?}", claims[1]);
+    }
+
+    /// The heading is what supplies the polarity, so every answer under it needs it. Taking
+    /// it for the first tick alone left "Adults" and "Grandma" as claims, which are words
+    /// rather than opinions, and they were the commonest thing in the corpus no reader could
+    /// answer: 898 of one and 460 of another in a single game.
+    #[test]
+    fn a_heading_belongs_to_every_box_ticked_under_it() {
+        let claims = split(
+            "Recommended for:\n\u{2610} Kids\n\u{2611} Teens\n\u{2611} Adults\n\u{2611} Grandma\n",
+        );
+        assert_eq!(claims.len(), 3, "got {claims:?}");
+        for (claim, who) in claims.iter().zip(["Teens", "Adults", "Grandma"]) {
+            assert!(
+                claim.contains("Recommended for:") && claim.contains(who),
+                "an answer lost the heading that says what it answers: {claim:?}"
+            );
+        }
+        assert!(
+            !claims[2].contains("Teens"),
+            "a claim carries one answer, not the ones already asked: {:?}",
+            claims[2]
+        );
+        assert!(
+            !claims.iter().any(|claim| claim.contains("Kids")),
+            "an option nobody ticked is not a claim: {claims:?}"
+        );
+    }
+
+    /// A template's group ends where prose starts again. Without that the heading would go on
+    /// annotating boxes it has nothing to do with, several sections further down.
+    #[test]
+    fn prose_after_a_group_ends_it_rather_than_joining_it() {
+        let claims =
+            split("Audience\n\u{2611} Teens\nThe combat is superb.\nSound\n\u{2611} Excellent\n");
+        assert_eq!(claims.len(), 3, "got {claims:?}");
+        assert!(claims[1].contains("combat"), "got {:?}", claims[1]);
+        assert!(
+            claims[2].contains("Sound") && !claims[2].contains("Audience"),
+            "the second group took the first group's heading: {:?}",
+            claims[2]
+        );
+    }
+
+    /// A review that is a full stop, a row of equals signs or a smiley says nothing, and a
+    /// claim is the unit somebody is asked to judge. Digits stay: "9/10" is a verdict and
+    /// "666" is a Chinese reviewer calling the game excellent.
+    #[test]
+    fn a_piece_with_no_word_and_no_number_in_it_is_not_a_claim() {
+        for nothing in [".", "...", ":)", "==================", "~", ",.,.,."] {
+            assert!(
+                split(nothing).is_empty(),
+                "{nothing:?} was handed back as a claim"
+            );
+        }
+        for drawn in [
+            "( \u{361}\u{00B0} \u{35C}\u{0296} \u{361}\u{00B0})",
+            "\u{00AF}\\_/\u{00AF}",
+        ] {
+            assert!(
+                split(drawn).is_empty(),
+                "a face with one letter buried in it was handed back as a claim: {drawn:?}"
+            );
+        }
+        for something in ["9/10", "666", "good", "\u{597D}", "\u{597D}\u{73A9}"] {
+            assert_eq!(
+                split(something).len(),
+                1,
+                "{something:?} says something and was dropped"
+            );
+        }
+    }
+
+    /// Steam replaces a word its filter objects to with hearts. A claim of nothing but those
+    /// is one whose content the platform deleted, which is not the same as a terse review and
+    /// cannot be read by anyone. A censored word inside a sentence leaves the sentence.
+    #[test]
+    fn a_claim_that_is_only_censorship_is_not_a_claim() {
+        assert!(split("\u{2665}\u{2665}\u{2665}\u{2665}").is_empty());
+        assert!(split("\u{2665}\u{2665}\u{2665}\u{2665}!").is_empty());
+        assert_eq!(
+            split("This game is \u{2665}\u{2665}\u{2665}\u{2665} good.").len(),
+            1,
+            "a censored word does not delete the sentence around it"
+        );
+    }
+
+    /// The commonest template in the corpus is not written with the ballot-box characters at
+    /// all. Its blanks are square buttons and its ticks are heavy checks, and knowing only
+    /// the six typographic boxes left 23,927 lines of it read as prose.
+    #[test]
+    fn a_template_drawn_with_square_buttons_is_still_a_template() {
+        let claims = split(
+            "~ DIFFICULTY ~\n\u{1F532} Easy\n\u{2611}\u{FE0F} Normal\n\u{1F532} Dark Souls\n\
+             ~ PRICE ~\n\u{1F532} Free\n\u{2705} Could be cheaper\n\u{1F532} Overpriced\n",
+        );
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert!(
+            claims[0].contains("DIFFICULTY") && claims[0].contains("Normal"),
+            "got {:?}",
+            claims[0]
+        );
+        assert!(
+            claims[1].contains("PRICE") && claims[1].contains("Could be cheaper"),
+            "got {:?}",
+            claims[1]
+        );
+        assert!(
+            !claims.iter().any(|claim| claim.contains("Dark Souls")),
+            "a button nobody pressed is not a claim: {claims:?}"
+        );
+    }
+
+    /// Reviewers draw a score as a bar of filled and empty marks. Read as a column of options
+    /// that is eight rejections in a row, and the rejected text is the only thing on the line
+    /// anybody actually wrote.
+    #[test]
+    fn a_bar_drawn_out_of_boxes_is_a_score_rather_than_a_column_of_options() {
+        let claims = split(
+            "Graphics\n\u{1F533}\u{1F533}\u{1F533}\u{1F533}\u{1F532}\u{1F532} 8/10\n\
+             Sound\n\u{1F533}\u{1F533}\u{1F533}\u{1F532}\u{1F532}\u{1F532} 6/10\n\
+             Story\n\u{1F533}\u{1F533}\u{1F533}\u{1F533}\u{1F533}\u{1F532} 9/10\n",
+        );
+        for score in ["8/10", "6/10", "9/10"] {
+            assert!(
+                claims.iter().any(|claim| claim.contains(score)),
+                "a score drawn as a bar was deleted as an option nobody chose: {claims:?}"
+            );
+        }
+    }
+
+    /// A cross means "not this one" in a template and "here is what is wrong with it" in a
+    /// list of faults, and the corpus uses it both ways in similar numbers. Reading it as a
+    /// rejection would delete real complaints, so it is left as ordinary text.
+    #[test]
+    fn a_cross_is_not_read_as_a_rejected_option() {
+        let claims =
+            split("\u{2705} Great graphics\n\u{274C} Terrible performance\n\u{2705} Fun combat\n");
+        assert!(
+            claims
+                .iter()
+                .any(|claim| claim.contains("Terrible performance")),
+            "a listed fault was deleted as though nobody had chosen it: {claims:?}"
+        );
     }
 
     /// Reviewers without a font that has a tick in it type an "x". Recognising the template
