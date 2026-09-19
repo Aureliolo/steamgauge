@@ -264,11 +264,19 @@ fn assemble(
     split.retain(|(at, _, _)| !asked_blind.contains(at));
     found.split = split.len();
 
-    split.sort_by_key(|(_, hedged, _)| *hedged);
-    found.contested_sure = split.iter().filter(|(_, hedged, _)| !hedged).count();
+    let (sharp, doubted): (Vec<Contested>, Vec<Contested>) =
+        split.into_iter().partition(|(_, hedged, _)| !hedged);
+    found.contested_sure = sharp.len();
 
-    let mut questions: Vec<Question> = blind.into_iter().map(|(_, _, _, q)| q).collect();
-    questions.extend(split.into_iter().map(|(_, _, question)| question));
+    // Sharpest first, then the blind sample, then the rest. Two readers who were both sure and
+    // still disagreed are the shortest list worth anyone's time, and there are only ever a few
+    // dozen of them; asking them after a thousand blind claims is asking them of somebody who
+    // has stopped. Putting them first costs the blind sample nothing, because a prefix of a
+    // randomly ordered sample is still a random sample, so whatever of it gets answered stands
+    // on its own.
+    let mut questions: Vec<Question> = sharp.into_iter().map(|(_, _, q)| q).collect();
+    questions.extend(blind.into_iter().map(|(_, _, _, q)| q));
+    questions.extend(doubted.into_iter().map(|(_, _, q)| q));
     questions
 }
 
@@ -509,6 +517,32 @@ mod tests {
         assert!(
             questions.iter().all(|question| question.shown.is_none()),
             "a blind question that shows an answer is a ratification, not a measurement"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_sharpest_disagreements_come_before_the_blind_sample() {
+        // A person stops when they stop. The few dozen claims two confident readers answered
+        // differently are the shortest high-value list in the set, and putting them behind a
+        // thousand blind claims is putting them in front of somebody who has already left.
+        let root = std::env::temp_dir().join(format!("steamgauge-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        a_reference_set(&root);
+
+        // blind_wanted of 0 keeps the frozen game's disagreement out of the blind sample, so it
+        // stays a split and the ordering has something to order.
+        let (questions, counts) = draw(&root, 0, Splits::Everywhere, 1, &[], "second").unwrap();
+        assert_eq!(counts.blind, 0);
+        assert!(counts.contested_sure > 0, "nothing sharp to put first");
+        assert!(
+            questions
+                .iter()
+                .take(counts.contested_sure)
+                .all(|question| question.shown.is_some()),
+            "the questions asked first are not the disagreements"
         );
 
         let _ = std::fs::remove_dir_all(&root);
