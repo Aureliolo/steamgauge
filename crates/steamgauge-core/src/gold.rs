@@ -661,6 +661,39 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// Since a heading introduces every box ticked under it, two claims of one review can
+    /// begin with the same words, and a template with the same option ticked twice makes two
+    /// claims that are the same words throughout. Finding a claim by searching the rejoined
+    /// text for it would highlight the first one both times, and the person would answer the
+    /// same sentence twice without either question looking wrong.
+    #[test]
+    fn a_claim_is_found_by_where_it_sits_and_not_by_what_it_says() {
+        let review = DrawnReview {
+            id: "r1".to_owned(),
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            claims: ["Audience\n\u{2611} Adults", "Audience\n\u{2611} Adults"]
+                .iter()
+                .enumerate()
+                .map(|(index, text)| crate::claimset::DrawnClaim {
+                    index: u16::try_from(index).unwrap(),
+                    start: 0,
+                    end: 0,
+                    text: (*text).to_owned(),
+                })
+                .collect(),
+            asked: None,
+        };
+        let rejoined = Rejoined::of(&review);
+        let (first, _) = rejoined.find(0).expect("the first claim is there");
+        let (second, _) = rejoined.find(1).expect("the second claim is there");
+        assert_ne!(
+            first, second,
+            "two claims with the same words were given the same place in the review"
+        );
+    }
+
     #[test]
     fn an_option_the_reviewer_left_blank_is_never_put_in_front_of_a_person() {
         // Most of the reference set was cut before the splitter collapsed a ballot template,
