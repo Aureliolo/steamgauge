@@ -25,7 +25,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Every other percentage says which denominator it uses | done |
 | **Deep, claim-level by default**: a review is split into the points it makes, and each point carries a category | done; the splitter is `claims-5` and the reading pass counts per claim |
 | Shallow is the opt-out, and neither depth drops a review | done; `--depth shallow`, recorded in the reading and named on the page as not comparable |
-| Taxonomy is a **fixed core spine plus induced game-specific extras** | spine done (`core-6`); the induction chain runs end to end: `steamgauge distinct` draws the sample, an agent reads it against `reference/induction-brief.txt`, `steamgauge ingest-induced` refuses any subject without three real reviews behind it, and the report shows what survives under the table with its evidence and no invented rate. First run on 296970 (Renowned Explorers): nine subjects returned, nine kept, every one refining a spine row or naming something the spine cannot (mood combat, the explorer roster, the oddball enemies, save-scumming), each with four to fourteen reviews behind it |
+| Taxonomy is a **fixed sheet plus induced game-specific extras** | the sheet is done; the induction chain runs end to end: `steamgauge distinct` draws the sample, an agent reads it against `reference/induction-brief.txt`, `steamgauge ingest-induced` refuses any subject without three real reviews behind it, and the report shows what survives under the table with its evidence and no invented rate. First run on 296970 (Renowned Explorers): nine subjects returned, nine kept, every one refining a sheet row or naming something the sheet cannot (mood combat, the explorer roster, the oddball enemies, save-scumming), each with four to fourteen reviews behind it |
 | Extras are discovered by an **LLM reading an embedding-diverse sample** | the sample is farthest-point traversal over a hash-drawn pool of four thousand vectors, measured to put a mechanics review, a localisation joke, a crash report and a difficulty complaint in its first eight picks. The reading is one agent call per game, 70k tokens on Opus for a 120-review handout, run one at a time behind the labellers |
 | Categories are assigned across the full corpus by a **linear probe over embeddings** | superseded: a fine-tuned encoder with abstention, which is a probe that can say no |
 | **Corrected prevalence**: the measured error corrects the rate rather than sitting beside it | done, per subject, where the model finds it better than chance |
@@ -76,7 +76,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
 | **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read 26 of the 49 games in full, 16,310 claims, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
-| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
+| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. The sheet has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
 | Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 frozen (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
 | Measured error **corrects the reported prevalence** | done, on the report page, per subject where the model finds it better than chance |
@@ -1747,7 +1747,7 @@ only instrument that settles correctness rather than convergence.
 
 The disagreements that remain are mostly the sheet, not the language. The two commonest are
 `gameplay` against `graphics` and `offtopic` against `policy`, nine each, and both are boundary
-questions `core-6` does not answer sharply. Those would show up in English too.
+questions the sheet does not answer sharply. Those would show up in English too.
 
 ### Half the set has been read twice, and the labellers' own doubt sorts it
 
@@ -1804,7 +1804,7 @@ The genuine gaps were narrow and are now closed: a judgement about how the game 
 since release is `updates` even when no patch or studio is named, and a single word carrying an
 attitude is a `verdict` while one carrying none is `offtopic`.
 
-No category changed, so the sheet stays `core-6` and no label is invalidated by the amendment.
+No category changed, so the categories fingerprint does not move and no label is invalidated.
 What the amendment does is make a re-ask worth running: `revisit` exists for exactly this, and
 the claims to re-ask are the ones the two readings answered differently, not the whole set.
 
@@ -1817,6 +1817,39 @@ the two models says nothing; comparing one model's rate across languages or subj
 Nothing here shows either model is right. Two models sharing a blind spot look exactly like two
 models agreeing. What it does give is 2,116 claims the two answered differently, 72 of them with
 both readers confident, and that short list is the most valuable thing a person could adjudicate.
+
+### The sheet stopped having a name, because the one time it needed bumping it was not
+
+The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. Those names appear in
+the history above and stay there, because they record what actually happened. Nothing carries one
+any more.
+
+The amendment two sections up is why. Boundary rules moved, and `CORE_SPINE_VERSION` stayed at
+`core-6`, so labels written before and after claimed to answer the same sheet. Nobody would have
+been able to tell them apart afterwards. That is the exact drift the name existed to prevent, and
+it failed the first time it was tested, which is what a name assigned by hand does.
+
+It also turned out to be two jobs wearing one string, and that is why the bump was not obvious:
+
+- **What the categories are.** A model's output means whatever the categories mean, so a model
+  trained under different ones is answering a different question. `taxonomy::categories()` hashes
+  the ids. This is what a stored reading and a trained reader are checked against.
+- **What the sheet says.** A label answers the wording its labeller read, boundary rules and all.
+  `taxonomy::sheet()` hashes the whole brief. This is recorded on every label, and it is how
+  `revisit` finds the ones that predate a clarification.
+
+Today's amendment moves the second and not the first, which is exactly right: a clarified sentence
+changes what a labeller should answer and changes nothing a model already emitted. Under one
+string there was no way to express that, so the only options were to charge a full library re-read
+for a reworded sentence or to say nothing, and saying nothing is what happened.
+
+`core-6` named this same set of category ids, so every reader and reading on disk is accepted by
+name rather than refused: `a_reader_written_before_the_rename_still_loads` pins that against the
+shipped `reader.json`. `core-5` and earlier held different categories and stay refused, which is
+the guard working.
+
+The word `spine` is gone too. It meant the same thing as "the sheet" and "the taxonomy", and three
+words for one concept is three chances to think they are different things.
 
 ### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
 
@@ -1900,7 +1933,7 @@ nothing. Two are missing, and no amount of further labelling closes either.
    far is a model agreeing with a model, which the README says plainly and which no citation
    can rest on. The user adjudicates: a random thousand from the frozen games, labelled blind,
    for an accuracy figure that means what it says; then the claims the two labellers split on,
-   shown both answers, to settle the boundaries. After `core-6`, never before.
+   shown both answers, to settle the boundaries. After the sheet was settled, never before.
 
    A useful thing to know before it starts: partial answers are worth something, so stopping
    early is not wasted work. Prediction-powered inference takes a small human-labelled sample

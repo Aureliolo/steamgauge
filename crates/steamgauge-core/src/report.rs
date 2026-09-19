@@ -20,7 +20,7 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{Result, bounded::Smallest, capture::CapturedReview, taxonomy::CORE_SPINE};
+use crate::{Result, bounded::Smallest, capture::CapturedReview, taxonomy::SHEET};
 
 /// Reviews shown per category before a reader is asked to go to the corpus itself.
 pub const DEFAULT_EXAMPLES: usize = 8;
@@ -174,7 +174,7 @@ pub struct AppReport {
     pub top: Vec<Example>,
     /// Measured agreement against a reference set, or why there is none.
     pub agreement: Measurement,
-    /// What this game's players talk about that the spine has no row for, where a reading
+    /// What this game's players talk about that the sheet has no row for, where a reading
     /// has induced any, with the reviews behind each.
     pub induced: Vec<InducedEvidence>,
 }
@@ -331,7 +331,7 @@ impl Report {
     /// Every category counted over every game, so a rate is about the whole set of corpora.
     #[must_use]
     pub fn pooled(&self) -> Vec<Pooled> {
-        crate::CORE_SPINE
+        crate::SHEET
             .iter()
             .map(|category| {
                 let mut pooled = Pooled {
@@ -416,11 +416,11 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     // A reading made against a different taxonomy counts subjects this build does not have,
     // and one whose claims were cut by another splitter quotes, at every index, whatever
     // sentence sits there now. Either would render perfectly and be wrong.
-    if reading.spine_version != crate::CORE_SPINE_VERSION {
+    if !crate::taxonomy::categories_still_mean(&reading.categories) {
         return Err(crate::Error::StaleAnchors {
             field: "taxonomy",
-            expected: crate::CORE_SPINE_VERSION.to_owned(),
-            actual: reading.spine_version.clone(),
+            expected: crate::taxonomy::categories(),
+            actual: reading.categories.clone(),
         });
     }
     reading.cut_as_this_build()?;
@@ -470,7 +470,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         })
     };
 
-    let examples = CORE_SPINE
+    let examples = SHEET
         .iter()
         .map(|subject| {
             let mut quoted: Vec<Example> = Vec::new();
@@ -596,7 +596,7 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
     let draw = options.examples * 2;
     let mut per_side: HashMap<(&'static str, &'static str), Smallest<[u8; 32], DrawnClaim>> =
         HashMap::new();
-    for subject in CORE_SPINE {
+    for subject in SHEET {
         for side in crate::taxonomy::POLARITY {
             per_side.insert((subject.id, side), Smallest::new(draw));
         }
@@ -605,8 +605,7 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
     crate::read::for_each_reading(
         &snapshot.join("readings.parquet"),
         |id, index, subject, confidence, polarity| {
-            let Some(subject) = subject.and_then(|id| CORE_SPINE.iter().find(|c| c.id == id))
-            else {
+            let Some(subject) = subject.and_then(|id| SHEET.iter().find(|c| c.id == id)) else {
                 return;
             };
             let Some(side) = crate::taxonomy::POLARITY
@@ -632,7 +631,7 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
     // Interleaved praise, complaint, neutral, so taking the first N of a subject's list gives
     // every side that has anything a turn before any side gets a second.
     let mut per_subject: HashMap<String, Vec<DrawnClaim>> = HashMap::new();
-    for subject in CORE_SPINE {
+    for subject in SHEET {
         let mut sides: Vec<std::vec::IntoIter<DrawnClaim>> = crate::taxonomy::POLARITY
             .iter()
             .filter_map(|side| per_side.remove(&(subject.id, side)))
@@ -759,7 +758,7 @@ mod tests {
                 usual_declined: None,
                 frozen: None,
                 context: false,
-                spine_version: crate::CORE_SPINE_VERSION.to_owned(),
+                categories: crate::taxonomy::categories(),
                 threshold: 0.5,
                 device: "cpu".to_owned(),
                 captured_unix: 0,

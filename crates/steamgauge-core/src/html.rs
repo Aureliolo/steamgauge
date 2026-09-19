@@ -15,7 +15,7 @@ use std::fmt::Write as _;
 use crate::{
     read::SubjectCount,
     report::{AppReport, Example, Report, coverage},
-    taxonomy::CORE_SPINE,
+    taxonomy::SHEET,
 };
 
 /// Characters of a review shown before it is folded away behind a control.
@@ -141,7 +141,7 @@ fn filter(out: &mut String, report: &Report) {
     // wording the page was rendered with rather than a second phrasing of the same thing.
     let showing = format!(
         "all {} of them{}",
-        CORE_SPINE.len(),
+        SHEET.len(),
         // Not "in every table": a report of several games also carries one comparing the
         // corpora themselves, which has no categories in it to narrow.
         if report.apps.len() > 1 {
@@ -278,7 +278,7 @@ fn unmeasured(measurement: &crate::report::Measurement) -> String {
 /// category means the row still answers its question at any width.
 fn matrix(out: &mut String, report: &Report) {
     let mut order: Vec<(&str, &str, u64)> = Vec::new();
-    for category in CORE_SPINE {
+    for category in SHEET {
         let pooled: u64 = report
             .apps
             .iter()
@@ -442,7 +442,7 @@ fn widest_apart(out: &mut String, report: &Report) {
     };
 
     let mut widest: Option<(f64, &str, &AppReport, f64, &AppReport, f64)> = None;
-    for category in CORE_SPINE {
+    for category in SHEET {
         let mut rates: Vec<(&AppReport, f64)> = report
             .apps
             .iter()
@@ -853,7 +853,7 @@ fn legend(out: &mut String, app: &AppReport) {
     out.push_str("</dl>\n");
 
     // Otherwise the two identical columns on those rows look like a mistake.
-    let alone: Vec<&str> = CORE_SPINE
+    let alone: Vec<&str> = SHEET
         .iter()
         .filter(|category| category.alone)
         .map(|category| category.label)
@@ -1091,7 +1091,7 @@ fn how_well_this_row_is_known(
 /// The same argument as the volume chart, one level down: a category at 5% of a corpus may
 /// have been 40% of one month and absent since, and only the shape says which.
 fn sparkline(out: &mut String, app: &AppReport, id: &str) {
-    let Some(slot) = CORE_SPINE.iter().position(|c| c.id == id) else {
+    let Some(slot) = SHEET.iter().position(|c| c.id == id) else {
         return;
     };
     let months = &app.reading.months;
@@ -1303,7 +1303,7 @@ fn induced(out: &mut String, app: &AppReport) {
         if let Some(parent) = subject
             .refines
             .as_deref()
-            .and_then(|id| CORE_SPINE.iter().find(|c| c.id == id))
+            .and_then(|id| SHEET.iter().find(|c| c.id == id))
         {
             let _ = write!(
                 out,
@@ -1551,7 +1551,7 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
         );
     }
     for id in &example.also {
-        let label = CORE_SPINE
+        let label = SHEET
             .iter()
             .find(|c| c.id == *id)
             .map_or(id.as_str(), |c| c.label);
@@ -1723,7 +1723,7 @@ fn trust(out: &mut String, app: &AppReport) {
     out.push_str("<dl class=\"facts wide\">\n");
 
     fact(out, "Read by", &built_from(app));
-    fact(out, "Taxonomy", &app.reading.spine_version);
+    fact(out, "Taxonomy", &app.reading.categories);
     // Two readings cut by different splitters count different claims from the same reviews,
     // so a page says which cut its claim counts are counts of.
     fact(out, "Split by", &app.reading.splitter);
@@ -1818,7 +1818,7 @@ fn trust(out: &mut String, app: &AppReport) {
                  that would score the model on subjects nobody labelling it was offered. Label \
                  the set again to measure this game.</p>",
                 escape(version),
-                escape(&app.reading.spine_version)
+                escape(&app.reading.categories)
             );
         }
     }
@@ -2190,7 +2190,7 @@ mod tests {
                     claimless_reviews: 0,
                     positive: 700,
                     top_helpful: 50,
-                    spine_version: crate::CORE_SPINE_VERSION.to_owned(),
+                    categories: crate::taxonomy::categories(),
                     model: "test-reader".to_owned(),
                     trained_on: "0123456789abcdef".to_owned(),
                     read_with: "wave9".to_owned(),
@@ -2811,7 +2811,7 @@ mod tests {
     fn a_set_labelled_against_another_taxonomy_is_not_reported_as_no_set_at_all() {
         let mut report = two_games();
         report.apps[0].agreement = crate::report::Measurement::OtherTaxonomy("core-3".to_owned());
-        report.apps[0].reading.spine_version = "core-9".to_owned();
+        report.apps[0].reading.categories = "core-9".to_owned();
         let page = render(&report);
 
         let section = page

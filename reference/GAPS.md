@@ -268,7 +268,7 @@ confidence with every claim marked contested. Falls between `content`, `updates`
 
 The model agrees, without having been asked. On the labelled claims of the three frozen games
 under the fifteen-game reader, 1466860 is the one it declines most of, 80% against 61% on the
-least, and it is the one where modding is the dominant theme. A subject the spine lacks is a
+least, and it is the one where modding is the dominant theme. A subject the sheet lacks is a
 subject the model cannot commit to. Over the whole corpus the gap is softer, 72.9% against a
 usual 73.2%, because the labelled sample is stratified towards subject-bearing claims and
 shows it more sharply. Still two independent measurements pointing at one missing row.
@@ -311,7 +311,7 @@ the claim, and a protest is `policy` only where the claim itself names the decis
 
 BeamNG's damage deformation is a system, and reviewers praise how it looks. Sits on the
 `gameplay` and `graphics` line, filed `gameplay` and marked contested nearly every time. A
-spine row will not fix a game whose whole point is one mechanic; this is what the induced
+sheet row will not fix a game whose whole point is one mechanic; this is what the induced
 subjects are for, and 228380 is a good second game to run the induction on.
 
 ## Confirmed by the core-5 run

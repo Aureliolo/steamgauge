@@ -224,7 +224,7 @@ mod tests {
             usual_declined: None,
             frozen: None,
             context: false,
-            spine_version: String::new(),
+            categories: String::new(),
             threshold: 0.5,
             device: String::new(),
             captured_unix: 0,

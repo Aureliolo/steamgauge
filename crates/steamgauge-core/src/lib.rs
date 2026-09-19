@@ -42,7 +42,7 @@ pub use read::{ReadOptions, ReadReport, read_corpus};
 pub use reader::ClaimReader;
 pub use shard::{DEFAULT_SHARD_TARGET, Shard};
 pub use state::CrawlState;
-pub use taxonomy::{CORE_SPINE, CORE_SPINE_VERSION, Category};
+pub use taxonomy::{Category, SHEET};
 
 /// Anything that can go wrong while building a corpus.
 #[derive(Debug, thiserror::Error)]

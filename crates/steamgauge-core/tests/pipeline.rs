@@ -16,11 +16,11 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use parquet::arrow::ArrowWriter;
-use steamgauge_core::taxonomy::{CORE_SPINE, CORE_SPINE_VERSION};
+use steamgauge_core::taxonomy::{SHEET, categories};
 
 /// One axis per category, so a review's nearest anchor is the one this test names and not
 /// whichever of several tied categories the iterator happened to end on.
-const DIM: usize = CORE_SPINE.len();
+const DIM: usize = SHEET.len();
 const MODEL: &str = "test-encoder";
 
 /// One review, and which category it should land in.
@@ -262,11 +262,11 @@ fn write_readings(snapshot: &Path) {
 
     let mut counted = 0_u64;
     let mut positive = 0_u64;
-    let mut per_subject = vec![0_u64; CORE_SPINE.len()];
+    let mut per_subject = vec![0_u64; SHEET.len()];
     let mut top = seeds();
     top.sort_by_key(|seed| std::cmp::Reverse(seed.votes_up));
     let loudest: Vec<&str> = top.iter().take(2).map(|seed| seed.id).collect();
-    let mut top_per_subject = vec![0_u64; CORE_SPINE.len()];
+    let mut top_per_subject = vec![0_u64; SHEET.len()];
 
     for seed in seeds() {
         if seed.text.trim().is_empty() {
@@ -280,7 +280,7 @@ fn write_readings(snapshot: &Path) {
         }
         ids.append_value(seed.id);
         indexes.append_value(0);
-        subjects.append_value(CORE_SPINE[seed.category].id);
+        subjects.append_value(SHEET[seed.category].id);
         confidences.append_value(0.9);
         polarities.append_value(if seed.voted_up { "praise" } else { "complaint" });
     }
@@ -301,7 +301,7 @@ fn write_readings(snapshot: &Path) {
     writer.write(&batch).unwrap();
     writer.close().unwrap();
 
-    let subjects: Vec<serde_json::Value> = CORE_SPINE
+    let subjects: Vec<serde_json::Value> = SHEET
         .iter()
         .enumerate()
         .map(|(slot, category)| {
@@ -333,7 +333,7 @@ fn write_readings(snapshot: &Path) {
             "positive": positive,
             "top_helpful": 2,
             "model": MODEL,
-            "spine_version": CORE_SPINE_VERSION,
+            "categories": categories(),
             "splitter": steamgauge_core::claims::SPLITTER_VERSION,
             "threshold": 0.5,
             "device": "cpu",
@@ -445,7 +445,7 @@ fn counts_the_corpus_no_longer_supports_are_refused_rather_than_drawn() {
     let sidecar = snapshot.join("reading.json");
     let mut stored: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&sidecar).unwrap()).unwrap();
-    stored["spine_version"] = serde_json::Value::String("core-1".to_owned());
+    stored["categories"] = serde_json::Value::String("core-1".to_owned());
     std::fs::write(&sidecar, serde_json::to_vec_pretty(&stored).unwrap()).unwrap();
 
     let message = steamgauge_core::report::build(&[1], &reporting(&root))
@@ -533,10 +533,10 @@ fn write_two_declines(snapshot: &Path) {
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
     for (id, index, subject) in [
-        ("10", 0_u16, Some(CORE_SPINE[0].id)),
+        ("10", 0_u16, Some(SHEET[0].id)),
         ("10", 1, None),
         ("10", 2, None),
-        ("11", 0, Some(CORE_SPINE[0].id)),
+        ("11", 0, Some(SHEET[0].id)),
     ] {
         ids.append_value(id);
         indexes.append_value(index);
@@ -573,7 +573,7 @@ fn write_two_declines(snapshot: &Path) {
             "positive": 2,
             "top_helpful": 2,
             "model": MODEL,
-            "spine_version": CORE_SPINE_VERSION,
+            "categories": categories(),
             "splitter": steamgauge_core::claims::SPLITTER_VERSION,
             "threshold": 0.5,
             "device": "cpu",

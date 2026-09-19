@@ -1,6 +1,6 @@
 //! Subjects a game's own players raise that the fixed taxonomy has no row for.
 //!
-//! The spine is the floor, not the ceiling. A truck simulator's players talk about mud
+//! The sheet is the floor, not the ceiling. A truck simulator's players talk about mud
 //! physics and a horror game's about jump scares, and neither is a row every game shares. A
 //! language model reads the diverse handout for a game and names what it finds; this is the
 //! shape of what it hands back, and the checks that stop a hallucinated subject reaching a
@@ -82,8 +82,8 @@ pub struct Refused {
 #[must_use]
 pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<Refused>) {
     let known: std::collections::HashSet<&str> = handout_ids.iter().map(String::as_str).collect();
-    let spine: std::collections::HashSet<&str> =
-        crate::taxonomy::CORE_SPINE.iter().map(|c| c.id).collect();
+    let sheet: std::collections::HashSet<&str> =
+        crate::taxonomy::SHEET.iter().map(|c| c.id).collect();
 
     let mut kept = Vec::new();
     let mut refused = Vec::new();
@@ -98,7 +98,7 @@ pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<
             });
             continue;
         }
-        if spine.contains(id.as_str()) {
+        if sheet.contains(id.as_str()) {
             refused.push(Refused {
                 id,
                 reason: "already a fixed subject; a refinement needs its own id".to_owned(),
@@ -113,7 +113,7 @@ pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<
             continue;
         }
         if let Some(parent) = &subject.refines
-            && !spine.contains(parent.as_str())
+            && !sheet.contains(parent.as_str())
         {
             refused.push(Refused {
                 id,

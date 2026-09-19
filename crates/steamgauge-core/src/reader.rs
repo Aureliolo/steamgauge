@@ -16,7 +16,7 @@ use ort::{session::Session, value::Tensor};
 use serde::Deserialize;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
-use crate::{Error, Result, taxonomy::CORE_SPINE_VERSION};
+use crate::{Error, Result};
 
 /// What a claim does about its subject.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -52,7 +52,7 @@ impl Polarity {
 /// and what a claim the model never reached should count as.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Reading {
-    /// Position in [`crate::taxonomy::CORE_SPINE`], or `None` when nothing cleared the
+    /// Position in [`crate::taxonomy::SHEET`], or `None` when nothing cleared the
     /// threshold. `None` is an answer and is counted as one.
     pub subject: Option<usize>,
     /// How sure the model was of its best guess, whether or not it cleared the threshold.
@@ -63,7 +63,11 @@ pub struct Reading {
 /// What was trained, recorded beside the graph so a reader cannot be used blind.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Provenance {
-    pub spine_version: String,
+    /// Which categories the model was trained against, so it cannot be read as
+    /// answering a question it was never asked. Accepts the name the sheet used to
+    /// carry, because every reader and reading already on disk records that.
+    #[serde(alias = "spine_version")]
+    pub categories: String,
     pub subjects: Vec<String>,
     /// Below this the model says nothing. Chosen on validation claims, never on the held-out
     /// ones, because a threshold tuned against the test set makes the test set an opinion.
@@ -358,11 +362,11 @@ impl ClaimReader {
                 }
             })?)?;
 
-        if provenance.spine_version != CORE_SPINE_VERSION {
+        if !crate::taxonomy::categories_still_mean(&provenance.categories) {
             return Err(Error::StaleAnchors {
                 field: "taxonomy",
-                expected: CORE_SPINE_VERSION.to_owned(),
-                actual: provenance.spine_version,
+                expected: crate::taxonomy::categories(),
+                actual: provenance.categories,
             });
         }
 
@@ -372,7 +376,7 @@ impl ClaimReader {
             .subjects
             .iter()
             .map(|id| {
-                crate::taxonomy::CORE_SPINE
+                crate::taxonomy::SHEET
                     .iter()
                     .position(|category| category.id == id)
                     .ok_or_else(|| Error::StaleAnchors {
@@ -743,9 +747,32 @@ fn softmax_best(logits: &[f32]) -> (usize, f32) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_reader_written_before_the_rename_still_loads() {
+        // Every reader and reading on disk, the shipped one included, records the old key and
+        // the name the sheet used to carry. The categories those named are the categories this
+        // build has, so refusing them would charge a re-read of the whole library for a rename
+        // that changed no answer.
+        let written = serde_json::json!({
+            "spine_version": "core-6",
+            "subjects": ["verdict", "vr", "licensing"],
+            "threshold": 0.69,
+            "max_tokens": 128,
+        });
+        let provenance: Provenance = serde_json::from_value(written).expect("a provenance");
+        assert_eq!(provenance.categories, "core-6");
+        assert!(
+            crate::taxonomy::categories_still_mean(&provenance.categories),
+            "the shipped reader was refused by the build that shipped it"
+        );
+
+        // A sheet that genuinely held other categories stays refused, which is the guard.
+        assert!(!crate::taxonomy::categories_still_mean("core-5"));
+    }
+
     fn provenance(lines: Option<Vec<Option<f32>>>) -> Provenance {
         let mut written = serde_json::json!({
-            "spine_version": crate::CORE_SPINE_VERSION,
+            "categories": crate::taxonomy::categories(),
             "subjects": ["verdict", "vr", "licensing"],
             "threshold": 0.69,
             "max_tokens": 128,
@@ -783,7 +810,7 @@ mod tests {
 
     fn speaking(lines: &[Option<f32>], spoken: serde_json::Value) -> Provenance {
         let mut written = serde_json::json!({
-            "spine_version": crate::CORE_SPINE_VERSION,
+            "categories": crate::taxonomy::categories(),
             "subjects": ["verdict", "vr", "licensing"],
             "threshold": 0.69,
             "max_tokens": 128,

@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Error, Result,
     reader::{Asked, ClaimReader, Polarity, Prepared, Reading},
-    taxonomy::CORE_SPINE,
+    taxonomy::SHEET,
 };
 
 /// Claims per forward pass. Claims are short, so this is larger than the review-level default.
@@ -328,7 +328,11 @@ pub struct ReadReport {
     /// both ways, so this says which question the corpus was actually asked.
     #[serde(default)]
     pub context: bool,
-    pub spine_version: String,
+    /// Which categories the model was trained against, so it cannot be read as
+    /// answering a question it was never asked. Accepts the name the sheet used to
+    /// carry, because every reader and reading already on disk records that.
+    #[serde(alias = "spine_version")]
+    pub categories: String,
     pub threshold: f32,
     pub device: String,
     /// When the capture this describes was last changed: its crawl, or the last sweep that
@@ -487,7 +491,7 @@ pub fn read_corpus(
         usual_declined: model.provenance().usual_declined,
         frozen: model.provenance().frozen,
         context,
-        spine_version: model.provenance().spine_version.clone(),
+        categories: model.provenance().categories.clone(),
         captured_unix: captured.changed_unix(),
         ..counted
     })
@@ -769,9 +773,9 @@ fn judge(
     language: &str,
     answers: &HashMap<[u8; 32], Reading>,
 ) -> Verdict {
-    let mut praise = vec![false; CORE_SPINE.len()];
-    let mut complaint = vec![false; CORE_SPINE.len()];
-    let mut seen = vec![false; CORE_SPINE.len()];
+    let mut praise = vec![false; SHEET.len()];
+    let mut complaint = vec![false; SHEET.len()];
+    let mut seen = vec![false; SHEET.len()];
     let mut primary = None;
     let mut best = f32::NEG_INFINITY;
     let mut unclassified = 0;
@@ -800,7 +804,7 @@ fn judge(
     }
 
     Verdict {
-        subjects: (0..CORE_SPINE.len()).filter(|index| seen[*index]).collect(),
+        subjects: (0..SHEET.len()).filter(|index| seen[*index]).collect(),
         primary,
         praise,
         complaint,
@@ -843,12 +847,12 @@ impl Counting {
         Ok(Self {
             writer,
             schema,
-            tallies: vec![Tally::default(); CORE_SPINE.len()],
+            tallies: vec![Tally::default(); SHEET.len()],
             languages: HashMap::new(),
             calendar: HashMap::new(),
             top: crate::bounded::Smallest::new(top_helpful),
             rows: ReadingRows::default(),
-            said: crate::said::Said::new(CORE_SPINE.len()),
+            said: crate::said::Said::new(SHEET.len()),
             reviews: 0,
             corpus_reviews: 0,
             claims: 0,
@@ -903,7 +907,7 @@ impl Counting {
                 label: crate::time::year_month(row.created),
                 reviews: 0,
                 positive: 0,
-                subjects: vec![0; CORE_SPINE.len()],
+                subjects: vec![0; SHEET.len()],
             });
         month.reviews += 1;
         if row.voted_up {
@@ -1025,11 +1029,11 @@ impl Counting {
             usual_declined: None,
             frozen: None,
             context: false,
-            spine_version: String::new(),
+            categories: String::new(),
             threshold: 0.0,
             device: String::new(),
             captured_unix: 0,
-            subjects: CORE_SPINE
+            subjects: SHEET
                 .iter()
                 .zip(&self.tallies)
                 .map(|(category, tally)| SubjectCount {
@@ -1045,12 +1049,9 @@ impl Counting {
                     positive_mentions: tally.positive_mentions,
                 })
                 .collect(),
-            said: self.said.finish(
-                &CORE_SPINE
-                    .iter()
-                    .map(|c| (c.id, c.label))
-                    .collect::<Vec<_>>(),
-            ),
+            said: self
+                .said
+                .finish(&SHEET.iter().map(|c| (c.id, c.label)).collect::<Vec<_>>()),
             languages: ranked,
             unread_languages: unread,
             strict_languages: strict,
@@ -1147,7 +1148,7 @@ impl ReadingRows {
         self.subjects.push(
             reading
                 .and_then(|reading| reading.subject)
-                .and_then(|subject| CORE_SPINE.get(subject))
+                .and_then(|subject| SHEET.get(subject))
                 .map(|category| category.id),
         );
         self.confidences
@@ -1348,7 +1349,7 @@ mod tests {
         let stored = serde_json::json!({
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "spine_version": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
@@ -1396,7 +1397,7 @@ mod tests {
             usual_declined: Some(0.73),
             frozen: None,
             context: false,
-            spine_version: String::new(),
+            categories: String::new(),
             threshold: 0.5,
             device: String::new(),
             captured_unix: 0,
@@ -1444,7 +1445,7 @@ mod tests {
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "depth": "shallow",
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "spine_version": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("a shallow reading opens");

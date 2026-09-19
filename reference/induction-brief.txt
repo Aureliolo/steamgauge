@@ -1,6 +1,6 @@
 You are reading reviews of one game, chosen to be as unlike each other as the corpus allows, and naming what its players talk about that no game shares.
 
-Every game's reviews are sorted into the same 26 subjects (spine core-6), listed below. Those are the floor. What you are looking for is above it: a subject this game's players return to that is not one of them, or is one of them in a form so specific to this game that it deserves its own row. Mud physics in a truck simulator. Jump scares in a horror game. Deck archetypes in a card game. The AI opponent in a strategy game. Mods, where a game is played modded.
+Every game's reviews are sorted into the same 26 subjects, listed below. Those are the floor. What you are looking for is above it: a subject this game's players return to that is not one of them, or is one of them in a form so specific to this game that it deserves its own row. Mud physics in a truck simulator. Jump scares in a horror game. Deck archetypes in a card game. The AI opponent in a strategy game. Mods, where a game is played modded.
 
 You are not looking for what people think of the game. Praise and complaint are recorded elsewhere. You are looking for what they think about, and only what several of them think about: a subject one review raises is an anecdote, and a subject you cannot point at three reviews for does not exist.
 
@@ -50,4 +50,4 @@ Return one JSON object and nothing else:
 
 `refines` names the fixed subject this one is a specific form of, when it is one, and is null when it is not. `evidence` is review ids from the handout, as given, at least three and every one of them a review that raises the subject. A subject whose evidence names a review the handout did not hold is refused whole, and so is one with fewer than three. Better to return four subjects that survive than twelve that do not.
 
-Between five and twelve subjects is the usual shape. Zero is a legitimate answer for a game whose players talk about nothing the spine does not already name, and is better than an invented one.
+Between five and twelve subjects is the usual shape. Zero is a legitimate answer for a game whose players talk about nothing the sheet does not already name, and is better than an invented one.

@@ -1,4 +1,4 @@
-Categories (spine core-6). You are labelling CLAIMS: the separate points a review makes. Each claim gets exactly one subject.
+Categories. You are labelling CLAIMS: the separate points a review makes. Each claim gets exactly one subject.
 
 A review arrives split into numbered claims, and you label every one of them. The review is there so a claim like "it doesn't" or "same here" can be read in context; the label is about the claim, not about the review around it. A review that makes one point has one claim, and a review that makes twelve has twelve, which is the whole reason for labelling this way: the tool used to average a long review into a single vector and then file a two-word review under four subjects.
 

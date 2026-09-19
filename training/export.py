@@ -319,7 +319,11 @@ def main():
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     parser.add_argument("--opset", type=int, default=17)
     parser.add_argument("--check", type=int, default=256)
-    parser.add_argument("--spine", default="core-4", help="the taxonomy these labels were made against")
+    parser.add_argument(
+        "--categories",
+        default="",
+        help="which categories these labels were made against; the build's own when empty",
+    )
     parser.add_argument(
         "--fp16",
         action="store_true",
@@ -488,7 +492,7 @@ def main():
         )
 
     # What the Rust side needs to use the graph without being told anything else. The
-    # taxonomy version is in here so a model trained against another spine is refused rather
+    # taxonomy version is in here so a model trained against other categories is refused rather
     # than quietly asked about categories nobody labelled.
     # A threshold this low is not abstention, it is the nearest-match classifier this project
     # replaced. Twenty-four subjects put a uniform guess at 0.042, so a model told to answer
@@ -545,7 +549,7 @@ def main():
     (run / "reader.json").write_text(
         json.dumps(
             {
-                "spine_version": args.spine,
+                "categories": args.categories,
                 "subjects": subjects,
                 "threshold": threshold,
                 "thresholds": lines,
