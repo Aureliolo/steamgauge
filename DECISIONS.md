@@ -2111,6 +2111,24 @@ their templates never had one, and their text is mostly self-describing. And `9/
 claim: a number is a verdict, `666` is a Chinese reviewer saying the game is excellent, and
 only a date range like `2020/12/10-2024/1/1` is genuinely empty.
 
+**Checked against the labellers rather than against itself.** `stale-splits` re-cuts every
+claim a labeller marked `split_wrong` and asks whether this build still cuts it that way, which
+is the one measure of a splitter change that does not come from the person who made it. Of
+5,679 flagged claims, `claims-5` still mis-split 3,719 and `claims-6` still mis-splits 3,641:
+78 fixed, none broken, and the count falls in every subset and every language.
+
+| still cut the way a labeller objected to | claims-5 | claims-6 |
+|---|---|---|
+| all flagged claims | 3,719 (65.5%) | **3,641 (64.1%)** |
+| random draws | 3,031 (9.8%) | **2,975 (9.6%)** |
+| retrieved | 202 (7.0%) | **181 (6.2%)** |
+| mined | 254 (14.1%) | **254 (14.1%)** |
+| english | 2,652 (9.8%) | **2,599 (9.6%)** |
+
+That is a small movement and it is the less important half: the 44,000 claims this removes were
+never flagged `split_wrong`, because a labeller reading `.` marks it a bad claim rather than a
+bad split. Both instruments had to be read to see the whole change.
+
 `claims-6` makes all 52 readings on disk stale. That is the version's job and they refuse
 themselves until each game is read again.
 
