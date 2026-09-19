@@ -24,6 +24,9 @@ steamgauge-report.html
 gold.html
 *-gold.html
 gold-answers.json
+# Answers set aside to be asked again under amended wording, kept beside the file so the second
+# answer can be read against the first. Adjudications, like the page, are never committed.
+gold-reask.json
 analysis/
 output/
 *.db

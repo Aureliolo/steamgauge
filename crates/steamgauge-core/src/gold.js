@@ -555,10 +555,21 @@
     var rows = [];
     questions.forEach(function (question) {
       var mine = answers[keyOf(question)];
-      if (mine && mine.subject) rows.push(mine);
+      if (!mine || !mine.subject) return;
+      // Stamped per answer rather than once per file, because an answer outlives the file it
+      // was exported in: these get merged, re-exported and ingested separately. A gold label
+      // whose sheet nobody can name is the one label here that cannot be checked against
+      // anything, and an unnamed one already cost 39 answers.
+      mine.sheet = data.taxonomy;
+      mine.splitter = data.splitter;
+      rows.push(mine);
     });
     return rows;
   }
+
+  // The export is otherwise unreachable from outside, and a stamp nothing can inspect is a
+  // stamp nobody will notice the absence of.
+  window.__exportForCheck = exportable;
 
   function exportAnswers() {
     var blob = new Blob([JSON.stringify(exportable(), null, 2)], { type: "application/json" });

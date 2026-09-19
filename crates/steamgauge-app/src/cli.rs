@@ -1670,6 +1670,41 @@ fn run_gold(
     Ok(())
 }
 
+/// Refuses gold answers given against different wording from this build's.
+///
+/// A gold label is the only thing in this project that cannot be recomputed, so it is the only
+/// one that must never be filed against a sheet it did not answer. An answer given under moved
+/// boundaries is not a worse label; it is a label to a different question, and nothing
+/// downstream could ever tell the two apart again.
+fn answered_this_sheet<'a>(stamps: impl Iterator<Item = Option<&'a str>>) -> Result<()> {
+    let sheet = steamgauge_core::taxonomy::sheet();
+    let (mut stale, mut unstamped, mut was) = (0_usize, 0_usize, String::new());
+    for stamp in stamps {
+        match stamp {
+            None => unstamped += 1,
+            Some(other) if other != sheet => {
+                stale += 1;
+                other.clone_into(&mut was);
+            }
+            Some(_) => {}
+        }
+    }
+    if stale > 0 {
+        anyhow::bail!(
+            "{stale} of these answers were given against sheet `{was}` and this build's is \
+             `{sheet}`. They answer different wording, so merging them would file one as the \
+             other. Draw the page again and re-ask them."
+        );
+    }
+    if unstamped > 0 {
+        println!(
+            "unstamped  {unstamped} answers predate the page recording which sheet they \
+             answered, so nothing can check them against this one"
+        );
+    }
+    Ok(())
+}
+
 fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str) -> Result<()> {
     #[derive(serde::Deserialize)]
     struct Adjudicated {
@@ -1684,9 +1719,15 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str
         split_wrong: bool,
         #[serde(default)]
         unsure: bool,
+        /// Which sheet the person was reading when they answered. Absent on anything exported
+        /// before the page recorded it.
+        #[serde(default)]
+        sheet: Option<String>,
     }
 
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
+
+    answered_this_sheet(answers.iter().map(|answer| answer.sheet.as_deref()))?;
     let mut by_game: std::collections::BTreeMap<u32, Vec<&Adjudicated>> =
         std::collections::BTreeMap::new();
     for answer in &answers {

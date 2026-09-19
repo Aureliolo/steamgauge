@@ -136,6 +136,18 @@ const PROBE = `(function () {
     check('a kept answer has no ' + field, one[field] !== undefined);
   });
 
+  // An exported answer has to say which sheet it answered. A gold label is the only thing here
+  // that cannot be recomputed, so one whose wording nobody can name can never be checked against
+  // anything again, and 39 answers were already lost to exactly that.
+  var data = JSON.parse(document.getElementById('data').textContent);
+  var out = window.__exportForCheck ? window.__exportForCheck() : null;
+  check('the page will not hand its answers over for checking', out !== null);
+  check('nothing was exported, so the stamp went unchecked', out !== null && out.length > 0);
+  if (out && out.length) {
+    check('an exported answer does not say which sheet it answered', out[0].sheet === data.taxonomy);
+    check('an exported answer does not say which splitter cut it', out[0].splitter === data.splitter);
+  }
+
   check('the progress bar never moves',
     parseFloat(document.querySelector('.progress i').style.width) > 0);
 
