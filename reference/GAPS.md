@@ -1,9 +1,10 @@
 # Gaps the claim labellers reported
 
-Collected as they finish, the same way the core-3 gaps became core-4. Nothing here is acted on
-mid-run: changing the sheet while half a set is labelled leaves the other half labelled against
-a taxonomy it never saw. These get applied in one revision, `core-6` and `claims-4` together,
-after the 36-game run is labelled and measured, and the sets are redrawn against both.
+Collected as they finish, the same way each earlier sheet's gaps became the next one's.
+Nothing here is acted on mid-run: changing the sheet while half a set is labelled leaves the
+other half labelled against a taxonomy it never saw. These get applied in one revision, sheet
+and splitter together, after the 36-game run is labelled and measured, and the sets are
+redrawn against both.
 
 Ordered by how many labellers reported the same thing without being able to see each other's
 work, which is the only evidence any of it has. The second reading adds a different kind of
@@ -15,7 +16,7 @@ one of those is below.
 
 ## Defects in the sheet, to fix in the next revision
 
-### `verdict` contradicts itself about money: found in the core-5 run
+### `verdict` contradicts itself about money: found in the run that added `atmosphere`
 
 The `verdict` description offers "worth every penny" and "waste of money" as examples, and the
 `verdict` RULE says "super fun, worth every penny" is `price`. A labeller cannot follow both.
@@ -177,7 +178,7 @@ This is now the largest gap the second reading finds: **25 of the 183 subject di
 over 1,400 claims read twice, ahead of every other pair, and it appears in six games rather
 than one. Skullgirls mixups, Nine Sols boss readability, Frostpunk 2 faction exploits and Old
 World's AI bonuses are all the same shape: a mechanic described through how hard it makes the
-game. The rule above settles each of them, and it is the first line `core-6` should carry.
+game. The rule above settles each of them, and it is the first line the next sheet should carry.
 
 ### Faithful to the film: one report, a third of that game's contested claims
 
@@ -250,7 +251,7 @@ Related to the atmosphere and fear gap the review-level labellers reported six t
 two horror games. Both are about what a game makes a player feel rather than about any part
 that produces it. One category might take both.
 
-**`atmosphere` was added for this in `core-5` and is holding up.** Measured 2026-09-11 over
+**`atmosphere` was added for this and is holding up.** Measured 2026-09-11 over
 the 205 atmosphere claims in the frozen games, the reader scores F1 0.55 on it, which is the
 middle of the table and the same as `gameplay` scores on twenty times the labels. It is not
 one of the broken rows; those are all under about 150 labels. The claims it does miss go to
@@ -314,7 +315,7 @@ BeamNG's damage deformation is a system, and reviewers praise how it looks. Sits
 sheet row will not fix a game whose whole point is one mechanic; this is what the induced
 subjects are for, and 228380 is a good second game to run the induction on.
 
-## Confirmed by the core-5 run
+## Confirmed by the run that added `atmosphere`
 
 `atmosphere` works. On the first horror game labelled against it, it took 40 of 118
 aspect-naming claims, nearly every "scary" and "I peed myself" among them. Before it existed

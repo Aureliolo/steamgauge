@@ -106,8 +106,8 @@ removed.
 
 ## What the pilot found
 
-One game, Frostpunk 2, 2,760 claims labelled by three agents against core-4. Everything here
-is measured rather than argued.
+One game, Frostpunk 2, 2,760 claims labelled by three agents against the sheet as it then
+stood. Everything here is measured rather than argued.
 
 | Question | Answer |
 |---|---|
@@ -366,7 +366,8 @@ rather than a fault: training reads the claim text as the labeller was shown it,
 labelled claims name spans it no longer cuts. Every figure the model card quotes still comes
 from training on the labelled text, which is the measurement that does not depend on the
 splitter at all. The two come back into exact agreement when the sets are redrawn under
-`claims-4` for `core-6`, and until then the difference is reported rather than smoothed.
+the next splitter and the next sheet, and until then the difference is reported rather than
+smoothed.
 
 So the model card and every report now quote the **frozen** games, never the validation ones.
 A card is read by somebody deciding whether to run this on a game of their own, and the
@@ -378,10 +379,10 @@ The first honest measurement of abstention came from fixing how the threshold is
 the old objective the model answered every claim at 39% accuracy and declined nothing, which
 is the same failure as the prototype wearing a trained model's clothes.
 
-The taxonomy is now **core-5**: `atmosphere` added on that evidence, plus rules for comparing a
-game with its own predecessor, for praise or blame aimed at the studio, and for a game that
-will not start at all. Every earlier reference set and the shipped anchors are core-4 and are
-refused by this build, which is the guard working rather than failing.
+The taxonomy gains **`atmosphere`** on that evidence, plus rules for comparing a game with its
+own predecessor, for praise or blame aimed at the studio, and for a game that will not start
+at all. Every reference set and every shipped anchor from before that revision is refused by
+this build, which is the guard working rather than failing.
 
 ## The model was being asked a question the labeller never had to answer
 
@@ -1922,9 +1923,10 @@ and if both are wanted they have to be different claims.
 
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
-The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. Those names appear in
-the history above and stay there, because they record what actually happened. Nothing carries one
-any more.
+The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
+here because this is the entry about them, and nowhere else: a name that means nothing to a
+reader is worse than no name, so the rest of this file says what a revision changed instead.
+Nothing in the project carries one any more.
 
 The amendment two sections up is why. Boundary rules moved, and `CORE_SPINE_VERSION` stayed at
 `core-6`, so labels written before and after claimed to answer the same sheet. Nobody would have
@@ -2306,7 +2308,7 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
 Then, in order:
 
-3. **`core-6` and `claims-5` together, once.** `reference/GAPS.md` holds the wording for every
+3. **The sheet revision and the splitter together, once.** `reference/GAPS.md` holds the wording for every
    rule, each traced to a labeller who could not see the others. The contested rate of 29% and
    the `difficulty` against `gameplay` confusion say the sheet is the ceiling now, not the
    model. Measure the relabel cost on one game before paying it for thirty-six.
