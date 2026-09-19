@@ -54,6 +54,17 @@ pub struct Category {
 /// Deliberately not the wording: a boundary rule that moves changes what a *labeller* should
 /// answer and changes nothing about what a model already emitted, so charging a re-read for a
 /// clarified sentence would be a lie about what went stale.
+/// Six bytes of a digest as hex. Short enough to read aloud in a bug report and still far
+/// past any chance of two sheets colliding.
+fn short_hex(digest: &[u8]) -> String {
+    use std::fmt::Write as _;
+
+    digest.iter().take(6).fold(String::new(), |mut out, byte| {
+        let _ = write!(out, "{byte:02x}");
+        out
+    })
+}
+
 #[must_use]
 pub fn categories() -> String {
     use sha2::{Digest, Sha256};
@@ -63,12 +74,7 @@ pub fn categories() -> String {
         hasher.update(category.id.as_bytes());
         hasher.update([0]);
     }
-    hasher
-        .finalize()
-        .iter()
-        .take(6)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    short_hex(&hasher.finalize())
 }
 
 /// Hand-assigned names that denoted exactly the categories this build has.
@@ -98,12 +104,7 @@ pub fn sheet() -> String {
 
     let mut hasher = Sha256::new();
     hasher.update(labelling_brief(Unit::Claim).as_bytes());
-    hasher
-        .finalize()
-        .iter()
-        .take(6)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    short_hex(&hasher.finalize())
 }
 
 pub const SHEET: &[Category] = &[
