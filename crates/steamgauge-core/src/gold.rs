@@ -78,6 +78,11 @@ pub struct GoldDraw {
     /// answered differently have found either a real error or a boundary the sheet does not
     /// draw, and there is nothing else in the set with that much in it per claim read.
     pub contested_sure: usize,
+    /// Claims held back because they are a template option the reviewer left blank. Counted
+    /// rather than dropped quietly: the number is how much of the reference set was cut before
+    /// the splitter learnt to collapse a ballot, and it is the same fragments the reader is
+    /// being trained on.
+    pub declined: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
@@ -185,6 +190,13 @@ pub fn draw(
             let Some((at, text)) = rejoined.find(label.index) else {
                 continue;
             };
+            // An option the reviewer left blank cannot be adjudicated by anyone, so it is not a
+            // hard question, it is a broken one. It costs the person the same time as a real
+            // claim and the answer it collects is worth nothing either way.
+            if crate::claims::is_a_declined_option(text) {
+                found.declined += 1;
+                continue;
+            }
             let question = Question {
                 app_id,
                 review_id: label.review_id.clone(),
@@ -639,6 +651,62 @@ mod tests {
         assert_eq!(
             split[0].index, 1,
             "the disagreement neither labeller hedged was asked second, behind a doubted one"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_option_the_reviewer_left_blank_is_never_put_in_front_of_a_person() {
+        // Most of the reference set was cut before the splitter collapsed a ballot template,
+        // so these fragments are still in it, and they cluster in the disagreement pool
+        // because two labellers reading an unchosen option rarely land the same way. They are
+        // not hard questions. They are unanswerable ones wearing the costume of the hardest.
+        let root = std::env::temp_dir().join(format!("steamgauge-ballot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
+
+        let drawn = serde_json::json!([{
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "frozen",
+            "claims": [
+                {"index": 0, "start": 0, "end": 18, "text": "\u{2610} Worth the price"},
+                {"index": 1, "start": 19, "end": 34, "text": "\u{2611} Runs badly"}
+            ]
+        }]);
+        std::fs::write(root.join("214490").join("sample.json"), drawn.to_string()).unwrap();
+
+        let label = |index: u16, subject: &str| {
+            serde_json::json!({
+                "review_id": "r1", "index": index, "app_id": 214_490,
+                "language": "english", "subset": "frozen", "start": 0, "end": 9,
+                "splitter": "claims-3", "taxonomy": "core-6", "produced_by": "one",
+                "subject": subject, "polarity": "praise", "ironic": false,
+                "confidence": "high", "ambiguous": false, "split_wrong": false
+            })
+        };
+        std::fs::write(
+            root.join("214490").join("labels.json"),
+            serde_json::json!([label(0, "value"), label(1, "performance")]).to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("214490").join("second").join("labels.json"),
+            serde_json::json!([label(0, "offtopic"), label(1, "bugs")]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, counts) = draw(&root, 10, Splits::Frozen, 1, &[], "second").unwrap();
+        assert_eq!(counts.declined, 1, "the blank option was not held back");
+        assert!(
+            questions
+                .iter()
+                .all(|question| !question.claim.starts_with('\u{2610}')),
+            "an option the reviewer declined was asked anyway"
+        );
+        assert_eq!(
+            questions.len(),
+            1,
+            "the ticked option is a real claim and still has to be asked"
         );
 
         let _ = std::fs::remove_dir_all(&root);

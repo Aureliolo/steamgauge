@@ -1997,6 +1997,34 @@ chose, which is the only one that says what a new game would get. Reading one ru
 against another run's transferring figure made a run that wins on all six measures look like it
 lost 4.3 points of coverage. Quote `at_validation_threshold`, or quote nothing.
 
+### An option the reviewer left blank is not a hard claim, it is an unanswerable one
+
+Steam reviews are full of ballot templates: a list of options with boxes, one ticked. The
+splitter has collapsed these to the ticked line since `claims-5`, but only 12,112 of the
+reference set's 31,019 labels were cut by it. `claims-3` cut 15,210 and `claims-4` cut 3,697,
+and both kept every blank option as a claim of its own. So the set still holds thousands of
+fragments whose text means the opposite of what it says: `☐ Worth the price` is the reviewer
+saying the game was not.
+
+They surfaced in the gold draw, where they are far more concentrated than their share of the
+set: 36 of 2,575 questions overall, but 16 of the 57 sure disagreements at the front of the
+queue. That ratio is the finding. Two labellers reading an unchosen option almost never land
+the same way, because there is no right answer to land on, so every one of them is promoted
+into exactly the section reserved for the questions worth a person's time.
+
+Held back at the draw and refused at ingest, both through one predicate in the splitter that
+owns the box characters. Both ends, because the draw only protects a page generated after this
+and the answers file already on disk was not. 218 labels held back; the five already answered
+were all called `offtopic`, which is the only answer available and still not a true one.
+
+Not fixed by re-cutting. Labels and the adjudicator's answers are keyed to `(review_id,
+index)`, so a new splitter run renumbers the claims underneath both. The filter is where the
+fix belongs until there is a reason to re-cut everything at once.
+
+**The part not fixed:** these fragments are in the training data too, where nothing filters
+them. `wave11` was trained on a set that is 61% pre-ballot-handling. Whether that costs
+anything is a measurement nobody has made, and it only matters at the next retrain.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games

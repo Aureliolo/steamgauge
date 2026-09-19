@@ -86,6 +86,7 @@ fn main() {
         games: 8,
         agreed: 244,
         contested_sure: 1,
+        declined: 0,
         languages: Vec::new(),
     };
 

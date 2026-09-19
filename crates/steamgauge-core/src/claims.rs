@@ -336,6 +336,18 @@ fn option_mark(bare: &str) -> Option<bool> {
     (crossed && chars.next().is_some_and(char::is_whitespace)).then_some(true)
 }
 
+/// Whether a claim is a template option its author left blank.
+///
+/// The box is the reviewer declining the statement, so the words after it are the one thing
+/// in a review that means the opposite of what it says. Nothing downstream can recover that:
+/// a model reads "Worth the price" and answers the question the reviewer answered no to.
+/// Splitters before this one kept the blank options as claims of their own, so labels cut by
+/// them are still in the reference set and have to be filtered where they are read.
+#[must_use]
+pub fn is_a_declined_option(claim: &str) -> bool {
+    option_mark(claim.trim_start()) == Some(false)
+}
+
 /// Whether a line is part of a picture: it has something on it, and none of it is a letter
 /// or a digit in any script.
 fn is_a_drawn_line(line: &str) -> bool {
