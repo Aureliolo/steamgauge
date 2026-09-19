@@ -444,26 +444,30 @@ pub fn is_not_a_claim(text: &str) -> bool {
 ///
 /// What it looks for is a word, not a letter. A face drawn out of punctuation usually has one
 /// letter buried in it, `\u{0296}` in the lenny face and `\u{30C4}` in the shrug, so anything
-/// asking only for a letter keeps every drawing in the corpus. A word is two alphanumerics in
-/// a row, or one character of a script that writes a whole word in one: `\u{597D}` is a
-/// complete review meaning "good" and 4,130 people left it.
+/// asking only for a letter keeps every drawing in the corpus.
+///
+/// Two alphanumerics anywhere, not two in a row. Adjacency looked equivalent and is not: it
+/// keeps `9/10` and throws away `5/5`, `o.k.` and `N/A`, which differ from it only in where
+/// the punctuation falls. One is enough where the script writes a whole word in a character,
+/// since `\u{597D}` is a complete review meaning "good" and 4,130 people left it.
+///
+/// Counting the marks against the words as well was tried and reverted. A picture does have
+/// more punctuation in it than letters, and so does "It is GREAT !!!!!!!!!!!!!!!!!!", which is
+/// as clear a claim as the corpus contains: it deleted 391 of those to remove 32 drawings.
+/// Enthusiasm is not a drawing and there is no count that separates them.
 ///
 /// Emitting one of these costs what a real claim costs and returns noise. Two labellers put on
 /// `.` will disagree, because there is nothing to agree about, and the disagreement then reads
 /// as a hard boundary in the sheet rather than as a piece of grit in the corpus.
 fn carries_no_proposition(claim: &str) -> bool {
-    let mut run = 0_usize;
-    for ch in claim.chars() {
-        if ch == CENSORED || !ch.is_alphanumeric() {
-            run = 0;
-            continue;
-        }
-        run += 1;
-        if run >= 2 || writes_a_word_in_one_character(ch) {
-            return false;
+    let (mut words, mut whole_word) = (0_usize, false);
+    for ch in claim.chars().filter(|c| *c != CENSORED) {
+        if ch.is_alphanumeric() {
+            words += 1;
+            whole_word |= writes_a_word_in_one_character(ch);
         }
     }
-    true
+    words == 0 || (words == 1 && !whole_word)
 }
 
 /// Whether one character of this script is a word on its own.
@@ -1402,6 +1406,26 @@ mod tests {
             assert!(
                 split(drawn).is_empty(),
                 "a face with one letter buried in it was handed back as a claim: {drawn:?}"
+            );
+        }
+        // Where the punctuation falls is not what makes something a claim. These differ from
+        // "9/10" only in that, and dropping them cost 269 real verdicts in one game.
+        // Punctuation does not outvote words, however much of it there is.
+        for loud in [
+            "It is GREAT !!!!!!!!!!!!!!!!!!",
+            "Bestes Spiel!!!!!!!!!!!!!!",
+        ] {
+            assert_eq!(
+                split(loud).len(),
+                1,
+                "enthusiasm was counted as a drawing: {loud:?}"
+            );
+        }
+        for short in ["5/5", "o.k.", "N/A", "10/10"] {
+            assert_eq!(
+                split(short).len(),
+                1,
+                "{short:?} is a verdict and was thrown away for having a dot in the middle"
             );
         }
         for something in ["9/10", "666", "good", "\u{597D}", "\u{597D}\u{73A9}"] {

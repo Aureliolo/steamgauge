@@ -2070,9 +2070,9 @@ games to 0.38%, 0.33% and 0.43%, and almost all of what is left is a deliberate 
 |---|---|---|
 | no word in it: `.`, `:)`, a rule of equals signs, braille art | 21,362 | 0 |
 | nothing but Steam's censorship hearts | 3,512 | 0 |
-| a ticked option cut off from its heading | 2,592 | 704 |
+| a ticked option cut off from its heading | 2,592 | 560 |
 | an option the reviewer left blank | 7 | 0 |
-| digits with nothing said about them: `9/10`, `666` | 18,118 | 14,958 |
+| digits with nothing said about them: `9/10`, `666` | 18,118 | 12,779 |
 
 Five things were wrong, and only the first was the one that started the search.
 
@@ -2098,8 +2098,28 @@ mark behind it is a bar.
 
 **"Has a letter in it" is not "says something".** The first emptiness rule kept every drawing in
 the corpus, because a lenny face has `\u{0296}` in it and a shrug has `\u{30C4}`. A claim needs
-a word: two alphanumerics in a row, or one character of a script that writes a word in one,
-since `\u{597D}` is a complete review and 4,130 people left it.
+a word: two alphanumerics, or one character of a script that writes a word in one, since
+`\u{597D}` is a complete review and 4,130 people left it.
+
+**Two rules were written wrong before that one was right, and both were caught by diffing the
+claims rather than counting them.** `dump-claims` writes every claim a build cuts, so two
+builds can be compared line for line. Neither fault is visible in a total.
+
+The first asked for two alphanumerics *in a row*. It keeps `9/10` and throws away `5/5`,
+`o.k.` and `N/A`, which differ from it only in where the punctuation falls: 269 real verdicts
+deleted in one game to no purpose.
+
+The second tried to catch the drawings that spell something out, braille blanks with
+`G R A P H I C S` threaded through them, by asking whether the marks outnumbered the words.
+They do in a picture, and they also do in `It is GREAT !!!!!!!!!!!!!!!!!!` and
+`Bestes Spiel!!!!!!!!!!!!!!`, which are as clear as claims get. It deleted 391 of those to
+remove 32 drawings and was reverted. Enthusiasm is not a drawing and no count separates them.
+
+**Checked by what disappeared, not by what the counter said.** Every claim of one game under
+both builds, compared word for word: 10,788 word occurrences are gone of 1,535,083, and 64% of
+them are inside ballot reviews, which is the rejected options going as intended. The rest are
+single characters, reviews that are the letter `a` or the digit `6`. Nothing a person wrote as
+a point is missing.
 
 **The cross is left alone, on purpose.** `\u{274C}` is a rejected option in one template and a
 listed fault in the next, 52 reviews to 83 across six captures. Reading it as a rejection
@@ -2145,6 +2165,28 @@ and the training export, and only the first of those was the one the screenshot 
 this fiddly would drift within a month. The training export was the worst of them: 683 of
 39,835 rows were an option nobody ticked or a piece with no word in it, each carrying a label
 that could not have been right, and `wave11` was trained on all of them.
+
+### What the whole corpus shows that eight games did not
+
+Run over all 53 captures, 19,944,001 claims: 2,748 ticked options with no heading to recover
+and 67 bracketed dates, so 0.014% of the corpus is a claim nobody could answer. The worst
+single game is 0.807% and it is nearly all scores.
+
+Two things only the full run showed.
+
+**A game's catchphrase is the largest block of repeated text there is.** `rock and stone!` and
+`rock and stone` together are 34,942 claims, and `for democracy!` is 9,606. That is not junk:
+players do say it, and for prevalence each one is a real person being enthusiastic. For
+training it is one string with tens of thousands of copies, which is worth remembering when a
+batch is sampled.
+
+**Identical claim text does not have an identical answer.** In the training set `what a joke.`
+appears 59 times and the labellers gave it eleven different subjects: verdict 36 times, then
+bugs, gameplay, updates, policy, monetisation, compatibility, performance, content, community
+and tutorial. They were not being inconsistent; they were reading the review around it, and
+the phrase means whatever that review is about. It is the clearest evidence in the project for
+why the reader is given a window rather than the claim on its own, and any future attempt to
+shorten that window should be measured against this row first.
 
 ### One text, a hundred accounts, and why that is not the splitter's problem
 
