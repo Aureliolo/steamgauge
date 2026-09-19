@@ -42,7 +42,7 @@ use crate::{Error, Result};
 /// Where claims about one starved subject tend to be found.
 #[derive(Debug)]
 pub struct Probe {
-    /// Subject id in [`crate::taxonomy::CORE_SPINE`].
+    /// Subject id in [`crate::taxonomy::SHEET`].
     pub subject: &'static str,
     /// Matched case-insensitively against the claim. An ASCII term must fall on a word
     /// boundary, so "mod" does not match "modern"; a term with non-ASCII characters matches
@@ -719,10 +719,10 @@ mod tests {
     }
 
     #[test]
-    fn every_probe_names_a_subject_the_spine_has() {
+    fn every_probe_names_a_subject_the_sheet_has() {
         for probe in PROBES {
             assert!(
-                crate::taxonomy::CORE_SPINE
+                crate::taxonomy::SHEET
                     .iter()
                     .any(|category| category.id == probe.subject),
                 "{} is not a subject",

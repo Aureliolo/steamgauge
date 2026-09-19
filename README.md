@@ -119,7 +119,7 @@ ship with the taxonomy and generate the sheet every labeller works from, so a bo
 only be defined in one place.
 
 Categories are added when labellers report having nowhere to put something, not when
-somebody thinks of one. Every category in the current spine was asked for by the people
+somebody thinks of one. Every category in the current sheet was asked for by the people
 labelling against the previous one.
 
 ### Depth is how closely each review is read

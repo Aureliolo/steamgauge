@@ -277,7 +277,7 @@ impl Default for Sheet {
     fn default() -> Self {
         Self {
             splitter: crate::claims::SPLITTER_VERSION.to_owned(),
-            taxonomy: crate::CORE_SPINE_VERSION.to_owned(),
+            taxonomy: crate::taxonomy::sheet(),
             produced_by: String::new(),
         }
     }
@@ -766,7 +766,7 @@ pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> 
                     .push(format!("{}#{}", answer.review_id, answer.index));
                 continue;
             };
-            if !crate::taxonomy::CORE_SPINE
+            if !crate::taxonomy::SHEET
                 .iter()
                 .any(|category| category.id == answer.subject)
                 || !crate::taxonomy::POLARITY.contains(&answer.polarity.as_str())
@@ -789,7 +789,7 @@ pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> 
             label.confidence = answer.confidence;
             label.ambiguous = answer.ambiguous;
             label.split_wrong = answer.split_wrong;
-            crate::CORE_SPINE_VERSION.clone_into(&mut label.taxonomy);
+            crate::taxonomy::sheet().clone_into(&mut label.taxonomy);
             // A revisited label is a new answer from whoever gave it, not a correction of the
             // first labeller's, so it carries the second labeller's name.
             by.clone_into(&mut label.produced_by);
@@ -863,7 +863,7 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
                     .push(format!("{}#{}", label.review_id, label.index));
                 continue;
             };
-            if !crate::taxonomy::CORE_SPINE
+            if !crate::taxonomy::SHEET
                 .iter()
                 .any(|category| category.id == label.subject)
                 || !crate::taxonomy::POLARITY.contains(&label.polarity.as_str())
@@ -1091,7 +1091,7 @@ mod tests {
 
         let sheet = Sheet {
             splitter: "claims-5".to_owned(),
-            taxonomy: crate::CORE_SPINE_VERSION.to_owned(),
+            taxonomy: crate::taxonomy::sheet(),
             produced_by: "a-labeller".to_owned(),
         };
         let mine = dir.join("returned");

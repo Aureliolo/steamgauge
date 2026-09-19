@@ -553,7 +553,7 @@ struct InducedOut {
     id: String,
     label: String,
     description: String,
-    /// The label of the spine subject this is a form of, when it is one.
+    /// The label of the sheet subject this is a form of, when it is one.
     refines: Option<String>,
     /// How many handout reviews it was found in, which is more than are quoted.
     found_in: usize,
@@ -576,7 +576,7 @@ fn induced(app: AppHandle, app_id: u32) -> Result<Vec<InducedOut>, String> {
         .into_iter()
         .map(|evidence| InducedOut {
             refines: evidence.subject.refines.as_deref().and_then(|id| {
-                steamgauge_core::CORE_SPINE
+                steamgauge_core::SHEET
                     .iter()
                     .find(|category| category.id == id)
                     .map(|category| category.label.to_owned())

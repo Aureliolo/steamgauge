@@ -27,7 +27,7 @@ use crate::{
     Result,
     claimset::{ClaimLabel, DrawnReview},
     measure::{Role, SPLIT_SEED, role},
-    taxonomy::CORE_SPINE,
+    taxonomy::SHEET,
 };
 
 /// One claim put in front of a person, with everything needed to judge it and nothing else.
@@ -287,7 +287,7 @@ const SCRIPT: &str = include_str!("gold.js");
 /// Renders the page a person adjudicates on: one file, fetching nothing, sending nothing.
 #[must_use]
 pub fn render(questions: &[Question], found: &GoldDraw) -> String {
-    let categories: Vec<serde_json::Value> = CORE_SPINE
+    let categories: Vec<serde_json::Value> = SHEET
         .iter()
         .map(|category| {
             serde_json::json!({
@@ -302,7 +302,7 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
     let data = serde_json::json!({
         "questions": questions,
         "categories": categories,
-        "taxonomy": crate::CORE_SPINE_VERSION,
+        "taxonomy": crate::taxonomy::sheet(),
         "splitter": crate::claims::SPLITTER_VERSION,
         "blind": found.blind,
         "settled": found.settled,
@@ -586,7 +586,7 @@ mod tests {
         }];
         let page = render(&questions, &GoldDraw::default());
         assert!(page.contains("Runs badly"));
-        for category in CORE_SPINE {
+        for category in SHEET {
             assert!(page.contains(category.id), "{} is missing", category.id);
         }
         assert!(

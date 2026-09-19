@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use steamgauge_core::{
     reader::{Asked, ClaimReader},
-    taxonomy::CORE_SPINE,
+    taxonomy::SHEET,
 };
 
 #[derive(serde::Deserialize)]
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .collect();
         for (row, reading) in chunk.iter().zip(reader.read(&asked)?) {
-            let Some(said) = reading.subject.and_then(|at| CORE_SPINE.get(at)) else {
+            let Some(said) = reading.subject.and_then(|at| SHEET.get(at)) else {
                 continue;
             };
             answered += 1;

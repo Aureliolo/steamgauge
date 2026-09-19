@@ -7,7 +7,7 @@ produces an artefact that is, and every artefact records what produced it.
 ## What it does
 
 `steamgauge` labels claims, not reviews: the separate points a review makes. A model is trained to
-read one claim and say which of the core-spine subjects it is about, whether it is praise,
+read one claim and say which of the sheet's subjects it is about, whether it is praise,
 complaint or neither, and how sure it is. Below a calibrated threshold it says nothing, which
 is the whole reason for replacing what came before: the previous classifier compared a review
 to twenty-four category prototypes and took the nearest, so a review reading "gfg" was filed
@@ -32,7 +32,7 @@ python bakeoff.py                                        # which backbone, decid
 python train.py --backbone intfloat/multilingual-e5-large --context --epochs 5 \
     --learning-rate 2e-5 --run-id <id> --save
 python sweep.py --against win-128                        # every run ranked, with the noise beside it
-python export.py --run runs/<id> --spine core-6 --fp16   # ONNX, with a parity assertion
+python export.py --run runs/<id> --categories <fingerprint> --fp16   # ONNX, with a parity assertion
 python publish.py --run runs/<id> \
     --model-repo <you>/steam-review-claim-reader \
     --data-repo <you>/steam-review-claims                # to Hugging Face, and pinned in the tool

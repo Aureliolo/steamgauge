@@ -1725,7 +1725,7 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str
                 start: was.start,
                 end: was.end,
                 splitter: was.splitter.clone(),
-                taxonomy: steamgauge_core::CORE_SPINE_VERSION.to_owned(),
+                taxonomy: steamgauge_core::taxonomy::sheet(),
                 produced_by: by.to_owned(),
                 subject: answer.subject.clone(),
                 polarity: answer.polarity.clone(),
@@ -2334,10 +2334,7 @@ fn run_ingest_claims(
             .join(app_id.to_string())
     });
     let sheet = steamgauge_core::claimset::Sheet {
-        taxonomy: sheet.map_or_else(
-            || steamgauge_core::CORE_SPINE_VERSION.to_owned(),
-            ToOwned::to_owned,
-        ),
+        taxonomy: sheet.map_or_else(steamgauge_core::taxonomy::sheet, ToOwned::to_owned),
         produced_by: by.trim().to_owned(),
         ..Default::default()
     };

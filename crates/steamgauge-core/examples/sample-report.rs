@@ -21,7 +21,7 @@ use steamgauge_core::{
     read::{Depth, Month, ReadReport, SubjectCount},
     report::{AppReport, CrawlFacts, Example, InducedEvidence, Measurement, Report},
     said::{SaidAbout, Term},
-    taxonomy::{CORE_SPINE, CORE_SPINE_VERSION},
+    taxonomy::{SHEET, categories},
 };
 
 /// Four, because a table of two fits on a phone and a real one does not, and what happens to
@@ -122,7 +122,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
                 macro_f1: 0.504,
             }),
             context: true,
-            spine_version: CORE_SPINE_VERSION.to_owned(),
+            categories: categories(),
             threshold: 0.77,
             device: "directml".to_owned(),
             captured_unix: 1_759_000_000,
@@ -165,7 +165,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
 
 /// Every subject counted over one game.
 fn subjects(app_id: u32, reviews: u64) -> Vec<SubjectCount> {
-    CORE_SPINE
+    SHEET
         .iter()
         .enumerate()
         .map(|(slot, category)| {
@@ -173,7 +173,7 @@ fn subjects(app_id: u32, reviews: u64) -> Vec<SubjectCount> {
             // the first row rather than an accident. The last subject is raised by nobody,
             // which every real report has and which is the only thing that puts a dash in
             // the rightmost column of the table.
-            let quiet = slot + 1 == CORE_SPINE.len();
+            let quiet = slot + 1 == SHEET.len();
             // Which game leads a subject is a claim the page only draws where one clears
             // every other in the figures it prints, so a fixture where every game reports
             // the same rate exercises none of it. The spread is distinct per game, except on
@@ -272,7 +272,7 @@ fn months(app_id: u32) -> Vec<Month> {
                 label: format!("2024-{:02}", which % 12 + 1),
                 reviews,
                 positive: reviews * 2 / 3,
-                subjects: CORE_SPINE
+                subjects: SHEET
                     .iter()
                     .enumerate()
                     .map(|(slot, _)| reviews / (slot as u64 + 2))
@@ -338,7 +338,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
         clear_agreed: answered * 7 / 10,
         contested_answered: answered / 4,
         contested_agreed: answered / 8,
-        subjects: CORE_SPINE
+        subjects: SHEET
             .iter()
             .enumerate()
             .map(|(slot, category)| {
@@ -359,7 +359,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
     }
 }
 
-/// Subjects this game's own players raise that the spine has no row for, with the reviews
+/// Subjects this game's own players raise that the sheet has no row for, with the reviews
 /// that earned each one. Only some games have them, and a page with none renders differently.
 fn induced(app_id: u32) -> Vec<InducedEvidence> {
     if app_id.is_multiple_of(2) {

@@ -16,7 +16,7 @@ use std::{collections::HashMap, path::Path};
 
 use serde::Serialize;
 
-use crate::{Result, claimset::ClaimLabel, taxonomy::CORE_SPINE};
+use crate::{Result, claimset::ClaimLabel, taxonomy::SHEET};
 
 /// One subject's agreement.
 #[derive(Debug, Clone, Serialize)]
@@ -224,7 +224,7 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
         clear_agreed: 0,
         contested_answered: 0,
         contested_agreed: 0,
-        subjects: CORE_SPINE
+        subjects: SHEET
             .iter()
             .map(|category| SubjectAgreement {
                 id: category.id,
@@ -250,7 +250,7 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
         total.clear_agreed += game.clear_agreed;
         total.contested_answered += game.contested_answered;
         total.contested_agreed += game.contested_agreed;
-        // By id, not by position. A game scored against an older build's spine has its
+        // By id, not by position. A game scored against an older build's sheet has its
         // subjects in a different order, and adding those up by slot would file one subject's
         // claims under another's name without anything failing.
         for from in &game.subjects {
@@ -380,11 +380,11 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
         .collect();
     let read = readings_at(&snapshot, &wanted)?;
 
-    let position = |id: &str| CORE_SPINE.iter().position(|category| category.id == id);
-    let mut labelled = vec![0_u64; CORE_SPINE.len()];
-    let mut said = vec![0_u64; CORE_SPINE.len()];
-    let mut agreed_per = vec![0_u64; CORE_SPINE.len()];
-    let mut confused: Vec<HashMap<usize, u64>> = vec![HashMap::new(); CORE_SPINE.len()];
+    let position = |id: &str| SHEET.iter().position(|category| category.id == id);
+    let mut labelled = vec![0_u64; SHEET.len()];
+    let mut said = vec![0_u64; SHEET.len()];
+    let mut agreed_per = vec![0_u64; SHEET.len()];
+    let mut confused: Vec<HashMap<usize, u64>> = vec![HashMap::new(); SHEET.len()];
 
     let mut found = ClaimAgreement {
         app_id,
@@ -445,7 +445,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
     // Every labelled claim with a known subject, which is what a subject's false-positive rate
     // is measured over: the claims about anything else that the model could have filed here.
     let seen: u64 = labelled.iter().sum();
-    found.subjects = CORE_SPINE
+    found.subjects = SHEET
         .iter()
         .enumerate()
         .map(|(index, category)| SubjectAgreement {
@@ -458,9 +458,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
             mistaken_for: confused[index]
                 .iter()
                 .max_by_key(|(_, count)| **count)
-                .and_then(|(other, count)| {
-                    CORE_SPINE.get(*other).map(|named| (named.label, *count))
-                }),
+                .and_then(|(other, count)| SHEET.get(*other).map(|named| (named.label, *count))),
         })
         .collect();
 
@@ -856,12 +854,12 @@ mod tests {
     fn pooling_nothing_is_empty_rather_than_a_panic() {
         let none = pooled(&[]);
         assert_eq!(none.rate(), None);
-        assert_eq!(none.subjects.len(), CORE_SPINE.len());
+        assert_eq!(none.subjects.len(), SHEET.len());
     }
 
     #[test]
     fn pooling_finds_a_subject_by_name_wherever_it_sits() {
-        let last = CORE_SPINE.last().expect("the spine is not empty");
+        let last = SHEET.last().expect("the sheet is not empty");
         let odd = ClaimAgreement {
             app_id: 3,
             matched: 4,
@@ -891,7 +889,7 @@ mod tests {
             .subjects
             .iter()
             .find(|subject| subject.id == last.id)
-            .expect("the spine has this subject");
+            .expect("the sheet has this subject");
         assert_eq!(
             (landed.labelled, landed.agreed),
             (4, 3),

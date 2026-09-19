@@ -22,7 +22,7 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 
-SUBJECTS: list[str] = []  # filled from the data, then asserted against the spine
+SUBJECTS: list[str] = []  # filled from the data, then asserted against the sheet
 POLARITIES = ["praise", "complaint", "neutral"]
 CONFIDENCE_WEIGHT = {"high": 1.0, "medium": 0.7, "low": 0.4}
 

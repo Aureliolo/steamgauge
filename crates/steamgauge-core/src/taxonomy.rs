@@ -1,4 +1,4 @@
-//! The fixed core spine of categories.
+//! The fixed sheet of categories.
 //!
 //! These are the categories that stay the same across every game, so numbers from different
 //! corpora can be compared. Game-specific categories are induced separately and layered on
@@ -45,11 +45,68 @@ pub struct Category {
     pub alone: bool,
 }
 
-/// Version of the core spine. Any change to the categories or their descriptions changes
-/// what the numbers mean, so this is recorded alongside every classification.
-pub const CORE_SPINE_VERSION: &str = "core-6";
+/// What the categories are, as a hash of their ids in order.
+///
+/// A model's output means whatever the categories mean, so a model trained when this was
+/// different is answering a different question and every number it produces is mislabelled.
+/// This is what a stored reading is checked against.
+///
+/// Deliberately not the wording: a boundary rule that moves changes what a *labeller* should
+/// answer and changes nothing about what a model already emitted, so charging a re-read for a
+/// clarified sentence would be a lie about what went stale.
+#[must_use]
+pub fn categories() -> String {
+    use sha2::{Digest, Sha256};
 
-pub const CORE_SPINE: &[Category] = &[
+    let mut hasher = Sha256::new();
+    for category in SHEET {
+        hasher.update(category.id.as_bytes());
+        hasher.update([0]);
+    }
+    hasher
+        .finalize()
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// Hand-assigned names that denoted exactly the categories this build has.
+///
+/// The sheet used to carry a name someone chose, and `core-6` named this same set of ids. A
+/// reading or a model produced under it is answering today's question and refusing it would
+/// charge hours of re-reading for a rename. `core-5` and earlier are absent on purpose: those
+/// sheets held different categories, and the guard refusing them is the guard working.
+const SAME_CATEGORIES_UNDER_THE_OLD_NAMES: &[&str] = &["core-6"];
+
+/// Whether something recorded under `was` is answering the categories this build has.
+#[must_use]
+pub fn categories_still_mean(was: &str) -> bool {
+    was == categories() || SAME_CATEGORIES_UNDER_THE_OLD_NAMES.contains(&was)
+}
+
+/// What the sheet says, as a hash of the whole brief a labeller is handed.
+///
+/// A label answers the sheet its labeller read, boundary rules included, so this moves whenever
+/// any of that wording does. It is recorded on every label, and it is how `revisit` knows which
+/// labels predate a clarification. Computed rather than named, because the one time a version
+/// was assigned by hand it was forgotten, and two incompatible sheets both called themselves
+/// the same thing.
+#[must_use]
+pub fn sheet() -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(labelling_brief(Unit::Claim).as_bytes());
+    hasher
+        .finalize()
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+pub const SHEET: &[Category] = &[
     Category {
         id: "performance",
         label: "Performance",
@@ -178,7 +235,7 @@ pub const CORE_SPINE: &[Category] = &[
         alone: false,
     },
     // Asked for by nine labellers across two eras and two genres, which is more independent
-    // evidence than any other category in this spine had. Every labeller of Alien: Isolation
+    // evidence than any other category in this sheet had. Every labeller of Alien: Isolation
     // named it, the DEVOUR labeller reached it from a different corpus, and all three claim
     // labellers on a city builder called it the largest gap in the sheet. Without it, "you
     // never FEEL it" and "the deaths are just numbers now" fall to story or gameplay at low
@@ -423,7 +480,7 @@ pub const CORE_SPINE: &[Category] = &[
         ),
         alone: false,
     },
-    // Asked for by three labellers independently across the core-3 sets, which is the
+    // Asked for by three labellers independently across the earliest reference sets, which is the
     // strongest signal any reference set has produced. It was being split between gameplay
     // and difficulty, and "the tutorial explains nothing" is neither a mechanic nor a
     // question of balance.
@@ -485,7 +542,7 @@ pub fn embedding_text(category: &Category) -> String {
 
 #[must_use]
 pub fn by_id(id: &str) -> Option<&'static Category> {
-    CORE_SPINE.iter().find(|c| c.id == id)
+    SHEET.iter().find(|c| c.id == id)
 }
 
 /// The category sheet handed to whoever is labelling, generated rather than retyped.
@@ -509,16 +566,16 @@ pub fn labelling_brief(unit: Unit) -> String {
     use std::fmt::Write as _;
 
     let mut brief = match unit {
-        Unit::Review => format!(
-            "Categories (spine {CORE_SPINE_VERSION}). Each review gets exactly one primary \
+        Unit::Review => String::from(
+            "Categories. Each review gets exactly one primary \
              category, plus any others it genuinely also covers.\n\n\
              You are shown the text of a review and nothing else: not which game it is, not \
              whether the reviewer recommended it, not what the classifier guessed. The tool \
              being measured sorts reviews from their text alone, so a label made from more \
-             than that would measure what you were told rather than how well it reads.\n\n"
+             than that would measure what you were told rather than how well it reads.\n\n",
         ),
-        Unit::Claim => format!(
-            "Categories (spine {CORE_SPINE_VERSION}). You are labelling CLAIMS: the separate \
+        Unit::Claim => String::from(
+            "Categories. You are labelling CLAIMS: the separate \
              points a review makes. Each claim gets exactly one subject.\n\n\
              A review arrives split into numbered claims, and you label every one of them. \
              The review is there so a claim like \"it doesn't\" or \"same here\" can be read \
@@ -535,10 +592,10 @@ pub fn labelling_brief(unit: Unit) -> String {
              any of those is the exact failure this set exists to fix. They are `verdict` \
              when they judge the game and `offtopic` when they say nothing about it. Expect \
              to use those two more than anything else, and do not go looking for a subject \
-             that is not there.\n\n"
+             that is not there.\n\n",
         ),
     };
-    for category in CORE_SPINE {
+    for category in SHEET {
         let _ = writeln!(
             brief,
             "{} ({})\n  {}",
@@ -568,10 +625,10 @@ pub fn labelling_brief(unit: Unit) -> String {
     brief
 }
 
-/// The sheet a model works from when asked what a game's players talk about that the spine
+/// The sheet a model works from when asked what a game's players talk about that the sheet
 /// has no row for.
 ///
-/// Generated from the spine for the same reason the labelling sheet is: the reader has to know
+/// Generated from the sheet for the same reason the labelling sheet is: the reader has to know
 /// every fixed subject to know what is not one, and a hand-written list of them would drift
 /// the first time a subject was added.
 #[must_use]
@@ -581,7 +638,7 @@ pub fn induction_brief() -> String {
     let mut brief = format!(
         "You are reading reviews of one game, chosen to be as unlike each other as the corpus \
          allows, and naming what its players talk about that no game shares.\n\n\
-         Every game's reviews are sorted into the same {} subjects (spine {CORE_SPINE_VERSION}), \
+         Every game's reviews are sorted into the same {} subjects, \
          listed below. Those are the floor. What you are looking for is above it: a subject \
          this game's players return to that is not one of them, or is one of them in a form \
          so specific to this game that it deserves its own row. Mud physics in a truck \
@@ -592,9 +649,9 @@ pub fn induction_brief() -> String {
          of them think about: a subject one review raises is an anecdote, and a subject you \
          cannot point at three reviews for does not exist.\n\n\
          The fixed subjects, which you must not name again:\n\n",
-        CORE_SPINE.len()
+        SHEET.len()
     );
-    for category in CORE_SPINE {
+    for category in SHEET {
         let _ = writeln!(
             brief,
             "  {} ({}): {}",
@@ -616,7 +673,7 @@ pub fn induction_brief() -> String {
          with fewer than three. Better to return four subjects that survive than twelve that \
          do not.\n\n\
          Between five and twelve subjects is the usual shape. Zero is a legitimate answer for \
-         a game whose players talk about nothing the spine does not already name, and is \
+         a game whose players talk about nothing the sheet does not already name, and is \
          better than an invented one.\n",
     );
     brief
@@ -692,7 +749,7 @@ out is not a judgement, and a label missing one is refused rather than filled in
 /// Generated with the categories and for the same reason. The boundaries were written down
 /// because labellers disagreed about them; these were left to whatever each batch was told,
 /// and one of them decides how a headline figure is reported. `ambiguous` is what splits
-/// agreement into clear-cut and contested, and across the core-3 sets it marked between 21%
+/// agreement into clear-cut and contested, and across the earliest reference sets it marked between 21%
 /// and 35% of a game depending on who labelled it, which is a spread no property of the
 /// reviews explains.
 ///
@@ -741,9 +798,9 @@ mod tests {
 
     #[test]
     fn category_ids_are_unique_and_stable_looking() {
-        let ids: HashSet<&str> = CORE_SPINE.iter().map(|c| c.id).collect();
-        assert_eq!(ids.len(), CORE_SPINE.len(), "duplicate category id");
-        for category in CORE_SPINE {
+        let ids: HashSet<&str> = SHEET.iter().map(|c| c.id).collect();
+        assert_eq!(ids.len(), SHEET.len(), "duplicate category id");
+        for category in SHEET {
             assert!(
                 category
                     .id
@@ -757,7 +814,7 @@ mod tests {
 
     #[test]
     fn descriptions_are_written_as_sentences_not_labels() {
-        for category in CORE_SPINE {
+        for category in SHEET {
             assert!(
                 category.description.len() > 60,
                 "{} has too thin a description to embed usefully",
@@ -775,7 +832,7 @@ mod tests {
     fn boundary_rules_never_reach_the_embedding_model() {
         // A rule is written to a labeller and reads like an instruction. Embedding one would
         // pull the anchor towards the language of instructions and away from reviews.
-        for category in CORE_SPINE {
+        for category in SHEET {
             let embedded = embedding_text(category);
             if let Some(rule) = category.boundary {
                 assert!(
@@ -789,8 +846,8 @@ mod tests {
 
     #[test]
     fn every_boundary_rule_names_a_category_that_exists() {
-        let ids: HashSet<&str> = CORE_SPINE.iter().map(|c| c.id).collect();
-        for category in CORE_SPINE {
+        let ids: HashSet<&str> = SHEET.iter().map(|c| c.id).collect();
+        for category in SHEET {
             let Some(rule) = category.boundary else {
                 continue;
             };
@@ -810,8 +867,7 @@ mod tests {
     fn the_labelling_brief_carries_every_category_and_every_rule() {
         for unit in [Unit::Review, Unit::Claim] {
             let brief = labelling_brief(unit);
-            assert!(brief.contains(CORE_SPINE_VERSION));
-            for category in CORE_SPINE {
+            for category in SHEET {
                 assert!(brief.contains(category.id), "{} missing", category.id);
                 assert!(brief.contains(category.description));
                 if let Some(rule) = category.boundary {
