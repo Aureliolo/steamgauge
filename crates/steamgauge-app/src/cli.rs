@@ -559,13 +559,6 @@ enum Command {
         /// tenth a second agent of the first model read.
         #[arg(long, default_value = "second")]
         labels: String,
-        /// How many claims both labellers already agreed about to mix in, indistinguishable
-        /// from the blind ones. The rest of the set measures the reader where the labellers
-        /// were unsure or working alone; without a few of these, nothing ever tests the
-        /// assumption everything else rests on, that two labellers agreeing means both were
-        /// right rather than both wrong the same way.
-        #[arg(long, default_value_t = 50)]
-        settled: usize,
         /// Which games' disagreements to include. The blind sample is always frozen, because
         /// that is what makes it a measurement; a disagreement measures nothing and settles a
         /// boundary, and a boundary settled on one game is settled for every game.
@@ -883,7 +876,6 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             to,
             blind,
             labels,
-            settled,
             splits,
             seed,
             language,
@@ -894,7 +886,6 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             reference,
             &Asking {
                 blind: *blind,
-                settled: *settled,
                 splits: (*splits).into(),
                 seed: *seed,
                 languages: language,
@@ -1584,7 +1575,6 @@ enum Delivery<'a> {
 /// second reading.
 struct Asking<'a> {
     blind: usize,
-    settled: usize,
     splits: steamgauge_core::gold::Splits,
     seed: u64,
     languages: &'a [String],
@@ -1598,14 +1588,13 @@ fn run_gold(
 ) -> Result<()> {
     let Asking {
         blind,
-        settled,
         splits,
         seed,
         languages,
         reading,
     } = *asking;
     let (questions, found) =
-        steamgauge_core::gold::draw(reference, blind, settled, splits, seed, languages, reading)?;
+        steamgauge_core::gold::draw(reference, blind, splits, seed, languages, reading)?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1624,8 +1613,8 @@ fn run_gold(
     }
     println!("blind      {} claims, no answer shown", found.blind);
     println!(
-        "settled    {} of them are claims both labellers agreed about, mixed in and not \
-         marked, as a check on the labels themselves",
+        "settled    {} of them are claims both labellers already answered the same way, drawn \
+         in their own proportion and scored apart afterwards",
         found.settled
     );
     println!(

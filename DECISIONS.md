@@ -1818,6 +1818,37 @@ Nothing here shows either model is right. Two models sharing a blind spot look e
 models agreeing. What it does give is 2,116 claims the two answered differently, 72 of them with
 both readers confident, and that short list is the most valuable thing a person could adjudicate.
 
+### The blind sample was a sample of the schedule, not of the frozen games
+
+Found while costing the rest of the second labelling, and it would have ruined the one figure
+this whole project exists to produce.
+
+`draw` treated a claim as a blind candidate only when the second labeller had *not* reached it.
+Everything read twice became a control or a disagreement instead. So the accuracy sample was
+whatever the second pass had not got to yet, and with 26 of 49 games read that meant **1,000
+blind claims from four of the ten frozen games, 486 of them from one game**. A figure computed on
+that is a figure about Warhammer 40,000: Rogue Trader wearing the name of the corpus.
+
+It is worse than a bias, because it moves. Finishing those four games, which was the plan an hour
+earlier, would have taken the blind pool to **zero**: every frozen claim would have been read
+twice and none would have been eligible. The sample would have silently emptied as the labelling
+got more complete.
+
+Coverage of the second reading is a fact about scheduling. Every frozen claim is now a blind
+candidate, and the draw spreads across all ten games in their own proportions: the largest share
+fell from 48.6% to 23.3%.
+
+The separate pool of agreed-claim controls is retired with it, along with `--settled`. A sample
+over every frozen claim already contains the claims both labellers answered the same way, in
+their true proportion: 538 of the 1,000. Scoring those apart afterwards is the same check without
+a second draw that had to be kept indistinguishable from the first.
+`the_blind_sample_does_not_depend_on_where_the_second_labelling_got_to` holds it.
+
+**What this changes about the remaining work.** The blind sample no longer depends on the second
+labelling at all, so finishing the other 23 games is no longer a prerequisite for gold. What it
+still buys is a corpus-wide agreement figure and more disagreements for a queue that is already
+larger than anyone will answer.
+
 ### What the gold pass will be, settled before a single question is asked
 
 The adjudication happens once and never again, so everything that decides which claims are put in

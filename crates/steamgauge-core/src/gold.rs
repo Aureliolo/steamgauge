@@ -5,14 +5,15 @@
 //! claims themselves, and the only reason that has not happened is that there was nothing to
 //! read them on.
 //!
-//! Three draws, because they answer different questions:
+//! Two draws, because they answer different questions:
 //!
 //! - **Blind.** A random sample of frozen claims with no answer shown, which is the only kind
-//!   of reading that produces an accuracy figure rather than a ratification.
-//! - **Settled.** A few claims both labellers already agreed about, mixed into the blind ones
-//!   and indistinguishable from them. The rest of the set is drawn from claims one labeller
-//!   read alone or two read differently, so without these nothing ever checks the assumption
-//!   the whole silver standard rests on: that two labellers agreeing means both were right.
+//!   of reading that produces an accuracy figure rather than a ratification. Every frozen claim
+//!   is a candidate: whether a second labeller happened to reach it is a fact about scheduling,
+//!   and a sample that depends on it is a sample of the schedule. Some of what it draws will be
+//!   claims both labellers already answered the same way, in their true proportion, and scoring
+//!   those apart afterwards is what checks the assumption the whole silver standard rests on:
+//!   that two labellers agreeing means both were right.
 //! - **Split.** The claims two labellers answered differently, with both answers shown, which
 //!   is what settles a boundary rather than measuring one.
 //!
@@ -68,10 +69,10 @@ pub struct GoldDraw {
     /// Claims the two labellers answered the same way, which are not worth a person's time:
     /// counted so the page can say what share of the set was never in question.
     pub agreed: usize,
-    /// How many of those agreed claims were put in front of the person anyway, mixed into the
-    /// blind ones and indistinguishable from them. Without a few, the set measures the reader
-    /// only where the labellers were unsure or alone, and never tests the assumption the rest
-    /// of it rests on: that two labellers agreeing means both were right.
+    /// How many of the blind sample are claims both labellers already answered the same way.
+    /// Not a separate draw: a sample over every frozen claim contains them in their true
+    /// proportion, and scoring them apart afterwards is what tests the assumption the rest of
+    /// the set rests on, that two labellers agreeing means both were right.
     pub settled: usize,
     /// Disagreements where neither labeller hedged. Two readers who were both sure and still
     /// answered differently have found either a real error or a boundary the sheet does not
@@ -112,14 +113,13 @@ fn hedged(label: &ClaimLabel) -> bool {
 pub fn draw(
     reference: &Path,
     blind_wanted: usize,
-    settled_wanted: usize,
     splits: Splits,
     seed: u64,
     languages: &[String],
     reading: &str,
 ) -> Result<(Vec<Question>, GoldDraw)> {
-    let mut blind: Vec<([u8; 32], Question)> = Vec::new();
-    let mut settled: Vec<([u8; 32], Question)> = Vec::new();
+    // Ranked, whether the two labellers had both answered it, and the question itself.
+    let mut blind: Vec<([u8; 32], bool, Question)> = Vec::new();
     // Ranked as they are collected: a claim both readers answered without hedging, and still
     // answered differently, is the sharpest question in the set, and a person's time is worth
     // most there. Sorting on it puts those first rather than leaving them in file order.
@@ -194,12 +194,10 @@ pub fn draw(
             let rank =
                 crate::bounded::rank(seed, "gold-blind", &format!("{app_id}#{}", label.review_id));
 
-            if let Some(other) = twice.get(&(label.review_id.as_str(), label.index)) {
+            let read_twice = twice.get(&(label.review_id.as_str(), label.index));
+            if let Some(other) = read_twice {
                 if other.subject == label.subject {
                     found.agreed += 1;
-                    if frozen {
-                        settled.push((rank, question));
-                    }
                 } else if splits != Splits::None {
                     split.push((
                         hedged(label) || hedged(other),
@@ -208,34 +206,39 @@ pub fn draw(
                             ..question
                         },
                     ));
+                    continue;
                 }
-                continue;
             }
 
-            // A blind question is a measurement, and a measurement on a game the model trained
-            // on measures nothing.
+            // Every frozen claim is a candidate, whether or not a second labeller happened to
+            // reach it. Drawing only from the ones nobody read twice made the accuracy figure a
+            // figure about whichever games the second pass had not got to: 1,000 blind claims
+            // came from four of the ten frozen games and 486 from one of them. Coverage of the
+            // second reading is a fact about scheduling, not a property of a claim, and a
+            // sample that depends on it is not a sample.
             if !frozen {
                 continue;
             }
-            blind.push((rank, question));
+            let both_said_the_same = read_twice.is_some_and(|other| other.subject == label.subject);
+            blind.push((rank, both_said_the_same, question));
         }
     }
 
-    blind.sort_by_key(|(key, _)| *key);
-    settled.sort_by_key(|(key, _)| *key);
+    blind.sort_by_key(|(key, _, _)| *key);
     blind.truncate(blind_wanted);
-    settled.truncate(settled_wanted);
     found.blind = blind.len();
-    found.settled = settled.len();
+    // The controls are no longer a pool of their own. A blind sample over every frozen claim
+    // already contains the ones both labellers answered the same way, in their true proportion,
+    // and scoring those apart afterwards is the same check without a second draw to keep
+    // indistinguishable from the first.
+    found.settled = blind.iter().filter(|(_, twice, _)| *twice).count();
     found.split = split.len();
     found.languages = languages.to_vec();
 
     split.sort_by_key(|(hedged, _)| *hedged);
     found.contested_sure = split.iter().filter(|(hedged, _)| !hedged).count();
 
-    blind.append(&mut settled);
-    blind.sort_by_key(|(key, _)| *key);
-    let mut questions: Vec<Question> = blind.into_iter().map(|(_, question)| question).collect();
+    let mut questions: Vec<Question> = blind.into_iter().map(|(_, _, question)| question).collect();
     questions.extend(split.into_iter().map(|(_, question)| question));
     Ok((questions, found))
 }
@@ -383,7 +386,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(&root, 100, 0, Splits::Frozen, 1, &[], "second").unwrap();
+        let (frozen_only, counts) = draw(&root, 100, Splits::Frozen, 1, &[], "second").unwrap();
         assert!(
             frozen_only
                 .iter()
@@ -391,9 +394,14 @@ mod tests {
             "a training game reached a draw that measures the model"
         );
         assert_eq!(
-            counts.blind, 1,
-            "a claim two labellers already answered is settled, and spending a person on it is \
-             not what the blind sample is for"
+            counts.blind, 2,
+            "the blind sample is every frozen claim not being shown as a disagreement, whether \
+             or not a second labeller reached it"
+        );
+        assert_eq!(
+            counts.settled, 1,
+            "one of the two is a claim both labellers answered the same way, which is the \
+             control, counted rather than drawn separately"
         );
         assert_eq!(counts.split, 1);
         assert_eq!(counts.agreed, 1);
@@ -402,8 +410,7 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) =
-            draw(&root, 100, 0, Splits::Everywhere, 1, &[], "second").unwrap();
+        let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1, &[], "second").unwrap();
         assert_eq!(
             wider.split, 2,
             "the training game's disagreement was left out"
@@ -421,7 +428,7 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, 100, 0, Splits::None, 1, &[], "second").unwrap();
+        let (none, quiet) = draw(&root, 100, Splits::None, 1, &[], "second").unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
 
@@ -429,34 +436,45 @@ mod tests {
     }
 
     #[test]
-    fn a_settled_control_is_asked_blind_or_it_measures_nothing() {
-        let root = std::env::temp_dir().join(format!("steamgauge-settled-{}", std::process::id()));
+    fn the_blind_sample_does_not_depend_on_where_the_second_labelling_got_to() {
+        // Drawing blind only from claims nobody had read twice made the accuracy figure a
+        // figure about whichever games the second pass had not reached. In the real set that
+        // was four of the ten frozen games, 486 of 1,000 claims from one of them, and
+        // finishing those four would have emptied the sample entirely. Coverage of the second
+        // reading is a fact about scheduling; it must not decide what a person is asked.
+        let root = std::env::temp_dir().join(format!("steamgauge-blind-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (without, none) = draw(&root, 100, 0, Splits::None, 1, &[], "second").unwrap();
-        assert_eq!(none.settled, 0);
-        assert_eq!(without.len(), none.blind);
+        // 214490 is frozen and its second labelling covers two of three claims. 1274570 is
+        // also frozen and has no second labelling at all.
+        let bare = root.join("1274570");
+        std::fs::create_dir_all(&bare).unwrap();
+        std::fs::copy(
+            root.join("214490").join("sample.json"),
+            bare.join("sample.json"),
+        )
+        .unwrap();
+        let relabelled = std::fs::read_to_string(root.join("214490").join("labels.json"))
+            .unwrap()
+            .replace("214490", "1274570");
+        std::fs::write(bare.join("labels.json"), relabelled).unwrap();
 
-        let (with, counts) = draw(&root, 100, 5, Splits::None, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(&root, 100, Splits::None, 1, &[], "second").unwrap();
+        let asked: std::collections::HashSet<u32> =
+            questions.iter().map(|question| question.app_id).collect();
+        assert!(
+            asked.contains(&214_490) && asked.contains(&1_274_570),
+            "a frozen game was left out of the blind sample because a second labeller had              reached it, which makes the sample a fact about scheduling"
+        );
         assert_eq!(
             counts.settled, 1,
-            "the frozen game's agreed claim is the only control there is to draw"
-        );
-        assert_eq!(
-            counts.blind, none.blind,
-            "a control displaced a blind claim"
-        );
-        assert_eq!(with.len(), counts.blind + counts.settled);
-        assert!(
-            with.iter().all(|question| question.shown.is_none()),
-            "a control that shows what the labellers said tells the adjudicator which questions \
-             are the control, and they answer those ones differently"
+            "the one claim both labellers answered the same way is counted inside the sample"
         );
         assert!(
-            with.iter().all(|question| question.app_id == 214_490),
-            "a control drawn from a training game measures the model against itself"
+            questions.iter().all(|question| question.shown.is_none()),
+            "a blind question that shows an answer is a ratification, not a measurement"
         );
 
         let _ = std::fs::remove_dir_all(&root);
@@ -504,7 +522,7 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) = draw(&root, 0, 0, Splits::Frozen, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(&root, 0, Splits::Frozen, 1, &[], "second").unwrap();
         assert_eq!(counts.split, 2);
         assert_eq!(
             counts.contested_sure, 1,
