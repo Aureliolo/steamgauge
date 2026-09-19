@@ -1892,6 +1892,34 @@ bugs this project has already paid for:
   merge by claim, and `a_fresh_session_cannot_post_away_a_finished_adjudication` holds it.
 - The draw could not see the second model's reading at all, and asked disagreements in file order.
 
+### The clarification moved 344 labels of 627, and cost the right to re-measure them
+
+The 627 claims where the two readings differed inside the amended rows were put back to Fable,
+the labeller that wrote the first pass, with the three sharpened rules stated and an explicit
+instruction that answering the same way again was a fine outcome. **344 of them moved**, 55%.
+
+That is the size of the problem the amendment was fixing, and it confirms what reading the
+claims suggested: Fable was not applying rules that were already written. `genre` against
+`verdict` was 226 of the 627, `offtopic` against `verdict` 181, `updates` against `verdict` 153.
+
+The gold queue fell from 1,804 disagreements to 1,575, and the claims neither labeller hedged
+from 86 to 57. Those are questions that no longer need a person because the sheet answers them.
+
+**What it cost, which was not free.** The re-ask was not blind. Fable was told the rules, and
+those rules are the ones Opus had already been applying, so the second answers were nudged
+toward the other reading. Agreement over all 20,072 claims reads 88.5% afterwards against 87.0%
+before, and that 1.5 points is the nudge, not a discovery.
+
+So the cross-model figure to quote is the one measured before any of this: **87.0%, kappa 0.854,
+over 20,072 claims, both readings independent**. Excluding the re-asked claims and quoting 89.8%
+would be worse than useless: those 627 were selected precisely because they disagreed, so
+removing them raises the average by construction.
+
+The labels are better and the measurement of them is spent. That is the right way round, because
+labels feed the trainer and the agreement figure is only ever a description. It is worth knowing
+before the next such trade: a re-ask that names the rule cannot also be an independent reading,
+and if both are wanted they have to be different claims.
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. Those names appear in
