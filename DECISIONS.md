@@ -2025,6 +2025,40 @@ fix belongs until there is a reason to re-cut everything at once.
 them. `wave11` was trained on a set that is 61% pre-ballot-handling. Whether that costs
 anything is a measurement nobody has made, and it only matters at the next retrain.
 
+### The ticked option is the best claim in the corpus, and the splitter throws its meaning away
+
+Measured over 1.64M reviews in eight captures: 2,066 are ballots, 1 in 795, which is the rate
+the splitter's own note already claimed. 82% of their option lines are blank. `claims-5` drops
+those and keeps the ticked ones, which is right, but what it keeps is this:
+
+```
+What I enjoy about this game.        What I dislike about the game.
+☐ Game Play                          ☐ Clichés
+☑ Graphics                           ☒ Bugs
+☐ Story                              ☒ Length
+```
+
+It emits `☑ Graphics`. The reviewer wrote something far better than prose: a subject and a
+polarity, chosen deliberately, with no hedging, no irony and no inference needed. The splitter
+keeps the subject and discards the polarity, because the polarity is in the header.
+
+**98% of ticked options sit directly under a recoverable header** (17,279 of 17,635 in
+Cyberpunk alone), where a header is the short line above the group. So this is not a filtering
+problem at all. It is signal the pipeline is currently deleting, and the fix is to carry the
+header into the claim rather than to drop anything.
+
+Not done now: it changes claim text and would renumber claims underneath a live adjudication.
+It is the first thing to do at the next re-cut. The gold pass survives it, which is what makes
+deferring it safe: the adjudicator is shown the whole review, so an answer on `☑ Graphics`
+already accounts for the header they could read, and a gold label carries a span rather than
+only an index. Zero ticked options are in the current queue in any case.
+
+One caveat for whoever does it. These phrases repeat: 17,635 ticks are 2,914 distinct strings,
+6.1 uses each, `Very good` 960 times. For prevalence that is correct and every one should
+count, because 960 people did tick it. For training it is duplicated boilerplate that teaches
+a string rather than a skill, and it should be deduplicated there. Same rows, opposite
+treatment, and the two must not be confused.
+
 ## The corpus stopped being a corpus of games people like
 
 Measured 2026-09-11 over all 51 captures, 7.5M reviews. Before the fifteen chosen games
