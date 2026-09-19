@@ -402,7 +402,8 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) = draw(&root, 100, 0, Splits::Everywhere, 1, &[], "second").unwrap();
+        let (everywhere, wider) =
+            draw(&root, 100, 0, Splits::Everywhere, 1, &[], "second").unwrap();
         assert_eq!(
             wider.split, 2,
             "the training game's disagreement was left out"
