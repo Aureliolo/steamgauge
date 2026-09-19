@@ -96,6 +96,14 @@ pub enum Splits {
     Everywhere,
 }
 
+/// Where a claim is, so the blind draw and the disagreements cannot both take the same one.
+type At = (u32, String, u16);
+/// A frozen claim that could be asked blind: its draw order, where it is, whether both
+/// labellers answered it the same way, and the question itself.
+type Candidate = ([u8; 32], At, bool, Question);
+/// A disagreement: where it is, whether either labeller hedged, and the question.
+type Contested = (At, bool, Question);
+
 /// Whether a labeller signalled doubt, by any of the three means the sheet gives them.
 fn hedged(label: &ClaimLabel) -> bool {
     label.ambiguous || label.split_wrong || label.confidence == "low"
@@ -119,11 +127,11 @@ pub fn draw(
     reading: &str,
 ) -> Result<(Vec<Question>, GoldDraw)> {
     // Ranked, whether the two labellers had both answered it, and the question itself.
-    let mut blind: Vec<([u8; 32], bool, Question)> = Vec::new();
+    let mut blind: Vec<Candidate> = Vec::new();
     // Ranked as they are collected: a claim both readers answered without hedging, and still
     // answered differently, is the sharpest question in the set, and a person's time is worth
     // most there. Sorting on it puts those first rather than leaving them in file order.
-    let mut split: Vec<(bool, Question)> = Vec::new();
+    let mut split: Vec<Contested> = Vec::new();
     let mut found = GoldDraw::default();
 
     for entry in std::fs::read_dir(reference)? {
@@ -195,52 +203,73 @@ pub fn draw(
                 crate::bounded::rank(seed, "gold-blind", &format!("{app_id}#{}", label.review_id));
 
             let read_twice = twice.get(&(label.review_id.as_str(), label.index));
-            if let Some(other) = read_twice {
-                if other.subject == label.subject {
-                    found.agreed += 1;
-                } else if splits != Splits::None {
-                    split.push((
-                        hedged(label) || hedged(other),
-                        Question {
-                            shown: Some(vec![answered(label), answered(other)]),
-                            ..question
-                        },
-                    ));
-                    continue;
-                }
+            let both_said_the_same = read_twice.is_some_and(|other| other.subject == label.subject);
+            found.agreed += usize::from(both_said_the_same);
+
+            if let Some(other) = read_twice
+                && !both_said_the_same
+                && splits != Splits::None
+            {
+                split.push((
+                    (app_id, label.review_id.clone(), label.index),
+                    hedged(label) || hedged(other),
+                    Question {
+                        shown: Some(vec![answered(label), answered(other)]),
+                        ..question.clone()
+                    },
+                ));
             }
 
-            // Every frozen claim is a candidate, whether or not a second labeller happened to
-            // reach it. Drawing only from the ones nobody read twice made the accuracy figure a
-            // figure about whichever games the second pass had not got to: 1,000 blind claims
-            // came from four of the ten frozen games and 486 from one of them. Coverage of the
-            // second reading is a fact about scheduling, not a property of a claim, and a
-            // sample that depends on it is not a sample.
+            // Every frozen claim is a candidate, whether or not a second labeller reached it and
+            // whether or not the two agreed. Drawing only from claims nobody read twice made the
+            // sample a fact about where the second pass had got to. Drawing only from the ones
+            // they agreed on is worse in a quieter way: those are the easy claims, and an
+            // accuracy figure over them alone is the flattering half of the corpus.
             if !frozen {
                 continue;
             }
-            let both_said_the_same = read_twice.is_some_and(|other| other.subject == label.subject);
-            blind.push((rank, both_said_the_same, question));
+            blind.push((
+                rank,
+                (app_id, label.review_id.clone(), label.index),
+                both_said_the_same,
+                question,
+            ));
         }
     }
 
-    blind.sort_by_key(|(key, _, _)| *key);
+    found.languages = languages.to_vec();
+    let questions = assemble(blind, split, blind_wanted, &mut found);
+
+    Ok((questions, found))
+}
+
+/// Takes the blind sample first, then leaves the disagreements whatever it did not claim.
+///
+/// Order matters and it is the whole point. Letting the disagreements go first leaves the blind
+/// sample drawn only from claims the two labellers agreed on, which are the easy ones, and an
+/// accuracy figure over those alone is the flattering half of the corpus.
+fn assemble(
+    mut blind: Vec<Candidate>,
+    mut split: Vec<Contested>,
+    blind_wanted: usize,
+    found: &mut GoldDraw,
+) -> Vec<Question> {
+    blind.sort_by_key(|(key, _, _, _)| *key);
     blind.truncate(blind_wanted);
     found.blind = blind.len();
-    // The controls are no longer a pool of their own. A blind sample over every frozen claim
-    // already contains the ones both labellers answered the same way, in their true proportion,
-    // and scoring those apart afterwards is the same check without a second draw to keep
-    // indistinguishable from the first.
-    found.settled = blind.iter().filter(|(_, twice, _)| *twice).count();
+    found.settled = blind.iter().filter(|(_, _, same, _)| *same).count();
+
+    let asked_blind: std::collections::HashSet<&At> =
+        blind.iter().map(|(_, at, _, _)| at).collect();
+    split.retain(|(at, _, _)| !asked_blind.contains(at));
     found.split = split.len();
-    found.languages = languages.to_vec();
 
-    split.sort_by_key(|(hedged, _)| *hedged);
-    found.contested_sure = split.iter().filter(|(hedged, _)| !hedged).count();
+    split.sort_by_key(|(_, hedged, _)| *hedged);
+    found.contested_sure = split.iter().filter(|(_, hedged, _)| !hedged).count();
 
-    let mut questions: Vec<Question> = blind.into_iter().map(|(_, _, question)| question).collect();
-    questions.extend(split.into_iter().map(|(_, question)| question));
-    Ok((questions, found))
+    let mut questions: Vec<Question> = blind.into_iter().map(|(_, _, _, q)| q).collect();
+    questions.extend(split.into_iter().map(|(_, _, question)| question));
+    questions
 }
 
 /// A review's claims joined back together, and where each one lands in the result.
@@ -394,16 +423,20 @@ mod tests {
             "a training game reached a draw that measures the model"
         );
         assert_eq!(
-            counts.blind, 2,
-            "the blind sample is every frozen claim not being shown as a disagreement, whether \
-             or not a second labeller reached it"
+            counts.blind, 3,
+            "the blind sample is every frozen claim, whether or not a second labeller reached \
+             it and whether or not the two agreed"
         );
         assert_eq!(
             counts.settled, 1,
-            "one of the two is a claim both labellers answered the same way, which is the \
+            "one of the three is a claim both labellers answered the same way, which is the \
              control, counted rather than drawn separately"
         );
-        assert_eq!(counts.split, 1);
+        assert_eq!(
+            counts.split, 0,
+            "a blind sample large enough to take every frozen claim leaves the frozen game no \
+             disagreement to show, because the same claim cannot be asked both ways"
+        );
         assert_eq!(counts.agreed, 1);
         assert_eq!(
             counts.games, 1,
@@ -412,8 +445,9 @@ mod tests {
 
         let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1, &[], "second").unwrap();
         assert_eq!(
-            wider.split, 2,
-            "the training game's disagreement was left out"
+            wider.split, 1,
+            "the training game's disagreement was left out; the frozen game's own went into the \
+             blind sample instead, which takes what it needs before the disagreements are cut"
         );
         assert_eq!(
             wider.blind, counts.blind,
@@ -476,6 +510,42 @@ mod tests {
             questions.iter().all(|question| question.shown.is_none()),
             "a blind question that shows an answer is a ratification, not a measurement"
         );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_blind_sample_is_not_only_the_claims_the_labellers_agreed_on() {
+        // Claims two labellers agreed on are the easy ones. If the disagreements are taken for
+        // the split pool before the blind sample is drawn, the sample is left with nothing but
+        // agreed claims and the accuracy figure is the flattering half of the corpus. Once
+        // every frozen game had been read twice that is exactly what happened: 1,000 of 1,000
+        // blind claims were agreed ones.
+        let root = std::env::temp_dir().join(format!("steamgauge-bias-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        a_reference_set(&root);
+
+        // One claim short of the three the frozen game has, so the draw has to choose.
+        let (questions, counts) = draw(&root, 3, Splits::Everywhere, 1, &[], "second").unwrap();
+        let blind: Vec<&Question> = questions
+            .iter()
+            .filter(|question| question.shown.is_none())
+            .collect();
+        assert_eq!(counts.blind, 3);
+        assert!(
+            counts.settled < counts.blind,
+            "every claim drawn blind is one the two labellers agreed on, so the figure it \
+             produces is about the easy half of the corpus"
+        );
+
+        // Nothing is asked twice, once without answers and once with them.
+        let asked: std::collections::HashSet<(u32, &str, u16)> = questions
+            .iter()
+            .map(|question| (question.app_id, question.review_id.as_str(), question.index))
+            .collect();
+        assert_eq!(asked.len(), questions.len(), "a claim was asked both ways");
+        assert!(blind.iter().all(|question| question.app_id == 214_490));
 
         let _ = std::fs::remove_dir_all(&root);
     }
