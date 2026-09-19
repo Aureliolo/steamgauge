@@ -2129,8 +2129,22 @@ That is a small movement and it is the less important half: the 44,000 claims th
 never flagged `split_wrong`, because a labeller reading `.` marks it a bad claim rather than a
 bad split. Both instruments had to be read to see the whole change.
 
+**What it costs the reference set, which is less than the version number suggests.**
+`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, `claims-5`
+no longer cut 3,299 and `claims-6` no longer cuts 4,222, so the new rules move 923 more, about
+1.2% of the set. A label whose span still cuts finds its claim wherever it now sits; the rest
+drop out of measurement rather than being wrong. 4.8% of the set unscoreable is the standing
+cost, and no re-cut or re-labelling is needed to keep working.
+
 `claims-6` makes all 52 readings on disk stale. That is the version's job and they refuse
 themselves until each game is read again.
+
+**Asked at all three doors.** A stored claim comes back through the gold draw, the gold ingest
+and the training export, and only the first of those was the one the screenshot pointed at.
+`claims::is_not_a_claim` is the single predicate all three call, because three copies of a rule
+this fiddly would drift within a month. The training export was the worst of them: 683 of
+39,835 rows were an option nobody ticked or a piece with no word in it, each carrying a label
+that could not have been right, and `wave11` was trained on all of them.
 
 ### One text, a hundred accounts, and why that is not the splitter's problem
 
