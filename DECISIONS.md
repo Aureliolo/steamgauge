@@ -1838,6 +1838,19 @@ Coverage of the second reading is a fact about scheduling. Every frozen claim is
 candidate, and the draw spreads across all ten games in their own proportions: the largest share
 fell from 48.6% to 23.3%.
 
+Fixing that exposed a second bias underneath it, and completing the frozen games is what made it
+visible. The disagreements were taken for the split pool before the blind sample was drawn, so
+the sample got whatever was left. While four frozen games were unread that looked fine. Once all
+ten had been read twice, **1,000 of 1,000 blind claims were ones the two labellers had agreed
+on**: the easy half of the corpus, and an accuracy figure over it would have been flattering by
+construction.
+
+The blind sample is drawn first now, from every frozen claim, and the disagreements are whatever
+it did not take. The draw went from 100% agreed claims to 885 of 1,000, which is the true rate on
+frozen English claims rather than an artefact of the order the two pools were filled in.
+`the_blind_sample_is_not_only_the_claims_the_labellers_agreed_on` holds it, and also checks that
+no claim is asked twice, once without answers and once with them.
+
 The separate pool of agreed-claim controls is retired with it, along with `--settled`. A sample
 over every frozen claim already contains the claims both labellers answered the same way, in
 their true proportion: 538 of the 1,000. Scoring those apart afterwards is the same check without
