@@ -84,7 +84,8 @@ pub const CORE_SPINE: &[Category] = &[
                       building, exploration, progression systems, and whether the mechanics \
                       are deep or shallow.",
         boundary: Some(
-            "Naming the genre or comparing the game to another one belongs to genre. Whether \
+            "Naming the genre or comparing the game to another one belongs to genre, unless the \
+             claim is only a judgement with the genre attached, which is verdict. Whether \
              options are balanced against each other belongs to difficulty, and so does how \
              hard an enemy is to beat; how that enemy behaves and what it does is a mechanic \
              and belongs here. How much game there is belongs to content, and anything \
@@ -107,9 +108,16 @@ pub const CORE_SPINE: &[Category] = &[
             "Naming what kind of game it is, or which games it resembles, belongs here, and \
              that includes calling it a co-op game or comparing it to other co-op games. As \
              soon as a review says a mechanic is deep, shallow, satisfying or broken, that \
-             part is gameplay, and whether the co-op itself works is multiplayer. A \
-             comparison with this game's own predecessor belongs here when the difference \
-             itself is the point, and to verdict when it is only better or worse.",
+             part is gameplay, and whether the co-op itself works is multiplayer. Ask what the \
+             claim is for: if it is praising or condemning, and the genre or the other game is \
+             only the noun being judged, it is verdict however specific that noun is, so \
+             \"great platformer\", \"god tier city builder\", \"the best roguelike out there\" \
+             and \"better than Slay the Spire\" are all verdict. It is genre only when the kind \
+             of game, or the resemblance, is the information being conveyed: \"XCOM meets \
+             Darkest Dungeon\", \"a deckbuilder with no deck\", \"not really a soulslike at \
+             all\", \"I normally hate management sims\". That holds for any comparison and not \
+             only with this game's own predecessor: better or worse is a verdict, how it \
+             differs is genre.",
         ),
         alone: false,
     },
@@ -148,7 +156,11 @@ pub const CORE_SPINE: &[Category] = &[
              game's publisher or platform did belongs to policy. This is only for reviews from \
              which a reader would learn nothing at all, and that includes a review with \
              nothing in it: a full stop, a row of emoji, a keyboard mash. A single word that \
-             does pass judgement, good or terrible or 10/10, is a verdict.",
+             does pass judgement, good or terrible or 10/10, is a verdict, and so is one that \
+             carries an attitude without naming anything, \"yum\", \"god\", \"finally\". A word \
+             carrying no attitude at all, a bare title like \"WARHAMMER\" or a noise like \
+             \"ooookkkk\", is offtopic. Where you cannot tell whether a fragment carries an \
+             attitude, that is what the ambiguous flag is for; do not force it either way.",
         ),
         alone: true,
     },
@@ -340,7 +352,11 @@ pub const CORE_SPINE: &[Category] = &[
              aimed at the studio itself, including thanking them and telling them to fix it. \
              A complaint about what a patch changed is about the change: balance to \
              difficulty, a mechanic to gameplay, content removed to content. This is for the \
-             patching itself, its pace, and whether they listen. \"The game is dead\" is here \
+             patching itself, its pace, and whether they listen. A judgement about how the game \
+             has changed since it came out is here even when no patch and no studio is named, \
+             so \"it is getting better\", \"release was bad but it is fine now\" and \"one of \
+             the worst launches in years\" are updates, where the same judgement with no before \
+             and after, \"it is fine now\" alone, is a verdict. \"The game is dead\" is here \
              when nobody is developing it and multiplayer when nobody is playing it. What the \
              publisher or the platform requires of the player belongs to policy.",
         ),

@@ -553,6 +553,12 @@ enum Command {
         /// How many claims to draw blind.
         #[arg(long, default_value_t = 1000)]
         blind: usize,
+        /// Which second reading to take the disagreements from, as a directory inside each set.
+        /// The two readings decide what a person is asked about, so naming a different one asks
+        /// a different question: `opus` is a second model over the whole set, `second` the
+        /// tenth a second agent of the first model read.
+        #[arg(long, default_value = "second")]
+        labels: String,
         /// How many claims both labellers already agreed about to mix in, indistinguishable
         /// from the blind ones. The rest of the set measures the reader where the labellers
         /// were unsure or working alone; without a few of these, nothing ever tests the
@@ -876,6 +882,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             reference,
             to,
             blind,
+            labels,
             settled,
             splits,
             seed,
@@ -885,11 +892,14 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             port,
         } => run_gold(
             reference,
-            *blind,
-            *settled,
-            (*splits).into(),
-            *seed,
-            language,
+            &Asking {
+                blind: *blind,
+                settled: *settled,
+                splits: (*splits).into(),
+                seed: *seed,
+                languages: language,
+                reading: labels,
+            },
             if *serve {
                 Delivery::Served {
                     answers,
@@ -1570,17 +1580,32 @@ enum Delivery<'a> {
     },
 }
 
-fn run_gold(
-    reference: &std::path::Path,
+/// What a person is asked: how many of each kind of claim, in which languages, against which
+/// second reading.
+struct Asking<'a> {
     blind: usize,
     settled: usize,
     splits: steamgauge_core::gold::Splits,
     seed: u64,
-    languages: &[String],
+    languages: &'a [String],
+    reading: &'a str,
+}
+
+fn run_gold(
+    reference: &std::path::Path,
+    asking: &Asking<'_>,
     delivery: Delivery<'_>,
 ) -> Result<()> {
+    let Asking {
+        blind,
+        settled,
+        splits,
+        seed,
+        languages,
+        reading,
+    } = *asking;
     let (questions, found) =
-        steamgauge_core::gold::draw(reference, blind, settled, splits, seed, languages)?;
+        steamgauge_core::gold::draw(reference, blind, settled, splits, seed, languages, reading)?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1604,8 +1629,12 @@ fn run_gold(
         found.settled
     );
     println!(
-        "split      {} claims two labellers answered differently",
+        "split      {} claims the `{reading}` reading answered differently, asked first",
         found.split
+    );
+    println!(
+        "contested  {} of those had neither labeller hedging, which is where an hour buys most",
+        found.contested_sure
     );
     println!(
         "agreed     {} claims both labellers already answered the same way",

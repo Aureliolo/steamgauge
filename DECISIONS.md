@@ -76,7 +76,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
 | **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read 26 of the 49 games in full, 16,310 claims, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
-| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user |
+| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. `core-6` has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
 | Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 frozen (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
 | Measured error **corrects the reported prevalence** | done, on the report page, per subject where the model finds it better than chance |
@@ -1776,7 +1776,8 @@ evidence. It also means the set sorts itself: the 44% neither reader doubted nee
 adjudication, and the 56% either doubted is where a person's time is worth spending. The gold
 page should draw from the second group, not uniformly.
 
-**`genre` does not survive a second reader**, and two others are close behind:
+**Three classes carry nearly all the disagreement**, and reading the claims behind them showed
+the first diagnosis here was wrong:
 
 | first reader said | claims | held | went instead |
 |---|---|---|---|
@@ -1786,10 +1787,29 @@ page should draw from the second group, not uniformly.
 | controls | 352 | 95.2% | gameplay 8 |
 | audio | 161 | 95.7% | gameplay 1 |
 
-"Great deck builder" is a genre statement to one reader and a verdict to the other, and `core-6`
-does not settle it. This is a defect in the sheet, not in the labelling, and it caps what any
-model trained on the sheet can reach for those classes no matter how many labels it sees.
-Compare `controls` and `audio` above: where the sheet draws a line, two readers find it.
+This was recorded as a defect in the sheet. It is mostly not. On `genre` the sheet already
+decided the case, in the verdict rule and with the very example at issue: "a judgement with only
+the kind of game attached, 'excellent city builder', is a verdict". Nearly all 128 are that exact
+shape, "great platformer", "god tier city builder". **Fable was not following a rule that was
+already written, and Opus was.** The gameplay rule's blunt "naming the genre belongs to genre"
+was read first and won; it now defers to the verdict rule, and the genre rule says plainly that
+better-or-worse is a verdict however specific the noun.
+
+`updates` runs the other way. The rule already puts praise and blame aimed at the studio there,
+and Fable followed it while Opus read "I hate EA for destroying this franchise" as a verdict.
+**Neither labeller is the better one.** They break in opposite directions on different rules,
+which is the whole reason a second reading is worth more than a longer first one.
+
+The genuine gaps were narrow and are now closed: a judgement about how the game has changed
+since release is `updates` even when no patch or studio is named, and a single word carrying an
+attitude is a `verdict` while one carrying none is `offtopic`.
+
+No category changed, so the sheet stays `core-6` and no label is invalidated by the amendment.
+What the amendment does is make a re-ask worth running: `revisit` exists for exactly this, and
+the claims to re-ask are the ones the two readings answered differently, not the whole set.
+
+Compare `controls` at 95.2% and `audio` at 95.7%: where the sheet draws a line, two independent
+readers find it. That is the test a rule has to pass, and it is now the test for the amended ones.
 
 **Opus hedges more than Fable everywhere**, 50.9% against 39.1%. Comparing hedge rates between
 the two models says nothing; comparing one model's rate across languages or subjects does.

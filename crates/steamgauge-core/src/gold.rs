@@ -73,6 +73,10 @@ pub struct GoldDraw {
     /// only where the labellers were unsure or alone, and never tests the assumption the rest
     /// of it rests on: that two labellers agreeing means both were right.
     pub settled: usize,
+    /// Disagreements where neither labeller hedged. Two readers who were both sure and still
+    /// answered differently have found either a real error or a boundary the sheet does not
+    /// draw, and there is nothing else in the set with that much in it per claim read.
+    pub contested_sure: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
@@ -91,6 +95,11 @@ pub enum Splits {
     Everywhere,
 }
 
+/// Whether a labeller signalled doubt, by any of the three means the sheet gives them.
+fn hedged(label: &ClaimLabel) -> bool {
+    label.ambiguous || label.split_wrong || label.confidence == "low"
+}
+
 /// Draws the claims a person should read.
 ///
 /// Frozen because a gold figure has to be about games that chose nothing: a person adjudicating
@@ -107,10 +116,14 @@ pub fn draw(
     splits: Splits,
     seed: u64,
     languages: &[String],
+    reading: &str,
 ) -> Result<(Vec<Question>, GoldDraw)> {
     let mut blind: Vec<([u8; 32], Question)> = Vec::new();
     let mut settled: Vec<([u8; 32], Question)> = Vec::new();
-    let mut split: Vec<Question> = Vec::new();
+    // Ranked as they are collected: a claim both readers answered without hedging, and still
+    // answered differently, is the sharpest question in the set, and a person's time is worth
+    // most there. Sorting on it puts those first rather than leaving them in file order.
+    let mut split: Vec<(bool, Question)> = Vec::new();
     let mut found = GoldDraw::default();
 
     for entry in std::fs::read_dir(reference)? {
@@ -134,7 +147,7 @@ pub fn draw(
         };
         let drawn: Vec<DrawnReview> = serde_json::from_slice(&sample)?;
         let first: Vec<ClaimLabel> = serde_json::from_slice(&first)?;
-        let second: Vec<ClaimLabel> = std::fs::read(dir.join("second").join("labels.json"))
+        let second: Vec<ClaimLabel> = std::fs::read(dir.join(reading).join("labels.json"))
             .ok()
             .and_then(|raw| serde_json::from_slice(&raw).ok())
             .unwrap_or_default();
@@ -188,10 +201,13 @@ pub fn draw(
                         settled.push((rank, question));
                     }
                 } else if splits != Splits::None {
-                    split.push(Question {
-                        shown: Some(vec![answered(label), answered(other)]),
-                        ..question
-                    });
+                    split.push((
+                        hedged(label) || hedged(other),
+                        Question {
+                            shown: Some(vec![answered(label), answered(other)]),
+                            ..question
+                        },
+                    ));
                 }
                 continue;
             }
@@ -214,10 +230,13 @@ pub fn draw(
     found.split = split.len();
     found.languages = languages.to_vec();
 
+    split.sort_by_key(|(hedged, _)| *hedged);
+    found.contested_sure = split.iter().filter(|(hedged, _)| !hedged).count();
+
     blind.append(&mut settled);
     blind.sort_by_key(|(key, _)| *key);
     let mut questions: Vec<Question> = blind.into_iter().map(|(_, question)| question).collect();
-    questions.extend(split);
+    questions.extend(split.into_iter().map(|(_, question)| question));
     Ok((questions, found))
 }
 
@@ -364,7 +383,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(&root, 100, 0, Splits::Frozen, 1, &[]).unwrap();
+        let (frozen_only, counts) = draw(&root, 100, 0, Splits::Frozen, 1, &[], "second").unwrap();
         assert!(
             frozen_only
                 .iter()
@@ -383,7 +402,7 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) = draw(&root, 100, 0, Splits::Everywhere, 1, &[]).unwrap();
+        let (everywhere, wider) = draw(&root, 100, 0, Splits::Everywhere, 1, &[], "second").unwrap();
         assert_eq!(
             wider.split, 2,
             "the training game's disagreement was left out"
@@ -401,7 +420,7 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, 100, 0, Splits::None, 1, &[]).unwrap();
+        let (none, quiet) = draw(&root, 100, 0, Splits::None, 1, &[], "second").unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
 
@@ -415,11 +434,11 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (without, none) = draw(&root, 100, 0, Splits::None, 1, &[]).unwrap();
+        let (without, none) = draw(&root, 100, 0, Splits::None, 1, &[], "second").unwrap();
         assert_eq!(none.settled, 0);
         assert_eq!(without.len(), none.blind);
 
-        let (with, counts) = draw(&root, 100, 5, Splits::None, 1, &[]).unwrap();
+        let (with, counts) = draw(&root, 100, 5, Splits::None, 1, &[], "second").unwrap();
         assert_eq!(
             counts.settled, 1,
             "the frozen game's agreed claim is the only control there is to draw"
@@ -437,6 +456,66 @@ mod tests {
         assert!(
             with.iter().all(|question| question.app_id == 214_490),
             "a control drawn from a training game measures the model against itself"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_disagreement_neither_labeller_hedged_is_asked_before_one_they_doubted() {
+        // A person adjudicates until they stop, not until the list ends, so the order is the
+        // whole of what their hour buys. Two readers who were both sure and still disagreed
+        // have found a real error or an undrawn boundary; one where either hedged is usually
+        // just a hard claim, and burying the first behind the second wastes the draw.
+        let root = std::env::temp_dir().join(format!("steamgauge-sharp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
+
+        let drawn = serde_json::json!([{
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "random",
+            "claims": [
+                {"index": 0, "start": 0, "end": 9, "text": "Runs badly"},
+                {"index": 1, "start": 10, "end": 20, "text": "Looks great"}
+            ]
+        }]);
+        std::fs::write(root.join("214490").join("sample.json"), drawn.to_string()).unwrap();
+
+        let label = |index: u16, subject: &str, doubted: bool| {
+            serde_json::json!({
+                "review_id": "r1", "index": index, "app_id": 214_490,
+                "language": "english", "subset": "random", "start": 0, "end": 9,
+                "splitter": "claims-5", "taxonomy": "core-6", "produced_by": "one",
+                "subject": subject, "polarity": "praise", "ironic": false,
+                "confidence": if doubted { "low" } else { "high" },
+                "ambiguous": false, "split_wrong": false
+            })
+        };
+        // Claim 0 is doubted and comes first in the file; claim 1 is the sure disagreement.
+        std::fs::write(
+            root.join("214490").join("labels.json"),
+            serde_json::json!([label(0, "performance", true), label(1, "graphics", false)])
+                .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("214490").join("second").join("labels.json"),
+            serde_json::json!([label(0, "bugs", false), label(1, "atmosphere", false)]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, counts) = draw(&root, 0, 0, Splits::Frozen, 1, &[], "second").unwrap();
+        assert_eq!(counts.split, 2);
+        assert_eq!(
+            counts.contested_sure, 1,
+            "only the claim neither labeller doubted counts as a sure disagreement"
+        );
+        let split: Vec<&Question> = questions
+            .iter()
+            .filter(|question| question.shown.is_some())
+            .collect();
+        assert_eq!(
+            split[0].index, 1,
+            "the disagreement neither labeller hedged was asked second, behind a doubted one"
         );
 
         let _ = std::fs::remove_dir_all(&root);
