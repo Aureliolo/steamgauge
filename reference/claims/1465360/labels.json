@@ -9,13 +9,13 @@
     "end": 109,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "100400736",
@@ -27,13 +27,13 @@
     "end": 203,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "100400736",
@@ -45,13 +45,13 @@
     "end": 349,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "100400736",
@@ -63,13 +63,13 @@
     "end": 387,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "100400736",
@@ -81,13 +81,13 @@
     "end": 406,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "103221076",
@@ -99,13 +99,13 @@
     "end": 9,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "104029305",
@@ -117,13 +117,13 @@
     "end": 21,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "104772186",
@@ -135,13 +135,13 @@
     "end": 24,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105338440",
@@ -153,13 +153,13 @@
     "end": 116,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105338440",
@@ -171,13 +171,13 @@
     "end": 157,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "105338440",
@@ -189,13 +189,13 @@
     "end": 184,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105338440",
@@ -207,13 +207,13 @@
     "end": 203,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105338440",
@@ -225,13 +225,13 @@
     "end": 344,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105450018",
@@ -243,13 +243,13 @@
     "end": 39,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "105843009",
@@ -261,13 +261,13 @@
     "end": 24,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "106210094",
@@ -279,13 +279,13 @@
     "end": 5,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "106632461",
@@ -297,13 +297,13 @@
     "end": 80,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "107386703",
@@ -315,13 +315,13 @@
     "end": 20,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "113355186",
@@ -333,13 +333,13 @@
     "end": 29,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "113355186",
@@ -351,13 +351,13 @@
     "end": 75,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "113355186",
@@ -369,13 +369,13 @@
     "end": 179,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "113355186",
@@ -387,13 +387,13 @@
     "end": 223,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "113355186",
@@ -405,13 +405,13 @@
     "end": 277,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "113505895",
@@ -423,13 +423,13 @@
     "end": 53,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "113643891",
@@ -441,13 +441,13 @@
     "end": 12,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "115360826",
@@ -459,13 +459,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "115650697",
@@ -477,13 +477,13 @@
     "end": 110,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "115650697",
@@ -495,13 +495,13 @@
     "end": 167,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "audio",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "116966129",
@@ -512,14 +512,14 @@
     "start": 0,
     "end": 81,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "116966129",
@@ -530,14 +530,14 @@
     "start": 82,
     "end": 151,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "117782492",
@@ -548,14 +548,14 @@
     "start": 0,
     "end": 178,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "118172269",
@@ -566,14 +566,14 @@
     "start": 0,
     "end": 21,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "118442414",
@@ -585,13 +585,13 @@
     "end": 14,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "118494944",
@@ -603,13 +603,13 @@
     "end": 119,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "118494944",
@@ -621,13 +621,13 @@
     "end": 197,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "121709581",
@@ -639,13 +639,13 @@
     "end": 362,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "121911224",
@@ -657,13 +657,13 @@
     "end": 225,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "121911224",
@@ -675,13 +675,13 @@
     "end": 454,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "121911224",
@@ -693,13 +693,13 @@
     "end": 526,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122048387",
@@ -711,13 +711,13 @@
     "end": 11,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -729,13 +729,13 @@
     "end": 23,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -747,13 +747,13 @@
     "end": 92,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -765,13 +765,13 @@
     "end": 160,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -783,13 +783,13 @@
     "end": 207,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -801,13 +801,13 @@
     "end": 278,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -819,13 +819,13 @@
     "end": 340,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -837,13 +837,13 @@
     "end": 440,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -855,13 +855,13 @@
     "end": 506,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -873,13 +873,13 @@
     "end": 585,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -891,13 +891,13 @@
     "end": 602,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -909,13 +909,13 @@
     "end": 654,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -927,13 +927,13 @@
     "end": 745,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "122637995",
@@ -945,13 +945,13 @@
     "end": 826,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "122908124",
@@ -963,13 +963,13 @@
     "end": 53,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "122908124",
@@ -981,13 +981,13 @@
     "end": 66,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "123560041",
@@ -999,13 +999,13 @@
     "end": 169,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "123560041",
@@ -1017,13 +1017,13 @@
     "end": 188,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "123911696",
@@ -1035,13 +1035,13 @@
     "end": 114,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "123911696",
@@ -1053,13 +1053,13 @@
     "end": 148,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "124227325",
@@ -1071,13 +1071,13 @@
     "end": 19,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "124830426",
@@ -1089,13 +1089,13 @@
     "end": 13,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "124855335",
@@ -1107,13 +1107,13 @@
     "end": 181,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "125258911",
@@ -1125,13 +1125,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "125475239",
@@ -1143,13 +1143,13 @@
     "end": 21,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "125660288",
@@ -1161,13 +1161,13 @@
     "end": 83,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "125660288",
@@ -1179,13 +1179,13 @@
     "end": 184,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "125660288",
@@ -1197,13 +1197,13 @@
     "end": 265,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "127296420",
@@ -1215,13 +1215,13 @@
     "end": 85,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "128450622",
@@ -1233,13 +1233,13 @@
     "end": 6,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "128805416",
@@ -1250,14 +1250,14 @@
     "start": 0,
     "end": 1,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "128991328",
@@ -1269,13 +1269,13 @@
     "end": 143,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "128991328",
@@ -1287,13 +1287,13 @@
     "end": 215,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "129538770",
@@ -1305,13 +1305,13 @@
     "end": 14,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130055609",
@@ -1322,14 +1322,14 @@
     "start": 0,
     "end": 172,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1341,13 +1341,13 @@
     "end": 34,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1359,13 +1359,13 @@
     "end": 96,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1377,13 +1377,13 @@
     "end": 151,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1395,13 +1395,13 @@
     "end": 222,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1413,13 +1413,13 @@
     "end": 282,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1431,13 +1431,13 @@
     "end": 339,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1449,13 +1449,13 @@
     "end": 407,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1467,13 +1467,13 @@
     "end": 481,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1485,13 +1485,13 @@
     "end": 544,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1503,13 +1503,13 @@
     "end": 598,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1521,13 +1521,13 @@
     "end": 664,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1539,13 +1539,13 @@
     "end": 743,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1557,13 +1557,13 @@
     "end": 790,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1575,13 +1575,13 @@
     "end": 859,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1593,13 +1593,13 @@
     "end": 925,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1611,13 +1611,13 @@
     "end": 982,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1629,13 +1629,13 @@
     "end": 1026,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1647,13 +1647,13 @@
     "end": 1085,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130057209",
@@ -1665,13 +1665,13 @@
     "end": 1136,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130116878",
@@ -1683,13 +1683,13 @@
     "end": 100,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130116878",
@@ -1701,13 +1701,13 @@
     "end": 169,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "130116878",
@@ -1719,13 +1719,13 @@
     "end": 255,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130116878",
@@ -1737,13 +1737,13 @@
     "end": 383,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130116878",
@@ -1755,13 +1755,13 @@
     "end": 405,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130116878",
@@ -1773,13 +1773,13 @@
     "end": 420,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "130280012",
@@ -1791,13 +1791,13 @@
     "end": 65,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "131131431",
@@ -1809,13 +1809,13 @@
     "end": 142,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "131131431",
@@ -1827,13 +1827,13 @@
     "end": 202,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "131131431",
@@ -1845,13 +1845,13 @@
     "end": 428,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "131131431",
@@ -1863,13 +1863,13 @@
     "end": 515,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "131131431",
@@ -1881,13 +1881,13 @@
     "end": 596,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "community",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "132494917",
@@ -1899,13 +1899,13 @@
     "end": 54,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "132494917",
@@ -1917,13 +1917,13 @@
     "end": 232,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "133850436",
@@ -1935,13 +1935,13 @@
     "end": 49,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "133931956",
@@ -1953,13 +1953,13 @@
     "end": 3,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "137617133",
@@ -1971,13 +1971,13 @@
     "end": 315,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "137617133",
@@ -1989,13 +1989,13 @@
     "end": 422,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "137617133",
@@ -2007,13 +2007,13 @@
     "end": 493,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "137864460",
@@ -2025,13 +2025,13 @@
     "end": 5,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "138025885",
@@ -2043,13 +2043,13 @@
     "end": 9,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "138687607",
@@ -2061,13 +2061,13 @@
     "end": 6,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "139698390",
@@ -2079,13 +2079,13 @@
     "end": 24,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "140817270",
@@ -2097,13 +2097,13 @@
     "end": 33,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "141790394",
@@ -2115,13 +2115,13 @@
     "end": 51,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "144208095",
@@ -2133,13 +2133,13 @@
     "end": 49,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "144896594",
@@ -2151,13 +2151,13 @@
     "end": 19,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "144937049",
@@ -2169,13 +2169,13 @@
     "end": 82,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "145100262",
@@ -2187,13 +2187,13 @@
     "end": 9,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "147715186",
@@ -2205,13 +2205,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "147785670",
@@ -2223,13 +2223,13 @@
     "end": 20,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "148086662",
@@ -2241,13 +2241,13 @@
     "end": 64,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "148228018",
@@ -2259,13 +2259,13 @@
     "end": 14,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "148644143",
@@ -2277,13 +2277,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "148661707",
@@ -2294,14 +2294,14 @@
     "start": 0,
     "end": 156,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "148697262",
@@ -2313,13 +2313,13 @@
     "end": 33,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "149162610",
@@ -2331,13 +2331,13 @@
     "end": 88,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "151945895",
@@ -2348,14 +2348,14 @@
     "start": 0,
     "end": 3,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "offtopic",
-    "polarity": "neutral",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
+    "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "152685332",
@@ -2367,13 +2367,13 @@
     "end": 129,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "155876422",
@@ -2385,13 +2385,13 @@
     "end": 62,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2403,13 +2403,13 @@
     "end": 76,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2421,13 +2421,13 @@
     "end": 94,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2439,13 +2439,13 @@
     "end": 117,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2457,13 +2457,13 @@
     "end": 150,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2475,13 +2475,13 @@
     "end": 201,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2493,13 +2493,13 @@
     "end": 255,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2511,13 +2511,13 @@
     "end": 271,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2529,13 +2529,13 @@
     "end": 390,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2547,13 +2547,13 @@
     "end": 411,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2565,13 +2565,13 @@
     "end": 453,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155876422",
@@ -2583,13 +2583,13 @@
     "end": 547,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "155902384",
@@ -2601,13 +2601,13 @@
     "end": 10,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "156950340",
@@ -2619,13 +2619,13 @@
     "end": 89,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "156950340",
@@ -2637,13 +2637,13 @@
     "end": 175,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "156950340",
@@ -2655,13 +2655,13 @@
     "end": 272,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "157287197",
@@ -2673,13 +2673,13 @@
     "end": 77,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "157348905",
@@ -2691,13 +2691,13 @@
     "end": 39,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "157587447",
@@ -2709,13 +2709,13 @@
     "end": 38,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "157989141",
@@ -2727,13 +2727,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "159551266",
@@ -2745,13 +2745,13 @@
     "end": 5,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160281453",
@@ -2763,13 +2763,13 @@
     "end": 93,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160281453",
@@ -2781,13 +2781,13 @@
     "end": 255,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160281453",
@@ -2799,13 +2799,13 @@
     "end": 462,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160390611",
@@ -2817,13 +2817,13 @@
     "end": 119,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160390611",
@@ -2835,13 +2835,13 @@
     "end": 142,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160552697",
@@ -2853,13 +2853,13 @@
     "end": 150,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "160552697",
@@ -2871,13 +2871,13 @@
     "end": 258,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160552697",
@@ -2889,13 +2889,13 @@
     "end": 312,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160552697",
@@ -2907,13 +2907,13 @@
     "end": 404,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "160552697",
@@ -2925,13 +2925,13 @@
     "end": 455,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "161983265",
@@ -2943,13 +2943,13 @@
     "end": 140,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "162020466",
@@ -2961,13 +2961,13 @@
     "end": 434,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "162020466",
@@ -2979,13 +2979,13 @@
     "end": 556,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "162571155",
@@ -2997,13 +2997,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "162861436",
@@ -3015,13 +3015,13 @@
     "end": 80,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "162861436",
@@ -3033,13 +3033,13 @@
     "end": 109,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "165132890",
@@ -3051,13 +3051,13 @@
     "end": 30,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "165211600",
@@ -3069,13 +3069,13 @@
     "end": 50,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "167354737",
@@ -3087,13 +3087,13 @@
     "end": 6,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "168873835",
@@ -3104,14 +3104,14 @@
     "start": 0,
     "end": 98,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "169005103",
@@ -3123,13 +3123,13 @@
     "end": 22,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "169005103",
@@ -3141,13 +3141,13 @@
     "end": 65,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "169005103",
@@ -3159,13 +3159,13 @@
     "end": 117,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "170098903",
@@ -3177,13 +3177,13 @@
     "end": 26,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "170098903",
@@ -3195,13 +3195,13 @@
     "end": 131,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "170098903",
@@ -3213,13 +3213,13 @@
     "end": 182,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "171207679",
@@ -3231,13 +3231,13 @@
     "end": 27,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3249,13 +3249,13 @@
     "end": 85,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3267,13 +3267,13 @@
     "end": 154,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3285,13 +3285,13 @@
     "end": 269,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3303,13 +3303,13 @@
     "end": 417,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3321,13 +3321,13 @@
     "end": 547,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "172262993",
@@ -3339,13 +3339,13 @@
     "end": 680,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "172262993",
@@ -3357,13 +3357,13 @@
     "end": 804,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "175269267",
@@ -3375,13 +3375,13 @@
     "end": 31,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "177220564",
@@ -3393,13 +3393,13 @@
     "end": 133,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "177560190",
@@ -3411,13 +3411,13 @@
     "end": 29,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "178114745",
@@ -3429,13 +3429,13 @@
     "end": 6,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "179319925",
@@ -3447,13 +3447,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "181121320",
@@ -3465,13 +3465,13 @@
     "end": 65,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "182421949",
@@ -3483,13 +3483,13 @@
     "end": 37,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "182586807",
@@ -3501,13 +3501,13 @@
     "end": 43,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "182586807",
@@ -3519,13 +3519,13 @@
     "end": 62,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "182586807",
@@ -3537,13 +3537,13 @@
     "end": 89,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "182586807",
@@ -3555,13 +3555,13 @@
     "end": 132,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "182798175",
@@ -3573,13 +3573,13 @@
     "end": 27,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "182798175",
@@ -3591,13 +3591,13 @@
     "end": 48,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "182859171",
@@ -3609,13 +3609,13 @@
     "end": 24,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "185401479",
@@ -3627,13 +3627,13 @@
     "end": 117,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "185401479",
@@ -3645,13 +3645,13 @@
     "end": 227,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "187255935",
@@ -3663,13 +3663,13 @@
     "end": 91,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "187255935",
@@ -3681,13 +3681,13 @@
     "end": 112,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "187626049",
@@ -3699,13 +3699,13 @@
     "end": 12,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "187768699",
@@ -3717,13 +3717,13 @@
     "end": 89,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "187768699",
@@ -3735,13 +3735,13 @@
     "end": 282,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": true,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "187819566",
@@ -3753,13 +3753,13 @@
     "end": 5,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "188238746",
@@ -3771,13 +3771,13 @@
     "end": 15,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "189192393",
@@ -3789,13 +3789,13 @@
     "end": 40,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "190146260",
@@ -3807,13 +3807,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "190693888",
@@ -3824,14 +3824,14 @@
     "start": 0,
     "end": 29,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "offtopic",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "192643166",
@@ -3843,13 +3843,13 @@
     "end": 51,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "192643166",
@@ -3861,13 +3861,13 @@
     "end": 114,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "192890486",
@@ -3879,13 +3879,13 @@
     "end": 113,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "193782548",
@@ -3897,13 +3897,13 @@
     "end": 8,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "193808794",
@@ -3915,13 +3915,13 @@
     "end": 94,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "193808794",
@@ -3933,13 +3933,13 @@
     "end": 129,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "193875976",
@@ -3951,13 +3951,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "194132092",
@@ -3969,13 +3969,13 @@
     "end": 36,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "194730320",
@@ -3987,13 +3987,13 @@
     "end": 14,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "196255588",
@@ -4005,13 +4005,13 @@
     "end": 164,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "198838620",
@@ -4023,13 +4023,13 @@
     "end": 53,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "198838620",
@@ -4040,14 +4040,14 @@
     "start": 54,
     "end": 74,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "offtopic",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "199860304",
@@ -4059,13 +4059,13 @@
     "end": 50,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "202518357",
@@ -4077,13 +4077,13 @@
     "end": 128,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "202518357",
@@ -4095,13 +4095,13 @@
     "end": 412,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "203883244",
@@ -4113,13 +4113,13 @@
     "end": 7,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "207161235",
@@ -4131,13 +4131,13 @@
     "end": 76,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "207302895",
@@ -4148,14 +4148,14 @@
     "start": 0,
     "end": 1,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "offtopic",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "209895582",
@@ -4167,13 +4167,13 @@
     "end": 36,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "209895582",
@@ -4185,13 +4185,13 @@
     "end": 157,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "210368994",
@@ -4203,13 +4203,13 @@
     "end": 6,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "214044013",
@@ -4221,13 +4221,13 @@
     "end": 109,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "216041116",
@@ -4239,13 +4239,13 @@
     "end": 163,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "216449338",
@@ -4257,13 +4257,13 @@
     "end": 35,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "216590568",
@@ -4275,13 +4275,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "216670289",
@@ -4293,13 +4293,13 @@
     "end": 63,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "216670289",
@@ -4311,13 +4311,13 @@
     "end": 221,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "217090295",
@@ -4329,13 +4329,13 @@
     "end": 81,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "217115330",
@@ -4347,13 +4347,13 @@
     "end": 9,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "217169725",
@@ -4365,13 +4365,13 @@
     "end": 56,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4383,13 +4383,13 @@
     "end": 29,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4401,13 +4401,13 @@
     "end": 83,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4419,13 +4419,13 @@
     "end": 187,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "218245134",
@@ -4437,13 +4437,13 @@
     "end": 397,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4455,13 +4455,13 @@
     "end": 498,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4473,13 +4473,13 @@
     "end": 745,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4491,13 +4491,13 @@
     "end": 811,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4509,13 +4509,13 @@
     "end": 882,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4527,13 +4527,13 @@
     "end": 975,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4545,13 +4545,13 @@
     "end": 1064,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4563,13 +4563,13 @@
     "end": 1153,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4581,13 +4581,13 @@
     "end": 1229,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4599,13 +4599,13 @@
     "end": 1329,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4617,13 +4617,13 @@
     "end": 1431,
     "splitter": "claims-3",
     "taxonomy": "core-6",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4635,13 +4635,13 @@
     "end": 1611,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4652,14 +4652,14 @@
     "start": 1612,
     "end": 1636,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "verdict",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "218245134",
@@ -4671,13 +4671,13 @@
     "end": 1765,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "218245134",
@@ -4689,13 +4689,13 @@
     "end": 1819,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "220270670",
@@ -4707,13 +4707,13 @@
     "end": 18,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "221085219",
@@ -4725,13 +4725,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "222541600",
@@ -4743,13 +4743,13 @@
     "end": 22,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "223022728",
@@ -4761,13 +4761,13 @@
     "end": 26,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4779,13 +4779,13 @@
     "end": 297,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "224442464",
@@ -4797,13 +4797,13 @@
     "end": 415,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4815,13 +4815,13 @@
     "end": 457,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4833,13 +4833,13 @@
     "end": 493,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4851,13 +4851,13 @@
     "end": 569,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4869,13 +4869,13 @@
     "end": 608,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224442464",
@@ -4887,13 +4887,13 @@
     "end": 632,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "224614668",
@@ -4905,13 +4905,13 @@
     "end": 4,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "225004370",
@@ -4923,13 +4923,13 @@
     "end": 37,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "225004370",
@@ -4941,13 +4941,13 @@
     "end": 142,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "227426705",
@@ -4959,13 +4959,13 @@
     "end": 35,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "228111569",
@@ -4976,14 +4976,14 @@
     "start": 0,
     "end": 35,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "228494000",
@@ -4995,13 +4995,13 @@
     "end": 63,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "228494000",
@@ -5013,13 +5013,13 @@
     "end": 111,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "229860701",
@@ -5031,13 +5031,13 @@
     "end": 3,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "229926537",
@@ -5049,13 +5049,13 @@
     "end": 9,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "231073973",
@@ -5067,13 +5067,13 @@
     "end": 28,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "231073973",
@@ -5085,13 +5085,13 @@
     "end": 56,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "231073973",
@@ -5103,13 +5103,13 @@
     "end": 85,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": false,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "231073973",
@@ -5121,13 +5121,13 @@
     "end": 173,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": true
   },
   {
     "review_id": "231158977",
@@ -5139,13 +5139,13 @@
     "end": 63,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "92239666",
@@ -5157,13 +5157,13 @@
     "end": 62,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "92535214",
@@ -5175,13 +5175,13 @@
     "end": 13,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "92647551",
@@ -5193,13 +5193,13 @@
     "end": 43,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "92944848",
@@ -5210,14 +5210,14 @@
     "start": 0,
     "end": 190,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "92944848",
@@ -5229,13 +5229,13 @@
     "end": 416,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "92944848",
@@ -5246,14 +5246,14 @@
     "start": 417,
     "end": 534,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "92944848",
@@ -5265,13 +5265,13 @@
     "end": 595,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "94182591",
@@ -5283,13 +5283,13 @@
     "end": 62,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "94182591",
@@ -5301,13 +5301,13 @@
     "end": 125,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "94187388",
@@ -5318,14 +5318,14 @@
     "start": 0,
     "end": 82,
     "splitter": "claims-3",
-    "taxonomy": "core-5",
-    "subject": "genre",
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "claude-fable-5-1",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "94220501",
@@ -5337,13 +5337,13 @@
     "end": 59,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "94514148",
@@ -5355,13 +5355,13 @@
     "end": 15,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "94759122",
@@ -5373,13 +5373,13 @@
     "end": 60,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "96453438",
@@ -5391,13 +5391,13 @@
     "end": 49,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "97072716",
@@ -5409,13 +5409,13 @@
     "end": 103,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "97072716",
@@ -5427,13 +5427,13 @@
     "end": 212,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "97072716",
@@ -5445,13 +5445,13 @@
     "end": 235,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "97072716",
@@ -5463,13 +5463,13 @@
     "end": 447,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   },
   {
     "review_id": "98448539",
@@ -5481,12 +5481,12 @@
     "end": 39,
     "splitter": "claims-3",
     "taxonomy": "core-5",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false,
-    "produced_by": "claude-fable-5-1"
+    "split_wrong": false
   }
 ]
