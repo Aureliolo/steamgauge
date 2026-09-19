@@ -416,16 +416,20 @@ fn option_mark(bare: &str) -> Option<bool> {
     (crossed && chars.next().is_some_and(char::is_whitespace)).then_some(true)
 }
 
-/// Whether a claim is a template option its author left blank.
+/// Whether a piece of text is something this build would never hand anybody as a claim.
 ///
-/// The box is the reviewer declining the statement, so the words after it are the one thing
-/// in a review that means the opposite of what it says. Nothing downstream can recover that:
-/// a model reads "Worth the price" and answers the question the reviewer answered no to.
-/// Splitters before this one kept the blank options as claims of their own, so labels cut by
-/// them are still in the reference set and have to be filtered where they are read.
+/// Two ways to be nothing. A template option its author left blank: the box is the reviewer
+/// declining the statement, so the words after it are the one thing in a review that means
+/// the opposite of what it says, and a model reads "Worth the price" and answers the question
+/// the reviewer answered no to. Or no proposition at all: a full stop, a row of hearts where
+/// Steam deleted a word, a face drawn out of punctuation.
+///
+/// Public because the splitter is not the only place these arrive. Most of the reference set
+/// was cut by earlier rules and still holds thousands of them, so every door a stored claim
+/// comes back through has to ask: the gold draw, the gold ingest and the training export.
 #[must_use]
-pub fn is_a_declined_option(claim: &str) -> bool {
-    option_mark(claim.trim_start()) == Some(false)
+pub fn is_not_a_claim(text: &str) -> bool {
+    option_mark(text.trim_start()) == Some(false) || carries_no_proposition(text.trim())
 }
 
 /// Whether a claim holds nothing anybody could agree or disagree with.
@@ -1347,6 +1351,37 @@ mod tests {
             "the second group took the first group's heading: {:?}",
             claims[2]
         );
+    }
+
+    /// Every door a stored claim comes back through asks this, because most of the reference
+    /// set was cut before the rules that recognise them: the gold draw, the gold ingest and
+    /// the training export. One predicate, so the three cannot drift apart.
+    #[test]
+    fn what_is_not_a_claim_is_the_same_question_wherever_it_is_asked() {
+        for nothing in [
+            "\u{2610} Worth the price",
+            "\u{1F532} You can run it on a microwave",
+            ".",
+            "\u{2665}\u{2665}\u{2665}\u{2665}",
+            "!!!",
+            "q",
+        ] {
+            assert!(
+                is_not_a_claim(nothing),
+                "{nothing:?} would be put in front of a labeller"
+            );
+        }
+        for something in [
+            "\u{2611} Worth the price",
+            "9/10",
+            "\u{597D}",
+            "The combat is superb.",
+        ] {
+            assert!(
+                !is_not_a_claim(something),
+                "{something:?} is a claim and was refused"
+            );
+        }
     }
 
     /// A review that is a full stop, a row of equals signs or a smiley says nothing, and a

@@ -724,8 +724,14 @@ pub async fn run() -> Result<()> {
             run_read(&app_ids, &model_dir, &options)
         }
         Command::ExportTraining { from, to } => {
-            let written = steamgauge_core::claimset::export_training(&from, &to)?;
+            let (written, refused) = steamgauge_core::claimset::export_training(&from, &to)?;
             println!("{written} labelled claims -> {}", to.display());
+            if refused > 0 {
+                println!(
+                    "{refused} rows held back for carrying no claim: an option nobody ticked, \
+                     or a piece with no word in it"
+                );
+            }
             Ok(())
         }
         Command::Report {
@@ -1761,7 +1767,7 @@ fn adjudicate_one_game(
     for answer in rows {
         if said
             .get(&(answer.review_id.as_str(), answer.index))
-            .is_some_and(|text| steamgauge_core::claims::is_a_declined_option(text))
+            .is_some_and(|text| steamgauge_core::claims::is_not_a_claim(text))
         {
             declined += 1;
             continue;

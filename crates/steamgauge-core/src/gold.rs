@@ -195,10 +195,10 @@ pub fn draw(
             let Some((at, text)) = rejoined.find(label.index) else {
                 continue;
             };
-            // An option the reviewer left blank cannot be adjudicated by anyone, so it is not a
-            // hard question, it is a broken one. It costs the person the same time as a real
-            // claim and the answer it collects is worth nothing either way.
-            if crate::claims::is_a_declined_option(text) {
+            // Nothing anybody can adjudicate is not a hard question, it is a broken one. It
+            // costs the person the same time as a real claim and the answer it collects is
+            // worth nothing either way.
+            if crate::claims::is_not_a_claim(text) {
                 found.declined += 1;
                 continue;
             }
