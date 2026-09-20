@@ -1,4 +1,17 @@
 {
+  "context": true,
+  "data_fingerprint": "431de257d7806513",
+  "frozen": {
+    "accuracy": 0.7847560975609756,
+    "claims": 5579,
+    "coverage": 0.8818784728445958,
+    "games": 10,
+    "macro_f1": 0.6781813199269059
+  },
+  "mark": false,
+  "max_tokens": 128,
+  "prefix": false,
+  "run_id": "e5-25481",
   "spine_version": "core-6",
   "subjects": [
     "accessibility",
@@ -57,19 +70,6 @@
     0.2357,
     0.9834
   ],
-  "max_tokens": 128,
-  "context": true,
-  "mark": false,
-  "prefix": false,
   "trained_from": "intfloat/multilingual-e5-large",
-  "data_fingerprint": "431de257d7806513",
-  "run_id": "wave10",
-  "usual_declined": 0.11812152715540425,
-  "frozen": {
-    "games": 10,
-    "claims": 5579,
-    "coverage": 0.8818784728445958,
-    "accuracy": 0.7847560975609756,
-    "macro_f1": 0.6781813199269059
-  }
+  "usual_declined": 0.11812152715540425
 }
