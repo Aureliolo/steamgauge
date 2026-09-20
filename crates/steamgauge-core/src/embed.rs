@@ -813,8 +813,31 @@ pub fn latest_snapshot(out_dir: &Path, app_id: u32) -> Result<PathBuf> {
             best = Some((stamp, path));
         }
     }
-    best.map(|(_, path)| path)
-        .ok_or(Error::NoCapture { path: app_dir })
+    best.map(|(_, path)| path).ok_or_else(|| {
+        // A finished crawl that found nothing is not a crawl that never ran, and telling
+        // somebody to run it again sends them to fetch the same nothing. The crawl's own
+        // record says which it was.
+        if crawled_and_found_nothing(&app_dir) {
+            Error::EmptyCapture { path: app_dir }
+        } else {
+            Error::NoCapture { path: app_dir }
+        }
+    })
+}
+
+/// Whether some snapshot of this app records a crawl that completed with no reviews at all.
+fn crawled_and_found_nothing(app_dir: &Path) -> bool {
+    std::fs::read_dir(app_dir).is_ok_and(|entries| {
+        entries.filter_map(std::result::Result::ok).any(|entry| {
+            std::fs::read(entry.path().join("crawl.json"))
+                .ok()
+                .and_then(|raw| serde_json::from_slice::<serde_json::Value>(&raw).ok())
+                .is_some_and(|facts| {
+                    facts["complete"].as_bool() == Some(true)
+                        && facts["rows_unique"].as_u64() == Some(0)
+                })
+        })
+    })
 }
 
 /// Whether a snapshot holds a shard with anything in it.
@@ -924,6 +947,37 @@ mod tests {
     fn a_missing_capture_is_named_rather_than_silently_empty() {
         let err = latest_snapshot(Path::new("definitely-not-a-corpus-dir"), 1).unwrap_err();
         assert!(matches!(err, Error::NoCapture { .. }));
+    }
+
+    /// Valve serves no reviews for some games, and a crawl of one finishes cleanly with
+    /// nothing in it. That is a different fact from never having crawled, and telling the
+    /// person to crawl sends them to fetch the same nothing again.
+    #[test]
+    fn a_crawl_that_found_nothing_is_not_reported_as_a_crawl_that_never_ran() {
+        let root = std::env::temp_dir().join(format!("steamgauge-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let snapshot = root.join("appid=7").join("snapshot=1700000000");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        std::fs::write(
+            snapshot.join("crawl.json"),
+            r#"{"app_id":7,"complete":true,"rows_unique":0,"shards":0}"#,
+        )
+        .unwrap();
+
+        let err = latest_snapshot(&root, 7).unwrap_err();
+        assert!(matches!(err, Error::EmptyCapture { .. }), "got {err}");
+
+        // An interrupted crawl, which also leaves no shard, still asks for a crawl: its record
+        // does not say it finished.
+        std::fs::write(
+            snapshot.join("crawl.json"),
+            r#"{"app_id":7,"complete":false,"rows_unique":0,"shards":3}"#,
+        )
+        .unwrap();
+        let err = latest_snapshot(&root, 7).unwrap_err();
+        assert!(matches!(err, Error::NoCapture { .. }), "got {err}");
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
