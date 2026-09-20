@@ -2372,9 +2372,29 @@ same 1,000 blind and 1,462 split claims, which it could only do by reading all o
 readings are the one thing regenerated, and they were already stale.
 
 **What it costs.** The gold draw walks every capture with the live splitter to answer which
-labels still name a claim, which is minutes rather than seconds. A cache would have to know
-when it went stale, which is the question this entry exists to stop asking; deriving the answer
-every time is the honest price, and it is paid once a session.
+labels still name a claim. A cache would have to know when it went stale, which is the question
+this entry exists to stop asking; deriving the answer every time is the honest price. It was
+minutes because the capture was cut whole to check a few hundred labels; only the labelled
+reviews are cut now, and the draw over ten games takes eighteen seconds.
+
+**The library read again, and the figure held.** Every capture was read under the span format
+on 2026-09-20, 53 games with the one empty capture failing as it should, and `check-readings`
+reconciles all 53. Scored by the rebuilt tool, the ten frozen games join 5,177 of their 5,579
+labels (402 name a span this build cuts no claim at, 7.2%), answer 78.3% of them at 82.1%
+agreement, macro F1 0.645: the 78% at 82% and the 0.645 the README carries, to the decimal.
+`check-draws` over every draw finds 76,069 drawn claims, 4,297 the splitter no longer cuts as
+drawn and 543 cut in the same place and tidied differently, which score.
+
+**One answer to whether a label still names a claim.** The measure and the gold draw were
+asking it differently. The measure brought a label's span to its words first, so a label cut
+under rules that left the bullet on still met its reading; the draw looked the raw span up,
+held the same label back, and the ingest refused an answer on it. Over the frozen ten that was
+467 held back against 402 unjoined: 65 questions nobody was asked that were scored anyway.
+`claims::words_at` is now the one door a stored span goes through and `claimset::cut_at` the
+one answer, so what the draw holds back and what the measure leaves unjoined are the same
+labels. The served draw moved from 952 recut and 1,460 split to 739 and 1,477; the blind sample
+is still 1,000 claims, with eleven labels back in it and the ten at its tail out, none of them
+answered.
 
 ### The runs stopped being numbered, and got an index instead
 

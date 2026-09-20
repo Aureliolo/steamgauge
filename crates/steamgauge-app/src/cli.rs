@@ -1872,7 +1872,9 @@ fn run_ingest_gold(
     let mut agreed = 0;
     for (app_id, rows) in by_game {
         let dir = reference.join(app_id.to_string());
-        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id).ok();
+        let answered: std::collections::HashSet<String> =
+            rows.iter().map(|answer| answer.review_id.clone()).collect();
+        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id, &answered).ok();
         let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, cut.as_ref(), by)?;
         written += wrote;
         agreed += matched;

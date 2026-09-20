@@ -532,9 +532,17 @@ pub fn draw_declined(
     handouts(&snapshot, app_id, reading.depth, &picks, "declined")
 }
 
-/// Every span this build's splitter cuts, keyed by review id.
-pub type CutSpans =
-    std::collections::HashMap<String, std::collections::HashSet<crate::claims::Span>>;
+/// What this build cuts from one review: its text as the capture holds it now, and the spans
+/// of the claims cut from it. The text travels with the spans because a label's span is met
+/// only once it is brought to its words, and that needs the review it was written about.
+#[derive(Debug, Clone, Default)]
+pub struct Cut {
+    pub text: String,
+    pub spans: std::collections::HashSet<crate::claims::Span>,
+}
+
+/// What this build cuts, keyed by review id, for the reviews that were asked about.
+pub type CutSpans = std::collections::HashMap<String, Cut>;
 
 /// Which claims of which reviews a draw wants, named by the bytes they cover.
 pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Span>>;
@@ -542,7 +550,7 @@ pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Spa
 /// One line of a draw: the claims it caught, in the order it ranked them.
 pub(crate) type Caught = Vec<(String, crate::claims::Span)>;
 
-/// Every span this build's splitter cuts, per review, for one game's capture.
+/// What this build's splitter cuts from the named reviews of one game's capture.
 ///
 /// A stored label names a byte span, and the sets here were cut by four different splitters.
 /// Where this build no longer cuts a label's span, the words it names are still in the review
@@ -551,22 +559,53 @@ pub(crate) type Caught = Vec<(String, crate::claims::Span)>;
 /// question, it is one with nothing to answer, and it costs whoever is asked the same as a real
 /// one.
 ///
+/// Only the reviews named are split. The capture is walked whole, which is cheap; splitting a
+/// game of three million claims to check a few hundred labels is not.
+///
 /// # Errors
 ///
 /// Fails if the capture cannot be read.
-pub fn spans_cut_now(out_dir: &Path, app_id: u32) -> Result<CutSpans> {
+pub fn spans_cut_now<S: std::hash::BuildHasher>(
+    out_dir: &Path,
+    app_id: u32,
+    ids: &std::collections::HashSet<String, S>,
+) -> Result<CutSpans> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let mut cut = CutSpans::new();
     crate::capture::for_each_body(&snapshot, |id, _, text| {
-        let spans = cut.entry(id.to_owned()).or_default();
-        for (at, _) in crate::claims::claims_of(text) {
-            if let (Ok(start), Ok(end)) = (u32::try_from(at.start), u32::try_from(at.end)) {
-                spans.insert((start, end));
-            }
+        if !ids.contains(id) {
+            return Ok(());
         }
+        let spans = crate::claims::claims_of(text)
+            .into_iter()
+            .filter_map(|(at, _)| {
+                Some((u32::try_from(at.start).ok()?, u32::try_from(at.end).ok()?))
+            })
+            .collect();
+        cut.insert(
+            id.to_owned(),
+            Cut {
+                text: text.to_owned(),
+                spans,
+            },
+        );
         Ok(())
     })?;
     Ok(cut)
+}
+
+/// Where this build cuts the claim a label names, or nothing where it cuts no claim there.
+///
+/// The label's span is brought to its words first: a span from an older cut may still carry
+/// the tag or the bullet in front of them, and the words are what a claim is. This is the one
+/// answer to whether a label still names a claim, and the measure joins its readings by the
+/// same span, so what the draw holds back and what the measure leaves unjoined are the same
+/// labels.
+#[must_use]
+pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span> {
+    let review = cut.get(label.review_id.as_str())?;
+    let words = crate::claims::words_at(&review.text, label.start, label.end)?;
+    review.spans.contains(&words).then_some(words)
 }
 
 /// Draws claims that look like they belong to the subjects the labelled set is starved of.
