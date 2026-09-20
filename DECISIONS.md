@@ -106,8 +106,8 @@ removed.
 
 ## What the pilot found
 
-One game, Frostpunk 2, 2,760 claims labelled by three agents against core-4. Everything here
-is measured rather than argued.
+One game, Frostpunk 2, 2,760 claims labelled by three agents against the sheet as it then
+stood. Everything here is measured rather than argued.
 
 | Question | Answer |
 |---|---|
@@ -366,7 +366,8 @@ rather than a fault: training reads the claim text as the labeller was shown it,
 labelled claims name spans it no longer cuts. Every figure the model card quotes still comes
 from training on the labelled text, which is the measurement that does not depend on the
 splitter at all. The two come back into exact agreement when the sets are redrawn under
-`claims-4` for `core-6`, and until then the difference is reported rather than smoothed.
+the next splitter and the next sheet, and until then the difference is reported rather than
+smoothed.
 
 So the model card and every report now quote the **frozen** games, never the validation ones.
 A card is read by somebody deciding whether to run this on a game of their own, and the
@@ -378,10 +379,10 @@ The first honest measurement of abstention came from fixing how the threshold is
 the old objective the model answered every claim at 39% accuracy and declined nothing, which
 is the same failure as the prototype wearing a trained model's clothes.
 
-The taxonomy is now **core-5**: `atmosphere` added on that evidence, plus rules for comparing a
-game with its own predecessor, for praise or blame aimed at the studio, and for a game that
-will not start at all. Every earlier reference set and the shipped anchors are core-4 and are
-refused by this build, which is the guard working rather than failing.
+The taxonomy gains **`atmosphere`** on that evidence, plus rules for comparing a game with its
+own predecessor, for praise or blame aimed at the studio, and for a game that will not start
+at all. Every reference set and every shipped anchor from before that revision is refused by
+this build, which is the guard working rather than failing.
 
 ## The model was being asked a question the labeller never had to answer
 
@@ -1922,9 +1923,10 @@ and if both are wanted they have to be different claims.
 
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
-The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. Those names appear in
-the history above and stay there, because they record what actually happened. Nothing carries one
-any more.
+The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
+here because this is the entry about them, and nowhere else: a name that means nothing to a
+reader is worse than no name, so the rest of this file says what a revision changed instead.
+Nothing in the project carries one any more.
 
 The amendment two sections up is why. Boundary rules moved, and `CORE_SPINE_VERSION` stayed at
 `core-6`, so labels written before and after claimed to answer the same sheet. Nobody would have
@@ -1996,6 +1998,211 @@ and `test.at_validation_threshold` score the frozen games at the threshold the *
 chose, which is the only one that says what a new game would get. Reading one run's refit figure
 against another run's transferring figure made a run that wins on all six measures look like it
 lost 4.3 points of coverage. Quote `at_validation_threshold`, or quote nothing.
+
+### An option the reviewer left blank is not a hard claim, it is an unanswerable one
+
+Steam reviews are full of ballot templates: a list of options with boxes, one ticked. The
+splitter has collapsed these to the ticked line since `claims-5`, but only 12,112 of the
+reference set's 31,019 labels were cut by it. `claims-3` cut 15,210 and `claims-4` cut 3,697,
+and both kept every blank option as a claim of its own. So the set still holds thousands of
+fragments whose text means the opposite of what it says: `☐ Worth the price` is the reviewer
+saying the game was not.
+
+They surfaced in the gold draw, where they are far more concentrated than their share of the
+set: 36 of 2,575 questions overall, but 16 of the 57 sure disagreements at the front of the
+queue. That ratio is the finding. Two labellers reading an unchosen option almost never land
+the same way, because there is no right answer to land on, so every one of them is promoted
+into exactly the section reserved for the questions worth a person's time.
+
+Held back at the draw and refused at ingest, both through one predicate in the splitter that
+owns the box characters. Both ends, because the draw only protects a page generated after this
+and the answers file already on disk was not. 218 labels held back; the five already answered
+were all called `offtopic`, which is the only answer available and still not a true one.
+
+Not fixed by re-cutting. Labels and the adjudicator's answers are keyed to `(review_id,
+index)`, so a new splitter run renumbers the claims underneath both. The filter is where the
+fix belongs until there is a reason to re-cut everything at once.
+
+**The part not fixed:** these fragments are in the training data too, where nothing filters
+them. `wave11` was trained on a set that is 61% pre-ballot-handling. Whether that costs
+anything is a measurement nobody has made, and it only matters at the next retrain.
+
+### The ticked option is the best claim in the corpus, and the splitter throws its meaning away
+
+Measured over 1.64M reviews in eight captures: 2,066 are ballots, 1 in 795, which is the rate
+the splitter's own note already claimed. 82% of their option lines are blank. `claims-5` drops
+those and keeps the ticked ones, which is right, but what it keeps is this:
+
+```
+What I enjoy about this game.        What I dislike about the game.
+☐ Game Play                          ☐ Clichés
+☑ Graphics                           ☒ Bugs
+☐ Story                              ☒ Length
+```
+
+It emits `☑ Graphics`. The reviewer wrote something far better than prose: a subject and a
+polarity, chosen deliberately, with no hedging, no irony and no inference needed. The splitter
+keeps the subject and discards the polarity, because the polarity is in the header.
+
+**98% of ticked options sit directly under a recoverable header** (17,279 of 17,635 in
+Cyberpunk alone), where a header is the short line above the group. So this is not a filtering
+problem at all. It is signal the pipeline is currently deleting, and the fix is to carry the
+header into the claim rather than to drop anything.
+
+Not done now: it changes claim text and would renumber claims underneath a live adjudication.
+It is the first thing to do at the next re-cut. The gold pass survives it, which is what makes
+deferring it safe: the adjudicator is shown the whole review, so an answer on `☑ Graphics`
+already accounts for the header they could read, and a gold label carries a span rather than
+only an index. Zero ticked options are in the current queue in any case.
+
+One caveat for whoever does it. These phrases repeat: 17,635 ticks are 2,914 distinct strings,
+6.1 uses each, `Very good` 960 times. For prevalence that is correct and every one should
+count, because 960 people did tick it. For training it is duplicated boilerplate that teaches
+a string rather than a skill, and it should be deduplicated there. Same rows, opposite
+treatment, and the two must not be confused.
+
+### What the splitter was doing to copypasta, measured rather than assumed
+
+`empty-claims` is the instrument: it runs the live splitter over a capture and counts the
+claims that carry no proposition, by cause. Measured over eight games, 4.3M claims, before and
+after. The share of claims that say nothing went from 1.17%, 2.13% and 2.48% on the first three
+games to 0.38%, 0.33% and 0.43%, and almost all of what is left is a deliberate keep.
+
+| cause | before | after |
+|---|---|---|
+| no word in it: `.`, `:)`, a rule of equals signs, braille art | 21,362 | 0 |
+| nothing but Steam's censorship hearts | 3,512 | 0 |
+| a ticked option cut off from its heading | 2,592 | 560 |
+| an option the reviewer left blank | 7 | 0 |
+| digits with nothing said about them: `9/10`, `666` | 18,118 | 12,779 |
+
+Five things were wrong, and only the first was the one that started the search.
+
+**The heading was consumed by the first tick.** `held.take()` meant "Recommended for:" reached
+`\u{2611} Teens` and nothing after it, so `\u{2611} Adults` and `\u{2611} Grandma` arrived as
+words. They were the commonest unanswerable claims in the corpus, 898 and 460 in one game.
+
+**The mark list was six characters and the corpus uses ten.** The single commonest template on
+Steam is drawn with `\u{1F532}` and `\u{2705}`, neither of which the splitter knew: 23,927 and
+6,657 lines read as prose. `\u{1F533}` and `\u{2B1C}` likewise, confirmed as blanks by 96% and
+64% of the reviews using them also carrying a separate tick.
+
+**A picture was treated as a template.** Anything with three drawn lines took the template
+path, where prose is a heading waiting for an answer that never comes, so the whole review came
+back as one claim: 334 reviews across six captures, 324,693 characters of Chinese, Russian and
+Thai prose, each read as a single point. A template is now what somebody filled in, and
+drawings fall out of the emptiness rule instead.
+
+**A bar was read as a column.** Reviewers draw a score as
+`\u{1F533}\u{1F533}\u{1F533}\u{1F532}\u{1F532} 8/10`. Once the square buttons were marks, that
+was eight rejections and the only written part of the line was inside them. A mark with another
+mark behind it is a bar.
+
+**"Has a letter in it" is not "says something".** The first emptiness rule kept every drawing in
+the corpus, because a lenny face has `\u{0296}` in it and a shrug has `\u{30C4}`. A claim needs
+a word: two alphanumerics, or one character of a script that writes a word in one, since
+`\u{597D}` is a complete review and 4,130 people left it.
+
+**Two rules were written wrong before that one was right, and both were caught by diffing the
+claims rather than counting them.** `dump-claims` writes every claim a build cuts, so two
+builds can be compared line for line. Neither fault is visible in a total.
+
+The first asked for two alphanumerics *in a row*. It keeps `9/10` and throws away `5/5`,
+`o.k.` and `N/A`, which differ from it only in where the punctuation falls: 269 real verdicts
+deleted in one game to no purpose.
+
+The second tried to catch the drawings that spell something out, braille blanks with
+`G R A P H I C S` threaded through them, by asking whether the marks outnumbered the words.
+They do in a picture, and they also do in `It is GREAT !!!!!!!!!!!!!!!!!!` and
+`Bestes Spiel!!!!!!!!!!!!!!`, which are as clear as claims get. It deleted 391 of those to
+remove 32 drawings and was reverted. Enthusiasm is not a drawing and no count separates them.
+
+**Checked by what disappeared, not by what the counter said.** Every claim of one game under
+both builds, compared word for word: 10,788 word occurrences are gone of 1,535,083, and 64% of
+them are inside ballot reviews, which is the rejected options going as intended. The rest are
+single characters, reviews that are the letter `a` or the digit `6`. Nothing a person wrote as
+a point is missing.
+
+**The cross is left alone, on purpose.** `\u{274C}` is a rejected option in one template and a
+listed fault in the next, 52 reviews to 83 across six captures. Reading it as a rejection
+deletes complaints people made, and there is no reading of it that is right more often than
+wrong, so it stays ordinary text.
+
+Two things this does not fix. 704 ticked options still have no heading to recover, because
+their templates never had one, and their text is mostly self-describing. And `9/10` stays a
+claim: a number is a verdict, `666` is a Chinese reviewer saying the game is excellent, and
+only a date range like `2020/12/10-2024/1/1` is genuinely empty.
+
+**Checked against the labellers rather than against itself.** `stale-splits` re-cuts every
+claim a labeller marked `split_wrong` and asks whether this build still cuts it that way, which
+is the one measure of a splitter change that does not come from the person who made it. Of
+5,679 flagged claims, `claims-5` still mis-split 3,719 and `claims-6` still mis-splits 3,641:
+78 fixed, none broken, and the count falls in every subset and every language.
+
+| still cut the way a labeller objected to | claims-5 | claims-6 |
+|---|---|---|
+| all flagged claims | 3,719 (65.5%) | **3,641 (64.1%)** |
+| random draws | 3,031 (9.8%) | **2,975 (9.6%)** |
+| retrieved | 202 (7.0%) | **181 (6.2%)** |
+| mined | 254 (14.1%) | **254 (14.1%)** |
+| english | 2,652 (9.8%) | **2,599 (9.6%)** |
+
+That is a small movement and it is the less important half: the 44,000 claims this removes were
+never flagged `split_wrong`, because a labeller reading `.` marks it a bad claim rather than a
+bad split. Both instruments had to be read to see the whole change.
+
+**What it costs the reference set, which is less than the version number suggests.**
+`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, `claims-5`
+no longer cut 3,299 and `claims-6` no longer cuts 4,222, so the new rules move 923 more, about
+1.2% of the set. A label whose span still cuts finds its claim wherever it now sits; the rest
+drop out of measurement rather than being wrong. 4.8% of the set unscoreable is the standing
+cost, and no re-cut or re-labelling is needed to keep working.
+
+`claims-6` makes all 52 readings on disk stale. That is the version's job and they refuse
+themselves until each game is read again.
+
+**Asked at all three doors.** A stored claim comes back through the gold draw, the gold ingest
+and the training export, and only the first of those was the one the screenshot pointed at.
+`claims::is_not_a_claim` is the single predicate all three call, because three copies of a rule
+this fiddly would drift within a month. The training export was the worst of them: 683 of
+39,835 rows were an option nobody ticked or a piece with no word in it, each carrying a label
+that could not have been right, and `wave11` was trained on all of them.
+
+### What the whole corpus shows that eight games did not
+
+Run over all 53 captures, 19,944,001 claims: 2,748 ticked options with no heading to recover
+and 67 bracketed dates, so 0.014% of the corpus is a claim nobody could answer. The worst
+single game is 0.807% and it is nearly all scores.
+
+Two things only the full run showed.
+
+**A game's catchphrase is the largest block of repeated text there is.** `rock and stone!` and
+`rock and stone` together are 34,942 claims, and `for democracy!` is 9,606. That is not junk:
+players do say it, and for prevalence each one is a real person being enthusiastic. For
+training it is one string with tens of thousands of copies, which is worth remembering when a
+batch is sampled.
+
+**Identical claim text does not have an identical answer.** In the training set `what a joke.`
+appears 59 times and the labellers gave it eleven different subjects: verdict 36 times, then
+bugs, gameplay, updates, policy, monetisation, compatibility, performance, content, community
+and tutorial. They were not being inconsistent; they were reading the review around it, and
+the phrase means whatever that review is about. It is the clearest evidence in the project for
+why the reader is given a window rather than the claim on its own, and any future attempt to
+shorten that window should be measured against this row first.
+
+### One text, a hundred accounts, and why that is not the splitter's problem
+
+2,907 reviews of the 1.48M in six captures, 0.196%, are a single text posted by three or more
+different accounts: 335 distinct texts, the largest a Chinese review of CDPR pasted by 115
+separate accounts. The drawings among them stop producing claims now, but the ones with real
+prose in them still count once per posting.
+
+Not fixed here, and not obviously a defect. The reader already asks about each distinct claim
+once, so this costs nothing to run; what it changes is prevalence, where 115 postings of one
+opinion count as 115. That is either a review-bombing campaign distorting a rate or it is 115
+people who each chose to endorse a text, and deciding which is an editorial judgement about
+whose opinion counts, not a bug fix. Recorded so the number is known when somebody wants to
+make that call.
 
 ## The corpus stopped being a corpus of games people like
 
@@ -2101,7 +2308,7 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
 Then, in order:
 
-3. **`core-6` and `claims-5` together, once.** `reference/GAPS.md` holds the wording for every
+3. **The sheet revision and the splitter together, once.** `reference/GAPS.md` holds the wording for every
    rule, each traced to a labeller who could not see the others. The contested rate of 29% and
    the `difficulty` against `gameplay` confusion say the sheet is the ceiling now, not the
    model. Measure the relabel cost on one game before paying it for thirty-six.

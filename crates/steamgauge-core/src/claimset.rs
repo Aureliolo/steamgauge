@@ -1016,10 +1016,12 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
 /// The file it writes holds review text and never leaves the machine: what gets published is
 /// the label set, which carries ids and offsets and no text at all.
 ///
+/// Returns how many rows it wrote and how many it refused for carrying no claim.
+///
 /// # Errors
 ///
 /// Fails if a reference set cannot be read or the destination cannot be written.
-pub fn export_training(reference_root: &Path, to: &Path) -> Result<usize> {
+pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize)> {
     use std::io::Write as _;
 
     if let Some(parent) = to.parent() {
@@ -1028,7 +1030,15 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<usize> {
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut written = 0;
 
+    let mut refused = 0;
     for claim in labelled_claims(reference_root)? {
+        // Most of the set was cut before the rules that recognise these, so it still holds
+        // thousands of them. A row whose text carries no proposition has a label that could
+        // not have been right, and training on it teaches the string rather than the task.
+        if crate::claims::is_not_a_claim(&claim.text) {
+            refused += 1;
+            continue;
+        }
         let label = &claim.label;
         let row = serde_json::json!({
             "text": claim.text,
@@ -1051,7 +1061,7 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<usize> {
         written += 1;
     }
     out.flush()?;
-    Ok(written)
+    Ok((written, refused))
 }
 
 #[cfg(test)]

@@ -724,8 +724,14 @@ pub async fn run() -> Result<()> {
             run_read(&app_ids, &model_dir, &options)
         }
         Command::ExportTraining { from, to } => {
-            let written = steamgauge_core::claimset::export_training(&from, &to)?;
+            let (written, refused) = steamgauge_core::claimset::export_training(&from, &to)?;
             println!("{written} labelled claims -> {}", to.display());
+            if refused > 0 {
+                println!(
+                    "{refused} rows held back for carrying no claim: an option nobody ticked, \
+                     or a piece with no word in it"
+                );
+            }
             Ok(())
         }
         Command::Report {
@@ -1629,6 +1635,13 @@ fn run_gold(
         "agreed     {} claims both labellers already answered the same way",
         found.agreed
     );
+    if found.declined > 0 {
+        println!(
+            "held back  {} template options the reviewer left blank, which no adjudicator can \
+             answer and which the current splitter would never have cut",
+            found.declined
+        );
+    }
 
     match delivery {
         Delivery::Written(to) => {
@@ -1694,26 +1707,118 @@ fn answered_this_sheet<'a>(stamps: impl Iterator<Item = Option<&'a str>>) -> Res
     Ok(())
 }
 
-fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str) -> Result<()> {
-    #[derive(serde::Deserialize)]
-    struct Adjudicated {
-        app_id: u32,
-        review_id: String,
-        index: u16,
-        subject: String,
-        polarity: String,
-        #[serde(default)]
-        ambiguous: bool,
-        #[serde(default)]
-        split_wrong: bool,
-        #[serde(default)]
-        unsure: bool,
-        /// Which sheet the person was reading when they answered. Absent on anything exported
-        /// before the page recorded it.
-        #[serde(default)]
-        sheet: Option<String>,
+/// One claim as a person answered it on the gold page.
+#[derive(serde::Deserialize)]
+struct Adjudicated {
+    app_id: u32,
+    review_id: String,
+    index: u16,
+    subject: String,
+    polarity: String,
+    #[serde(default)]
+    ambiguous: bool,
+    #[serde(default)]
+    split_wrong: bool,
+    #[serde(default)]
+    unsure: bool,
+    /// Which sheet the person was reading when they answered. Absent on anything exported
+    /// before the page recorded it.
+    #[serde(default)]
+    sheet: Option<String>,
+}
+
+/// Turns one game's answers into its gold set, and says what it would not take.
+///
+/// Returns how many claims it wrote and how many of them the labeller already on record had
+/// answered the same way.
+fn adjudicate_one_game(
+    app_id: u32,
+    dir: &std::path::Path,
+    rows: &[&Adjudicated],
+    by: &str,
+) -> Result<(usize, usize)> {
+    let existing: Vec<steamgauge_core::claimset::ClaimLabel> =
+        serde_json::from_slice(&std::fs::read(dir.join("labels.json"))?)?;
+    let silver: std::collections::HashMap<(&str, u16), &steamgauge_core::claimset::ClaimLabel> =
+        existing
+            .iter()
+            .map(|label| ((label.review_id.as_str(), label.index), label))
+            .collect();
+
+    // Where the claim's own words are. The draw holds blank template options back, but an
+    // answers file can be older than that rule or hand-written, and a gold label on an option
+    // its author declined is worse than a missing one: it is scored as truth.
+    let drawn: Vec<steamgauge_core::claimset::DrawnReview> =
+        serde_json::from_slice(&std::fs::read(dir.join("sample.json"))?)?;
+    let said: std::collections::HashMap<(&str, u16), &str> = drawn
+        .iter()
+        .flat_map(|review| {
+            review
+                .claims
+                .iter()
+                .map(move |claim| ((review.id.as_str(), claim.index), claim.text.as_str()))
+        })
+        .collect();
+
+    let mut gold: Vec<steamgauge_core::claimset::ClaimLabel> = Vec::new();
+    let mut agreed = 0;
+    let mut unplaced = 0;
+    let mut declined = 0;
+    for answer in rows {
+        if said
+            .get(&(answer.review_id.as_str(), answer.index))
+            .is_some_and(|text| steamgauge_core::claims::is_not_a_claim(text))
+        {
+            declined += 1;
+            continue;
+        }
+        // The span comes through from the claim the person was actually shown. A label that
+        // carries only an index names whatever sentence sits there after the next splitter
+        // change, which is the mistake this project already made once.
+        let Some(was) = silver.get(&(answer.review_id.as_str(), answer.index)) else {
+            unplaced += 1;
+            continue;
+        };
+        agreed += usize::from(was.subject == answer.subject);
+        gold.push(steamgauge_core::claimset::ClaimLabel {
+            review_id: answer.review_id.clone(),
+            index: answer.index,
+            app_id: answer.app_id,
+            language: was.language.clone(),
+            subset: was.subset.clone(),
+            start: was.start,
+            end: was.end,
+            splitter: was.splitter.clone(),
+            taxonomy: steamgauge_core::taxonomy::sheet(),
+            produced_by: by.to_owned(),
+            subject: answer.subject.clone(),
+            polarity: answer.polarity.clone(),
+            // The page does not ask about irony: the brief already says polarity is what the
+            // reviewer meant, so an adjudicator's polarity has accounted for it.
+            ironic: false,
+            confidence: if answer.unsure { "low" } else { "high" }.to_owned(),
+            ambiguous: answer.ambiguous,
+            split_wrong: answer.split_wrong,
+        });
+    }
+    if unplaced > 0 {
+        println!("{app_id:>9}  {unplaced} answers name a claim this set does not have");
+    }
+    if declined > 0 {
+        println!(
+            "{app_id:>9}  {declined} answers are on a template option its author left blank, \
+             refused"
+        );
     }
 
+    let out = dir.join("gold");
+    std::fs::create_dir_all(&out)?;
+    std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&gold)?)?;
+    println!("{app_id:>9}  {} adjudicated", gold.len());
+    Ok((gold.len(), agreed))
+}
+
+fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
 
     answered_this_sheet(answers.iter().map(|answer| answer.sheet.as_deref()))?;
@@ -1727,55 +1832,9 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str
     let mut agreed = 0;
     for (app_id, rows) in by_game {
         let dir = reference.join(app_id.to_string());
-        let existing: Vec<steamgauge_core::claimset::ClaimLabel> =
-            serde_json::from_slice(&std::fs::read(dir.join("labels.json"))?)?;
-        let silver: std::collections::HashMap<(&str, u16), &steamgauge_core::claimset::ClaimLabel> =
-            existing
-                .iter()
-                .map(|label| ((label.review_id.as_str(), label.index), label))
-                .collect();
-
-        let mut gold: Vec<steamgauge_core::claimset::ClaimLabel> = Vec::new();
-        let mut unplaced = 0;
-        for answer in rows {
-            // The span comes through from the claim the person was actually shown. A label
-            // that carries only an index names whatever sentence sits there after the next
-            // splitter change, which is the mistake this project already made once.
-            let Some(was) = silver.get(&(answer.review_id.as_str(), answer.index)) else {
-                unplaced += 1;
-                continue;
-            };
-            agreed += usize::from(was.subject == answer.subject);
-            gold.push(steamgauge_core::claimset::ClaimLabel {
-                review_id: answer.review_id.clone(),
-                index: answer.index,
-                app_id: answer.app_id,
-                language: was.language.clone(),
-                subset: was.subset.clone(),
-                start: was.start,
-                end: was.end,
-                splitter: was.splitter.clone(),
-                taxonomy: steamgauge_core::taxonomy::sheet(),
-                produced_by: by.to_owned(),
-                subject: answer.subject.clone(),
-                polarity: answer.polarity.clone(),
-                // The page does not ask about irony: the brief already says polarity is what
-                // the reviewer meant, so an adjudicator's polarity has accounted for it.
-                ironic: false,
-                confidence: if answer.unsure { "low" } else { "high" }.to_owned(),
-                ambiguous: answer.ambiguous,
-                split_wrong: answer.split_wrong,
-            });
-        }
-        if unplaced > 0 {
-            println!("{app_id:>9}  {unplaced} answers name a claim this set does not have");
-        }
-
-        let out = dir.join("gold");
-        std::fs::create_dir_all(&out)?;
-        std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&gold)?)?;
-        written += gold.len();
-        println!("{app_id:>9}  {} adjudicated", gold.len());
+        let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, by)?;
+        written += wrote;
+        agreed += matched;
     }
 
     println!("\ngold       {written} claims by {by}");

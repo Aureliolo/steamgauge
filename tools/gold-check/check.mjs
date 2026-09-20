@@ -145,7 +145,17 @@ const PROBE = `(function () {
   check('nothing was exported, so the stamp went unchecked', out !== null && out.length > 0);
   if (out && out.length) {
     check('an exported answer does not say which sheet it answered', out[0].sheet === data.taxonomy);
-    check('an exported answer does not say which splitter cut it', out[0].splitter === data.splitter);
+    // The splitter comes from the question rather than the page: one set holds claims cut
+    // under three of them, so a single stamp per file would be wrong for most of the answers.
+    var cutBy = {};
+    data.questions.forEach(function (question) {
+      cutBy[question.app_id + '#' + question.review_id + '#' + question.index] = question.splitter;
+    });
+    check('an exported answer does not say which splitter cut it',
+      out.every(function (answer) {
+        var was = cutBy[answer.app_id + '#' + answer.review_id + '#' + answer.index];
+        return answer.splitter !== undefined && answer.splitter === was;
+      }));
   }
 
   check('the progress bar never moves',

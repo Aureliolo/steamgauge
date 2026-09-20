@@ -46,6 +46,11 @@ pub struct Question {
     pub before: String,
     pub after: String,
     pub language: String,
+    /// Which rules cut this claim, carried from the label rather than read off the build. The
+    /// reference set holds three splitters at once and a frozen sample keeps the one it was
+    /// drawn under, so an answer stamped with whatever the binary happens to be today would
+    /// name rules the person was never shown.
+    pub splitter: String,
     /// What the labellers said, shown only for a split: `None` on a blind question, because an
     /// answer on the page is an answer in the reader's head.
     pub shown: Option<Vec<Answered>>,
@@ -78,6 +83,11 @@ pub struct GoldDraw {
     /// answered differently have found either a real error or a boundary the sheet does not
     /// draw, and there is nothing else in the set with that much in it per claim read.
     pub contested_sure: usize,
+    /// Claims held back because they are a template option the reviewer left blank. Counted
+    /// rather than dropped quietly: the number is how much of the reference set was cut before
+    /// the splitter learnt to collapse a ballot, and it is the same fragments the reader is
+    /// being trained on.
+    pub declined: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
@@ -185,6 +195,13 @@ pub fn draw(
             let Some((at, text)) = rejoined.find(label.index) else {
                 continue;
             };
+            // Nothing anybody can adjudicate is not a hard question, it is a broken one. It
+            // costs the person the same time as a real claim and the answer it collects is
+            // worth nothing either way.
+            if crate::claims::is_not_a_claim(text) {
+                found.declined += 1;
+                continue;
+            }
             let question = Question {
                 app_id,
                 review_id: label.review_id.clone(),
@@ -193,6 +210,7 @@ pub fn draw(
                 before: rejoined.text[..at].to_owned(),
                 after: rejoined.text[at + text.len()..].to_owned(),
                 language: label.language.clone(),
+                splitter: label.splitter.clone(),
                 shown: None,
             };
 
@@ -343,7 +361,6 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "questions": questions,
         "categories": categories,
         "taxonomy": crate::taxonomy::sheet(),
-        "splitter": crate::claims::SPLITTER_VERSION,
         "blind": found.blind,
         "settled": found.settled,
         "split": found.split,
@@ -644,6 +661,95 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// Since a heading introduces every box ticked under it, two claims of one review can
+    /// begin with the same words, and a template with the same option ticked twice makes two
+    /// claims that are the same words throughout. Finding a claim by searching the rejoined
+    /// text for it would highlight the first one both times, and the person would answer the
+    /// same sentence twice without either question looking wrong.
+    #[test]
+    fn a_claim_is_found_by_where_it_sits_and_not_by_what_it_says() {
+        let review = DrawnReview {
+            id: "r1".to_owned(),
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            claims: ["Audience\n\u{2611} Adults", "Audience\n\u{2611} Adults"]
+                .iter()
+                .enumerate()
+                .map(|(index, text)| crate::claimset::DrawnClaim {
+                    index: u16::try_from(index).unwrap(),
+                    start: 0,
+                    end: 0,
+                    text: (*text).to_owned(),
+                })
+                .collect(),
+            asked: None,
+        };
+        let rejoined = Rejoined::of(&review);
+        let (first, _) = rejoined.find(0).expect("the first claim is there");
+        let (second, _) = rejoined.find(1).expect("the second claim is there");
+        assert_ne!(
+            first, second,
+            "two claims with the same words were given the same place in the review"
+        );
+    }
+
+    #[test]
+    fn an_option_the_reviewer_left_blank_is_never_put_in_front_of_a_person() {
+        // Most of the reference set was cut before the splitter collapsed a ballot template,
+        // so these fragments are still in it, and they cluster in the disagreement pool
+        // because two labellers reading an unchosen option rarely land the same way. They are
+        // not hard questions. They are unanswerable ones wearing the costume of the hardest.
+        let root = std::env::temp_dir().join(format!("steamgauge-ballot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
+
+        let drawn = serde_json::json!([{
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "frozen",
+            "claims": [
+                {"index": 0, "start": 0, "end": 18, "text": "\u{2610} Worth the price"},
+                {"index": 1, "start": 19, "end": 34, "text": "\u{2611} Runs badly"}
+            ]
+        }]);
+        std::fs::write(root.join("214490").join("sample.json"), drawn.to_string()).unwrap();
+
+        let label = |index: u16, subject: &str| {
+            serde_json::json!({
+                "review_id": "r1", "index": index, "app_id": 214_490,
+                "language": "english", "subset": "frozen", "start": 0, "end": 9,
+                "splitter": "claims-3", "taxonomy": "core-6", "produced_by": "one",
+                "subject": subject, "polarity": "praise", "ironic": false,
+                "confidence": "high", "ambiguous": false, "split_wrong": false
+            })
+        };
+        std::fs::write(
+            root.join("214490").join("labels.json"),
+            serde_json::json!([label(0, "value"), label(1, "performance")]).to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("214490").join("second").join("labels.json"),
+            serde_json::json!([label(0, "offtopic"), label(1, "bugs")]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, counts) = draw(&root, 10, Splits::Frozen, 1, &[], "second").unwrap();
+        assert_eq!(counts.declined, 1, "the blank option was not held back");
+        assert!(
+            questions
+                .iter()
+                .all(|question| !question.claim.starts_with('\u{2610}')),
+            "an option the reviewer declined was asked anyway"
+        );
+        assert_eq!(
+            questions.len(),
+            1,
+            "the ticked option is a real claim and still has to be asked"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn the_three_pieces_of_a_question_are_the_review_it_came_from() {
         // The page cannot check this: it is handed the pieces and has nothing to compare them
@@ -704,6 +810,7 @@ mod tests {
             before: String::new(),
             after: " and I love it".to_owned(),
             language: "english".to_owned(),
+            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());
@@ -727,6 +834,7 @@ mod tests {
             before: String::new(),
             after: String::new(),
             language: "english".to_owned(),
+            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());
