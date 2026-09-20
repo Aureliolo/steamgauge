@@ -2344,6 +2344,13 @@ Deleted with it: `SPLITTER_VERSION`, `ReadReport::splitter`, `cut_as_this_build`
 looks the span up. `check-readings` asks whether each row starts where the last one ended
 rather than whether the numbering runs 0, 1, 2.
 
+The report kept one more: a game whose set could not be scored was `OtherTaxonomy(version)`,
+which nothing had constructed since the sheet lost its name, and every real failure inside the
+measurement, a corrupt set included, was reported as a game nobody had labelled. It is
+`Unscored(why)` now and carries the measurement's own reason, so the dash beside the game reads
+out as labelled and not scored, and the section says what is missing rather than sending a
+reader to label a set that exists.
+
 **Categories are written out rather than named.** A reading and a reader each list the ids they
 answered, which they already did in `subjects`, so the hash beside it was a second copy that
 could disagree with the first. `taxonomy::categories()` returns the ids, comparison is a set
@@ -2434,8 +2441,8 @@ Settled 2026-09-11: **the dataset is the thing, and the benchmark comes before t
 The aim is the reference people cite for what players say about games, which is a higher bar
 than a tool that works. Measured against that bar, four of the seven things such a dataset
 needs are already exceeded or met: it is reproducible without redistributing a word anybody
-wrote, every label names the splitter and taxonomy it was made under, two labellers read a
-tenth of it blind and agree at kappa 0.85, and the test games are fixed by hash and chose
+wrote, every label names the bytes it covers and the sheet its labeller read, two labellers read
+a tenth of it blind and agree at kappa 0.85, and the test games are fixed by hash and chose
 nothing. Two are missing, and no amount of further labelling closes either.
 
 1. **Human-adjudicated labels. Confirmed 2026-09-12: the user is doing this.** Everything so

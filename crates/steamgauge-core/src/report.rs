@@ -190,18 +190,18 @@ pub struct InducedEvidence {
 
 /// Whether a game's error has been measured, and what stopped it if not.
 ///
-/// A game with a reference set labelled against another taxonomy is not a game nobody has
+/// A game with a reference set that nothing could be scored against is not a game nobody has
 /// labelled, and a page that says it is tells a reader to go and do work that has been done.
-/// Every taxonomy change puts every game in that state until its set is labelled again, so it
-/// is a state the report spends real time in rather than an edge case.
+/// A splitter that no longer cuts any claim the labels name, or readings that are missing,
+/// put a game in that state, so it is one the report spends real time in rather than an edge
+/// case.
 #[derive(Debug, Clone, Default)]
 pub enum Measurement {
     /// Nobody has labelled this game.
     #[default]
     Unlabelled,
-    /// A set exists, naming a taxonomy this build does not have. Scoring against it would
-    /// mark the model on subjects nobody labelling it was offered.
-    OtherTaxonomy(String),
+    /// A set exists and nothing was scored against it, for the reason carried.
+    Unscored(String),
     /// Boxed because the report behind it dwarfs the other two and every game carries one.
     Measured(Box<crate::measure::ClaimAgreement>),
 }
@@ -515,7 +515,11 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     top.sort_by_key(|example| std::cmp::Reverse(example.review.votes_up));
     top.dedup_by(|a, b| a.review.id == b.review.id);
 
-    let agreement = agreement_for(app_id, &options.out_dir);
+    let agreement = agreement_for(
+        app_id,
+        &options.out_dir,
+        &crate::claimset::default_reference_dir(app_id),
+    );
     let induced = induced_for(app_id, &snapshot, options.examples)?;
     Ok(AppReport {
         crawl,
@@ -583,7 +587,7 @@ fn top_of_the_pile(snapshot: &Path, how_many: u64) -> Result<HashSet<String>> {
 
 /// Picks which claims to quote for each subject, without holding the corpus.
 ///
-/// Ranked by a hash of the review id and claim index, so the choice depends on the claim
+/// Ranked by a hash of the review id and the claim's span, so the choice depends on the claim
 /// rather than on where it happened to sit in the file, and a corpus that gains reviews does
 /// not reshuffle the evidence already shown.
 ///
@@ -674,20 +678,28 @@ struct DrawnClaim {
 
 /// A game's measured agreement, when it has a claim reference set and stored readings to
 /// compare. A report without one still renders; it just cannot say how often it is wrong.
-fn agreement_for(app_id: u32, out_dir: &Path) -> Measurement {
-    let dir = crate::claimset::default_reference_dir(app_id);
-    let Ok(labels) = std::fs::read(dir.join("labels.json")) else {
+///
+/// A set that exists and cannot be scored says why, rather than passing as no set: the
+/// difference is whether a reader is sent to label the game or to read it again.
+fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Measurement {
+    let Ok(labels) = std::fs::read(reference.join("labels.json")) else {
         return Measurement::Unlabelled;
     };
-    let Ok(first) = serde_json::from_slice::<Vec<crate::claimset::ClaimLabel>>(&labels) else {
-        return Measurement::Unlabelled;
+    let labels = match serde_json::from_slice::<Vec<crate::claimset::ClaimLabel>>(&labels) {
+        Ok(labels) => labels,
+        Err(why) => return Measurement::Unscored(format!("its labels cannot be read: {why}")),
     };
-    if first.is_empty() {
+    if labels.is_empty() {
         return Measurement::Unlabelled;
     }
-    crate::measure::agreement(out_dir, app_id, &dir).map_or(Measurement::Unlabelled, |report| {
-        Measurement::Measured(Box::new(report))
-    })
+    match crate::measure::agreement(out_dir, app_id, reference) {
+        Ok(report) if report.matched == 0 => Measurement::Unscored(format!(
+            "none of its {} labelled claims is a claim this build cuts",
+            labels.len()
+        )),
+        Ok(report) => Measurement::Measured(Box::new(report)),
+        Err(why) => Measurement::Unscored(why.to_string()),
+    }
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
@@ -828,5 +840,59 @@ mod tests {
         let report = app(50, vec![("absent", 0, 0)]);
         assert!(report.worst_bias().is_none());
         assert_eq!(report.bias(&report.reading.subjects[0]), None);
+    }
+
+    /// A set that exists and cannot be scored is not the same finding as no set: the first
+    /// sends a reader to read the game again and the second to label it, and the second is
+    /// work that has already been done.
+    #[test]
+    fn a_set_nothing_could_be_scored_against_says_why_rather_than_passing_as_no_set() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-unscored-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let reference = dir.join("reference");
+        let out = dir.join("data");
+        std::fs::create_dir_all(&reference).unwrap();
+        std::fs::create_dir_all(&out).unwrap();
+
+        assert!(
+            matches!(agreement_for(1, &out, &reference), Measurement::Unlabelled),
+            "no labels file is a game nobody has labelled"
+        );
+
+        std::fs::write(reference.join("labels.json"), "[]").unwrap();
+        assert!(
+            matches!(agreement_for(1, &out, &reference), Measurement::Unlabelled),
+            "an empty set is a game nobody has labelled"
+        );
+
+        std::fs::write(
+            reference.join("labels.json"),
+            serde_json::json!([{
+                "review_id": "a", "index": 0, "app_id": 1, "language": "english",
+                "subset": "blind", "start": 0, "end": 12, "subject": "gameplay",
+                "polarity": "praise", "ironic": false, "confidence": "high",
+                "ambiguous": false, "split_wrong": false
+            }])
+            .to_string(),
+        )
+        .unwrap();
+        match agreement_for(1, &out, &reference) {
+            Measurement::Unscored(why) => assert!(
+                why.contains("no capture"),
+                "the reason does not name what is missing: {why}"
+            ),
+            other => panic!("a labelled game with nothing read was reported as {other:?}"),
+        }
+
+        std::fs::write(reference.join("labels.json"), "not json").unwrap();
+        match agreement_for(1, &out, &reference) {
+            Measurement::Unscored(why) => assert!(
+                why.starts_with("its labels cannot be read"),
+                "a corrupt set is not named as one: {why}"
+            ),
+            other => panic!("a corrupt set was reported as {other:?}"),
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -92,7 +92,7 @@ impl Depth {
     /// The points a review makes, at this depth.
     ///
     /// Every place the reading pass takes a review apart goes through here, so the pass and
-    /// the readings it writes cannot disagree about what a claim index names.
+    /// the readings it writes cannot disagree about which words a reading describes.
     #[must_use]
     pub fn claims_of(self, text: &str) -> Vec<std::borrow::Cow<'_, str>> {
         match self {
@@ -264,8 +264,9 @@ pub struct ReadReport {
     /// Reviews in the capture, whatever the language.
     pub corpus_reviews: u64,
     pub language: Option<String>,
-    /// How each review was taken apart. Anything that quotes a claim by its index has to
-    /// take the review apart the same way, so this is recorded rather than assumed.
+    /// How each review was taken apart. A draw that lists a review's claims beside its
+    /// readings has to take the review apart the same way, so this is recorded rather than
+    /// assumed.
     #[serde(default)]
     pub depth: Depth,
     /// Claims per forward pass. A batch is padded to its longest member, so its composition
@@ -1352,7 +1353,7 @@ mod tests {
         let stored = serde_json::json!({
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
@@ -1430,7 +1431,7 @@ mod tests {
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "depth": "shallow",
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("a shallow reading opens");

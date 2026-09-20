@@ -262,10 +262,11 @@ fn corpora(out: &mut String, report: &Report) {
 /// Why a game carries no agreement figure, in the few words a dash can be read out as.
 fn unmeasured(measurement: &crate::report::Measurement) -> String {
     match measurement {
-        crate::report::Measurement::OtherTaxonomy(version) => {
-            format!("labelled against {version}")
+        crate::report::Measurement::Unlabelled => "no reference set".to_owned(),
+        crate::report::Measurement::Unscored(_) => "labelled, not scored".to_owned(),
+        crate::report::Measurement::Measured(report) => {
+            format!("declined all {} labelled claims", report.matched)
         }
-        _ => "no reference set".to_owned(),
     }
 }
 
@@ -1808,14 +1809,12 @@ fn trust(out: &mut String, app: &AppReport) {
         crate::report::Measurement::Unlabelled => unmeasured_here(out, app),
         // Not the same thing as nobody having labelled it, and telling a reader it is sends
         // them to do work that is already done.
-        crate::report::Measurement::OtherTaxonomy(version) => {
+        crate::report::Measurement::Unscored(why) => {
             let _ = writeln!(
                 out,
-                "<p class=\"warn\">This game has a reference set, labelled against a sheet \
-                 this build no longer has ({}). Nothing here is measured against it, because \
-                 that would score the model on subjects nobody labelling it was offered. Label \
-                 the set again to measure this game.</p>",
-                escape(version)
+                "<p class=\"warn\">This game has a reference set, and nothing here is \
+                 measured against it: {}. Treat every rate as provisional until it is.</p>",
+                escape(why)
             );
         }
     }
@@ -2799,13 +2798,15 @@ mod tests {
         );
     }
 
-    /// Every taxonomy change puts every game into this state until its set is labelled again,
-    /// so it is a state the page spends real time in. Telling a reader that nobody has
-    /// labelled the game sends them to do work that is already done.
+    /// A splitter that no longer cuts any claim a set names puts every game with a set into
+    /// this state until it is read again, so it is a state the page spends real time in.
+    /// Telling a reader that nobody has labelled the game sends them to do work that is
+    /// already done.
     #[test]
-    fn a_set_labelled_against_another_taxonomy_is_not_reported_as_no_set_at_all() {
+    fn a_set_that_cannot_be_scored_is_not_reported_as_no_set_at_all() {
+        let why = "none of its 40 labelled claims is a claim this build cuts";
         let mut report = two_games();
-        report.apps[0].agreement = crate::report::Measurement::OtherTaxonomy("core-3".to_owned());
+        report.apps[0].agreement = crate::report::Measurement::Unscored(why.to_owned());
         let page = render(&report);
 
         let section = page
@@ -2820,8 +2821,8 @@ mod tests {
             "a game that has been labelled is reported as never labelled"
         );
         assert!(
-            section.contains("core-3"),
-            "the page does not say which sheet the labels answered: {section}"
+            section.contains(why),
+            "the page does not say why the set went unscored: {section}"
         );
 
         let table = page
@@ -2829,7 +2830,7 @@ mod tests {
             .expect("no corpora table")
             .1;
         assert!(
-            table.contains("labelled against core-3"),
+            table.contains("labelled, not scored"),
             "the dash beside the game is read out as no set at all"
         );
     }
