@@ -1327,7 +1327,7 @@ fn induced(out: &mut String, app: &AppReport) {
                 let example = Example {
                     review: review.clone(),
                     claim: review.text.clone(),
-                    index: 0,
+                    at: (0, 0),
                     polarity: String::new(),
                     confidence: 0.0,
                     also: Vec::new(),
@@ -1723,10 +1723,8 @@ fn trust(out: &mut String, app: &AppReport) {
     out.push_str("<dl class=\"facts wide\">\n");
 
     fact(out, "Read by", &built_from(app));
-    fact(out, "Taxonomy", &app.reading.categories);
     // Two readings cut by different splitters count different claims from the same reviews,
     // so a page says which cut its claim counts are counts of.
-    fact(out, "Split by", &app.reading.splitter);
     // Shallow numbers are not deep numbers with less work in them. A review about six things
     // read as one point is about none of them clearly, and a page that did not say which way
     // it was read would invite comparing the two.
@@ -1813,12 +1811,11 @@ fn trust(out: &mut String, app: &AppReport) {
         crate::report::Measurement::OtherTaxonomy(version) => {
             let _ = writeln!(
                 out,
-                "<p class=\"warn\">This game has a reference set, labelled against taxonomy \
-                 {}, and these subjects are {}. Nothing here is measured against it, because \
+                "<p class=\"warn\">This game has a reference set, labelled against a sheet \
+                 this build no longer has ({}). Nothing here is measured against it, because \
                  that would score the model on subjects nobody labelling it was offered. Label \
                  the set again to measure this game.</p>",
-                escape(version),
-                escape(&app.reading.categories)
+                escape(version)
             );
         }
     }
@@ -2151,7 +2148,7 @@ mod tests {
                 created: 1_700_000_000,
             },
             claim: text.to_owned(),
-            index: 0,
+            at: (0, 0),
             polarity: "complaint".to_owned(),
             confidence: 0.87,
             also: vec!["bugs".to_owned(), "performance".to_owned()],
@@ -2181,7 +2178,6 @@ mod tests {
                     corpus_reviews: 1_000,
                     language: None,
                     depth: crate::read::Depth::Deep,
-                    splitter: crate::claims::SPLITTER_VERSION.to_owned(),
                     batch_size: Some(crate::read::DEFAULT_READ_BATCH),
                     claims: 3_000,
                     forward_passes: 3_000,
@@ -2190,10 +2186,9 @@ mod tests {
                     claimless_reviews: 0,
                     positive: 700,
                     top_helpful: 50,
-                    categories: crate::taxonomy::categories(),
                     model: "test-reader".to_owned(),
                     trained_on: "0123456789abcdef".to_owned(),
-                    read_with: "wave9".to_owned(),
+                    read_with: "a-reader".to_owned(),
                     read_by_rule: String::new(),
                     usual_declined: Some(0.1),
                     frozen: Some(crate::reader::Frozen {
@@ -2811,7 +2806,6 @@ mod tests {
     fn a_set_labelled_against_another_taxonomy_is_not_reported_as_no_set_at_all() {
         let mut report = two_games();
         report.apps[0].agreement = crate::report::Measurement::OtherTaxonomy("core-3".to_owned());
-        report.apps[0].reading.categories = "core-9".to_owned();
         let page = render(&report);
 
         let section = page
@@ -2826,9 +2820,8 @@ mod tests {
             "a game that has been labelled is reported as never labelled"
         );
         assert!(
-            section.contains("labelled against taxonomy core-3")
-                && section.contains("these subjects are core-9"),
-            "the page does not say which two taxonomies disagree: {section}"
+            section.contains("core-3"),
+            "the page does not say which sheet the labels answered: {section}"
         );
 
         let table = page

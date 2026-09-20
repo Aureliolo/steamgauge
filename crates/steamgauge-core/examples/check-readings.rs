@@ -20,7 +20,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = std::env::args().nth(1).unwrap_or_else(|| "data".to_owned());
     let mut checked = 0_usize;
     let mut complained = 0_usize;
-    let mut stale = 0_usize;
 
     let mut games: Vec<std::path::PathBuf> = std::fs::read_dir(&root)?
         .filter_map(|entry| entry.ok().map(|found| found.path()))
@@ -54,24 +53,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        // A reading cut by another splitter cannot be reconciled against this one's cut: the
-        // pieces are different pieces. It is stale rather than wrong, and the tool refuses it
-        // wherever a claim would be quoted or scored, so this says so and moves on.
-        if !reading.splitter.is_empty()
-            && reading.splitter != steamgauge_core::claims::SPLITTER_VERSION
-        {
-            println!(
-                "{}: cut by {}, and this build cuts {}: read the game again",
-                reading.app_id,
-                reading.splitter,
-                steamgauge_core::claims::SPLITTER_VERSION
-            );
-            stale += 1;
-            continue;
-        }
-
         checked += 1;
-        let said = reconcile(&snapshot, &rows, &reading)?;
+        // A file whose footer will not parse is almost always one a read is still writing, and
+        // stopping the whole walk on it means a library cannot be checked while any of it is
+        // being read. Said per game, so a genuinely damaged file is still reported.
+        let said = match reconcile(&snapshot, &rows, &reading) {
+            Ok(said) => said,
+            Err(why) => {
+                println!("{}: its rows could not be read ({why})", reading.app_id);
+                complained += 1;
+                continue;
+            }
+        };
         if said.is_empty() {
             continue;
         }
@@ -80,9 +73,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n{checked} readings checked, {complained} with something to say");
-    if stale > 0 {
-        println!("{stale} cut by an older splitter, which no arithmetic here can reconcile");
-    }
     Ok(())
 }
 
@@ -92,91 +82,93 @@ fn reconcile(
     rows: &std::path::Path,
     reading: &ReadReport,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    {
-        let mut said: Vec<String> = Vec::new();
-        let mut counted = 0_u64;
-        let mut unclassified = 0_u64;
-        let mut runs = 0_u64;
-        let mut out_of_order = 0_u64;
-        let mut seen: HashMap<String, u32> = HashMap::new();
-        let mut last: Option<String> = None;
-        let mut expected = 0_usize;
+    let mut said: Vec<String> = Vec::new();
+    let mut counted = 0_u64;
+    let mut unclassified = 0_u64;
+    let mut runs = 0_u64;
+    let mut out_of_order = 0_u64;
+    let mut seen: HashMap<String, u32> = HashMap::new();
+    let mut last: Option<String> = None;
+    let mut began_at = 0_u32;
 
-        steamgauge_core::read::for_each_reading(rows, |id, index, subject, _, _| {
-            counted += 1;
-            if subject.is_none() {
-                unclassified += 1;
-            }
-            if last.as_deref() != Some(id) {
-                runs += 1;
-                *seen.entry(id.to_owned()).or_default() += 1;
-                last = Some(id.to_owned());
-                expected = 0;
-            }
-            if usize::from(index) != expected {
-                out_of_order += 1;
-            }
-            expected += 1;
-        })?;
+    steamgauge_core::read::for_each_reading(rows, |id, at, subject, _, _| {
+        counted += 1;
+        if subject.is_none() {
+            unclassified += 1;
+        }
+        if last.as_deref() != Some(id) {
+            runs += 1;
+            *seen.entry(id.to_owned()).or_default() += 1;
+            last = Some(id.to_owned());
+            began_at = 0;
+        }
+        // Claims of one review are written in the order they were cut, so each starts no
+        // earlier than the one before it. Not where the last one ended: a filled-in template
+        // gives every answer a span running back to the heading it answers, so those overlap
+        // on purpose and share their first bytes.
+        if at.0 < began_at {
+            out_of_order += 1;
+        }
+        began_at = at.0;
+    })?;
 
-        if counted != reading.claims {
-            said.push(format!(
-                "{counted} rows against {} claims counted",
-                reading.claims
-            ));
-        }
-        if unclassified != reading.unclassified_claims {
-            said.push(format!(
-                "{unclassified} rows with no subject against {} counted",
-                reading.unclassified_claims
-            ));
-        }
-        let repeated = seen.values().filter(|count| **count > 1).count();
-        if repeated > 0 {
-            said.push(format!("{repeated} reviews written in more than one place"));
-        }
-        if out_of_order > 0 {
-            said.push(format!(
-                "{out_of_order} claims numbered out of order inside their review"
-            ));
-        }
-        // Counted from the capture rather than read out of the reading: an auditor that takes
-        // the audited pass's word for the one number that reconciles it is not checking
-        // anything. A reading made before the count existed is reconciled the same way.
-        let walk = capture(snapshot, reading, &seen)?;
-        if walk.walked != reading.reviews {
-            said.push(format!(
-                "the capture holds {} reviews to read where the reading counted {}",
-                walk.walked, reading.reviews
-            ));
-        }
-        if runs + walk.claimless != reading.reviews {
-            said.push(format!(
-                "{runs} reviews in the rows and {} the splitter finds no point in, against {} \
-                 counted",
-                walk.claimless, reading.reviews
-            ));
-        }
-        // The one that is not arithmetic. A review with rows in the reading that this build
-        // now finds nothing in was cut by a different splitter from the one in this binary,
-        // whatever version both of them claim to be.
-        if walk.both > 0 {
-            said.push(format!(
-                "{} reviews hold rows in the reading and no claim in this build: the splitter \
-                 has moved without its version moving, e.g. {:?}",
-                walk.both,
-                walk.example.as_deref().unwrap_or("")
-            ));
-        }
-        if reading.claimless_reviews > 0 && reading.claimless_reviews != walk.claimless {
-            said.push(format!(
-                "the reading says {} reviews hold no point where this build finds {}",
-                reading.claimless_reviews, walk.claimless
-            ));
-        }
-
-        Ok(said)
+    if counted != reading.claims {
+        said.push(format!(
+            "{counted} rows against {} claims counted",
+            reading.claims
+        ));
     }
+    if unclassified != reading.unclassified_claims {
+        said.push(format!(
+            "{unclassified} rows with no subject against {} counted",
+            reading.unclassified_claims
+        ));
+    }
+    let repeated = seen.values().filter(|count| **count > 1).count();
+    if repeated > 0 {
+        said.push(format!("{repeated} reviews written in more than one place"));
+    }
+    if out_of_order > 0 {
+        said.push(format!(
+            "{out_of_order} claims written out of the order they were cut in"
+        ));
+    }
+    // Counted from the capture rather than read out of the reading: an auditor that takes
+    // the audited pass's word for the one number that reconciles it is not checking
+    // anything. A reading made before the count existed is reconciled the same way.
+    let walk = capture(snapshot, reading, &seen)?;
+    if walk.walked != reading.reviews {
+        said.push(format!(
+            "the capture holds {} reviews to read where the reading counted {}",
+            walk.walked, reading.reviews
+        ));
+    }
+    if runs + walk.claimless != reading.reviews {
+        said.push(format!(
+            "{runs} reviews in the rows and {} the splitter finds no point in, against {} \
+                 counted",
+            walk.claimless, reading.reviews
+        ));
+    }
+    // The one that is not arithmetic. A review with rows in the reading that this build
+    // now finds nothing in was cut by a different splitter from the one in this binary,
+    // whatever version both of them claim to be.
+    if walk.both > 0 {
+        said.push(format!(
+            "{} reviews hold rows in the reading and no claim in this build: the splitter \
+                 has moved without its version moving, e.g. {:?}",
+            walk.both,
+            walk.example.as_deref().unwrap_or("")
+        ));
+    }
+    if reading.claimless_reviews > 0 && reading.claimless_reviews != walk.claimless {
+        said.push(format!(
+            "the reading says {} reviews hold no point where this build finds {}",
+            reading.claimless_reviews, walk.claimless
+        ));
+    }
+
+    Ok(said)
 }
 
 /// What a walk of the capture finds, counted the way the reading pass counts reviews: in the

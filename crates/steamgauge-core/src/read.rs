@@ -23,7 +23,7 @@ use std::{
 };
 
 use arrow::{
-    array::{ArrayRef, Float32Builder, StringBuilder, UInt16Builder},
+    array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -268,11 +268,6 @@ pub struct ReadReport {
     /// take the review apart the same way, so this is recorded rather than assumed.
     #[serde(default)]
     pub depth: Depth,
-    /// Which splitter cut the claims the readings are indexed by. A build with a newer one
-    /// cuts a review into different pieces, and an index into the old pieces then names
-    /// whatever sentence sits there now, so the readings say which cut they mean.
-    #[serde(default)]
-    pub splitter: String,
     /// Claims per forward pass. A batch is padded to its longest member, so its composition
     /// decides where half precision rounds, and each doubling moves about 75 answers of a
     /// game's 216,778. Three in ten thousand is not a reason to hold the size still, and it is
@@ -331,8 +326,6 @@ pub struct ReadReport {
     /// Which categories the model was trained against, so it cannot be read as
     /// answering a question it was never asked. Accepts the name the sheet used to
     /// carry, because every reader and reading already on disk records that.
-    #[serde(alias = "spine_version")]
-    pub categories: String,
     pub threshold: f32,
     pub device: String,
     /// When the capture this describes was last changed: its crawl, or the last sweep that
@@ -376,30 +369,6 @@ impl ReadReport {
     )]
     pub fn unclassified_share(&self) -> Option<f64> {
         (self.claims > 0).then(|| self.unclassified_claims as f64 / self.claims as f64)
-    }
-
-    /// Refuses a reading whose claims this build would cut differently.
-    ///
-    /// The counts stay true, since they describe the corpus as it was read, but a claim
-    /// index in the readings names a sentence only under the splitter that cut it, and
-    /// quoting or scoring through one would look right and be wrong.
-    ///
-    /// # Errors
-    ///
-    /// Fails when the readings were cut by another splitter than this build's.
-    pub fn cut_as_this_build(&self) -> Result<()> {
-        if self.splitter == crate::claims::SPLITTER_VERSION {
-            return Ok(());
-        }
-        Err(crate::Error::StaleAnchors {
-            field: "splitter",
-            expected: crate::claims::SPLITTER_VERSION.to_owned(),
-            actual: if self.splitter.is_empty() {
-                "an earlier one that went unrecorded".to_owned()
-            } else {
-                self.splitter.clone()
-            },
-        })
     }
 
     /// How much more of this corpus the model declined than it usually does, as a ratio.
@@ -452,7 +421,12 @@ impl ReadReport {
 fn reading_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("recommendationid", DataType::Utf8, false),
-        Field::new("claim_index", DataType::UInt16, false),
+        // Where the claim sits in the review, which is what a label names too. An ordinal
+        // would name whatever sentence happens to sit in that position after the next
+        // splitter change, and every reader of these rows would have to be told which
+        // splitter wrote them before it could believe a single one.
+        Field::new("start", DataType::UInt32, false),
+        Field::new("end", DataType::UInt32, false),
         // Null where the model declined, which is a recorded answer rather than a gap.
         Field::new("subject", DataType::Utf8, true),
         Field::new("confidence", DataType::Float32, false),
@@ -491,7 +465,6 @@ pub fn read_corpus(
         usual_declined: model.provenance().usual_declined,
         frozen: model.provenance().frozen,
         context,
-        categories: model.provenance().categories.clone(),
         captured_unix: captured.changed_unix(),
         ..counted
     })
@@ -567,6 +540,10 @@ struct Pending {
     row: crate::capture::Row,
     text: Arc<str>,
     spans: Vec<(usize, usize)>,
+    /// The same claims as byte ranges into the review as it was captured, which is what a
+    /// reading records and what a label names. `spans` above indexes the rejoined text the
+    /// model was shown, and the two are different numbers for the same claim.
+    at: Vec<(u32, u32)>,
     fingerprint: [u8; 32],
 }
 
@@ -632,6 +609,20 @@ fn read_and_count(
             Arc::clone(&nothing)
         };
         let language: Arc<str> = Arc::from(row.language.as_str());
+        // Where each claim sits in the review as captured. A reading is joined to a label by
+        // this and by nothing else, so it is taken from the same splitter run that produced
+        // the claims rather than recovered later from a second one.
+        let origin: Vec<(u32, u32)> = options
+            .depth
+            .spans_of(text)
+            .into_iter()
+            .map(|span| {
+                (
+                    u32::try_from(span.start).unwrap_or(u32::MAX),
+                    u32::try_from(span.end).unwrap_or(u32::MAX),
+                )
+            })
+            .collect();
         let mut spans = Vec::with_capacity(claims.len());
         let mut at = 0;
         for (index, claim) in claims.iter().enumerate() {
@@ -664,6 +655,7 @@ fn read_and_count(
             row,
             text: joined,
             spans,
+            at: origin,
             fingerprint,
         });
         if pending.len() >= PENDING_CAP {
@@ -944,7 +936,11 @@ impl Counting {
                 self.tallies[subject].claims += 1;
                 self.said.note(subject, reading.polarity, claim);
             }
-            self.rows.push(&row.recommendationid, index, reading);
+            self.rows.push(
+                &row.recommendationid,
+                review.at.get(index).copied().unwrap_or((0, 0)),
+                reading,
+            );
         }
         self.said.next_review();
 
@@ -1013,7 +1009,6 @@ impl Counting {
             corpus_reviews: self.corpus_reviews,
             language: options.language.clone(),
             depth: options.depth,
-            splitter: crate::claims::SPLITTER_VERSION.to_owned(),
             batch_size: Some(options.batch_size),
             claims: self.claims,
             forward_passes: 0,
@@ -1029,7 +1024,6 @@ impl Counting {
             usual_declined: None,
             frozen: None,
             context: false,
-            categories: String::new(),
             threshold: 0.0,
             device: String::new(),
             captured_unix: 0,
@@ -1061,16 +1055,16 @@ impl Counting {
     }
 }
 
-/// Streams every stored reading, one claim at a time.
+/// Streams every stored reading, one claim at a time, as review id and the span it covers.
 ///
 /// # Errors
 ///
 /// Fails if the file is missing or was written by an older build.
 pub fn for_each_reading(
     path: &Path,
-    mut visit: impl FnMut(&str, u16, Option<&str>, f32, &str),
+    mut visit: impl FnMut(&str, (u32, u32), Option<&str>, f32, &str),
 ) -> Result<()> {
-    use arrow::array::{Array, Float32Array, StringArray, UInt16Array};
+    use arrow::array::{Array, Float32Array, StringArray, UInt32Array};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
     let file = std::fs::File::open(path).map_err(|_| crate::Error::NoClassifications {
@@ -1094,12 +1088,14 @@ pub fn for_each_reading(
             .ok_or(crate::Error::MalformedPayload {
                 field: "recommendationid",
             })?;
-        let indexes = column("claim_index")?
+        let starts = column("start")?
             .as_any()
-            .downcast_ref::<UInt16Array>()
-            .ok_or(crate::Error::MalformedPayload {
-                field: "claim_index",
-            })?;
+            .downcast_ref::<UInt32Array>()
+            .ok_or(crate::Error::MalformedPayload { field: "start" })?;
+        let ends = column("end")?
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .ok_or(crate::Error::MalformedPayload { field: "end" })?;
         let subjects = column("subject")?
             .as_any()
             .downcast_ref::<StringArray>()
@@ -1118,7 +1114,7 @@ pub fn for_each_reading(
         for row in 0..batch.num_rows() {
             visit(
                 ids.value(row),
-                indexes.value(row),
+                (starts.value(row), ends.value(row)),
                 (!subjects.is_null(row)).then(|| subjects.value(row)),
                 confidences.value(row),
                 polarities.value(row),
@@ -1131,7 +1127,8 @@ pub fn for_each_reading(
 #[derive(Default)]
 struct ReadingRows {
     ids: Vec<String>,
-    indexes: Vec<u16>,
+    starts: Vec<u32>,
+    ends: Vec<u32>,
     subjects: Vec<Option<&'static str>>,
     confidences: Vec<f32>,
     polarities: Vec<&'static str>,
@@ -1142,9 +1139,10 @@ impl ReadingRows {
         self.ids.len()
     }
 
-    fn push(&mut self, id: &str, index: usize, reading: Option<&Reading>) {
+    fn push(&mut self, id: &str, at: (u32, u32), reading: Option<&Reading>) {
         self.ids.push(id.to_owned());
-        self.indexes.push(u16::try_from(index).unwrap_or(u16::MAX));
+        self.starts.push(at.0);
+        self.ends.push(at.1);
         self.subjects.push(
             reading
                 .and_then(|reading| reading.subject)
@@ -1162,27 +1160,31 @@ impl ReadingRows {
 
     fn take(&mut self, schema: &Arc<Schema>) -> Result<RecordBatch> {
         let mut ids = StringBuilder::new();
-        let mut indexes = UInt16Builder::new();
+        let mut starts = UInt32Builder::new();
+        let mut ends = UInt32Builder::new();
         let mut subjects = StringBuilder::new();
         let mut confidences = Float32Builder::new();
         let mut polarities = StringBuilder::new();
 
         for row in 0..self.len() {
             ids.append_value(&self.ids[row]);
-            indexes.append_value(self.indexes[row]);
+            starts.append_value(self.starts[row]);
+            ends.append_value(self.ends[row]);
             subjects.append_option(self.subjects[row]);
             confidences.append_value(self.confidences[row]);
             polarities.append_value(self.polarities[row]);
         }
         self.ids.clear();
-        self.indexes.clear();
+        self.starts.clear();
+        self.ends.clear();
         self.subjects.clear();
         self.confidences.clear();
         self.polarities.clear();
 
         let columns: Vec<ArrayRef> = vec![
             Arc::new(ids.finish()),
-            Arc::new(indexes.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
@@ -1251,6 +1253,7 @@ mod tests {
                 at += claim.len() + 1;
             }
             let held = Pending {
+                at: Vec::new(),
                 row: crate::capture::Row {
                     recommendationid: "1".to_owned(),
                     helpfulness: 0.0,
@@ -1355,22 +1358,6 @@ mod tests {
         let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
         assert_eq!(found.depth, Depth::Deep);
         assert!(found.trained_on.is_empty());
-
-        // It opens, and its counts stand, but nothing may quote a claim of it by index: the
-        // index names a sentence only under the splitter that cut it.
-        let refused = found
-            .cut_as_this_build()
-            .expect_err("an older cut is refused");
-        assert!(
-            matches!(
-                refused,
-                crate::Error::StaleAnchors {
-                    field: "splitter",
-                    ..
-                }
-            ),
-            "got {refused}"
-        );
     }
 
     #[test]
@@ -1381,7 +1368,6 @@ mod tests {
             corpus_reviews: 100,
             language: None,
             depth: Depth::Deep,
-            splitter: String::new(),
             batch_size: None,
             claims: 1_000,
             forward_passes: 1_000,
@@ -1397,7 +1383,6 @@ mod tests {
             usual_declined: Some(0.73),
             frozen: None,
             context: false,
-            categories: String::new(),
             threshold: 0.5,
             device: String::new(),
             captured_unix: 0,

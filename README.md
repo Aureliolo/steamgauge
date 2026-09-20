@@ -560,11 +560,10 @@ These rules keep those figures honest:
   here can see a claim that was cut well before a rule and badly after it.
 
   A label names the span of the review it was written about, not a position in a list, so the
-  splitter can change under a labelled set: a label whose span the new splitter no longer cuts
-  as one claim is counted as unjoined and said, rather than scored against whatever sentence
-  now sits at its old index. A reading records the splitter that cut it, and a reading cut by
-  an older one is refused wherever a claim would be quoted or scored by its index, until the
-  game is read again.
+  splitter can change under a labelled set: a label whose span this build no longer cuts as one
+  claim is counted as unjoined and said, rather than scored against whatever sentence now sits
+  at its old index. A reading names its claims the same way, so the two are joined by the bytes
+  they cover and neither has to be told which rules cut it before it can be believed.
 
 - **How often labellers find a claim genuinely contested varies more than the claims do.**
   28.9% overall, but from 13.5% on one game to **52.1%** on another. Some of that is the games,

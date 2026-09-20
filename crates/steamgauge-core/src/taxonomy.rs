@@ -65,30 +65,54 @@ fn short_hex(digest: &[u8]) -> String {
     })
 }
 
+/// The categories this build has, as their ids.
+///
+/// Written out in full wherever a reading or a model records what it answered, rather than
+/// reduced to a name or a hash. A reader of the file can see what the thing meant, and a
+/// mismatch can say which categories differ instead of reporting that two opaque strings are
+/// not equal.
 #[must_use]
-pub fn categories() -> String {
-    use sha2::{Digest, Sha256};
-
-    let mut hasher = Sha256::new();
-    for category in SHEET {
-        hasher.update(category.id.as_bytes());
-        hasher.update([0]);
-    }
-    short_hex(&hasher.finalize())
+pub fn categories() -> Vec<String> {
+    SHEET
+        .iter()
+        .map(|category| category.id.to_owned())
+        .collect()
 }
 
-/// Hand-assigned names that denoted exactly the categories this build has.
-///
-/// The sheet used to carry a name someone chose, and `core-6` named this same set of ids. A
-/// reading or a model produced under it is answering today's question and refusing it would
-/// charge hours of re-reading for a rename. `core-5` and earlier are absent on purpose: those
-/// sheets held different categories, and the guard refusing them is the guard working.
-const SAME_CATEGORIES_UNDER_THE_OLD_NAMES: &[&str] = &["core-6"];
-
 /// Whether something recorded under `was` is answering the categories this build has.
+///
+/// Order is not part of it: a model numbers its classes however its training data did, and
+/// the sheet is read as a set of ids.
 #[must_use]
-pub fn categories_still_mean(was: &str) -> bool {
-    was == categories() || SAME_CATEGORIES_UNDER_THE_OLD_NAMES.contains(&was)
+pub fn categories_still_mean(was: &[String]) -> bool {
+    let mut had: Vec<&str> = was.iter().map(String::as_str).collect();
+    let mut has: Vec<&str> = SHEET.iter().map(|category| category.id).collect();
+    had.sort_unstable();
+    has.sort_unstable();
+    had == has
+}
+
+/// The categories one side has and the other does not, both ways round, for an error that
+/// says what actually differs.
+#[must_use]
+pub fn categories_differ(was: &[String]) -> String {
+    let has: Vec<&str> = SHEET.iter().map(|category| category.id).collect();
+    let gone: Vec<&str> = was
+        .iter()
+        .map(String::as_str)
+        .filter(|id| !has.contains(id))
+        .collect();
+    let added: Vec<&str> = has
+        .iter()
+        .copied()
+        .filter(|id| !was.iter().any(|was| was == id))
+        .collect();
+    match (gone.is_empty(), added.is_empty()) {
+        (true, true) => "the same categories in another order".to_owned(),
+        (false, true) => format!("without {}", gone.join(", ")),
+        (true, false) => format!("missing {}", added.join(", ")),
+        (false, false) => format!("without {}, missing {}", gone.join(", "), added.join(", ")),
+    }
 }
 
 /// What the sheet says, as a hash of the whole brief a labeller is handed.

@@ -14,6 +14,9 @@
 
 use std::collections::HashMap;
 
+/// What one reading said of one claim.
+type Said = (Option<String>, f32, String);
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let (Some(left), Some(right)) = (args.next(), args.next()) else {
@@ -25,12 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|n| n.parse().ok())
         .unwrap_or(0);
 
-    let mut was: HashMap<(String, u16), (Option<String>, f32, String)> = HashMap::new();
+    let mut was: HashMap<(String, steamgauge_core::claims::Span), Said> = HashMap::new();
     steamgauge_core::read::for_each_reading(
         std::path::Path::new(&left),
-        |id, index, subject, confidence, polarity| {
+        |id, at, subject, confidence, polarity| {
             was.insert(
-                (id.to_owned(), index),
+                (id.to_owned(), at),
                 (subject.map(str::to_owned), confidence, polarity.to_owned()),
             );
         },
@@ -45,12 +48,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut drift = 0.0_f64;
     let mut worst = 0.0_f32;
     let mut shown = 0_usize;
-    let mut seen: Vec<(String, u16)> = Vec::new();
+    let mut seen: Vec<(String, steamgauge_core::claims::Span)> = Vec::new();
 
     steamgauge_core::read::for_each_reading(
         std::path::Path::new(&right),
-        |id, index, subject, confidence, polarity| {
-            let key = (id.to_owned(), index);
+        |id, at, subject, confidence, polarity| {
+            let key = (id.to_owned(), at);
             let Some((before, sure, was_polarity)) = was.get(&key) else {
                 only_right += 1;
                 return;
@@ -69,7 +72,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if shown < show {
                     shown += 1;
                     println!(
-                        "{id}#{index}: {} -> {} ({sure:.3} -> {confidence:.3})",
+                        "{id}@{}..{}: {} -> {} ({sure:.3} -> {confidence:.3})",
+                        at.0,
+                        at.1,
                         before.as_deref().unwrap_or("declined"),
                         subject.unwrap_or("declined"),
                     );

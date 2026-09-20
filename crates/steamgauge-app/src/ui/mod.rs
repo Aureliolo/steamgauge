@@ -367,7 +367,6 @@ struct Reading {
     /// Whether this build takes reviews apart differently from the pass that made these
     /// readings. The counts stand; a claim quoted by its index does not, until the game is
     /// read again.
-    older_splitter: bool,
     subjects: Vec<Subject>,
     measured: Option<Measured>,
     /// What the reader scored on games it had never seen. The window says this where the game
@@ -508,7 +507,6 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
         swept_since: facts
             .swept_unix
             .filter(|swept| found.captured_unix < *swept),
-        older_splitter: found.cut_as_this_build().is_err(),
         subjects,
         measured,
         frozen: found.frozen,
@@ -632,7 +630,10 @@ struct ClaimsBehind {
 }
 
 /// A claim chosen for a page, before the review it belongs to has been fetched.
-type Wanted = (String, u16, String, f32);
+type Wanted = (String, steamgauge_core::claims::Span, String, f32);
+
+/// What the readings say about one claim of a review, before the capture is asked what it says.
+type Filed = (steamgauge_core::claims::Span, String, f32);
 
 /// Every claim filed under a subject, most helpful review first, a page at a time.
 ///
@@ -654,30 +655,14 @@ fn claims_behind(
 ) -> Result<ClaimsBehind, String> {
     let dir = library_dir(&app);
     let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
-    // Taken apart the way the reading pass took it apart, so a claim index names the same
-    // sentence here that it named when the model read it.
-    let found = read_report(&snapshot)?;
-    found.cut_as_this_build().map_err(|_| {
-        "these counts were made with an older way of taking reviews apart, so the points \
-         behind them cannot be shown; read this game again"
-            .to_owned()
-    })?;
-    let depth = found.depth;
+    let _ = read_report(&snapshot)?;
 
     let (total, wanted) = match term
         .as_deref()
         .map(str::trim)
         .filter(|term| !term.is_empty())
     {
-        Some(term) => claims_using(
-            &snapshot,
-            depth,
-            &subject,
-            side.as_deref(),
-            term,
-            from,
-            count,
-        ),
+        Some(term) => claims_using(&snapshot, &subject, side.as_deref(), term, from, count),
         None => claims_under(&snapshot, &subject, side.as_deref(), from, count),
     }
     .map_err(text)?;
@@ -688,13 +673,9 @@ fn claims_behind(
 
     let claims = wanted
         .into_iter()
-        .filter_map(|(id, index, polarity, confidence)| {
+        .filter_map(|(id, at, polarity, confidence)| {
             let review = fetched.get(&id)?;
-            let claim = depth
-                .claims_of(&review.text)
-                .into_iter()
-                .nth(index as usize)?
-                .into_owned();
+            let claim = review.text.get(at.0 as usize..at.1 as usize)?.to_owned();
             let url = (!review.author_steamid.is_empty()).then(|| {
                 format!(
                     "https://steamcommunity.com/profiles/{}/recommended/{app_id}/",
@@ -738,13 +719,13 @@ fn claims_under(
     let mut wanted: Vec<Wanted> = Vec::new();
     steamgauge_core::read::for_each_reading(
         &snapshot.join("readings.parquet"),
-        |id, index, found, confidence, polarity| {
+        |id, at, found, confidence, polarity| {
             if found != Some(subject) || side.is_some_and(|side| side != polarity) {
                 return;
             }
             total += 1;
             if total > from as u64 && wanted.len() < count {
-                wanted.push((id.to_owned(), index, polarity.to_owned(), confidence));
+                wanted.push((id.to_owned(), at, polarity.to_owned(), confidence));
             }
         },
     )?;
@@ -760,25 +741,23 @@ fn claims_under(
 /// wait on a corpus of a million reviews.
 fn claims_using(
     snapshot: &std::path::Path,
-    depth: steamgauge_core::read::Depth,
     subject: &str,
     side: Option<&str>,
     term: &str,
     from: usize,
     count: usize,
 ) -> steamgauge_core::Result<(u64, Vec<Wanted>)> {
-    let mut filed: std::collections::HashMap<String, Vec<(u16, String, f32)>> =
-        std::collections::HashMap::new();
+    let mut filed: std::collections::HashMap<String, Vec<Filed>> = std::collections::HashMap::new();
     steamgauge_core::read::for_each_reading(
         &snapshot.join("readings.parquet"),
-        |id, index, found, confidence, polarity| {
+        |id, at, found, confidence, polarity| {
             if found != Some(subject) || side.is_some_and(|side| side != polarity) {
                 return;
             }
             filed
                 .entry(id.to_owned())
                 .or_default()
-                .push((index, polarity.to_owned(), confidence));
+                .push((at, polarity.to_owned(), confidence));
         },
     )?;
 
@@ -788,10 +767,9 @@ fn claims_using(
         let Some(claims) = filed.get(&row.recommendationid) else {
             return Ok(());
         };
-        let split = depth.claims_of(text);
-        for (index, polarity, confidence) in claims {
-            let uses = split
-                .get(usize::from(*index))
+        for (at, polarity, confidence) in claims {
+            let uses = text
+                .get(at.0 as usize..at.1 as usize)
                 .is_some_and(|claim| steamgauge_core::said::mentions(claim, term));
             if !uses {
                 continue;
@@ -800,7 +778,7 @@ fn claims_using(
             if total > from as u64 && wanted.len() < count {
                 wanted.push((
                     row.recommendationid.clone(),
-                    *index,
+                    *at,
                     polarity.clone(),
                     *confidence,
                 ));

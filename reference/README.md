@@ -10,8 +10,10 @@ not committed.
 - **`claims/<app id>/labels.json`** is the reference set: every claim of every drawn review,
   labelled with the subject it is about, whether it is praise or a complaint, whether it is
   ironic, how sure the labeller was, whether the call was genuinely contested, and whether the
-  claim was cut in the wrong place. Each label records the splitter that cut it, the taxonomy
-  its subject comes from, and in `produced_by` the labeller who wrote it. Two labellers
+  claim was cut in the wrong place. Each label names the bytes it covers, the wording its
+  labeller read, and in `produced_by` the labeller who wrote it. Which rules cut the claim is
+  not recorded: whether this build still cuts one over those bytes is a question the corpus
+  answers, and a stamp saying so would be a second thing to keep in step. Two labellers
   disagree with each other about as often as either disagrees with the truth, so a set that
   could not say which one wrote a label could not be split back apart.
 - **`claims/<app id>/second/labels.json`** is a tenth of that set labelled again by a

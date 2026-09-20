@@ -66,8 +66,6 @@ pub struct Provenance {
     /// Which categories the model was trained against, so it cannot be read as
     /// answering a question it was never asked. Accepts the name the sheet used to
     /// carry, because every reader and reading already on disk records that.
-    #[serde(alias = "spine_version")]
-    pub categories: String,
     pub subjects: Vec<String>,
     /// Below this the model says nothing. Chosen on validation claims, never on the held-out
     /// ones, because a threshold tuned against the test set makes the test set an opinion.
@@ -362,11 +360,11 @@ impl ClaimReader {
                 }
             })?)?;
 
-        if !crate::taxonomy::categories_still_mean(&provenance.categories) {
+        if !crate::taxonomy::categories_still_mean(&provenance.subjects) {
             return Err(Error::StaleAnchors {
                 field: "taxonomy",
-                expected: crate::taxonomy::categories(),
-                actual: provenance.categories,
+                expected: "the categories this build has".to_owned(),
+                actual: crate::taxonomy::categories_differ(&provenance.subjects),
             });
         }
 
@@ -748,31 +746,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_reader_written_before_the_rename_still_loads() {
-        // Every reader and reading on disk, the shipped one included, records the old key and
-        // the name the sheet used to carry. The categories those named are the categories this
-        // build has, so refusing them would charge a re-read of the whole library for a rename
-        // that changed no answer.
-        let written = serde_json::json!({
-            "spine_version": "core-6",
-            "subjects": ["verdict", "vr", "licensing"],
-            "threshold": 0.69,
-            "max_tokens": 128,
-        });
-        let provenance: Provenance = serde_json::from_value(written).expect("a provenance");
-        assert_eq!(provenance.categories, "core-6");
+    fn a_reader_is_checked_against_the_categories_it_names_rather_than_a_word_for_them() {
+        // What a model answered is the list of categories it was trained on, and that list is
+        // in the file. Anything else is a word standing in for it that somebody has to keep in
+        // step by hand, and the one time that mattered nobody did.
+        let ids: Vec<String> = crate::taxonomy::SHEET
+            .iter()
+            .map(|category| category.id.to_owned())
+            .collect();
+        assert!(crate::taxonomy::categories_still_mean(&ids));
+
+        let mut shuffled = ids.clone();
+        shuffled.reverse();
         assert!(
-            crate::taxonomy::categories_still_mean(&provenance.categories),
-            "the shipped reader was refused by the build that shipped it"
+            crate::taxonomy::categories_still_mean(&shuffled),
+            "a model numbers its classes however its training data did, and the order is not              what a category means"
         );
 
-        // A sheet that genuinely held other categories stays refused, which is the guard.
-        assert!(!crate::taxonomy::categories_still_mean("core-5"));
+        let short: Vec<String> = ids.iter().skip(1).cloned().collect();
+        assert!(!crate::taxonomy::categories_still_mean(&short));
+        assert!(
+            crate::taxonomy::categories_differ(&short).contains(&ids[0]),
+            "a refusal has to name the category that differs, or it is the same opaque              mismatch under another spelling"
+        );
     }
 
     fn provenance(lines: Option<Vec<Option<f32>>>) -> Provenance {
         let mut written = serde_json::json!({
-            "categories": crate::taxonomy::categories(),
             "subjects": ["verdict", "vr", "licensing"],
             "threshold": 0.69,
             "max_tokens": 128,

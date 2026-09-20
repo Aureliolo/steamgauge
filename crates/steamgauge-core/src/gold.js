@@ -126,8 +126,22 @@
   }
 
   function firstUnanswered() {
-    for (var i = 0; i < questions.length; i += 1) {
+    return nextUnanswered(0);
+  }
+
+  // The next question nobody has answered, wrapping once before giving up.
+  //
+  // An answered set is not a prefix. Claims are set aside and asked again when a rule moves
+  // under them, a draw made later holds back what an earlier one asked, and either leaves
+  // holes behind wherever the reader has got to. Stepping one place on from the last answer
+  // walks straight into one of them, and the reader is shown a claim they have already
+  // judged with no way to tell that from a claim they have not.
+  function nextUnanswered(from) {
+    for (var i = from; i < questions.length; i += 1) {
       if (!answers[keyOf(questions[i])]) return i;
+    }
+    for (var j = 0; j < from && j < questions.length; j += 1) {
+      if (!answers[keyOf(questions[j])]) return j;
     }
     return questions.length;
   }
@@ -431,7 +445,7 @@
     // and then answering is the ordinary way round, and it has no reason to wait.
     var flag = field === "ambiguous" || field === "split_wrong" || field === "unsure";
     if (mine.subject && mine.polarity && !flag) {
-      at += 1;
+      at = nextUnanswered(at + 1);
     }
     render();
   }
@@ -561,9 +575,6 @@
       // whose sheet nobody can name is the one label here that cannot be checked against
       // anything, and an unnamed one already cost 39 answers.
       mine.sheet = data.taxonomy;
-      // From the question, not the file: the set holds claims cut under three different
-      // splitters, so one stamp for the whole export would be wrong for most of it.
-      mine.splitter = question.splitter;
       rows.push(mine);
     });
     return rows;

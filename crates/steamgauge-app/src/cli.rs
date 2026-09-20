@@ -546,6 +546,12 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
+        /// Directory holding the captures. A label names a byte span, and only the capture can
+        /// say whether this build's splitter still cuts one there: where it does not, the claim
+        /// the label was written about no longer exists and nobody is asked about it. Without
+        /// the captures every stored label is asked, which is what happened before.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
         /// Where to write the page. It holds review text, so it is never committed; the
         /// default sits beside the repository's other ignored artefacts.
         #[arg(long, default_value = "gold.html")]
@@ -597,6 +603,12 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
+        /// Directory holding the captures, which is what says whether this build still cuts a
+        /// claim where a label names one. An answers file can be older than that rule, and a
+        /// gold label on a span the splitter has since joined to its neighbour is worse than a
+        /// missing one, because it is scored as truth.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
         /// Who adjudicated. Recorded per label, like every other labeller.
         #[arg(long, default_value = "a person")]
         by: String,
@@ -879,6 +891,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
         } => run_revisit(words, subjects, app_ids, reference, *batch_size),
         Command::Gold {
             reference,
+            out,
             to,
             blind,
             labels,
@@ -890,6 +903,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             port,
         } => run_gold(
             reference,
+            out,
             &Asking {
                 blind: *blind,
                 splits: (*splits).into(),
@@ -941,8 +955,9 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
         Command::IngestGold {
             from,
             reference,
+            out,
             by,
-        } => run_ingest_gold(from, reference, by),
+        } => run_ingest_gold(from, reference, out, by),
         Command::IngestInduced {
             app_id,
             from,
@@ -1589,6 +1604,7 @@ struct Asking<'a> {
 
 fn run_gold(
     reference: &std::path::Path,
+    out: &std::path::Path,
     asking: &Asking<'_>,
     delivery: Delivery<'_>,
 ) -> Result<()> {
@@ -1600,7 +1616,7 @@ fn run_gold(
         reading,
     } = *asking;
     let (questions, found) =
-        steamgauge_core::gold::draw(reference, blind, splits, seed, languages, reading)?;
+        steamgauge_core::gold::draw(reference, out, blind, splits, seed, languages, reading)?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1640,6 +1656,13 @@ fn run_gold(
             "held back  {} template options the reviewer left blank, which no adjudicator can \
              answer and which the current splitter would never have cut",
             found.declined
+        );
+    }
+    if found.recut > 0 {
+        println!(
+            "recut      {} labels name bytes this build cuts no claim at, so what they were \
+             written about is not something anybody would be handed now",
+            found.recut
         );
     }
 
@@ -1735,6 +1758,7 @@ fn adjudicate_one_game(
     app_id: u32,
     dir: &std::path::Path,
     rows: &[&Adjudicated],
+    cut: Option<&steamgauge_core::claimset::CutSpans>,
     by: &str,
 ) -> Result<(usize, usize)> {
     let existing: Vec<steamgauge_core::claimset::ClaimLabel> =
@@ -1764,6 +1788,7 @@ fn adjudicate_one_game(
     let mut agreed = 0;
     let mut unplaced = 0;
     let mut declined = 0;
+    let mut recut = 0;
     for answer in rows {
         if said
             .get(&(answer.review_id.as_str(), answer.index))
@@ -1779,6 +1804,12 @@ fn adjudicate_one_game(
             unplaced += 1;
             continue;
         };
+        // An answers file can be older than the rule the draw now applies, and a gold label on
+        // a span this build no longer cuts is scored as truth about a claim that is not there.
+        if !steamgauge_core::gold::still_cut(cut, was) {
+            recut += 1;
+            continue;
+        }
         agreed += usize::from(was.subject == answer.subject);
         gold.push(steamgauge_core::claimset::ClaimLabel {
             review_id: answer.review_id.clone(),
@@ -1788,7 +1819,6 @@ fn adjudicate_one_game(
             subset: was.subset.clone(),
             start: was.start,
             end: was.end,
-            splitter: was.splitter.clone(),
             taxonomy: steamgauge_core::taxonomy::sheet(),
             produced_by: by.to_owned(),
             subject: answer.subject.clone(),
@@ -1810,6 +1840,11 @@ fn adjudicate_one_game(
              refused"
         );
     }
+    if recut > 0 {
+        println!(
+            "{app_id:>9}  {recut} answers name a span this build does not cut a claim at,              refused"
+        );
+    }
 
     let out = dir.join("gold");
     std::fs::create_dir_all(&out)?;
@@ -1818,7 +1853,12 @@ fn adjudicate_one_game(
     Ok((gold.len(), agreed))
 }
 
-fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str) -> Result<()> {
+fn run_ingest_gold(
+    from: &std::path::Path,
+    reference: &std::path::Path,
+    out: &std::path::Path,
+    by: &str,
+) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
 
     answered_this_sheet(answers.iter().map(|answer| answer.sheet.as_deref()))?;
@@ -1832,7 +1872,8 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path, by: &str
     let mut agreed = 0;
     for (app_id, rows) in by_game {
         let dir = reference.join(app_id.to_string());
-        let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, by)?;
+        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id).ok();
+        let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, cut.as_ref(), by)?;
         written += wrote;
         agreed += matched;
     }
@@ -2254,24 +2295,7 @@ fn run_measure_claims(
         if let Some(which) = labels {
             set = set.join(which);
         }
-        let found = match steamgauge_core::measure::agreement(out, app_id, &set) {
-            // The readings are fine as counts and useless as a score: their indexes name
-            // sentences this build cuts differently. Saying so per game lets the rest of
-            // the list be scored rather than the whole run stopping at the first stale one.
-            Err(steamgauge_core::Error::StaleAnchors {
-                field: "splitter",
-                actual,
-                ..
-            }) => {
-                println!(
-                    "\napp {app_id}\n  read under {actual}, and this build splits with {}; \
-                     read it again before measuring",
-                    steamgauge_core::claims::SPLITTER_VERSION
-                );
-                continue;
-            }
-            other => other?,
-        };
+        let found = steamgauge_core::measure::agreement(out, app_id, &set)?;
 
         println!("\napp {app_id}");
         println!(
@@ -2425,7 +2449,6 @@ fn run_ingest_claims(
     let sheet = steamgauge_core::claimset::Sheet {
         taxonomy: sheet.map_or_else(steamgauge_core::taxonomy::sheet, ToOwned::to_owned),
         produced_by: by.trim().to_owned(),
-        ..Default::default()
     };
     let (labels, report) = steamgauge_core::claimset::ingest(&dir, from, &sheet)?;
 

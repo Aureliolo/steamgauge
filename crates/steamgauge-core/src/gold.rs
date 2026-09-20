@@ -46,11 +46,6 @@ pub struct Question {
     pub before: String,
     pub after: String,
     pub language: String,
-    /// Which rules cut this claim, carried from the label rather than read off the build. The
-    /// reference set holds three splitters at once and a frozen sample keeps the one it was
-    /// drawn under, so an answer stamped with whatever the binary happens to be today would
-    /// name rules the person was never shown.
-    pub splitter: String,
     /// What the labellers said, shown only for a split: `None` on a blind question, because an
     /// answer on the page is an answer in the reader's head.
     pub shown: Option<Vec<Answered>>,
@@ -88,6 +83,12 @@ pub struct GoldDraw {
     /// the splitter learnt to collapse a ballot, and it is the same fragments the reader is
     /// being trained on.
     pub declined: usize,
+    /// Claims held back because this build's splitter no longer cuts the span they name. The
+    /// sets were cut by four splitters over the run, and a label from an earlier one can name
+    /// a template heading since joined to its option, or a comma list since taken apart. The
+    /// words are still in the review and the label is not wrong about them, but there is no
+    /// claim there any more to adjudicate and no reading that could be joined to the answer.
+    pub recut: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
@@ -119,6 +120,24 @@ fn hedged(label: &ClaimLabel) -> bool {
     label.ambiguous || label.split_wrong || label.confidence == "low"
 }
 
+/// Whether this build still cuts a claim exactly where the label says one is.
+///
+/// A gold answer is keyed to a span, so a label naming one the splitter has since joined to
+/// its neighbour or taken apart describes a claim no reader will ever be handed. Asking about
+/// it spends the same minute as a real question and the answer can be joined to nothing.
+///
+/// Unknown means asked. Where the capture is absent there is nothing to check against, and a
+/// draw that quietly shrank on a machine holding only the reference sets would be a worse
+/// failure than one that asks everything.
+#[must_use]
+pub fn still_cut(cut: Option<&crate::claimset::CutSpans>, label: &ClaimLabel) -> bool {
+    cut.is_none_or(|spans| {
+        spans
+            .get(label.review_id.as_str())
+            .is_some_and(|had| had.contains(&(label.start, label.end)))
+    })
+}
+
 /// Draws the claims a person should read.
 ///
 /// Frozen because a gold figure has to be about games that chose nothing: a person adjudicating
@@ -130,6 +149,7 @@ fn hedged(label: &ClaimLabel) -> bool {
 /// Fails if a reference set cannot be read.
 pub fn draw(
     reference: &Path,
+    captures: &Path,
     blind_wanted: usize,
     splits: Splits,
     seed: u64,
@@ -171,6 +191,11 @@ pub fn draw(
             .unwrap_or_default();
         found.games += usize::from(frozen);
 
+        // A capture that is not here cannot say what this build cuts, so nothing is held back
+        // on a guess: the alternative is a draw that silently shrinks on a machine holding only
+        // the reference sets.
+        let cut = crate::claimset::spans_cut_now(captures, app_id).ok();
+
         let around: std::collections::HashMap<&str, Rejoined<'_>> = drawn
             .iter()
             .map(|review| (review.id.as_str(), Rejoined::of(review)))
@@ -202,6 +227,10 @@ pub fn draw(
                 found.declined += 1;
                 continue;
             }
+            if !still_cut(cut.as_ref(), label) {
+                found.recut += 1;
+                continue;
+            }
             let question = Question {
                 app_id,
                 review_id: label.review_id.clone(),
@@ -210,7 +239,6 @@ pub fn draw(
                 before: rejoined.text[..at].to_owned(),
                 after: rejoined.text[at + text.len()..].to_owned(),
                 language: label.language.clone(),
-                splitter: label.splitter.clone(),
                 shown: None,
             };
 
@@ -406,7 +434,7 @@ mod tests {
                 serde_json::json!({
                     "review_id": "r1", "index": index, "app_id": app_id,
                     "language": "english", "subset": "random", "start": 0, "end": 9,
-                    "splitter": "claims-5", "taxonomy": "core-6", "produced_by": "one",
+                    "taxonomy": "a-sheet", "produced_by": "one",
                     "subject": subject, "polarity": "praise", "ironic": false,
                     "confidence": "high", "ambiguous": false, "split_wrong": false
                 })
@@ -440,7 +468,16 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(&root, 100, Splits::Frozen, 1, &[], "second").unwrap();
+        let (frozen_only, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            100,
+            Splits::Frozen,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert!(
             frozen_only
                 .iter()
@@ -468,7 +505,16 @@ mod tests {
             "only the frozen game counts as a game read"
         );
 
-        let (everywhere, wider) = draw(&root, 100, Splits::Everywhere, 1, &[], "second").unwrap();
+        let (everywhere, wider) = draw(
+            &root,
+            &root.join("no-captures"),
+            100,
+            Splits::Everywhere,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert_eq!(
             wider.split, 1,
             "the training game's disagreement was left out; the frozen game's own went into the \
@@ -487,7 +533,16 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, 100, Splits::None, 1, &[], "second").unwrap();
+        let (none, quiet) = draw(
+            &root,
+            &root.join("no-captures"),
+            100,
+            Splits::None,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
 
@@ -520,7 +575,16 @@ mod tests {
             .replace("214490", "1274570");
         std::fs::write(bare.join("labels.json"), relabelled).unwrap();
 
-        let (questions, counts) = draw(&root, 100, Splits::None, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            100,
+            Splits::None,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         let asked: std::collections::HashSet<u32> =
             questions.iter().map(|question| question.app_id).collect();
         assert!(
@@ -551,7 +615,16 @@ mod tests {
 
         // blind_wanted of 0 keeps the frozen game's disagreement out of the blind sample, so it
         // stays a split and the ordering has something to order.
-        let (questions, counts) = draw(&root, 0, Splits::Everywhere, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            0,
+            Splits::Everywhere,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert_eq!(counts.blind, 0);
         assert!(counts.contested_sure > 0, "nothing sharp to put first");
         assert!(
@@ -578,7 +651,16 @@ mod tests {
         a_reference_set(&root);
 
         // One claim short of the three the frozen game has, so the draw has to choose.
-        let (questions, counts) = draw(&root, 3, Splits::Everywhere, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            3,
+            Splits::Everywhere,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         let blind: Vec<&Question> = questions
             .iter()
             .filter(|question| question.shown.is_none())
@@ -624,7 +706,7 @@ mod tests {
             serde_json::json!({
                 "review_id": "r1", "index": index, "app_id": 214_490,
                 "language": "english", "subset": "random", "start": 0, "end": 9,
-                "splitter": "claims-5", "taxonomy": "core-6", "produced_by": "one",
+                "taxonomy": "a-sheet", "produced_by": "one",
                 "subject": subject, "polarity": "praise", "ironic": false,
                 "confidence": if doubted { "low" } else { "high" },
                 "ambiguous": false, "split_wrong": false
@@ -643,7 +725,16 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) = draw(&root, 0, Splits::Frozen, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            0,
+            Splits::Frozen,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert_eq!(counts.split, 2);
         assert_eq!(
             counts.contested_sure, 1,
@@ -659,6 +750,58 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A label from an earlier splitter can name a span this build cuts elsewhere: a template
+    /// heading since joined to the option under it, a comma list since taken apart. The words
+    /// are still in the review, so nothing about the label is wrong, but there is no claim
+    /// there to adjudicate and no reading that could ever be joined to the answer. Those rise
+    /// to the front of the queue on their own, because two labellers reading a fragment land
+    /// differently as often as they land together.
+    #[test]
+    fn a_span_this_build_no_longer_cuts_is_not_put_in_front_of_anybody() {
+        let label = ClaimLabel {
+            review_id: "r1".to_owned(),
+            index: 0,
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start: 0,
+            end: 19,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "one".to_owned(),
+            subject: "difficulty".to_owned(),
+            polarity: "neutral".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        };
+        let spans = |had: &[(u32, u32)]| {
+            std::collections::HashMap::from([("r1".to_owned(), had.iter().copied().collect())])
+        };
+
+        assert!(
+            still_cut(None, &label),
+            "without a capture nothing can be checked, and a draw that shrank on a machine \
+             holding only the reference sets would be worse than one that asks everything"
+        );
+        assert!(
+            still_cut(Some(&spans(&[(0, 19), (20, 40)])), &label),
+            "the span is cut exactly as the label names it"
+        );
+        assert!(
+            !still_cut(Some(&spans(&[(0, 40)])), &label),
+            "the heading was joined to the option it labels, so the fragment is not a claim"
+        );
+        assert!(
+            !still_cut(Some(&spans(&[(0, 9), (10, 19)])), &label),
+            "the comma list was taken apart, so one label now names two claims"
+        );
+        assert!(
+            !still_cut(Some(&spans(&[])), &label),
+            "the review produces no claims at all now, which is what happens to drawings"
+        );
     }
 
     /// Since a heading introduces every box ticked under it, two claims of one review can
@@ -717,7 +860,7 @@ mod tests {
             serde_json::json!({
                 "review_id": "r1", "index": index, "app_id": 214_490,
                 "language": "english", "subset": "frozen", "start": 0, "end": 9,
-                "splitter": "claims-3", "taxonomy": "core-6", "produced_by": "one",
+                "taxonomy": "a-sheet", "produced_by": "one",
                 "subject": subject, "polarity": "praise", "ironic": false,
                 "confidence": "high", "ambiguous": false, "split_wrong": false
             })
@@ -733,7 +876,16 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) = draw(&root, 10, Splits::Frozen, 1, &[], "second").unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            10,
+            Splits::Frozen,
+            1,
+            &[],
+            "second",
+        )
+        .unwrap();
         assert_eq!(counts.declined, 1, "the blank option was not held back");
         assert!(
             questions
@@ -810,7 +962,6 @@ mod tests {
             before: String::new(),
             after: " and I love it".to_owned(),
             language: "english".to_owned(),
-            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());
@@ -834,7 +985,6 @@ mod tests {
             before: String::new(),
             after: String::new(),
             language: "english".to_owned(),
-            splitter: "claims-6".to_owned(),
             shown: None,
         }];
         let page = render(&questions, &GoldDraw::default());

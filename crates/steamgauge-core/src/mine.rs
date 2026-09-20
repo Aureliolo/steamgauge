@@ -39,6 +39,10 @@ use std::path::Path;
 
 use crate::{Error, Result};
 
+/// A claim a retrieval line caught: where it is, and how far it sat inside that line's side of
+/// the margin.
+type Near = (String, crate::claims::Span, f32);
+
 /// Where claims about one starved subject tend to be found.
 #[derive(Debug)]
 pub struct Probe {
@@ -588,14 +592,13 @@ pub fn draw_by_neighbour(
                 path: snapshot.join("reading.json"),
             }
         })?)?;
-    reading.cut_as_this_build()?;
     let depth = reading.depth;
 
     let already = crate::claimset::already_drawn(dir);
 
     // The key is the margin turned upside down and quantised, so the bounded keeper's
     // "smallest" is "widest".
-    let mut kept: Vec<crate::bounded::Smallest<u32, (String, u16, f32)>> = lines
+    let mut kept: Vec<crate::bounded::Smallest<u32, Near>> = lines
         .subjects
         .iter()
         .map(|_| crate::bounded::Smallest::new(wanted))
@@ -608,9 +611,9 @@ pub fn draw_by_neighbour(
     // tokens: measured at three hundred and fifty claims a second before this, which made a
     // large game two hours.
     let window = batch_size.saturating_mul(64).max(batch_size);
-    let mut pending: Vec<(String, u16, String)> = Vec::with_capacity(window);
-    let mut flush = |pending: &mut Vec<(String, u16, String)>,
-                     kept: &mut Vec<crate::bounded::Smallest<u32, (String, u16, f32)>>|
+    let mut pending: Vec<(String, crate::claims::Span, String)> = Vec::with_capacity(window);
+    let mut flush = |pending: &mut Vec<(String, crate::claims::Span, String)>,
+                     kept: &mut Vec<crate::bounded::Smallest<u32, Near>>|
      -> Result<()> {
         if pending.is_empty() {
             return Ok(());
@@ -620,11 +623,11 @@ pub fn draw_by_neighbour(
             let texts: Vec<String> = chunk.iter().map(|(_, _, text)| text.clone()).collect();
             let vectors = embedder.embed(&texts)?;
             let margins = lines.margins(&vectors)?;
-            for ((id, index, _), found) in chunk.iter().zip(margins) {
+            for ((id, at, _), found) in chunk.iter().zip(margins) {
                 let Some((line, margin)) = found else {
                     continue;
                 };
-                kept[line].offer(margin_key(margin), (id.clone(), *index, margin));
+                kept[line].offer(margin_key(margin), (id.clone(), *at, margin));
             }
         }
         pending.clear();
@@ -635,7 +638,7 @@ pub fn draw_by_neighbour(
         if already.contains(id) {
             return Ok(());
         }
-        for (index, claim) in depth.claims_of(text).into_iter().enumerate() {
+        for (claim, span) in depth.claims_of(text).into_iter().zip(depth.spans_of(text)) {
             let trimmed = claim.trim();
             if trimmed.is_empty() {
                 continue;
@@ -643,7 +646,10 @@ pub fn draw_by_neighbour(
             claims_seen += 1;
             pending.push((
                 id.to_owned(),
-                u16::try_from(index).unwrap_or(u16::MAX),
+                (
+                    u32::try_from(span.start).unwrap_or(u32::MAX),
+                    u32::try_from(span.end).unwrap_or(u32::MAX),
+                ),
                 trimmed.to_owned(),
             ));
             if pending.len() >= window {
@@ -656,7 +662,7 @@ pub fn draw_by_neighbour(
     flush(&mut pending, &mut kept)?;
     on_progress(claims_seen);
 
-    let caught: Vec<Vec<(String, u16, f32)>> = kept
+    let caught: Vec<Vec<Near>> = kept
         .into_iter()
         .map(crate::bounded::Smallest::take)
         .collect();
@@ -670,9 +676,9 @@ pub fn draw_by_neighbour(
             (*subject, line.len(), nearest, furthest)
         })
         .collect();
-    let picks: Vec<Vec<(String, u16)>> = caught
+    let picks: Vec<Vec<(String, (u32, u32))>> = caught
         .into_iter()
-        .map(|line| line.into_iter().map(|(id, index, _)| (id, index)).collect())
+        .map(|line| line.into_iter().map(|(id, at, _)| (id, at)).collect())
         .collect();
     let (picks, _) = crate::claimset::round_robin(&picks, wanted);
     Ok(Retrieved {

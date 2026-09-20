@@ -16,7 +16,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use parquet::arrow::ArrowWriter;
-use steamgauge_core::taxonomy::{SHEET, categories};
+use steamgauge_core::taxonomy::SHEET;
 
 /// One axis per category, so a review's nearest anchor is the one this test names and not
 /// whichever of several tied categories the iterator happened to end on.
@@ -248,14 +248,16 @@ fn sha256_hex(text: &str) -> String {
 fn write_readings(snapshot: &Path) {
     let schema = Arc::new(Schema::new(vec![
         Field::new("recommendationid", DataType::Utf8, false),
-        Field::new("claim_index", DataType::UInt16, false),
+        Field::new("start", DataType::UInt32, false),
+        Field::new("end", DataType::UInt32, false),
         Field::new("subject", DataType::Utf8, true),
         Field::new("confidence", DataType::Float32, false),
         Field::new("polarity", DataType::Utf8, false),
     ]));
 
     let mut ids = StringBuilder::new();
-    let mut indexes = arrow::array::UInt16Builder::new();
+    let mut starts = arrow::array::UInt32Builder::new();
+    let mut ends = arrow::array::UInt32Builder::new();
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
@@ -279,7 +281,10 @@ fn write_readings(snapshot: &Path) {
             top_per_subject[seed.category] += 1;
         }
         ids.append_value(seed.id);
-        indexes.append_value(0);
+        let whole = steamgauge_core::claims::spans(seed.text);
+        let at = whole.first().cloned().unwrap_or(0..seed.text.len());
+        starts.append_value(u32::try_from(at.start).unwrap());
+        ends.append_value(u32::try_from(at.end).unwrap());
         subjects.append_value(SHEET[seed.category].id);
         confidences.append_value(0.9);
         polarities.append_value(if seed.voted_up { "praise" } else { "complaint" });
@@ -289,7 +294,8 @@ fn write_readings(snapshot: &Path) {
         Arc::clone(&schema),
         vec![
             Arc::new(ids.finish()),
-            Arc::new(indexes.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
@@ -333,8 +339,6 @@ fn write_readings(snapshot: &Path) {
             "positive": positive,
             "top_helpful": 2,
             "model": MODEL,
-            "categories": categories(),
-            "splitter": steamgauge_core::claims::SPLITTER_VERSION,
             "threshold": 0.5,
             "device": "cpu",
             "subjects": subjects,
@@ -445,15 +449,18 @@ fn counts_the_corpus_no_longer_supports_are_refused_rather_than_drawn() {
     let sidecar = snapshot.join("reading.json");
     let mut stored: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&sidecar).unwrap()).unwrap();
-    stored["categories"] = serde_json::Value::String("core-1".to_owned());
+    // Drop a subject the build has, which is what a reading against another sheet looks
+    // like: it counted categories that are not these categories.
+    let subjects = stored["subjects"].as_array_mut().unwrap();
+    subjects.pop();
     std::fs::write(&sidecar, serde_json::to_vec_pretty(&stored).unwrap()).unwrap();
 
     let message = steamgauge_core::report::build(&[1], &reporting(&root))
         .expect_err("a reading against another taxonomy must not render")
         .to_string();
     assert!(
-        message.contains("taxonomy"),
-        "the refusal should name what disagrees, got: {message}"
+        message.contains("taxonomy") && message.contains(SHEET[SHEET.len() - 1].id),
+        "the refusal should name the category that disagrees, got: {message}"
     );
 
     std::fs::remove_dir_all(&root).ok();
@@ -520,27 +527,42 @@ fn write_two_reviews(snapshot: &Path) {
 }
 
 fn write_two_declines(snapshot: &Path) {
+    let first =
+        steamgauge_core::claims::spans("The combat is superb. It runs badly. Worth the money.");
+    let second = steamgauge_core::claims::spans("Great game.");
+    write_declines(
+        snapshot,
+        &[
+            ("10", first[0].start, first[0].end, Some(SHEET[0].id)),
+            ("10", first[1].start, first[1].end, None),
+            ("10", first[2].start, first[2].end, None),
+            ("11", second[0].start, second[0].end, Some(SHEET[0].id)),
+        ],
+    );
+}
+
+/// The reading rows for the two-review corpus, spans and all, so a test can write a row that
+/// names bytes no claim covers and watch it go unasked.
+fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) {
     let reading_schema = Arc::new(Schema::new(vec![
         Field::new("recommendationid", DataType::Utf8, false),
-        Field::new("claim_index", DataType::UInt16, false),
+        Field::new("start", DataType::UInt32, false),
+        Field::new("end", DataType::UInt32, false),
         Field::new("subject", DataType::Utf8, true),
         Field::new("confidence", DataType::Float32, false),
         Field::new("polarity", DataType::Utf8, false),
     ]));
     let mut ids = StringBuilder::new();
-    let mut indexes = arrow::array::UInt16Builder::new();
+    let mut starts = arrow::array::UInt32Builder::new();
+    let mut ends = arrow::array::UInt32Builder::new();
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
-    for (id, index, subject) in [
-        ("10", 0_u16, Some(SHEET[0].id)),
-        ("10", 1, None),
-        ("10", 2, None),
-        ("11", 0, Some(SHEET[0].id)),
-    ] {
+    for (id, start, end, subject) in rows {
         ids.append_value(id);
-        indexes.append_value(index);
-        subjects.append_option(subject);
+        starts.append_value(u32::try_from(*start).unwrap());
+        ends.append_value(u32::try_from(*end).unwrap());
+        subjects.append_option(*subject);
         confidences.append_value(if subject.is_some() { 0.9 } else { 0.2 });
         polarities.append_value("praise");
     }
@@ -548,7 +570,8 @@ fn write_two_declines(snapshot: &Path) {
         Arc::clone(&reading_schema),
         vec![
             Arc::new(ids.finish()),
-            Arc::new(indexes.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
@@ -573,8 +596,6 @@ fn write_two_declines(snapshot: &Path) {
             "positive": 2,
             "top_helpful": 2,
             "model": MODEL,
-            "categories": categories(),
-            "splitter": steamgauge_core::claims::SPLITTER_VERSION,
             "threshold": 0.5,
             "device": "cpu",
             "subjects": [],
@@ -607,19 +628,14 @@ fn a_teaching_draw_asks_only_about_what_the_reader_declined() {
         "the claim the reader answered is still handed over, because it is the review"
     );
 
-    // A reading cut by another splitter indexes claims that are not there any more, and an
-    // index into it names whatever sentence now sits in that position.
-    let sidecar = snapshot.join("reading.json");
-    let mut stored: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&sidecar).unwrap()).unwrap();
-    stored["splitter"] = serde_json::Value::String("claims-1".to_owned());
-    std::fs::write(&sidecar, serde_json::to_vec_pretty(&stored).unwrap()).unwrap();
-    let message = steamgauge_core::claimset::draw_declined(&root, 1, &reference, 10, 1)
-        .expect_err("a reading from another splitter must not be drawn from")
-        .to_string();
+    // A row naming bytes that are not a claim here is nothing a labeller can be asked about.
+    // It needs no version to detect: the span either covers a claim of this review or it does
+    // not, and that is answered by the corpus rather than by comparing two names.
+    write_declines(snapshot.as_path(), &[("10", 4, 9, None)]);
+    let after = steamgauge_core::claimset::draw_declined(&root, 1, &reference, 10, 1).unwrap();
     assert!(
-        message.contains("claims-1"),
-        "the refusal should name the cut it found, got: {message}"
+        after.is_empty(),
+        "a declined row covering bytes no claim covers was handed to a labeller: {after:?}"
     );
 
     std::fs::remove_dir_all(&root).ok();
