@@ -200,7 +200,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
 
         // A run with no words in it, a blank line or a bare `[list]`, is not a piece; it
         // stays in front of the next one, which is where its markup belongs.
-        let end = run_out(text, &mut chars, at + ch.len_utf8());
+        let end = run_out(text, &mut chars, at + ch.len_utf8(), ch == '\n');
         if !says_nothing(&text[start..end]) {
             pieces.push((start, end));
             start = end;
@@ -478,13 +478,14 @@ fn is_a_drawn_line(line: &str) -> bool {
 /// Runs a boundary that begins at `end` out over any further terminators and the whitespace
 /// after them, so "Wait... what?!" is one boundary rather than five, and over an emoticon
 /// after those, which colours the sentence it follows: "Great fun. :D If you like Vermintide"
-/// smiles about the fun. Not past a line break, where a lone dash is the next line's bullet.
+/// smiles about the fun. Not past a line break, where a lone dash is the next line's bullet;
+/// the boundary itself may be that line break, which is how a heading with no full stop ends.
 fn run_out(
     text: &str,
     chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
     mut end: usize,
+    mut broke_the_line: bool,
 ) -> usize {
-    let mut broke_the_line = false;
     loop {
         while let Some(&(next_at, next)) = chars.peek() {
             if next.is_whitespace() || TERMINATORS.contains(&next) {
@@ -551,6 +552,12 @@ fn ends_on_a_comma(piece: &str) -> bool {
 /// than any item anyone lists. Left alone where the piece holds a quotation or a bracket,
 /// since a comma inside either is that thing's own.
 ///
+/// Every part has to name a thing and say something about it, which in a script with spaces
+/// is two words. Weight alone let one long word through, and the frozen sets show what that
+/// cuts: "The gameplay, however, is rudimentary" into three, "Strepitoso, immenso,
+/// coinvolgente!" into three verdicts of one word each, and "Amazing story, soundtrack,
+/// gameplay" into one point and two bare nouns that have lost the adjective they shared.
+///
 /// Cut after the fragments are joined, not before, because the parts of a list are shorter
 /// than a claim on purpose and joining them back together would undo the cut.
 fn listed_points(text: &str, (from, to): (usize, usize)) -> Vec<(usize, usize)> {
@@ -572,9 +579,16 @@ fn listed_points(text: &str, (from, to): (usize, usize)) -> Vec<(usize, usize)> 
 
     let short = parts.len() >= 3
         && parts.iter().all(|&(start, end)| {
-            (LEAST_PART..=SHORT_PART).contains(&weight(text[start..end].trim()))
+            let part = text[start..end].trim();
+            (LEAST_PART..=SHORT_PART).contains(&weight(part)) && says_something_about_a_thing(part)
         });
     if short { parts } else { vec![(from, to)] }
+}
+
+/// Whether a part of a list is two words, or written in a script that puts no spaces
+/// between them, where the weight has already asked for two characters' worth.
+fn says_something_about_a_thing(part: &str) -> bool {
+    part.split_whitespace().nth(1).is_some() || part.chars().any(writes_without_spaces)
 }
 
 /// Recognises Steam's markup at `at`, returning where it ends and what it does.
@@ -899,6 +913,12 @@ pub(crate) fn writes_without_spaces(ch: char) -> bool {
 fn join_the_fragments(text: &str, pieces: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     let mut joined: Vec<(usize, usize)> = Vec::with_capacity(pieces.len());
     let mut held: Option<(usize, usize)> = None;
+    // Where the heading inside `held` ends, while it holds one. A heading whose line runs on
+    // after a short first sentence is kept until the sentence that says something: "Parts I
+    // liked:" over "- Art. Blasphemous is truly unique." has picked up the bullet's topic
+    // word and not yet its point. A short item that ends its line is the whole item, so
+    // "Cons:" over "Addicting" is complete and the line after it is the next point.
+    let mut heading_ends: Option<usize> = None;
 
     for (from, to) in pieces {
         let piece = text[from..to].trim();
@@ -927,9 +947,17 @@ fn join_the_fragments(text: &str, pieces: Vec<(usize, usize)>) -> Vec<(usize, us
         let written = without_markup(piece);
         let introduces =
             written.trim_end().ends_with([':', '\u{FF1A}']) || ends_on_a_list_marker(&written);
-        if introduces || weight(piece) < MIN_CLAIM_WEIGHT {
+        if introduces {
+            heading_ends = Some(to);
+            held = Some((from, to));
+        } else if weight(piece) < MIN_CLAIM_WEIGHT
+            || heading_ends.is_some_and(|end| {
+                weight(text[end..to].trim()) < MIN_CLAIM_WEIGHT && !ends_its_line(text, to)
+            })
+        {
             held = Some((from, to));
         } else {
+            heading_ends = None;
             joined.push((from, to));
         }
     }
@@ -942,6 +970,15 @@ fn join_the_fragments(text: &str, pieces: Vec<(usize, usize)>) -> Vec<(usize, us
     }
 
     joined
+}
+
+/// Whether a piece ending at `to` was the end of its line. The boundary runs out over the
+/// whitespace after a piece, so a line break there belongs to the piece.
+fn ends_its_line(text: &str, to: usize) -> bool {
+    to == text.len()
+        || text[..to]
+            .trim_end_matches([' ', '\t', '\u{3000}'])
+            .ends_with(['\n', '\r'])
 }
 
 /// Whether text ends on a question mark, once any trailing whitespace is ignored.
@@ -1618,6 +1655,21 @@ mod tests {
         assert_eq!(claims.len(), 3, "got {claims:?}");
     }
 
+    /// Each of these was one labelled claim in a frozen game that the list rule cut into
+    /// pieces no labeller would call a point: a sentence with an adverb set off by commas, a
+    /// verdict of three adjectives, and a list whose one adjective belongs to every noun in it.
+    #[test]
+    fn a_list_whose_parts_are_single_words_is_one_point() {
+        for text in [
+            "The gameplay, however, is rudimentary.",
+            "Strepitoso, immenso, coinvolgente!",
+            "Amazing story, soundtrack, gameplay.",
+            "Gameplay: cadere, imparare, rialzarsi",
+        ] {
+            assert_eq!(split(text), vec![text], "cut into single words");
+        }
+    }
+
     #[test]
     fn a_clause_set_off_by_commas_is_not_a_list() {
         assert_eq!(
@@ -1763,6 +1815,40 @@ mod tests {
             tagged[0].contains("Best graphics"),
             "a tagged heading kept the marker and lost its point: {tagged:?}"
         );
+    }
+
+    /// Found in a frozen game's labels: "Parts I liked:" stood alone as a claim about nothing,
+    /// because the boundary that ended it was the line break and the bullet on the next line
+    /// was run over as though it were an emoticon, leaving the heading ending in a dash that
+    /// no rule read as introducing anything. Fixed, the heading still had only "Art." under
+    /// it, which is the bullet's topic word and not its point.
+    #[test]
+    fn a_heading_over_a_bullet_list_keeps_the_point_under_it_rather_than_its_topic_word() {
+        let claims = split(
+            "Parts I liked:\n- Art. Blasphemous is truly unique. The worlds look well designed.\n\
+             - Boss fights. Every boss was unique.",
+        );
+        assert!(
+            claims[0].contains("Parts I liked")
+                && claims[0].contains("Blasphemous is truly unique"),
+            "the heading did not keep the point under it: {claims:?}"
+        );
+        assert!(
+            claims.iter().all(|claim| !claim.trim_end().ends_with('-')),
+            "a bullet was run over as an emoticon: {claims:?}"
+        );
+        assert_eq!(
+            claims[1].trim(),
+            "The worlds look well designed.",
+            "the sentence after the first point was pulled into it: {claims:?}"
+        );
+
+        // A one-word item on a line of its own is the whole item, and the line after it is
+        // the next point rather than the rest of this one.
+        let claims =
+            split("Cons:\nAddicting\nSo far, additional addons make the experience better.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert_eq!(claims[0].trim(), "Cons:\nAddicting");
     }
 
     #[test]
