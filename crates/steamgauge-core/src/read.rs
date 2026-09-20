@@ -1352,7 +1352,7 @@ mod tests {
         let stored = serde_json::json!({
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
@@ -1430,7 +1430,7 @@ mod tests {
             "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
             "depth": "shallow",
             "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "categories": "core-5", "threshold": 0.5, "device": "cpu",
+            "model": "m", "threshold": 0.5, "device": "cpu",
             "subjects": [], "languages": [], "months": []
         });
         let found: ReadReport = serde_json::from_value(stored).expect("a shallow reading opens");
