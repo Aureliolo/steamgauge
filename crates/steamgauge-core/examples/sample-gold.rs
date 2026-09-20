@@ -20,7 +20,6 @@ fn question(id: &str, claim: &str, review: &str, shown: Option<Vec<Answered>>) -
         before: review[..at].to_owned(),
         after: review[at + claim.len()..].to_owned(),
         language: "english".to_owned(),
-        splitter: steamgauge_core::claims::SPLITTER_VERSION.to_owned(),
         shown,
     }
 }
@@ -78,16 +77,26 @@ fn main() {
             "The last reviewer said the tutorial explains nothing. same here",
             None,
         ),
+        // A sixth, because the checks need a claim nobody has answered left over at the end.
+        // A page with none of those left renders the finished screen instead of a question,
+        // and every check that reads the counter then reports the page cannot be driven.
+        question(
+            "6",
+            "The soundtrack carried the whole third act.",
+            "Story dragged in the middle. The soundtrack carried the whole third act.",
+            None,
+        ),
     ];
 
     let found = GoldDraw {
-        blind: 4,
+        blind: 5,
         settled: 1,
         split: 1,
         games: 8,
         agreed: 244,
         contested_sure: 1,
         declined: 0,
+        recut: 0,
         languages: Vec::new(),
     };
 

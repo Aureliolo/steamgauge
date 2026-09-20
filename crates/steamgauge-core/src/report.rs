@@ -129,8 +129,10 @@ pub struct Example {
     pub review: CapturedReview,
     /// The words the model read, which is one point from the review and not all of it.
     pub claim: String,
-    /// Which point of the review this is, counting from zero.
-    pub index: u16,
+    /// Where the point sits in the review, in bytes. A place in the review rather than a
+    /// place in a list, so nothing has to be told which splitter cut it before it can be
+    /// trusted.
+    pub at: (u32, u32),
     pub polarity: String,
     /// How sure the model was. Shown, because a claim scraping past the threshold and one the
     /// model is certain of are not equally good evidence and should not look it.
@@ -416,14 +418,18 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     // A reading made against a different taxonomy counts subjects this build does not have,
     // and one whose claims were cut by another splitter quotes, at every index, whatever
     // sentence sits there now. Either would render perfectly and be wrong.
-    if !crate::taxonomy::categories_still_mean(&reading.categories) {
+    let read_as: Vec<String> = reading
+        .subjects
+        .iter()
+        .map(|subject| subject.id.clone())
+        .collect();
+    if !crate::taxonomy::categories_still_mean(&read_as) {
         return Err(crate::Error::StaleAnchors {
             field: "taxonomy",
-            expected: crate::taxonomy::categories(),
-            actual: reading.categories.clone(),
+            expected: "the categories this build has".to_owned(),
+            actual: crate::taxonomy::categories_differ(&read_as),
         });
     }
-    reading.cut_as_this_build()?;
 
     let drawn = shortlist(&snapshot, options)?;
     let top_ids: HashSet<String> = top_of_the_pile(&snapshot, reading.top_helpful)?;
@@ -453,15 +459,13 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     let quote = |claim: &DrawnClaim| -> Option<Example> {
         let review = fetched.get(&claim.review_id)?;
         Some(Example {
-            // Taken apart the way the reading pass took it apart, or the index names a
-            // different sentence from the one that was read.
-            claim: reading
-                .depth
-                .claims_of(&review.text)
-                .into_iter()
-                .nth(claim.index as usize)?
-                .into_owned(),
-            index: claim.index,
+            // The bytes the model read, taken from the review itself. Splitting it again to
+            // count to a position would be work that can disagree with what was read.
+            claim: review
+                .text
+                .get(claim.at.0 as usize..claim.at.1 as usize)?
+                .to_owned(),
+            at: claim.at,
             polarity: claim.polarity.clone(),
             confidence: claim.confidence,
             also: raised.get(&claim.review_id).cloned().unwrap_or_default(),
@@ -490,7 +494,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
                 }
                 if quoted
                     .iter()
-                    .any(|shown| shown.review.id == claim.review_id && shown.index == claim.index)
+                    .any(|shown| shown.review.id == claim.review_id && shown.at == claim.at)
                 {
                     continue;
                 }
@@ -604,7 +608,7 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
 
     crate::read::for_each_reading(
         &snapshot.join("readings.parquet"),
-        |id, index, subject, confidence, polarity| {
+        |id, at, subject, confidence, polarity| {
             let Some(subject) = subject.and_then(|id| SHEET.iter().find(|c| c.id == id)) else {
                 return;
             };
@@ -616,10 +620,14 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
             };
             if let Some(keep) = per_side.get_mut(&(subject.id, *side)) {
                 keep.offer(
-                    crate::bounded::rank(options.seed, "report", &format!("{id}:{index}")),
+                    crate::bounded::rank(
+                        options.seed,
+                        "report",
+                        &format!("{id}:{}:{}", at.0, at.1),
+                    ),
                     DrawnClaim {
                         review_id: id.to_owned(),
-                        index,
+                        at,
                         polarity: polarity.to_owned(),
                         confidence,
                     },
@@ -659,7 +667,7 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
 #[derive(Debug, Clone)]
 struct DrawnClaim {
     review_id: String,
-    index: u16,
+    at: (u32, u32),
     polarity: String,
     confidence: f32,
 }
@@ -742,7 +750,6 @@ mod tests {
                 corpus_reviews: 100_000,
                 language: None,
                 depth: crate::read::Depth::Deep,
-                splitter: crate::claims::SPLITTER_VERSION.to_owned(),
                 batch_size: Some(crate::read::DEFAULT_READ_BATCH),
                 claims: 300_000,
                 forward_passes: 300_000,
@@ -758,7 +765,6 @@ mod tests {
                 usual_declined: None,
                 frozen: None,
                 context: false,
-                categories: crate::taxonomy::categories(),
                 threshold: 0.5,
                 device: "cpu".to_owned(),
                 captured_unix: 0,

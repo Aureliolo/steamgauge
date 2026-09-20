@@ -23,7 +23,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 |---|---|
 | Headline figure is the **mention rate**, always labelled as such | done |
 | Every other percentage says which denominator it uses | done |
-| **Deep, claim-level by default**: a review is split into the points it makes, and each point carries a category | done; the splitter is `claims-5` and the reading pass counts per claim |
+| **Deep, claim-level by default**: a review is split into the points it makes, and each point carries a category | done; the reading pass counts per claim |
 | Shallow is the opt-out, and neither depth drops a review | done; `--depth shallow`, recorded in the reading and named on the page as not comparable |
 | Taxonomy is a **fixed sheet plus induced game-specific extras** | the sheet is done; the induction chain runs end to end: `steamgauge distinct` draws the sample, an agent reads it against `reference/induction-brief.txt`, `steamgauge ingest-induced` refuses any subject without three real reviews behind it, and the report shows what survives under the table with its evidence and no invented rate. First run on 296970 (Renowned Explorers): nine subjects returned, nine kept, every one refining a sheet row or naming something the sheet cannot (mood combat, the explorer roster, the oddball enemies, save-scumming), each with four to fourteen reviews behind it |
 | Extras are discovered by an **LLM reading an embedding-diverse sample** | the sample is farthest-point traversal over a hash-drawn pool of four thousand vectors, measured to put a mechanics review, a localisation joke, a crash report and a difficulty complaint in its first eight picks. The reading is one agent call per game, 70k tokens on Opus for a 120-review handout, run one at a time behind the labellers |
@@ -91,7 +91,7 @@ removed.
 | Decided | State |
 |---|---|
 | The unit is a **claim**, not a review. A review is split into the points it makes and each point carries one subject | splitter written and tested |
-| A **fine-tuned multilingual encoder** replaces prototype similarity, distilled from Fable labels, exported to ONNX, run on the existing runtime | built, training on each new wave of labels |
+| A **fine-tuned multilingual encoder** replaces prototype similarity, distilled from Fable labels, exported to ONNX, run on the existing runtime | built, retrained on each new batch of labels |
 | The **backbone is chosen by bake-off**, not by reputation: several candidates, identical labels, identical frozen split, judged on per-category F1 and throughput together | done, below: `gte-multilingual-base` wins every measure but speed among models of its size, and the first model tried at twice that size beats it by more than every other setting in the sweep combined |
 | **Calibrated abstention**: a claim below threshold is recorded as unclassified and counted, never folded into `verdict` | built, and the threshold is chosen by **the most coverage available at a promised accuracy**, never by maximising accuracy times coverage, which collapses to answering everything |
 | **Polarity is predicted per claim**, and reported per review per subject as praised, criticised or **mixed** | done: a second head on the same trunk, and the report counts praise, complaint and mixed per subject |
@@ -264,7 +264,7 @@ second opinions would only move the ceiling, not the floor.
 
 ### The splitter changed under the labels, and the labels held
 
-`claims-4` shipped mid-run after all, which the plan above said not to do. What made it
+The comma-list rules shipped mid-run after all, which the plan above said not to do. What made it
 safe is that a label had been carrying the byte span of its claim since the reference sets
 were redrawn, so the join in `steamgauge measure-claims` could be moved from claim index to span:
 a label whose span the new splitter still cuts as one claim finds its reading wherever that
@@ -280,18 +280,20 @@ next; an emoticon belongs to the sentence before it; "i.e." and "z.B." are abbre
 with their dots in; a bare `[list]` line is not a piece; a tagged heading weighs what its
 words weigh and keeps its colon.
 
-Measured with the wave5 reader on the same five frozen games: **1,003 claims answered at
+Measured with the gte-7579 reader on the same five frozen games: **1,003 claims answered at
 0.810** over the 2,361 labels the new splitter still cuts as labelled, against 1,070 at 0.807
-over 2,495 under `claims-3`. The 134 labels it no longer cuts, 5.4%, are the comma lists and
+over 2,495 under the rules before it. The 134 labels it no longer cuts, 5.4%, are the comma lists and
 the fragments the labellers reported, split or joined as they asked; the agreement on the
 rest did not move. So the splitter can improve between labelling runs without a relabel,
 at the price of the labels it improves past.
 
-A reading now records the splitter that cut it, and a reading cut by an older one is refused
+A reading recorded the splitter that cut it, and a reading cut by an older one was refused
 wherever a claim would be quoted or scored by its index, in the report, the measure and the
-window, with the counts themselves left standing, until the game is read again. Before this
+window, with the counts themselves left standing, until the game was read again. Before that
 the measure would have joined a stale reading silently and reported a number that was wrong
-by however many indexes had shifted, which is how it was first run and why the guard exists.
+by however many indexes had shifted, which is how it was first run and why a guard was needed.
+Superseded by "Nothing here is identified by a number somebody incremented" below: a reading
+names its claims by the bytes they cover, so there is no index to shift and nothing to refuse.
 
 ### The splitter has run out of punctuation, and the rest is grammar
 
@@ -331,7 +333,7 @@ Japanese**, which has the least punctuation to work with and the most reason to 
 | spanish | 15.9% | 14.2% |
 
 Polish is the reason to break it out at all. It was flagged at more than double every other
-language and is now below English: `claims-5` answered three quarters of what its labellers
+language and is now below English: the splitter answered three quarters of what its labellers
 objected to. Spanish and Brazilian Portuguese are the two where the rate has barely moved, and
 they are the languages where the reading gap survives the hedged claims being dropped, which is
 a coincidence worth one look before it is believed.
@@ -346,12 +348,12 @@ remaining ten per cent is either a grammar problem, which this project deliberat
 put a model into, or a label problem: a claim that really is about two subjects is being asked
 for one.
 
-So there is no `claims-6` on the strength of this, and the rate in the training summary should
+So no splitter change is made on the strength of this, and the rate in the training summary should
 be read as a historical flag rather than a property of the current cut. What a future splitter
 change costs is unchanged: every reading is re-read, and every label whose span it no longer
 cuts is dropped from the measurement.
 
-The chain was first verified end to end at eleven games and re-verified at every wave since.
+The chain was first verified end to end at eleven games and re-verified at every retrain since.
 Training measures the frozen games in Python, on the full-precision weights, from the claim
 text as labelled. The tool measures them in Rust, on the half-precision ONNX graph, over a
 corpus it split itself and joined back to the labels by review id and the span each label
@@ -362,7 +364,7 @@ that none of them is quietly wrong.
 
 At twenty-seven it is 1,218 at 0.804 against 1,315 at 0.798, and the gap is the splitter
 rather than a fault: training reads the claim text as the labeller was shown it, cut by
-`claims-3`, while the tool reads the corpus as `claims-4` cuts it, and 183 of the 2,797
+the rules of the day, while the tool reads the corpus as it cuts it now, and 183 of the 2,797
 labelled claims name spans it no longer cuts. Every figure the model card quotes still comes
 from training on the labelled text, which is the measurement that does not depend on the
 splitter at all. The two come back into exact agreement when the sets are redrawn under
@@ -569,8 +571,8 @@ The cost in answers is what `diff-readings` was written to say. Each doubling mo
 claims of the 216,778: **74 between 128 and 256**, 81 between 256 and 512, and 131 end to end,
 with the declines going both ways in roughly equal number and a confidence drift around 2e-4.
 Three in ten thousand. So the fear that kept the question open was right in kind and wrong in
-size, and the answer is not to hold the batch still but to record it: a reading now says which
-size answered it, beside which splitter cut it and which run read it.
+size, and the answer is not to hold the batch still but to record it: a reading says which size
+answered it, beside which run read it.
 
 None of those are the card. Two readings of that game at one size, from runs hours apart,
 differ by **nothing at all**: no answer, no polarity, and a confidence drift of exactly zero,
@@ -662,7 +664,7 @@ suspect: the tool's own figure was perfectly plausible on its own.
 
 Renovate offered transformers 4.57 to 5.17 and huggingface_hub 0.36 to 1.31 on 2026-09-14. CI
 passed, which means nothing here: CI never trains and never exports. Trained under 5.17, one
-epoch of the shipped configuration came out at 0.637 accuracy against `wave11`'s 0.622, so the
+epoch of the shipped configuration came out at 0.637 accuracy against `e5-27681`'s 0.622, so the
 training half is fine. The export is not. `.half()` on the model and then torch's TorchScript
 ONNX exporter writes a graph whose `LayerNormalization` takes one float input and one half one,
 and onnxruntime refuses to load it at all, which is the good failure: loud, immediate, and not a
@@ -769,7 +771,7 @@ measured again with more.
 Worse than that, and found on 2026-09-12: **the seed is not the only thing that moves.** Two
 pairs in this sweep are the same configuration, the same seed, the same labels and the same
 trainer, run twice at different commits that did not touch `train.py`, and they land 2.1 and 1.8
-points apart (`e5large` 84.9% against `wave9` 82.8%; `wave8` 75.3% against `lr5e5` 73.5%).
+points apart (`e5large` 84.9% against `e5-12523` 82.8%; `gte-12523` 75.3% against `lr5e5` 73.5%).
 Whatever this card does with non-deterministic kernels, a run is not repeatable to better than
 about two points of coverage, so "another seed" understates the noise and a two-point gap is
 worth nothing at all. `sweep.py` prints reruns and seeds as separate lists, because a rerun's
@@ -777,7 +779,7 @@ own noise inside a figure about configurations is how a sweep lies to you.
 
 The first thing that bar refused: **a learning rate of 3e-5 on the big backbone.** Three seeds
 answer 86.7%, 86.5% and 84.7% against 2e-5's 84.9%, 84.1% and 82.8%: a two-point mean gap, which
-is exactly what running the same thing twice is worth. It is not a finding, `wave9` stays, and
+is exactly what running the same thing twice is worth. It is not a finding, `e5-12523` stays, and
 nothing was re-exported, re-installed or re-read on the strength of it.
 
 The second is the one worth keeping as a lesson, because it looked like a finding for half an
@@ -917,7 +919,7 @@ games that chose nothing:
 | the trained reader, claim alone, 278M | 0.605 | 0.504 | 0.216 | 58% |
 | the same, claim in review, at the rate that suits it | 0.667 | 0.555 | 0.160 | 77% |
 | the same again, on a backbone of twice the size | 0.709 | 0.611 | 0.127 | 84% |
-| the same again, on nineteen thousand more labels (`wave11`) | **0.737** | **0.673** | **0.106** | **90%** |
+| the same again, on nineteen thousand more labels (`e5-27681`) | **0.737** | **0.673** | **0.106** | **90%** |
 
 The last four rows are one change at a time, each measured on the frozen games, each promising
 75% and delivering it: 0.749, 0.751, 0.763 and 0.772. The last row is the reader that ships,
@@ -1068,30 +1070,30 @@ labels and whatever the adjudication settles, and exporting twice to change one 
 would mean measuring the model twice on the frozen games. One export, both changes, one frozen
 read.
 
-**Exported with lines as `wave10`, 2026-09-13, and measured on the frozen games.** The same eight
-games and the same 3,456 labelled claims wave9 was measured on, by `measure-claims` over readings
+**Exported with lines as `e5-25481`, 2026-09-13, and measured on the frozen games.** The same eight
+games and the same 3,456 labelled claims e5-12523 was measured on, by `measure-claims` over readings
 made by each reader:
 
 | reader | answered | agreement | macro F1 |
 |---|---|---|---|
-| `wave9`, one line | 84.3% | 76.6% | 0.612 |
-| `wave10`, a line per subject | 83.7% | 79.5% | 0.646 |
+| `e5-12523`, one line | 84.3% | 76.6% | 0.612 |
+| `e5-25481`, a line per subject | 83.7% | 79.5% | 0.646 |
 
 Three points of agreement at the same coverage is past the two-point bar a rerun of one
-configuration sets. Two games the split has frozen since, labelled after wave9 and trained on by
+configuration sets. Two games the split has frozen since, labelled after e5-12523 and trained on by
 neither reader, land with the rest: over all ten, 84.7% of 5,266 claims answered at 80.0%, macro F1
 0.661. What this run cannot do is divide the gain between its two causes, because it carries both:
-the lines, and seventeen thousand labels more than wave9 had, most of them teaching draws aimed
+the lines, and seventeen thousand labels more than e5-12523 had, most of them teaching draws aimed
 at the starved rows. With 202 `licensing` labels no subject is thin enough to go silent, and all 26
 got a line of their own, from `performance` at 0.23 to `vr` at 0.98.
 
-**`wave11` ships, 2026-09-13.** The same command over 37,918 labels, which is every label in the
-set as it stood: nineteen thousand more than `wave9` had, and 2,200 of the 2,400 declined
+**`e5-27681` ships, 2026-09-13.** The same command over 37,918 labels, which is every label in the
+set as it stood: nineteen thousand more than `e5-12523` had, and 2,200 of the 2,400 declined
 teaching claims. The last 200, on 916440 and 949230, were labelled after the export when the
 labeller's quota came back, and they stay out of this reader: two hundred claims in thirty-eight
 thousand cannot move a figure whose noise bar is two points wide, and a retrain nobody could
 tell from a rerun is not a retrain. Trained anyway on 2026-09-15, to check rather than assume:
-`wave12` answers 89.3% at 77.5% against this reader's 90.1% at 77.2%, which is inside the seed
+`e5-27881` answers 89.3% at 77.5% against this reader's 90.1% at 77.2%, which is inside the seed
 spread on both counts. Two hundred labels in thirty-eight thousand bought nothing measurable,
 as expected, and it cost seventeen minutes to stop guessing. They are in the set for whatever
 trains next. Ten frozen
@@ -1099,17 +1101,17 @@ games, 5,266 labelled claims:
 
 | reader | labels | answered | agreement | macro F1 |
 |---|---|---|---|---|
-| `wave10` | 35,718 | 84.7% | 80.0% | 0.661 |
-| `wave11` | 37,918 | 82.9% | 80.7% | 0.642 |
+| `e5-25481` | 35,718 | 84.7% | 80.0% | 0.661 |
+| `e5-27681` | 37,918 | 82.9% | 80.7% | 0.642 |
 
 **Nothing in that is a finding.** Two points of coverage is what the same configuration run twice
-is worth on this card, and the two readers sit inside it in opposite directions. `wave11` ships
+is worth on this card, and the two readers sit inside it in opposite directions. `e5-27681` ships
 because it is the one trained on every label, not because it measured better; a project that
-picks whichever rerun landed higher is fitting the frozen games. On the eight games `wave9` was
+picks whichever rerun landed higher is fitting the frozen games. On the eight games `e5-12523` was
 measured on, the three readers read 84.3% at 76.6%, 83.7% at 79.5% and 81.8% at 79.8%: the
-agreement gain from `wave9` holds, the coverage drift between the last two does not signify.
+agreement gain from `e5-12523` holds, the coverage drift between the last two does not signify.
 
-**What the lines themselves cost and bought, one reader and two rules.** Training scores `wave11`
+**What the lines themselves cost and bought, one reader and two rules.** Training scores `e5-27681`
 on the same frozen games at the single threshold it transferred from validation, and the tool
 scores it with the exported lines. Same weights, same claims, same labels:
 
@@ -1121,9 +1123,9 @@ scores it with the exported lines. Same weights, same claims, same labels:
 Seven points of coverage for three and a half of agreement, and the same trade the out-of-fold
 study predicted. It is the trade worth making here because the rows it silences are the ones the
 reader reads worst, and a mention rate nobody can trust is worth less than a missing one that
-says so. `wave10` showed the same shape (88.2% at 78.5% against 84.7% at 80.0%).
+says so. `e5-25481` showed the same shape (88.2% at 78.5% against 84.7% at 80.0%).
 
-**The lines `wave11` ships with**, drawn on five folds of the non-frozen games at a 75% floor,
+**The lines `e5-27681` ships with**, drawn on five folds of the non-frozen games at a 75% floor,
 against the single threshold of 0.64 they replace. No subject is declined outright:
 
 | line | subjects |
@@ -1277,7 +1279,7 @@ more than any further arithmetic on the ones already labelled.
 model was not overfitting at five; it was underfitting at three.
 
 **Seven epochs instead of five.** The other side of the same question, measured 2026-09-17 on
-the frozen games at the threshold the validation games chose: 91.6% at 0.771 against wave11's
+the frozen games at the threshold the validation games chose: 91.6% at 0.771 against e5-27681's
 90.1% at 0.772, accuracy 0.7408 against 0.7372, macro F1 0.6783 against 0.6728. Read as a table
 of wins it looks like a small gain, and it is not one.
 
@@ -1301,7 +1303,7 @@ figure from the frozen games at the threshold the validation games chose. The se
 the same seed fixes the same head initialisation and the same shuffle in both configurations, so
 the difference can be read seed by seed rather than as two clouds.
 
-| | wave11, 128 tokens | window-256 |
+| | e5-27681, 128 tokens | window-256 |
 |---|---|---|
 | coverage | 90.23 [89.30, 91.72] | **91.80** [90.80, 93.87] |
 | accuracy at the line | 0.7760 | 0.7763 |
@@ -1311,7 +1313,7 @@ the difference can be read seed by seed rather than as two clouds.
 
 It wins the mean of all five and separates on none of them.
 
-| seed | wave11 AURC | window-256 | difference |
+| seed | e5-27681 AURC | window-256 | difference |
 |---|---|---|---|
 | 1 | 0.1061 | 0.1000 | -0.0061 |
 | 2 | 0.1073 | 0.1010 | -0.0063 |
@@ -1326,9 +1328,9 @@ it sits inside the noise this project has twice been caught by, and it costs a m
 training run and gradient accumulation to fit a 24 GB card at all.
 
 **The method failure is the part worth keeping.** At three seeds and again at four, this was
-written up as "the ranges do not touch" and "the worst window seed beats the best wave11 seed".
+written up as "the ranges do not touch" and "the worst window seed beats the best e5-27681 seed".
 Both were true of the seeds in hand and both were wrong, because seed 5 landed at 0.1061, inside
-wave11's range, and the pre-registered question (does it stay under wave11's best of 0.1029?)
+e5-27681's range, and the pre-registered question (does it stay under e5-27681's best of 0.1029?)
 came back no.
 
 That is the second time in this project a fifth seed has overturned a conclusion drawn at four.
@@ -1537,7 +1539,7 @@ Three different problems wearing one face, and they want different work:
 - **Polish was the splitter, and the splitter is already fixed.** 34.7% of Polish claims were
   flagged badly cut, more than double any other language. But that flag is what a labeller said
   against the splitter of the day, and `stale-splits` broken out by language says only **9.0%
-  are still cut that way, below English's 9.8%**. `claims-5` fixed three quarters of it. What
+  are still cut that way, below English's 9.8%**. The ballot rules fixed three quarters of it. What
   survives is the labels: they were written on the bad cuts, at the highest low-confidence rate
   of any language (27.3%), and two thirds of Polish's gap disappears once those hedged claims
   are dropped. Polish needs its labels revisited, not its splitter touched.
@@ -1557,13 +1559,13 @@ measurement already paid for.
 
 ### Weighting the languages made every language worse, and so did dropping them
 
-Two runs, at opposite ends of the same dial, against `wave11` on the same 4,017 frozen English
-claims and the same frozen games. `wave13` gives a claim weight by the inverse of its language's
+Two runs, at opposite ends of the same dial, against `e5-27681` on the same 4,017 frozen English
+claims and the same frozen games. `e5-27881-weighted` gives a claim weight by the inverse of its language's
 share, the mirror of the per-subject balance already in `train.py`. `english-only` drops every
 non-English claim before the split, so the frozen games are scored on the languages the model
 was taught.
 
-| frozen claims | claims | wave11 | wave13, weighted | english only |
+| frozen claims | claims | e5-27681 | e5-27881-weighted, weighted | english only |
 |---|---|---|---|---|
 | english | 4,017 | **74.0%** | 73.9% | 73.5% |
 | russian | 291 | **68.0%** | 66.7% | |
@@ -1602,7 +1604,7 @@ cost. That question needs no training run and no new labels.
 
 ### The promise is broken in Korean, and the per-subject line barely helps
 
-Measured 2026-09-16 by `training/lines.py` over the `wave11` folds: 32,339 out-of-fold claims
+Measured 2026-09-16 by `training/lines.py` over the `e5-27681` folds: 32,339 out-of-fold claims
 from 41 games, every policy fitted leave-one-game-out and applied to the game left out.
 
 | policy | answers | at | the language it fails hardest |
@@ -1672,7 +1674,7 @@ subject's line and its language's. `training/export.py` fits both from the same 
 `language_thresholds` beside `thresholds`; `Provenance::bar` takes the maximum. A reader exported
 before this existed carries no language map and reads exactly as it did.
 
-Fitted on the `wave11` folds at a 100-claim bar, seventeen languages have a line and twelve
+Fitted on the `e5-27681` folds at a 100-claim bar, seventeen languages have a line and twelve
 decline. The bars are the finding in one column: `koreana` 0.929 and `polish` 0.926 against
 `german` 0.573, `french` 0.603 and `ukrainian` 0.313. The reader has to be nearly certain before
 it will say anything about a Korean claim, and that is what keeping the promise costs.
@@ -1893,6 +1895,112 @@ bugs this project has already paid for:
   merge by claim, and `a_fresh_session_cannot_post_away_a_finished_adjudication` holds it.
 - The draw could not see the second model's reading at all, and asked disagreements in file order.
 
+### A hundred answers, and the re-ask turns out to be the blind sample
+
+Settled 2026-09-20: the adjudicator answers about a hundred more questions and stops. That is a
+fact about the person rather than a target to argue with, and the queue has been larger than
+anyone would answer since the day it was drawn. What the decision governs is which hundred.
+
+The draw, English only, against the `opus` reading, is 2,531 questions: 38
+disagreements neither labeller hedged, 1,000 blind, 1,493 one or the other doubted, and 410 blank
+template options held back. Of the 116 answers already given, 107 place: 34 of the 38 sharp
+disagreements and 73 of the blind. The nine that do not are options their author left blank, five
+of them from one ballot review, which is the holdback doing its job.
+
+| | questions | what it buys |
+|---|---|---|
+| sharp disagreements still open | 4 | Two confident readers split, so each is a labelling error or a sheet boundary drawn in the wrong place, and a boundary settled once is settled for every game |
+| the re-asked claims | 36 | The answer given under wording that has since moved, asked again so the two can be read against each other |
+| more of the blind sample | about 60 | The only figure here that may be called accuracy rather than agreement |
+
+**The re-ask is not work beside the blind sample, it is the blind sample.** The 39 claims set
+aside in `gold-reask.json` sit at positions 38 to 145 of the draw, inside the blind prefix and
+interleaved with the 73 answers already given, which run from 38 to 146. Answering them fills the
+holes in that prefix rather than adding a second errand: the prefix closes up at 109, and
+everything after it extends the same sample.
+
+What a hundred does not buy is the figure the thousand was drawn for. At roughly 170 blind answers
+the interval is about six points either side rather than two and a half, before prediction-powered
+inference narrows it against the labels already written, and every figure has to carry that width
+beside it. The hundred buys the sheet, and the sheet is what the model is now bounded by.
+
+### The sharpest questions in the set were one copypasta review, and the span is what says so
+
+The queue put seven template headings from a single ballot review at the front of the sharp
+block: `[ Difficulty: ] - -`, `[ Story] - -`, `[ Bugs ] - -`, `[ Game Time ]`. Two labellers
+split on every one of them, `offtopic` against the subject the heading names, which is what
+promoted them into the thirty-odd questions reserved for the sharpest in the project.
+
+That is the same mechanism the blank options had, and the same cause: a piece with nothing in
+it cannot be agreed about, so disagreement on it is guaranteed rather than informative.
+
+**The splitter was never the problem.** It cuts that review into ten claims, each a
+heading joined to the option it labels:
+
+```
+[ Difficulty: ] - - -\nx Average (Depends on the difficulty set)
+[ Price: ]---\nx Wait for sale
+```
+
+Which is the header-carrying claim the section above calls the best thing in the corpus. The
+fragments in the queue are labels from an earlier cut, and the set holds four of them at once.
+
+**The rule is the span, not the shape of the text.** A text rule was written first and the
+corpus refused it within a minute: matching a bracketed or colon-ended fragment takes
+`Great game :)`, `(my controller is fine).` and `(DOES TAKE LONG TO DOWNLOAD)`, which are
+claims people made. What separates a heading from a parenthesis is not how it reads, it is
+that this build no longer cuts a claim where the label says one is. `claimset::spans_cut_now`
+walks the capture with the live splitter and `gold::still_cut` asks the question, at the draw
+and at the ingest. Unknown means asked: with no capture nothing is held back, because a draw
+that quietly shrank on a machine holding only the reference sets would be the worse failure.
+
+Measured over the ten frozen games, 467 of 5,579 labels, 8.4%, name a span this build does not
+cut: 199 merged into a bigger claim, 125 gone entirely, 122 with edges moved, 21 taken apart.
+The worst game is 25.2%, and it was labelled under the earliest rules. In the draw itself, 925 labels are held
+back, the blind sample is unchanged at 1,000 and the sharp block falls from 38 to 30.
+
+**Not applied to the training export**, which is the third door `is_not_a_claim` uses. A blank
+option teaches the opposite of what it reads and has to go; a fossil span is a real string with
+a label that describes it, and refusing 8% of the set on a rule nobody has measured against a
+trained reader would be a change to the training data made on an argument rather than a number.
+It is worth measuring at the next retrain and not before.
+
+**What it cost the answers already given.** Of 116, fourteen no longer place: nine were blank
+template options and five more are spans since recut, eight of the fourteen from that one
+ballot review, every one of them answered `offtopic` because that was the only answer
+available. One was an early label covering "Stunning visual, calm music, epic story." as a
+single claim called `graphics`, which this build takes into three; it was answered `audio`, and
+the answer was right about the words it was shown and useless as a label. Nothing real was
+lost, and the sharp block is now thirty questions with all thirty answered.
+
+### An answered set is not a prefix, and the page was stepping one place on
+
+Found by the adjudicator within a minute of the redraw: answer a claim and the next one on
+screen is one already answered. The page moved by `at += 1` and only ever looked for the first
+unanswered claim when it loaded.
+
+That was true for as long as the answers were one run from the front, which they were until
+something started leaving holes behind. Two things now do. Claims are set aside and asked again
+when a rule moves under them, which is where the 39 re-asks sit, in the blind prefix among the
+answers already given. And a draw made later holds back what an earlier one asked. Either way
+the reader is shown a claim they have already judged, with the subject they picked still lit,
+and nothing on the page says which of the two it is.
+
+The page now walks to the next claim with no answer against it, wrapping once before it decides
+the work is done, because the holes are as often behind the reader as ahead. The arrow keys
+still move one at a time: stepping back to revise an answer is the reason they exist.
+
+**The fixture had to grow a claim to hold the check.** The browser harness drives the sample
+page to exhaustion, and asserting the skip means answering one more of it, which left nothing
+unanswered for the checks that read the counter afterwards: the finished screen has no counter,
+so they reported the page could not be driven. The sample is six claims now.
+
+**And the check that broke first was right to break.** The sheet check clicks a subject and then
+a polarity, which assumes both land on the same claim. On a claim already answered the subject
+completes it, the page moves, and the polarity lands on whatever came next: the harness was
+writing half an answer to a claim nobody had read. It runs on an unanswered claim now. A page
+that advances correctly is what made a test that never could have held wrong.
+
 ### The clarification moved 344 labels of 627, and cost the right to re-measure them
 
 The 627 claims where the two readings differed inside the amended rows were put back to Fable,
@@ -1947,10 +2055,10 @@ changes what a labeller should answer and changes nothing a model already emitte
 string there was no way to express that, so the only options were to charge a full library re-read
 for a reworded sentence or to say nothing, and saying nothing is what happened.
 
-`core-6` named this same set of category ids, so every reader and reading on disk is accepted by
-name rather than refused: `a_reader_written_before_the_rename_still_loads` pins that against the
-shipped `reader.json`. `core-5` and earlier held different categories and stay refused, which is
-the guard working.
+`core-6` named this same set of category ids, so readers and readings written under it were
+accepted by that name for a while rather than refused, which is to say a list of names a build
+had to be told about. The entry two sections below replaces the lot with the ids themselves,
+and that list went with the hash it was propping up.
 
 The word `spine` is gone too. It meant the same thing as "the sheet" and "the taxonomy", and three
 words for one concept is three chances to think they are different things.
@@ -1978,12 +2086,12 @@ command again with `--to`; the cost of its absence was four games.
 
 | | frozen at the validation line | accuracy | macro F1 | AURC | minutes |
 |---|---|---|---|---|---|
-| wave11, 128 tokens | 90.1% at 0.772 | 0.7372 | 0.6728 | 0.1061 | 17 |
+| e5-27681, 128 tokens | 90.1% at 0.772 | 0.7372 | 0.6728 | 0.1061 | 17 |
 | window-256 | **92.0% at 0.776** | **0.7444** | **0.6849** | **0.1000** | 27 |
 
 Every movement is inside its own seed bar: coverage 1.9 points against 2.42, accuracy 0.4
 against 0.70, macro F1 1.2 against 1.39. Six measures all moving the same way is the signal, and
-it is the same argument used against `wave13` in the other direction, so it has to be accepted
+it is the same argument used against `e5-27881-weighted` in the other direction, so it has to be accepted
 here or withdrawn there. AURC is the one worth most: it has no threshold in it at all, so a
 better AURC says the confidence ordering itself improved rather than a line landing luckily.
 
@@ -2002,8 +2110,8 @@ lost 4.3 points of coverage. Quote `at_validation_threshold`, or quote nothing.
 ### An option the reviewer left blank is not a hard claim, it is an unanswerable one
 
 Steam reviews are full of ballot templates: a list of options with boxes, one ticked. The
-splitter has collapsed these to the ticked line since `claims-5`, but only 12,112 of the
-reference set's 31,019 labels were cut by it. `claims-3` cut 15,210 and `claims-4` cut 3,697,
+splitter has collapsed these to the ticked line for a while, but only 12,112 of the reference
+set's 31,019 labels were cut that way. Earlier rules cut 15,210 and 3,697,
 and both kept every blank option as a claim of its own. So the set still holds thousands of
 fragments whose text means the opposite of what it says: `☐ Worth the price` is the reviewer
 saying the game was not.
@@ -2024,13 +2132,13 @@ index)`, so a new splitter run renumbers the claims underneath both. The filter 
 fix belongs until there is a reason to re-cut everything at once.
 
 **The part not fixed:** these fragments are in the training data too, where nothing filters
-them. `wave11` was trained on a set that is 61% pre-ballot-handling. Whether that costs
+them. `e5-27681` was trained on a set that is 61% pre-ballot-handling. Whether that costs
 anything is a measurement nobody has made, and it only matters at the next retrain.
 
 ### The ticked option is the best claim in the corpus, and the splitter throws its meaning away
 
 Measured over 1.64M reviews in eight captures: 2,066 are ballots, 1 in 795, which is the rate
-the splitter's own note already claimed. 82% of their option lines are blank. `claims-5` drops
+the splitter's own note already claimed. 82% of their option lines are blank. The splitter drops
 those and keeps the ticked ones, which is right, but what it keeps is this:
 
 ```
@@ -2136,10 +2244,11 @@ only a date range like `2020/12/10-2024/1/1` is genuinely empty.
 **Checked against the labellers rather than against itself.** `stale-splits` re-cuts every
 claim a labeller marked `split_wrong` and asks whether this build still cuts it that way, which
 is the one measure of a splitter change that does not come from the person who made it. Of
-5,679 flagged claims, `claims-5` still mis-split 3,719 and `claims-6` still mis-splits 3,641:
+5,679 flagged claims, the rules before this change still mis-split 3,719 and the ones after
+still mis-split 3,641:
 78 fixed, none broken, and the count falls in every subset and every language.
 
-| still cut the way a labeller objected to | claims-5 | claims-6 |
+| still cut the way a labeller objected to | before | after |
 |---|---|---|
 | all flagged claims | 3,719 (65.5%) | **3,641 (64.1%)** |
 | random draws | 3,031 (9.8%) | **2,975 (9.6%)** |
@@ -2151,22 +2260,22 @@ That is a small movement and it is the less important half: the 44,000 claims th
 never flagged `split_wrong`, because a labeller reading `.` marks it a bad claim rather than a
 bad split. Both instruments had to be read to see the whole change.
 
-**What it costs the reference set, which is less than the version number suggests.**
-`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, `claims-5`
-no longer cut 3,299 and `claims-6` no longer cuts 4,222, so the new rules move 923 more, about
-1.2% of the set. A label whose span still cuts finds its claim wherever it now sits; the rest
+**What it costs the reference set, which is less than it sounds.**
+`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, the rules before this change
+no longer cut 3,299 and the ones after no longer cut 4,222, so it moves 923 more, about 1.2%
+of the set. A label whose span still cuts finds its claim wherever it now sits; the rest
 drop out of measurement rather than being wrong. 4.8% of the set unscoreable is the standing
 cost, and no re-cut or re-labelling is needed to keep working.
 
-`claims-6` makes all 52 readings on disk stale. That is the version's job and they refuse
-themselves until each game is read again.
+It leaves every reading on disk describing claims this build no longer cuts, so the library is
+read again.
 
 **Asked at all three doors.** A stored claim comes back through the gold draw, the gold ingest
 and the training export, and only the first of those was the one the screenshot pointed at.
 `claims::is_not_a_claim` is the single predicate all three call, because three copies of a rule
 this fiddly would drift within a month. The training export was the worst of them: 683 of
 39,835 rows were an option nobody ticked or a piece with no word in it, each carrying a label
-that could not have been right, and `wave11` was trained on all of them.
+that could not have been right, and `e5-27681` was trained on all of them.
 
 ### What the whole corpus shows that eight games did not
 
@@ -2203,6 +2312,97 @@ opinion count as 115. That is either a review-bombing campaign distorting a rate
 people who each chose to endorse a text, and deciding which is an editorial judgement about
 whose opinion counts, not a bug fix. Recorded so the number is known when somebody wants to
 make that call.
+
+## Nothing here is identified by a number somebody incremented
+
+Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
+two sections up that retired the sheet's name and claimed nothing carried one any more. That
+claim was false when it was written: the splitter still had five of them, and
+the last of those was bumped by hand an hour before this was written, by somebody who happened
+to notice the behaviour had changed. That is the failure the sheet entry describes, repeating
+itself in the next field along, which is the evidence that the shape was wrong rather than the
+discipline.
+
+**A claim is the bytes it covers.** `claims::Span` is the whole of a claim's identity, and a
+label, a reading, a draw and an adjudicated answer all carry it and nothing else. Whether this
+build still cuts a claim over those bytes is a question with an answer: split the review and
+look. It needs no stamp, it cannot be forgotten, and it degrades into a number rather than a
+refusal.
+
+**The readings were the only thing that made stamps necessary.** A reading row was keyed by a
+claim's position in a list, so after a splitter change row seven described different words, and
+nothing in the file could say so. Everything else followed from that: a version on every
+reading, the same version on every label so the two could be compared, a guard refusing a whole
+reading rather than reporting what no longer lined up, and a banner in the window explaining
+why the claims behind a count could not be shown. The rows carry `start` and `end` now, six
+bytes more per row and monotonic within a review, so Parquet stores them for almost nothing.
+
+Deleted with it: `SPLITTER_VERSION`, `ReadReport::splitter`, `cut_as_this_build`,
+`ClaimLabel::splitter`, `Question::splitter`, the splitter stamp on every gold answer, the
+`older_splitter` flag and its banner, and the error arm for a reading cut by another splitter.
+`measure::join_by_span` no longer re-cuts the corpus to turn a span back into an index: it
+looks the span up. `check-readings` asks whether each row starts where the last one ended
+rather than whether the numbering runs 0, 1, 2.
+
+**Categories are written out rather than named.** A reading and a reader each list the ids they
+answered, which they already did in `subjects`, so the hash beside it was a second copy that
+could disagree with the first. `taxonomy::categories()` returns the ids, comparison is a set
+comparison that ignores the order a model happened to number its classes in, and a mismatch
+names the categories that differ instead of reporting that two opaque strings are unequal. The
+`spine_version` alias and the list of hand-assigned names that meant this same set are gone.
+
+**What is kept, and why it is not the same thing.** A run is still called something, and the
+sheet a labeller read is still a fingerprint of the brief. Those name a thing that happened and
+a document that exists; neither is a stamp somebody has to keep in step with behaviour. What is
+gone is the class of identifier that says "these two artefacts are compatible" on the strength
+of somebody having remembered to change it.
+
+**Nothing was lost.** No file in the tree refuses unknown fields, so every label already on
+disk still loads and simply stops carrying the stamps: 31,019 Fable labels, 20,072 from the
+second full reading, the 1,400 read twice that the reliability figure rests on, 8,816 across
+the teaching draws, and every adjudicated answer. The draw on the reworked build returns the
+same 1,000 blind and 1,462 split claims, which it could only do by reading all of them. The 52
+readings are the one thing regenerated, and they were already stale.
+
+**What it costs.** The gold draw walks every capture with the live splitter to answer which
+labels still name a claim, which is minutes rather than seconds. A cache would have to know
+when it went stale, which is the question this entry exists to stop asking; deriving the answer
+every time is the honest price, and it is paid once a session.
+
+### The runs stopped being numbered, and got an index instead
+
+`wave11` says neither what it was nor what it did, and there is nothing in the repository that
+says either: 107 run directories, 38 mentions in this file, none in the README, and no line
+anywhere explaining what a wave is. Every one of them was the same experiment, a retrain on
+whatever labels existed that week, so the two facts that tell them apart are the encoder and
+the size of the label set. Those are the name now: `e5-27681` is the shipped reader,
+`e5-27881-weighted` is the language-weighted run, `gte-12523` is the last of the 278M ones.
+29 directories renamed, every reference in this file follows, and the shipped card says
+`run_id: e5-27681`.
+
+The names that already described themselves were the argument for it: `bs16`, `win-256`,
+`epochs-7` and `bakeoff-Alibaba-NLP-gte-multilingual-base` needed no lookup where `wave11` did.
+
+The forty-four sweep runs are not renamed, and deliberately. `amb05cut05` and `bal07` are as
+opaque as any serial, but what makes them findable is not a better name, it is the column
+beside them: the index prints what each run changed against the commonest configuration, so
+`bal07` reads `balance 0.7` and `cut05` reads `split wrong weight 0.5` without anybody opening
+anything. A name that has to carry four settings is a worse name than a short one with the
+settings written next to it.
+
+**The index is the part that matters.** `runs/README.md` is generated by
+`python sweep.py --index`: every run there has ever been, its encoder, its label count, the
+fingerprint of the label set that says whether two runs are comparable at all, and what it
+scored, with the shipped one marked. Generated rather than written, for the reason every other
+stamp here was wrong: a list somebody maintains is out of date by the second experiment.
+`sweep.py` already ranked runs and nobody would find it, which is half of why the directories
+looked like a dump.
+
+**The 2.6 MB of `run.json` files stay committed**, and that is the one part of the old shape
+that was right. A run is a measurement, not a derived artefact: the label set `e5-27681` was
+trained on no longer exists, so the run cannot be recreated, and deleting it turns every figure
+this file quotes into an assertion. The rejected runs matter more than the shipped one, because
+"Things tried that bought nothing" is only worth reading if the runs behind it can be checked.
 
 ## The corpus stopped being a corpus of games people like
 
@@ -2453,8 +2653,8 @@ Then, in order:
 Built since this list was first written: the report page on readings, the polarity split,
 corrected prevalence, the second reading and its comparison, the fetch-by-checksum path, the
 words that stand out on each side of a subject, the paragraph, the bake-off, the timeline,
-languages and induced subjects in the window, the sweep, the language switch, `claims-4` and
-the span join that let it ship mid-run, `claims-5` after it, the adjudication page and the
+languages and induced subjects in the window, the sweep, the language switch, the comma list and
+the span join that let it ship mid-run, the ballot rules after it, the adjudication page and the
 ingest behind it, the frontier comparison, the configuration sweep and the tool that reads it
 (`training/sweep.py`), the teaching draw, the abstention line per subject, and the reading
 batch settled at 256.

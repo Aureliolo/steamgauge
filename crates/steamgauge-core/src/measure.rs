@@ -286,49 +286,25 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
 fn join_by_span<'a>(
     snapshot: &Path,
     labels: &'a [ClaimLabel],
-) -> Result<HashMap<(&'a str, u16), u16>> {
-    let reading: crate::read::ReadReport =
-        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
-            crate::Error::NoClassifications {
-                path: snapshot.join("reading.json"),
-            }
-        })?)?;
-    reading.cut_as_this_build()?;
-    let depth = reading.depth;
+) -> Result<HashMap<(&'a str, u16), crate::claims::Span>> {
     let ids: std::collections::HashSet<String> =
         labels.iter().map(|label| label.review_id.clone()).collect();
     let texts = crate::capture::texts_for(snapshot, &ids)?;
-
-    let mut spans: HashMap<&str, HashMap<(u32, u32), u16>> = HashMap::new();
-    for (id, text) in &texts {
-        let by_span = depth
-            .spans_of(text)
-            .into_iter()
-            .enumerate()
-            .filter_map(|(index, span)| {
-                let index = u16::try_from(index).ok()?;
-                let (start, end) = (
-                    u32::try_from(span.start).ok()?,
-                    u32::try_from(span.end).ok()?,
-                );
-                Some(((start, end), index))
-            })
-            .collect();
-        spans.insert(id.as_str(), by_span);
-    }
 
     Ok(labels
         .iter()
         .filter_map(|label| {
             // A span from an older cut may still carry the tag or the bullet in front of
-            // its words; brought to the words alone, it meets the span this cut records.
+            // its words; brought to the words alone, it meets the span a reading records.
             let text = texts.get(label.review_id.as_str())?;
             let words = crate::claims::tidied(text, label.start as usize, label.end as usize)?;
-            let now = spans.get(label.review_id.as_str())?.get(&(
-                u32::try_from(words.start).ok()?,
-                u32::try_from(words.end).ok()?,
-            ))?;
-            Some(((label.review_id.as_str(), label.index), *now))
+            Some((
+                (label.review_id.as_str(), label.index),
+                (
+                    u32::try_from(words.start).ok()?,
+                    u32::try_from(words.end).ok()?,
+                ),
+            ))
         })
         .collect())
 }
@@ -339,15 +315,15 @@ type Said = (Option<String>, String);
 /// The stored reading of each wanted claim.
 fn readings_at(
     snapshot: &Path,
-    wanted: &std::collections::HashSet<(&str, u16)>,
-) -> Result<HashMap<(String, u16), Said>> {
+    wanted: &std::collections::HashSet<(&str, crate::claims::Span)>,
+) -> Result<HashMap<(String, crate::claims::Span), Said>> {
     let mut read = HashMap::new();
     crate::read::for_each_reading(
         &snapshot.join("readings.parquet"),
-        |id, index, subject, _, polarity| {
-            if wanted.contains(&(id, index)) {
+        |id, at, subject, _, polarity| {
+            if wanted.contains(&(id, at)) {
                 read.insert(
-                    (id.to_owned(), index),
+                    (id.to_owned(), at),
                     (subject.map(ToOwned::to_owned), polarity.to_owned()),
                 );
             }
@@ -371,7 +347,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(&snapshot, &labels)?;
-    let wanted: std::collections::HashSet<(&str, u16)> = labels
+    let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = labels
         .iter()
         .filter_map(|label| {
             let now = joined.get(&(label.review_id.as_str(), label.index))?;
@@ -407,7 +383,11 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
             found.unjoined += 1;
             continue;
         };
+        // No row covering those bytes is the same finding as a span that cannot be tidied: the
+        // claim the label was written about is not one this build cuts, so nothing read it.
+        // Counted rather than skipped, because a score over an unknown denominator is not one.
         let Some((subject, polarity)) = read.get(&(label.review_id.clone(), now)) else {
+            found.unjoined += 1;
             continue;
         };
         found.matched += 1;
@@ -617,7 +597,7 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(&snapshot, &first)?;
-    let wanted: std::collections::HashSet<(&str, u16)> = first
+    let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
         .filter(|label| theirs.contains_key(&(label.review_id.as_str(), label.index)))
         .filter_map(|label| {

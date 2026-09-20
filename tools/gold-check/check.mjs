@@ -120,11 +120,17 @@ const PROBE = `(function () {
   press('0');
   check('flagging an answered claim carried the page away from it', at() === third);
 
-  // Back to somewhere with a question still on it. The sample page holds five, and the checks
-  // below answer another, so walking to the end here would leave them reading the finished
-  // screen and reporting that the page cannot be driven.
+  // An answered set is not a prefix. A claim set aside and asked again when a rule moves under
+  // it, or one a later draw holds back, leaves a hole behind wherever the reader has got to, so
+  // stepping one place on from an answer walks into a claim they have already judged. The
+  // question before the flagged one is the only hole left on this page, and answering it has to
+  // step over the flagged one rather than onto it.
   press('ArrowLeft');
-  press('ArrowLeft');
+  var hole = at();
+  var overlooked = document.querySelector('button.pick kbd').textContent;
+  press(overlooked);
+  press('1');
+  check('answering walked onto a claim that had already been answered', at() === hole + 2);
 
   // Everything answered must be kept, so a closed tab does not cost a night.
   var kept = Object.keys(localStorage).filter(function (k) { return k.indexOf('steamgauge-gold') === 0; });
@@ -145,16 +151,15 @@ const PROBE = `(function () {
   check('nothing was exported, so the stamp went unchecked', out !== null && out.length > 0);
   if (out && out.length) {
     check('an exported answer does not say which sheet it answered', out[0].sheet === data.taxonomy);
-    // The splitter comes from the question rather than the page: one set holds claims cut
-    // under three of them, so a single stamp per file would be wrong for most of the answers.
-    var cutBy = {};
+    // Where the claim is, which is the whole of what an answer has to carry to be joined back
+    // to anything. A name for the rules that cut it would be a second thing to keep in step.
+    var asked = {};
     data.questions.forEach(function (question) {
-      cutBy[question.app_id + '#' + question.review_id + '#' + question.index] = question.splitter;
+      asked[question.app_id + '#' + question.review_id + '#' + question.index] = true;
     });
-    check('an exported answer does not say which splitter cut it',
+    check('an exported answer names a claim the page never asked about',
       out.every(function (answer) {
-        var was = cutBy[answer.app_id + '#' + answer.review_id + '#' + answer.index];
-        return answer.splitter !== undefined && answer.splitter === was;
+        return asked[answer.app_id + '#' + answer.review_id + '#' + answer.index] === true;
       }));
   }
 
@@ -163,6 +168,10 @@ const PROBE = `(function () {
 
   // A reader who opens the sheet to settle a boundary must not have it shut on them by the
   // act of answering, which is the one moment they were reading it for.
+  //
+  // On a claim nobody has answered, which the skip above has already left the page sitting on.
+  // Both clicks have to land on the same claim: on one that is already answered the first
+  // completes it, the page moves, and the polarity goes to whatever came next.
   var sheet = document.querySelector('details.sheet');
   sheet.open = true;
   sheet.dispatchEvent(new Event('toggle'));

@@ -21,7 +21,7 @@ use steamgauge_core::{
     read::{Depth, Month, ReadReport, SubjectCount},
     report::{AppReport, CrawlFacts, Example, InducedEvidence, Measurement, Report},
     said::{SaidAbout, Term},
-    taxonomy::{SHEET, categories},
+    taxonomy::SHEET,
 };
 
 /// Four, because a table of two fits on a phone and a real one does not, and what happens to
@@ -98,7 +98,6 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             corpus_reviews: reviews + 200,
             language: None,
             depth: Depth::Deep,
-            splitter: steamgauge_core::claims::SPLITTER_VERSION.to_owned(),
             batch_size: Some(steamgauge_core::read::DEFAULT_READ_BATCH),
             claims: reviews * 3,
             forward_passes: reviews * 2,
@@ -111,7 +110,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             top_helpful: 50,
             model: "Alibaba-NLP/gte-multilingual-base".to_owned(),
             trained_on: "0123456789abcdef".to_owned(),
-            read_with: "wave9".to_owned(),
+            read_with: "a-reader".to_owned(),
             read_by_rule: String::new(),
             usual_declined: Some(0.53),
             frozen: Some(steamgauge_core::reader::Frozen {
@@ -122,7 +121,6 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
                 macro_f1: 0.504,
             }),
             context: true,
-            categories: categories(),
             threshold: 0.77,
             device: "directml".to_owned(),
             captured_unix: 1_759_000_000,
@@ -308,7 +306,7 @@ fn example(app_id: u32, which: u16, text: &str, from_the_top: bool) -> Example {
             created: 1_740_000_000 + i64::from(which) * 86_400,
         },
         claim: text.to_owned(),
-        index: which,
+        at: (0, u32::from(which)),
         polarity: if which.is_multiple_of(2) {
             "praise".to_owned()
         } else {

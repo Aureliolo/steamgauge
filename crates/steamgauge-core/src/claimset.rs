@@ -263,7 +263,6 @@ fn rejoined(review: &DrawnReview) -> String {
 /// set comes to claim it was labelled against rules its labeller never saw.
 #[derive(Debug, Clone)]
 pub struct Sheet {
-    pub splitter: String,
     pub taxonomy: String,
     /// The labeller. Named rather than defaulted: the first set written by a second model is
     /// the one where a default would be wrong, and it is also the one nobody would think to
@@ -276,7 +275,6 @@ impl Default for Sheet {
     /// without a revision in between.
     fn default() -> Self {
         Self {
-            splitter: crate::claims::SPLITTER_VERSION.to_owned(),
             taxonomy: crate::taxonomy::sheet(),
             produced_by: String::new(),
         }
@@ -307,11 +305,11 @@ pub struct ClaimLabel {
     pub subset: String,
     pub start: u32,
     pub end: u32,
-    /// Which splitter cut the claim this label was written about, and which taxonomy its
-    /// subject comes from. A published row is joined back by its span and read against a
-    /// category sheet, and neither means anything without the version it was made under.
-    #[serde(default)]
-    pub splitter: String,
+    /// The wording the labeller read, as a fingerprint of the whole brief. A label answers
+    /// the sheet it was written against, boundary rules and all, and `revisit` is how the ones
+    /// predating a clarification are found again. Which splitter cut the claim is not recorded:
+    /// the label names the bytes, and whether this build still cuts a claim there is answered
+    /// by asking the corpus rather than by comparing two version strings.
     #[serde(default)]
     pub taxonomy: String,
     /// Which labeller wrote it. A set labelled by two models is not one set: they disagree
@@ -509,29 +507,66 @@ pub fn draw_declined(
                 path: snapshot.join("reading.json"),
             }
         })?)?;
-    reading.cut_as_this_build()?;
 
     let already = already_drawn(dir);
 
-    let mut chosen: crate::bounded::Smallest<[u8; 32], (String, u16)> =
+    let mut chosen: crate::bounded::Smallest<[u8; 32], (String, crate::claims::Span)> =
         crate::bounded::Smallest::new(wanted);
     crate::read::for_each_reading(
         &snapshot.join("readings.parquet"),
-        |id, index, subject, _, _| {
+        |id, at, subject, _, _| {
             if subject.is_some() || already.contains(id) {
                 return;
             }
-            let key = crate::bounded::rank(seed, "declined", &format!("{id}\u{0}{index}"));
-            chosen.offer(key, (id.to_owned(), index));
+            let key =
+                crate::bounded::rank(seed, "declined", &format!("{id}\u{0}{}\u{0}{}", at.0, at.1));
+            chosen.offer(key, (id.to_owned(), at));
         },
     )?;
 
-    let mut picks: std::collections::HashMap<String, Vec<u16>> = std::collections::HashMap::new();
-    for (id, index) in chosen.take() {
-        picks.entry(id).or_default().push(index);
+    let mut picks: Picks = std::collections::HashMap::new();
+    for (id, at) in chosen.take() {
+        picks.entry(id).or_default().push(at);
     }
 
     handouts(&snapshot, app_id, reading.depth, &picks, "declined")
+}
+
+/// Every span this build's splitter cuts, keyed by review id.
+pub type CutSpans =
+    std::collections::HashMap<String, std::collections::HashSet<crate::claims::Span>>;
+
+/// Which claims of which reviews a draw wants, named by the bytes they cover.
+pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Span>>;
+
+/// One line of a draw: the claims it caught, in the order it ranked them.
+pub(crate) type Caught = Vec<(String, crate::claims::Span)>;
+
+/// Every span this build's splitter cuts, per review, for one game's capture.
+///
+/// A stored label names a byte span, and the sets here were cut by four different splitters.
+/// Where this build no longer cuts a label's span, the words it names are still in the review
+/// but they are not a claim any more: usually a template heading the splitter has since joined
+/// to the option it labels, sometimes a comma list it has since taken apart. That is not a hard
+/// question, it is one with nothing to answer, and it costs whoever is asked the same as a real
+/// one.
+///
+/// # Errors
+///
+/// Fails if the capture cannot be read.
+pub fn spans_cut_now(out_dir: &Path, app_id: u32) -> Result<CutSpans> {
+    let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
+    let mut cut = CutSpans::new();
+    crate::capture::for_each_body(&snapshot, |id, _, text| {
+        let spans = cut.entry(id.to_owned()).or_default();
+        for (at, _) in crate::claims::claims_of(text) {
+            if let (Ok(start), Ok(end)) = (u32::try_from(at.start), u32::try_from(at.end)) {
+                spans.insert((start, end));
+            }
+        }
+        Ok(())
+    })?;
+    Ok(cut)
 }
 
 /// Draws claims that look like they belong to the subjects the labelled set is starved of.
@@ -571,20 +606,25 @@ pub fn draw_mined(
                 path: snapshot.join("reading.json"),
             }
         })?)?;
-    reading.cut_as_this_build()?;
 
     let already = already_drawn(dir);
 
     let depth = reading.depth;
-    let mut lines: Vec<crate::bounded::Smallest<[u8; 32], (String, u16)>> = crate::mine::PROBES
-        .iter()
-        .map(|_| crate::bounded::Smallest::new(wanted))
-        .collect();
+    let mut lines: Vec<crate::bounded::Smallest<[u8; 32], (String, crate::claims::Span)>> =
+        crate::mine::PROBES
+            .iter()
+            .map(|_| crate::bounded::Smallest::new(wanted))
+            .collect();
     crate::capture::for_each_body(&snapshot, |id, _, text| {
         if already.contains(id) {
             return Ok(());
         }
-        for (index, claim) in depth.claims_of(text).into_iter().enumerate() {
+        for ((index, claim), span) in depth
+            .claims_of(text)
+            .into_iter()
+            .enumerate()
+            .zip(depth.spans_of(text))
+        {
             let Some(subject) = crate::mine::hooked(&claim) else {
                 continue;
             };
@@ -594,12 +634,21 @@ pub fn draw_mined(
                 .unwrap_or(0);
             let index = u16::try_from(index).unwrap_or(u16::MAX);
             let key = crate::bounded::rank(seed, "mined", &format!("{id}\u{0}{index}"));
-            lines[at].offer(key, (id.to_owned(), index));
+            lines[at].offer(
+                key,
+                (
+                    id.to_owned(),
+                    (
+                        u32::try_from(span.start).unwrap_or(u32::MAX),
+                        u32::try_from(span.end).unwrap_or(u32::MAX),
+                    ),
+                ),
+            );
         }
         Ok(())
     })?;
 
-    let caught: Vec<Vec<(String, u16)>> = lines
+    let caught: Vec<Caught> = lines
         .into_iter()
         .map(crate::bounded::Smallest::take)
         .collect();
@@ -647,11 +696,8 @@ pub(crate) fn already_drawn(dir: &Path) -> std::collections::HashSet<String> {
 /// Taking the best `wanted / 8` from each instead would leave the draw short whenever a game
 /// has none of a subject, which for `vr` is most games. Round-robin spends what one subject
 /// cannot use on the subjects that can, while still giving the starved rows first refusal.
-pub(crate) fn round_robin(
-    caught: &[Vec<(String, u16)>],
-    wanted: usize,
-) -> (std::collections::HashMap<String, Vec<u16>>, Vec<usize>) {
-    let mut picks: std::collections::HashMap<String, Vec<u16>> = std::collections::HashMap::new();
+pub(crate) fn round_robin(caught: &[Caught], wanted: usize) -> (Picks, Vec<usize>) {
+    let mut picks: Picks = std::collections::HashMap::new();
     let mut taken = vec![0; caught.len()];
     let deepest = caught.iter().map(Vec::len).max().unwrap_or(0);
     for round in 0..deepest {
@@ -680,12 +726,12 @@ pub(crate) fn handouts(
     snapshot: &Path,
     app_id: u32,
     depth: crate::read::Depth,
-    picks: &std::collections::HashMap<String, Vec<u16>>,
+    picks: &Picks,
     subset: &str,
 ) -> Result<Vec<DrawnReview>> {
     let mut drawn = Vec::new();
     crate::capture::for_each_body(snapshot, |id, language, text| {
-        let Some(asked) = picks.get(id) else {
+        let Some(wanted) = picks.get(id) else {
             return Ok(());
         };
         let spans = depth.spans_of(text);
@@ -701,10 +747,12 @@ pub(crate) fn handouts(
                 text: claim.into_owned(),
             })
             .collect();
-        let mut asked: Vec<u16> = asked
+        // The handout numbers the claims of this review as it is cut now, and a pick names the
+        // bytes it wants rather than a place in that numbering, so the two are matched here.
+        let mut asked: Vec<u16> = claims
             .iter()
-            .copied()
-            .filter(|index| usize::from(*index) < claims.len())
+            .filter(|claim| wanted.contains(&(claim.start, claim.end)))
+            .map(|claim| claim.index)
             .collect();
         asked.sort_unstable();
         asked.dedup();
@@ -886,7 +934,6 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
                 subset: review.subset.clone(),
                 start: claim.start,
                 end: claim.end,
-                splitter: sheet.splitter.clone(),
                 taxonomy: sheet.taxonomy.clone(),
                 produced_by: sheet.produced_by.clone(),
                 subject: label.subject,
@@ -1100,7 +1147,6 @@ mod tests {
         write_set(&dir, &[review("a", &["The combat is superb."])], 1).unwrap();
 
         let sheet = Sheet {
-            splitter: "claims-5".to_owned(),
             taxonomy: crate::taxonomy::sheet(),
             produced_by: "a-labeller".to_owned(),
         };

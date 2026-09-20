@@ -26,30 +26,6 @@ use parquet::{
 
 use crate::Result;
 
-/// Which set of splitting rules produced a set of claims.
-///
-/// Recorded with every drawn sample because it decides what a claim index refers to. Two sets
-/// drawn under different versions are not the same claims, and a label from one applied to
-/// the other is a label on whatever text happens to sit at that index now.
-///
-/// `claims-2` added the rules the first labellers asked for: bullet markers stripped rather
-/// than kept, a heading ending in a colon joined to what it introduces, and no splitting
-/// inside a quotation. `claims-3` added the rest of what they found: Steam's markup removed,
-/// semicolons no longer ending a thought, numbered list markers, parenthetical asides, web
-/// addresses and abbreviations. `claims-4` is what twenty-six labellers found after that: a
-/// list of short comma-separated points is that many points, a question keeps its short
-/// answer, a heading tag opened mid-sentence is emphasis rather than a heading, a line that
-/// ends on a comma has not finished, and an emoticon belongs to the sentence before it.
-/// `claims-5` is the copypasta: a ballot-box template is the boxes the reviewer ticked and
-/// not the ones they left blank, and a drawing made of punctuation is one claim rather than
-/// one per line. `claims-6` finishes that: a heading introduces every box under it rather
-/// than only the first one ticked, so an answer keeps the words that say what it answers; a
-/// template is what somebody filled in rather than any column of lines, so a review with a
-/// picture in it is split as prose instead of arriving as one claim; the marks a template can
-/// be drawn with are the ones the corpus uses rather than the six typographic boxes; and a
-/// piece with no word in it is not a claim at all.
-pub const SPLITTER_VERSION: &str = "claims-6";
-
 /// The marks a review template offers as options, ticked or left blank.
 ///
 /// One review in five hundred and fifty is one of these, counted over 1.6M reviews, and four
@@ -144,6 +120,13 @@ pub fn split(text: &str) -> Vec<std::borrow::Cow<'_, str>> {
 pub fn spans(text: &str) -> Vec<std::ops::Range<usize>> {
     claims_of(text).into_iter().map(|(at, _)| at).collect()
 }
+
+/// Where a claim sits in the review it came from, in bytes.
+///
+/// The one name a claim has. A label, a reading and a draw all carry this and nothing else,
+/// so none of them needs to be told which rules cut it before it can be believed: either this
+/// build cuts a claim over those bytes or it does not, and the corpus answers that.
+pub type Span = (u32, u32);
 
 /// Every claim, as where it sits in the review and what it says once markup is taken out.
 ///
@@ -787,6 +770,24 @@ fn numbers_a_list(so_far: &str) -> bool {
     !trimmed.is_empty() && trimmed.len() <= 3 && trimmed.chars().all(|ch| ch.is_ascii_digit())
 }
 
+/// Whether a piece ends on the marker of a list item, with the item itself still to come.
+///
+/// A heading and the list under it are one piece until something ends it, and a heading tag
+/// used as emphasis is not a heading, so "The Good [/h1]\n1." comes out as a piece holding a
+/// title and a number. The point it introduces is then a claim of its own with nothing saying
+/// which half of the review it belongs to, and the title is a claim about nothing at all.
+fn ends_on_a_list_marker(written: &str) -> bool {
+    let line = written.trim_end().rsplit(['\n', '\r']).next().unwrap_or("");
+    let trimmed = line.trim();
+    let Some(marker) = trimmed.strip_suffix(['.', ')', ':']) else {
+        return false;
+    };
+    !marker.is_empty()
+        && marker.len() <= 3
+        && (marker.chars().all(|ch| ch.is_ascii_digit())
+            || marker.chars().all(|ch| ch.is_ascii_alphabetic()))
+}
+
 /// Abbreviations that take a full stop without ending a sentence.
 ///
 /// A list rather than a rule, because every rule general enough to catch "ca." also catches
@@ -910,7 +911,8 @@ fn join_the_fragments(text: &str, pieces: Vec<(usize, usize)>) -> Vec<(usize, us
         // it is a claim about nothing. Read without its markup, since a reviewer who bolds
         // a heading closes the tag after the colon.
         let written = without_markup(piece);
-        let introduces = written.trim_end().ends_with([':', '\u{FF1A}']);
+        let introduces =
+            written.trim_end().ends_with([':', '\u{FF1A}']) || ends_on_a_list_marker(&written);
         if introduces || weight(piece) < MIN_CLAIM_WEIGHT {
             held = Some((from, to));
         } else {
@@ -1717,6 +1719,36 @@ mod tests {
             claims[0]
         );
         assert!(claims[1].starts_with("The tutorial"), "got {:?}", claims[1]);
+    }
+
+    /// A list under a heading is the commonest shape a long review takes, and the marker sat
+    /// on the wrong side of the cut: the heading came back wearing it and saying nothing, and
+    /// the point it introduces came back with no sign of which half of the review it was in.
+    #[test]
+    fn a_heading_over_a_numbered_list_keeps_the_first_point_rather_than_the_marker() {
+        let claims =
+            split("The Good\n1. Best graphics in any lego game ever.\n2. Combat is improved.");
+        assert!(
+            !claims
+                .iter()
+                .any(|claim| claim.trim() == "The Good 1." || claim.trim() == "The Good\n1."),
+            "the heading was cut off wearing the list marker: {claims:?}"
+        );
+        assert!(
+            claims[0].contains("The Good") && claims[0].contains("Best graphics"),
+            "the heading did not keep the point it introduces: {claims:?}"
+        );
+
+        // The same review as it is actually written: reviewers mark a heading with a tag, and
+        // the tag is what the list marker ends up stranded on.
+        let tagged = split(
+            "[h1] The Good [/h1]\n1. Best graphics in any lego gamer ever. Almost every \
+             interior is covered in legos.",
+        );
+        assert!(
+            tagged[0].contains("Best graphics"),
+            "a tagged heading kept the marker and lost its point: {tagged:?}"
+        );
     }
 
     #[test]

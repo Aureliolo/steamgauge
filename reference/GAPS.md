@@ -405,9 +405,9 @@ the polarity is about the reviewer rather than the game, which the sheet says po
 
 ## Splitter, not taxonomy
 
-Both labellers flagged these through `split_wrong`, and they are fixed in `claims-2` and
-`claims-3`: bullet markers, numbered list markers, headings ending in a colon, semicolons,
-quotations, parenthetical asides, Steam markup, and web addresses.
+Both labellers flagged these through `split_wrong`, and they are fixed: bullet markers,
+numbered list markers, headings ending in a colon, semicolons, quotations, parenthetical
+asides, Steam markup, and web addresses.
 
 ### The comma list, reported by five labellers and counting
 
@@ -421,10 +421,9 @@ already uses so it works in scripts without spaces. "Stunning visual, calm music
 is three parts of weight 14, 10 and 10 and splits; "The combat, which took a while to click, is
 superb" has a long middle and does not.
 
-**Done in `claims-4`**, mid-run after all, because a label now names a span of its review
-rather than an index, and `steamgauge measure-claims` joins by span: a labelled claim the new
-splitter cuts differently is counted as unjoined rather than silently scored against the
-wrong sentence. Three or more comma-separated parts, each of weight 6 to 18, split; the cut
+**Done**, mid-run after all, because a label names a span of its review rather than an index,
+and `steamgauge measure-claims` joins by span: a labelled claim this build cuts differently is
+counted as unjoined rather than silently scored against the wrong sentence. Three or more comma-separated parts, each of weight 6 to 18, split; the cut
 happens after the fragments are joined, or the short parts would be joined straight back.
 Readings record the splitter that cut them, and a reading cut by an older one is refused
 wherever a claim is quoted or scored by its index, until the game is read again.
@@ -442,7 +441,7 @@ exclamation mark, is one claim with the question, not two. The scorecard is the 
 again with a question mark in it, and the same short-parts rule that fixes the comma list
 covers it once "?" is allowed to end a part.
 
-**Done in `claims-4`** for the question and its answer: a piece of weight 30 or under after
+**Done** for the question and its answer: a piece of weight 30 or under after
 a piece ending in "?" joins it. The scorecard is not: "?" still ends a piece, so "Visuals?
 fantastic!, Atmosphere? fantastic!" comes out as one claim per question through the
 question-and-answer rule, which is the right count, and the tail "Story? mid at best,
@@ -454,15 +453,35 @@ Balance? bad" stays one claim of two.
 after a full stop that follows a three-letter capitalised token is a weaker signal than the
 list, but "Def." is not in ABBREVIATIONS and "Ed." is not either. Add both, and consider
 treating a one-to-four-letter capitalised token before a full stop, followed by a lowercase
-word, as an abbreviation regardless of the list. Goes in `claims-4` with the comma list.
+word, as an abbreviation regardless of the list. To do with the comma list.
 
-**Done in `claims-4`** as list entries: "def", "ed", "ver", "vers", "esp", "resp", "orig"
+**Done** as list entries: "def", "ed", "ver", "vers", "esp", "resp", "orig"
 and "hrs", and the list is now matched with the dots taken out, so "i.e." and "z.B." are
 caught when a capital follows them (the 3551340 labeller found two "i.e." cuts). The
 capitalised-token rule is not in, because a lowercase word after "Fun." is how most
 reviewers start their next sentence. The same labeller reported "the old Champ." cut before
 "Manager", which "champ" would cover if it were an abbreviation anybody else used; it is not
 added on one report.
+
+### A heading over a numbered list keeps the marker and loses the point, found by the adjudicator
+
+`[h1] The Good [/h1]\n1. Best graphics in any lego gamer ever.` came back as `The Good \n1.`
+and `Best graphics in any lego gamer ever.`: a title wearing a list marker and saying nothing,
+and the point it introduces standing alone with nothing to say which half of the review it
+belongs to. Two labellers split on it `offtopic` against the subject the heading names, which
+is what an unanswerable fragment always does, and it rose to the front of the adjudication
+queue on that strength.
+
+The tag is why the plain case worked and this one did not. A heading tag used mid-line is
+styling rather than a heading, correctly, so the title and the list ran on as one piece and
+the stop after the marker cut it in the only place it could.
+
+**Done**, in the fragment joiner rather than in the terminator rules, because the marker can
+be stranded by any of them: a piece whose last line is nothing but a list marker introduces the
+next one, exactly as a piece ending in a colon does. Measured over eleven captures before the
+fix, 3,500 of 2,353,549 claims ended that way, 0.149%, worst game 0.237%, and it crosses
+scripts: `Рецепт отличной игры:\n1.`, `...Что понравилось\n1)`, `勉勉强强\n1.`. On 920210 it
+absorbed 237 stranded markers.
 
 ### A heading tag used as bold, reported on 1466860 and 1716740
 
@@ -478,9 +497,9 @@ whitespace between it and the previous line break, or the start of the review, b
 point; a closing tag with nothing but whitespace between it and the next line break, or the
 end, ends one. Anywhere else the tag is styling and is skipped like `[b]`. Every real
 heading in the same review still splits, since they all sit on lines of their own. Goes in
-`claims-4`.
+the splitter.
 
-**Done in `claims-4`**, decided at the opening tag: it is a heading where nothing but markup
+**Done**, decided at the opening tag: it is a heading where nothing but markup
 has been written since the line began or the last point ended, or where the previous
 sentence has ended; otherwise it and its closing tag are styling. A heading then ends with
 its closing tag wherever that sits, and weighs what its words weigh, so "Cons" joins the
@@ -495,18 +514,18 @@ ending on "、" and the next line starting mid-thought: the writer wrapped long 
 hand and never used "。" at all. A line break ends a claim, which is right for lists and
 headings and wrong here. The rule: a line ending in a comma (",", "，" or "、") joins the line
 after it. A comma is never how anybody ends a point, in any script the splitter handles.
-Goes in `claims-4`.
+To do with the next splitter change.
 
-**Done in `claims-4`** as written.
+**Done** as written.
 
 ### An emoticon after a sentence joins the wrong neighbour
 
 ":D", ":(", ";)" and ":|" sit after the sentence they colour, but a fragment below the
 minimum weight joins forward, so "Great fun. :D If you like Vermintide..." hands the smile to
 the next claim. Five claims across the drawn sets begin this way. A fragment with no letter
-in it, on a line that has one before it, should join backward. Goes in `claims-4`.
+in it, on a line that has one before it, should join backward. To do with the next splitter change.
 
-**Done in `claims-4`** in both shapes: a token of up to four characters with at most one
+**Done** in both shapes: a token of up to four characters with at most one
 letter in it, and at least one that is not a letter, following a sentence end on the same
 line is run into that sentence's boundary, and a piece that is only such a token joins the
 piece before it. "xD" is the one two-letter emoticon named. A bare letter never counts,
@@ -517,10 +536,10 @@ to the line after), because on the next line it is as often that line's bullet.
 ### A bold heading before a list stood alone, reported on 548430
 
 "The Good:" and "Pro Tips:" came back as claims of their own with their items after them,
-though a heading ending in a colon has joined what it introduces since `claims-2`. The
+though a heading ending in a colon has joined what it introduces since the second set of rules. The
 reviews wrote them as `[b][u]The Good[/u][/b]:` followed by `[list]` on a line of its own,
 and that bare `[list]` line was a piece: it weighed six characters of markup, took the held
-heading, and the two together weighed enough to stand. **Done in `claims-4`**: a run with no
+heading, and the two together weighed enough to stand. **Done**: a run with no
 words in it is never a piece, markup weighs nothing, and a heading is read for its colon
 with the tags taken out.
 
@@ -532,7 +551,7 @@ rather than by what it says: a line with no letter or digit in it, in a run of s
 part of a picture. Three or more in a row are one claim, which the reader will decline and
 which is the right answer for a drawing.
 
-**Done in `claims-5`** with the box template, with one addition and one limit. A drawn line
+**Done** with the box template, with one addition and one limit. A drawn line
 has to be more than one character, or a review that wraps on ":" would read as a drawing.
 And a picture is only its own claim where the review is nothing else: a drawing between two
 sentences is absorbed into the point around it rather than standing alone, because the
@@ -542,7 +561,7 @@ alternative is a claim of pure punctuation in the middle of a review that has wo
 
 - A crash log or a poem cut line by line into fragments that say nothing alone.
 - One sentence carrying three subjects ("beautiful art and story", "runs well, isn't
-  misrepresented, just not for me"). The comma list in `claims-4` takes the ones written as a
+  misrepresented, just not for me"). The comma-list rule takes the ones written as a
   list; a sentence that names three things in ordinary grammar keeps one subject and the model
   learns the rest from context.
 
@@ -565,7 +584,7 @@ rule follows from what the reviewer did:
   one claim about graphics rather than a heading and a word.
 - A run of them under one heading is one claim, not one per box.
 
-**Done in `claims-5`**, and the set of marks is wider than the three the reports showed.
+**Done**, and the set of marks is wider than the three the reports showed.
 `▢`, `✓` and `✔` are the same template in a different font, and a bare "x" or "X" followed by
 a space is how somebody without any of those fonts answers it, so all of them tick. The blank
 boxes are what identifies the template, since nobody types one of those by accident, which
