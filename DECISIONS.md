@@ -2344,6 +2344,13 @@ Deleted with it: `SPLITTER_VERSION`, `ReadReport::splitter`, `cut_as_this_build`
 looks the span up. `check-readings` asks whether each row starts where the last one ended
 rather than whether the numbering runs 0, 1, 2.
 
+The report kept one more: a game whose set could not be scored was `OtherTaxonomy(version)`,
+which nothing had constructed since the sheet lost its name, and every real failure inside the
+measurement, a corrupt set included, was reported as a game nobody had labelled. It is
+`Unscored(why)` now and carries the measurement's own reason, so the dash beside the game reads
+out as labelled and not scored, and the section says what is missing rather than sending a
+reader to label a set that exists.
+
 **Categories are written out rather than named.** A reading and a reader each list the ids they
 answered, which they already did in `subjects`, so the hash beside it was a second copy that
 could disagree with the first. `taxonomy::categories()` returns the ids, comparison is a set
