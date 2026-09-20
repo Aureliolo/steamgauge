@@ -101,11 +101,12 @@ pub enum Error {
     #[error("no claim reader at {path}; train one or fetch the published model")]
     NoAnchors { path: std::path::PathBuf },
 
-    /// Written by a build that recorded less about a run than this one reads back. The
-    /// readings inside predate whatever is missing, so they are refused rather than
-    /// partially interpreted.
+    /// Written by another build: a column this one reads is absent or of another type. The
+    /// readings inside cannot be partly interpreted, so they are refused rather than joined
+    /// to whatever the columns that are there happen to say.
     #[error(
-        "{path} was written by an older build and is missing {field}; re-run `steamgauge read`"
+        "{path} was written by another build and has no usable `{field}` column; re-run \
+         `steamgauge read`"
     )]
     StaleClassifications {
         path: std::path::PathBuf,
