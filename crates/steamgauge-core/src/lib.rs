@@ -84,6 +84,9 @@ pub enum Error {
     #[error("no capture found at {path}; run `steamgauge crawl` first")]
     NoCapture { path: std::path::PathBuf },
 
+    #[error("the capture at {path} is complete and holds no reviews; Valve serves none for it")]
+    EmptyCapture { path: std::path::PathBuf },
+
     #[error("no embeddings found at {path}; run `steamgauge embed` first")]
     NoEmbeddings { path: std::path::PathBuf },
 
