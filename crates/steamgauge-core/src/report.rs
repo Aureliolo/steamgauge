@@ -587,7 +587,7 @@ fn top_of_the_pile(snapshot: &Path, how_many: u64) -> Result<HashSet<String>> {
 
 /// Picks which claims to quote for each subject, without holding the corpus.
 ///
-/// Ranked by a hash of the review id and claim index, so the choice depends on the claim
+/// Ranked by a hash of the review id and the claim's span, so the choice depends on the claim
 /// rather than on where it happened to sit in the file, and a corpus that gains reviews does
 /// not reshuffle the evidence already shown.
 ///

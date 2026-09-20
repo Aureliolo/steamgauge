@@ -2441,8 +2441,8 @@ Settled 2026-09-11: **the dataset is the thing, and the benchmark comes before t
 The aim is the reference people cite for what players say about games, which is a higher bar
 than a tool that works. Measured against that bar, four of the seven things such a dataset
 needs are already exceeded or met: it is reproducible without redistributing a word anybody
-wrote, every label names the splitter and taxonomy it was made under, two labellers read a
-tenth of it blind and agree at kappa 0.85, and the test games are fixed by hash and chose
+wrote, every label names the bytes it covers and the sheet its labeller read, two labellers read
+a tenth of it blind and agree at kappa 0.85, and the test games are fixed by hash and chose
 nothing. Two are missing, and no amount of further labelling closes either.
 
 1. **Human-adjudicated labels. Confirmed 2026-09-12: the user is doing this.** Everything so
