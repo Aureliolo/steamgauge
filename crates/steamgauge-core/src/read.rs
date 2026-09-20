@@ -1060,7 +1060,7 @@ impl Counting {
 ///
 /// # Errors
 ///
-/// Fails if the file is missing or was written by an older build.
+/// Fails if the file is missing or was written by another build.
 pub fn for_each_reading(
     path: &Path,
     mut visit: impl FnMut(&str, (u32, u32), Option<&str>, f32, &str),
@@ -1075,42 +1075,42 @@ pub fn for_each_reading(
         .with_batch_size(8192)
         .build()?;
 
+    let another_build = |field: &'static str| crate::Error::StaleClassifications {
+        path: path.to_path_buf(),
+        field,
+    };
     for batch in reader {
         let batch = batch?;
         let column = |name: &'static str| -> Result<&dyn Array> {
             batch
                 .column_by_name(name)
                 .map(AsRef::as_ref)
-                .ok_or(crate::Error::MalformedPayload { field: name })
+                .ok_or_else(|| another_build(name))
         };
         let ids = column("recommendationid")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(crate::Error::MalformedPayload {
-                field: "recommendationid",
-            })?;
+            .ok_or_else(|| another_build("recommendationid"))?;
         let starts = column("start")?
             .as_any()
             .downcast_ref::<UInt32Array>()
-            .ok_or(crate::Error::MalformedPayload { field: "start" })?;
+            .ok_or_else(|| another_build("start"))?;
         let ends = column("end")?
             .as_any()
             .downcast_ref::<UInt32Array>()
-            .ok_or(crate::Error::MalformedPayload { field: "end" })?;
+            .ok_or_else(|| another_build("end"))?;
         let subjects = column("subject")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(crate::Error::MalformedPayload { field: "subject" })?;
+            .ok_or_else(|| another_build("subject"))?;
         let confidences = column("confidence")?
             .as_any()
             .downcast_ref::<Float32Array>()
-            .ok_or(crate::Error::MalformedPayload {
-                field: "confidence",
-            })?;
+            .ok_or_else(|| another_build("confidence"))?;
         let polarities = column("polarity")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(crate::Error::MalformedPayload { field: "polarity" })?;
+            .ok_or_else(|| another_build("polarity"))?;
 
         for row in 0..batch.num_rows() {
             visit(
@@ -1436,5 +1436,63 @@ mod tests {
         });
         let found: ReadReport = serde_json::from_value(stored).expect("a shallow reading opens");
         assert_eq!(found.depth, Depth::Shallow);
+    }
+
+    /// A readings file that names its claims some other way cannot be joined to anything, and
+    /// the refusal has to say which file and what to do, not that a review payload is short of
+    /// a field, which sends a reader to the crawler.
+    #[test]
+    fn readings_keyed_by_another_build_are_refused_by_name() {
+        let dir =
+            std::env::temp_dir().join(format!("steamgauge-old-readings-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("readings.parquet");
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("recommendationid", DataType::Utf8, false),
+            Field::new("claim_index", DataType::UInt32, false),
+            Field::new("subject", DataType::Utf8, true),
+            Field::new("confidence", DataType::Float32, false),
+            Field::new("polarity", DataType::Utf8, false),
+        ]));
+        let mut ids = StringBuilder::new();
+        ids.append_value("1");
+        let mut indexes = UInt32Builder::new();
+        indexes.append_value(0);
+        let mut subjects = StringBuilder::new();
+        subjects.append_value("gameplay");
+        let mut confidences = Float32Builder::new();
+        confidences.append_value(0.9);
+        let mut polarities = StringBuilder::new();
+        polarities.append_value("praise");
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(ids.finish()),
+            Arc::new(indexes.finish()),
+            Arc::new(subjects.finish()),
+            Arc::new(confidences.finish()),
+            Arc::new(polarities.finish()),
+        ];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
+        let mut writer =
+            ArrowWriter::try_new(std::fs::File::create(&path).unwrap(), schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        let refused = for_each_reading(&path, |_, _, _, _, _| {})
+            .expect_err("readings with no span were streamed as though they had one");
+        let why = refused.to_string();
+        assert!(
+            why.contains("another build")
+                && why.contains("`start`")
+                && why.contains("steamgauge read"),
+            "the refusal does not say what the file is or what to do: {why}"
+        );
+        assert!(
+            why.contains(&path.display().to_string()),
+            "the refusal does not name the file: {why}"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
