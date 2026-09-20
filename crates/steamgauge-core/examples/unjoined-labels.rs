@@ -48,12 +48,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             lost.push((label, "review not in the capture".to_owned()));
             continue;
         };
-        let Some(words) =
-            steamgauge_core::claims::tidied(text, label.start as usize, label.end as usize)
+        let Some((start, end)) = steamgauge_core::claims::words_at(text, label.start, label.end)
         else {
             lost.push((label, "span is not on character boundaries".to_owned()));
             continue;
         };
+        let words = start as usize..end as usize;
         let now = &cut[label.review_id.as_str()];
         if now.contains(&words) {
             joined += 1;
