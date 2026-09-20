@@ -751,6 +751,20 @@ pub fn tidied(text: &str, from: usize, to: usize) -> Option<std::ops::Range<usiz
     (start < end).then_some(start..end)
 }
 
+/// The same, as the span a label or a reading carries.
+///
+/// The one door through which a stored span is compared with a cut: the measure's join and
+/// the draw's check both come through here, so a label the one scores is a label the other
+/// asks about.
+#[must_use]
+pub fn words_at(text: &str, start: u32, end: u32) -> Option<Span> {
+    let words = tidied(text, start as usize, end as usize)?;
+    Some((
+        u32::try_from(words.start).ok()?,
+        u32::try_from(words.end).ok()?,
+    ))
+}
+
 /// Where the tag ending exactly at `end` opens, if the text there ends on one.
 fn markup_ending_at(text: &str, from: usize, end: usize) -> Option<usize> {
     if !text[..end].ends_with(']') {

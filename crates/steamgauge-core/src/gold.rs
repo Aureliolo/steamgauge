@@ -131,11 +131,7 @@ fn hedged(label: &ClaimLabel) -> bool {
 /// failure than one that asks everything.
 #[must_use]
 pub fn still_cut(cut: Option<&crate::claimset::CutSpans>, label: &ClaimLabel) -> bool {
-    cut.is_none_or(|spans| {
-        spans
-            .get(label.review_id.as_str())
-            .is_some_and(|had| had.contains(&(label.start, label.end)))
-    })
+    cut.is_none_or(|cut| crate::claimset::cut_at(cut, label).is_some())
 }
 
 /// Draws the claims a person should read.
@@ -194,7 +190,9 @@ pub fn draw(
         // A capture that is not here cannot say what this build cuts, so nothing is held back
         // on a guess: the alternative is a draw that silently shrinks on a machine holding only
         // the reference sets.
-        let cut = crate::claimset::spans_cut_now(captures, app_id).ok();
+        let labelled: std::collections::HashSet<String> =
+            first.iter().map(|label| label.review_id.clone()).collect();
+        let cut = crate::claimset::spans_cut_now(captures, app_id, &labelled).ok();
 
         let around: std::collections::HashMap<&str, Rejoined<'_>> = drawn
             .iter()
@@ -758,16 +756,22 @@ mod tests {
     /// there to adjudicate and no reading that could ever be joined to the answer. Those rise
     /// to the front of the queue on their own, because two labellers reading a fragment land
     /// differently as often as they land together.
+    ///
+    /// The label's span is brought to its words before it is looked for, the way the measure
+    /// joins it: a label cut under rules that left the bullet on still names the claim under
+    /// the bullet, and holding it back here while the measure scores it would make the two
+    /// disagree about which labels this build still cuts.
     #[test]
     fn a_span_this_build_no_longer_cuts_is_not_put_in_front_of_anybody() {
-        let label = ClaimLabel {
+        let text = "- Too hard for me.\n- Great music.";
+        let label = |start: u32, end: u32| ClaimLabel {
             review_id: "r1".to_owned(),
             index: 0,
             app_id: 1,
             language: "english".to_owned(),
             subset: "random".to_owned(),
-            start: 0,
-            end: 19,
+            start,
+            end,
             taxonomy: crate::taxonomy::sheet(),
             produced_by: "one".to_owned(),
             subject: "difficulty".to_owned(),
@@ -777,29 +781,39 @@ mod tests {
             ambiguous: false,
             split_wrong: false,
         };
-        let spans = |had: &[(u32, u32)]| {
-            std::collections::HashMap::from([("r1".to_owned(), had.iter().copied().collect())])
+        let cut = |had: &[(u32, u32)]| {
+            std::collections::HashMap::from([(
+                "r1".to_owned(),
+                crate::claimset::Cut {
+                    text: text.to_owned(),
+                    spans: had.iter().copied().collect(),
+                },
+            )])
         };
 
         assert!(
-            still_cut(None, &label),
+            still_cut(None, &label(2, 18)),
             "without a capture nothing can be checked, and a draw that shrank on a machine \
              holding only the reference sets would be worse than one that asks everything"
         );
         assert!(
-            still_cut(Some(&spans(&[(0, 19), (20, 40)])), &label),
+            still_cut(Some(&cut(&[(2, 18), (21, 33)])), &label(2, 18)),
             "the span is cut exactly as the label names it"
         );
         assert!(
-            !still_cut(Some(&spans(&[(0, 40)])), &label),
+            still_cut(Some(&cut(&[(2, 18), (21, 33)])), &label(0, 18)),
+            "a label cut under rules that kept the bullet still names the claim under it"
+        );
+        assert!(
+            !still_cut(Some(&cut(&[(2, 33)])), &label(2, 18)),
             "the heading was joined to the option it labels, so the fragment is not a claim"
         );
         assert!(
-            !still_cut(Some(&spans(&[(0, 9), (10, 19)])), &label),
+            !still_cut(Some(&cut(&[(2, 9), (10, 18)])), &label(2, 18)),
             "the comma list was taken apart, so one label now names two claims"
         );
         assert!(
-            !still_cut(Some(&spans(&[])), &label),
+            !still_cut(Some(&cut(&[])), &label(2, 18)),
             "the review produces no claims at all now, which is what happens to drawings"
         );
     }
