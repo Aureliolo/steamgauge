@@ -18,9 +18,15 @@ under Graphics and art.
 ```sh
 python -m venv .venv
 .venv/Scripts/activate          # or .venv/bin/activate
-pip install -r requirements.txt
-pip freeze > requirements.lock  # what actually resolved, committed beside this
+pip install -r requirements.lock
 ```
+
+`requirements.txt` holds the floors and ceilings; `requirements.lock` is what they resolve to,
+compiled by the command in its header and committed beside the runs it was used for. After
+changing `requirements.txt`, re-run that command; to take every pin to its newest, add
+`--upgrade`. With uv rather than pip, install with
+`uv pip sync requirements.lock --index-strategy unsafe-best-match`, because the CUDA build of
+torch lives on a second index and uv will not look past the first one without being told.
 
 Training wants a GPU. It will run on a CPU and you will not enjoy it.
 

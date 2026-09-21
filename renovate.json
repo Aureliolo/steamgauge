@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Every update from every ecosystem lands in one PR on Monday morning: crates, the Rust toolchain, GitHub Actions, and every pin in the Python lock file, transitive ones included, since a pip freeze lists them all. Vulnerability fixes ride in it too rather than as PRs of their own; everything is taken to its latest version, so a vulnerable version never survives the week.",
+    "Every update from every ecosystem lands in one PR on Monday morning: crates, the Rust toolchain, GitHub Actions, and the Python requirements, re-resolved by uv rather than moved pin by pin. Vulnerability fixes ride in it too rather than as PRs of their own; everything is taken to its latest version, so a vulnerable version never survives the week.",
     "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR on Tuesday, after Monday's has had a day to be merged.",
     "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published."
   ],
@@ -47,18 +47,17 @@
       "allowedVersions": "<1"
     },
     {
-      "description": "requirements.txt holds loose floors on purpose. Naming only the lock file under pip_requirements does not exclude it, because a manager's file patterns are added to its defaults rather than replacing them, so the floors are switched off here by name instead.",
-      "matchFileNames": ["training/requirements.txt"],
-      "enabled": false
-    },
-    {
       "description": "tokenizers follows transformers: 4.57 will not take 0.23.",
       "matchPackageNames": ["tokenizers"],
       "allowedVersions": "<0.23"
     }
   ],
   "pip_requirements": {
-    "description": "requirements.lock is the pip freeze a run was actually made with, and every pin in it is kept current. This pattern adds the lock file to the manager's defaults; requirements.txt is excluded by the rule above.",
-    "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
+    "description": "Off. requirements.txt holds loose floors by hand, and moving a pin in the lock one line at a time is what offered mpmath 1.4 against a sympy that refuses it: this manager has no resolver, and nothing here is its to edit.",
+    "enabled": false
+  },
+  "pip-compile": {
+    "description": "requirements.lock is `uv pip compile` over requirements.txt, and the command that made it is in the file's header. Every update is a re-run of that command with the one package raised, and lock file maintenance is a re-run with everything raised, so a pin is never moved past what another pin allows.",
+    "managerFilePatterns": ["/^training/requirements\\.lock$/"]
   }
 }
