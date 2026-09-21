@@ -205,7 +205,7 @@ nothing about any row. Every row abstains where it is unsure, and every row is s
 what it answered, because a score that quietly drops the declined claims is a score for a
 classifier nobody is running.
 
-| | answers | accuracy where it answers | macro F1 |
+| | answers | agreement where it answers | macro F1 |
 |---|---|---|---|
 | the commonest subject | never reaches the promise | 4.9% | 0.004 |
 | TF-IDF bag of words | 34% | 75.3% | 0.412 |
@@ -228,12 +228,12 @@ it promises it can answer one claim in twenty.
 The fourth and fifth rows are the same claims, and three things separate them: reading each
 claim inside its review, a backbone of twice the size, and nineteen thousand more labels, many
 of them drawn at the subjects the reader was worst at. Eighteen points of coverage, two and a
-half of accuracy and thirteen hundredths of macro F1. A
+half of agreement and thirteen hundredths of macro F1. A
 forty-configuration sweep of everything else, measured the same way, moved nothing outside its
 own noise: `DECISIONS.md` has the table and what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by ten points of accuracy and twenty of coverage.** What it is not is
+than this, by ten points of agreement and twenty of coverage.** What it is not is
 affordable: that comparison cost 405,000 tokens for 471 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
