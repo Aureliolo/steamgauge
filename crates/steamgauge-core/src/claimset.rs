@@ -329,6 +329,9 @@ pub struct ClaimLabel {
 #[derive(Debug, Clone, Default)]
 pub struct ClaimIngest {
     pub accepted: usize,
+    /// Labels already in the set for claims the returned files do not answer, kept as they
+    /// were: a set is labelled in sittings, and a later sitting files beside the earlier one.
+    pub kept: usize,
     /// Labels whose subject the revision moved. The measure of what a rule change was worth:
     /// a rule that moves nothing was already understood, and one that moves everything was
     /// not a clarification.
@@ -985,13 +988,30 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         }
     }
 
+    report.accepted = labels.len();
+
+    // A set is labelled in sittings: one labeller's five batches, then another's five a week
+    // later. The claims these files do not answer keep the label they already have, sheet and
+    // labeller and all, because a label written under an earlier wording is a fact about that
+    // wording and not something a later sitting can re-stamp. Only a claim nobody has answered
+    // is missing.
+    if let Ok(bytes) = std::fs::read(dir.join("labels.json")) {
+        let earlier: Vec<ClaimLabel> = serde_json::from_slice(&bytes)?;
+        for label in earlier {
+            let key = (label.review_id.clone(), label.index);
+            if wanted.contains_key(&key) && seen.insert(key) {
+                labels.push(label);
+                report.kept += 1;
+            }
+        }
+    }
+
     for (id, index) in wanted.keys() {
         if !seen.contains(&(id.clone(), *index)) {
             report.missing.push(format!("{id}#{index}"));
         }
     }
     report.missing.sort();
-    report.accepted = labels.len();
     labels.sort_by(|left, right| {
         (left.review_id.as_str(), left.index).cmp(&(right.review_id.as_str(), right.index))
     });
@@ -1300,6 +1320,70 @@ mod tests {
         assert!(
             report.missing.is_empty(),
             "a claim shown for context is not a claim that came back unlabelled"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_later_sitting_files_beside_the_earlier_one_rather_than_over_it() {
+        // A set is labelled five batches at a time, and the second sitting's files do not
+        // hold the first's answers. Written from the returned files alone, the second ingest
+        // replaced 675 labels with the 648 that came back, and stamped whatever survived with
+        // the second sitting's sheet and labeller.
+        let dir = std::env::temp_dir().join(format!("steamgauge-sittings-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        write_set(
+            &dir,
+            &[
+                review("a", &["The combat is superb."]),
+                review("b", &["It runs badly."]),
+            ],
+            1,
+        )
+        .unwrap();
+        let answer = |id: &str, subject: &str| {
+            serde_json::json!([{
+                "review_id": id, "index": 0, "subject": subject, "polarity": "praise",
+                "ironic": false, "confidence": "high", "ambiguous": false, "split_wrong": false
+            }])
+            .to_string()
+        };
+
+        let first = dir.join("first");
+        std::fs::create_dir_all(&first).unwrap();
+        std::fs::write(first.join("batch-000.json"), answer("a", "gameplay")).unwrap();
+        let earlier = Sheet {
+            taxonomy: "an-earlier-wording".to_owned(),
+            produced_by: "the-first-labeller".to_owned(),
+        };
+        let (_, report) = ingest(&dir, &first, &earlier).unwrap();
+        assert_eq!(report.missing, vec!["b#0".to_owned()]);
+
+        let second = dir.join("second");
+        std::fs::create_dir_all(&second).unwrap();
+        std::fs::write(second.join("batch-001.json"), answer("b", "performance")).unwrap();
+        let later = Sheet {
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "the-second-labeller".to_owned(),
+        };
+        let (labels, report) = ingest(&dir, &second, &later).unwrap();
+
+        assert_eq!(report.accepted, 1);
+        assert_eq!(report.kept, 1);
+        assert!(
+            report.missing.is_empty(),
+            "both sittings together answer the whole draw"
+        );
+        assert_eq!(labels.len(), 2);
+        let first_again = labels.iter().find(|label| label.review_id == "a").unwrap();
+        assert_eq!(first_again.subject, "gameplay");
+        assert_eq!(
+            (
+                first_again.taxonomy.as_str(),
+                first_again.produced_by.as_str()
+            ),
+            ("an-earlier-wording", "the-first-labeller"),
+            "a label kept from an earlier sitting keeps the sheet and labeller it answered"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
