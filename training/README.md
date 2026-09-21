@@ -50,6 +50,16 @@ how far apart two runs of one configuration land, which on this machine is about
 coverage even on the same seed. Almost every configuration ever tried here sits inside that,
 and the ones that did not are in `DECISIONS.md` with what each was worth.
 
+A student can learn from more than the labels. `steamgauge export-pool <training app ids>`
+draws reviews no reference set holds, from games the model trains on only, and `teach.py
+--runs <saved run ids>` reads them with an ensemble of saved runs and writes their averaged
+distributions; `train.py --pool data/pool.jsonl --pool-targets data/pool-targets.npz` then
+reads one pool batch beside every labelled batch and pays for disagreeing with the teacher as
+it pays for disagreeing with a label. The pool never reaches a frozen or validation game, and
+`train.py` drops any pool row from a game the run is scored on, so the frozen figure stays a
+figure about games nobody trained on. `--ema`, `--llrd` and `--pooling last` are the other
+knobs added the same night, and `DECISIONS.md` says what each was worth.
+
 `claims.jsonl` holds review text and is never committed. What gets published is the model and a
 label set of review ids, claim offsets and labels, built from `reference/claims/` rather than
 from the training export, which anyone can rehydrate with `steamgauge` itself. Reviews belong to
