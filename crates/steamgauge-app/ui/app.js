@@ -492,6 +492,14 @@ function drawTopics(counted) {
      shown the same table with nothing missing from it. */
   const measured = counted.measured;
   const frozen = counted.frozen;
+  /* Why this game carries no figure of its own: nobody has labelled it, or the model learned
+     from its labels, in which case agreeing with them would measure memory. */
+  const why = counted.learned
+    ? `This game's labelled claims are in the model's training set, so how often it agrees ` +
+      `with them says how well it remembers them, not how it reads, and nothing here is ` +
+      `scored against them.`
+    : `Nobody has labelled this game's claims, so how often the model is wrong here has ` +
+      `not been measured.`;
   const trust =
     measured === null
       ? frozen
@@ -499,15 +507,12 @@ function drawTopics(counted) {
              nothing is measured invites the reader to distrust everything or to trust
              everything. The model does have a measurement; it is about other games, and the
              wording has to say so. */
-          `Nobody has labelled this game's claims, so how often the model is wrong here has ` +
-          `not been measured. What is measured is ${frozen.games} games it had never seen, ` +
+          `${why} What is measured is ${frozen.games} games it had never seen, ` +
           `over ${whole.format(frozen.claims)} labelled claims: it answers ` +
           `${share.format(frozen.coverage)} of them and names the same subject a separate ` +
           `labeller did ${share.format(frozen.accuracy)} of the time when it does. Expect ` +
-          `this game to be near that, and treat every rate as provisional until it is ` +
-          `labelled too.`
-        : `Nobody has labelled this game's claims, so how often the model is wrong here has ` +
-          `not been measured. Treat every rate as provisional.`
+          `this game to be near that, and treat every rate as provisional.`
+        : `${why} Treat every rate as provisional.`
       : measured.agreement === null
         ? `The model declined every labelled claim on this game, so nothing here is measured.`
         : `Where this game has been labelled, the model named the same subject a separate ` +

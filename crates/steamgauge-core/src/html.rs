@@ -977,22 +977,10 @@ fn category_row(out: &mut String, app: &AppReport, category: &SubjectCount, wide
     }
 }
 
-/// Reviews the reference set must raise a category in before its recall means anything.
-///
-/// Below this the measurement is a handful of reviews and its own interval is wider than
-/// any finding, so calling the row weak would be reading noise back as a warning.
-const ENOUGH_TO_JUDGE_A_ROW: u64 = 10;
+use crate::measure::{ENOUGH_TO_CORRECT_A_ROW, ENOUGH_TO_JUDGE_A_ROW};
 
 /// Recall below which the number in this row is standing on very little.
 const THINLY_FOUND: f64 = 0.25;
-
-/// Labelled claims a row needs before its rate is corrected by what they measure.
-///
-/// The correction divides by the gap between sensitivity and the false-positive rate, and at
-/// a dozen labels that sensitivity carries an interval twenty-five points wide: the corrected
-/// share would move by more than itself between one draw of the labels and the next. A row
-/// with ten labels can be described; it cannot be corrected.
-const ENOUGH_TO_CORRECT_A_ROW: u64 = 40;
 
 /// A mark against a rate the model is measured to miss most of.
 ///
