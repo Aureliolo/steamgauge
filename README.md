@@ -554,8 +554,8 @@ These rules keep those figures honest:
 
   Those reports were made against five earlier sets of rules, and every round of fixes since
   answered some of them. Re-cutting all 31,019 randomly drawn claims with the splitter this
-  build ships leaves **9.8%** cut the way the labeller objected to, so five points of the 15.2
-  are rules that have since landed (`--example stale-splits`). It is a floor rather than the
+  build ships leaves **9.6%** cut the way the labeller objected to, so nearly six points of the
+  15.2 are rules that have since landed (`--example stale-splits`). It is a floor rather than the
   new rate: a claim the splitter now cuts differently is not thereby cut correctly, and nothing
   here can see a claim that was cut well before a rule and badly after it.
 
