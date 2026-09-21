@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import subprocess
 import time
 from collections import defaultdict
@@ -211,27 +212,125 @@ class Claims(Dataset):
         )
 
 
+class Pool(Claims):
+    """Unlabelled claims, windowed and tokenised exactly as labelled ones are.
+
+    What comes back with each is a teacher's answer, a distribution over subjects and one over
+    polarities, where a labelled claim carries one subject and one polarity. Without targets,
+    for a teacher reading the pool, it is the inputs alone.
+    """
+
+    def __init__(self, claims, tokenizer, subjects, max_length, context, mark, prefix, targets=None):
+        super().__init__(claims, tokenizer, subjects, max_length, context, mark=mark, prefix=prefix)
+        self.targets = targets
+
+    def __getitem__(self, at):
+        encoded = self.tokenizer(
+            *self.pair(at),
+            truncation=True,
+            max_length=self.max_length,
+            padding="max_length",
+            return_tensors="pt",
+        )
+        item = {"input_ids": encoded["input_ids"][0], "attention_mask": encoded["attention_mask"][0]}
+        if self.targets is not None:
+            subject, polarity = self.targets
+            item["subject"] = torch.from_numpy(subject[at].astype(np.float32))
+            item["polarity"] = torch.from_numpy(polarity[at].astype(np.float32))
+        return item
+
+
+def load_targets(path, pool, subjects):
+    """A teacher's answers on the pool, checked row for row against the pool they answer.
+
+    The file is written in the pool's order and names every row, because a pool drawn again
+    with another seed is a different set of claims in a file of the same name, and answers
+    aligned by position to the wrong pool would train a student on noise that looks like
+    knowledge.
+    """
+    targets = np.load(path, allow_pickle=False)
+    if list(targets["subjects"]) != list(subjects):
+        raise SystemExit(f"{path} answers over {list(targets['subjects'])}, not {subjects}")
+    keys = list(zip(targets["app_id"].tolist(), targets["review_id"].tolist(), targets["claim_index"].tolist()))
+    wanted = [(claim.app_id, claim.review_id, claim.claim_index) for claim in pool]
+    if keys != wanted:
+        raise SystemExit(f"{path} answers a different pool from the one loaded; read it again")
+    return targets["subject"], targets["polarity"]
+
+
+def forever(loader):
+    """The loader again from the top whenever it runs out. The pool is read at the labelled
+    set's pace, one batch per step, and is many times its size; which epoch it is on is of no
+    interest, only that every step has a batch."""
+    while True:
+        yield from loader
+
+
+def soft_cross_entropy(logits, target, temperature):
+    """What a student pays for disagreeing with a teacher's distribution.
+
+    At a temperature above one, both sides are flattened before they are compared, so the
+    student learns the teacher's ranking of the wrong answers rather than only its favourite;
+    the loss is scaled back by the square of the temperature so its gradient keeps its size.
+    """
+    if temperature != 1.0:
+        target = torch.softmax(torch.log(target.clamp(min=1e-8)) / temperature, dim=-1)
+    student = torch.log_softmax(logits.float() / temperature, dim=-1)
+    return -(target * student).sum(dim=-1) * temperature**2
+
+
 class ClaimReader(torch.nn.Module):
     """The trunk, plus the two heads, plus the pooled vector everything else wants."""
 
-    def __init__(self, backbone: str, subjects: int, dropout: float = 0.1):
+    def __init__(self, backbone: str, subjects: int, dropout: float = 0.1, pooling: str = "mean"):
         super().__init__()
         config = AutoConfig.from_pretrained(backbone, trust_remote_code=True)
         self.trunk = AutoModel.from_pretrained(backbone, trust_remote_code=True)
         width = getattr(config, "hidden_size", 768)
+        self.pooling = pooling
         self.drop = torch.nn.Dropout(dropout)
         self.subject = torch.nn.Linear(width, subjects)
         self.polarity = torch.nn.Linear(width, len(POLARITIES))
 
     def forward(self, input_ids, attention_mask):
         hidden = self.trunk(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
-        # Mean pooling rather than the first token: the backbones being compared were not all
-        # pretrained with a sentence-level CLS, and a pooling choice that only suits some of
-        # them would decide the bake-off instead of the models doing it.
-        mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
-        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
+        if self.pooling == "last":
+            # A decoder reads under a causal mask, so only the last token has seen the whole
+            # claim; averaging the rest averages prefixes. Right padding puts that token at
+            # the mask's length.
+            last = attention_mask.sum(dim=1) - 1
+            pooled = hidden[torch.arange(hidden.shape[0], device=hidden.device), last]
+        else:
+            # Mean pooling rather than the first token: the backbones being compared were not
+            # all pretrained with a sentence-level CLS, and a pooling choice that only suits
+            # some of them would decide the bake-off instead of the models doing it.
+            mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
+            pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
         dropped = self.drop(pooled)
         return self.subject(dropped), self.polarity(dropped), pooled
+
+
+def parameter_groups(model, learning_rate: float, decay: float):
+    """Layer-wise learning-rate decay: the heads at the full rate, each encoder layer a factor
+    lower than the one above it, the embeddings lowest of all. The layers nearest the input
+    carry what pretraining taught and are the ones a full rate at this label count overwrites.
+    A decay of 1.0 is one group at one rate."""
+    if decay >= 1.0:
+        return [{"params": list(model.parameters()), "lr": learning_rate}]
+    depth = getattr(model.trunk.config, "num_hidden_layers", 0)
+    layered = re.compile(r"\.(?:layer|layers|h)\.(\d+)\.")
+    groups: dict[float, list] = {}
+    for name, parameter in model.named_parameters():
+        if not name.startswith("trunk."):
+            rate = learning_rate
+        elif (found := layered.search(name)) is not None:
+            rate = learning_rate * decay ** (depth - int(found.group(1)))
+        elif "embed" in name:
+            rate = learning_rate * decay ** (depth + 1)
+        else:
+            rate = learning_rate
+        groups.setdefault(rate, []).append(parameter)
+    return [{"params": parameters, "lr": rate} for rate, parameters in groups.items()]
 
 
 def macro_f1(truth, predicted, classes):
@@ -479,7 +578,11 @@ def run(args) -> dict:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(args.backbone, trust_remote_code=True)
-    model = ClaimReader(args.backbone, len(subjects)).to(device)
+    model = ClaimReader(args.backbone, len(subjects), pooling=args.pooling).to(device)
+    if args.pooling == "last" and tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    # Right padding is what last-token pooling counts on, whatever the tokenizer's own habit.
+    tokenizer.padding_side = "right"
 
     loaders = {
         name: DataLoader(
@@ -505,11 +608,58 @@ def run(args) -> dict:
         for name, part in (("train", train), ("validation", validation), ("test", test))
     }
 
+    taught_batches = None
+    pool_claims = 0
+    if args.pool:
+        if not args.pool_targets:
+            raise SystemExit("--pool needs --pool-targets: a teacher's answers on it, from teach.py")
+        unlabelled = claimdata.load_pool(args.pool)
+        targets = load_targets(args.pool_targets, unlabelled, subjects)
+        # The pool was drawn over games the model trains on, but a fold's validation games are
+        # training games in every other fold, so which games are safe is this run's to decide,
+        # not the draw's. A row from a game this run is scored on carries the teacher's
+        # knowledge of that game into the student.
+        learned = {claim.app_id for claim in train}
+        safe = np.array([claim.app_id in learned for claim in unlabelled])
+        kept = [claim for claim, ok in zip(unlabelled, safe) if ok]
+        if not kept:
+            raise SystemExit(f"{args.pool} holds no claim from a game this run trains on")
+        print(f"pool {len(kept)} of {len(unlabelled)} unlabelled claims, from games this run trains on")
+        pool_claims = len(kept)
+        taught = DataLoader(
+            Pool(
+                kept,
+                tokenizer,
+                subjects,
+                args.max_length,
+                args.context,
+                args.mark,
+                args.prefix,
+                (targets[0][safe], targets[1][safe]),
+            ),
+            batch_size=args.pool_batch_size or micro,
+            shuffle=True,
+            num_workers=0,
+        )
+        taught_batches = forever(taught)
+
     per_epoch = math.ceil(len(loaders["train"]) / args.accumulate)
     steps = per_epoch * args.epochs
-    optimiser = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
+    optimiser = torch.optim.AdamW(
+        parameter_groups(model, args.learning_rate, args.llrd), weight_decay=0.01
+    )
     schedule = get_linear_schedule_with_warmup(optimiser, int(steps * 0.1), steps)
     scaler = torch.amp.GradScaler(device, enabled=device == "cuda")
+    # An exponential average of the weights along the run, evaluated and saved in place of the
+    # last step's. The last step of a run that has memorised its labels is the most
+    # over-confident checkpoint it has; the average sits in the flatter part of the basin.
+    averaged = (
+        torch.optim.swa_utils.AveragedModel(
+            model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
+        )
+        if args.ema > 0
+        else None
+    )
 
     # Rare subjects would otherwise be drowned by `verdict`, which is most of any corpus.
     counts = claimdata.distribution(train)
@@ -545,12 +695,31 @@ def run(args) -> dict:
             # clipping a partial one would clip a different quantity than the batch's own norm.
             if (step + 1) % args.accumulate and step + 1 < len(loaders["train"]):
                 continue
+            if taught_batches is not None:
+                # Its own pass rather than rows mixed into the labelled batch, so the card
+                # holds one batch's activations at a time and the labelled batch stays the
+                # batch every other run learned from. The class weights stay off it: the
+                # teacher's distribution is already the reading of a model trained under
+                # them, and weighting it again would count the correction twice.
+                pooled = next(taught_batches)
+                with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
+                    subject, polarity, _ = model(
+                        pooled["input_ids"].to(device), pooled["attention_mask"].to(device)
+                    )
+                    disagreement = soft_cross_entropy(
+                        subject, pooled["subject"].to(device), args.pool_temperature
+                    ) + args.polarity_weight * soft_cross_entropy(
+                        polarity, pooled["polarity"].to(device), args.pool_temperature
+                    )
+                scaler.scale(disagreement.mean() * args.pool_weight).backward()
             scaler.unscale_(optimiser)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimiser)
             scaler.update()
             schedule.step()
             optimiser.zero_grad(set_to_none=True)
+            if averaged is not None:
+                averaged.update_parameters(model)
             taken += 1
             # Counted in optimiser steps rather than passes: every pass that is not the last of
             # its batch has already gone back to the top, so a count of those reports progress
@@ -579,6 +748,11 @@ def run(args) -> dict:
             f"{'' if metrics['threshold_met'] else f' (wanted {args.min_accuracy:.2f})'}",
             flush=True,
         )
+
+    # The averaged weights are the run's weights from here on: what is scored below, what the
+    # frozen games are read with, and what is saved.
+    if averaged is not None:
+        model.load_state_dict(averaged.module.state_dict())
 
     # Scored once more outside the loop, so what `run.json` reports is measured from the same
     # weights that get saved rather than from whichever epoch happened to be last.
@@ -656,6 +830,14 @@ def run(args) -> dict:
         "ambiguous_weight": args.ambiguous_weight,
         "split_wrong_weight": args.split_wrong_weight,
         "polarity_weight": args.polarity_weight,
+        "ema": args.ema,
+        "llrd": args.llrd,
+        "pooling": args.pooling,
+        "pool": args.pool,
+        "pool_targets": args.pool_targets,
+        "pool_claims": pool_claims,
+        "pool_weight": args.pool_weight if args.pool else None,
+        "pool_temperature": args.pool_temperature if args.pool else None,
         "split_seed": args.split_seed,
         "fold": args.fold,
         "folds": args.folds if args.fold is not None else None,
@@ -704,6 +886,55 @@ def parse():
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--polarity-weight", type=float, default=0.5)
+    parser.add_argument(
+        "--ema",
+        type=float,
+        default=0.0,
+        help="keep an exponential average of the weights at this decay per step and ship that "
+        "instead of the last step; 0 switches it off",
+    )
+    parser.add_argument(
+        "--llrd",
+        type=float,
+        default=1.0,
+        help="layer-wise learning-rate decay: each encoder layer trains at this factor of the "
+        "rate of the layer above it, the heads at the full rate; 1 is one rate for all",
+    )
+    parser.add_argument(
+        "--pooling",
+        choices=("mean", "last"),
+        default="mean",
+        help="how the trunk's states become one vector: the mean over the claim, or the last "
+        "token, which is the only one that has seen the whole claim under a causal mask",
+    )
+    parser.add_argument(
+        "--pool",
+        default=None,
+        help="unlabelled claims from `steamgauge export-pool`, learned from through a "
+        "teacher's answers on them (--pool-targets, written by teach.py). One pool batch is "
+        "read beside every labelled batch, so the labels and the teacher pull at once.",
+    )
+    parser.add_argument("--pool-targets", default=None)
+    parser.add_argument(
+        "--pool-weight",
+        type=float,
+        default=1.0,
+        help="what a pool batch's disagreement with the teacher costs against a labelled "
+        "batch's disagreement with its labels",
+    )
+    parser.add_argument(
+        "--pool-temperature",
+        type=float,
+        default=1.0,
+        help="flatten the teacher's and the student's distributions by this before comparing "
+        "them, so the ranking of the wrong answers is learned too; 1 compares them as they are",
+    )
+    parser.add_argument(
+        "--pool-batch-size",
+        type=int,
+        default=None,
+        help="pool claims read per optimiser step; the labelled micro-batch's size unless set",
+    )
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument(
         "--seed",

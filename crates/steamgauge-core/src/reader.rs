@@ -44,6 +44,16 @@ impl Polarity {
             _ => Self::Neutral,
         }
     }
+
+    /// The polarity a stored reading names, as [`Self::as_str`] wrote it.
+    #[must_use]
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "praise" => Self::Praise,
+            "complaint" => Self::Complaint,
+            _ => Self::Neutral,
+        }
+    }
 }
 
 /// What the model said about one claim.
@@ -146,6 +156,20 @@ pub struct Provenance {
 }
 
 impl Provenance {
+    /// Reads `reader.json` alone, for the passes that need what the model promised and not
+    /// the model: a recount of stored readings has every answer already.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the file is missing or is not a reader's record.
+    pub fn load(dir: &Path) -> Result<Self> {
+        Ok(serde_json::from_slice(
+            &std::fs::read(dir.join("reader.json")).map_err(|_| Error::NoAnchors {
+                path: dir.join("reader.json"),
+            })?,
+        )?)
+    }
+
     /// The line this subject has to clear, by the model's own class index.
     ///
     /// Infinity where a subject has a line of `None`, so a subject nothing can make reliable
@@ -353,12 +377,7 @@ impl ClaimReader {
     /// refused rather than worked around: a model that learned twenty categories cannot be
     /// asked about twenty-four, and letting it try would move every number silently.
     pub fn load(dir: &Path) -> Result<Self> {
-        let provenance: Provenance =
-            serde_json::from_slice(&std::fs::read(dir.join("reader.json")).map_err(|_| {
-                Error::NoAnchors {
-                    path: dir.join("reader.json"),
-                }
-            })?)?;
+        let provenance = Provenance::load(dir)?;
 
         if !crate::taxonomy::categories_still_mean(&provenance.subjects) {
             return Err(Error::StaleAnchors {

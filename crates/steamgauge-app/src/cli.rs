@@ -634,6 +634,39 @@ enum Command {
         to: PathBuf,
     },
 
+    /// Write a draw of unlabelled claims, with their text, as JSONL for a teacher to read.
+    ///
+    /// Reviews no reference set holds, from games the model trains on, in the numbers a
+    /// labeller never could. A student learns a teacher's answers on them beside the
+    /// labelled claims. The file holds review text and is not for publishing. Only games the
+    /// model already learns from may be drawn: a frozen game's reviews, even unlabelled,
+    /// carry what the teacher knows of it into the student, and the frozen figure would stop
+    /// being about a game nobody trained on.
+    ExportPool {
+        /// Steam app IDs to draw from. Each must be a game the model trains on.
+        #[arg(required = true, num_args = 1..)]
+        app_ids: Vec<u32>,
+        /// Directory holding the captures.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
+        /// Reviews to draw from each game.
+        #[arg(long, default_value_t = 2000)]
+        reviews: usize,
+        /// Share of each game's draw written in English, as the reference draws set it.
+        #[arg(long, default_value_t = 0.7)]
+        english: f64,
+        /// Changing this draws a different pool. Not the reference draws' seed, so the two
+        /// overlap only by chance, and what overlaps is left out anyway.
+        #[arg(long, default_value_t = 11)]
+        seed: u64,
+        /// Where the reference sets live, whose reviews are left out of the pool.
+        #[arg(long, default_value = "reference/claims")]
+        reference: PathBuf,
+        /// Where to write the JSONL.
+        #[arg(long, default_value = "training/data/pool.jsonl")]
+        to: PathBuf,
+    },
+
     /// Read every claim in a corpus with the trained model.
     Read {
         /// Steam app IDs whose most recent captures should be read.
@@ -661,6 +694,29 @@ enum Command {
         /// who wrote more than a sentence. Neither drops a review.
         #[arg(long, default_value = "deep")]
         depth: Reading,
+    },
+
+    /// Count a corpus again from the readings already on disk, without the model.
+    ///
+    /// Everything the page shows is added up when a game is read, so a change to the adding
+    /// up (which words stand out, how a month is cut) would otherwise cost every game the
+    /// hours of a reading again. The answers do not change; only the counts do. Refused
+    /// where this build takes a review apart differently from the build that read it, or the
+    /// reader named is not the one that answered.
+    Recount {
+        /// Steam app IDs whose readings should be counted again.
+        #[arg(required = true, num_args = 1..)]
+        app_ids: Vec<u32>,
+        /// Directory holding the captures and their readings.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
+        /// Directory holding the reader.json of the reader that answered. Defaults to
+        /// models/claim-reader in the working tree if there is one, else the platform cache.
+        #[arg(long)]
+        model: Option<PathBuf>,
+        /// How many of the most-helpful reviews count as the top of the pile.
+        #[arg(long, default_value_t = steamgauge_core::capture::DEFAULT_TOP_HELPFUL)]
+        top_helpful: usize,
     },
 
     /// Render a self-contained page from what the reading pass found.
@@ -742,6 +798,15 @@ pub async fn run() -> Result<()> {
             };
             run_read(&app_ids, &model_dir, &options)
         }
+        Command::Recount {
+            app_ids,
+            out,
+            model,
+            top_helpful,
+        } => {
+            let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
+            run_recount(&app_ids, &out, &model_dir, top_helpful)
+        }
         Command::ExportTraining { from, to } => {
             let (written, refused) = steamgauge_core::claimset::export_training(&from, &to)?;
             println!("{written} labelled claims -> {}", to.display());
@@ -753,6 +818,15 @@ pub async fn run() -> Result<()> {
             }
             Ok(())
         }
+        Command::ExportPool {
+            app_ids,
+            out,
+            reviews,
+            english,
+            seed,
+            reference,
+            to,
+        } => run_export_pool(&app_ids, &out, reviews, english, seed, &reference, &to),
         Command::Report {
             app_ids,
             out,
@@ -838,7 +912,9 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::Sweep { .. }
         | Command::Claims { .. }
         | Command::Read { .. }
+        | Command::Recount { .. }
         | Command::ExportTraining { .. }
+        | Command::ExportPool { .. }
         | Command::Report { .. } => unreachable!("run answers every command that needs no encoder"),
     }
 }
@@ -1271,6 +1347,54 @@ fn run_declined(
     Ok(())
 }
 
+fn run_export_pool(
+    app_ids: &[u32],
+    out: &std::path::Path,
+    reviews: usize,
+    english: f64,
+    seed: u64,
+    reference: &std::path::Path,
+    to: &std::path::Path,
+) -> Result<()> {
+    refuse_held_back(app_ids)?;
+
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut file = std::io::BufWriter::new(std::fs::File::create(to)?);
+    let mut total = steamgauge_core::claimset::PoolReport::default();
+    for &app_id in app_ids {
+        let report = steamgauge_core::claimset::export_pool(
+            out,
+            app_id,
+            &reference.join(app_id.to_string()),
+            reviews,
+            english,
+            seed,
+            &mut file,
+        )?;
+        println!(
+            "{:<10} {:>5} reviews {:>6} claims  {:>4} reviews already labelled",
+            app_id, report.reviews, report.claims, report.labelled
+        );
+        total.reviews += report.reviews;
+        total.claims += report.claims;
+        total.labelled += report.labelled;
+        total.refused += report.refused;
+    }
+    std::io::Write::flush(&mut file)?;
+    println!(
+        "\n{} reviews {} claims -> {}",
+        total.reviews,
+        total.claims,
+        to.display()
+    );
+    if total.refused > 0 {
+        println!("{} rows held back for carrying no claim", total.refused);
+    }
+    Ok(())
+}
+
 fn run_mine(
     app_ids: &[u32],
     out: &std::path::Path,
@@ -1501,6 +1625,46 @@ fn read_one(
             thousands(subject.praised),
             thousands(subject.criticised),
             thousands(subject.mixed),
+        );
+    }
+    Ok(())
+}
+
+fn run_recount(
+    app_ids: &[u32],
+    out: &std::path::Path,
+    model_dir: &std::path::Path,
+    top_helpful: usize,
+) -> Result<()> {
+    let provenance = steamgauge_core::reader::Provenance::load(model_dir)?;
+    eprintln!("reader       {}", model_dir.display());
+    if !provenance.run_id.is_empty() {
+        eprintln!("run          {}", provenance.run_id);
+    }
+    for &app_id in app_ids {
+        let snapshot = steamgauge_core::embed::latest_snapshot(out, app_id)?;
+        eprintln!("recounting app {app_id}");
+        let report = steamgauge_core::read::recount_corpus(
+            out,
+            app_id,
+            top_helpful,
+            &provenance,
+            |progress| {
+                eprintln!(
+                    "  {} reviews counted",
+                    thousands(progress.reviews_counted)
+                );
+            },
+        )?;
+        let path = snapshot.join("reading.json");
+        report.save(&path)?;
+        println!(
+            "app          {}\ncounted      {} reviews, {} claims, in {}\nwritten to   {}\n",
+            report.app_id,
+            thousands(report.reviews),
+            thousands(report.claims),
+            elapsed(report.elapsed),
+            path.display()
         );
     }
     Ok(())
