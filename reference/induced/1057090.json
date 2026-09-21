@@ -1,0 +1,127 @@
+{
+  "app_id": 1057090,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "against-the-first-game",
+      "label": "Against the first game",
+      "description": "Weighing this sequel against its predecessor: what it kept, what it fixed, what it lost and whether it is the better game; comparisons to other games in the genre belong in genre.",
+      "refines": "genre",
+      "evidence": [
+        "114010911",
+        "135706132",
+        "145987759",
+        "183136956",
+        "190530107",
+        "64899022",
+        "98498395"
+      ]
+    },
+    {
+      "id": "movement-and-traversal",
+      "label": "Movement and traversal",
+      "description": "The feel of moving through the world with the chain of jumps, dashes, glides and grapples that lets the character fly across the map; which abilities exist and how they combine belongs in the ability kit row.",
+      "refines": "gameplay",
+      "evidence": [
+        "192019060",
+        "232456375",
+        "64908000",
+        "66798556",
+        "85107729",
+        "98498395"
+      ]
+    },
+    {
+      "id": "ability-kit-and-builds",
+      "label": "Ability kit and builds",
+      "description": "The abilities and upgrades you unlock, whether each one earns its place, and the shard or rune combinations that make different builds; the raw feel of running and jumping belongs in movement and traversal.",
+      "refines": "gameplay",
+      "evidence": [
+        "114010911",
+        "134261460",
+        "232456375",
+        "64908000",
+        "98498395"
+      ]
+    },
+    {
+      "id": "bosses-and-escapes",
+      "label": "Boss fights and escape sequences",
+      "description": "The set-piece encounters: the named bosses, their hitboxes and attacks, and the scripted chase or escape sequences that spike the pulse; ordinary combat against small enemies belongs in gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "132867404",
+        "134261460",
+        "85959481",
+        "98498395"
+      ]
+    },
+    {
+      "id": "thorns-and-hazards",
+      "label": "Thorns and terrain hazards",
+      "description": "Dying to the environment rather than to enemies: thorns and spikes, darkness that kills on contact and other instant-death terrain; the overall difficulty curve belongs in difficulty.",
+      "refines": "difficulty",
+      "evidence": [
+        "128059779",
+        "134261460",
+        "138077163",
+        "98498395"
+      ]
+    },
+    {
+      "id": "crying-at-it",
+      "label": "Crying at it",
+      "description": "Being moved to tears or grief by the game, its final theme or the memories it stirs, including comparisons to other tearjerkers; praise of the story that does not speak of being moved belongs in story.",
+      "refines": "atmosphere",
+      "evidence": [
+        "139670253",
+        "150978174",
+        "65102562",
+        "78175049",
+        "81767812",
+        "83815870",
+        "83902067"
+      ]
+    },
+    {
+      "id": "ending-and-villain",
+      "label": "The ending and the villain",
+      "description": "The climax of the story: the antagonist as a creature rejected from birth, the sacrifice and transformation at the end, and the cycle it closes; the companion creatures have their own row.",
+      "refines": "story",
+      "evidence": [
+        "113477313",
+        "136675316",
+        "65276995",
+        "85485547",
+        "85631013",
+        "98498395"
+      ]
+    },
+    {
+      "id": "forest-folk",
+      "label": "The forest folk",
+      "description": "The companion creatures and side characters, the little villagers and the rabbit-dog players find adorable or wish had more to do; the villain and the ending belong in their own row.",
+      "refines": "story",
+      "evidence": [
+        "138077163",
+        "168291947",
+        "81375976",
+        "98498395"
+      ]
+    },
+    {
+      "id": "full-collection",
+      "label": "Full collection",
+      "description": "Hunting down every collectible and upgrade for a complete run, how long that takes and how hard it is; how long the main path lasts belongs in content.",
+      "refines": "content",
+      "evidence": [
+        "138077163",
+        "232456375",
+        "73262897",
+        "98498395"
+      ]
+    }
+  ]
+}

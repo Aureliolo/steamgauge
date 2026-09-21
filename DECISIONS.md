@@ -2595,6 +2595,27 @@ card and `reader.json` carry the name, the run id stays the run id, and a publis
 will number it. Nothing is published: the pin in `reader.rs` is empty, and that is the user's
 step.
 
+### Every set has now been read twice in part, and the figure did not move
+
+Settled the night of 2026-09-21 to 22, while the user was away with a mandate to make the
+reader the best it can be and to keep one second-reading agent running throughout. The 21
+sets that still had no second reading got one, a tenth of each drawn by `second-opinion` and
+read blind by Opus in seven sittings of one agent each: 504230, 546560, 620980, 629730, 690790,
+774361, 916440, 920210, 949230, 990080, 438100, 1222670, 1248130, 1372880, 1449850, 1517290,
+1665460, 1888930, 2338770, 2399830, 2878980. Pooled over every set, **2,976 claims read twice:
+subject 86.5% at kappa 0.85, polarity 94.2% at 0.91**, contested 75.6% at 0.48 with the first
+labeller flagging 30.6% and the second 42.8%; on the 1,521 claims neither flagged they agree on
+the subject 98.9% of the time, on the 1,455 either flagged, 73.6%. The commonest split is still
+`difficulty` against `gameplay`, 33 claims. Ten games, thirty, fifty-one: the figures have not
+moved by a point, which is what a stable sheet looks like from outside.
+
+**The per-game categories are being induced for the rest.** Opus reads a 120-review handout
+per game (`distinct`) and names what the sheet has no row for; each answer goes through
+`ingest-induced`, which refuses a subject with fewer than three cited reviews. Done tonight
+so far: 1057090, 1062090, 1091500, 1102190, 1272080 (9 of 9 kept), 1274570 (7), 1295660 (9),
+1336490 (7). The 18 games without `embeddings.parquet` cannot be handed out until they are
+embedded, which needs the card, which the training sweep holds until morning.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
