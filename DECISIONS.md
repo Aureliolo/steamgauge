@@ -705,6 +705,15 @@ all along; the training tests pass under it. Installing with uv needs
 `--index-strategy unsafe-best-match`, because the CUDA build of torch sits on a second index
 that uv will not look past the first one for; pip looks at both without being told.
 
+The first Renovate run under that lock reported `pip-compile error` and nothing else, and the
+cause is in its parser: it re-runs the header command but refuses every option it does not
+know, and it knows neither `-o`, nor `--python-platform`, nor `--index-strategy`, nor
+`--no-annotate`, nor a `--python-version` written with a space. The header now names the
+source and `--output-file=` and nothing else, and the index, platform, Python version and
+strategy live in a root `uv.toml`, which uv reads from the directory the command runs in and
+which Renovate runs it in. Same pins; a person installing with uv from the root no longer has
+to know the flag.
+
 ### What is there to run when something looks wrong
 
 Each of these answers one question and is a `cargo run --release -p steamgauge-core --example`
@@ -2091,6 +2100,13 @@ a genre word is read as naming the genre, one on a platform or a licence as a ve
 the opposite of the sheet on the genre half. The other rule the person held to is not written:
 "Turn off the lights." and "Turn up the volume." stayed offtopic twice against atmosphere from
 both labellers. Everything else in the sheet held with its adjudicator.
+
+Settled the same day: **the rule stays as written, and the gold set keeps the person's three.**
+The sheet's sentence is explicit, the labels apply it the same way every time, and the
+person's own six split three and three, which is not a reading the labels can be asked to
+follow. Rewording it the person's way would send about 120 verdict labels back to Fable for
+three gold claims. The three stand as the adjudicator read them, disagree with the labels, and
+are the recorded size of that boundary; a person reading the figures should expect it.
 
 **What the set says now.** The re-judged answer is the one filed, so the gold set carries a
 person's reading with the sheet's rule in view. On the blind 169 the Fable labels name the same
