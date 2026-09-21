@@ -49,6 +49,11 @@ points of coverage, so a gap smaller than that is not a finding.
 | cv-e5-27881-weighted-2 | multilingual-e5-large | the usual settings | 26246 | `8887cdbc` | 83.4% | 75.0% | 0.686 |
 | cv-e5-27881-weighted-3 | multilingual-e5-large | the usual settings | 26914 | `8887cdbc` | 81.3% | 75.0% | 0.645 |
 | cv-e5-27881-weighted-4 | multilingual-e5-large | the usual settings | 25114 | `8887cdbc` | 79.8% | 75.1% | 0.670 |
+| cv-e5-29006-0 | multilingual-e5-large | the usual settings | 27194 | `2871969f` | 86.4% | 75.2% | 0.647 |
+| cv-e5-29006-1 | multilingual-e5-large | the usual settings | 26782 | `2871969f` | 91.6% | 75.1% | 0.674 |
+| cv-e5-29006-2 | multilingual-e5-large | the usual settings | 27096 | `2871969f` | 82.0% | 75.1% | 0.689 |
+| cv-e5-29006-3 | multilingual-e5-large | the usual settings | 27724 | `2871969f` | 84.9% | 75.1% | 0.658 |
+| cv-e5-29006-4 | multilingual-e5-large | the usual settings | 26204 | `2871969f` | 79.0% | 75.0% | 0.662 |
 | cv5-0 | multilingual-e5-large | learning rate 3e-5 | 11889 | `8d9da611` | 99.6% | 75.0% | 0.716 |
 | cv5-1 | multilingual-e5-large | learning rate 3e-5 | 12175 | `8d9da611` | 80.4% | 75.3% | 0.580 |
 | cv5-2 | multilingual-e5-large | learning rate 3e-5 | 11530 | `8d9da611` | 73.9% | 75.2% | 0.642 |
@@ -56,9 +61,10 @@ points of coverage, so a gap smaller than that is not a finding.
 | cv5-4 | multilingual-e5-large | learning rate 3e-5 | 11690 | `8d9da611` | 83.6% | 75.2% | 0.658 |
 | e5-12523 | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 82.8% | 75.0% | 0.660 |
 | e5-25481 | multilingual-e5-large | the usual settings | 25481 | `431de257` | 87.0% | 75.3% | 0.636 |
-| **e5-27681** (ships) | multilingual-e5-large | the usual settings | 27681 | `8a01195c` | 88.6% | 75.1% | 0.649 |
+| e5-27681 | multilingual-e5-large | the usual settings | 27681 | `8a01195c` | 88.6% | 75.1% | 0.649 |
 | e5-27881 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 86.8% | 75.2% | 0.625 |
 | e5-27881-weighted | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 87.5% | 75.0% | 0.631 |
+| **e5-29006** (ships) | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 90.3% | 75.0% | 0.646 |
 | e5large | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.9% | 75.1% | 0.669 |
 | e5large-ep3 | multilingual-e5-large | epochs 3 | 12523 | `8d9da611` | 78.2% | 75.3% | 0.656 |
 | e5large-instruct | multilingual-e5-large-instruct | learning rate 3e-5 | 12523 | `8d9da611` | 83.2% | 75.2% | 0.671 |
