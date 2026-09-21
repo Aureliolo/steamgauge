@@ -199,7 +199,9 @@ pub const SHEET: &[Category] = &[
              Darkest Dungeon\", \"a deckbuilder with no deck\", \"not really a soulslike at \
              all\", \"I normally hate management sims\". That holds for any comparison and not \
              only with this game's own predecessor: better or worse is a verdict, how it \
-             differs is genre.",
+             differs is genre. A bare list of what the game is about, \"dwarves, beer, space, \
+             guns, bugs\", with no judgement attached, is genre too: it says what kind of game \
+             this is and nothing else.",
         ),
         alone: false,
     },
@@ -255,7 +257,10 @@ pub const SHEET: &[Category] = &[
         boundary: Some(
             "Anecdotes from a playthrough belong here when they are about a character or an \
              event, and to gameplay when they are about a mechanic. Humour in the writing is \
-             here; a charming art style is graphics.",
+             here; a charming art style is graphics. How much story there is belongs to \
+             content, the same way how much game there is does: \"the main story is fairly \
+             short\" is content, and this is what the narrative is and whether it is worth \
+             following.",
         ),
         alone: false,
     },
@@ -316,7 +321,10 @@ pub const SHEET: &[Category] = &[
             "Whether a controller is supported belongs here, and so does anything the game \
              makes you sit through or click past: a cutscene that cannot be skipped is a \
              question of how many clicks it takes to do anything. Whether the game runs on a \
-             given device belongs to compatibility.",
+             given device belongs to compatibility. How the keys are laid out and whether \
+             they respond is here; whether the game lets you change them, \"I wish I could \
+             remap the keys\", is accessibility, which owns the settings players need in order \
+             to play at all.",
         ),
         alone: false,
     },
@@ -532,9 +540,12 @@ pub const SHEET: &[Category] = &[
                       real cars and tracks, licensed music, a licence lost or gained between \
                       releases, and how faithful the game is to the thing it is adapting.",
         boundary: Some(
-            "A real name being present, missing or wrong belongs here. What is sold on top of \
-             the game belongs to monetisation, whether an adaptation is well written belongs \
-             to story, and a protest about a licence agreement, terms of service or an account \
+            "A real name being present, missing or wrong belongs here, and that includes a \
+             real team, league, competition or player that is absent, wrong or made generic, \
+             \"no Liga MX\", \"the national teams are gone\", however it is phrased; content \
+             keeps only a mode or feature that names nothing real. What is sold on top of the \
+             game belongs to monetisation, whether an adaptation is well written belongs to \
+             story, and a protest about a licence agreement, terms of service or an account \
              belongs to policy.",
         ),
         alone: false,
