@@ -2603,6 +2603,12 @@ fn run_ingest_claims(
 
     println!("app          {app_id}");
     println!("accepted     {} claims", report.accepted);
+    if report.kept > 0 {
+        println!(
+            "kept         {} labels already in the set, for claims these files do not answer",
+            report.kept
+        );
+    }
     println!("contested    {contested}");
     println!("mis-split    {miscut}");
     println!(

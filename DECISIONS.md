@@ -2516,6 +2516,37 @@ unjoined in total, differently distributed: 920210 has eleven more, and every on
 fragment pair such as "The Good [/h1] 1." and "Best graphics in any lego gamer ever." that is
 now one claim, which is the thing this entry set out to fix.
 
+### A reviewer who never capitalises still writes sentences
+
+Settled 2026-09-21, from the labels: 990080 came back 10% mis-cut, and reading the flags
+found the same shape over and over, a whole review as one claim because its author never
+touches the shift key. The splitter took a lowercase letter after a full stop and a space as
+the middle of a sentence, a rule meant for abbreviations, and what it protected was every
+reviewer who writes "pretty great as a non-harry potter fan. the combat never gets old. i
+look forward to whatever they make next." That is three per cent of every draw, two to three
+times the length of the median claim, three points labelled once, and the labellers flagged
+them as mis-cut and could do nothing else.
+
+The rule is gone. The abbreviations are a list and the list is what protects them, with
+`hr`, `min`, `sec`, `avg`, `lvl`, `ep` and the misspelling `ect` added from what the change
+would otherwise have cut. Two things a stop still does not end: an ellipsis trailing into a
+lowercase word ("nails it perfectly... the aesthetics, the execution, the atmosphere"), and
+a stop with no space after it before anything but a capital ("example.com", "v1.2b"), where
+before a capital it is now a sentence somebody typed without a space ("great game.Would
+recommend") rather than a word; a single letter before the stop is an initial and "z.B.",
+"P.S." stay whole.
+
+**What it changed.** Over the 5,670 claims a labeller ever called badly split, 3,807 were
+still cut that way and 3,517 are now, 290 fixed and none newly broken; the random draws go
+from 9.8% to 9.1% still cut as objected to. On the frozen ten, 92 more labels of 5,579 are
+now cut into several, 51 of them flagged by the labeller and the other 41 read one by one and
+every one a sentence boundary ("great evolution of the classic aoe2. combat and eco has been
+tweaked enough to stay similar but refreshing." is two points, and the labeller let it go).
+Three more labels sit inside a larger claim, which is the abbreviations joining what they
+should. The library owes a re-read under these rules before the frozen figure is recorded
+again; until it has one, the 78.2% at 82.1% above stands as measured under the previous rules,
+and the 92 labels are outside the measurement rather than wrong in it.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
@@ -2753,6 +2784,21 @@ Then, in order:
    One is labelled (546560, 675 claims, 16 of them `vr`, which is 40% more `vr` than the whole
    set held). The other fourteen are drawn and waiting: 14,036 claims against the 19,582 the
    set holds. What stopped it was the labelling quota, not the plan.
+
+   **Finished 2026-09-21.** The last three random draws were labelled, one Fable agent of
+   five batches at a time as the budget says: 438100 and 990080 drawn again under this
+   splitter first, since nothing on them was labelled and the same seed returns the same
+   reviews but for the ten the sweep had moved, and 546560's second half beside the first,
+   which is what the ingest had to learn to do: it wrote a set from the returned files
+   alone, so the second sitting would have replaced the 675 labels of the first and stamped
+   any survivor with the second's sheet. 2,596 labels for 351 on the starved rows, 115 of
+   them `community` from 438100 alone, and the silver set holds 33,615. Two things the
+   labellers said on the way: 438100 came back 43% contested against the set's 28%, under a
+   prompt that put the flag to the labeller as "pick one and mark it" where the sheet says it
+   is about the claim and not about them, and the next two games came back at 28% under the
+   sheet's own words, so the flag on 438100 is a fifth too loose and reads as such; and
+   990080 came back 10% mis-cut, and reading those flags found the splitter's stop rule,
+   which the entry on lowercase sentences records.
 5. **Draw the claims the reader cannot answer, not more claims at random. Built 2026-09-12.**
    Every set so far is a random draw, which is what makes prevalence measurable and is the
    right default. But once a reader exists, the claims it abstains on are worth several times a
