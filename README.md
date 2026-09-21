@@ -278,17 +278,17 @@ only copy of somebody's own judgement.
 rather than over them, and prints the share that agrees. That share is the first number this
 project can call accuracy rather than agreement.
 
-**What it says so far.** One person read 118 blind claims, English and from the frozen games,
+**What it says so far.** One person read 121 blind claims, English and from the frozen games,
 on 2026-09-21. Against their answers the labels the whole silver standard is made of name the
 same subject **65.3%** of the time (somewhere in 56% to 73% with 95% confidence), the second
-labeller 62.7%, and where the two labellers had agreed with each other, which is 105 of the
-118, they agree with the person 67.6%. Polarity holds at 86.4%. The reader that ships answers
-80.5% of those claims and names the person's subject on **69.5%** of them (60% to 78%),
+labeller 63.6%, and where the two labellers had agreed with each other, which is 107 of the
+121, they agree with the person 68.2%. Polarity holds at 86.8%. The reader that ships answers
+78.5% of those claims and names the person's subject on **69.5%** of them (60% to 78%),
 against 82% when it is scored on the labels. Two models agree with each other a good deal more
 than either agrees with a person, and "both labellers said so" is right about two times in
 three. Most of the difference is the boundaries the gap list already names, content against
 gameplay, story against gameplay, atmosphere against story and graphics; the interval is wide
-because 118 is few, and it narrows only with more blind answers.
+because 121 is few, and it narrows only with more blind answers.
 
 ### How the reference sets are made
 

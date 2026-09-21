@@ -2019,7 +2019,7 @@ that advances correctly is what made a test that never could have held wrong.
 
 ### The first accuracy figure: the labels agree with a person two times in three
 
-Measured 2026-09-21, from 165 answers on disk. 149 of them place: 30 are the sharp block, 118
+Measured 2026-09-21, from 167 answers on disk. 151 of them place: 30 are the sharp block, 121
 the blind sample, English claims from the frozen ten with no hole in the prefix, and 16 are on
 claims the current splitter no longer cuts or on template options left blank, which the ingest
 refuses and says so. One was half an answer, a subject and no polarity: the page had counted
@@ -2028,26 +2028,26 @@ field it lacked. The page reads a subject without a polarity as unanswered now a
 sets one aside and says how many; the harness gives a claim a subject, leaves, finishes another
 and asserts the page comes back, which took the fixture to seven claims.
 
-**Against the person, on the blind 118:** the Fable labels the silver standard is made of name
-the same subject 65.3% of the time, 56% to 73% at 95%; the Opus labels 62.7%; and where the two
-agreed with each other, 105 of the 118, they agree with the person 67.6%. Polarity holds at
-86.4%. Where the two labellers disagreed, 13 claims, the person sided with Fable six times,
-Opus three, neither four. The shipped reader answers 95 of the 118 and names the person's
-subject on 69.5% of them, 60% to 78%, macro F1 0.606, against 82.1% when scored on the labels.
+**Against the person, on the blind 121:** the Fable labels the silver standard is made of name
+the same subject 65.3% of the time, 56% to 73% at 95%; the Opus labels 63.6%; and where the two
+agreed with each other, 107 of the 121, they agree with the person 68.2%. Polarity holds at
+86.8%. Where the two labellers disagreed, 14 claims, the person sided with Fable six times,
+Opus four, neither four. The shipped reader answers 95 of the 121 and names the person's
+subject on 69.5% of them, 60% to 78%, macro F1 0.593, against 82.1% when scored on the labels.
 The sharp block, disagreements by construction, splits 13, 13 and 4.
 
 **What that means.** Every agreement figure in the README, 82% for the reader and 87% for the
 frontier model, is two models agreeing with each other, and they do that a good deal more than
 either agrees with a person. "Both labellers said so" is right about two times in three, which
 is the assumption the settled 895 of the blind draw rest on and the reason the draw scores them
-apart. The reader's 69.5% on what it answers, with 80.5% answered, is the honest card until the
+apart. The reader's 69.5% on what it answers, with 78.5% answered, is the honest card until the
 interval narrows. Most of the difference is at boundaries the gap list already names: content
 against gameplay (5), story against gameplay (4) and content (3), atmosphere against story and
 graphics (2 each), gameplay against controls (2). Some of it is the person being looser than
 the sheet: "Paid sims didnt have purchases for basic things like a dog" was read as gameplay
 where both models read monetisation, and the sheet sides with the models.
 
-**What is worth more.** Only blind answers, and only for precision: 118 gives ±8.5 points,
+**What is worth more.** Only blind answers, and only for precision: 121 gives ±8.4 points,
 another 120 would give about ±6. The sharp block is done, the split questions settle one
 boundary each, and nothing else on the page moves a published number.
 
