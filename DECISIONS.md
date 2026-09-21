@@ -2164,6 +2164,33 @@ labels feed the trainer and the agreement figure is only ever a description. It 
 before the next such trade: a re-ask that names the rule cannot also be an independent reading,
 and if both are wanted they have to be different claims.
 
+### The four rules the gap list still asked for, and the hundred claims they touch
+
+Written 2026-09-21, after reading `reference/GAPS.md` against the sheet rule by rule. Every
+rule the labellers asked for had landed except four, and none of the four is a new meaning:
+
+- `story` gains the amount rule that `gameplay` already carries for its own row: how much
+  story there is belongs to `content`, "the main story is fairly short" included. Of 624
+  claims with a story word in them, 35 also spoke of length and went five ways.
+- `controls` gains the line between the thing and the option for it: how the keys are laid
+  out and whether they respond is `controls`; whether the game lets you change them is
+  `accessibility`, which already owns the settings players need in order to play at all.
+  Both descriptions claimed remapping and neither rule pointed at the other.
+- `licensing` says that a real team, league, competition or player that is absent, wrong or
+  made generic is licensing however it is phrased, and `content` keeps only a mode that names
+  nothing real. The two labellers of the licensing draws drew that line in two places and
+  flagged nearly all of it.
+- `genre` says a bare list of what the game is about, "dwarves, beer, space, guns, bugs", with
+  no judgement attached, is genre.
+
+The sheet's fingerprint moves from `dc064c24a9bb` to `4c0f706325b0`; no category changes, so
+nothing a model emitted is invalidated and every label keeps the wording it answered. What the
+revision costs is a revisit: a word probe over the export finds about 42 claims on story
+length, 34 on remapping and 37 on named competitions, so one Fable sitting of the usual five
+batches re-asks everything the four rules can move, and the gold set is unaffected because none
+of its 200 claims sits on these words. The relabel cost the roadmap said to measure on one
+game before paying for thirty-six is, for these four rules, one game's worth in total.
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

@@ -20,7 +20,7 @@ Gameplay and mechanics (gameplay)
 
 Genre and comparisons (genre)
   What kind of game this is. A roguelike, turn-based tactics, a management sim, a deckbuilder, a soulslike. It plays like FTL, it is XCOM meets Darkest Dungeon, if you liked Slay the Spire you will like this, it reminds me of the old games in the genre.
-  RULE: Naming what kind of game it is, or which games it resembles, belongs here, and that includes calling it a co-op game or comparing it to other co-op games. As soon as a review says a mechanic is deep, shallow, satisfying or broken, that part is gameplay, and whether the co-op itself works is multiplayer. Ask what the claim is for: if it is praising or condemning, and the genre or the other game is only the noun being judged, it is verdict however specific that noun is, so "great platformer", "god tier city builder", "the best roguelike out there" and "better than Slay the Spire" are all verdict. It is genre only when the kind of game, or the resemblance, is the information being conveyed: "XCOM meets Darkest Dungeon", "a deckbuilder with no deck", "not really a soulslike at all", "I normally hate management sims". That holds for any comparison and not only with this game's own predecessor: better or worse is a verdict, how it differs is genre.
+  RULE: Naming what kind of game it is, or which games it resembles, belongs here, and that includes calling it a co-op game or comparing it to other co-op games. As soon as a review says a mechanic is deep, shallow, satisfying or broken, that part is gameplay, and whether the co-op itself works is multiplayer. Ask what the claim is for: if it is praising or condemning, and the genre or the other game is only the noun being judged, it is verdict however specific that noun is, so "great platformer", "god tier city builder", "the best roguelike out there" and "better than Slay the Spire" are all verdict. It is genre only when the kind of game, or the resemblance, is the information being conveyed: "XCOM meets Darkest Dungeon", "a deckbuilder with no deck", "not really a soulslike at all", "I normally hate management sims". That holds for any comparison and not only with this game's own predecessor: better or worse is a verdict, how it differs is genre. A bare list of what the game is about, "dwarves, beer, space, guns, bugs", with no judgement attached, is genre too: it says what kind of game this is and nothing else.
 
 Overall verdict only (verdict)
   A verdict with no specific reason given. Great game, terrible game, ten out of ten, would recommend, do not buy, best game ever, an excellent city builder, I find this game childish, please make a sequel.
@@ -32,7 +32,7 @@ Says nothing about the game (offtopic)
 
 Story and writing (story)
   The story, plot and characters. The writing, the dialogue, the humour, the ending, the world and its lore, the characters players grew fond of, and whether the narrative is worth following.
-  RULE: Anecdotes from a playthrough belong here when they are about a character or an event, and to gameplay when they are about a mechanic. Humour in the writing is here; a charming art style is graphics.
+  RULE: Anecdotes from a playthrough belong here when they are about a character or an event, and to gameplay when they are about a mechanic. Humour in the writing is here; a charming art style is graphics. How much story there is belongs to content, the same way how much game there is does: "the main story is fairly short" is content, and this is what the narrative is and whether it is worth following.
 
 Atmosphere and feel (atmosphere)
   What the game makes you feel while you are playing it. Genuinely terrifying, the tension never lets up, put headphones on and turn the lights off, it pulls you in and you lose whole evenings, the mood is oppressive and lonely, it has lost the soul the first one had, the people are just numbers to you now, you never really feel it.
@@ -47,7 +47,7 @@ Audio and music (audio)
 
 Controls and interface (controls)
   The controls and the user interface. Clunky or responsive controls, keybindings, controller support, menus, the HUD, the inventory screens, and how many clicks it takes to do anything.
-  RULE: Whether a controller is supported belongs here, and so does anything the game makes you sit through or click past: a cutscene that cannot be skipped is a question of how many clicks it takes to do anything. Whether the game runs on a given device belongs to compatibility.
+  RULE: Whether a controller is supported belongs here, and so does anything the game makes you sit through or click past: a cutscene that cannot be skipped is a question of how many clicks it takes to do anything. Whether the game runs on a given device belongs to compatibility. How the keys are laid out and whether they respond is here; whether the game lets you change them, "I wish I could remap the keys", is accessibility, which owns the settings players need in order to play at all.
 
 Difficulty and balance (difficulty)
   How hard the game is and whether it is fair. Difficulty spikes, grinding, whether the options are balanced against each other, luck and randomness deciding the outcome, and whether it is too easy or punishing.
@@ -103,7 +103,7 @@ Tutorial and learning (tutorial)
 
 Licensed content (licensing)
   Whether the game has the real names. Real teams, players, clubs and kits, real cars and tracks, licensed music, a licence lost or gained between releases, and how faithful the game is to the thing it is adapting.
-  RULE: A real name being present, missing or wrong belongs here. What is sold on top of the game belongs to monetisation, whether an adaptation is well written belongs to story, and a protest about a licence agreement, terms of service or an account belongs to policy.
+  RULE: A real name being present, missing or wrong belongs here, and that includes a real team, league, competition or player that is absent, wrong or made generic, "no Liga MX", "the national teams are gone", however it is phrased; content keeps only a mode or feature that names nothing real. What is sold on top of the game belongs to monetisation, whether an adaptation is well written belongs to story, and a protest about a licence agreement, terms of service or an account belongs to policy.
 
 VR and headsets (vr)
   Playing it in a headset. Room scale and seated play, motion sickness and comfort options, tracking and the controllers in your hands, whether it was built for a headset or is a flat game bolted into one, and which headsets it works with.
