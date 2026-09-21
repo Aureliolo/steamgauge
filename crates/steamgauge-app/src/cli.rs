@@ -1900,7 +1900,7 @@ fn adjudicate_one_game(
     }
     if recut > 0 {
         println!(
-            "{app_id:>9}  {recut} answers name a span this build does not cut a claim at,              refused"
+            "{app_id:>9}  {recut} answers name a span this build does not cut a claim at, refused"
         );
     }
 
@@ -1956,7 +1956,8 @@ fn run_ingest_gold(
     if !useless.is_empty() {
         drop_answers(from, &useless)?;
         println!(
-            "removed    {} answers nothing will ever score, from {}: on a blank template              option, on a claim the set does not have, or on a span this build cuts no claim              at",
+            "removed    {} answers nothing will ever score, from {}: on a blank template \
+             option, on a claim the set does not have, or on a span this build cuts no claim at",
             useless.len(),
             from.display()
         );
