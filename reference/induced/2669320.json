@@ -1,0 +1,103 @@
+{
+  "app_id": 2669320,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "rage-and-controller-breaking",
+      "label": "Rage and broken controllers",
+      "description": "The game as a source of fury: smashed pads, punched walls, strokes, stress and cats thrown out of windows after a loss, whether the player is laughing about it or not; ordinary dislike of the game without the rage does not belong here.",
+      "refines": "atmosphere",
+      "evidence": [
+        "175446816",
+        "175472504",
+        "175734685",
+        "176106411",
+        "178351200",
+        "183192713",
+        "183584559",
+        "191403366",
+        "209419068"
+      ]
+    },
+    {
+      "id": "annual-iteration",
+      "label": "Same game as last year",
+      "description": "Whether this year's entry differs from the previous one: copy and paste, the same as the last instalment, the same thing every year, or the worst-feeling instalment yet; comparisons with games outside the series belong under genre instead.",
+      "refines": null,
+      "evidence": [
+        "175563199",
+        "191196002",
+        "198713657",
+        "213385258",
+        "225431615"
+      ]
+    },
+    {
+      "id": "career-mode",
+      "label": "Career mode",
+      "description": "Career mode as its own subject: transfers in player career, regens, a bug that infects every new career, and how little the mode changes from year to year; talk of the online card mode belongs under Ultimate Team.",
+      "refines": "gameplay",
+      "evidence": [
+        "184696033",
+        "187077763",
+        "205803697",
+        "213385258",
+        "219431161"
+      ]
+    },
+    {
+      "id": "ultimate-team-packs",
+      "label": "Ultimate Team and pack luck",
+      "description": "The card mode and its economy: pack pulls, drop rates, buying points, objectives, promo cards and the weekend league; general grumbling about microtransactions with no mention of the mode stays under monetisation.",
+      "refines": "monetisation",
+      "evidence": [
+        "175396420",
+        "175401530",
+        "178738597",
+        "186631728",
+        "199879491",
+        "213385258"
+      ]
+    },
+    {
+      "id": "shooting-and-goalkeepers",
+      "label": "Shooting and goalkeepers",
+      "description": "How shots and keepers behave: power shots into the top corner, a hard shot always saved in a one on one while a soft roll goes through the keeper's legs, and shooting dynamics judged pointless; other on-pitch mechanics stay under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "176106411",
+        "182202731",
+        "216645224"
+      ]
+    },
+    {
+      "id": "real-football-fandom",
+      "label": "Real-world club fandom",
+      "description": "Reviews used to cheer or curse a real club, player, chairman or match rather than to discuss the game: a cup final report, prayers for a relegation escape, a club slogan, a demand that a president resign; which teams and players the game includes belongs under licensing.",
+      "refines": "offtopic",
+      "evidence": [
+        "179780921",
+        "182132665",
+        "188033822",
+        "189213539",
+        "190829567",
+        "197666001",
+        "219234768",
+        "225910959"
+      ]
+    },
+    {
+      "id": "support-and-bans",
+      "label": "Support tickets and bans",
+      "description": "Dealing with the publisher's support desk: tickets unanswered for months, a ban handed out with no reason given, appeals answered by bots, and a long-known bug the publisher never acknowledges; patches and roadmaps stay under updates.",
+      "refines": "updates",
+      "evidence": [
+        "184696033",
+        "194337975",
+        "201998706"
+      ]
+    }
+  ]
+}

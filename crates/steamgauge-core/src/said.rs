@@ -339,6 +339,45 @@ fn is_han(ch: char) -> bool {
     matches!(ch as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF)
 }
 
+/// Whether a character is a Korean syllable.
+fn is_hangul(ch: char) -> bool {
+    matches!(ch as u32, 0xAC00..=0xD7AF)
+}
+
+/// The particles Korean writes on the end of a word: subject, topic, object, "also", "of",
+/// "at", "from", "to", "with", "than", "like", "only". Longest first, so 에서 comes off before
+/// 서 would be looked for, and a word that is nothing but a particle keeps itself.
+const HANGUL_PARTICLES: [&str; 26] = [
+    "에서는", "에서도", "으로는", "으로도", "에서", "으로", "부터", "까지", "에게", "한테", "처럼",
+    "만큼", "보다", "이나", "라도", "이", "가", "은", "는", "을", "를", "도", "의", "에", "로",
+    "만",
+];
+
+/// The endings Korean conjugates a verb or an adjective with: 환불했습니다, 환불하고 and
+/// 환불받았어요 are all "refunded" to a reader and three words to a counter. Longest first.
+const HANGUL_ENDINGS: [&str; 30] = [
+    "했습니다", "됐습니다", "받았습니다", "습니다", "했어요", "됐어요", "합니다", "됩니다",
+    "하네요", "했다가", "하는데", "했는데", "하면서", "하고", "하는", "하다", "했다", "해서",
+    "해요", "하게", "하지", "되는", "되다", "됐다", "이다", "네요", "어요", "아요", "었다",
+    "았다",
+];
+
+/// A Korean word with its particle and its ending taken off, where they are on it and
+/// something is left.
+fn without_particle(word: &str) -> &str {
+    without_suffix(without_suffix(word, &HANGUL_PARTICLES), &HANGUL_ENDINGS)
+}
+
+fn without_suffix<'a>(word: &'a str, suffixes: &[&str]) -> &'a str {
+    suffixes
+        .iter()
+        .find_map(|suffix| {
+            let stem = word.strip_suffix(suffix)?;
+            (stem.chars().count() >= 2).then_some(stem)
+        })
+        .unwrap_or(word)
+}
+
 /// Whether a pair of characters from a script cut into pairs continues or precedes a run.
 ///
 /// Chinese is cut into words now, and two of its words that happen to share an end
@@ -445,7 +484,9 @@ impl Terms {
         self.run.clear();
 
         for ch in claim.chars() {
-            if crate::claims::writes_without_spaces(ch) {
+            // Korean is written with spaces between words, so it goes the way of a spaced
+            // script and only its particles need taking off; the other scripts here do not.
+            if crate::claims::writes_without_spaces(ch) && !is_hangul(ch) {
                 self.close_word(&mut visit);
                 self.previous.clear();
                 self.run.push(ch);
@@ -551,9 +592,14 @@ impl Terms {
 
     /// Emits the word in hand, and its pair with the word before it, then remembers it.
     fn close_word(&mut self, visit: &mut impl FnMut(&str)) {
-        let word = self.word.trim_matches('\'');
+        let mut word = self.word.trim_matches('\'');
         if word.is_empty() {
             return;
+        }
+        // 그래픽이, 그래픽은 and 그래픽도 are "graphics" with a particle on the end, one
+        // word to a reader and three to a counter until the particle comes off.
+        if word.chars().all(is_hangul) {
+            word = without_particle(word);
         }
         // "runs at 60 fps" must not yield "at fps": a word not worth counting still breaks
         // the chain of pairs.
@@ -655,7 +701,10 @@ ces ça jeu jeux jouer \
 i w na z do nie się jest są to tak jak ale co za od po dla przez ten ta te tego tej tym \
 gra gry grę grze grać \
 ve bir bu şu o de da için ile çok daha ama ya en gibi kadar var yok mi mı mu mü değil \
-oyun oyunu oyunda oyna";
+oyun oyunu oyunda oyna \
+게임 그리고 하지만 그냥 정말 진짜 너무 이거 저거 그거 이런 그런 저런 있다 없다 하다 같다 되다 \
+있는 없는 하는 되는 입니다 합니다 있습니다 없습니다 것 수 등 더 좀 잘 안 못 왜 다 또 아직 이미 \
+계속 근데 그래서 그런데 만약 뭐 걍 ㅋㅋ ㅎㅎ";
 
 /// The filler words as a set, built once: the tokeniser asks about every word of every claim.
 fn filler() -> &'static HashSet<&'static str> {
@@ -728,7 +777,17 @@ mod tests {
     #[test]
     fn a_script_without_a_dictionary_counts_pairs_of_characters() {
         assert_eq!(terms("にほんご"), ["にほ", "ほん", "んご"]);
-        assert_eq!(terms("그래픽"), ["그래", "래픽"]);
+    }
+
+    #[test]
+    fn korean_is_spaced_words_with_the_particle_taken_off() {
+        assert_eq!(terms("그래픽이 좋다"), ["그래픽", "좋다", "그래픽 좋다"]);
+        assert_eq!(terms("그래픽은"), ["그래픽"]);
+        assert_eq!(terms("스토리에서는"), ["스토리"]);
+        assert_eq!(terms("환불했습니다"), ["환불"]);
+        assert_eq!(terms("환불하고"), ["환불"]);
+        // A word that is nothing but a particle keeps itself.
+        assert_eq!(terms("이가"), ["이가"]);
     }
 
     #[test]
