@@ -1,0 +1,140 @@
+{
+  "app_id": 1592190,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "crossover-avatars",
+      "label": "Crossover avatars and characters",
+      "description": "Playing as, or spawning and fighting, characters brought in from other franchises such as catgirls, Raiden, Spider-Man, Walter White and Rick Sanchez; not the game's own cast or the story they belong to.",
+      "refines": "mods",
+      "evidence": [
+        "123355412",
+        "130365423",
+        "184212798",
+        "222902366",
+        "231034643"
+      ]
+    },
+    {
+      "id": "sandbox-violence",
+      "label": "Sandbox violence against NPCs",
+      "description": "The freedom to shoot, beat, suplex, throw, run over and massacre the game's people for fun, told as boasts or as requests for more of it; not scripted combat encounters or the difficulty of fights.",
+      "refines": "gameplay",
+      "evidence": [
+        "129905446",
+        "130365423",
+        "165740206",
+        "178192103",
+        "183233815",
+        "199840258",
+        "212773796",
+        "225207602"
+      ]
+    },
+    {
+      "id": "physics-body",
+      "label": "Physics body and hand interaction",
+      "description": "How the simulated body, hands and grabbed objects behave, including collision, grips shifting, hands sticking and wrestling with doors and people; not tracking or headset comfort.",
+      "refines": "gameplay",
+      "evidence": [
+        "123025894",
+        "123199099",
+        "123260034",
+        "151873437",
+        "177826523",
+        "183233815"
+      ]
+    },
+    {
+      "id": "sexual-play",
+      "label": "Sexual play with avatars",
+      "description": "Touching or groping avatar bodies, trying to have sex with them, and sexual jokes about characters; not romance in the story or the art style of the models.",
+      "refines": null,
+      "evidence": [
+        "123120245",
+        "161039137",
+        "172442246",
+        "176771397"
+      ]
+    },
+    {
+      "id": "fusion-multiplayer",
+      "label": "Fusion and multiplayer by mod",
+      "description": "The absence of built-in multiplayer and playing with friends through the community Fusion mod patched in with outside software, and whether that mod is what keeps the game alive; not servers, matchmaking or lag in a shipped online mode.",
+      "refines": "multiplayer",
+      "evidence": [
+        "154645094",
+        "178197365",
+        "208449891",
+        "222902366",
+        "224829712"
+      ]
+    },
+    {
+      "id": "mod-installation",
+      "label": "Getting mods in without a Workshop",
+      "description": "How to install mods at all, the missing Steam Workshop, mods loaded from outside sources and mods failing on machines with too little memory; not what the mods themselves contain.",
+      "refines": "mods",
+      "evidence": [
+        "145767085",
+        "147664165",
+        "204773576",
+        "212705806",
+        "224829712"
+      ]
+    },
+    {
+      "id": "hub-unlocks",
+      "label": "Hub collectibles and unlocking the campaign",
+      "description": "Hunting hidden balls and orbs across levels to unlock the campaign and hub content, bringing items back to the hub, and not being told where to go or what the unlock criteria are; not the levels' own puzzles.",
+      "refines": "gameplay",
+      "evidence": [
+        "123199099",
+        "123412767",
+        "124214542",
+        "190699163"
+      ]
+    },
+    {
+      "id": "predecessor",
+      "label": "Comparison with the predecessor",
+      "description": "Measuring this game against the studio's earlier game: mechanics dropped since it, needing to have played it first to understand this one, wishing for a direct sequel instead, and whether the lore fits; not comparisons to other studios' games.",
+      "refines": "genre",
+      "evidence": [
+        "123125875",
+        "123412767",
+        "160712485",
+        "190699163"
+      ]
+    },
+    {
+      "id": "studio",
+      "label": "The studio and its people",
+      "description": "The developer as a studio: buying the game to support them, their poor communication, which director is better, and hopes for their next game; not the content of individual patches.",
+      "refines": null,
+      "evidence": [
+        "160712485",
+        "160966377",
+        "194229934",
+        "207037637",
+        "208449891"
+      ]
+    },
+    {
+      "id": "campaign",
+      "label": "The campaign as a mode",
+      "description": "The campaign judged as a component of its own: how short it is, whether it is good, its lack of boss fights, its hours against the price, and replaying it; not the sandbox or the amount of content overall.",
+      "refines": "content",
+      "evidence": [
+        "123145413",
+        "123262356",
+        "123648730",
+        "155014328",
+        "228673247",
+        "231513617"
+      ]
+    }
+  ]
+}

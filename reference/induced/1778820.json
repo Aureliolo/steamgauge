@@ -1,0 +1,164 @@
+{
+  "app_id": 1778820,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "roster-fighters",
+      "label": "The roster: mains, menaces and missing fighters",
+      "description": "Named fighters on the roster: the one a player mains or adores, the ones that are miserable to fight against, and the fighter who is missing and should be added; not the cast as figures in the story.",
+      "refines": null,
+      "evidence": [
+        "156847037",
+        "156918334",
+        "157009850",
+        "158031731",
+        "159597545",
+        "160205151",
+        "165702136",
+        "176125611",
+        "178538929",
+        "191789292"
+      ]
+    },
+    {
+      "id": "ranked-ladder",
+      "label": "Ranks and the ranked ladder",
+      "description": "The ranked ladder: the rank colour reached and the climb to it, leaver penalties, opponents who leave after one match, veterans lurking in the low ranks; not connection quality or the fighting system itself.",
+      "refines": "multiplayer",
+      "evidence": [
+        "157241386",
+        "157447215",
+        "159597545",
+        "178538929",
+        "184500695",
+        "192218472"
+      ]
+    },
+    {
+      "id": "disconnects-and-regions",
+      "label": "Disconnects, ping and regions",
+      "description": "Staying connected to an opponent: matches dropping, unstable ping, lag switchers, and which region you are matched into and how it is decided; not the ranked ladder or the community's manners.",
+      "refines": "multiplayer",
+      "evidence": [
+        "157224446",
+        "157326004",
+        "184500695",
+        "193080605",
+        "195607177",
+        "204169203"
+      ]
+    },
+    {
+      "id": "offence-over-defence",
+      "label": "Offence over defence: heat, mashing and guesses",
+      "description": "The fighting system's tilt towards attack: the heat mechanic and its drives, rage arts and throws, mashing and one-move gameplans, the loss of sidestep and mind games, and rounds decided by a guess in seconds; not patches or specific fighters.",
+      "refines": "gameplay",
+      "evidence": [
+        "159192935",
+        "161172957",
+        "162140250",
+        "166019553",
+        "168166937",
+        "191839259",
+        "191850011",
+        "191865954",
+        "194534155",
+        "226955153"
+      ]
+    },
+    {
+      "id": "seasons-and-balance-patches",
+      "label": "Seasons and balance patches",
+      "description": "The seasonal patches and what they did: a season launching or disappointing, nerfs to named fighters, and calls to revert or hotfix a patch; not the studio's general conduct or the fighting system's design.",
+      "refines": "updates",
+      "evidence": [
+        "160899940",
+        "162464759",
+        "164756560",
+        "176620466",
+        "191847953",
+        "192384710"
+      ]
+    },
+    {
+      "id": "producers-and-publisher-by-name",
+      "label": "The producers and publisher by name",
+      "description": "Reviews that address the game's producers or its publisher by name or nickname, to thank them, blame them or tell them to retire; not complaints about patches that name nobody.",
+      "refines": "updates",
+      "evidence": [
+        "162257005",
+        "168694790",
+        "176563873",
+        "194534155",
+        "221069361"
+      ]
+    },
+    {
+      "id": "tilt-and-rage",
+      "label": "Tilt, rage and blood pressure",
+      "description": "What losing does to the player: the game as a hazard to sanity, raised blood pressure, humiliation and the burning pain of being juggled, told as a joke or a warning; not the mood or immersion of the game itself.",
+      "refines": "atmosphere",
+      "evidence": [
+        "159542820",
+        "160117474",
+        "188670123",
+        "223768651",
+        "226460174",
+        "226955153"
+      ]
+    },
+    {
+      "id": "getting-good",
+      "label": "Getting good: the skill gap and the climb",
+      "description": "A player's own skill: learning to block lows and read the opponent, feeling hopeless, veterans stomping newcomers, simplified inputs as a crutch, and the courage to keep practising; not the tutorial or the modes that teach.",
+      "refines": "tutorial",
+      "evidence": [
+        "157241386",
+        "158408114",
+        "158719092",
+        "159597545",
+        "159782365",
+        "161627703",
+        "183629210"
+      ]
+    },
+    {
+      "id": "fighter-bodies-and-costumes",
+      "label": "Fighter bodies, hair and costumes",
+      "description": "How the fighters look and dress: body physics, a changed hairstyle, the physiques on offer, and the costumes and customisation items; not the stages, effects or overall art style.",
+      "refines": "graphics",
+      "evidence": [
+        "157168927",
+        "204874958",
+        "206890157",
+        "218043960"
+      ]
+    },
+    {
+      "id": "pros-streamers-and-tournaments",
+      "label": "Pros, streamers and tournaments",
+      "description": "The game as something watched: pro players and streamers by name or handle, coming to the game from YouTube, and how tournaments are run; not the ordinary playerbase's manners.",
+      "refines": "community",
+      "evidence": [
+        "157447215",
+        "157483060",
+        "158719092",
+        "159782365"
+      ]
+    },
+    {
+      "id": "series-lineage",
+      "label": "Against the earlier entries and the next one",
+      "description": "This entry set against its numbered predecessors, playing since an older entry, and praying for the next number; not comparisons to other games or genres.",
+      "refines": "genre",
+      "evidence": [
+        "156859967",
+        "156933925",
+        "166019553",
+        "194534155"
+      ]
+    }
+  ]
+}

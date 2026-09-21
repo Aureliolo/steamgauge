@@ -162,6 +162,15 @@ outrank one three hundred used against ten, and a side with a handful of reviews
 rather than promoting whatever those few happened to write. Counts are by reviewer, once per
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
+A term is a word or a pair of adjacent words. Chinese, which a quarter of the library is
+written in, is cut into words by a dictionary (jieba, with the words of the trade added, since a
+general dictionary reads 掉帧 as "drop" and "frame"); Japanese and Korean, which have no
+dictionary here, are cut into pairs of adjacent characters, the best that can be done without
+one. Everything the page shows is added up when a game is read, so a change to the adding up
+does not cost the hours of a reading again: `steamgauge recount` replays the stored readings
+through the same counting in seconds, and refuses if this build takes a review apart
+differently from the build that read it.
+
 ### Ratings that disagree with the text
 
 A thumbs-down is not always a complaint. "0/10, haven't slept in three days" is praise wearing
@@ -188,7 +197,10 @@ A census that cannot say how often it is wrong is just an opinion with decimal p
 The model is measured against **reference sets**: claims labelled one at a time, stored under
 `reference/claims/<app id>/` with the drawn sample beside them. Whole games are held out rather
 than whole claims, because two claims from one review are not independent evidence and a score
-that mixes them is a score for how well the model repeats itself.
+that mixes them is a score for how well the model repeats itself. A report scores a game
+against its own set only when the model never trained on it: on the games it learned from it
+reproduces its labels at 99%, and a page that printed that as agreement would advertise its
+memory.
 
 Three things are reported together, and separating them is what makes the number mean anything:
 

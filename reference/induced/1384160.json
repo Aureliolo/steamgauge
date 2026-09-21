@@ -1,0 +1,157 @@
+{
+  "app_id": 1384160,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "mains-and-favourites",
+      "label": "Mains and favourite characters",
+      "description": "Which character a player picks, switches to or sinks training-mode hours into, and affection for a character's personality, lore or lines; complaints about facing a character belong under fighting specific characters.",
+      "refines": null,
+      "evidence": [
+        "122170564",
+        "135039619",
+        "135263072",
+        "161624260",
+        "178082180",
+        "178430564",
+        "189913028",
+        "194709753",
+        "231089554"
+      ]
+    },
+    {
+      "id": "fighting-specific-characters",
+      "label": "Fighting specific characters",
+      "description": "Frustration or awe at facing a particular character or the players who pick it, its cheap moves, corner pressure and predictable play; wanting that character changed belongs under balance patches.",
+      "refines": "difficulty",
+      "evidence": [
+        "106189072",
+        "109312871",
+        "141634407",
+        "213161136",
+        "93625849",
+        "97044254",
+        "98137891",
+        "98356784"
+      ]
+    },
+    {
+      "id": "balance-patches",
+      "label": "Balance patches and character changes",
+      "description": "What a patch or rework did to a character's moves, hitboxes and strength, calls to buff or nerf one, and verdicts on the current balance patch; how hard the game is overall stays under difficulty.",
+      "refines": "difficulty",
+      "evidence": [
+        "145335262",
+        "177772518",
+        "178655817",
+        "180995192",
+        "202303895",
+        "97090345"
+      ]
+    },
+    {
+      "id": "combos-and-execution",
+      "label": "Combos, inputs and execution",
+      "description": "Named moves, combo routes and loops, input notation, blocking highs and lows, wake-up reversals and burst, and the physical toll of executing them; whether the fighting is deep or shallow in general stays under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "103201555",
+        "105806231",
+        "140968523",
+        "166079953",
+        "226103399",
+        "229641050",
+        "93710768",
+        "93982442",
+        "97947216"
+      ]
+    },
+    {
+      "id": "roster-additions",
+      "label": "Roster additions and character DLC",
+      "description": "Which characters are on the roster, who has just been added or announced, leaked release orders, crossover guests, requests for a favourite to arrive and calls for the next season pass; what a pass costs belongs under monetisation.",
+      "refines": "updates",
+      "evidence": [
+        "100933516",
+        "105439708",
+        "109521260",
+        "111260433",
+        "120285080",
+        "147389915",
+        "153632636",
+        "163832105"
+      ]
+    },
+    {
+      "id": "ranked-and-lobbies",
+      "label": "Ranked, floors and lobbies",
+      "description": "The ranking ladder and reaching its top floor, the arrival of a ranked mode, skill-based matchmaking, match limits and rematches, and the lobby system; connection quality and player counts stay under multiplayer.",
+      "refines": "multiplayer",
+      "evidence": [
+        "105439708",
+        "165496155",
+        "94213015",
+        "94238268",
+        "94979012",
+        "98336372"
+      ]
+    },
+    {
+      "id": "hours-to-learn",
+      "label": "Hours to learn and the veteran gap",
+      "description": "How many hours it takes to grasp the fundamentals or one character, easy to learn but hard to master, the entry barrier for newcomers and players arriving from other fighting games, and a ladder full of veterans; the tutorial lessons themselves stay under tutorial.",
+      "refines": "tutorial",
+      "evidence": [
+        "107991909",
+        "110737876",
+        "135263072",
+        "165496155",
+        "178430564",
+        "203293098",
+        "93737106",
+        "94213015"
+      ]
+    },
+    {
+      "id": "political-censorship",
+      "label": "Political controversy and censorship",
+      "description": "The launch-week row over in-game text touching Taiwan, the publisher's post-launch censorship and the wording of its response, and the grievance it left on both sides; political posts with no link to the game belong under offtopic.",
+      "refines": "policy",
+      "evidence": [
+        "104883914",
+        "93679945",
+        "93803066",
+        "94040523",
+        "94334789"
+      ]
+    },
+    {
+      "id": "rock-soundtrack",
+      "label": "Rock soundtrack and character themes",
+      "description": "The vocal rock and metal soundtrack, individual character themes, quoting their lyrics and love for the composer; sound effects and voice acting stay under audio.",
+      "refines": "audio",
+      "evidence": [
+        "103628347",
+        "155815502",
+        "178422713",
+        "203293098"
+      ]
+    },
+    {
+      "id": "character-appeal",
+      "label": "Character appeal and queer fandom",
+      "description": "Attraction to the cast's designs, best-girl picks, the game as fanservice, and jokes about its trans characters and the fandom that gathers around them; the art style in general stays under graphics.",
+      "refines": null,
+      "evidence": [
+        "103447243",
+        "105454724",
+        "131896877",
+        "139860889",
+        "187875864",
+        "210666319"
+      ]
+    }
+  ]
+}

@@ -2616,6 +2616,47 @@ so far: 1057090, 1062090, 1091500, 1102190, 1272080 (9 of 9 kept), 1274570 (7), 
 1336490 (7). The 18 games without `embeddings.parquet` cannot be handed out until they are
 embedded, which needs the card, which the training sweep holds until morning.
 
+### The report was scoring the model on its own homework, and a third of its Chinese was not words
+
+Settled 2026-09-22, from reading the reports with the user's "fix what is wrong" in hand.
+Three things were wrong, and one thing made fixing them affordable.
+
+**A training game was scored against its own labels.** The page measured every game with a
+reference set against that set, and 37 of the 51 are games the model trained on, where it
+reproduces the labels at 98.8% (1272080: 504 answered, 98.8% agreement, macro F1 0.981). The
+page printed that as the game's agreement figure, drew per-row precision and recall from it,
+and corrected the row's prevalence by errors measured on claims the model had memorised. A
+game whose role is `Train` now carries `Measurement::Learned`: no figure, no per-row
+measurement, no correction, and the note says the labels are in the weights and quotes the
+out-of-fold figure instead, as an unlabelled game's note does. Validation games keep their
+figure, since the shipped weights never trained on them.
+
+**A row was corrected from a dozen labels.** The correction divides the observed share by the
+gap between sensitivity and false-positive rate, and it ran from ten labelled claims, where
+sensitivity carries a twenty-five-point interval; the text then called it "an estimate from a
+few hundred labels". Forty labels is the floor now, and the sentence prints the count.
+
+**Chinese was cut into pairs of characters, and a pair that straddles two words is not a
+word.** 操作手感 ("the feel of the controls") came out as 作手; the controls row showed 作手,
+作感, 作很, 作简, all halves of 操作 glued to what followed it. Chinese is a quarter of the
+library. Runs of Chinese now go through a dictionary (`jieba-rs`, MIT, with 72 words of the
+trade added because a general dictionary reads 掉帧 as "drop" and "frame"); a lone character
+is heard only in the pair it makes with what came before, two lone characters in a row are a
+word the dictionary lacks, and modifiers stack so 不太友好 keeps its "not". Japanese and Korean
+stay as pairs of characters, joined back into runs, because there is no dictionary for them
+here. On 1057090 the performance complaints went from `优化 掉帧 卡顿 化不 化问 化有` to
+`优化 掉帧 卡顿`, difficulty from `不友 全成 好难` to `不友好 全成就 好难 蜘蛛`, content from
+`性很 富了 容丰` to `内容丰富 意犹未尽 不够玩`.
+
+**What made it affordable: `steamgauge recount`.** Everything the page shows is added up
+during the reading, and until tonight a change to the adding up meant reading the library
+again, four hours and forty-eight minutes of the card. The answers had not changed. The
+recount replays `readings.parquet` through the same counting a reading goes through, writes
+`reading.json`, never rewrites the readings, and refuses if this build cuts a review
+differently from the build that read it (the claim and unanswered counts must match the
+reading's) or the reader named is not the one that answered (the lines fingerprint must
+match). The 53 games recounted in about seven minutes, every one reconciling.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

@@ -1,0 +1,87 @@
+{
+  "app_id": 1716740,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "studio-and-director",
+      "label": "The studio, its director and its formula",
+      "description": "Reviews that judge the game as the latest work of this studio and its director: addressing him by name, weighing the game against the studio's earlier titles and their running jokes, asking after its next game, and whether the fifteen-year-old formula still holds up; not a general genre comparison to other studios' games.",
+      "refines": null,
+      "evidence": [
+        "145749751",
+        "145750233",
+        "145771996",
+        "145894487",
+        "145957087",
+        "146797430",
+        "147549473",
+        "155101505",
+        "167362441"
+      ]
+    },
+    {
+      "id": "planet-exploration",
+      "label": "Planets and generated exploration",
+      "description": "Landing on and exploring the many worlds outside the main quest: whether they are empty, whether the outposts and labs repeat from one planet to the next, and whether surveying hundreds of worlds is exciting or a chore; not the scripted story locations.",
+      "refines": "content",
+      "evidence": [
+        "145771996",
+        "146954450",
+        "148411022",
+        "149537894",
+        "156445801"
+      ]
+    },
+    {
+      "id": "loading-screens",
+      "label": "Loading screens breaking up the world",
+      "description": "How often play is interrupted by a loading screen when moving between ship, space, city and building, and the sense that the world is chopped into cells; not how long each load takes or the frame rate.",
+      "refines": "performance",
+      "evidence": [
+        "146954450",
+        "178551137",
+        "189465008"
+      ]
+    },
+    {
+      "id": "reception-discourse",
+      "label": "Reception, review bombing and the discourse",
+      "description": "Talk about how the game is being received rather than the game itself: bandwagon haters and people who never played it, console fanboys, journalists and awards, and the split in review scores between regions and languages; not whether the in-game community is friendly.",
+      "refines": "community",
+      "evidence": [
+        "145747728",
+        "145750728",
+        "145759536",
+        "145762076",
+        "145763657",
+        "146134362",
+        "155167735"
+      ]
+    },
+    {
+      "id": "official-mod-platform",
+      "label": "Official mod support and paid creations",
+      "description": "The studio's own modding platform: the wait for full mod tools, mods sold for money through the publisher's storefront, and the account it demands to log in; not community mods hosted elsewhere or whether the game needs modding at all.",
+      "refines": "mods",
+      "evidence": [
+        "155360465",
+        "167092041",
+        "167362441"
+      ]
+    },
+    {
+      "id": "faction-questlines",
+      "label": "Faction questlines and roles",
+      "description": "The separate questlines for the game's factions and corporations, the roles they let the player take on such as ranger, pirate, government agent or corporate spy, and holding several at once; not the main quest or the writing in general.",
+      "refines": "story",
+      "evidence": [
+        "145742926",
+        "145744029",
+        "146076324",
+        "227485640"
+      ]
+    }
+  ]
+}

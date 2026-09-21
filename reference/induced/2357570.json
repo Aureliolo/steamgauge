@@ -1,0 +1,116 @@
+{
+  "app_id": 2357570,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "heroes",
+      "label": "Heroes and hero balance",
+      "description": "Talk of particular heroes and roles, which one to main, which is loved, and which needs a buff or a nerf; remarks about combat with no hero or role named belong under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "176510906",
+        "209325304",
+        "209739810",
+        "221061762",
+        "221759735",
+        "229266540"
+      ]
+    },
+    {
+      "id": "character-thirst",
+      "label": "Character sex appeal",
+      "description": "The characters' bodies and the game as thirst material, from a hero's thighs to gooner jokes; ordinary praise of the art style or the character models belongs under graphics.",
+      "refines": "graphics",
+      "evidence": [
+        "144306343",
+        "170358565",
+        "223049079",
+        "224694239",
+        "227933388"
+      ]
+    },
+    {
+      "id": "studio-executives",
+      "label": "The studio and its executives",
+      "description": "The developer as a corporation and the people who run it, named by name, mocked as a small indie company worth billions, or blamed for harassment scandals, sackings and greed; decisions about accounts, regions and bans belong under account access.",
+      "refines": null,
+      "evidence": [
+        "143894221",
+        "143910379",
+        "143984573",
+        "144020964",
+        "144024254",
+        "144026588",
+        "144058237",
+        "144493481",
+        "145303968",
+        "188236200"
+      ]
+    },
+    {
+      "id": "account-access",
+      "label": "Account access and bans",
+      "description": "Being unable to log in, phone verification that rejects certain numbers, needing an account from another region, and bans applied across the publisher's account, whether for language and flag or for a different game; server outages and lag stay under multiplayer.",
+      "refines": "policy",
+      "evidence": [
+        "145701872",
+        "157263690",
+        "178947924",
+        "208809955",
+        "228172612"
+      ]
+    },
+    {
+      "id": "teammates-matchmaking",
+      "label": "Teammates and matchmaking",
+      "description": "Being matched with teammates who throw, smurf, boost or simply cannot play, so that a 5v5 feels like 1v9 and the result is settled before the match starts; lag, ping and server outages stay under multiplayer.",
+      "refines": "multiplayer",
+      "evidence": [
+        "158112113",
+        "209325304",
+        "218194680",
+        "219693321",
+        "229266540"
+      ]
+    },
+    {
+      "id": "rage-tilt",
+      "label": "Rage and mental toll",
+      "description": "The game as a source of stress, tilt and rage, from raised blood pressure and ranked anxiety to being told to go and touch grass; a bare insult with no feeling described belongs under verdict.",
+      "refines": "atmosphere",
+      "evidence": [
+        "144475868",
+        "150354908",
+        "168135156",
+        "176541013",
+        "233576211"
+      ]
+    },
+    {
+      "id": "modes-pve",
+      "label": "Game modes and the promised PvE",
+      "description": "Named modes and what became of them, the PvE that was promised and never delivered, a mode praised as peak and seasonal missions taken away; how many hours the game lasts belongs under content.",
+      "refines": "content",
+      "evidence": [
+        "143910379",
+        "155926832",
+        "188799569",
+        "216598326"
+      ]
+    },
+    {
+      "id": "cosmetics-rewards",
+      "label": "Skins, battle pass and event rewards",
+      "description": "The cosmetics themselves and how they are handed out, a good skin on a hero, a crossover collaboration, a battle pass that cannot be revisited and anniversary rewards that amount to a few loot boxes; whether the pricing is predatory in general belongs under monetisation.",
+      "refines": "monetisation",
+      "evidence": [
+        "143893849",
+        "148070484",
+        "218878686",
+        "225385861"
+      ]
+    }
+  ]
+}
