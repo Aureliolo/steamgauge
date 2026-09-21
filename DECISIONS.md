@@ -2757,6 +2757,21 @@ Then, in order:
    One is labelled (546560, 675 claims, 16 of them `vr`, which is 40% more `vr` than the whole
    set held). The other fourteen are drawn and waiting: 14,036 claims against the 19,582 the
    set holds. What stopped it was the labelling quota, not the plan.
+
+   **Finished 2026-09-21.** The last three random draws were labelled, one Fable agent of
+   five batches at a time as the budget says: 438100 and 990080 drawn again under this
+   splitter first, since nothing on them was labelled and the same seed returns the same
+   reviews but for the ten the sweep had moved, and 546560's second half beside the first,
+   which is what the ingest had to learn to do: it wrote a set from the returned files
+   alone, so the second sitting would have replaced the 675 labels of the first and stamped
+   any survivor with the second's sheet. 2,596 labels for 351 on the starved rows, 115 of
+   them `community` from 438100 alone, and the silver set holds 33,615. Two things the
+   labellers said on the way: 438100 came back 43% contested against the set's 28%, under a
+   prompt that put the flag to the labeller as "pick one and mark it" where the sheet says it
+   is about the claim and not about them, and the next two games came back at 28% under the
+   sheet's own words, so the flag on 438100 is a fifth too loose and reads as such; and
+   990080 came back 10% mis-cut, and reading those flags found the splitter's stop rule,
+   which the entry on lowercase sentences records.
 5. **Draw the claims the reader cannot answer, not more claims at random. Built 2026-09-12.**
    Every set so far is a random draw, which is what makes prevalence measurable and is the
    right default. But once a reader exists, the claims it abstains on are worth several times a
