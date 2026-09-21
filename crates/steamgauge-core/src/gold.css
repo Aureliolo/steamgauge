@@ -105,6 +105,21 @@ header.bar .spacer { flex: 1; }
 .shown b { font-weight: 600; }
 .shown .who { color: var(--dim); font-size: 0.85rem; }
 
+button.take {
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button.take:hover, button.take:focus-visible { border-color: var(--accent); outline: none; }
+
+.rules { margin: 12px 0 0; font-size: 0.9rem; line-height: 1.5; }
+.rules p { margin: 6px 0; }
+.rules i { color: var(--dim); }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
