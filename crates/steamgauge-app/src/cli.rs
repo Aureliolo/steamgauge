@@ -1635,7 +1635,9 @@ fn run_gold(
             );
         }
         println!(
-            "rejudge    {} gold answers differ from the first labeller's, shown with both              labellers' answers, the person's own and the sheet's rule for each; {} agree and              are not asked",
+            "rejudge    {} gold answers differ from the first labeller's, shown with both \
+             labellers' answers, the person's own and the sheet's rule for each; {} agree \
+             and are not asked",
             found.split, found.agreed
         );
         return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
