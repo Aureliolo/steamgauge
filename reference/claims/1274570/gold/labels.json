@@ -49,5 +49,22 @@
     "confidence": "high",
     "ambiguous": false,
     "split_wrong": false
+  },
+  {
+    "review_id": "100177227",
+    "index": 0,
+    "app_id": 1274570,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 15,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "atmosphere",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   }
 ]

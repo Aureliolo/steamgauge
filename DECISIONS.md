@@ -2019,44 +2019,47 @@ that advances correctly is what made a test that never could have held wrong.
 
 ### The first accuracy figure: the labels agree with a person two times in three
 
-Measured 2026-09-21, from 167 answers on disk. 151 of them place: 30 are the sharp block, 121
-the blind sample, English claims from the frozen ten with no hole in the prefix, and 16 are on
-claims the current splitter no longer cuts or on template options left blank, which the ingest
-refuses and says so. One was half an answer, a subject and no polarity: the page had counted
-it, stepped past it and never come back, and `ingest-gold` refused the whole file over the
-field it lacked. The page reads a subject without a polarity as unanswered now and the ingest
-sets one aside and says how many; the harness gives a claim a subject, leaves, finishes another
-and asserts the page comes back, which took the fixture to seven claims.
+Settled 2026-09-21: the gold set is **200 claims** adjudicated by one person, and 200 on
+purpose, because it is the number that will be quoted and a sample size that reads as chosen
+rather than as where somebody stopped. 30 are the sharp block, every disagreement the two
+labellers were sure about; 169 are the blind sample, English claims from the frozen ten with
+no hole in the prefix; one is a blind claim a later draw held back. The person answered 216
+in all: 15 landed on claims nothing will ever score, template options the reviewer left blank
+and spans the splitter has since joined to their point or taken apart, and the ingest removes
+those from the answers file now rather than listing them at every run, because no rule is
+going to be undone to cut those spans again. One answer over 200 was removed by hand.
 
-**Against the person, on the blind 121:** the Fable labels the silver standard is made of name
-the same subject 65.3% of the time, 56% to 73% at 95%; the Opus labels 63.6%; and where the two
-agreed with each other, 107 of the 121, they agree with the person 68.2%. Polarity holds at
-86.8%. Where the two labellers disagreed, 14 claims, the person sided with Fable six times,
-Opus four, neither four. The shipped reader answers 95 of the 121 and names the person's
-subject on 69.5% of them, 60% to 78%, macro F1 0.593, against 82.1% when scored on the labels.
-The sharp block, disagreements by construction, splits 13, 13 and 4.
+Two things the page did on the way that it should not have. A subject without a polarity was
+counted as an answer, stepped past and never returned to, and `ingest-gold` refused the whole
+file over the field it lacked; the page reads a half answer as unanswered now and the ingest
+sets one aside and says how many, and the harness gives a claim a subject, leaves, finishes
+another and asserts the page comes back, which took the fixture to seven claims. And a review
+of 620980 tagged English and written in Hangul was put in front of the adjudicator, because
+the language filter reads Steam's tag, which is the reviewer's account setting; a claim whose
+letters are mostly of a script its tag's language does not use is held back now and counted as
+`mistagged`, mostly rather than all because an English review names a Japanese boss, and only
+with four letters to judge by because "10/10" is written in every language on Steam. Sixty
+such claims were in the English draw.
+
+**Against the person, on the blind 169:** the Fable labels the silver standard is made of name
+the same subject 65.1% of the time, 58% to 72% at 95%; the Opus labels 63.9%; and where the two
+agreed with each other, 149 of the 169, they agree with the person 68.5%. Polarity holds at
+85.8%. Where the two labellers disagreed, 20 claims, the person sided with Fable eight times,
+Opus six, neither six. The shipped reader answers 137 of the 169 and names the person's
+subject on 70.1% of them, 62% to 77%, macro F1 0.582, against 82.1% when scored on the labels.
+The sharp block, disagreements by construction, splits 13, 13 and 4. The figures moved by less
+than a point from 118 answers to 169, which is what a sample that is only growing should do.
 
 **What that means.** Every agreement figure in the README, 82% for the reader and 87% for the
 frontier model, is two models agreeing with each other, and they do that a good deal more than
 either agrees with a person. "Both labellers said so" is right about two times in three, which
 is the assumption the settled 895 of the blind draw rest on and the reason the draw scores them
-apart. The reader's 69.5% on what it answers, with 78.5% answered, is the honest card until the
-interval narrows. Most of the difference is at boundaries the gap list already names: content
-against gameplay (5), story against gameplay (4) and content (3), atmosphere against story and
-graphics (2 each), gameplay against controls (2). Some of it is the person being looser than
-the sheet: "Paid sims didnt have purchases for basic things like a dog" was read as gameplay
-where both models read monetisation, and the sheet sides with the models.
-
-**What is worth more.** Only blind answers, and only for precision: 121 gives ±8.4 points,
-another 120 would give about ±6. The sharp block is done, the split questions settle one
-boundary each, and nothing else on the page moves a published number.
-
-**And one more question nobody should be asked.** The language filter reads Steam's tag, which
-is the reviewer's account setting: a review of 620980 tagged English and written in Hangul was
-put in front of the adjudicator. A claim whose letters are mostly of a script its tag's language
-does not use is held back now and counted as `mistagged`, mostly rather than all because an
-English review names a Japanese boss, and only with four letters to judge by because "10/10" is
-written in every language on Steam.
+apart. The reader's 70.1% on what it answers, with 81.1% answered, is the honest card. Most of
+the difference is at boundaries the gap list already names: content against gameplay (5),
+genre against verdict (5), story against gameplay (4) and content (3), genre against gameplay
+(3), gameplay against controls (2). Some of it is the person being looser than the sheet:
+"Paid sims didnt have purchases for basic things like a dog" was read as gameplay where both
+models read monetisation, and the sheet sides with the models.
 
 ### The clarification moved 344 labels of 627, and cost the right to re-measure them
 
