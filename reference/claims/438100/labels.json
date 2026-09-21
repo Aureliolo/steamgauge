@@ -24,13 +24,13 @@
     "subset": "random",
     "start": 0,
     "end": 29,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "4c0f706325b0",
     "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false
   },
   {
