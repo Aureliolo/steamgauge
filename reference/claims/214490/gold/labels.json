@@ -1,0 +1,53 @@
+[
+  {
+    "review_id": "143822047",
+    "index": 0,
+    "app_id": 214490,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 72,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "verdict",
+    "polarity": "praise",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  },
+  {
+    "review_id": "100628920",
+    "index": 0,
+    "app_id": 214490,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 73,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "gameplay",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  },
+  {
+    "review_id": "100628920",
+    "index": 1,
+    "app_id": 214490,
+    "language": "english",
+    "subset": "random",
+    "start": 74,
+    "end": 144,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "gameplay",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]

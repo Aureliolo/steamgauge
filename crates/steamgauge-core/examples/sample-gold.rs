@@ -86,10 +86,19 @@ fn main() {
             "Story dragged in the middle. The soundtrack carried the whole third act.",
             None,
         ),
+        // A seventh, for the half answer: one claim is given a subject and left, the next is
+        // finished, and the page has to come back to the first. That spends two, and the one
+        // above still has to be there unanswered at the end.
+        question(
+            "7",
+            "Crashes on every load screen since the patch.",
+            "Ran fine for a month. Crashes on every load screen since the patch.",
+            None,
+        ),
     ];
 
     let found = GoldDraw {
-        blind: 5,
+        blind: 6,
         settled: 1,
         split: 1,
         games: 8,
@@ -97,6 +106,7 @@ fn main() {
         contested_sure: 1,
         declined: 0,
         recut: 0,
+        mistagged: 0,
         languages: Vec::new(),
     };
 

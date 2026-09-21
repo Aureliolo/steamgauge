@@ -125,6 +125,14 @@
     return question.app_id + "#" + question.review_id + "#" + question.index;
   }
 
+  // A subject without a polarity is a claim somebody is still on. It is kept so they can
+  // finish it, and it is not an answer: counted as one it hid behind the count, and the page
+  // stepped past it and never came back.
+  function isAnswered(question) {
+    var mine = answers[keyOf(question)];
+    return Boolean(mine && mine.subject && mine.polarity);
+  }
+
   function firstUnanswered() {
     return nextUnanswered(0);
   }
@@ -138,17 +146,17 @@
   // judged with no way to tell that from a claim they have not.
   function nextUnanswered(from) {
     for (var i = from; i < questions.length; i += 1) {
-      if (!answers[keyOf(questions[i])]) return i;
+      if (!isAnswered(questions[i])) return i;
     }
     for (var j = 0; j < from && j < questions.length; j += 1) {
-      if (!answers[keyOf(questions[j])]) return j;
+      if (!isAnswered(questions[j])) return j;
     }
     return questions.length;
   }
 
   function answered() {
     var n = 0;
-    for (var i = 0; i < questions.length; i += 1) if (answers[keyOf(questions[i])]) n += 1;
+    for (var i = 0; i < questions.length; i += 1) if (isAnswered(questions[i])) n += 1;
     return n;
   }
 

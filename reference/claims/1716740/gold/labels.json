@@ -1,0 +1,36 @@
+[
+  {
+    "review_id": "145843077",
+    "index": 4,
+    "app_id": 1716740,
+    "language": "english",
+    "subset": "random",
+    "start": 684,
+    "end": 752,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "offtopic",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  },
+  {
+    "review_id": "180069518",
+    "index": 4,
+    "app_id": 1716740,
+    "language": "english",
+    "subset": "random",
+    "start": 258,
+    "end": 330,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "gameplay",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]

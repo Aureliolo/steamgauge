@@ -89,10 +89,44 @@ pub struct GoldDraw {
     /// words are still in the review and the label is not wrong about them, but there is no
     /// claim there any more to adjudicate and no reading that could be joined to the answer.
     pub recut: usize,
+    /// Claims held back because they are written in a script the language they are tagged
+    /// with does not use. The language filter reads Steam's tag, which is the reviewer's
+    /// account setting and not the text: a review tagged English and written in Hangul was
+    /// put in front of somebody who reads English, and a question they cannot read costs the
+    /// same minute as a real one and collects noise.
+    pub mistagged: usize,
     /// Which languages the person was asked about, empty for all of them. A sample restricted
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
     pub languages: Vec<String>,
+}
+
+impl GoldDraw {
+    /// Whether a label is one nobody should be asked about, counted under why.
+    ///
+    /// Nothing anybody can adjudicate is not a hard question, it is a broken one. It costs
+    /// the person the same time as a real claim and the answer it collects is worth nothing
+    /// either way. Three shapes: a template option its author left blank, a claim written in
+    /// a script its tag does not use where a language was asked for, and a span this build
+    /// cuts no claim at.
+    fn holds_back(
+        &mut self,
+        label: &ClaimLabel,
+        text: &str,
+        by_language: bool,
+        cut: Option<&crate::claimset::CutSpans>,
+    ) -> bool {
+        if crate::claims::is_not_a_claim(text) {
+            self.declined += 1;
+        } else if by_language && written_in_another_script(&label.language, text) {
+            self.mistagged += 1;
+        } else if !still_cut(cut, label) {
+            self.recut += 1;
+        } else {
+            return false;
+        }
+        true
+    }
 }
 
 /// Which games' disagreements to put in front of a person.
@@ -118,6 +152,74 @@ type Contested = (At, bool, Question);
 /// Whether a labeller signalled doubt, by any of the three means the sheet gives them.
 fn hedged(label: &ClaimLabel) -> bool {
     label.ambiguous || label.split_wrong || label.confidence == "low"
+}
+
+/// The scripts a Steam language is written in.
+///
+/// Steam's tag is the reviewer's account setting, not the text, and the two disagree often
+/// enough that six of eight labellers reported it independently. Reading the tag is right
+/// for the reader, which sees the tag at inference too; it is wrong for a person, who is
+/// asked to read the words. Japanese takes Han as well as kana, and Chinese only Han, so a
+/// Japanese review tagged Chinese passes and the reverse does not.
+fn scripts_of(language: &str) -> &'static [Script] {
+    match language {
+        "russian" | "ukrainian" | "bulgarian" => &[Script::Cyrillic],
+        "greek" => &[Script::Greek],
+        "schinese" | "tchinese" => &[Script::Han],
+        "japanese" => &[Script::Han, Script::Kana],
+        "koreana" => &[Script::Hangul],
+        "thai" => &[Script::Thai],
+        "arabic" => &[Script::Arabic],
+        _ => &[Script::Latin],
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Script {
+    Latin,
+    Cyrillic,
+    Greek,
+    Han,
+    Kana,
+    Hangul,
+    Thai,
+    Arabic,
+}
+
+/// Which script a letter belongs to, for the scripts Steam reviews arrive in; anything else
+/// is not evidence either way.
+fn script_of(letter: char) -> Option<Script> {
+    Some(match letter as u32 {
+        0x0041..=0x024F => Script::Latin,
+        0x0370..=0x03FF => Script::Greek,
+        0x0400..=0x04FF => Script::Cyrillic,
+        0x0600..=0x06FF => Script::Arabic,
+        0x0E00..=0x0E7F => Script::Thai,
+        0x3040..=0x30FF => Script::Kana,
+        0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF => Script::Han,
+        0x1100..=0x11FF | 0x3130..=0x318F | 0xAC00..=0xD7AF => Script::Hangul,
+        _ => return None,
+    })
+}
+
+/// Whether a claim's letters are mostly of a script the language it is tagged with does not
+/// use. Mostly rather than all, because an English review names a Japanese boss and a Korean
+/// one quotes an English error message; and only where there are enough letters to say,
+/// since "10/10" is written in every language on Steam.
+#[must_use]
+pub fn written_in_another_script(language: &str, text: &str) -> bool {
+    const ENOUGH_LETTERS: usize = 4;
+
+    let expected = scripts_of(language);
+    let (mut theirs, mut others) = (0_usize, 0_usize);
+    for letter in text.chars().filter(|ch| ch.is_alphabetic()) {
+        match script_of(letter) {
+            Some(script) if expected.contains(&script) => theirs += 1,
+            Some(_) => others += 1,
+            None => {}
+        }
+    }
+    theirs + others >= ENOUGH_LETTERS && others > theirs
 }
 
 /// Whether this build still cuts a claim exactly where the label says one is.
@@ -218,15 +320,7 @@ pub fn draw(
             let Some((at, text)) = rejoined.find(label.index) else {
                 continue;
             };
-            // Nothing anybody can adjudicate is not a hard question, it is a broken one. It
-            // costs the person the same time as a real claim and the answer it collects is
-            // worth nothing either way.
-            if crate::claims::is_not_a_claim(text) {
-                found.declined += 1;
-                continue;
-            }
-            if !still_cut(cut.as_ref(), label) {
-                found.recut += 1;
+            if found.holds_back(label, text, !languages.is_empty(), cut.as_ref()) {
                 continue;
             }
             let question = Question {
@@ -748,6 +842,36 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Steam's tag is the reviewer's account setting, and a review tagged English and written
+    /// in Hangul was put in front of somebody who reads English. The question they cannot
+    /// read is held back; the one that names a foreign word is not.
+    #[test]
+    fn a_claim_written_in_a_script_its_tag_does_not_use_is_not_asked() {
+        assert!(written_in_another_script(
+            "english",
+            "\u{D080}\u{C2A4}\u{D2B8} \u{C790}\u{CCB4}\u{C5D0}\u{C11C} \u{C0AC}\u{B294}\u{AC8C} \u{B354} .."
+        ));
+        assert!(
+            !written_in_another_script("english", "The boss \u{7121}\u{540D} took me an hour."),
+            "one foreign name in an English sentence is still English"
+        );
+        assert!(
+            !written_in_another_script("english", "10/10"),
+            "a claim with no letters is written in every language"
+        );
+        assert!(
+            !written_in_another_script(
+                "japanese",
+                "\u{6226}\u{95D8}\u{624B}\u{611F}\u{6975}\u{597D}"
+            ),
+            "Japanese is written with Han as well as kana"
+        );
+        assert!(
+            written_in_another_script("koreana", "Great game, would recommend to anyone."),
+            "an English review under a Korean tag is not Korean either"
+        );
     }
 
     /// A label from an earlier splitter can name a span this build cuts elsewhere: a template

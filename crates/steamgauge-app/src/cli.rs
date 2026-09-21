@@ -1665,6 +1665,13 @@ fn run_gold(
             found.recut
         );
     }
+    if found.mistagged > 0 {
+        println!(
+            "mistagged  {} claims are written in a script their Steam language tag does not \
+             use, which the language filter reads and a person cannot",
+            found.mistagged
+        );
+    }
 
     match delivery {
         Delivery::Written(to) => {
@@ -1736,7 +1743,11 @@ struct Adjudicated {
     app_id: u32,
     review_id: String,
     index: u16,
+    /// Either may be missing: the page writes the file as keys are pressed, so a claim given
+    /// a subject and not yet a polarity is in it, half answered.
+    #[serde(default)]
     subject: String,
+    #[serde(default)]
     polarity: String,
     #[serde(default)]
     ambiguous: bool,
@@ -1860,6 +1871,20 @@ fn run_ingest_gold(
     by: &str,
 ) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
+
+    // A subject without a polarity is a claim somebody is still on, not a label: the page
+    // keeps it so they can finish it, and a gold label with half its answer would be scored
+    // as truth about the half nobody gave.
+    let (answers, unfinished): (Vec<Adjudicated>, Vec<Adjudicated>) = answers
+        .into_iter()
+        .partition(|answer| !answer.subject.is_empty() && !answer.polarity.is_empty());
+    if !unfinished.is_empty() {
+        println!(
+            "unfinished {} answers have a subject or a polarity but not both; the page still \
+             asks them",
+            unfinished.len()
+        );
+    }
 
     answered_this_sheet(answers.iter().map(|answer| answer.sheet.as_deref()))?;
     let mut by_game: std::collections::BTreeMap<u32, Vec<&Adjudicated>> =
