@@ -1,0 +1,19 @@
+[
+  {
+    "review_id": "147104505",
+    "index": 0,
+    "app_id": 1272080,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 58,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "verdict",
+    "polarity": "praise",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]

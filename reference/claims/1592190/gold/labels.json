@@ -1,0 +1,19 @@
+[
+  {
+    "review_id": "149079892",
+    "index": 1,
+    "app_id": 1592190,
+    "language": "english",
+    "subset": "random",
+    "start": 41,
+    "end": 79,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "policy",
+    "polarity": "complaint",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "review_id": "114850129",
+    "index": 0,
+    "app_id": 620980,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 35,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "verdict",
+    "polarity": "praise",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  },
+  {
+    "review_id": "62102081",
+    "index": 0,
+    "app_id": 620980,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 10,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "verdict",
+    "polarity": "praise",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]

@@ -245,6 +245,11 @@ trained from were written by **Claude Fable 5.1**, and the model it is measured 
 **Claude Opus 5**, which wrote none of them. A teacher scoring its own student would make the
 gap meaningless, and the gap is the point.
 
+Every figure in that table is agreement with those labels, and the labels are a model's. The
+one person who has read a blind sample of them so far agrees with the labels on 65% of
+subjects and with the frontier model on 63%, which is the section below and the number to
+hold the table against.
+
 That is not a projection. The library this was built against is **51 games, 7.5 million
 reviews, 20.1 million claims**, all of it read by this model on one card, and the counts and
 the rows behind them reconcile game by game (`--example check-readings`).
@@ -272,6 +277,18 @@ only copy of somebody's own judgement.
 `steamgauge ingest-gold` reads those answers back, files them beside the labels already there
 rather than over them, and prints the share that agrees. That share is the first number this
 project can call accuracy rather than agreement.
+
+**What it says so far.** One person read 118 blind claims, English and from the frozen games,
+on 2026-09-21. Against their answers the labels the whole silver standard is made of name the
+same subject **65.3%** of the time (somewhere in 56% to 73% with 95% confidence), the second
+labeller 62.7%, and where the two labellers had agreed with each other, which is 105 of the
+118, they agree with the person 67.6%. Polarity holds at 86.4%. The reader that ships answers
+80.5% of those claims and names the person's subject on **69.5%** of them (60% to 78%),
+against 82% when it is scored on the labels. Two models agree with each other a good deal more
+than either agrees with a person, and "both labellers said so" is right about two times in
+three. Most of the difference is the boundaries the gap list already names, content against
+gameplay, story against gameplay, atmosphere against story and graphics; the interval is wide
+because 118 is few, and it narrows only with more blind answers.
 
 ### How the reference sets are made
 

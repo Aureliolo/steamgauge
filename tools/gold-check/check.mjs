@@ -30,6 +30,9 @@ const PROBE = `(function () {
   var at = function () {
     return Number(/^(\\d+) of/.exec(document.querySelector('header.bar .count').textContent)[1]);
   };
+  var answeredCount = function () {
+    return Number(/(\\d+) answered/.exec(document.querySelector('header.bar .count').textContent)[1]);
+  };
 
   var data = JSON.parse(document.getElementById('data').textContent);
   check('the page carries no questions', data.questions && data.questions.length > 0);
@@ -132,6 +135,23 @@ const PROBE = `(function () {
   press('1');
   check('answering walked onto a claim that had already been answered', at() === hole + 2);
 
+  // A subject without a polarity is a claim somebody is still on, not an answer. Counted as
+  // one, it hid behind the count, the page stepped past it and never came back, and the
+  // ingest refused the whole file over the field it lacked.
+  var half = at();
+  var counted = answeredCount();
+  press(document.querySelector('button.pick kbd').textContent);
+  check('a subject without a polarity was counted as an answer', answeredCount() === counted);
+  press('ArrowRight');
+  check('the right arrow does not move on from a half answer', at() === half + 1);
+  // Two on, so the claim in between stays unanswered for the reload below, and answering the
+  // last one has to wrap back to the half answer rather than onto the finished screen.
+  press('ArrowRight');
+  press(document.querySelector('button.pick kbd').textContent);
+  press('1');
+  check('the page did not come back to the half-answered claim', at() === half);
+  check('finishing another claim counted the half-answered one', answeredCount() === counted + 1);
+
   // Everything answered must be kept, so a closed tab does not cost a night.
   var kept = Object.keys(localStorage).filter(function (k) { return k.indexOf('steamgauge-gold') === 0; });
   check('nothing is kept for the next sitting', kept.length === 1);
@@ -169,9 +189,9 @@ const PROBE = `(function () {
   // A reader who opens the sheet to settle a boundary must not have it shut on them by the
   // act of answering, which is the one moment they were reading it for.
   //
-  // On a claim nobody has answered, which the skip above has already left the page sitting on.
-  // Both clicks have to land on the same claim: on one that is already answered the first
-  // completes it, the page moves, and the polarity goes to whatever came next.
+  // On the half-answered claim the page came back to. Both clicks have to land on the same
+  // claim: on one that is already answered the first completes it, the page moves, and the
+  // polarity goes to whatever came next.
   var sheet = document.querySelector('details.sheet');
   sheet.open = true;
   sheet.dispatchEvent(new Event('toggle'));

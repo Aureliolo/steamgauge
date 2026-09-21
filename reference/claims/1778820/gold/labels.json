@@ -1,0 +1,19 @@
+[
+  {
+    "review_id": "192470443",
+    "index": 2,
+    "app_id": 1778820,
+    "language": "english",
+    "subset": "random",
+    "start": 98,
+    "end": 148,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "offtopic",
+    "polarity": "neutral",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]
