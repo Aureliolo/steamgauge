@@ -1774,6 +1774,10 @@ type AnswerKey = (u32, String, u16);
 
 /// One claim as a person answered it on the gold page.
 #[derive(serde::Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is one key the page records on its own; no two of them name one state"
+)]
 struct Adjudicated {
     app_id: u32,
     review_id: String,
@@ -1790,6 +1794,10 @@ struct Adjudicated {
     split_wrong: bool,
     #[serde(default)]
     unsure: bool,
+    /// Given with the labellers' answers and the sheet's rule in view, after a first answer
+    /// given cold. How many of these there are is the finding a re-judge pass is run for.
+    #[serde(default)]
+    rejudged: bool,
     /// Which sheet the person was reading when they answered. Absent on anything exported
     /// before the page recorded it.
     #[serde(default)]
@@ -1996,6 +2004,13 @@ fn run_ingest_gold(
     }
 
     println!("\ngold       {written} claims by {by}");
+    let rejudged = answers.iter().filter(|answer| answer.rejudged).count();
+    if rejudged > 0 {
+        println!(
+            "rejudged   {rejudged} of them were answered again with the labellers' answers and \
+             the sheet's rule in view, and that answer is the one filed"
+        );
+    }
     #[expect(
         clippy::cast_precision_loss,
         reason = "an adjudicated set is thousands of claims at most"

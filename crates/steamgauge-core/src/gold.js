@@ -74,14 +74,14 @@
     questions.forEach(function (question) {
       // A re-judgement asks about a claim that is already answered on disk, and that answer is
       // the one being questioned: taking it as done would leave nothing to ask. Only an answer
-      // given since this page was drawn counts.
-      wanted[keyOf(question)] = question.was ? data.drawn || 0 : 0;
+      // marked as given with the rule in view counts.
+      wanted[keyOf(question)] = question.was ? "rejudged" : "any";
     });
     var taken = 0;
     rows.forEach(function (row) {
       var key = row.app_id + "#" + row.review_id + "#" + row.index;
       if (wanted[key] === undefined) return;
-      if ((row.answered_at || 0) < wanted[key]) return;
+      if (wanted[key] === "rejudged" && !row.rejudged) return;
       answers[key] = row;
       taken += 1;
     });
@@ -298,14 +298,16 @@
       );
       question.shown.forEach(function (said, i) {
         html.push(
-          "<span><b>" +
+          take(question, said) +
+            "<b>" +
             escape(said.subject) +
             "</b> " +
             escape(said.polarity) +
             ' <span class="who">(' +
             escape(said.confidence) +
             (said.ambiguous ? ", called it contested" : "") +
-            ")</span></span>"
+            ")</span>" +
+            (question.was ? "</button>" : "</span>")
         );
         if (i === 0 && question.shown.length > 1) html.push('<span class="who">vs</span>');
       });
@@ -318,11 +320,13 @@
     // beside it. The answer they give replaces the first.
     if (question.was) {
       html.push(
-        '<div class="shown"><span class="who">You said:</span><span><b>' +
+        '<div class="shown"><span class="who">You said:</span>' +
+          take(question, question.was) +
+          "<b>" +
           escape(question.was.subject) +
           "</b> " +
           escape(question.was.polarity) +
-          "</span></div>"
+          "</button></div>"
       );
       var named = [question.was.subject].concat(
         (question.shown || []).map(function (said) {
@@ -481,6 +485,9 @@
       answered_at: 0,
     };
     mine[field] = value;
+    // Given with the labellers' answers and the sheet's rule in view, which is a different
+    // kind of answer from a cold one and is filed as such.
+    if (question.was) mine.rejudged = true;
     mine.answered_at = Math.floor(Date.now() / 1000);
     answers[key] = mine;
     save();
@@ -498,10 +505,30 @@
     render();
   }
 
+  // On a re-judgement the answer is always one already on the page, so each of them is a
+  // button that gives both halves at once. On a split it is not: an answer shown there is a
+  // suggestion, and a suggestion with a button on it is a suggestion taken.
+  function take(question, said) {
+    if (!question.was) return "<span>";
+    return (
+      '<button class="take" data-subject="' +
+      escape(said.subject) +
+      '" data-polarity="' +
+      escape(said.polarity) +
+      '">'
+    );
+  }
+
   function wire(question) {
     Array.prototype.forEach.call(app.querySelectorAll("button.pick"), function (button) {
       button.onclick = function () {
         set(question, "subject", button.getAttribute("data-subject"));
+      };
+    });
+    Array.prototype.forEach.call(app.querySelectorAll("button.take"), function (button) {
+      button.onclick = function () {
+        set(question, "subject", button.getAttribute("data-subject"));
+        set(question, "polarity", button.getAttribute("data-polarity"));
       };
     });
     Array.prototype.forEach.call(app.querySelectorAll("button.tone[data-tone]"), function (button) {

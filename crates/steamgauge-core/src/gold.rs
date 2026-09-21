@@ -399,7 +399,10 @@ pub fn draw(
 /// which case the rule is what has to change. Only the second kind is worth a relabel.
 ///
 /// Answered on the same page and keyed by the same claim, so a re-judgement replaces the
-/// first answer at the next ingest and the gold set carries one answer per claim.
+/// first answer at the next ingest and the gold set carries one answer per claim. The page
+/// marks an answer given with the rule in view as `rejudged`, which is how it tells one from
+/// the first answer sitting in the same file under the same claim, and how the ingest counts
+/// them.
 ///
 /// # Errors
 ///
@@ -583,11 +586,6 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "questions": questions,
         "categories": categories,
         "taxonomy": crate::taxonomy::sheet(),
-        // When the page was drawn, so a re-judgement can tell an answer given on it from the
-        // first answer it is asking about, which is on disk under the same claim.
-        "drawn": std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |since| since.as_secs()),
         "blind": found.blind,
         "settled": found.settled,
         "split": found.split,

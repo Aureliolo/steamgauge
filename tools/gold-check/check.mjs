@@ -249,6 +249,51 @@ const MARKS = `(function () {
   return wrong;
 })()`;
 
+// On a re-judgement every answer is one already on the page, so each of them is a button that
+// gives both halves at once and moves on. On a split it must not be: an answer with a button
+// on it is a suggestion taken. Run on a fresh page and cleaned up after, because the marks are
+// walked next on a page nobody has answered anything on.
+const TAKE = `(function () {
+  var wrong = [];
+  var data = JSON.parse(document.getElementById('data').textContent);
+  var press = function (key) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: key, bubbles: true }));
+  };
+  var at = function () {
+    return Number(/^(\\d+) of/.exec(document.querySelector('header.bar .count').textContent)[1]);
+  };
+  var answeredCount = function () {
+    return Number(/(\\d+) answered/.exec(document.querySelector('header.bar .count').textContent)[1]);
+  };
+  var target = -1;
+  for (var i = 0; i < data.questions.length; i += 1) {
+    if (data.questions[i].was) { target = i; break; }
+  }
+  if (target === -1) { return ['the fixture has no re-judgement to drive']; }
+  while (at() < target + 1) press('ArrowRight');
+  var takes = document.querySelectorAll('button.take');
+  if (takes.length !== (data.questions[target].shown || []).length + 1) {
+    wrong.push('a re-judgement offers ' + takes.length + ' answers to take');
+  }
+  var before = answeredCount();
+  var chosen = takes[takes.length - 1];
+  var subject = chosen.getAttribute('data-subject');
+  chosen.click();
+  if (answeredCount() !== before + 1) wrong.push('taking a shown answer did not answer the claim');
+  if (at() !== target + 2) wrong.push('taking a shown answer did not move the page on');
+  var kept = JSON.parse(localStorage.getItem(Object.keys(localStorage).filter(function (k) { return k.indexOf('steamgauge-gold') === 0; })[0]) || '{}');
+  var row = kept[Object.keys(kept)[0]] || {};
+  if (row.subject !== subject || !row.polarity) wrong.push('the taken answer was kept without both halves');
+  if (!row.rejudged) wrong.push('an answer given with the rule in view is not marked as one');
+  press('ArrowLeft');
+  press('ArrowLeft');
+  press('ArrowLeft');
+  press('ArrowLeft');
+  if (document.querySelectorAll('button.take').length) wrong.push('a split question offers its answers as buttons');
+  localStorage.clear();
+  return wrong;
+})()`;
+
 const RELOADED = `(function () {
   var wrong = [];
   var kept = Object.keys(localStorage).filter(function (k) { return k.indexOf('steamgauge-gold') === 0; });
@@ -345,6 +390,9 @@ try {
 
   // Walked first, on a page nobody has answered anything on, because answering moves which
   // question is on screen and the marks have to be checked against all of them.
+  const taken = (await evaluate(TAKE)).result?.result?.value ?? ["taking an answer could not be driven"];
+  await send("Page.reload", { ignoreCache: true });
+  await ready();
   const marks = (await evaluate(MARKS)).result?.result?.value ?? ["the marks could not be read"];
   await send("Page.reload", { ignoreCache: true });
   await ready();
@@ -379,7 +427,7 @@ try {
   await sleep(250);
   const narrow = (await evaluate(NARROW)).result?.result?.value ?? [];
 
-  const all = [...wrong, ...again, ...restored, ...narrow];
+  const all = [...taken, ...wrong, ...again, ...restored, ...narrow];
   if (fetched.length) all.push(`the page fetched ${fetched.length}: ${fetched.join(", ")}`);
 
   if (all.length) {
