@@ -45,6 +45,17 @@ SETTINGS = {
     "ambiguous_weight": 1.0,
     "split_wrong_weight": 1.0,
     "polarity_weight": 0.5,
+    "language_balance": 0.0,
+    "ema": 0.0,
+    "llrd": 1.0,
+    "pooling": "mean",
+    "pool": None,
+    "pool_weight": None,
+    "pool_temperature": None,
+    # A fold is another validation set, so two folds of one configuration are two
+    # experiments, not a spread: five folds of the shipped configuration land twelve points
+    # apart on coverage, which says how much the games differ and nothing about the seed.
+    "fold": None,
 }
 
 
@@ -83,9 +94,14 @@ def setting(run: dict, key: str):
 
 def shown(key: str, value) -> str:
     if value is None:
+        # Off by default rather than unrecorded: a run without a pool or a fold had none.
+        if SETTINGS.get(key, 0) is None:
+            return f"no {key.replace('_', ' ')}"
         return f"{key.replace('_', ' ')} unrecorded"
     if key == "backbone":
         value = str(value).split("/")[-1]
+    if key == "pool":
+        value = Path(str(value)).name
     if key == "learning_rate":
         value = f"{value:.0e}".replace("e-0", "e-")
     return f"{key.replace('_', ' ')} {value}"
