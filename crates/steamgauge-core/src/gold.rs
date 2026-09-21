@@ -583,6 +583,11 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "questions": questions,
         "categories": categories,
         "taxonomy": crate::taxonomy::sheet(),
+        // When the page was drawn, so a re-judgement can tell an answer given on it from the
+        // first answer it is asking about, which is on disk under the same claim.
+        "drawn": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_secs()),
         "blind": found.blind,
         "settled": found.settled,
         "split": found.split,

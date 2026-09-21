@@ -72,12 +72,16 @@
   function adopt(rows) {
     var wanted = {};
     questions.forEach(function (question) {
-      wanted[keyOf(question)] = true;
+      // A re-judgement asks about a claim that is already answered on disk, and that answer is
+      // the one being questioned: taking it as done would leave nothing to ask. Only an answer
+      // given since this page was drawn counts.
+      wanted[keyOf(question)] = question.was ? data.drawn || 0 : 0;
     });
     var taken = 0;
     rows.forEach(function (row) {
       var key = row.app_id + "#" + row.review_id + "#" + row.index;
-      if (!wanted[key]) return;
+      if (wanted[key] === undefined) return;
+      if ((row.answered_at || 0) < wanted[key]) return;
       answers[key] = row;
       taken += 1;
     });
