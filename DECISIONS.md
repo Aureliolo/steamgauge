@@ -2558,6 +2558,43 @@ should. The library owes a re-read under these rules before the frozen figure is
 again; until it has one, the 78.2% at 82.1% above stands as measured under the previous rules,
 and the 92 labels are outside the measurement rather than wrong in it.
 
+### The reader retrained on 29,006 claims, the library read again, and the reader got a name
+
+Settled 2026-09-21, the same evening, in the order the user chose: retrain first, then one
+re-read under the new splitter and the new reader rather than two. `e5-29006` is the shipped
+configuration on the refreshed export (39,173 rows; 29,006 train, 4,744 validation, 5,423
+frozen), 1,325 more training claims than `e5-27681`, most of them the starved-row draws. It is
+the same reader, everything a hair better and all of it inside the four-point seed spread:
+validation 90.3% answered at 75.0% against 88.6%; frozen at the one threshold 92% at 77.1%
+against 90.1% at 77.2%; AURC 0.119 against 0.126; five folds 86, 92, 82, 85, 79 against 86,
+91, 84, 82, 80; out of fold under the lines it ships with, 75.8% answered at 78.8% against
+75.0% at 78.8%. Exported fp16 with the lines drawn from those folds, parity on DirectML with no
+answer changed over 256 claims. Trained in 20 minutes on the 4090 and a fold in 14, at 92
+degrees and 2.3 GHz with the user's editors sharing the card, which is why the timings above
+are not a benchmark.
+
+**The re-read.** 53 games in 4 hours 48 minutes of reading (17,313 seconds), the empty capture
+5126340 failing at the split as it always does, and every one of the 53 readings reconciling
+against its sidecar. The frozen ten under both changes: **5,083 labelled claims, 79.9%
+answered at 82.2% agreement, macro F1 0.652, polarity 86.0%**, against 5,177, 78.2% at 82.1%
+and 0.645 under the previous splitter and reader. The 94 claims that left the measurement are
+the 92 the splitter now cuts into sentences and two more; nothing else moved. Against the gold
+set as filed after the re-judge, 167 of the 169 blind claims are still cut and the reader
+answers 138 of them (82.6%) at 76.8%, macro F1 0.718, against 137 of 169 at 79.6% and 0.681
+for the previous reader on the previous cut: four answers of 138, inside a seven-point
+interval. The 471-claim frontier sample was not re-scored, because its key lived in a session
+scratchpad that is gone and the export it was drawn from (`8a01195c`) is not the one that was
+backed up; the README's table row is the previous reader's until the frontier comparison is
+run again on a fresh draw, and the key of that draw goes in `training/data/` where the frozen
+key already lives.
+
+**The reader is called Needle.** A run is named for its encoder and its label count, which is
+the right name for the index and a bad name for a thing somebody downloads and cites, as the
+user said in fewer words. The part of a gauge that reads the value is the needle; the model
+card and `reader.json` carry the name, the run id stays the run id, and a published release
+will number it. Nothing is published: the pin in `reader.rs` is empty, and that is the user's
+step.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

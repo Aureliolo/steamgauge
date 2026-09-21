@@ -211,8 +211,12 @@ classifier nobody is running.
 | TF-IDF bag of words | 34% | 75.3% | 0.412 |
 | nearest subject centroid over an untuned encoder | 6% | 90.0% | 0.439 |
 | this reader, 278M parameters (2026-09-11) | 61% | 74.8% | 0.525 |
-| **this reader, 560M parameters** | **79%** | **77.2%** | **0.652** |
+| **this reader, 560M parameters** (the previous export, `e5-27681`) | **79%** | **77.2%** | **0.652** |
 | Claude Opus 5, given the same sheet | 99.6% | 87.0% | 0.873 |
+
+The reader row is the export before the one that ships: the sample's key was lost with a
+session's scratch space, so the row moves when the frontier comparison is drawn again. On the
+whole frozen set the reader that ships, Needle (`e5-29006`), answers 79.9% at 82.2%.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
 quarter of which is `verdict`, the commonest-subject baseline scores 25.8% rather than 4.9% and
@@ -295,7 +299,8 @@ again, 77 of the 200, with both labellers' answers and the sheet's own rule for 
 on the card, and moved 49 of them, 44 of the 59 blind ones: mostly rules the sheet already had
 and the person had not applied, or misses. The set as filed carries the second answer, so
 against it the labels name the same subject **89.3%** of the time on the blind claims and the
-reader **79.6%** of what it answers. Those are not blind figures and are not quoted as
+reader that ships **76.8%** of what it answers (138 of 167 claims; the previous reader on the
+previous cut scored 79.6%, four answers apart). Those are not blind figures and are not quoted as
 accuracy; they say how far the labels and a person agree once the person is applying the same
 sheet. One rule did not carry either way: the sheet files "the best roguelike out there" under
 verdict, and with that sentence in view the person still read "Best Metroidvania I played" as
@@ -482,16 +487,17 @@ These rules keep those figures honest:
   about the corpus rather than a footnote.
 
   **That share used to be most of the corpus and is now a fifth of it.** Labelled across
-  fifty-one games, the model answers **78%** of the labelled claims in games it has never seen
+  fifty-one games, the model answers **80%** of the labelled claims in games it has never seen
   and agrees with a labeller on **82%** of those. Sixteen games ago it answered an eighth of
   them at 62%. What moved it, measured one change at a time on games it never saw: more labels,
   then reading each claim inside the review it came from and training at the rate that suits
   that (58% to 77%), then a backbone twice the size (77% to 84%), then nineteen thousand more
   labels, most of them drawn at the subjects it read worst, an abstention line per subject
-  instead of one for all of them (84% answered at 76% agreement, to 83% at 81%), and a line per
-  language on top of that (83% at 81%, to **78% at 82%**). A threshold moved to make the number
-  look better would be the old classifier again, and the share it declines is still printed
-  beside every rate.
+  instead of one for all of them (84% answered at 76% agreement, to 83% at 81%), a line per
+  language on top of that (83% at 81%, to 78% at 82%), and then thirteen hundred more labels
+  and a splitter that cuts a lowercase review into its sentences (78% at 82%, to **80% at
+  82%**, macro F1 0.652). A threshold moved to make the number look better would be the old
+  classifier again, and the share it declines is still printed beside every rate.
 
   **The last of those spent coverage on purpose and this is what it bought.** The language line
   declined 240 answers the subject line had allowed, and those 240 were right **55%** of the

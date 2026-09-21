@@ -24,6 +24,11 @@ from train import ClaimReader
 
 HERE = Path(__file__).resolve().parent
 
+# The reader's name: the part of a gauge that reads the value. A run id names an experiment
+# by its encoder and label count and is the right name for the index; a thing somebody
+# downloads and cites wants a name that is not a serial.
+READER_NAME = "Needle"
+
 # What a claim's logits may drift by between PyTorch and the exported graph. Tight enough
 # that a changed argmax cannot hide inside it on anything but a genuine tie.
 TOLERANCE = 2e-3
@@ -570,6 +575,7 @@ def main():
                 "lines_fingerprint": rule_fingerprint(
                     threshold, subjects, lines, by_language
                 ),
+                "name": READER_NAME,
                 "run_id": run.name,
                 "usual_declined": usual_declined,
                 # What this model did on games it never saw, carried so that a report of a
@@ -620,7 +626,9 @@ def main():
     card.write_text(
         "\n".join(
             [
-                f"# Claim reader ({record['backbone']})",
+                f"# {READER_NAME}, SteamGauge's claim reader",
+                "",
+                f"Run `{run.name}`, fine-tuned from `{record['backbone']}`.",
                 "",
                 "Reads one point from a Steam review and says which subject it is about, whether",
                 "it is praise or a complaint, and how sure it is. Below a calibrated threshold it",
@@ -667,9 +675,12 @@ def main():
                 "## Honest limits",
                 "",
                 "The labels were produced by a language model working from a written category",
-                "sheet, not by human adjudication. That makes this a silver standard: agreement",
-                "with a model rather than correctness. Two models can agree and be wrong together,",
-                "most easily on sarcasm and on the boundaries between categories.",
+                "sheet, so every figure above is agreement with a model rather than correctness.",
+                "One person adjudicated 200 of the frozen claims: the labels name the same",
+                "subject 65% of the time when the person reads cold and 89% once the sheet's",
+                "rule is in front of them, and the reader names the person's subject on 70% of",
+                "what it answers, 80% with the rule in view. Two models can agree and be wrong",
+                "together, most easily on sarcasm and on the boundaries between categories.",
                 "",
                 "## Licence",
                 "",

@@ -1,4 +1,6 @@
-# Claim reader (intfloat/multilingual-e5-large)
+# Needle, SteamGauge's claim reader
+
+Run `e5-29006`, fine-tuned from `intfloat/multilingual-e5-large`.
 
 Reads one point from a Steam review and says which subject it is about, whether
 it is praise or a complaint, and how sure it is. Below a calibrated threshold it
@@ -25,9 +27,12 @@ Weakest subjects here: `accessibility` 0.23, `licensing` 0.36, `vr` 0.53, `genre
 ## Honest limits
 
 The labels were produced by a language model working from a written category
-sheet, not by human adjudication. That makes this a silver standard: agreement
-with a model rather than correctness. Two models can agree and be wrong together,
-most easily on sarcasm and on the boundaries between categories.
+sheet, so every figure above is agreement with a model rather than correctness.
+One person adjudicated 200 of the frozen claims: the labels name the same
+subject 65% of the time when the person reads cold and 89% once the sheet's
+rule is in front of them, and the reader names the person's subject on 70% of
+what it answers, 80% with the rule in view. Two models can agree and be wrong
+together, most easily on sarcasm and on the boundaries between categories.
 
 ## Licence
 

@@ -95,6 +95,7 @@
   "trained_from": "intfloat/multilingual-e5-large",
   "data_fingerprint": "2871969fd84a8278",
   "lines_fingerprint": "62cce706c80b14d9",
+  "name": "Needle",
   "run_id": "e5-29006",
   "usual_declined": 0.24239999999999995,
   "frozen": {
