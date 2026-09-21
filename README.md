@@ -290,6 +290,17 @@ deal more than either agrees with a person, and "both labellers said so" is righ
 times in three. Most of the difference is the boundaries the gap list already names: content
 against gameplay, genre against verdict, story against gameplay and content.
 
+Those are the cold figures. The person then read every answer that differed from the labels
+again, 77 of the 200, with both labellers' answers and the sheet's own rule for each category
+on the card, and moved 49 of them, 44 of the 59 blind ones: mostly rules the sheet already had
+and the person had not applied, or misses. The set as filed carries the second answer, so
+against it the labels name the same subject **89.3%** of the time on the blind claims and the
+reader **79.6%** of what it answers. Those are not blind figures and are not quoted as
+accuracy; they say how far the labels and a person agree once the person is applying the same
+sheet. One rule did not carry either way: the sheet files "the best roguelike out there" under
+verdict, and with that sentence in view the person still read "Best Metroidvania I played" as
+genre. `DECISIONS.md` has the whole pass.
+
 ### How the reference sets are made
 
 They are a **silver standard**, not a gold one, and the distinction decides what every number

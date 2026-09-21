@@ -1944,6 +1944,10 @@ fn adjudicate_one_game(
         );
     }
 
+    // The answers file is in the order the page wrote and the server merged, which moves
+    // whenever an answer is given again; filed by claim, the next commit's diff is the answers
+    // that changed and nothing else.
+    gold.sort_by(|a, b| (&a.review_id, a.index).cmp(&(&b.review_id, b.index)));
     let out = dir.join("gold");
     std::fs::create_dir_all(&out)?;
     std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&gold)?)?;

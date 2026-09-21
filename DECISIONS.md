@@ -2061,6 +2061,56 @@ genre against verdict (5), story against gameplay (4) and content (3), genre aga
 "Paid sims didnt have purchases for basic things like a dog" was read as gameplay where both
 models read monetisation, and the sheet sides with the models.
 
+### The rule in view moved 49 of the 77 differing gold answers, and one rule did not carry
+
+Settled 2026-09-21, the same day: every gold answer that differed from Fable's, 77 of the
+200 (59 blind, 18 sharp), was put in front of the person a second time by `gold --rejudge`,
+with both labellers' answers, their own first answer and the sheet's description and boundary
+for every category named on the card, each answer a one-click button because the answer is
+always one of them. The 59 blind ones were sorted first by what would settle each: 22 wanted a
+rule the sheet seemed to lack, 7 were the person looser than a rule the sheet has, 9 were the
+person's error on any reading, 4 were the labels wrong, 17 two defensible readings. Reading the
+sheet showed the three rules "lacking" were all written, so the pass measures whether a person
+accepts a written rule once it is in front of them or rejects it, which is the only kind of
+disagreement worth a relabel.
+
+**What moved.** 49 of 77: 44 of the 59 blind, 5 of the 18 sharp. 36 went to the reading both
+labellers shared, 8 to Fable's alone, 4 to Opus's alone, 1 to a fourth. Of the 22 rule cases 17
+moved to the labels' reading, and 13 of the 14 that were not the superlative rule. The seven
+looser ones moved six ("buy it, it'll be damn worth it" stayed a verdict against price); the
+nine errors moved eight ("didn't find it scary at all" stayed genre against atmosphere); the
+four wrong labels split two and two; the 17 ambiguous moved 11. The sharp 18, disagreements
+between the labellers by construction, moved 5 and kept 13.
+
+**The one rule that did not carry.** The sheet says a judgement with only the kind of game
+attached is a verdict, and gives "the best roguelike out there". With that sentence on the card
+the person kept genre for "Best Metroidvania I played", "Best damn horror game ever" and "a
+must play for metroidvania fans", and moved "the best Lego game", "one of the best vr games"
+and "my favourite VR game" to verdict. That is a principle rather than a slip: a superlative on
+a genre word is read as naming the genre, one on a platform or a licence as a verdict, which is
+the opposite of the sheet on the genre half. The other rule the person held to is not written:
+"Turn off the lights." and "Turn up the volume." stayed offtopic twice against atmosphere from
+both labellers. Everything else in the sheet held with its adjudicator.
+
+**What the set says now.** The re-judged answer is the one filed, so the gold set carries a
+person's reading with the sheet's rule in view. On the blind 169 the Fable labels name the same
+subject 89.3% (84% to 93%), the Opus labels 85.2%, and where the two agreed 92.6%; polarity
+87.6%. Over all 200 the set agrees with Fable 83.5%. The shipped reader answers the same 137 of
+169 and names the person's subject on 79.6% of them (72% to 86%), macro F1 0.681, against 82.1%
+scored on the labels.
+
+**What those figures are not.** They are not blind, for the reason the clarification entry
+below gives about the labellers: an answer given with the labellers' answers on the card cannot
+also be an independent reading, and 36 of the 49 moves went exactly where both labellers already
+stood. The independent measurement of the labels against a person is the one taken cold, 65.1%
+on the same 169, and it stays the figure for that. The 89.3% is a different fact: how far a
+person and the labels agree once the person is applying the sheet the labels were made under,
+which is the question the gold set exists to answer, and the honest way to say it is both
+numbers in the order they were taken. The 24 points between them are mostly the person: 16 of
+the 59 were looser than the sheet or wrong on any reading, and 17 more were written rules the
+person accepted at once when shown. What is left, 15 kept answers of 59 and one rule read the
+other way, is the size of the disagreement between the sheet and its adjudicator.
+
 ### The clarification moved 344 labels of 627, and cost the right to re-measure them
 
 The 627 claims where the two readings differed inside the amended rows were put back to Fable,
