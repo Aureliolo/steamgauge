@@ -189,7 +189,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             !numbers_a_list(&text[start..at])
                 && !continues_a_number(text, at)
                 && !abbreviates(text, at)
-                && !continues_a_word(text, at + ch.len_utf8())
+                && !continues_a_word(text, at)
         } else {
             TERMINATORS.contains(&ch)
         };
@@ -821,11 +821,11 @@ fn ends_on_a_list_marker(written: &str) -> bool {
 /// A list rather than a rule, because every rule general enough to catch "ca." also catches
 /// "fun." A short list of the ones that actually appear in reviews costs nothing and is wrong
 /// about nothing else. Reviews arrive in many languages, so this is not only English.
-const ABBREVIATIONS: [&str; 42] = [
+const ABBREVIATIONS: [&str; 49] = [
     "mr", "mrs", "ms", "dr", "prof", "vs", "etc", "eg", "ie", "approx", "max", "vol", "ch", "pp",
     "st", "inc", "ltd", "jr", "sr", "ca", "bzw", "evtl", "ggf", "usw", "zb", "dh", "uvm", "inkl",
     "bspw", "eig", "sog", "bzgl", "env", "ecc", "def", "ed", "ver", "vers", "esp", "resp", "orig",
-    "hrs",
+    "hrs", "hr", "min", "sec", "avg", "lvl", "ep", "ect",
 ];
 
 /// Whether the word before this stop is one of them, written with or without the stops
@@ -852,18 +852,35 @@ fn continues_a_number(text: &str, at: usize) -> bool {
     before && after
 }
 
-/// Whether what follows a full stop reads as the middle of a sentence rather than the start
-/// of one, which is what separates "e.g. this one" and "Mr. Freeman" from a real boundary.
+/// Whether a full stop with no space after it sits inside a word, "example.com", "v1.2b",
+/// rather than between two sentences a reviewer typed without a space, "great game.Would
+/// recommend". A capital straight after the stop is the second kind, and it is common.
 ///
-/// Scripts without letter case, which is most of the ones this has to handle, have no
-/// lowercase to find, so this only ever suppresses a split in the scripts that do.
-fn continues_a_word(text: &str, from: usize) -> bool {
-    let rest = text[from..].trim_start();
-    if rest.len() == text[from..].len() && !rest.is_empty() {
-        // No space at all after the stop: "www.example.com", "4.Great".
-        return true;
+/// A lowercase letter after a stop and a space is not a reason to keep going. It once was, to
+/// protect abbreviations, and what it protected instead was every reviewer who never touches
+/// the shift key: their whole review came out as one claim, three per cent of every draw and
+/// two to three times the length of the rest, and the labellers flagged them as mis-cut. The
+/// abbreviations are a list, and the list is what protects them. The one stop that does keep
+/// going into a lowercase word is an ellipsis, "nails it perfectly... the aesthetics, the
+/// execution": a trailing-off, not an end.
+fn continues_a_word(text: &str, at: usize) -> bool {
+    let rest = &text[at + 1..];
+    let mut before = text[..at].chars().rev();
+    let glued = rest.len() == rest.trim_start().len();
+    if !glued {
+        let an_ellipsis = before.next() == Some('.');
+        return an_ellipsis
+            && rest
+                .trim_start()
+                .chars()
+                .next()
+                .is_some_and(char::is_lowercase);
     }
-    rest.chars().next().is_some_and(char::is_lowercase)
+    // A single letter before the stop is an initial, and the capital after it is the next
+    // one: "z.B.", "P.S.", "U.S.A." are one word each.
+    let an_initial = before.next().is_some_and(char::is_alphabetic)
+        && before.next().is_none_or(|ch| !ch.is_alphabetic());
+    an_initial || rest.chars().next().is_some_and(|next| !next.is_uppercase())
 }
 
 /// How much a piece says, in Latin characters or their equivalent.
@@ -1875,6 +1892,43 @@ mod tests {
     fn a_short_word_before_a_stop_is_still_a_sentence_ending() {
         let claims = split("The combat is genuinely fun. 10 out of 10 from me, no notes at all.");
         assert_eq!(claims.len(), 2, "got {claims:?}");
+    }
+
+    #[test]
+    fn a_reviewer_who_never_capitalises_still_writes_sentences() {
+        // Three points from somebody who never touches the shift key. Read as one claim they
+        // are labelled once, with the labeller's flag saying so, and the reader is trained on
+        // a text that is about three things.
+        let claims = split(
+            "pretty great as a non-harry potter fan. the combat never gets old though. i look \
+             forward to whatever they make next.",
+        );
+        assert_eq!(claims.len(), 3, "got {claims:?}");
+    }
+
+    #[test]
+    fn an_ellipsis_trailing_into_a_lowercase_word_is_not_an_end() {
+        let claims = split(
+            "Overall the game nails Alien perfectly... the aesthetics, the execution, the atmosphere.",
+        );
+        assert_eq!(claims.len(), 1, "got {claims:?}");
+        let claims =
+            split("Enough about the values though... right? First off, it is about survival.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+    }
+
+    #[test]
+    fn an_abbreviation_before_a_lowercase_word_still_holds() {
+        let claims = split("Takes approx. ten hours, and about 20 min. per run after that.");
+        assert_eq!(claims.len(), 1, "got {claims:?}");
+    }
+
+    #[test]
+    fn a_missing_space_after_a_stop_is_still_a_stop_before_a_capital() {
+        let claims = split("Great little game.Would recommend to anyone who liked the first.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        let claims = split("Patch v1.2b broke the saves on example.com/forum, see there.");
+        assert_eq!(claims.len(), 1, "got {claims:?}");
     }
 
     #[test]
