@@ -2101,6 +2101,13 @@ the opposite of the sheet on the genre half. The other rule the person held to i
 "Turn off the lights." and "Turn up the volume." stayed offtopic twice against atmosphere from
 both labellers. Everything else in the sheet held with its adjudicator.
 
+Settled the same day: **the rule stays as written, and the gold set keeps the person's three.**
+The sheet's sentence is explicit, the labels apply it the same way every time, and the
+person's own six split three and three, which is not a reading the labels can be asked to
+follow. Rewording it the person's way would send about 120 verdict labels back to Fable for
+three gold claims. The three stand as the adjudicator read them, disagree with the labels, and
+are the recorded size of that boundary; a person reading the figures should expect it.
+
 **What the set says now.** The re-judged answer is the one filed, so the gold set carries a
 person's reading with the sheet's rule in view. On the blind 169 the Fable labels name the same
 subject 89.3% (84% to 93%), the Opus labels 85.2%, and where the two agreed 92.6%; polarity
