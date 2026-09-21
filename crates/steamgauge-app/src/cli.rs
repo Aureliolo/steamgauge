@@ -1737,6 +1737,9 @@ fn answered_this_sheet<'a>(stamps: impl Iterator<Item = Option<&'a str>>) -> Res
     Ok(())
 }
 
+/// Where an answer sits: the game, the review and the claim's place in it.
+type AnswerKey = (u32, String, u16);
+
 /// One claim as a person answered it on the gold page.
 #[derive(serde::Deserialize)]
 struct Adjudicated {
@@ -1761,16 +1764,57 @@ struct Adjudicated {
     sheet: Option<String>,
 }
 
+impl Adjudicated {
+    fn key(&self) -> AnswerKey {
+        (self.app_id, self.review_id.clone(), self.index)
+    }
+}
+
+/// Rewrites the answers file without the answers named, keeping every field the page wrote
+/// on the rest.
+///
+/// Beside the file and then renamed over it, the way the server writes it, so a crash
+/// mid-write cannot leave half an adjudication where the whole one was. Rows are matched by
+/// claim, which is how the page and the server address them too.
+fn drop_answers(from: &std::path::Path, useless: &[AnswerKey]) -> Result<()> {
+    let rows: Vec<serde_json::Value> = serde_json::from_slice(&std::fs::read(from)?)?;
+    let gone: std::collections::HashSet<&AnswerKey> = useless.iter().collect();
+    let kept: Vec<serde_json::Value> = rows
+        .into_iter()
+        .filter(|row| {
+            let key = (
+                row.get("app_id").and_then(serde_json::Value::as_u64),
+                row.get("review_id").and_then(serde_json::Value::as_str),
+                row.get("index").and_then(serde_json::Value::as_u64),
+            );
+            let (Some(app_id), Some(review_id), Some(index)) = key else {
+                return true;
+            };
+            let (Ok(app_id), Ok(index)) = (u32::try_from(app_id), u16::try_from(index)) else {
+                return true;
+            };
+            !gone.contains(&(app_id, review_id.to_owned(), index))
+        })
+        .collect();
+    let beside = from.with_extension("json.part");
+    std::fs::write(&beside, serde_json::to_vec_pretty(&kept)?)?;
+    std::fs::rename(&beside, from)?;
+    Ok(())
+}
+
 /// Turns one game's answers into its gold set, and says what it would not take.
 ///
 /// Returns how many claims it wrote and how many of them the labeller already on record had
-/// answered the same way.
+/// answered the same way. What it would not take is added to `useless`: an answer on a blank
+/// template option, on a claim the set does not have, or on a span this build cuts no claim
+/// at, none of which any future build will score, so none of which the file need keep.
 fn adjudicate_one_game(
     app_id: u32,
     dir: &std::path::Path,
     rows: &[&Adjudicated],
     cut: Option<&steamgauge_core::claimset::CutSpans>,
     by: &str,
+    useless: &mut Vec<AnswerKey>,
 ) -> Result<(usize, usize)> {
     let existing: Vec<steamgauge_core::claimset::ClaimLabel> =
         serde_json::from_slice(&std::fs::read(dir.join("labels.json"))?)?;
@@ -1806,6 +1850,7 @@ fn adjudicate_one_game(
             .is_some_and(|text| steamgauge_core::claims::is_not_a_claim(text))
         {
             declined += 1;
+            useless.push(answer.key());
             continue;
         }
         // The span comes through from the claim the person was actually shown. A label that
@@ -1813,12 +1858,14 @@ fn adjudicate_one_game(
         // change, which is the mistake this project already made once.
         let Some(was) = silver.get(&(answer.review_id.as_str(), answer.index)) else {
             unplaced += 1;
+            useless.push(answer.key());
             continue;
         };
         // An answers file can be older than the rule the draw now applies, and a gold label on
         // a span this build no longer cuts is scored as truth about a claim that is not there.
         if !steamgauge_core::gold::still_cut(cut, was) {
             recut += 1;
+            useless.push(answer.key());
             continue;
         }
         agreed += usize::from(was.subject == answer.subject);
@@ -1895,14 +1942,24 @@ fn run_ingest_gold(
 
     let mut written = 0;
     let mut agreed = 0;
+    let mut useless: Vec<AnswerKey> = Vec::new();
     for (app_id, rows) in by_game {
         let dir = reference.join(app_id.to_string());
         let answered: std::collections::HashSet<String> =
             rows.iter().map(|answer| answer.review_id.clone()).collect();
         let cut = steamgauge_core::claimset::spans_cut_now(out, app_id, &answered).ok();
-        let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, cut.as_ref(), by)?;
+        let (wrote, matched) =
+            adjudicate_one_game(app_id, &dir, &rows, cut.as_ref(), by, &mut useless)?;
         written += wrote;
         agreed += matched;
+    }
+    if !useless.is_empty() {
+        drop_answers(from, &useless)?;
+        println!(
+            "removed    {} answers nothing will ever score, from {}: on a blank template              option, on a claim the set does not have, or on a span this build cuts no claim              at",
+            useless.len(),
+            from.display()
+        );
     }
 
     println!("\ngold       {written} claims by {by}");
