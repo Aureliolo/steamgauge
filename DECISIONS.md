@@ -2616,11 +2616,14 @@ wrote, every label names the bytes it covers and the sheet its labeller read, tw
 a tenth of it blind and agree at kappa 0.85, and the test games are fixed by hash and chose
 nothing. Two are missing, and no amount of further labelling closes either.
 
-1. **Human-adjudicated labels. Confirmed 2026-09-12: the user is doing this.** Everything so
-   far is a model agreeing with a model, which the README says plainly and which no citation
-   can rest on. The user adjudicates: a random thousand from the frozen games, labelled blind,
-   for an accuracy figure that means what it says; then the claims the two labellers split on,
-   shown both answers, to settle the boundaries. After the sheet was settled, never before.
+1. **Human-adjudicated labels. Done 2026-09-21: 200 claims, 169 of them blind.** Everything
+   before it was a model agreeing with a model, which the README says plainly and which no
+   citation can rest on. The user adjudicated a blind English sample from the frozen games and
+   the claims the two labellers were surest and still split on; the labels agree with the
+   person 65.1% cold and 89.3% once the person re-read the differing answers with the sheet's
+   rule in view, and the entries under "The first accuracy figure" say which of those is
+   accuracy. A thousand was the plan; two hundred is the number that reads as chosen, and the
+   figures moved by less than a point over the last fifty.
 
    A useful thing to know before it starts: partial answers are worth something, so stopping
    early is not wasted work. Prediction-powered inference takes a small human-labelled sample
