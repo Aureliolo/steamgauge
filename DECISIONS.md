@@ -689,6 +689,22 @@ What came out of the same audit: `optimum`, `datasets` and `pyarrow` were in the
 and imported nowhere. The lock is thirty entries shorter without them, and `optimum`'s own
 major upgrade left the weekly PR with them.
 
+**The lock is compiled, not frozen.** Settled 2026-09-21, after the Monday PR offered two
+things the rules above forbid. `huggingface_hub` 1.32 against a transformers that declares
+`<1.0`: the rule holding it matched the underscore, and PyPI's name for the package has a
+hyphen, so the rule had never fired. And `mpmath` 1.4.1 against a `sympy` that declares
+`<1.4`: no rule could have caught that one, because the lock was a `pip freeze` and Renovate
+moved its pins one line at a time with no resolver behind it. CI runs no Python, so both would
+have failed on the training machine and nowhere else; the second was found by installing the
+PR's lock into a throwaway environment, which is the check that now precedes any merge of one.
+`requirements.lock` is `uv pip compile` over `requirements.txt` now, resolved for Windows and
+Python 3.13 with the CUDA index recorded in the file, and Renovate's `pip-compile` manager
+re-runs the command in its header for every update, so a pin cannot be moved past what
+another pin allows. Same pins as the freeze plus `hf-xet`, which `huggingface_hub` had wanted
+all along; the training tests pass under it. Installing with uv needs
+`--index-strategy unsafe-best-match`, because the CUDA build of torch sits on a second index
+that uv will not look past the first one for; pip looks at both without being told.
+
 ### What is there to run when something looks wrong
 
 Each of these answers one question and is a `cargo run --release -p steamgauge-core --example`
