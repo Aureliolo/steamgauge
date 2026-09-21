@@ -2313,6 +2313,47 @@ people who each chose to endorse a text, and deciding which is an editorial judg
 whose opinion counts, not a bug fix. Recorded so the number is known when somebody wants to
 make that call.
 
+### A heading keeps the point under it, and a list is not cut into single words
+
+Settled 2026-09-21. Found by reading rather than counting: `measure-claims` says how many of a
+game's labels name a span this build no longer cuts, and `--example unjoined-labels` prints
+each one beside what is cut there now, grouped by whether the label's bytes sit inside one
+larger claim, are cut into several, or have nothing cut at them at all. Read over the ten
+frozen games, the joins were repairs, the losses were blank template options held back on
+purpose, and the cuts into several were three defects.
+
+**A heading over a bullet list stood alone.** A heading with no full stop ends at its line
+break, and the boundary ran out over the bullet on the next line as though it were an emoticon
+(one character, no letters), so the heading came back ending in a dash and no rule read it as
+introducing anything: "Parts I liked:" was a claim about nothing, and "- Art." under it a
+fragment joined forward to whatever came next. The same swallow made "2." at the start of a
+line an emoticon, so a numbered list after a line break came back as one claim holding the
+list. The boundary now knows when it was the line break.
+
+**Then the heading kept only the topic word.** "Parts I liked:" over "- Art. Blasphemous is
+truly unique." picked up "- Art." and stopped, which is the bullet's topic and not its point. A
+heading whose line runs on after a short first sentence is kept until the sentence that says
+something. A short item that ends its line is the whole item: "Cons:" over "Addicting" is
+complete, and the line after it is the next point, which the first draft of this rule got
+wrong and 620980 showed.
+
+**A comma list of single words.** A part had to weigh six, which one long word does. "The
+gameplay, however, is rudimentary" was three claims, "Strepitoso, immenso, coinvolgente!"
+three verdicts of one word each, "Amazing story, soundtrack, gameplay" a point and two bare
+nouns that had lost the adjective they shared. A part is now two words, or written in a script
+without spaces, where the weight already asks for two characters' worth.
+
+**What it changed.** On 620980, 1,243 of 161,683 claims, read hunk by hunk with
+`--example dump-claims`: heading joins, list un-splits, numbered lists cut at their markers,
+and ballot boxes staying with their option. Over the whole flagged set the rules before still
+mis-split 3,641 and these 3,617, 24 fixed and none broken; the random draws stay at 9.6%. The
+library was read again under it, 53 of 53 readings reconcile, and the frozen ten score 78.2%
+answered at 82.1%, macro F1 0.645, against 78.3% at 82.1% and 0.645 before: four answers of
+5,177, well inside the 2.4 points the coverage moves seed to seed. The same 402 labels are
+unjoined in total, differently distributed: 920210 has eleven more, and every one of them is a
+fragment pair such as "The Good [/h1] 1." and "Best graphics in any lego gamer ever." that is
+now one claim, which is the thing this entry set out to fix.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
