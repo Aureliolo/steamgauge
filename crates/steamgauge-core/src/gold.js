@@ -287,7 +287,11 @@
     html.push('<div class="review">' + marked(question) + "</div>");
 
     if (question.shown && question.shown.length) {
-      html.push('<div class="shown"><span class="who">Two labellers split:</span>');
+      html.push(
+        '<div class="shown"><span class="who">' +
+          (question.was ? "The labellers said:" : "Two labellers split:") +
+          "</span>"
+      );
       question.shown.forEach(function (said, i) {
         html.push(
           "<span><b>" +
@@ -299,7 +303,39 @@
             (said.ambiguous ? ", called it contested" : "") +
             ")</span></span>"
         );
-        if (i === 0) html.push('<span class="who">vs</span>');
+        if (i === 0 && question.shown.length > 1) html.push('<span class="who">vs</span>');
+      });
+      html.push("</div>");
+    }
+
+    // A re-judgement asks a different question from a cold reading: not what the claim is
+    // about, but whether the person accepts the rule the labellers applied. So the rule is
+    // put in front of them, for every category anybody named, and their own first answer
+    // beside it. The answer they give replaces the first.
+    if (question.was) {
+      html.push(
+        '<div class="shown"><span class="who">You said:</span><span><b>' +
+          escape(question.was.subject) +
+          "</b> " +
+          escape(question.was.polarity) +
+          "</span></div>"
+      );
+      var named = [question.was.subject].concat(
+        (question.shown || []).map(function (said) {
+          return said.subject;
+        })
+      );
+      html.push('<div class="rules">');
+      categories.forEach(function (category) {
+        if (named.indexOf(category.id) === -1) return;
+        html.push(
+          "<p><b>" +
+            escape(category.label) +
+            "</b>: " +
+            escape(category.description) +
+            (category.boundary ? " <i>" + escape(category.boundary) + "</i>" : "") +
+            "</p>"
+        );
       });
       html.push("</div>");
     }

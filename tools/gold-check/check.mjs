@@ -220,6 +220,28 @@ const MARKS = `(function () {
       wrong.push(i + ' marks ' + JSON.stringify(shown.textContent.slice(0, 30)) +
                  ' where the claim is ' + JSON.stringify(data.questions[i].claim.slice(0, 30)));
     }
+    // A re-judgement is a different question from a cold reading: whether the person accepts
+    // the rule. So their own first answer and the sheet's rule for every category anybody
+    // named have to be on the page, and on no other kind of question.
+    var was = data.questions[i].was;
+    var rules = document.querySelectorAll('.rules p');
+    if (was) {
+      var named = [was.subject].concat((data.questions[i].shown || []).map(function (s) { return s.subject; }));
+      var distinct = named.filter(function (id, at) { return named.indexOf(id) === at; });
+      if (document.body.textContent.indexOf('You said:') === -1) wrong.push(i + ' hides the first answer');
+      if (rules.length !== distinct.length) {
+        wrong.push(i + ' shows ' + rules.length + ' rules for ' + distinct.length + ' categories named');
+      }
+      var boundaryOf = {};
+      data.categories.forEach(function (c) { boundaryOf[c.id] = c.boundary || ''; });
+      distinct.forEach(function (id) {
+        if (boundaryOf[id] && document.body.textContent.indexOf(boundaryOf[id].slice(0, 40)) === -1) {
+          wrong.push(i + ' does not show the rule for ' + id);
+        }
+      });
+    } else if (rules.length) {
+      wrong.push(i + ' shows rules on a question that is not a re-judgement');
+    }
     if (i + 1 < data.questions.length) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     }

@@ -593,6 +593,13 @@ enum Command {
         /// Port to serve on. 0 picks a free one.
         #[arg(long, default_value_t = 8731)]
         port: u16,
+        /// Ask again about every gold answer that differs from the first labeller's, with the
+        /// labellers' answers, the person's own and the sheet's rule for each in view. A cold
+        /// reading says how often the labels agree with a person; this says why they differ:
+        /// a rule accepted on sight was a miss and the label stands, a rule rejected is the
+        /// one that has to change. The new answer replaces the old at the next ingest.
+        #[arg(long)]
+        rejudge: bool,
     },
 
     /// Merge adjudicated answers back, as the only labels in the set written by a person.
@@ -901,6 +908,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             serve,
             answers,
             port,
+            rejudge,
         } => run_gold(
             reference,
             out,
@@ -910,6 +918,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
                 seed: *seed,
                 languages: language,
                 reading: labels,
+                rejudge: *rejudge,
             },
             if *serve {
                 Delivery::Served {
@@ -1600,6 +1609,7 @@ struct Asking<'a> {
     seed: u64,
     languages: &'a [String],
     reading: &'a str,
+    rejudge: bool,
 }
 
 fn run_gold(
@@ -1614,7 +1624,22 @@ fn run_gold(
         seed,
         languages,
         reading,
+        rejudge,
     } = *asking;
+    if rejudge {
+        let (questions, found) = steamgauge_core::gold::rejudge(reference, reading)?;
+        if questions.is_empty() {
+            anyhow::bail!(
+                "no gold answer under {} differs from the first labeller's; nothing to judge again",
+                reference.display()
+            );
+        }
+        println!(
+            "rejudge    {} gold answers differ from the first labeller's, shown with both              labellers' answers, the person's own and the sheet's rule for each; {} agree and              are not asked",
+            found.split, found.agreed
+        );
+        return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
+    }
     let (questions, found) =
         steamgauge_core::gold::draw(reference, out, blind, splits, seed, languages, reading)?;
     if questions.is_empty() {
@@ -1673,6 +1698,11 @@ fn run_gold(
         );
     }
 
+    deliver(page, delivery)
+}
+
+/// Writes the page, or serves it and writes every answer as it is made.
+fn deliver(page: String, delivery: Delivery<'_>) -> Result<()> {
     match delivery {
         Delivery::Written(to) => {
             std::fs::write(to, page)?;

@@ -49,6 +49,11 @@ pub struct Question {
     /// What the labellers said, shown only for a split: `None` on a blind question, because an
     /// answer on the page is an answer in the reader's head.
     pub shown: Option<Vec<Answered>>,
+    /// What the person themselves said the first time, on a re-judgement. Shown beside the
+    /// labellers' answers and the sheet's rule for each, so what is being asked is whether
+    /// they accept the rule, not what they think of the claim cold.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub was: Option<Answered>,
 }
 
 /// One labeller's answer to a question, as it is shown on a split.
@@ -332,6 +337,7 @@ pub fn draw(
                 after: rejoined.text[at + text.len()..].to_owned(),
                 language: label.language.clone(),
                 shown: None,
+                was: None,
             };
 
             // The same key for both pools, so a control claim lands wherever its review lands
@@ -353,6 +359,7 @@ pub fn draw(
                     hedged(label) || hedged(other),
                     Question {
                         shown: Some(vec![answered(label), answered(other)]),
+                        was: None,
                         ..question.clone()
                     },
                 ));
@@ -378,6 +385,101 @@ pub fn draw(
     found.languages = languages.to_vec();
     let questions = assemble(blind, split, blind_wanted, &mut found);
 
+    Ok((questions, found))
+}
+
+/// Draws every gold answer that differs from the first labeller's, to be judged again with
+/// the sheet's rule in view.
+///
+/// A blind answer measures how often the labels agree with a person reading cold, and that is
+/// the only thing it should measure. What it cannot say is why they differ: a rule the sheet
+/// lacks, a rule it has that nobody applied, or a claim two readings fit. Shown their own
+/// answer, the labellers' and the boundary each category draws, a person either accepts the
+/// rule, in which case the first answer was a miss and the label stands, or rejects it, in
+/// which case the rule is what has to change. Only the second kind is worth a relabel.
+///
+/// Answered on the same page and keyed by the same claim, so a re-judgement replaces the
+/// first answer at the next ingest and the gold set carries one answer per claim.
+///
+/// # Errors
+///
+/// Fails if a reference set cannot be read.
+pub fn rejudge(reference: &Path, reading: &str) -> Result<(Vec<Question>, GoldDraw)> {
+    let mut questions = Vec::new();
+    let mut found = GoldDraw::default();
+
+    for entry in std::fs::read_dir(reference)? {
+        let dir = entry?.path();
+        let Some(app_id) = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        let (Ok(sample), Ok(first), Ok(gold)) = (
+            std::fs::read(dir.join("sample.json")),
+            std::fs::read(dir.join("labels.json")),
+            std::fs::read(dir.join("gold").join("labels.json")),
+        ) else {
+            continue;
+        };
+        let drawn: Vec<DrawnReview> = serde_json::from_slice(&sample)?;
+        let first: Vec<ClaimLabel> = serde_json::from_slice(&first)?;
+        let gold: Vec<ClaimLabel> = serde_json::from_slice(&gold)?;
+        let second: Vec<ClaimLabel> = std::fs::read(dir.join(reading).join("labels.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_slice(&raw).ok())
+            .unwrap_or_default();
+        found.games += 1;
+
+        let around: std::collections::HashMap<&str, Rejoined<'_>> = drawn
+            .iter()
+            .map(|review| (review.id.as_str(), Rejoined::of(review)))
+            .collect();
+        let by_claim =
+            |labels: &[ClaimLabel]| -> std::collections::HashMap<(String, u16), Answered> {
+                labels
+                    .iter()
+                    .map(|label| ((label.review_id.clone(), label.index), answered(label)))
+                    .collect()
+            };
+        let (first, second) = (by_claim(&first), by_claim(&second));
+
+        for label in &gold {
+            let key = (label.review_id.clone(), label.index);
+            let Some(labelled) = first.get(&key) else {
+                continue;
+            };
+            if labelled.subject == label.subject {
+                found.agreed += 1;
+                continue;
+            }
+            let Some(rejoined) = around.get(label.review_id.as_str()) else {
+                continue;
+            };
+            let Some((at, text)) = rejoined.find(label.index) else {
+                continue;
+            };
+            let mut shown = vec![labelled.clone()];
+            shown.extend(second.get(&key).cloned());
+            questions.push(Question {
+                app_id,
+                review_id: label.review_id.clone(),
+                index: label.index,
+                claim: text.to_owned(),
+                before: rejoined.text[..at].to_owned(),
+                after: rejoined.text[at + text.len()..].to_owned(),
+                language: label.language.clone(),
+                shown: Some(shown),
+                was: Some(answered(label)),
+            });
+        }
+    }
+
+    questions
+        .sort_by(|a, b| (a.app_id, &a.review_id, a.index).cmp(&(b.app_id, &b.review_id, b.index)));
+    found.split = questions.len();
     Ok((questions, found))
 }
 
@@ -1101,6 +1203,7 @@ mod tests {
             after: " and I love it".to_owned(),
             language: "english".to_owned(),
             shown: None,
+            was: None,
         }];
         let page = render(&questions, &GoldDraw::default());
         assert!(page.contains("Runs badly"));
@@ -1124,6 +1227,7 @@ mod tests {
             after: String::new(),
             language: "english".to_owned(),
             shown: None,
+            was: None,
         }];
         let page = render(&questions, &GoldDraw::default());
         assert!(

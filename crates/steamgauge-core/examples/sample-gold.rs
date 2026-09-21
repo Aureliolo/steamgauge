@@ -21,6 +21,7 @@ fn question(id: &str, claim: &str, review: &str, shown: Option<Vec<Answered>>) -
         after: review[at + claim.len()..].to_owned(),
         language: "english".to_owned(),
         shown,
+        was: None,
     }
 }
 
@@ -62,15 +63,20 @@ fn main() {
              \u{6218}\u{6597}\u{624b}\u{611f}\u{6781}\u{597d}\u{3002}",
             None,
         ),
-        question(
-            "4",
-            "Worth every penny on sale.",
-            "Bought it at 70% off. Worth every penny on sale. Would not pay full price.",
-            Some(vec![
-                said("price", "praise", "high", false),
-                said("verdict", "praise", "medium", true),
-            ]),
-        ),
+        // A re-judgement: the person's own first answer rides with the labellers', and the
+        // page has to put the sheet's rule for each named category in front of them.
+        Question {
+            was: Some(said("content", "praise", "high", false)),
+            ..question(
+                "4",
+                "Worth every penny on sale.",
+                "Bought it at 70% off. Worth every penny on sale. Would not pay full price.",
+                Some(vec![
+                    said("price", "praise", "high", false),
+                    said("verdict", "praise", "medium", true),
+                ]),
+            )
+        },
         question(
             "5",
             "same here",
