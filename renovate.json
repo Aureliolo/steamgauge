@@ -42,9 +42,14 @@
       "allowedVersions": "<5"
     },
     {
-      "description": "huggingface_hub 1 is what transformers 5 wants, and it goes when transformers goes.",
-      "matchPackageNames": ["huggingface_hub"],
+      "description": "huggingface_hub 1 is what transformers 5 wants, and it goes when transformers goes. Both spellings, because PyPI normalises the underscore to a hyphen and the lock file writes the underscore: matched on the underscore alone, the rule never fired and the Monday PR offered 1.32 against a transformers that refuses it.",
+      "matchPackageNames": ["huggingface-hub", "huggingface_hub"],
       "allowedVersions": "<1"
+    },
+    {
+      "description": "requirements.txt holds loose floors on purpose. Naming only the lock file under pip_requirements does not exclude it, because a manager's file patterns are added to its defaults rather than replacing them, so the floors are switched off here by name instead.",
+      "matchFileNames": ["training/requirements.txt"],
+      "enabled": false
     },
     {
       "description": "tokenizers follows transformers: 4.57 will not take 0.23.",
@@ -53,7 +58,7 @@
     }
   ],
   "pip_requirements": {
-    "description": "requirements.txt holds loose floors on purpose and is left alone; requirements.lock is the pip freeze a run was actually made with, and every pin in it is kept current.",
+    "description": "requirements.lock is the pip freeze a run was actually made with, and every pin in it is kept current. This pattern adds the lock file to the manager's defaults; requirements.txt is excluded by the rule above.",
     "managerFilePatterns": ["/(^|/)requirements\\.lock$/"]
   }
 }
