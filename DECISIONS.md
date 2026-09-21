@@ -2191,6 +2191,17 @@ batches re-asks everything the four rules can move, and the gold set is unaffect
 of its 200 claims sits on these words. The relabel cost the roadmap said to measure on one
 game before paying for thirty-six is, for these four rules, one game's worth in total.
 
+**Revisited the same evening, in two sittings of 27 and 50 claims.** `revisit` draws from the
+random sets by word, so the story-length pass asked the 27 story-filed claims that speak of
+length and the second asked the 50 that name remapping or a competition, across 23 games; the
+teaching sets keep their wording, which the tool does not reach and the mis-split and
+prevalence figures do not read. 23 of the 77 moved: 5 from `content` to `licensing` and 4
+from `story` to `content`, which is the two rules doing what they were written for, and 14
+elsewhere, `content` to `offtopic` and `verdict` to `gameplay` among them, which is what a
+second reading of any 77 claims does. The one remapping claim in a random set stayed under
+`controls`. At 12% moved on the rows the rules aim at, this is a clarification and not a
+correction, as the `licensing` and `vr` revisit was and the `mods` one was not.
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
