@@ -572,18 +572,18 @@ These rules keep those figures honest:
   flattering it. Shuffling reviews from several games into each batch would remove it, at the
   cost of routing the labels back per game before they can be ingested.
 
-- **A claim is split mechanically, and the splitting is sometimes wrong.** Across the forty-nine
-  randomly drawn sets it is **15.2%** of claims, between 6.8% and 40.4% depending on the game,
+- **A claim is split mechanically, and the splitting is sometimes wrong.** Across the fifty-one
+  randomly drawn sets it is **14.5%** of claims, between 6.8% and 40.4% depending on the game,
   and every rule in the splitter came from one of those reports. The commonest failure was a
   sentence that names three subjects at once: "stunning visuals, calm music, epic story" was
   one claim carrying three, so two of them went uncounted; a list of short comma-separated
   parts is now that many claims. The rate is measured rather than assumed, because it is the
   one error in this pipeline that no amount of training fixes.
 
-  Those reports were made against five earlier sets of rules, and every round of fixes since
-  answered some of them. Re-cutting all 31,019 randomly drawn claims with the splitter this
-  build ships leaves **9.6%** cut the way the labeller objected to, so nearly six points of the
-  15.2 are rules that have since landed (`--example stale-splits`). It is a floor rather than the
+  Those reports were made against six earlier sets of rules, and every round of fixes since
+  answered some of them. Re-cutting all 30,414 randomly drawn claims with the splitter this
+  build ships leaves **9.1%** cut the way the labeller objected to, so more than five points of
+  the 14.5 are rules that have since landed (`--example stale-splits`). It is a floor rather than the
   new rate: a claim the splitter now cuts differently is not thereby cut correctly, and nothing
   here can see a claim that was cut well before a rule and badly after it.
 

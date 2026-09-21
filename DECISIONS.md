@@ -2489,6 +2489,37 @@ unjoined in total, differently distributed: 920210 has eleven more, and every on
 fragment pair such as "The Good [/h1] 1." and "Best graphics in any lego gamer ever." that is
 now one claim, which is the thing this entry set out to fix.
 
+### A reviewer who never capitalises still writes sentences
+
+Settled 2026-09-21, from the labels: 990080 came back 10% mis-cut, and reading the flags
+found the same shape over and over, a whole review as one claim because its author never
+touches the shift key. The splitter took a lowercase letter after a full stop and a space as
+the middle of a sentence, a rule meant for abbreviations, and what it protected was every
+reviewer who writes "pretty great as a non-harry potter fan. the combat never gets old. i
+look forward to whatever they make next." That is three per cent of every draw, two to three
+times the length of the median claim, three points labelled once, and the labellers flagged
+them as mis-cut and could do nothing else.
+
+The rule is gone. The abbreviations are a list and the list is what protects them, with
+`hr`, `min`, `sec`, `avg`, `lvl`, `ep` and the misspelling `ect` added from what the change
+would otherwise have cut. Two things a stop still does not end: an ellipsis trailing into a
+lowercase word ("nails it perfectly... the aesthetics, the execution, the atmosphere"), and
+a stop with no space after it before anything but a capital ("example.com", "v1.2b"), where
+before a capital it is now a sentence somebody typed without a space ("great game.Would
+recommend") rather than a word; a single letter before the stop is an initial and "z.B.",
+"P.S." stay whole.
+
+**What it changed.** Over the 5,670 claims a labeller ever called badly split, 3,807 were
+still cut that way and 3,517 are now, 290 fixed and none newly broken; the random draws go
+from 9.8% to 9.1% still cut as objected to. On the frozen ten, 92 more labels of 5,579 are
+now cut into several, 51 of them flagged by the labeller and the other 41 read one by one and
+every one a sentence boundary ("great evolution of the classic aoe2. combat and eco has been
+tweaked enough to stay similar but refreshing." is two points, and the labeller let it go).
+Three more labels sit inside a larger claim, which is the abbreviations joining what they
+should. The library owes a re-read under these rules before the frozen figure is recorded
+again; until it has one, the 78.2% at 82.1% above stands as measured under the previous rules,
+and the 92 labels are outside the measurement rather than wrong in it.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
