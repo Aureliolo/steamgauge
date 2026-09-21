@@ -705,6 +705,15 @@ all along; the training tests pass under it. Installing with uv needs
 `--index-strategy unsafe-best-match`, because the CUDA build of torch sits on a second index
 that uv will not look past the first one for; pip looks at both without being told.
 
+The first Renovate run under that lock reported `pip-compile error` and nothing else, and the
+cause is in its parser: it re-runs the header command but refuses every option it does not
+know, and it knows neither `-o`, nor `--python-platform`, nor `--index-strategy`, nor
+`--no-annotate`, nor a `--python-version` written with a space. The header now names the
+source and `--output-file=` and nothing else, and the index, platform, Python version and
+strategy live in a root `uv.toml`, which uv reads from the directory the command runs in and
+which Renovate runs it in. Same pins; a person installing with uv from the root no longer has
+to know the flag.
+
 ### What is there to run when something looks wrong
 
 Each of these answers one question and is a `cargo run --release -p steamgauge-core --example`

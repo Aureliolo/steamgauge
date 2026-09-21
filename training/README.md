@@ -22,11 +22,11 @@ pip install -r requirements.lock
 ```
 
 `requirements.txt` holds the floors and ceilings; `requirements.lock` is what they resolve to,
-compiled by the command in its header and committed beside the runs it was used for. After
-changing `requirements.txt`, re-run that command; to take every pin to its newest, add
-`--upgrade`. With uv rather than pip, install with
-`uv pip sync requirements.lock --index-strategy unsafe-best-match`, because the CUDA build of
-torch lives on a second index and uv will not look past the first one without being told.
+compiled from the repository root by the command in its header, with the options in the root
+`uv.toml`, and committed beside the runs it was used for. After changing `requirements.txt`,
+re-run that command; to take every pin to its newest, add `--upgrade`. With uv rather than pip,
+`uv pip sync training/requirements.lock` from the root does the install; the CUDA build of torch
+lives on a second index, and `uv.toml` is what tells uv to look past the first one.
 
 Training wants a GPU. It will run on a CPU and you will not enjoy it.
 
