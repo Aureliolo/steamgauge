@@ -698,7 +698,7 @@ moved its pins one line at a time with no resolver behind it. CI runs no Python,
 have failed on the training machine and nowhere else; the second was found by installing the
 PR's lock into a throwaway environment, which is the check that now precedes any merge of one.
 `requirements.lock` is `uv pip compile` over `requirements.txt` now, resolved for Windows and
-Python 3.13 with the CUDA index recorded in the file, and Renovate's `pip-compile` manager
+the training machine's Python with the CUDA index recorded in the file, and Renovate's `pip-compile` manager
 re-runs the command in its header for every update, so a pin cannot be moved past what
 another pin allows. Same pins as the freeze plus `hf-xet`, which `huggingface_hub` had wanted
 all along; the training tests pass under it. Installing with uv needs
@@ -713,6 +713,15 @@ source and `--output-file=` and nothing else, and the index, platform, Python ve
 strategy live in a root `uv.toml`, which uv reads from the directory the command runs in and
 which Renovate runs it in. Same pins; a person installing with uv from the root no longer has
 to know the flag.
+
+The Python and the CUDA build were both inherited rather than chosen, and the user asked why.
+The lock said 3.13 because the first compile did, with nothing behind it; the training
+environment runs 3.14.7, and every pin resolves for it unchanged. The CUDA build was cu126
+because the freeze it replaced was, from a torch installed long before; the driver is at
+CUDA 13.4 and PyTorch serves torch 2.14 for this Python as cu126, cu130 and cu132. The lock
+is resolved for 3.14 and cu132 now, which moves one pin, torch's build tag. Checked the way a
+lock change is checked here: installed into a throwaway venv, torch finds the card and runs a
+half-precision matmul on it, and the training tests pass.
 
 ### What is there to run when something looks wrong
 

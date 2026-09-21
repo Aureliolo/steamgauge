@@ -3,11 +3,12 @@
 # header because Renovate re-runs that header to move a pin and refuses any option it does
 # not know, and it knows none of these.
 [pip]
-python-version = "3.13"
+python-version = "3.14"
 python-platform = "windows"
 # The CUDA build of torch lives on a second index, and uv will not look past the first one
-# for a package the first one also carries without being told.
-extra-index-url = ["https://download.pytorch.org/whl/cu126"]
+# for a package the first one also carries without being told. cu132 is the newest build
+# PyTorch serves for this Python, and it needs a driver at CUDA 13.2 or later.
+extra-index-url = ["https://download.pytorch.org/whl/cu132"]
 index-strategy = "unsafe-best-match"
 emit-index-url = true
 no-annotate = true
