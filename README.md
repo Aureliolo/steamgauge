@@ -246,9 +246,9 @@ trained from were written by **Claude Fable 5.1**, and the model it is measured 
 gap meaningless, and the gap is the point.
 
 Every figure in that table is agreement with those labels, and the labels are a model's. The
-one person who has read a blind sample of them so far agrees with the labels on 65% of
-subjects and with the frontier model on 63%, which is the section below and the number to
-hold the table against.
+one person who has adjudicated 200 of them agrees with the labels on 65% of subjects and with
+the frontier model on 64%, which is the section below and the number to hold the table
+against.
 
 That is not a projection. The library this was built against is **51 games, 7.5 million
 reviews, 20.1 million claims**, all of it read by this model on one card, and the counts and
@@ -278,17 +278,17 @@ only copy of somebody's own judgement.
 rather than over them, and prints the share that agrees. That share is the first number this
 project can call accuracy rather than agreement.
 
-**What it says so far.** One person read 121 blind claims, English and from the frozen games,
-on 2026-09-21. Against their answers the labels the whole silver standard is made of name the
-same subject **65.3%** of the time (somewhere in 56% to 73% with 95% confidence), the second
-labeller 63.6%, and where the two labellers had agreed with each other, which is 107 of the
-121, they agree with the person 68.2%. Polarity holds at 86.8%. The reader that ships answers
-78.5% of those claims and names the person's subject on **69.5%** of them (60% to 78%),
-against 82% when it is scored on the labels. Two models agree with each other a good deal more
-than either agrees with a person, and "both labellers said so" is right about two times in
-three. Most of the difference is the boundaries the gap list already names, content against
-gameplay, story against gameplay, atmosphere against story and graphics; the interval is wide
-because 121 is few, and it narrows only with more blind answers.
+**What it says.** One person adjudicated **200 claims** on 2026-09-21: the 30 the two
+labellers were surest and still disagreed about, and 169 drawn blind, English and from the
+frozen games. Against the blind answers the labels the whole silver standard is made of name
+the same subject **65.1%** of the time (somewhere in 58% to 72% with 95% confidence), the
+second labeller 63.9%, and where the two labellers had agreed with each other, which is 149 of
+the 169, they agree with the person 68.5%. Polarity holds at 85.8%. The reader that ships
+answers 81.1% of those claims and names the person's subject on **70.1%** of them (62% to
+77%), against 82% when it is scored on the labels. Two models agree with each other a good
+deal more than either agrees with a person, and "both labellers said so" is right about two
+times in three. Most of the difference is the boundaries the gap list already names: content
+against gameplay, genre against verdict, story against gameplay and content.
 
 ### How the reference sets are made
 

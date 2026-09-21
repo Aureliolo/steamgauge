@@ -15,5 +15,22 @@
     "confidence": "high",
     "ambiguous": false,
     "split_wrong": false
+  },
+  {
+    "review_id": "134449121",
+    "index": 0,
+    "app_id": 1057090,
+    "language": "english",
+    "subset": "random",
+    "start": 0,
+    "end": 197,
+    "taxonomy": "dc064c24a9bb",
+    "produced_by": "a person",
+    "subject": "performance",
+    "polarity": "complaint",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   }
 ]
