@@ -497,10 +497,17 @@ These rules keep those figures honest:
   offered. A language with fewer than a hundred labelled claims now declines rather than
   borrowing a line fitted on English, which had been answering eight Indonesian claims at 33%.
 
-  **The reading is still worse, and that is a training-data problem.** Nothing above changes the
-  agreement column: the reader still understands a Korean claim less well than an English one,
-  it just no longer claims otherwise. Half of that deficit traces to the labeller rather than the
-  reader, and the rest needs the reference set to stop being 71% English.
+  **Most of what is left is the labels, not the reading.** Nothing above changes the agreement
+  column, and the column itself was the question. Those figures are agreement with one
+  labeller, so they carry that labeller's noise as well as the reader's error. Since then the
+  sets have been read a second time, blind, and on the claims **two** labellers settled the
+  Chinese gap is not there: 93.0% of 171 Chinese claims against 90.0% of 3,336 English ones
+  over every set read twice, and 85.7% each over the frozen games read twice so far. What
+  differs is the labellers, who agree on 89.1% of English claims and 83.8% of Chinese ones.
+  Korean's settled sample is 38 claims and says nothing either way yet. The Chinese samples are
+  small enough to hide a point or two, and small enough to rule out the six the column shows;
+  the correction a noisier language needs is a second reading of it, which is what is being
+  bought, rather than a heavier gradient, which was tried and is off.
 
 - **The model declines claims it is not sure about, and those are counted rather than hidden.**
   A claim below the threshold gets no subject and is reported as unclassified. That is a real
