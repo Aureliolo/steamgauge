@@ -511,7 +511,6 @@ def area_under_risk_coverage(confidence, correct):
     return float(np.mean(risks)) if risks else 0.0
 
 
-@torch.no_grad()
 def scored_twice(predicted, truth, claims, index_of) -> dict:
     """The model against the second labeller, where there is one.
 
@@ -543,6 +542,7 @@ def scored_twice(predicted, truth, claims, index_of) -> dict:
     }
 
 
+@torch.no_grad()
 def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     model.eval()
     subject_logits, polarity_logits = [], []
