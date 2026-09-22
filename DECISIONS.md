@@ -2686,6 +2686,7 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | harrier06-last-29006 | Harrier 0.6B, last-token pooling | 78.5% | 79.7% | 78.4% | 0.126 |
 | e5-29006-distil-s1 | the EMA schedule plus a 247k-claim pool taught by the three EMA seeds | 89.8% | 90.8% | 77.9% | 0.097 |
 | e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
+| e5-29006-rdrop | R-Drop at 1.0, the shipped schedule | 91.1% | 92.9% | 77.8% | 0.097 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2719,6 +2720,18 @@ sibling, one point over the best plain seed, with a lower validation macro F1 (0
 0.646) and the same frozen one. One seed, at the edge of the spread. The two findings point
 the same way, and they stack: the next round is e5-large-instruct with the pool, on three
 seeds, and if that clears the bar it goes through the folds and ships.
+
+**R-Drop is the third small positive, and the cheapest.** Each batch through the dropout
+twice and the two answers charged for disagreeing (`--rdrop 1.0`, with `--accumulate 2` to
+keep the card's memory where it was): 91.1% validation coverage, 92.9% frozen at 77.8%, the
+best frozen macro F1 of the night at 0.697 and an AURC of 0.097 tying the student's, for
+twice the passes. One seed, on the good side of every figure and inside the spread on each.
+It belongs in the next round's configuration beside the pool.
+
+**Masked-language pretraining did not run.** The logits over a 250k-word vocabulary at 32
+reviews of 256 tokens are eight gigabytes on their own, and the card had the fine-tune's
+allocator beside them; it is queued again at 16 reviews of 128 tokens behind the embedding
+leg, and its fine-tune with it.
 
 ### The frontier comparison, drawn again
 
