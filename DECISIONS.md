@@ -2998,10 +2998,16 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
 Then, in order:
 
-3. **The sheet revision and the splitter together, once.** `reference/GAPS.md` holds the wording for every
+3. **The sheet revision and the splitter together, once. Done 2026-09-21.** `reference/GAPS.md` holds the wording for every
    rule, each traced to a labeller who could not see the others. The contested rate of 29% and
    the `difficulty` against `gameplay` confusion say the sheet is the ceiling now, not the
    model. Measure the relabel cost on one game before paying it for thirty-six.
+
+   Every rule the gap list asked for is on the sheet; the last four went on together, and the
+   entry "The four rules the gap list still asked for" says what they cost: a revisit of 77
+   claims, 23 of which moved, at one game's worth of labelling rather than thirty-six. The
+   splitter's own changes (headings, lists, the lowercase writer) went in beside them, and the
+   library was read again under both.
 4. **Games chosen for the rows that are starved**, not more games at random. `licensing` has
    32 claims over four games, `vr` 40, `accessibility` 48, and all three score zero. A random
    game costs the same as a chosen one and buys almost none of them. Fifteen such games are
@@ -3153,7 +3159,9 @@ Then, in order:
    been, and the fix reads every teaching set's sample before drawing.
 7. **Publishing**, which is the user's decision and not near.
 8. **Induced per-game categories** for the remaining games, one agent call of about 70k tokens
-   each, behind everything else.
+   each, behind everything else. **Done 2026-09-22**: every game with a corpus has its
+   induced subjects, 52 games and 432 subjects, and the two without (one never captured, one
+   holding a single review) have nothing to induce from.
 
 Built since this list was first written: the report page on readings, the polarity split,
 corrected prevalence, the second reading and its comparison, the fetch-by-checksum path, the
