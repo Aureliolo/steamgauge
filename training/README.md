@@ -63,6 +63,13 @@ label is spent, and writes a backbone `train.py --backbone runs/tapt-e5/backbone
 from. `--ema`, `--llrd`, `--rdrop` and `--pooling last` are the other knobs added the same
 night, and `DECISIONS.md` says what each was worth.
 
+Two knobs aim at the abstention rule rather than at accuracy, which is what coverage at a
+promised accuracy is made of. `--second-weight` charges the loss against both labellers'
+answers wherever a set has been read twice, mixed by the weight given, instead of against one
+of them at full confidence; the export carries the second reading beside the first. And
+`--error-reg` charges the subject head for being surer of a wrong claim in the batch than of a
+right one, which is the pairwise hinge of Xin et al. (ACL 2021). A run records both.
+
 `claims.jsonl` holds review text and is never committed. What gets published is the model and a
 label set of review ids, claim offsets and labels, built from `reference/claims/` rather than
 from the training export, which anyone can rehydrate with `steamgauge` itself. Reviews belong to

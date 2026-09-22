@@ -324,6 +324,32 @@ def charged(logits, target, class_weight=None):
     return -(target * log_probabilities).sum(dim=-1)
 
 
+def error_regularisation(logits, truth, margin=0.0):
+    """What the model pays for being surer of a wrong answer than of a right one.
+
+    Cross-entropy asks the model to be right. It never asks the confidence to rank the right
+    answers above the wrong ones, which is the whole of what an abstention rule needs: a model
+    that is right 70% of the time and sure of exactly the wrong 30% abstains on nothing useful.
+    This is the pairwise hinge of Xin, Tang, Yu and Lin (ACL 2021), pushing the softmax
+    response of every wrong claim in the batch below that of every right one, which lowered
+    AURC by about a tenth on GLUE-scale BERT tasks with accuracy unchanged.
+
+    Returns a scalar, zero where a batch is all right or all wrong.
+    """
+    probabilities = torch.softmax(logits.float(), dim=-1)
+    confidence = probabilities.max(dim=-1).values
+    right = probabilities.argmax(dim=-1) == truth
+    if not right.any() or right.all():
+        return logits.sum() * 0.0
+    wrong_confidence = confidence[~right]
+    right_confidence = confidence[right]
+    # Every wrong claim against every right one: the batch is a few dozen rows, so the whole
+    # outer product costs nothing and says more than a sampled pair would.
+    return torch.clamp(
+        margin + wrong_confidence.unsqueeze(1) - right_confidence.unsqueeze(0), min=0.0
+    ).mean()
+
+
 def soft_cross_entropy(logits, target, temperature):
     """What a student pays for disagreeing with a teacher's distribution.
 
@@ -789,6 +815,13 @@ def run(args) -> dict:
                 subject_loss = charged(subject, subject_target, weights)
                 polarity_loss = charged(polarity, polarity_target)
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
+                if args.error_reg > 0:
+                    # Against the first labeller's answer, which is what the abstention rule
+                    # is fitted and scored against; a claim read twice is still one answer to
+                    # be surer of than of a wrong one.
+                    loss = loss + args.error_reg * error_regularisation(
+                        subject, batch["subject"].to(device), args.error_reg_margin
+                    )
                 if args.rdrop > 0:
                     # The same batch through the dropout again gives a second opinion from
                     # the same weights, and the two are charged for disagreeing. Dropout at
@@ -962,6 +995,8 @@ def run(args) -> dict:
         "polarity_weight": args.polarity_weight,
         "second_weight": args.second_weight,
         "read_twice": sum(claim.second_subject is not None for claim in train),
+        "error_reg": args.error_reg,
+        "error_reg_margin": args.error_reg_margin if args.error_reg else None,
         "ema": args.ema,
         "llrd": args.llrd,
         "rdrop": args.rdrop,
@@ -1049,6 +1084,22 @@ def parse():
         help="on a claim read twice, this share of the target is the second labeller's answer "
         "and the rest the first's; 0 is off and learns the first answer alone. The export "
         "carries the second reading beside the first wherever a set has one.",
+    )
+    parser.add_argument(
+        "--error-reg",
+        type=float,
+        default=0.0,
+        help="charge the subject head this much for being surer of a wrong claim in the batch "
+        "than of a right one (Xin et al. ACL 2021); 0 is off. Aimed at the abstention rule "
+        "rather than at accuracy: it asks the confidence to rank, which is what coverage at a "
+        "promised accuracy is made of.",
+    )
+    parser.add_argument(
+        "--error-reg-margin",
+        type=float,
+        default=0.0,
+        help="how far below a right claim's confidence a wrong one has to sit before the "
+        "charge stops. 0 asks only for the order.",
     )
     parser.add_argument(
         "--pooling",

@@ -50,6 +50,7 @@ SETTINGS = {
     "llrd": 1.0,
     "rdrop": 0.0,
     "second_weight": 0.0,
+    "error_reg": 0.0,
     "pooling": "mean",
     "pool": None,
     "pool_weight": None,

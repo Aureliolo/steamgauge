@@ -21,6 +21,15 @@
 //! a story that Spanish speakers happened to like, and said nothing but "story". Praise against
 //! complaint among the reviews that share a language is the comparison that cannot be won by
 //! a language leaning one way.
+//!
+//! What it cannot do is read a negation that is not next to what it negates. "no
+//! microtransactions" and "no micro transactions" are caught, because a word that turns what
+//! follows reaches the word and the pair after it; "I never ran into any performance issues"
+//! is not, and its "performance issues" is counted in praise like any other. Measured on one
+//! game's performance row, three of the eight praising reviews that used the phrase wrote the
+//! negation beside it and five wrote it further off. The page answers this by opening every
+//! term onto the claims it was counted from, which is the only honest answer a counter that
+//! does not parse can give.
 
 use std::collections::{HashMap, HashSet};
 
@@ -311,14 +320,28 @@ fn distinctive(
         }
         // "full price" and "full" say one thing. The word outranks the phrase whenever a few
         // reviewers used it in some other phrase, and the phrase is still what was said, so
-        // it takes the word's place unless it was noticeably rarer.
-        if let Some(kept) = shown
-            .iter_mut()
-            .find(|kept| shares_a_word(&kept.text, term))
+        // it takes the word's place unless it was noticeably rarer. A phrase a modifier turns
+        // takes it at half: "no microtransactions" said by half the reviewers who said
+        // "microtransactions" in praise is what the word meant there, and the word alone
+        // reads as the opposite; and "no micro transactions" takes "no micro" the same way,
+        // because the shorter is the phrase cut off.
+        if let Some(at) = shown
+            .iter()
+            .position(|kept| shares_a_word(&kept.text, term))
         {
-            if term.len() > kept.text.len() && nearly(reviews, kept.reviews) {
+            let kept = &mut shown[at];
+            let turned = turned_by_a_modifier(term)
+                && (!turned_by_a_modifier(&kept.text) || term.starts_with(&kept.text));
+            if term.len() > kept.text.len()
+                && (nearly(reviews, kept.reviews) || (turned && reviews * 2 >= kept.reviews))
+            {
                 term.clone_into(&mut kept.text);
                 kept.reviews = reviews;
+                // The phrase that took the place of "micro transactions" also holds "no
+                // micro", shown separately until now; a term that is a part of another shown
+                // term is one finding, not two.
+                let whole = term.to_owned();
+                shown.retain(|other| other.text == whole || !shares_a_word(&other.text, &whole));
             }
             continue;
         }
@@ -383,14 +406,29 @@ fn nearly(left: u64, right: u64) -> bool {
     left * 20 >= right * 19 && right * 20 >= left * 19
 }
 
-/// Whether one term is a whole word of the other. "price tag" and "tag" are one finding;
-/// "full price" and "price tag" are two, and a reader wants both. A Chinese pair is written
-/// solid, so its words are its substrings: 操作手感 holds 操作 the way "price tag" holds "tag".
+/// Whether a term opens on a word that turns what follows: "no bugs", "not worth".
+fn turned_by_a_modifier(term: &str) -> bool {
+    term.split(' ')
+        .next()
+        .is_some_and(|first| MODIFIERS.contains(&first))
+}
+
+/// Whether one term is a whole word of the other, or a phrase the other continues. "price
+/// tag" and "tag" are one finding, and so are "no micro" and "no micro transactions"; "full
+/// price" and "price tag" are two, and a reader wants both. A Chinese pair is written solid,
+/// so its words are its substrings: 操作手感 holds 操作 the way "price tag" holds "tag".
 fn shares_a_word(left: &str, right: &str) -> bool {
     if left.chars().all(is_han) && right.chars().all(is_han) {
         return left.contains(right) || right.contains(left);
     }
-    left.split(' ').any(|word| word == right) || right.split(' ').any(|word| word == left)
+    let (short, long) = if left.len() <= right.len() {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    long.split(' ').any(|word| word == short)
+        || (short.contains(' ')
+            && (long.starts_with(&format!("{short} ")) || long.ends_with(&format!(" {short}"))))
 }
 
 /// Whether a character is a Chinese ideograph, the script the dictionary cuts.
@@ -578,6 +616,9 @@ fn pooled_log_odds(term: &str, by_language: &[(&Counter, &Counter)]) -> (f64, f6
 struct Terms {
     word: String,
     previous: String,
+    /// The modifier before `previous`, when there was one: "no" in "no micro transactions",
+    /// so that the negation reaches the pair it was said about and not only the word after it.
+    turning: String,
     pair: String,
     /// The run of a spaceless script in hand, cut when it ends.
     run: String,
@@ -684,6 +725,7 @@ impl Terms {
     fn each_in(&mut self, claim: &str, mut visit: impl FnMut(&str)) {
         self.word.clear();
         self.previous.clear();
+        self.turning.clear();
         self.run.clear();
 
         for ch in claim.chars() {
@@ -692,6 +734,7 @@ impl Terms {
             if crate::claims::writes_without_spaces(ch) && !is_hangul(ch) {
                 self.close_word(&mut visit);
                 self.previous.clear();
+                self.turning.clear();
                 self.run.push(ch);
                 continue;
             }
@@ -710,6 +753,7 @@ impl Terms {
                 // and "full price" are the same two words.
                 if !ch.is_whitespace() && ch != '-' {
                     self.previous.clear();
+                    self.turning.clear();
                 }
             }
         }
@@ -809,6 +853,7 @@ impl Terms {
         if word.chars().count() < 2 || word.chars().all(|ch| ch.is_ascii_digit()) {
             self.word.clear();
             self.previous.clear();
+            self.turning.clear();
             return;
         }
         let kind = kind_of(word);
@@ -820,11 +865,24 @@ impl Terms {
                 self.pair.push(' ');
                 self.pair.push_str(word);
                 visit(&self.pair);
+                // "no micro transactions": the modifier reaches over a pair as well as a word,
+                // because a pair the modifier turns is said about the pair, and "micro
+                // transactions" shown in praise beside "no micro" would read as the opposite
+                // of what was said.
+                if !self.turning.is_empty() {
+                    self.pair.insert(0, ' ');
+                    self.pair.insert_str(0, &self.turning);
+                    visit(&self.pair);
+                }
             }
         }
         // A pair ends on a content word and starts on one, or on the few function words that
         // change what follows: "not worth" and "on sale" are findings, "worth it" and "is
         // great" are not, and "it on" was the best a thousand price claims had to offer.
+        self.turning.clear();
+        if kind == Word::Content && kind_of(&self.previous) == Word::Modifier {
+            self.turning.push_str(&self.previous);
+        }
         self.previous.clear();
         if kind != Word::Filler {
             self.previous.push_str(word);
@@ -1521,6 +1579,90 @@ mod tests {
             terms("not worth it on sale, and the story is short"),
             ["worth", "not worth", "sale", "on sale", "story", "short"]
         );
+    }
+
+    #[test]
+    fn a_modifier_reaches_over_the_pair_it_turns() {
+        assert_eq!(
+            terms("no micro transactions at all"),
+            [
+                "micro",
+                "no micro",
+                "transactions",
+                "micro transactions",
+                "no micro transactions",
+            ]
+        );
+        // Only over the pair straight after it: the turn does not carry a word further.
+        assert_eq!(
+            terms("no frame rate drops"),
+            [
+                "frame",
+                "no frame",
+                "rate",
+                "frame rate",
+                "no frame rate",
+                "drops",
+                "rate drops",
+            ]
+        );
+        // A modifier before a modifier does not stack into a triple of function words.
+        assert_eq!(terms("not too hard"), ["hard", "too hard"]);
+    }
+
+    #[test]
+    fn a_phrase_and_the_phrase_that_continues_it_are_one_finding() {
+        assert!(shares_a_word("no micro", "no micro transactions"));
+        assert!(shares_a_word("micro transactions", "no micro transactions"));
+        assert!(shares_a_word("tag", "price tag"));
+        assert!(!shares_a_word("full price", "price tag"));
+        assert!(!shares_a_word("no micro", "micro transactions"));
+    }
+
+    #[test]
+    fn a_negated_phrase_takes_the_place_of_a_word_said_half_the_time_negated() {
+        let mut said = Said::new(1);
+        for review in 0..100 {
+            said.note(
+                0,
+                Polarity::Praise,
+                if review < 55 {
+                    "no microtransactions at all"
+                } else {
+                    "microtransactions are optional"
+                },
+            );
+            said.note(0, Polarity::Complaint, "too expensive");
+            said.next_review("english");
+        }
+        let found = said.finish(&[("monetisation", "Monetisation and DLC")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert!(praised.contains(&"no microtransactions"), "{praised:?}");
+        assert!(!praised.contains(&"microtransactions"), "{praised:?}");
+
+        // Written as two words, the negation has to reach the pair, and the phrase cut off at
+        // "no micro" must not be what is shown when most of those reviewers went on to say
+        // "transactions".
+        let mut said = Said::new(1);
+        for review in 0..100 {
+            said.note(
+                0,
+                Polarity::Praise,
+                match review % 10 {
+                    0..=5 => "no micro transactions at all",
+                    6 => "no micro payments",
+                    _ => "micro transactions are optional",
+                },
+            );
+            said.note(0, Polarity::Complaint, "too expensive");
+            said.next_review("english");
+        }
+        let found = said.finish(&[("monetisation", "Monetisation and DLC")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert!(praised.contains(&"no micro transactions"), "{praised:?}");
+        assert!(!praised.contains(&"no micro"), "{praised:?}");
+        assert!(!praised.contains(&"transactions"), "{praised:?}");
+        assert!(!praised.contains(&"micro"), "{praised:?}");
     }
 
     #[test]
