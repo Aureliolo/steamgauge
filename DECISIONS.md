@@ -2683,6 +2683,8 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | e5-29006-ema-s1..s3 | 10 epochs, EMA 0.999, layer-wise decay 0.9 | 88.4, 87.6, 88.1% | 89.7, 89.2, 90.0% | 77.8, 78.4, 77.7% | 0.106, 0.104, 0.104 |
 | qwen3e06-29006 | Qwen3-Embedding-0.6B, mean pooling | 77.4% | 79.7% | 77.2% | 0.132 |
 | qwen3e06-last-29006 | Qwen3-Embedding-0.6B, last-token pooling | 82.0% | 83.1% | 77.6% | 0.120 |
+| harrier06-last-29006 | Harrier 0.6B, last-token pooling | 78.5% | 79.7% | 78.4% | 0.126 |
+| e5-29006-distil-s1 | the EMA schedule plus a 247k-claim pool taught by the three EMA seeds | 89.8% | 90.8% | 77.9% | 0.097 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2696,6 +2698,17 @@ still worse than the encoder.** Qwen3-Embedding-0.6B mean-pooled answered 77% wh
 answers 90%; by its last token, the way it was trained, 82%, and Harrier 0.6B by its last
 token 80% at 78.4% on the frozen games. The gap is the causal mask: only the last token has
 seen the whole claim. Neither is a candidate at this size.
+
+**Distillation is the one thing that moved, and it moved by about the noise.** The three EMA
+seeds read 250,668 unlabelled claims drawn from the training games (`export-pool`, 2,500
+reviews a game, nothing any reference set holds) and agreed on 85.7% of them; a student of
+the same configuration learned their averaged distributions beside the labels, one pool batch
+per labelled batch. It lands at 89.8% validation coverage against its teachers' 88.4, 87.6 and
+88.1, and on the frozen games at 90.8% answered at 77.9% with the best AURC of the night,
+0.097 against 0.101 for the shipped run and 0.104 to 0.106 for its teachers. That is a point
+and a half over the runs it learned from and inside the spread of the runs it did not, at
+four and a half times the training time. Worth a second seed and a bigger pool before it is
+called an improvement; not worth shipping on one run.
 
 ### The frontier comparison, drawn again
 
