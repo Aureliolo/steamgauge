@@ -162,11 +162,20 @@ outrank one three hundred used against ten, and a side with a handful of reviews
 rather than promoting whatever those few happened to write. Counts are by reviewer, once per
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
-A term is a word or a pair of adjacent words. Chinese, which a quarter of the library is
+The comparison is also made within each language and then pooled, because a library written
+in thirty languages is a library whose speakers do not praise and complain in the same
+proportions: against the whole other side, "historia" stood out in the praise of a story
+that Spanish speakers happened to like, and said nothing but "story". Each language's praise
+is compared with its own complaints, and a word a language uses either way contributes
+nothing. What a subject is called in each language stays off its rows as the English label
+does, read from the corpus rather than translated: "сюжет" under story says what the row said.
+
+A term is a word or a pair of adjacent words. Chinese, which a sixth of the library is
 written in, is cut into words by a dictionary (jieba, with the words of the trade added, since a
-general dictionary reads 掉帧 as "drop" and "frame"); Japanese and Korean, which have no
-dictionary here, are cut into pairs of adjacent characters, the best that can be done without
-one. Everything the page shows is added up when a game is read, so a change to the adding up
+general dictionary reads 掉帧 as "drop" and "frame"); Korean is spaced words with the particle
+taken off; Japanese, which has no dictionary here, is cut into pairs of adjacent characters,
+the best that can be done without one. Everything the page shows is added up when a game is
+read, so a change to the adding up
 does not cost the hours of a reading again: `steamgauge recount` replays the stored readings
 through the same counting in seconds, and refuses if this build takes a review apart
 differently from the build that read it.
