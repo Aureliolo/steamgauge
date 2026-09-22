@@ -1523,8 +1523,87 @@ const ALSO_CALLED: &[(&str, &[&str])] = &[
 ];
 
 /// Function words that carry meaning into the word after them.
-const MODIFIERS: [&str; 12] = [
-    "no", "not", "never", "without", "too", "on", "off", "less", "more", "only", "still", "always",
+///
+/// The contractions are here because a review negates with them far more often than with
+/// "not": "can't" was a complaint term of its own on a million-review page, where it said
+/// nothing at all, and "can't recommend" said the thing the reviewer meant.
+///
+/// The rest are the same word in the languages the library is written in. Read from what the
+/// pages already show: over 53 counted games, "keine", "без", "слишком" and "нельзя" had each
+/// taken a place on a row by themselves. A negation is the one word whose absence changes a
+/// finding into its opposite, so the languages that write it as a word of its own get the
+/// same treatment English does. Japanese and Chinese negate inside the word and are handled
+/// where those scripts are cut.
+const MODIFIERS: &[&str] = &[
+    // English, including the contractions a review actually uses.
+    "no",
+    "not",
+    "never",
+    "without",
+    "too",
+    "on",
+    "off",
+    "less",
+    "more",
+    "only",
+    "still",
+    "always",
+    "can't",
+    "cannot",
+    "don't",
+    "doesn't",
+    "didn't",
+    "won't",
+    "wouldn't",
+    "couldn't",
+    "shouldn't",
+    "isn't",
+    "wasn't", //
+    // German.
+    "nicht",
+    "kein",
+    "keine",
+    "keinen",
+    "ohne",
+    "nie",
+    "zu",
+    "sehr", //
+    // Russian and Ukrainian.
+    "не",
+    "нет",
+    "без",
+    "нельзя",
+    "слишком",
+    "очень", //
+    // Spanish and Portuguese.
+    "sin",
+    "sem",
+    "não",
+    "nunca",
+    "demasiado",
+    "muy",
+    "muito", //
+    // French.
+    "pas",
+    "sans",
+    "jamais",
+    "trop", //
+    // Italian.
+    "non",
+    "senza",
+    "mai",
+    "troppo", //
+    // Polish and Czech.
+    "nie",
+    "bez",
+    "zbyt", //
+    // Turkish.
+    "değil",
+    "yok",
+    "çok", //
+    // Korean, which is written with spaces and negates with a word of its own.
+    "안",
+    "못",
 ];
 
 /// Function words, and the handful of words that are function words in a Steam review:
@@ -1611,7 +1690,15 @@ mod tests {
 
     #[test]
     fn apostrophes_stay_inside_a_word_and_case_is_folded() {
-        assert_eq!(terms("Don’t BUY it"), ["don't", "buy", "don't buy"]);
+        // "don't" turns what follows and says nothing alone, so the pair is where it shows.
+        assert_eq!(terms("Don’t BUY it"), ["buy", "don't buy"]);
+    }
+
+    #[test]
+    fn a_contraction_negates_the_word_after_it_rather_than_standing_alone() {
+        let found = terms("can't recommend the combat");
+        assert!(!found.contains(&"can't".to_owned()), "{found:?}");
+        assert!(found.contains(&"can't recommend".to_owned()), "{found:?}");
     }
 
     #[test]

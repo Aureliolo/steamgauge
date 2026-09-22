@@ -3057,6 +3057,25 @@ multiplayer complaints `servers, capacity, join, matchmaking, connection, server
 waiting, connect`. The counting does not change, only which of the counted terms are worth a
 place, so a `recount` is enough and no game needs reading again.
 
+### "can't" was a finding about a game, and a negation in six languages was not
+
+Found 2026-09-22 on the same page. The policy complaints of a game with a million reviews read
+`account, countries, data, playstation, people, access, can't, months`. "can't" says nothing at
+all on its own, and it took a place from "network", which says something. It was there because
+the list of words that turn what follows held "not" and "never" and none of the contractions a
+review actually negates with.
+
+The contractions are in it now, and so are the same words in the languages the library is
+written in, which was checked rather than guessed: over the 53 counted games, "keine", "без",
+"слишком" and "нельзя" had each already taken a place on a row by themselves. German, Russian,
+Spanish, Portuguese, French, Italian, Polish, Turkish and Korean negations and intensifiers
+join the English ones. Chinese and Japanese negate inside the word and are handled where those
+scripts are cut.
+
+A word that turns what follows is not counted alone, so a corpus counted before this holds
+counts that differ by those words. It is a `recount` rather than a reading: the model's
+answers do not move.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
