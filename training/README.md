@@ -57,8 +57,11 @@ distributions; `train.py --pool data/pool.jsonl --pool-targets data/pool-targets
 reads one pool batch beside every labelled batch and pays for disagreeing with the teacher as
 it pays for disagreeing with a label. The pool never reaches a frozen or validation game, and
 `train.py` drops any pool row from a game the run is scored on, so the frozen figure stays a
-figure about games nobody trained on. `--ema`, `--llrd` and `--pooling last` are the other
-knobs added the same night, and `DECISIONS.md` says what each was worth.
+figure about games nobody trained on. `tapt.py --pool data/tapt.jsonl --run-id tapt-e5`
+continues the encoder's masked-language pretraining on the same kind of pool before any
+label is spent, and writes a backbone `train.py --backbone runs/tapt-e5/backbone` fine-tunes
+from. `--ema`, `--llrd`, `--rdrop` and `--pooling last` are the other knobs added the same
+night, and `DECISIONS.md` says what each was worth.
 
 `claims.jsonl` holds review text and is never committed. What gets published is the model and a
 label set of review ids, claim offsets and labels, built from `reference/claims/` rather than
