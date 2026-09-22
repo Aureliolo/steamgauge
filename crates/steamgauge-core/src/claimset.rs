@@ -1224,6 +1224,50 @@ pub struct ExportReport {
     pub measured_on_games: std::collections::BTreeSet<u32>,
     /// Rows naming bytes this build cuts no claim at.
     pub recut: usize,
+    /// Claims two draws both handed out, folded into one row carrying both answers.
+    pub twice: usize,
+}
+
+/// One row per claim, with a claim drawn twice keeping its second answer rather than both rows.
+///
+/// A teaching draw skips a review the game's sets already hold, so no claim should be labelled
+/// under two of them. The draws made before that guard existed did not, and 616 claims sit in
+/// two sets at once, 108 of them under two different subjects. Exported as two rows, the model
+/// sees one claim twice an epoch and, on those 108, is taught both answers in the same pass.
+///
+/// The row from the random draw is the one kept, because that is the draw every figure is
+/// measured on and the other is a teaching copy of it. The teaching label is not thrown away:
+/// where the kept row has no second answer, it becomes one. Two labellers who read the same
+/// claim without seeing each other's answer are a second reading, whichever draw handed it to
+/// them, and the export already carries a column for exactly that.
+fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<LabelledClaim> {
+    let teaching = |one: &LabelledClaim| TEACHING_SETS.contains(&one.label.subset.as_str());
+    let mut place: std::collections::HashMap<(u32, String, u16), usize> =
+        std::collections::HashMap::new();
+    let mut kept: Vec<LabelledClaim> = Vec::with_capacity(found.len());
+
+    for mut claim in found {
+        let key = (
+            claim.label.app_id,
+            claim.label.review_id.clone(),
+            claim.label.index,
+        );
+        let Some(&at) = place.get(&key) else {
+            place.insert(key, kept.len());
+            kept.push(claim);
+            continue;
+        };
+        report.twice += 1;
+        if teaching(&kept[at]) && !teaching(&claim) {
+            std::mem::swap(&mut kept[at], &mut claim);
+        }
+        // Where the kept row already has a second answer, this third one is dropped: the
+        // column holds one, and a blind reading of the whole set is the better one to hold.
+        if kept[at].again.is_none() {
+            kept[at].again = Some(claim.label);
+        }
+    }
+    kept
 }
 
 /// Writes every labelled claim, with its text, as JSONL for training.
@@ -1254,7 +1298,7 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut report = ExportReport::default();
 
-    let found = labelled_claims(reference_root)?;
+    let found = read_once(labelled_claims(reference_root)?, &mut report);
     let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
         std::collections::BTreeMap::new();
     for claim in &found {
@@ -1424,6 +1468,32 @@ pub fn export_pool(
 mod tests {
     use super::*;
 
+    fn a_label(
+        app_id: u32,
+        review_id: &str,
+        index: u16,
+        subset: &str,
+        subject: &str,
+    ) -> ClaimLabel {
+        ClaimLabel {
+            review_id: review_id.to_owned(),
+            index,
+            app_id,
+            language: "english".to_owned(),
+            subset: subset.to_owned(),
+            start: 0,
+            end: 0,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a-labeller".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        }
+    }
+
     fn review(id: &str, claims: &[&str]) -> DrawnReview {
         DrawnReview {
             id: id.to_owned(),
@@ -1551,6 +1621,53 @@ mod tests {
         assert!(!written.contains(&format!("{held_back}-mined")));
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_claim_two_draws_both_handed_out_is_one_row_holding_both_answers() {
+        let claim = |subset: &str, subject: &str, again: Option<&str>| LabelledClaim {
+            text: "The combat is superb.".to_owned(),
+            review: "The combat is superb.".to_owned(),
+            review_offset: 0,
+            again: again.map(|subject| ClaimLabel {
+                subject: subject.to_owned(),
+                ..a_label(1, "r1", 0, "second", subject)
+            }),
+            label: a_label(1, "r1", 0, subset, subject),
+        };
+
+        let mut report = ExportReport::default();
+        let kept = read_once(
+            vec![
+                claim("multilingual", "audio", None),
+                claim("random", "gameplay", None),
+            ],
+            &mut report,
+        );
+        assert_eq!(report.twice, 1);
+        assert_eq!(kept.len(), 1, "one claim, one row");
+        // The random draw is what every figure is measured on, whichever order the sets were
+        // read in, and the teaching copy is a second reading of the same claim.
+        assert_eq!(kept[0].label.subject, "gameplay");
+        assert_eq!(kept[0].label.subset, "random");
+        assert_eq!(
+            kept[0].again.as_ref().map(|a| a.subject.as_str()),
+            Some("audio")
+        );
+
+        let mut report = ExportReport::default();
+        let kept = read_once(
+            vec![
+                claim("random", "gameplay", Some("story")),
+                claim("multilingual", "audio", None),
+            ],
+            &mut report,
+        );
+        assert_eq!(
+            kept[0].again.as_ref().map(|a| a.subject.as_str()),
+            Some("story"),
+            "a blind reading of the whole set outranks a teaching draw's copy"
+        );
     }
 
     #[test]
