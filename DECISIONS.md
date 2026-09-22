@@ -2920,6 +2920,43 @@ random sets ("if you like", "if you enjoy", "fans of", "if you played") finds **
 reaches a similar handful ("excited", "can't wait", "have fun", "looking forward"), which is
 one sitting for both.
 
+### The page says what two labellers settled, because that is the difference between agreement and accuracy
+
+Built 2026-09-22, once enough of the frozen games had been read twice for it to say anything.
+Every page already carried one figure about its own reading: how often the model names the
+subject a labeller did. On a set labelled by models that figure cannot say whether a
+disagreement is the model's mistake or the labeller's, which is the whole question a reader
+of a silver standard has. A page whose game has a second reading now adds one paragraph: how
+many of its claims were read twice, how often the two labellers reached the same subject, how
+often the model agrees with them **where they did** with the interval around it, and how often
+it lands on one of the two answers where they split, which is a floor rather than a score
+because neither answer there is wrong. Alien: Isolation: 507 read twice, settled 89.7%, the
+model agrees on 84.6% of those [81.0%, 87.6%], and on the 52 they split it lands on one of
+the two 86.5% of the time.
+
+A game the model trained on gets no such paragraph, for the reason it gets no agreement
+figure at all: the claims two labellers settle are the ones it memorised best, and a ceiling
+read off them would be the flattering number with a second labeller's name on it. That is a
+test rather than a note. `steamgauge ceiling` prints the same figures per game and pooled,
+and the two must agree, which is what the numbers above were checked against.
+
+### The last cheap idea from the survey is built: paying for a confident wrong answer
+
+`train.py --error-reg` charges the subject head a pairwise hinge whenever a wrong claim in the
+batch is held above a right one (Xin, Tang, Yu and Lin, ACL 2021, roughly a tenth off AURC on
+GLUE-scale BERT tasks with accuracy unchanged, reproduced by Ding 2023 on two of three). It is
+the fifth item of the night's ranked survey and the last one that costs only compute. It aims
+at the abstention rule rather than at accuracy, which is the right target: what this product
+promises is coverage at a fixed accuracy, and cross-entropy never asks the confidence to rank
+the right answers above the wrong ones.
+
+Beside it, `--second-weight` charges the loss against both labellers' answers wherever a set
+has been read twice, mixed by the weight given, rather than against one of them at full
+confidence: the fourth item of the same list, and the reason the export now carries the second
+reading. Neither has been run yet. Both are queued behind the three seeds, each against a
+run of the same configuration on the same fresh export, because a knob read against a run that
+learned different labels is not read at all.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
