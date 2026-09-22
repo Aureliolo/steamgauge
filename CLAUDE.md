@@ -29,7 +29,9 @@ bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside train
   before a GPU task, and never run a workspace build beside training: a CUDA OOM with VRAM free
   means system commit ran out.
 - A training queue imports `training/train.py` and `claimdata.py` from disk at each launch. While
-  one runs, never stash, checkout, rebase or edit them in this tree; use a worktree.
+  one runs, never stash, checkout, rebase or edit them in this tree; use a worktree. Before
+  launching one, `grep -B1 "^def evaluate" training/train.py` must show `@torch.no_grad()`:
+  without it the first validation pass allocates over 30 GB and the run dies.
 - After any commit under `training/runs/`, read `git show --stat HEAD`: a 17 MB `tokenizer.json`
   has reached a commit twice by two different paths.
 - A claim is the byte span it covers, everywhere; nothing carries a version stamp. A splitter
