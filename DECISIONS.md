@@ -3510,6 +3510,36 @@ game's random draw: **261 of the 369 `accessibility` labels are in `mined`, `ret
 left seven in ten claims under the wording it just replaced. That is the fourth instance of
 the evening's pattern, a rule enforced where it was written and nowhere else.
 
+### The word probes were aimed at the rows that were thin two weeks ago
+
+Measured 2026-09-22, over the 3,357 mined labels so far. The lines were written when eight
+subjects had under 250 labels between them, and they worked: `mods` and `compatibility` now
+hold 850 and 787 training labels and score 0.74 and 0.79 on games the reader never saw. They
+are also still two of the ten lines cast every draw, and they took **20% of everything the
+draws caught**, while `licensing` at F1 0.49 and recall 0.38 took **1%**.
+
+| where a mined label landed | share | training labels | frozen F1 |
+|---|---|---|---|
+| `mods` | 11% | 850 | 0.74 |
+| `compatibility` | 9% | 787 | 0.79 |
+| `language` | 8% | 502 | 0.62 |
+| `policy` | 7% | 737 | 0.60 |
+| `audio`, `tutorial` | 8% | 284, 335 | 0.77, 0.77 |
+| `vr`, `community`, `accessibility` | 9% | 273, 509, 299 | 0.56, 0.53, 0.28 |
+| `licensing` | 1% | 255 | 0.49 |
+| a row no line was cast for | 47% | | |
+
+The 47% is not waste: it is the labeller correcting the probe, which is the method working, and
+those labels are as real as any other. The 20% is waste in the only sense that matters, which
+is that the same labeller hour could have gone to a row that needs it.
+
+`mine --only licensing vr community language` casts those four and leaves the rest, the way
+`--by-neighbour --only` already could. Deleting a line would throw away vocabulary that took
+several narrowings to get right, and the rows will move again; **which rows are worth a draw is
+a measurement, and the flag is where it goes**. The first aimed draw, four games: 193
+`licensing` candidates, 277 `community`, 209 `language`, 121 `vr`. Every mined draw before it,
+across seventeen games, produced 31 `licensing` labels in total.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
