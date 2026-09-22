@@ -2891,13 +2891,34 @@ answers eleven the way one of the two labellers did and leaves six genuinely mix
 game! different from the other lego games" is a verdict and a comparison in one claim), which
 is what the contested flag is for. The description's Slay the Spire example goes.
 
+**A second rule comes out of the same reading, for the split above it.** `offtopic` against
+`verdict`, 18 claims, and four are anticipation: "I am so excited to play this game", "When I
+first saw this game I was excited to try it out", "Have fun playing", "Mal schauen wie es sich
+im Verlauf der Stunden noch weiter entwickelt". Looking forward to a game, and telling the
+reader to enjoy it, are about the reviewer and the reader rather than about the game, which is
+what `offtopic` is for; `verdict` needs a judgement of the game, however bare. The rest of
+that split is fragments a person would also hesitate over (":D", "pain", "sea gaiel") and the
+flag is the honest answer to those.
+
+**The other frequent splits are not the sheet's fault, which was worth checking before
+rewriting anything.** `content` against `mods`, 9 claims: the `content` boundary already says
+in as many words that what the players made belongs to `mods` however much of the game it
+accounts for, so those are the rule not being applied rather than the rule being unclear.
+`difficulty` against `gameplay`, 13 claims and the commonest split in the whole corpus: the
+boundary already draws it at how hard an enemy is to beat against how it is designed, and the
+claims that split sit on the line by their own nature ("you have to operate the objects while
+invincible creatures lurk around you" is what the game makes you do and why it is hard, in one
+sentence). A sheet cannot settle a claim that is two claims.
+
 It is **not applied yet**, deliberately. The sheet's wording is hashed into every label, and
 the ten frozen games are being read a second time as this is written; a sheet that moves
 under a labelling in flight gives half a sitting one wording and half another, which is the
 one thing the fingerprint exists to prevent. When the reading is finished: change the wording,
-let the fingerprint move, and `revisit` the claims the rule can reach. A word probe over the
+let the fingerprint move, and `revisit` the claims both rules can reach. A word probe over the
 random sets ("if you like", "if you enjoy", "fans of", "if you played") finds **153 claims of
-33,615** filed under `genre` or `verdict` that it could move, which is one sitting.
+33,615** filed under `genre` or `verdict` that the first could move, and the anticipation rule
+reaches a similar handful ("excited", "can't wait", "have fun", "looking forward"), which is
+one sitting for both.
 
 ## Nothing here is identified by a number somebody incremented
 
