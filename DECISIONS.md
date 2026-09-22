@@ -2779,6 +2779,27 @@ commonest 27.2%, bag of words 42% at 75.2%, centroid 9% at 79.4%. The gap to the
 nine points of agreement and sixteen of coverage, down from ten and twenty; the README's
 table is this draw.
 
+### The shipped reader and the whole night's sweep trained on an export eight minutes too old
+
+Found 2026-09-22, exporting the training set again so that it could carry the second
+labeller's answers. `training/data/claims.jsonl` was written at 15:46 on 2026-09-21; the last
+three starved-row draws (990080, 438100 and the second half of 546560, 2,596 labels, the
+ones aimed at `community`, `vr` and `licensing`) were merged at 15:54, and the four-rule
+revisit that moved 36 labels at 20:30. `e5-29006` was trained at 23:03 on the 15:46 file, and
+so was every run of the night after it: 39,173 claims exported where 41,769 were there to
+export. The fingerprint `2871969fd84a8278` is the fingerprint of the older file, and the run
+index has said 29,006 training claims beside every one of those runs, truthfully.
+
+What that costs and what it does not. The night's table compares configurations, and a
+comparison wants one label set; it has one, and every conclusion in it stands. What it means
+is that the reader in `models/game-review-reader` never saw the 2,596 labels bought for the
+rows it is weakest on, and that the frozen figures of the night were measured with the
+revisit's 36 moves absent from both sides. The three-seed round running as this is written
+finishes on the same file, because a seed trained on different labels from its siblings is
+not a seed of them. **Everything after it, the folds and the reader that ships, trains on
+a fresh export**, and the export is written by the same command immediately before the run
+rather than found on disk, which is the rule that would have caught this.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

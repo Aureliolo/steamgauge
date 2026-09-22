@@ -598,6 +598,14 @@ def run(args) -> dict:
     np.random.seed(args.seed)
 
     claims = claimdata.load(args.data)
+    newer = claimdata.labels_newer_than(args.data, HERE.parent / "reference" / "claims")
+    if newer:
+        print(
+            f"WARNING: {len(newer)} label files are newer than {args.data}, the first being "
+            f"{newer[0]}; this run learns an export that lacks them. "
+            f"`steamgauge export-training` writes a current one.",
+            flush=True,
+        )
     if args.only_language:
         # Dropped before the split rather than inside the training half, so the frozen games
         # are scored on the same languages they are taught: a model trained on English and
@@ -928,6 +936,7 @@ def run(args) -> dict:
         "device": device,
         "git_sha": git_sha(),
         "data_fingerprint": claimdata.fingerprint(claims),
+        "labels_newer_than_export": len(newer),
         "claims": {"train": len(train), "validation": len(validation), "test": len(test)},
         "games": {
             "train": sorted({claim.app_id for claim in train}),

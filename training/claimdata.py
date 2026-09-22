@@ -106,6 +106,23 @@ def load(path: str | Path) -> list[Claim]:
     return claims
 
 
+def labels_newer_than(export: str | Path, reference: str | Path) -> list[Path]:
+    """The label files written after the export was, which the export therefore lacks.
+
+    An export found on disk is whatever the reference sets held when somebody last ran the
+    command, and the shipped reader was once trained on one eight minutes older than the
+    labels bought for the rows it is weakest on. The file's own age is the only thing that
+    says so, and a checkout that touches a label file is a reason to export again as well.
+    """
+    export = Path(export)
+    if not export.is_file():
+        return []
+    written = export.stat().st_mtime
+    return sorted(
+        path for path in Path(reference).glob("**/labels.json") if path.stat().st_mtime > written
+    )
+
+
 def load_pool(path: str | Path) -> list[Claim]:
     """Reads the JSONL that `steamgauge export-pool` writes: claims nobody has labelled.
 
