@@ -416,6 +416,14 @@ def main() -> None:
             print(f"{len(skipped)} runs on other labels are not comparable and are left out")
         print()
 
+    # The pilots were trained before the reader could abstain, so they have no coverage at a
+    # promise to be ranked by; --all reaches them, and a table that ranks by coverage cannot.
+    unranked = [run for run in found if "threshold_coverage" not in run["validation"]]
+    if unranked:
+        found = [run for run in found if "threshold_coverage" in run["validation"]]
+        names = ", ".join(sorted(run["id"] for run in unranked))
+        print(f"{len(unranked)} runs from before abstention have no coverage to rank: {names}\n")
+
     by_id = {run["id"]: run for run in found}
     against = None
     if arguments.against:
