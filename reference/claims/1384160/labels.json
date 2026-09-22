@@ -670,13 +670,13 @@
     "subset": "random",
     "start": 2201,
     "end": 2358,
-    "taxonomy": "core-5",
+    "taxonomy": "1022adc2bdd1",
     "produced_by": "claude-fable-5-1",
-    "subject": "verdict",
+    "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

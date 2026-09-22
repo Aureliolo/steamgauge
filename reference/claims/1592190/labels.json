@@ -3968,7 +3968,7 @@
     "subset": "random",
     "start": 148,
     "end": 281,
-    "taxonomy": "core-5",
+    "taxonomy": "1022adc2bdd1",
     "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",

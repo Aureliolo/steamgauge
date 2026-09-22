@@ -2920,6 +2920,18 @@ random sets ("if you like", "if you enjoy", "fans of", "if you played") finds **
 reaches a similar handful ("excited", "can't wait", "have fun", "looking forward"), which is
 one sitting for both.
 
+**Applied, and revisited on 2026-09-23.** The first draw with those eight phrases asked about 24
+claims, because `revisit --words` matched through the report page's term cut, which drops
+filler words and never forms a phrase of three; a plain search finds 186 over every set, not
+only the random ones, and the draw now matches as written (#96). Two Fable labellers read the
+186 against the new wording: **48 moved, 38 of them `genre` to `verdict`**, the conditional
+recommendations the first rule was written for. The anticipation rule moved two to `offtopic`,
+because most of what those words catch ("can't wait for the next update", "have fun with
+friends") says something about the game and stays where it was. The labellers' remaining
+doubt is one boundary: a recommendation whose condition names aspects ("if you like good
+graphics and a real storyline") or a resemblance ("if you like Marvel vs Capcom 2, this is
+very similar"), which the verdict rule and the genre rule each claim.
+
 ### The page says what two labellers settled, because that is the difference between agreement and accuracy
 
 Built 2026-09-22, once enough of the frozen games had been read twice for it to say anything.
