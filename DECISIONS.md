@@ -2693,8 +2693,24 @@ what these labels can teach an e5-large, and the floor is flat.
 
 **A decoder read by its last token is better than the same decoder read by its mean, and
 still worse than the encoder.** Qwen3-Embedding-0.6B mean-pooled answered 77% where e5-large
-answers 90%; by its last token, the way it was trained, 82%. The gap is the causal mask: only
-the last token has seen the whole claim. It is not a candidate at this size.
+answers 90%; by its last token, the way it was trained, 82%, and Harrier 0.6B by its last
+token 80% at 78.4% on the frozen games. The gap is the causal mask: only the last token has
+seen the whole claim. Neither is a candidate at this size.
+
+### The frontier comparison, drawn again
+
+Settled 2026-09-22. The 471-claim sample's key was lost with a session's scratch space, so the
+comparison was drawn again: 487 claims from the ten frozen games, twenty a subject, the key
+kept in `training/data/frontier-key.json` beside the frozen key this time. Opus 5, given the
+sheet and the review around each claim, blind to the game: **99.4% answered at 87.6%, macro
+F1 0.875**, for 389,000 tokens. The reader that ships, on exactly the same claims: **83.6% at
+78.4%, macro F1 0.691**, against 79% at 77.2% and 0.652 for the previous export on the
+previous draw. The baselines on the same claims: bag of words 40% at 75.1% (0.474), nearest
+centroid 6% at 78.6% (0.465), the commonest subject never. The frozen-set baselines were
+refreshed on the current labels too (`reference/baselines-frozen.json`, 5,423 claims):
+commonest 27.2%, bag of words 42% at 75.2%, centroid 9% at 79.4%. The gap to the frontier is
+nine points of agreement and sixteen of coverage, down from ten and twenty; the README's
+table is this draw.
 
 ## Nothing here is identified by a number somebody incremented
 
