@@ -1,0 +1,134 @@
+{
+  "app_id": 504230,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "strawberries-and-completion",
+      "label": "Strawberries and full completion",
+      "description": "The strawberries, golden berries and crystal hearts as collectibles and as the game's running joke, and whether chasing 100% is worth it; not the main climb to the credits.",
+      "refines": "content",
+      "evidence": [
+        "114868302",
+        "128852385",
+        "144895872",
+        "154643964",
+        "61301688",
+        "86825478",
+        "89823469",
+        "92505728",
+        "98481428"
+      ]
+    },
+    {
+      "id": "rage-and-masochism",
+      "label": "Rage and masochism",
+      "description": "The game as suffering enjoyed on purpose: pain, burnt backsides, blood pressure, being a masochist, coming to suffer together, and stress rather than relief; not whether the difficulty is fair or well tuned.",
+      "refines": "difficulty",
+      "evidence": [
+        "106162415",
+        "114791681",
+        "116317025",
+        "127909658",
+        "128376653",
+        "135235266",
+        "135693711",
+        "170465827",
+        "175318052",
+        "189764056",
+        "62432387",
+        "64819820",
+        "83646855"
+      ]
+    },
+    {
+      "id": "hands-and-hardware",
+      "label": "Sore hands and broken controllers",
+      "description": "The physical cost of playing: carpal tunnel, a ruined thumb, a stiff neck, headaches, and keyboards or controllers worn out or smashed; not the frustration itself.",
+      "refines": null,
+      "evidence": [
+        "118891921",
+        "140114236",
+        "175318052",
+        "205729202",
+        "222507077",
+        "44067433"
+      ]
+    },
+    {
+      "id": "transgender-reading",
+      "label": "Transgender and queer reading",
+      "description": "The game read as a story about a trans woman and what it does to its players: HRT, egg cracking, the pipeline, lesbian jokes, and the complaint that it preaches political correctness; not the plot or characters in general.",
+      "refines": null,
+      "evidence": [
+        "153662647",
+        "155108270",
+        "166499646",
+        "168458335",
+        "168865384",
+        "172084726",
+        "216095492"
+      ]
+    },
+    {
+      "id": "mental-health-and-the-other-self",
+      "label": "Mental health and the other self",
+      "description": "The story's treatment of anxiety, depression and the shadow self: the second Madeline who will not help, inner demons, Jung, and thanking the flawed self that never gave up; not the plot beats or the supporting cast.",
+      "refines": "story",
+      "evidence": [
+        "123922081",
+        "144895872",
+        "155108270",
+        "162814543",
+        "193092525",
+        "194296073",
+        "195085462",
+        "216814099"
+      ]
+    },
+    {
+      "id": "dash-movement-and-speedrunning",
+      "label": "Dash, movement and speedrunning",
+      "description": "The dash and climb as a movement system: the eight-way dash, diagonal inputs the controller misreads, fancy footwork, and movement built with speedrunning in mind; not how hard the levels are.",
+      "refines": "gameplay",
+      "evidence": [
+        "190439633",
+        "194296073",
+        "197567783",
+        "216814099",
+        "82788075"
+      ]
+    },
+    {
+      "id": "chapters-and-sides",
+      "label": "Chapters, B-sides and Farewell",
+      "description": "Which chapter or side broke you: Farewell, the B and C sides, Reflection B, chapter 8, chapter 3, the one room that took twelve hours; not how hard the game is overall.",
+      "refines": "difficulty",
+      "evidence": [
+        "113635305",
+        "123039542",
+        "132468176",
+        "152675554",
+        "172866884",
+        "202737145",
+        "216814099",
+        "232262268",
+        "86825478"
+      ]
+    },
+    {
+      "id": "the-mountain",
+      "label": "The mountain and the summit",
+      "description": "The climb as motif and goal: why climb at all, climbing together, reaching the summit, the mountain as the thing the game is about; not the level layouts or the cast.",
+      "refines": null,
+      "evidence": [
+        "155108270",
+        "42923117",
+        "62847600",
+        "86825478",
+        "90726001"
+      ]
+    }
+  ]
+}

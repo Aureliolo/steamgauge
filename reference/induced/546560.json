@@ -1,0 +1,101 @@
+{
+  "app_id": 546560,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "object-handling",
+      "label": "Handling and messing with objects",
+      "description": "Picking up, throwing, smashing, poking and drawing on the things in the world, and the small physical details of the objects themselves; not combat or puzzle mechanics as systems.",
+      "refines": "gameplay",
+      "evidence": [
+        "115230858",
+        "143249964",
+        "223996503",
+        "65944961",
+        "70733870",
+        "78369159",
+        "81045532"
+      ]
+    },
+    {
+      "id": "sequel-wait",
+      "label": "Hopes for a sequel and the wait",
+      "description": "Wanting the series to continue and reckoning with the wait: the next instalment, the numbered sequel this is not, and another decade of silence; not a verdict on this game itself.",
+      "refines": null,
+      "evidence": [
+        "137585020",
+        "154402360",
+        "173687818",
+        "189614436",
+        "201212799",
+        "209999623",
+        "98110890"
+      ]
+    },
+    {
+      "id": "series-heritage",
+      "label": "Place in the series",
+      "description": "The game as an entry in a long-running series: fans of the earlier games, a return to its roots, and people who never liked the series before; not the plot of this game on its own.",
+      "refines": null,
+      "evidence": [
+        "137585020",
+        "201212799",
+        "71993707",
+        "78236202",
+        "92489491"
+      ]
+    },
+    {
+      "id": "studio-reputation",
+      "label": "The studio's reputation",
+      "description": "Praise, faith or worry aimed at the developer as a studio, its founder and its golden age, rather than at anything this game does; post-release patching belongs in updates.",
+      "refines": null,
+      "evidence": [
+        "100928344",
+        "137585020",
+        "201212799",
+        "66692995",
+        "96798951"
+      ]
+    },
+    {
+      "id": "vr-showcase",
+      "label": "The VR showcase",
+      "description": "The game as the reason to own a headset, the best thing yet made for VR and what it did for the medium and headset sales; comfort, tracking and which headset works belong in vr.",
+      "refines": "vr",
+      "evidence": [
+        "137585020",
+        "178576250",
+        "71993707",
+        "72401926"
+      ]
+    },
+    {
+      "id": "physical-toll",
+      "label": "Physical toll of playing",
+      "description": "What playing does to the body and the room: exhaustion, sweating, and hitting the desk or the wardrobe while in the headset; motion sickness and comfort settings stay in vr.",
+      "refines": "vr",
+      "evidence": [
+        "138001947",
+        "195779972",
+        "234238142",
+        "66088048"
+      ]
+    },
+    {
+      "id": "creatures",
+      "label": "Enemies and creatures",
+      "description": "The particular creatures players remember, whether they scared, annoyed or amused them, named by kind or by the chapter they haunt; not the story characters or the combat system.",
+      "refines": "gameplay",
+      "evidence": [
+        "136165128",
+        "149157027",
+        "210049855",
+        "65650618",
+        "91976529"
+      ]
+    }
+  ]
+}
