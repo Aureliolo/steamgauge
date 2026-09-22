@@ -52,6 +52,9 @@ pub struct Probe {
     /// boundary, so "mod" does not match "modern"; a term with non-ASCII characters matches
     /// as a bare substring, because the scripts that need it do not write word boundaries.
     pub terms: &'static [&'static str],
+    /// A claim holding any of these is not this line's, however many terms it matches: the
+    /// word the line fishes with also names something another row owns.
+    pub unless: &'static [&'static str],
 }
 
 /// The subjects a word probe can find, and what to look for.
@@ -100,6 +103,7 @@ pub const PROBES: &[Probe] = &[
             "lore accurate",
             "lore-accurate",
         ],
+        unless: &[],
     },
     Probe {
         subject: "vr",
@@ -132,6 +136,7 @@ pub const PROBES: &[Probe] = &[
             // Not "motion sickness": a flat game induces it through camera shake and field of
             // view, which is `graphics` or `accessibility`, and DRG alone offered dozens.
         ],
+        unless: &[],
     },
     Probe {
         subject: "accessibility",
@@ -169,6 +174,7 @@ pub const PROBES: &[Probe] = &[
             "hard of hearing",
             // Not bare "deaf": "tone deaf" is a complaint about a publisher, not a subtitle.
         ],
+        unless: &[],
     },
     Probe {
         subject: "language",
@@ -199,6 +205,7 @@ pub const PROBES: &[Probe] = &[
             "français",
             "türkçe",
         ],
+        unless: &[],
     },
     Probe {
         subject: "community",
@@ -221,6 +228,21 @@ pub const PROBES: &[Probe] = &[
             "the forums",
             "steam forums",
             "subreddit",
+        ],
+        // In a game with mod tools "the community" is nearly always the modding one, and a
+        // labeller files that under `mods`: on the first draw aimed at this row, 52 of one
+        // headset game's 200 claims. Measured on that draw and the one beside it, these
+        // terms turn away 45 claims that went elsewhere and not one that was `community`.
+        unless: &[
+            "mods",
+            "modded",
+            "modding",
+            "modder",
+            "moddable",
+            "sdk",
+            "workshop",
+            "custom maps",
+            "custom levels",
         ],
     },
     Probe {
@@ -246,6 +268,7 @@ pub const PROBES: &[Probe] = &[
             "мастерская",
             "创意工坊",
         ],
+        unless: &[],
     },
     Probe {
         subject: "compatibility",
@@ -277,6 +300,7 @@ pub const PROBES: &[Probe] = &[
             "handheld",
             "rog ally",
         ],
+        unless: &[],
     },
     Probe {
         subject: "policy",
@@ -318,6 +342,7 @@ pub const PROBES: &[Probe] = &[
             "always-online",
             "requires an account",
         ],
+        unless: &[],
     },
     Probe {
         // Not bare "sound" or "music": "sounds fun" is a verdict, "sounds like Dark Souls" is
@@ -356,6 +381,7 @@ pub const PROBES: &[Probe] = &[
             "trilha sonora",
             "dublagem",
         ],
+        unless: &[],
     },
     Probe {
         // The row is about being taught the game, so the line is the teaching and its absence.
@@ -387,6 +413,7 @@ pub const PROBES: &[Probe] = &[
             "einführung",
             "erklärt nichts",
         ],
+        unless: &[],
     },
 ];
 
@@ -418,6 +445,10 @@ pub fn hooked_among(claim: &str, only: &[String]) -> Option<&'static str> {
                 .terms
                 .iter()
                 .any(|term| contains_term(&haystack, term))
+                && !probe
+                    .unless
+                    .iter()
+                    .any(|term| contains_term(&haystack, term))
         })
         .map(|probe| probe.subject)
 }
@@ -852,6 +883,30 @@ mod tests {
         assert_eq!(
             hooked_among("no Steam Deck support", &[]),
             Some("compatibility")
+        );
+    }
+
+    #[test]
+    fn the_modding_community_is_not_offered_as_community() {
+        let only = |name: &str| vec![name.to_owned()];
+        assert_eq!(
+            hooked_among(
+                "cant wait for the modding community to take it somewhere",
+                &only("community")
+            ),
+            None
+        );
+        assert_eq!(
+            hooked_among(
+                "I hope that the community makes some cool mods",
+                &only("community")
+            ),
+            None
+        );
+        assert_eq!(hooked("the modding community keeps it alive"), Some("mods"));
+        assert_eq!(
+            hooked_among("the community is toxic and elitist", &only("community")),
+            Some("community")
         );
     }
 
