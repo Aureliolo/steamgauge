@@ -3379,6 +3379,52 @@ choice between them stands. The folds behind the winner train on the fixed expor
 threshold that ships, and the frozen figure read at it, are clean. No figure already published
 moves, because nothing is published.
 
+### 6.9% of the labels name bytes the splitter no longer cuts a claim at
+
+Measured 2026-09-22, from the adjudication draw's own `recut` counter, which had been printing
+1,274 for weeks over the English frozen claims and had never been read as a number about
+training. Over every label in the reference tree it is **3,031 of 43,851, 6.9%**
+(`examples/recut-labels.rs`):
+
+| subset | labels | still cut | inside one claim | covers two or more | straddles a boundary | nothing there |
+|---|---|---|---|---|---|---|
+| random | 33,615 | 30,944 | 871 | 644 | 683 | 473 |
+| declined | 2,940 | 2,855 | 28 | 38 | 17 | 2 |
+| retrieved | 2,899 | 2,775 | 66 | 34 | 21 | 3 |
+| mined | 2,680 | 2,591 | 10 | 70 | 9 | 0 |
+| multilingual | 1,717 | 1,655 | 17 | 20 | 5 | 20 |
+
+A label is the bytes it covers, which is the rule that lets a published set carry offsets and
+no text, and it is why a splitter change costs a re-read rather than a refusal. What nobody had
+noticed is that the cost was being paid by the adjudication page alone. `gold` has always
+refused to put a drifted span in front of a person: there is no claim there to judge. The
+export did not, because it joins a label to the text the **draw** stored, which is what the
+splitter said the day the set was cut. So the model was being taught 498 strings the reader can
+never be handed, 806 spans that are now two whole claims under one subject, and 735 that begin
+inside one claim and end inside another.
+
+The four shapes are not equally bad and the rule does not need to distinguish them. A span
+inside a claim the splitter now cuts is a true label of a sentence, and the only thing wrong
+with it is that the reader will never see that sentence alone. A span covering two claims
+teaches one subject over two. A span with nothing overlapping it is a ballot template or a
+drawing the splitter drops. In all four the label is not a label of any claim this build
+produces, which is the one sentence the refusal needs.
+
+`export-training` now reads the captures, as `gold` does, and holds back a row whose span this
+build cuts no claim at. A game with no capture on this machine holds nothing back, so an export
+does not silently shrink depending on what was crawled. It costs 25 seconds.
+
+**What it moves.** Written rows 42,669 to 41,011 on the same reference tree plus that evening's
+labelling; train 32,502 to 31,618, validation 4,744 to 4,310, frozen 5,423 to 5,083. The frozen
+set losing 340 claims is the part that matters for reading the record: **every frozen figure
+quoted before this, tonight's included, was measured partly on claims the reader could not have
+been handed.** They are not wrong about the runs they compare, which all sat the same paper.
+They are wrong about the corpus, and they will move when the folds re-measure on the clean set.
+
+The 3,031 labels stay in the reference tree. They name real spans of real reviews, and a
+revisit that re-draws those reviews under the current cut would win most of them back; that is
+a labelling round nobody has spent yet, not a deletion.
+
 ### The contested flag moves with the sitting, not only with the claim
 
 Measured 2026-09-22, over the seventeen mined sets, which are the same draw method and the same

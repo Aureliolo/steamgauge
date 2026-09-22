@@ -637,6 +637,12 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         from: PathBuf,
+        /// Directory holding the captures, which is what says whether this build still cuts a
+        /// claim where a label names one. A label whose span it no longer cuts is not a label
+        /// of anything the reader will be handed, and training on it teaches a string that
+        /// cannot come back. A game with no capture here holds nothing back.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
         /// Where to write the JSONL.
         #[arg(long, default_value = "training/data/claims.jsonl")]
         to: PathBuf,
@@ -815,7 +821,7 @@ pub async fn run() -> Result<()> {
             let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
-        Command::ExportTraining { from, to } => run_export_training(&from, &to),
+        Command::ExportTraining { from, out, to } => run_export_training(&from, &out, &to),
         Command::ExportPool {
             app_ids,
             out,
@@ -1273,14 +1279,25 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
     Ok(())
 }
 
-fn run_export_training(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
-    let report = steamgauge_core::claimset::export_training(from, to)?;
+fn run_export_training(
+    from: &std::path::Path,
+    captures: &std::path::Path,
+    to: &std::path::Path,
+) -> Result<()> {
+    let report = steamgauge_core::claimset::export_training(from, captures, to)?;
     println!("{} labelled claims -> {}", report.written, to.display());
     if report.no_claim > 0 {
         println!(
             "{} rows held back for carrying no claim: an option nobody ticked, or a piece \
              with no word in it",
             report.no_claim
+        );
+    }
+    if report.recut > 0 {
+        println!(
+            "{} rows held back for naming bytes this build cuts no claim at: what they were \
+             written about is not something the reader will ever be handed",
+            report.recut
         );
     }
     if report.measured_on > 0 {

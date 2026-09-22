@@ -1222,6 +1222,8 @@ pub struct ExportReport {
     /// Teaching rows drawn from a game the model is measured on, and the games they sat on.
     pub measured_on: usize,
     pub measured_on_games: std::collections::BTreeSet<u32>,
+    /// Rows naming bytes this build cuts no claim at.
+    pub recut: usize,
 }
 
 /// Writes every labelled claim, with its text, as JSONL for training.
@@ -1229,10 +1231,21 @@ pub struct ExportReport {
 /// The file it writes holds review text and never leaves the machine: what gets published is
 /// the label set, which carries ids and offsets and no text at all.
 ///
+/// The captures are read because a label names bytes, and the sets were cut by several
+/// splitters over the run. A row whose span this build cuts no claim at is not a label of any
+/// claim the reader will ever be handed: at best it is a true label of a sentence that now
+/// sits inside a larger claim, at worst one label over what are now two claims, taught under
+/// one subject. The adjudication page has refused to ask about them since it was written;
+/// training kept learning them, because the export joined a label to the text the draw stored
+/// rather than to the text the splitter produces.
+///
+/// A game with no capture on this machine holds nothing back, exactly as in the adjudication
+/// draw: the alternative is an export that silently shrinks depending on what was crawled.
+///
 /// # Errors
 ///
 /// Fails if a reference set cannot be read or the destination cannot be written.
-pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport> {
+pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Result<ExportReport> {
     use std::io::Write as _;
 
     if let Some(parent) = to.parent() {
@@ -1241,7 +1254,21 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut report = ExportReport::default();
 
-    for claim in labelled_claims(reference_root)? {
+    let found = labelled_claims(reference_root)?;
+    let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
+        std::collections::BTreeMap::new();
+    for claim in &found {
+        wanted
+            .entry(claim.label.app_id)
+            .or_default()
+            .insert(claim.label.review_id.clone());
+    }
+    let cuts: std::collections::HashMap<u32, CutSpans> = wanted
+        .into_iter()
+        .filter_map(|(app_id, ids)| Some((app_id, spans_cut_now(captures, app_id, &ids).ok()?)))
+        .collect();
+
+    for claim in found {
         // Most of the set was cut before the rules that recognise these, so it still holds
         // thousands of them. A row whose text carries no proposition has a label that could
         // not have been right, and training on it teaches the string rather than the task.
@@ -1261,6 +1288,13 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
         {
             report.measured_on += 1;
             report.measured_on_games.insert(label.app_id);
+            continue;
+        }
+        if cuts
+            .get(&label.app_id)
+            .is_some_and(|cut| cut_at(cut, label).is_none())
+        {
+            report.recut += 1;
             continue;
         }
         let row = serde_json::json!({
@@ -1500,7 +1534,9 @@ mod tests {
         }
 
         let to = root.join("claims.jsonl");
-        let report = export_training(&root, &to).unwrap();
+        // No captures, so nothing is held back for being cut differently: this test is about
+        // which game a teaching row sits on.
+        let report = export_training(&root, &root.join("no-captures"), &to).unwrap();
         let written = std::fs::read_to_string(&to).unwrap();
 
         assert_eq!(report.measured_on, 1, "the held-back game's mined row");
