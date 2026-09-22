@@ -49,6 +49,7 @@ SETTINGS = {
     "ema": 0.0,
     "llrd": 1.0,
     "rdrop": 0.0,
+    "second_weight": 0.0,
     "pooling": "mean",
     "pool": None,
     "pool_weight": None,

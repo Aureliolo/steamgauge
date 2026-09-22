@@ -1103,6 +1103,11 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
 #[derive(Debug, Clone)]
 pub struct LabelledClaim {
     pub label: ClaimLabel,
+    /// The second labeller's answer to the same claim, where the set has been read twice.
+    /// Carried beside the first rather than as a row of its own: a disagreement is a fact
+    /// about the claim, and a trainer that sees both can learn that it is contested rather
+    /// than learning one answer confidently.
+    pub again: Option<ClaimLabel>,
     pub text: String,
     /// The review as the labeller was shown it, and where the claim starts in it. A labeller
     /// reads "it doesn't" with the sentence before it; a model given the claim alone is being
@@ -1143,6 +1148,14 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
         let drawn: Vec<DrawnReview> =
             serde_json::from_slice(&std::fs::read(set.join("sample.json"))?)?;
+        let mut again: std::collections::HashMap<(String, u16), ClaimLabel> =
+            match std::fs::read(set.join("second").join("labels.json")) {
+                Ok(bytes) => serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)?
+                    .into_iter()
+                    .map(|label| ((label.review_id.clone(), label.index), label))
+                    .collect(),
+                Err(_) => std::collections::HashMap::new(),
+            };
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
@@ -1170,6 +1183,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
                     .cloned()
                     .unwrap_or_default(),
                 review_offset: at,
+                again: again.remove(&(label.review_id.clone(), label.index)),
                 label,
             });
         }
@@ -1222,6 +1236,10 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize
             "review_id": label.review_id,
             "claim_index": label.index,
             "subset": label.subset,
+            "second_subject": claim.again.as_ref().map(|again| &again.subject),
+            "second_polarity": claim.again.as_ref().map(|again| &again.polarity),
+            "second_confidence": claim.again.as_ref().map(|again| &again.confidence),
+            "second_by": claim.again.as_ref().map(|again| &again.produced_by),
         });
         writeln!(out, "{row}")?;
         written += 1;

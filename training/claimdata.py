@@ -43,6 +43,10 @@ class Claim:
     review_id: str
     claim_index: int
     subset: str
+    # A second labeller's answer to the same claim, where the set was read twice. Absent for
+    # most claims; where present and different, the claim is one the sheet did not settle.
+    second_subject: str | None = None
+    second_polarity: str | None = None
 
     @property
     def weight(self) -> float:
@@ -93,6 +97,8 @@ def load(path: str | Path) -> list[Claim]:
                     review_id=str(row["review_id"]),
                     claim_index=int(row["claim_index"]),
                     subset=row.get("subset", "stratified"),
+                    second_subject=row.get("second_subject"),
+                    second_polarity=row.get("second_polarity"),
                 )
             )
     if not claims:
