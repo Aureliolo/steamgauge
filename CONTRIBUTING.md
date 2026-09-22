@@ -13,11 +13,17 @@ Run the same gates CI runs before pushing:
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
+cargo clippy --all-targets -- -D warnings
+cargo test --workspace
+pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+bash -c "cd training && python -m pytest -q"
 ```
 
-All three run on Linux, macOS and Windows. Clippy warnings fail the build.
+Not `--all-features`: the cuda and metal backends need vendor toolchains, and the default set
+is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,
+which is the platform `training/requirements.lock` is resolved for. Clippy warnings fail the
+build. Run pytest from inside `training/`: given a path from elsewhere on Windows it walks every
+sibling of every ancestor, and a shared temp directory changing underneath aborts collection.
 
 The report page carries scripting no Rust test can reach, and rendering no Rust test can see:
 a stylesheet rule can flatten a chart or turn a printed page into blocks of ink while the
