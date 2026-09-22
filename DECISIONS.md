@@ -3131,6 +3131,14 @@ points of coverage, measured over three seeds of one configuration. A difference
 that is not a finding, whatever it looks like, and where nothing clears it the incumbent
 configuration stays: the shipped reader changes on evidence, not on the best of eight numbers.
 
+**Amended once the three seeds were in, before any of the others reported.** They landed
+**91.9%, 92.0% and 91.7%** on the validation games and **92.7%, 93.0% and 92.4%** on the frozen
+ones: 0.3 points apart and 0.6 points apart. The 2.6 came from three seeds of `e5-29006`, a
+different configuration, and this one is visibly steadier. Scoring one model on 6,556
+validation claims carries about 0.8 points of its own, so the bar for this round is **a point
+of coverage**, which is the wider of the two, and it is set now rather than after the runs
+that have to clear it.
+
 **Macro F1 and AURC are vetoes rather than tie-breakers.** A configuration that buys coverage
 while dropping macro F1 by more than a point is trading the rare rows for the common ones,
 which is the trade this project has refused every time it has been offered. AURC says whether
