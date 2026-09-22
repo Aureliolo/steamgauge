@@ -168,6 +168,8 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             model_matched_either: 27,
             model_agreed_with_first: 348,
             model_agreed_with_second: 340,
+            settled_and_clear: 321,
+            model_agreed_on_the_clear: 299,
         }),
         induced: induced(app_id),
     }

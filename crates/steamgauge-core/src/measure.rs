@@ -536,6 +536,11 @@ pub struct Ceiling {
     pub model_matched_either: u64,
     pub model_agreed_with_first: u64,
     pub model_agreed_with_second: u64,
+    /// Settled claims neither labeller called contested: the ones that are unambiguous by
+    /// every measure there is, where a wrong answer has no excuse behind it.
+    pub settled_and_clear: u64,
+    /// Of those, the ones the model also put in that subject.
+    pub model_agreed_on_the_clear: u64,
 }
 
 impl Ceiling {
@@ -570,6 +575,15 @@ impl Ceiling {
         wilson(self.model_agreed_where_they_did, self.labellers_agreed)
     }
 
+    /// How often the model agrees on a claim two labellers settled and neither called
+    /// contested, which is the figure an ordinary claim on a page is worth.
+    #[must_use]
+    #[expect(clippy::cast_precision_loss, reason = "label counts are small")]
+    pub fn on_the_clear(&self) -> Option<f64> {
+        (self.settled_and_clear > 0)
+            .then(|| self.model_agreed_on_the_clear as f64 / self.settled_and_clear as f64)
+    }
+
     /// Adds another game's claims to these, so several games are one figure.
     pub fn extend(&mut self, other: &Self) {
         self.compared += other.compared;
@@ -579,6 +593,8 @@ impl Ceiling {
         self.model_matched_either += other.model_matched_either;
         self.model_agreed_with_first += other.model_agreed_with_first;
         self.model_agreed_with_second += other.model_agreed_with_second;
+        self.settled_and_clear += other.settled_and_clear;
+        self.model_agreed_on_the_clear += other.model_agreed_on_the_clear;
     }
 }
 
@@ -634,6 +650,10 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
         if label.subject == other.subject {
             found.labellers_agreed += 1;
             found.model_agreed_where_they_did += u64::from(said == &label.subject);
+            if !label.ambiguous && !other.ambiguous {
+                found.settled_and_clear += 1;
+                found.model_agreed_on_the_clear += u64::from(said == &label.subject);
+            }
         } else {
             found.labellers_split += 1;
             found.model_matched_either +=

@@ -1914,17 +1914,29 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
             percent(rate)
         )
     });
+    // The claims nobody could argue about: settled, and neither labeller reached for the
+    // contested flag. A model's errors concentrating there would be a different report from
+    // one whose errors are all on the hard claims, and a reader deserves to know which.
+    let clear = ceiling.on_the_clear().map_or_else(String::new, |rate| {
+        format!(
+            " Of the settled claims, {} were ones neither labeller called contested, and on \
+             those it agrees {} of the time.",
+            thousands(ceiling.settled_and_clear),
+            percent(rate)
+        )
+    });
     let _ = writeln!(
         out,
         "<p class=\"note\"><strong>{} of those claims were read a second time</strong>, by a \
          different labeller working blind, and the two reached the same subject on {} of them. \
          On those settled claims the model agrees {}{}, which is the nearest thing to accuracy \
          a set labelled by models can produce: a label two independent readings reached is one \
-         worth scoring against.{}</p>",
+         worth scoring against.{}{}</p>",
         thousands(ceiling.compared),
         percent(between),
         percent(settled),
         range,
+        clear,
         split
     );
 }
@@ -2473,6 +2485,8 @@ mod tests {
             model_matched_either: 32,
             model_agreed_with_first: 320,
             model_agreed_with_second: 316,
+            settled_and_clear: 300,
+            model_agreed_on_the_clear: 279,
         };
         let mut out = String::new();
         ceiling_note(&mut out, &ceiling);
@@ -2493,6 +2507,14 @@ mod tests {
             "it matched one of two on 32 of 40 split: {out}"
         );
         assert!(out.contains("somewhere in ["), "{out}");
+        assert!(
+            out.contains("300 were ones neither labeller called contested"),
+            "{out}"
+        );
+        assert!(
+            out.contains("93.0%"),
+            "the model agreed on 279 of those 300: {out}"
+        );
 
         // Nothing to say where nobody has read the set twice, rather than a row of dashes.
         let mut out = String::new();
