@@ -3425,6 +3425,29 @@ The 3,031 labels stay in the reference tree. They name real spans of real review
 revisit that re-draws those reviews under the current cut would win most of them back; that is
 a labelling round nobody has spent yet, not a deletion.
 
+### 616 claims were in the training set twice, 108 of them under two subjects
+
+Found 2026-09-22, in the sweep that followed the two above: the same question asked a third
+time, which is what the pipeline assumes that nothing enforces. Counting distinct
+`(app_id, review_id, claim_index)` against rows in the export answered it. **616 claims are
+exported twice**, 615 of them from the random draw and the `multilingual` one, and **108 carry
+two different subjects**. A teaching draw skips a review the game's sets already hold and has
+since `already_drawn` was written; these predate it, like the other two findings.
+
+Two rows for one claim means the model sees it twice an epoch, which is a quiet reweighting,
+and on the 108 it is taught both answers in the same pass, which is a label fight it cannot
+win. Neither shows up in any figure, because both rows are correct on their own terms.
+
+Dropping the teaching copy would have thrown away a labelling. It is not a duplicate in the
+useful sense: two labellers read that claim without seeing each other's answer, which is the
+definition of a second reading, and the export has carried a column for one since the second
+reading began. So the random draw's row is kept, because that is what every figure is measured
+on, and the teaching copy becomes its second answer where it has none. Where the claim already
+had a blind second reading, that one stays: a reading of the whole set outranks a copy.
+
+The export now writes **40,695 rows, every one a distinct claim**, 20,244 with a second answer
+and 2,358 of those disagreeing on the subject.
+
 ### The contested flag moves with the sitting, not only with the claim
 
 Measured 2026-09-22, over the seventeen mined sets, which are the same draw method and the same
