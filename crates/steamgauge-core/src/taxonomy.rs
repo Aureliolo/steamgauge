@@ -184,8 +184,8 @@ pub const SHEET: &[Category] = &[
         label: "Genre and comparisons",
         description: "What kind of game this is. A roguelike, turn-based tactics, a \
                       management sim, a deckbuilder, a soulslike. It plays like FTL, it is \
-                      XCOM meets Darkest Dungeon, if you liked Slay the Spire you will like \
-                      this, it reminds me of the old games in the genre.",
+                      XCOM meets Darkest Dungeon, it reminds me of the old games in the \
+                      genre.",
         boundary: Some(
             "Naming what kind of game it is, or which games it resembles, belongs here, and \
              that includes calling it a co-op game or comparing it to other co-op games. As \
@@ -199,7 +199,11 @@ pub const SHEET: &[Category] = &[
              Darkest Dungeon\", \"a deckbuilder with no deck\", \"not really a soulslike at \
              all\", \"I normally hate management sims\". That holds for any comparison and not \
              only with this game's own predecessor: better or worse is a verdict, how it \
-             differs is genre. A bare list of what the game is about, \"dwarves, beer, space, \
+             differs is genre. A recommendation is a verdict whether or not it names a \
+             condition or another game: \"if you like horror and survival this is perfect for \
+             you\", \"for fans of MetroidVanias this might be worth trying\" and \"if you \
+             liked Slay the Spire you will like this\" all say who should buy it, which is a \
+             judgement. A bare list of what the game is about, \"dwarves, beer, space, \
              guns, bugs\", with no judgement attached, is genre too: it says what kind of game \
              this is and nothing else.",
         ),
@@ -219,9 +223,13 @@ pub const SHEET: &[Category] = &[
              names one specific thing belongs to that thing: \"super fun, and the story is \
              great\" is story. A judgement with only the kind of game attached, \"excellent \
              city builder\", is a verdict; genre is for when what kind of game it is, or \
-             which game it resembles, is the point being made. A community's own catchphrase \
-             used as a salute, \"Rock and Stone\", is a verdict and it is praise. Asking for \
-             a sequel belongs here; asking for a port belongs to compatibility.",
+             which game it resembles, is the point being made. A recommendation is a verdict \
+             whatever condition it carries: \"if you like horror this is perfect for you\" \
+             recommends the game to a group of people, and who should buy it is a judgement. \
+             A community's own catchphrase used as a salute, \"Rock and Stone\", is a verdict \
+             and it is praise. Asking for a sequel belongs here; asking for a port belongs to \
+             compatibility. Looking forward to the game, or wishing the reader a good time \
+             with it, judges nothing and is offtopic.",
         ),
         alone: true,
     },
@@ -243,8 +251,12 @@ pub const SHEET: &[Category] = &[
              does pass judgement, good or terrible or 10/10, is a verdict, and so is one that \
              carries an attitude without naming anything, \"yum\", \"god\", \"finally\". A word \
              carrying no attitude at all, a bare title like \"WARHAMMER\" or a noise like \
-             \"ooookkkk\", is offtopic. Where you cannot tell whether a fragment carries an \
-             attitude, that is what the ambiguous flag is for; do not force it either way.",
+             \"ooookkkk\", is offtopic. Looking forward to playing, \"I am so excited to play \
+             this\", and telling the reader to enjoy it, \"have fun\", are about the reviewer \
+             and the reader rather than about the game, and belong here: a verdict needs a \
+             judgement of the game, however bare. Where you cannot tell whether a fragment \
+             carries an attitude, that is what the ambiguous flag is for; do not force it \
+             either way.",
         ),
         alone: true,
     },
