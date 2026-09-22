@@ -519,10 +519,19 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
                 .iter()
                 .filter(|claim| labelled.contains(&(review.id.as_str(), claim.index)))
                 .filter(|claim| {
+                    // The page's term cut drops filler words and never forms a phrase of three,
+                    // so "if you like" can never be one of its terms; a word or phrase is also
+                    // looked for as written. Asked for eight such phrases on 2026-09-22, the
+                    // cut alone found 24 of the 186 claims a plain search finds.
+                    let plain = claim.text.to_lowercase().replace('\u{2019}', "'");
                     words.is_empty()
-                        || words
-                            .iter()
-                            .any(|word| crate::said::mentions(&claim.text, word))
+                        || words.iter().any(|word| {
+                            crate::said::mentions(&claim.text, word)
+                                || crate::mine::contains_term(
+                                    &plain,
+                                    &word.to_lowercase().replace('\u{2019}', "'"),
+                                )
+                        })
                 })
                 .map(|claim| claim.index)
                 .collect();
@@ -1711,6 +1720,10 @@ mod tests {
 
         let by_word = draw_revisit(&dir, &["subtitle".to_owned()], &[]).unwrap();
         assert_eq!(by_word[0].asked, Some(vec![0]));
+
+        // A phrase made of filler words is still a phrase somebody wrote.
+        let by_phrase = draw_revisit(&dir, &["it runs at".to_owned()], &[]).unwrap();
+        assert_eq!(by_phrase[0].asked, Some(vec![2]));
 
         // A row redefined rather than renamed puts every claim under it back in question, and
         // the claim that says nothing about the new wording is exactly the one to re-ask.
