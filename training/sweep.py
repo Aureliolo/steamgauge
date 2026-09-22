@@ -93,6 +93,12 @@ def setting(run: dict, key: str):
     return SETTINGS[key]
 
 
+def backbone_name(value) -> str:
+    """A backbone that `tapt.py` wrote is named by its run, not by the directory inside it."""
+    parts = str(value).replace("\\", "/").rstrip("/").split("/")
+    return parts[-2] if parts[-1] == "backbone" and len(parts) > 1 else parts[-1]
+
+
 def shown(key: str, value) -> str:
     if value is None:
         # Off by default rather than unrecorded: a run without a pool or a fold had none.
@@ -100,9 +106,7 @@ def shown(key: str, value) -> str:
             return f"no {key.replace('_', ' ')}"
         return f"{key.replace('_', ' ')} unrecorded"
     if key == "backbone":
-        # A backbone that `tapt.py` wrote is named by its run, not by the directory inside it.
-        parts = str(value).replace("\\", "/").rstrip("/").split("/")
-        value = parts[-2] if parts[-1] == "backbone" and len(parts) > 1 else parts[-1]
+        value = backbone_name(value)
     if key == "pool":
         value = Path(str(value)).name
     if key == "learning_rate":
@@ -237,7 +241,7 @@ def index(found: list[dict], shipped: str | None, to: Path) -> None:
         rows.append(
             (
                 run["id"],
-                str(run.get("backbone", "")).split("/")[-1],
+                backbone_name(run.get("backbone", "")),
                 ", ".join(changed) or "the usual settings",
                 run.get("claims", {}).get("train"),
                 run.get("data_fingerprint", ""),

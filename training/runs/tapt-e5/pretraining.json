@@ -1,0 +1,17 @@
+{
+  "pretraining": "masked language modelling",
+  "from": "intfloat/multilingual-e5-large",
+  "pool": "data/tapt.jsonl",
+  "reviews": 205685,
+  "epochs": 1,
+  "batch_size": 16,
+  "learning_rate": 2e-05,
+  "max_length": 128,
+  "mask": 0.15,
+  "seed": 1,
+  "steps": 12856,
+  "loss_last_100": 4.372193529605865,
+  "perplexity_last_100": 79.21720654703861,
+  "seconds": 3068,
+  "device": "cuda"
+}

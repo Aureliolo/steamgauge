@@ -87,6 +87,7 @@ points of coverage, so a gap smaller than that is not a finding.
 | e5large-prefix-s2 | multilingual-e5-large | learning rate 3e-5, prefix True | 12523 | `8d9da611` | 85.3% | 75.1% | 0.670 |
 | e5large-prefix-s3 | multilingual-e5-large | learning rate 3e-5, prefix True | 12523 | `8d9da611` | 86.4% | 75.0% | 0.659 |
 | e5large-s2 | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.1% | 75.3% | 0.662 |
+| e5tapt-29006 | tapt-e5 | the usual settings | 29006 | `2871969f` | 84.8% | 75.1% | 0.621 |
 | english-only | multilingual-e5-large | the usual settings | 19661 | `a286e500` | 89.9% | 75.0% | 0.661 |
 | ep12 | gte-multilingual-base | epochs 12 | 12523 | `8d9da611` | 67.3% | 75.1% | 0.617 |
 | ep3 | gte-multilingual-base | epochs 3 | 12523 | `8d9da611` | 52.3% | 75.1% | 0.591 |

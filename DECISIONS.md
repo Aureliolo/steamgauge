@@ -2691,6 +2691,7 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
 | e5-29006-rdrop | R-Drop at 1.0, the shipped schedule | 91.1% | 92.9% | 77.8% | 0.097 |
 | e5inst-distil-s1 | e5-large-instruct, the EMA schedule, the pool | 91.2% | 92.8% | 77.7% | 0.096 |
+| e5tapt-29006 | one masked-language pass over 205,685 training reviews, then the shipped schedule | 84.8% | 86.7% | 76.9% | 0.122 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2742,10 +2743,20 @@ improvement looks like from one seed. **The next round is this configuration wit
 three seeds; if the three hold the lead, it goes through the five folds, is exported, and
 replaces `e5-29006`.** About seven hours of the card.
 
-**Masked-language pretraining did not run.** The logits over a 250k-word vocabulary at 32
-reviews of 256 tokens are eight gigabytes on their own, and the card had the fine-tune's
-allocator beside them; it is queued again at 16 reviews of 128 tokens behind the embedding
-leg, and its fine-tune with it.
+**Masked-language pretraining made the encoder worse.** The logits over a 250k-word
+vocabulary at 32 reviews of 256 tokens are eight gigabytes on their own, so the pass ran at 16
+reviews of 128 tokens: one epoch over 205,685 training-game reviews, 12,856 steps, fifty-one
+minutes, ending at a perplexity of 79. The fine-tune from that backbone (`e5tapt-29006`, the
+shipped schedule) answers 84.8% of validation claims against the baseline's 90.3, 86.7% of
+frozen claims at 76.9% against 91.9 at 77.1, with the worst AURC of any e5 run (0.122) and a
+validation macro F1 of 0.621 against 0.646: five points of coverage lost, outside the spread
+on the wrong side. The reason is what the checkpoint is. e5-large is a contrastively trained
+embedder, not a masked-language model; its head was thrown away, and one epoch of masked
+prediction through a head that starts from noise pulls the encoder away from the geometry the
+contrastive training gave it, which is the geometry the classifier's window reads. A
+masked-language pass would need to be far longer than a night, or start from XLM-R rather than
+from e5, to be worth anything, and the labels then have to teach the sentence-level geometry
+back. Not a candidate. `tapt.py` stays, because the finding is only about this checkpoint.
 
 ### The frontier comparison, drawn again
 

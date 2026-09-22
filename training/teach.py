@@ -32,7 +32,9 @@ def answers_of(run: Path, pool, device, batch_size):
     record = json.loads((run / "run.json").read_text(encoding="utf-8"))
     tokenizer = AutoTokenizer.from_pretrained(run / "tokenizer")
     tokenizer.padding_side = "right"
-    model = ClaimReader(record["backbone"], len(record["subjects"]), pooling=record.get("pooling", "mean"))
+    model = ClaimReader(
+        record["backbone"], len(record["subjects"]), pooling=record.get("pooling", "mean")
+    )
     model.load_state_dict(torch.load(run / "model.bin", map_location="cpu", weights_only=True))
     model.to(device).eval()
     loader = DataLoader(
@@ -66,7 +68,9 @@ def answers_of(run: Path, pool, device, batch_size):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runs", nargs="+", required=True, help="run ids under runs/, each saved with --save")
+    parser.add_argument(
+        "--runs", nargs="+", required=True, help="run ids under runs/, each saved with --save"
+    )
     parser.add_argument("--pool", default=str(HERE / "data" / "pool.jsonl"))
     parser.add_argument("--to", default=str(HERE / "data" / "pool-targets.npz"))
     parser.add_argument("--batch-size", type=int, default=128)

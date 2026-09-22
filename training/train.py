@@ -220,7 +220,9 @@ class Pool(Claims):
     for a teacher reading the pool, it is the inputs alone.
     """
 
-    def __init__(self, claims, tokenizer, subjects, max_length, context, mark, prefix, targets=None):
+    def __init__(
+        self, claims, tokenizer, subjects, max_length, context, mark, prefix, targets=None
+    ):
         super().__init__(claims, tokenizer, subjects, max_length, context, mark=mark, prefix=prefix)
         self.targets = targets
 
@@ -232,7 +234,10 @@ class Pool(Claims):
             padding="max_length",
             return_tensors="pt",
         )
-        item = {"input_ids": encoded["input_ids"][0], "attention_mask": encoded["attention_mask"][0]}
+        item = {
+            "input_ids": encoded["input_ids"][0],
+            "attention_mask": encoded["attention_mask"][0],
+        }
         if self.targets is not None:
             subject, polarity = self.targets
             item["subject"] = torch.from_numpy(subject[at].astype(np.float32))
@@ -251,7 +256,13 @@ def load_targets(path, pool, subjects):
     targets = np.load(path, allow_pickle=False)
     if list(targets["subjects"]) != list(subjects):
         raise SystemExit(f"{path} answers over {list(targets['subjects'])}, not {subjects}")
-    keys = list(zip(targets["app_id"].tolist(), targets["review_id"].tolist(), targets["claim_index"].tolist()))
+    keys = list(
+        zip(
+            targets["app_id"].tolist(),
+            targets["review_id"].tolist(),
+            targets["claim_index"].tolist(),
+        )
+    )
     wanted = [(claim.app_id, claim.review_id, claim.claim_index) for claim in pool]
     if keys != wanted:
         raise SystemExit(f"{path} answers a different pool from the one loaded; read it again")
@@ -621,7 +632,9 @@ def run(args) -> dict:
     pool_claims = 0
     if args.pool:
         if not args.pool_targets:
-            raise SystemExit("--pool needs --pool-targets: a teacher's answers on it, from teach.py")
+            raise SystemExit(
+                "--pool needs --pool-targets: a teacher's answers on it, from teach.py"
+            )
         unlabelled = claimdata.load_pool(args.pool)
         targets = load_targets(args.pool_targets, unlabelled, subjects)
         # The pool was drawn over games the model trains on, but a fold's validation games are
@@ -633,7 +646,9 @@ def run(args) -> dict:
         kept = [claim for claim, ok in zip(unlabelled, safe) if ok]
         if not kept:
             raise SystemExit(f"{args.pool} holds no claim from a game this run trains on")
-        print(f"pool {len(kept)} of {len(unlabelled)} unlabelled claims, from games this run trains on")
+        print(
+            f"pool {len(kept)} of {len(unlabelled)} unlabelled claims, from games this run trains on"
+        )
         pool_claims = len(kept)
         taught = DataLoader(
             Pool(
@@ -760,8 +775,7 @@ def run(args) -> dict:
             # only on the passes this line never sees.
             if taken % 50 == 1:
                 print(
-                    f"  epoch {epoch + 1} step {taken}/{per_epoch} "
-                    f"loss {running / (step + 1):.4f}",
+                    f"  epoch {epoch + 1} step {taken}/{per_epoch} loss {running / (step + 1):.4f}",
                     flush=True,
                 )
 
@@ -773,9 +787,13 @@ def run(args) -> dict:
             f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
             f"calibration {metrics['calibration_error']:.3f}"
         )
-        answers = "answers nothing at that accuracy" if not metrics["threshold_met"] else (
-            f"answers {metrics['threshold_coverage']:.0%} of claims at "
-            f"{metrics['threshold_accuracy']:.3f}"
+        answers = (
+            "answers nothing at that accuracy"
+            if not metrics["threshold_met"]
+            else (
+                f"answers {metrics['threshold_coverage']:.0%} of claims at "
+                f"{metrics['threshold_accuracy']:.3f}"
+            )
         )
         print(
             f"  abstains below {metrics['threshold']:.2f}: {answers}"
@@ -1020,7 +1038,7 @@ def parse():
         "--prefix",
         action="store_true",
         help="write the pair the way `multilingual-e5-*` was pre-trained on it, as "
-        "\"query: <claim>\" and \"passage: <window>\". A property of that family of backbones "
+        '"query: <claim>" and "passage: <window>". A property of that family of backbones '
         "rather than of this task, so it is off unless asked for.",
     )
     parser.add_argument(
