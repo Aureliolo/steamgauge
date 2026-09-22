@@ -32,15 +32,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Settled and agreed per language, because a model that reads one language worse is a
     // different problem from one that reads one subject worse, and the totals hide it.
     let mut by_language: HashMap<String, (u64, u64)> = HashMap::new();
+    // And by how many labellers called the claim contested, which is the flag's only real
+    // test: a claim neither of them flagged should be one they agree on and one the model
+    // has no excuse for.
+    let mut by_flag: [(u64, u64); 3] = [(0, 0); 3];
 
     for app_id in apps {
         let reference = steamgauge_core::claimset::default_reference_dir(app_id);
-        let read =
-            |path: std::path::PathBuf| -> Result<Vec<ClaimLabel>, Box<dyn std::error::Error>> {
-                Ok(serde_json::from_slice(&std::fs::read(path)?)?)
-            };
-        let first = read(reference.join("labels.json"))?;
-        let second = read(reference.join("second").join("labels.json"))?;
+        let first = labels(&reference.join("labels.json"))?;
+        let second = labels(&reference.join("second").join("labels.json"))?;
         let theirs: HashMap<(&str, u16), &ClaimLabel> = second
             .iter()
             .map(|label| ((label.review_id.as_str(), label.index), label))
@@ -48,16 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let snapshot =
             steamgauge_core::embed::latest_snapshot(std::path::Path::new("data"), app_id)?;
-        let mut said: HashMap<(String, (u32, u32)), String> = HashMap::new();
-        steamgauge_core::read::for_each_reading(
-            &snapshot.join("readings.parquet"),
-            |id, at, subject, _, _| {
-                if let Some(subject) = subject {
-                    said.insert((id.to_owned(), at), subject.to_owned());
-                }
-            },
-        )?;
-
+        let said = subjects_read(&snapshot)?;
         let ids: std::collections::HashSet<String> =
             first.iter().map(|label| label.review_id.clone()).collect();
         let texts = steamgauge_core::capture::texts_for(&snapshot, &ids)?;
@@ -76,9 +67,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             settled += 1;
             let spoken = by_language.entry(label.language.clone()).or_default();
             spoken.0 += 1;
+            let flagged = usize::from(label.ambiguous) + usize::from(other.ambiguous);
+            by_flag[flagged].0 += 1;
             if read_as == &label.subject {
                 agreed += 1;
                 spoken.1 += 1;
+                by_flag[flagged].1 += 1;
                 continue;
             }
             let text = texts
@@ -114,13 +108,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    println!("\nby how many labellers called the claim contested");
+    for (flagged, counts) in by_flag.iter().enumerate() {
+        rate(["neither", "one of the two", "both"][flagged], *counts);
+    }
+
     let mut spoken: Vec<(String, (u64, u64))> = by_language.into_iter().collect();
     spoken.sort_by_key(|(name, (total, _))| (std::cmp::Reverse(*total), name.clone()));
     println!("\nby language, over the settled claims it answered");
-    for (name, (total, right)) in spoken {
-        #[expect(clippy::cast_precision_loss, reason = "claim counts are small")]
-        let rate = 100.0 * right as f64 / total as f64;
-        println!("  {name:<12} {right:>5} of {total:<5} {rate:>5.1}%");
+    for (name, counts) in spoken {
+        rate(&name, counts);
     }
     Ok(())
+}
+
+fn labels(path: &std::path::Path) -> Result<Vec<ClaimLabel>, Box<dyn std::error::Error>> {
+    Ok(serde_json::from_slice(&std::fs::read(path)?)?)
+}
+
+/// What a stored reading filed each claim under, keyed by the review and the span it covers.
+type Filed = HashMap<(String, (u32, u32)), String>;
+
+/// What the stored reading filed each claim under, by the span it covers.
+fn subjects_read(snapshot: &std::path::Path) -> Result<Filed, Box<dyn std::error::Error>> {
+    let mut said = HashMap::new();
+    steamgauge_core::read::for_each_reading(
+        &snapshot.join("readings.parquet"),
+        |id, at, subject, _, _| {
+            if let Some(subject) = subject {
+                said.insert((id.to_owned(), at), subject.to_owned());
+            }
+        },
+    )?;
+    Ok(said)
+}
+
+/// One line of "right of total, as a share", or nothing where there is nothing to divide.
+#[expect(clippy::cast_precision_loss, reason = "claim counts are small")]
+fn rate(name: &str, (total, right): (u64, u64)) {
+    if total == 0 {
+        return;
+    }
+    let share = 100.0 * right as f64 / total as f64;
+    println!("  {name:<14} {right:>5} of {total:<5} {share:>5.1}%");
 }
