@@ -110,10 +110,7 @@ fn main() {
         games: 8,
         agreed: 244,
         contested_sure: 1,
-        declined: 0,
-        recut: 0,
-        mistagged: 0,
-        languages: Vec::new(),
+        ..GoldDraw::default()
     };
 
     std::fs::write(&to, render(&questions, &found)).expect("the page could not be written");
