@@ -366,7 +366,12 @@ def main():
     subjects = record["subjects"]
 
     tokenizer = AutoTokenizer.from_pretrained(run / "tokenizer")
-    model = ClaimReader(record["backbone"], len(subjects))
+    # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
+    # model without complaint and exports a graph that reads its claims differently from the
+    # one that was measured. The parity check cannot see it either, because it compares the
+    # export against the same wrongly built model.
+    pooling = record.get("pooling", "mean")
+    model = ClaimReader(record["backbone"], len(subjects), pooling=pooling)
     model.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
     model.eval()
 
@@ -388,7 +393,7 @@ def main():
 
     exported = model
     if args.fp16:
-        half = ClaimReader(record["backbone"], len(subjects))
+        half = ClaimReader(record["backbone"], len(subjects), pooling=pooling)
         half.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
         exported = InFullPrecisionOut(half.eval().half()).eval()
 
