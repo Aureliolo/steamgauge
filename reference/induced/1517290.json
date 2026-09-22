@@ -1,0 +1,131 @@
+{
+  "app_id": 1517290,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "series-comparison",
+      "label": "Earlier entries in the series",
+      "description": "This game measured against the earlier games in its own series: which one was better, whether the series peaked years ago, being fooled by the last one and buying again, or calling this the best of them; comparisons with other franchises or genres do not belong here.",
+      "refines": "genre",
+      "evidence": [
+        "105070600",
+        "105575249",
+        "137527526",
+        "138468402",
+        "171942008",
+        "186135041",
+        "198510624"
+      ]
+    },
+    {
+      "id": "launch-recovery",
+      "label": "Launch state and recovery",
+      "description": "The game as shipped versus the game now: released unfinished, wait for updates, a botched launch mourned by pre-orders, whether it has since become good or is trying to come back from the dead; ordinary patch notes and roadmap talk without the launch arc do not belong here.",
+      "refines": "updates",
+      "evidence": [
+        "103329413",
+        "104719823",
+        "105970190",
+        "106037788",
+        "106287876",
+        "139530120",
+        "149170362",
+        "204315143"
+      ]
+    },
+    {
+      "id": "vehicles",
+      "label": "Vehicles and aircraft",
+      "description": "Tanks, helicopters, jets and boats: how they handle, lock-on and missiles, landing, repair, tanks spawned on rooftops and being run over on foot; infantry gunplay does not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "103070784",
+        "103194555",
+        "103267190",
+        "131073826"
+      ]
+    },
+    {
+      "id": "server-access",
+      "label": "Getting into a match",
+      "description": "Failing to reach the publisher's servers, load errors between rounds, being kicked partway through a match and servers too poor to play on; lag once inside a working match and player counts do not belong here.",
+      "refines": "multiplayer",
+      "evidence": [
+        "104329638",
+        "105970190",
+        "162923596",
+        "177135491",
+        "202713130",
+        "204242729"
+      ]
+    },
+    {
+      "id": "anti-cheat-requirements",
+      "label": "Anti-cheat and machine requirements",
+      "description": "The anti-cheat and what it demands of the machine: a black screen after it initialises, an anti-cheat error that forced a disk reset, a change that requires altering BIOS settings to launch; ordinary crashes with no anti-cheat involved do not belong here.",
+      "refines": "policy",
+      "evidence": [
+        "129291336",
+        "141182858",
+        "199121963"
+      ]
+    },
+    {
+      "id": "gunplay",
+      "label": "Gunplay and shooting feel",
+      "description": "How the guns feel to fire: no sense of impact, missing recoil, shots that do not seem to land; vehicles and the wider match loop do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "145136181",
+        "149060024",
+        "161445447"
+      ]
+    },
+    {
+      "id": "factions-representation",
+      "label": "Factions, politics and representation",
+      "description": "Who the game has you fight for and as: the same two nations pitted against each other in every mode read as propaganda, the ethnicity and identity of the soldiers on each side and complaints about representation; jokes and copypasta about real-world politics unrelated to the game do not belong here.",
+      "refines": "story",
+      "evidence": [
+        "138468402",
+        "185575512",
+        "224888272"
+      ]
+    },
+    {
+      "id": "recipe-reviews",
+      "label": "Recipes instead of a review",
+      "description": "A cooking recipe posted in place of a review, usually with a line saying the game is not worth reviewing; other jokes, memes and ASCII art do not belong here.",
+      "refines": "offtopic",
+      "evidence": [
+        "108217285",
+        "134690329",
+        "197470404"
+      ]
+    },
+    {
+      "id": "seasons-pass",
+      "label": "Seasons and pass rewards",
+      "description": "The seasonal content drops, the free or paid pass and playing only to unlock a skin from it; the price of the game itself and general microtransaction complaints do not belong here.",
+      "refines": "monetisation",
+      "evidence": [
+        "134648281",
+        "199614647",
+        "203755552"
+      ]
+    },
+    {
+      "id": "studio-blame",
+      "label": "Blame for the studio",
+      "description": "Reviews addressed to the developer as a company, demanding it be punished or driven out of the industry for what it shipped; ordinary complaints about patches or a lack of communication do not belong here.",
+      "refines": null,
+      "evidence": [
+        "103057273",
+        "105143459",
+        "139530120"
+      ]
+    }
+  ]
+}

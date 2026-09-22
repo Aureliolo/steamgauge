@@ -1,0 +1,140 @@
+{
+  "app_id": 990080,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "franchise-fan-service",
+      "label": "Fan service and nostalgia for the franchise",
+      "description": "Whether enjoyment rests on being a fan of the books and films: the game as a love letter or fan service, the childhood dream fulfilled, nostalgia, and the warning that a casual fan will find it dull; not whether the licence holds the real names.",
+      "refines": "licensing",
+      "evidence": [
+        "132555833",
+        "132556147",
+        "132595463",
+        "132613043",
+        "132620997",
+        "132867184",
+        "135116516",
+        "150708911",
+        "211183119"
+      ]
+    },
+    {
+      "id": "castle-and-hogsmeade",
+      "label": "The castle and Hogsmeade as places",
+      "description": "The castle, its grounds and Hogsmeade as recreated places that players wander for their own sake, how well they are built and whether they are the whole point; not quest content or exploration mechanics in general.",
+      "refines": null,
+      "evidence": [
+        "132587894",
+        "132684682",
+        "133656369",
+        "204636483"
+      ]
+    },
+    {
+      "id": "spells-and-wand-combat",
+      "label": "Spells and wand combat",
+      "description": "Casting spells with a wand: which spells players name, the order in which they are learnt, how effective the wand feels, and how combos and battles play out; not difficulty or enemy design.",
+      "refines": "gameplay",
+      "evidence": [
+        "132777507",
+        "132940448",
+        "156217289",
+        "161411707",
+        "162700303",
+        "165413606",
+        "192949198",
+        "193809282",
+        "209690499"
+      ]
+    },
+    {
+      "id": "playing-a-villain",
+      "label": "Playing a villain",
+      "description": "Whether the game lets you be evil: using the Unforgivable curses, killing or attacking people, a scenario too directed to play a bad character, and the joke that the protagonist is a psychopath; not ordinary combat.",
+      "refines": null,
+      "evidence": [
+        "132738673",
+        "134553202",
+        "152114246",
+        "163092305",
+        "209690499"
+      ]
+    },
+    {
+      "id": "cats-beasts-creatures",
+      "label": "Cats, beasts and creatures",
+      "description": "The animals and creatures of the world: cats you can pet but not harm, beasts you can pet or ride, the spiders that alarm arachnophobes and the biting cabbage; not human enemies.",
+      "refines": null,
+      "evidence": [
+        "132940448",
+        "133110104",
+        "133878535",
+        "137262021",
+        "168888982"
+      ]
+    },
+    {
+      "id": "wanting-coop-or-online",
+      "label": "Wanting co-op or online",
+      "description": "Wishing a single-player game had online or co-op play and hoping it is added later; not servers, matchmaking or lag, which the game does not have.",
+      "refines": "multiplayer",
+      "evidence": [
+        "133391230",
+        "163092305",
+        "181472084",
+        "196058645"
+      ]
+    },
+    {
+      "id": "merlin-trials-padding",
+      "label": "Merlin Trials and side-quest padding",
+      "description": "The Merlin Trials, Demiguise statues and repetitive side quests as filler that prolongs the game past its welcome; not the length of the main story or replay value.",
+      "refines": "content",
+      "evidence": [
+        "133040775",
+        "156217289",
+        "163092305",
+        "196058645"
+      ]
+    },
+    {
+      "id": "professors-and-companions",
+      "label": "Professors and companions",
+      "description": "The named professors, companions and other people of the school, such as Sebastian, Professor Fig, Professor Garlick, Deek and the Floo lady, and what players make of them, romance wishes included; not the plot as a whole.",
+      "refines": "story",
+      "evidence": [
+        "132933524",
+        "133344026",
+        "134918940",
+        "136451304",
+        "222407309"
+      ]
+    },
+    {
+      "id": "texture-rendering-glitches",
+      "label": "Texture and rendering glitches",
+      "description": "How the PC build renders: textures that fail to load, the outdoors glitching, a blurry image, and settings and current drivers making no difference; not frame rate or crashes.",
+      "refines": "bugs",
+      "evidence": [
+        "132554723",
+        "132717873",
+        "136318624",
+        "190302650"
+      ]
+    },
+    {
+      "id": "boycott-and-inclusivity",
+      "label": "The boycott and inclusivity",
+      "description": "Taking a side on the boycott over the author's views on trans people, and pointing to the diversity and inclusivity of the game's own characters as an answer to it; not protests about the publisher.",
+      "refines": null,
+      "evidence": [
+        "133061897",
+        "134162108",
+        "181472084"
+      ]
+    }
+  ]
+}

@@ -2609,12 +2609,15 @@ the subject 98.9% of the time, on the 1,455 either flagged, 73.6%. The commonest
 `difficulty` against `gameplay`, 33 claims. Ten games, thirty, fifty-one: the figures have not
 moved by a point, which is what a stable sheet looks like from outside.
 
-**The per-game categories are being induced for the rest.** Opus reads a 120-review handout
-per game (`distinct`) and names what the sheet has no row for; each answer goes through
-`ingest-induced`, which refuses a subject with fewer than three cited reviews. Done tonight
-so far: 1057090, 1062090, 1091500, 1102190, 1272080 (9 of 9 kept), 1274570 (7), 1295660 (9),
-1336490 (7). The 18 games without `embeddings.parquet` cannot be handed out until they are
-embedded, which needs the card, which the training sweep holds until morning.
+**Every captured game now has its own rows.** Opus reads a 120-review handout per game
+(`distinct`) and names what the sheet has no row for; each answer goes through
+`ingest-induced`, which refuses a subject with fewer than three cited reviews. The 36 games
+that had review embeddings were handed out through the night; the 16 that had none were
+embedded once the training sweep left the card (a review-level pass over 2.2 million reviews
+took 36 minutes on a free card, against six for one game of 23,000 beside a training run),
+handed out and read the same way. 52 games, 432 induced subjects, every one of them kept by
+the ingest: not a single agent cited a review that did not raise its subject. The two
+remaining app ids have nothing to read: 5126340 has no capture and 5181900 one review.
 
 ### The report was scoring the model on its own homework, and a third of its Chinese was not words
 
