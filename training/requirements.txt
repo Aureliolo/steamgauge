@@ -30,6 +30,8 @@ sentencepiece>=0.2
 protobuf>=4
 # The mixture-of-experts candidate carries its own modelling code, and that code imports this.
 einops>=0.8
+# Low-rank adapters, for a teacher too large to fine-tune whole on the card (--lora-rank).
+peft>=0.17
 pytest>=8
 # The one pin CI's Python lint reads, so the version the lock resolves is the one that checks.
 ruff>=0.15

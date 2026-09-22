@@ -33,7 +33,12 @@ def answers_of(run: Path, pool, device, batch_size):
     tokenizer = AutoTokenizer.from_pretrained(run / "tokenizer")
     tokenizer.padding_side = "right"
     model = ClaimReader(
-        record["backbone"], len(record["subjects"]), pooling=record.get("pooling", "mean")
+        record["backbone"],
+        len(record["subjects"]),
+        pooling=record.get("pooling", "mean"),
+        # A teacher trained in bf16 is read in bf16: the same weights in fp32 are twice the
+        # card, and a 4B one would not fit at all.
+        dtype=torch.bfloat16 if record.get("dtype") == "bfloat16" else None,
     )
     model.load_state_dict(torch.load(run / "model.bin", map_location="cpu", weights_only=True))
     model.to(device).eval()
