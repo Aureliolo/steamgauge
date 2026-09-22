@@ -2687,6 +2687,7 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | e5-29006-distil-s1 | the EMA schedule plus a 247k-claim pool taught by the three EMA seeds | 89.8% | 90.8% | 77.9% | 0.097 |
 | e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
 | e5-29006-rdrop | R-Drop at 1.0, the shipped schedule | 91.1% | 92.9% | 77.8% | 0.097 |
+| e5inst-distil-s1 | e5-large-instruct, the EMA schedule, the pool | 91.2% | 92.8% | 77.7% | 0.096 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2727,6 +2728,16 @@ keep the card's memory where it was): 91.1% validation coverage, 92.9% frozen at
 best frozen macro F1 of the night at 0.697 and an AURC of 0.097 tying the student's, for
 twice the passes. One seed, on the good side of every figure and inside the spread on each.
 It belongs in the next round's configuration beside the pool.
+
+**Stacked, they hold.** The instruction-tuned e5 learning the pool on the EMA schedule
+(`e5inst-distil-s1`) is the best-rounded run of the night: 91.2% validation coverage with
+the best validation macro F1 (0.653) and AURC (0.113) of anything trained, and on the frozen
+games 92.8% answered at 77.7%, macro F1 0.682, AURC 0.096, the lowest of all. Each gain on
+its own is a point or two and inside the spread; that the same configuration leads on
+coverage, macro F1 and AURC at once, on validation and frozen alike, is what a real but small
+improvement looks like from one seed. **The next round is this configuration with R-Drop, on
+three seeds; if the three hold the lead, it goes through the five folds, is exported, and
+replaces `e5-29006`.** About seven hours of the card.
 
 **Masked-language pretraining did not run.** The logits over a 250k-word vocabulary at 32
 reviews of 256 tokens are eight gigabytes on their own, and the card had the fine-tune's
