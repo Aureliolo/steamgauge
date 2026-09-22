@@ -76,6 +76,8 @@ points of coverage, so a gap smaller than that is not a finding.
 | e5-29006-s3 | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 89.0% | 75.0% | 0.643 |
 | e5inst-distil-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.2% | 75.2% | 0.653 |
 | e5inst-ema-29006 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 92.0% | 75.0% | 0.634 |
+| e5inst-pool-rdrop-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.9% | 75.2% | 0.656 |
+| e5inst-pool-rdrop-s2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 92.0% | 75.1% | 0.655 |
 | e5large | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.9% | 75.1% | 0.669 |
 | e5large-ep3 | multilingual-e5-large | epochs 3 | 12523 | `8d9da611` | 78.2% | 75.3% | 0.656 |
 | e5large-instruct | multilingual-e5-large-instruct | learning rate 3e-5 | 12523 | `8d9da611` | 83.2% | 75.2% | 0.671 |
