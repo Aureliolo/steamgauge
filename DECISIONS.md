@@ -3115,6 +3115,37 @@ ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the
 words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
 "absturz", which say it in words a reader can read.
 
+### What tonight's runs have to show before anything ships, written before they report
+
+Set 2026-09-22, while the runs are still training, because a rule written after the numbers
+are in is a rule fitted to them.
+
+Six things will be comparable on the same labels: the three seeds of instruct + pool + R-Drop,
+their uniform soup, their greedy soup, and the three runs on the fresh export (the same
+configuration, plus `--error-reg 1.0`, plus `--second-weight 0.5`) with a soup of those.
+
+**The figure that decides is coverage at the promised accuracy on the validation games**, because
+the promise is fixed: the reader answers at 0.75 or it abstains, so the configuration that
+answers more claims at that promise is the better one. **The bar is the seed spread**, 2.6
+points of coverage, measured over three seeds of one configuration. A difference smaller than
+that is not a finding, whatever it looks like, and where nothing clears it the incumbent
+configuration stays: the shipped reader changes on evidence, not on the best of eight numbers.
+
+**Macro F1 and AURC are vetoes rather than tie-breakers.** A configuration that buys coverage
+while dropping macro F1 by more than a point is trading the rare rows for the common ones,
+which is the trade this project has refused every time it has been offered. AURC says whether
+the confidence ordering is any good, which is what the abstention rule is made of.
+
+**The frozen games are not a chooser.** They are read once, by whatever was already chosen, and
+the only question they answer is whether the promise transfers to a game nobody trained on. If
+it does not, that is a finding about the threshold, and the reader ships with the frozen figure
+quoted rather than the validation one.
+
+**The soup is a configuration like any other**, and if it wins it ships with lines fitted on
+folds of a single seed, because five folds of a three-seed soup is fifteen runs and about
+thirty hours of a shared card. That mismatch is a real one and the frozen read is what tests
+it: if a soup's promise does not transfer where a seed's does, the seed ships.
+
 ### What `--second-weight` can possibly do, written down before the run reports
 
 Counted 2026-09-22, before the run that tests it. The knob mixes the second labeller's answer
