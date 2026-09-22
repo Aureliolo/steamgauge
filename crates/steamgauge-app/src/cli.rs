@@ -1650,10 +1650,7 @@ fn run_recount(
             top_helpful,
             &provenance,
             |progress| {
-                eprintln!(
-                    "  {} reviews counted",
-                    thousands(progress.reviews_counted)
-                );
+                eprintln!("  {} reviews counted", thousands(progress.reviews_counted));
             },
         )?;
         let path = snapshot.join("reading.json");

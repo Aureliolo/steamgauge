@@ -32,10 +32,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(subject) = subject
                 && polarity != "neutral"
             {
-                filed
-                    .entry(id.to_owned())
-                    .or_default()
-                    .push((at, subject.to_owned(), polarity.to_owned()));
+                filed.entry(id.to_owned()).or_default().push((
+                    at,
+                    subject.to_owned(),
+                    polarity.to_owned(),
+                ));
             }
         },
     )?;

@@ -501,11 +501,12 @@ pub fn recount_corpus(
 ) -> Result<ReadReport> {
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let earlier: ReadReport = serde_json::from_slice(
-        &std::fs::read(snapshot.join("reading.json")).map_err(|_| Error::NoClassifications {
-            path: snapshot.join("reading.json"),
-        })?,
-    )?;
+    let earlier: ReadReport =
+        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
+            Error::NoClassifications {
+                path: snapshot.join("reading.json"),
+            }
+        })?)?;
     if earlier.read_by_rule != provenance.lines_fingerprint {
         return Err(Error::Refused(format!(
             "the readings of {app_id} were answered under the lines {} and the reader named \
@@ -538,24 +539,27 @@ pub fn recount_corpus(
     )?;
 
     let replay = snapshot.join("readings.recount.parquet");
-    let counted = recount_rows(&snapshot, &replay, &options, context, &stored, &mut on_progress)
-        .and_then(|counted| {
-            // A claim the replay found no answer for is one this build cuts differently from
-            // the build that read it, and the counts would quietly be about another corpus.
-            if counted.claims != earlier.claims || counted.unclassified != earlier.unclassified_claims
-            {
-                return Err(Error::Refused(format!(
-                    "this build takes {app_id} apart into {} claims, {} of them unanswered, \
+    let counted = recount_rows(
+        &snapshot,
+        &replay,
+        &options,
+        context,
+        &stored,
+        &mut on_progress,
+    )
+    .and_then(|counted| {
+        // A claim the replay found no answer for is one this build cuts differently from
+        // the build that read it, and the counts would quietly be about another corpus.
+        if counted.claims != earlier.claims || counted.unclassified != earlier.unclassified_claims {
+            return Err(Error::Refused(format!(
+                "this build takes {app_id} apart into {} claims, {} of them unanswered, \
                      where the reading counted {} and {}; the readings no longer name this \
                      build's claims, so read the game again",
-                    counted.claims,
-                    counted.unclassified,
-                    earlier.claims,
-                    earlier.unclassified_claims
-                )));
-            }
-            counted.finish(app_id, &options, provenance)
-        });
+                counted.claims, counted.unclassified, earlier.claims, earlier.unclassified_claims
+            )));
+        }
+        counted.finish(app_id, &options, provenance)
+    });
     let _ = std::fs::remove_file(&replay);
     let counted = counted?;
     Ok(ReadReport {
@@ -637,7 +641,10 @@ fn recount_rows(
                 filed.iter().find(|(where_, _)| where_ == span)
             });
             if let Some((_, reading)) = answered {
-                answers.insert(key(context, &fingerprint, index, claim, &row.language), *reading);
+                answers.insert(
+                    key(context, &fingerprint, index, claim, &row.language),
+                    *reading,
+                );
             }
         }
         claims_seen += claims.len() as u64;

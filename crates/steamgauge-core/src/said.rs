@@ -348,17 +348,66 @@ fn is_hangul(ch: char) -> bool {
 /// "at", "from", "to", "with", "than", "like", "only". Longest first, so 에서 comes off before
 /// 서 would be looked for, and a word that is nothing but a particle keeps itself.
 const HANGUL_PARTICLES: [&str; 26] = [
-    "에서는", "에서도", "으로는", "으로도", "에서", "으로", "부터", "까지", "에게", "한테", "처럼",
-    "만큼", "보다", "이나", "라도", "이", "가", "은", "는", "을", "를", "도", "의", "에", "로",
+    "에서는",
+    "에서도",
+    "으로는",
+    "으로도",
+    "에서",
+    "으로",
+    "부터",
+    "까지",
+    "에게",
+    "한테",
+    "처럼",
+    "만큼",
+    "보다",
+    "이나",
+    "라도",
+    "이",
+    "가",
+    "은",
+    "는",
+    "을",
+    "를",
+    "도",
+    "의",
+    "에",
+    "로",
     "만",
 ];
 
 /// The endings Korean conjugates a verb or an adjective with: 환불했습니다, 환불하고 and
 /// 환불받았어요 are all "refunded" to a reader and three words to a counter. Longest first.
 const HANGUL_ENDINGS: [&str; 30] = [
-    "했습니다", "됐습니다", "받았습니다", "습니다", "했어요", "됐어요", "합니다", "됩니다",
-    "하네요", "했다가", "하는데", "했는데", "하면서", "하고", "하는", "하다", "했다", "해서",
-    "해요", "하게", "하지", "되는", "되다", "됐다", "이다", "네요", "어요", "아요", "었다",
+    "했습니다",
+    "됐습니다",
+    "받았습니다",
+    "습니다",
+    "했어요",
+    "됐어요",
+    "합니다",
+    "됩니다",
+    "하네요",
+    "했다가",
+    "하는데",
+    "했는데",
+    "하면서",
+    "하고",
+    "하는",
+    "하다",
+    "했다",
+    "해서",
+    "해요",
+    "하게",
+    "하지",
+    "되는",
+    "되다",
+    "됐다",
+    "이다",
+    "네요",
+    "어요",
+    "아요",
+    "었다",
     "았다",
 ];
 
@@ -462,13 +511,78 @@ fn segmenter() -> &'static jieba_rs::Jieba {
 /// frame drops, save files, achievements, controls, localisation, the store. Without them the
 /// segmenter hands back single characters, and a single character is heard only in a pair.
 const HAN_LEXICON: [&str; 72] = [
-    "掉帧", "帧数", "帧率", "锁帧", "卡顿", "卡死", "卡关", "闪退", "黑屏", "崩溃", "优化", "上手",
-    "手感", "打击感", "键位", "键鼠", "手柄", "适配", "分辨率", "画质", "画风", "建模", "贴图",
-    "光污染", "存档", "读档", "全成就", "成就", "白金", "流程", "剧情", "结局", "跑图", "刷刷刷",
-    "肉鸽", "魂系", "类魂", "平台跳跃", "银河城", "新手引导", "引导", "判定", "碰撞", "连招",
-    "数值", "氪金", "抽卡", "内购", "皮肤", "季票", "通行证", "开箱", "首发", "史低", "折扣",
-    "退款", "汉化", "简中", "繁中", "中配", "配音", "字幕", "乱码", "联机", "单机", "掉线",
-    "延迟", "服务器", "外挂", "作弊", "热修", "跳票",
+    "掉帧",
+    "帧数",
+    "帧率",
+    "锁帧",
+    "卡顿",
+    "卡死",
+    "卡关",
+    "闪退",
+    "黑屏",
+    "崩溃",
+    "优化",
+    "上手",
+    "手感",
+    "打击感",
+    "键位",
+    "键鼠",
+    "手柄",
+    "适配",
+    "分辨率",
+    "画质",
+    "画风",
+    "建模",
+    "贴图",
+    "光污染",
+    "存档",
+    "读档",
+    "全成就",
+    "成就",
+    "白金",
+    "流程",
+    "剧情",
+    "结局",
+    "跑图",
+    "刷刷刷",
+    "肉鸽",
+    "魂系",
+    "类魂",
+    "平台跳跃",
+    "银河城",
+    "新手引导",
+    "引导",
+    "判定",
+    "碰撞",
+    "连招",
+    "数值",
+    "氪金",
+    "抽卡",
+    "内购",
+    "皮肤",
+    "季票",
+    "通行证",
+    "开箱",
+    "首发",
+    "史低",
+    "折扣",
+    "退款",
+    "汉化",
+    "简中",
+    "繁中",
+    "中配",
+    "配音",
+    "字幕",
+    "乱码",
+    "联机",
+    "单机",
+    "掉线",
+    "延迟",
+    "服务器",
+    "外挂",
+    "作弊",
+    "热修",
+    "跳票",
 ];
 
 /// Single characters that turn the Chinese word after them, as "not" and "too" do: 不好 is
@@ -722,7 +836,6 @@ mod tests {
         found
     }
 
-
     #[test]
     fn words_and_their_pairs_stop_at_punctuation_and_skip_bare_numbers() {
         assert_eq!(
@@ -758,7 +871,10 @@ mod tests {
         assert_eq!(terms("画面很好 lags 卡"), ["画面", "很好", "lags"]);
         // Two words and the pair they make, written solid; the pair is what a reader wants
         // where the two are one thing (操作手感, "the feel of the controls").
-        assert_eq!(terms("操作手感不错"), ["操作", "手感", "操作手感", "不错", "手感不错"]);
+        assert_eq!(
+            terms("操作手感不错"),
+            ["操作", "手感", "操作手感", "不错", "手感不错"]
+        );
         // A particle ends the chain, so nothing pairs across 了.
         assert_eq!(terms("画面太差了"), ["画面", "太差", "画面太差"]);
         // Modifiers stack, and the pair keeps all of them: "not too friendly" is not "too

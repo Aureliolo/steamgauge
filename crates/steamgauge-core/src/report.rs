@@ -867,13 +867,19 @@ mod tests {
         std::fs::create_dir_all(&out).unwrap();
 
         assert!(
-            matches!(agreement_for(FROZEN, &out, &reference), Measurement::Unlabelled),
+            matches!(
+                agreement_for(FROZEN, &out, &reference),
+                Measurement::Unlabelled
+            ),
             "no labels file is a game nobody has labelled"
         );
 
         std::fs::write(reference.join("labels.json"), "[]").unwrap();
         assert!(
-            matches!(agreement_for(FROZEN, &out, &reference), Measurement::Unlabelled),
+            matches!(
+                agreement_for(FROZEN, &out, &reference),
+                Measurement::Unlabelled
+            ),
             "an empty set is a game nobody has labelled"
         );
 
@@ -936,12 +942,18 @@ mod tests {
         .unwrap();
 
         // Learned before anything is read: the capture is not even looked for.
-        assert!(matches!(agreement_for(TRAINS, &out, &reference), Measurement::Learned));
+        assert!(matches!(
+            agreement_for(TRAINS, &out, &reference),
+            Measurement::Learned
+        ));
         assert!(agreement_for(TRAINS, &out, &reference).report().is_none());
 
         std::fs::write(reference.join("labels.json"), "[]").unwrap();
         assert!(
-            matches!(agreement_for(TRAINS, &out, &reference), Measurement::Unlabelled),
+            matches!(
+                agreement_for(TRAINS, &out, &reference),
+                Measurement::Unlabelled
+            ),
             "a training game with no labels has nothing in the weights"
         );
 
