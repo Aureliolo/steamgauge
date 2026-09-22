@@ -232,8 +232,8 @@ pub const PROBES: &[Probe] = &[
         ],
         // "The community" is most often the modding one or the one the developers listen to,
         // and a labeller files those under `mods` and `updates`: on the first draw aimed at
-        // this row, 15% of what this line caught was `community`. Over those three games these
-        // terms turn away 75 claims, 34 `mods` and 28 `updates`, and not one `community`.
+        // this row, 16% of what this line caught was `community`. Over its four games these
+        // terms turn away 84 claims, 70 of them `mods` or `updates`, and not one `community`.
         unless: &[
             "mods",
             "modded",

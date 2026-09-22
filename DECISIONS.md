@@ -3540,6 +3540,40 @@ a measurement, and the flag is where it goes**. The first aimed draw, four games
 `licensing` candidates, 277 `community`, 209 `language`, 121 `vr`. Every mined draw before it,
 across seventeen games, produced 31 `licensing` labels in total.
 
+**Labelled 2026-09-22, and a candidate is not a label.** One Fable labeller a game, 800 claims,
+every file checked before the ingest. 216 landed on the four rows the draw was aimed at:
+
+| line | caught | on its row |
+|---|---|---|
+| `language` | 208 | 123 (59%) |
+| `vr` | 122 | 25 (20%) |
+| `community` | 277 | 43 (16%) |
+| `licensing` | 193 | 15 (8%) |
+
+`language` is a good line. The other three each failed in a way the labels show plainly:
+
+- **`community` was fishing with the word for two other rows.** Of what it caught, 48 were
+  `mods` and 92 `updates`: in a game with mod tools "the community" is the modding one, and in
+  a live-service game it is the one the developers do or do not listen to. The line now turns
+  away a claim that names mods, an SDK, the workshop, the developers, listening or feedback.
+  Measured on these four games that sheds 84 claims, and not one of them was `community`.
+- **`licensing`'s adaptation vocabulary fired in games that adapt nothing.** The words that
+  name a licence (`licensed`, `licensing`, `unlicensed`) caught 30 claims and 15 were the row.
+  `the anime`, `canon`, `the show`, `adaptation` and `fictional` caught 127 and none were: in
+  these games canon is the game's own story and the anime is its art style. That is the module's
+  own warning, point the draw at games that could plausibly hold the subject, not heeded when
+  the games were chosen, and the vocabulary stays for the games it was written for. One term
+  was wrong everywhere: `real players` caught 21 claims, every one of them about human
+  opponents rather than bots, including in the football game, and it is gone.
+- **`vr` in a headset game catches verdicts.** 36 of its 122 were "best VR game I have played",
+  which the sheet files as a verdict with the kind of game attached, correctly. A headset game's
+  reviews mention the headset in everything, so the line cannot tell a claim about being in one
+  from a claim that merely happens there.
+
+So the row that most needs labels is the one this method moves least. `licensing` is filled by
+choosing games that adapt or license something, as the six chosen on 2026-09-13 showed, and
+the word draw is only worth running on those.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
