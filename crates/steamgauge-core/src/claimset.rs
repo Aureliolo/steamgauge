@@ -1213,35 +1213,56 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
     Ok(found)
 }
 
+/// What the training export wrote, and what it would not write.
+#[derive(Debug, Clone, Default)]
+pub struct ExportReport {
+    pub written: usize,
+    /// Rows whose text carries no proposition.
+    pub no_claim: usize,
+    /// Teaching rows drawn from a game the model is measured on, and the games they sat on.
+    pub measured_on: usize,
+    pub measured_on_games: std::collections::BTreeSet<u32>,
+}
+
 /// Writes every labelled claim, with its text, as JSONL for training.
 ///
 /// The file it writes holds review text and never leaves the machine: what gets published is
 /// the label set, which carries ids and offsets and no text at all.
 ///
-/// Returns how many rows it wrote and how many it refused for carrying no claim.
-///
 /// # Errors
 ///
 /// Fails if a reference set cannot be read or the destination cannot be written.
-pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize)> {
+pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport> {
     use std::io::Write as _;
 
     if let Some(parent) = to.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
-    let mut written = 0;
+    let mut report = ExportReport::default();
 
-    let mut refused = 0;
     for claim in labelled_claims(reference_root)? {
         // Most of the set was cut before the rules that recognise these, so it still holds
         // thousands of them. A row whose text carries no proposition has a label that could
         // not have been right, and training on it teaches the string rather than the task.
         if crate::claims::is_not_a_claim(&claim.text) {
-            refused += 1;
+            report.no_claim += 1;
             continue;
         }
         let label = &claim.label;
+        // A teaching set is drawn for being hard or for holding a word, so a row of one on a
+        // validation or frozen game is measured on claims chosen for the model rather than
+        // drawn at random, and the coverage figure stops meaning what it says. The draw
+        // commands refuse such a game, but the sets drawn before that guard existed are still
+        // on disk, and the split reads whatever the export hands it.
+        if TEACHING_SETS.contains(&label.subset.as_str())
+            && crate::measure::role(label.app_id, crate::measure::SPLIT_SEED)
+                != crate::measure::Role::Train
+        {
+            report.measured_on += 1;
+            report.measured_on_games.insert(label.app_id);
+            continue;
+        }
         let row = serde_json::json!({
             "text": claim.text,
             "review": claim.review,
@@ -1264,10 +1285,10 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize
             "second_by": claim.again.as_ref().map(|again| &again.produced_by),
         });
         writeln!(out, "{row}")?;
-        written += 1;
+        report.written += 1;
     }
     out.flush()?;
-    Ok((written, refused))
+    Ok(report)
 }
 
 /// What a pool draw wrote for one game.
@@ -1428,6 +1449,72 @@ mod tests {
         assert_eq!(again[&("a".to_owned(), 0)].subject, "gameplay");
         assert_eq!(again[&("b".to_owned(), 0)].subject, "performance");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_teaching_set_on_a_game_the_model_is_measured_on_never_reaches_the_export() {
+        let role_of = |app_id| crate::measure::role(app_id, crate::measure::SPLIT_SEED);
+        let first = |wanted| {
+            (1..u32::MAX)
+                .find(|&app_id| role_of(app_id) == wanted)
+                .unwrap()
+        };
+        let (trains_on, held_back) = (
+            first(crate::measure::Role::Train),
+            first(crate::measure::Role::Validation),
+        );
+
+        let root = std::env::temp_dir().join(format!("steamgauge-export-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for (app_id, set, subset) in [
+            (trains_on, "", "random"),
+            (trains_on, "mined", "mined"),
+            (held_back, "", "random"),
+            (held_back, "mined", "mined"),
+        ] {
+            let dir = root.join(app_id.to_string()).join(set);
+            std::fs::create_dir_all(&dir).unwrap();
+            let id = format!("{app_id}-{subset}");
+            let drawn = DrawnReview {
+                id: id.clone(),
+                app_id,
+                subset: subset.to_owned(),
+                ..review(&id, &["The combat is superb."])
+            };
+            std::fs::write(
+                dir.join("sample.json"),
+                serde_json::to_vec(&[drawn]).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                dir.join("labels.json"),
+                serde_json::json!([{
+                    "review_id": id, "index": 0, "app_id": app_id, "language": "english",
+                    "subset": subset, "start": 0, "end": 0, "subject": "gameplay",
+                    "polarity": "praise", "ironic": false, "confidence": "high",
+                    "ambiguous": false, "split_wrong": false
+                }])
+                .to_string(),
+            )
+            .unwrap();
+        }
+
+        let to = root.join("claims.jsonl");
+        let report = export_training(&root, &to).unwrap();
+        let written = std::fs::read_to_string(&to).unwrap();
+
+        assert_eq!(report.measured_on, 1, "the held-back game's mined row");
+        assert_eq!(report.measured_on_games, [held_back].into_iter().collect());
+        assert_eq!(report.written, 3);
+        assert!(
+            written.contains(&format!("{trains_on}-mined")),
+            "a teaching row on a game the model trains on is what teaching sets are for"
+        );
+        // The random draw is the measurement, so it stays whatever else the game carries.
+        assert!(written.contains(&format!("{held_back}-random")));
+        assert!(!written.contains(&format!("{held_back}-mined")));
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

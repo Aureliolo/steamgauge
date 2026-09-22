@@ -808,17 +808,7 @@ pub async fn run() -> Result<()> {
             let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
-        Command::ExportTraining { from, to } => {
-            let (written, refused) = steamgauge_core::claimset::export_training(&from, &to)?;
-            println!("{written} labelled claims -> {}", to.display());
-            if refused > 0 {
-                println!(
-                    "{refused} rows held back for carrying no claim: an option nobody ticked, \
-                     or a piece with no word in it"
-                );
-            }
-            Ok(())
-        }
+        Command::ExportTraining { from, to } => run_export_training(&from, &to),
         Command::ExportPool {
             app_ids,
             out,
@@ -1271,6 +1261,32 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
             .collect::<Vec<_>>()
             .join(", ")
     );
+    Ok(())
+}
+
+fn run_export_training(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+    let report = steamgauge_core::claimset::export_training(from, to)?;
+    println!("{} labelled claims -> {}", report.written, to.display());
+    if report.no_claim > 0 {
+        println!(
+            "{} rows held back for carrying no claim: an option nobody ticked, or a piece \
+             with no word in it",
+            report.no_claim
+        );
+    }
+    if report.measured_on > 0 {
+        println!(
+            "{} teaching rows held back for sitting on {}, which the model is measured on \
+             and never trains on",
+            report.measured_on,
+            report
+                .measured_on_games
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
     Ok(())
 }
 
