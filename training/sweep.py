@@ -48,6 +48,7 @@ SETTINGS = {
     "language_balance": 0.0,
     "ema": 0.0,
     "llrd": 1.0,
+    "rdrop": 0.0,
     "pooling": "mean",
     "pool": None,
     "pool_weight": None,
@@ -99,7 +100,9 @@ def shown(key: str, value) -> str:
             return f"no {key.replace('_', ' ')}"
         return f"{key.replace('_', ' ')} unrecorded"
     if key == "backbone":
-        value = str(value).split("/")[-1]
+        # A backbone that `tapt.py` wrote is named by its run, not by the directory inside it.
+        parts = str(value).replace("\\", "/").rstrip("/").split("/")
+        value = parts[-2] if parts[-1] == "backbone" and len(parts) > 1 else parts[-1]
     if key == "pool":
         value = Path(str(value)).name
     if key == "learning_rate":

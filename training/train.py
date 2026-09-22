@@ -258,6 +258,15 @@ def load_targets(path, pool, subjects):
     return targets["subject"], targets["polarity"]
 
 
+def symmetric_kl(left, right):
+    """How far two distributions over the same classes sit apart, from either side, per row."""
+    left = torch.log_softmax(left.float(), dim=-1)
+    right = torch.log_softmax(right.float(), dim=-1)
+    forward = torch.nn.functional.kl_div(left, right, log_target=True, reduction="none").sum(-1)
+    backward = torch.nn.functional.kl_div(right, left, log_target=True, reduction="none").sum(-1)
+    return (forward + backward) / 2
+
+
 def forever(loader):
     """The loader again from the top whenever it runs out. The pool is read at the labelled
     set's pace, one batch per step, and is many times its size; which epoch it is on is of no
@@ -677,9 +686,9 @@ def run(args) -> dict:
         optimiser.zero_grad(set_to_none=True)
         for step, batch in enumerate(loaders["train"]):
             with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
-                subject, polarity, _ = model(
-                    batch["input_ids"].to(device), batch["attention_mask"].to(device)
-                )
+                input_ids = batch["input_ids"].to(device)
+                attention = batch["attention_mask"].to(device)
+                subject, polarity, _ = model(input_ids, attention)
                 trust = batch["weight"].to(device)
                 subject_loss = torch.nn.functional.cross_entropy(
                     subject, batch["subject"].to(device), weight=weights, reduction="none"
@@ -688,6 +697,31 @@ def run(args) -> dict:
                     polarity, batch["polarity"].to(device), reduction="none"
                 )
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
+                if args.rdrop > 0:
+                    # The same batch through the dropout again gives a second opinion from
+                    # the same weights, and the two are charged for disagreeing. Dropout at
+                    # training time and none at inference is a gap this closes: the model is
+                    # pushed to answer the same way whichever units are dropped.
+                    again_subject, again_polarity, _ = model(input_ids, attention)
+                    disagreement = symmetric_kl(subject, again_subject) + (
+                        args.polarity_weight * symmetric_kl(polarity, again_polarity)
+                    )
+                    again_loss = (
+                        (
+                            torch.nn.functional.cross_entropy(
+                                again_subject,
+                                batch["subject"].to(device),
+                                weight=weights,
+                                reduction="none",
+                            )
+                            + args.polarity_weight
+                            * torch.nn.functional.cross_entropy(
+                                again_polarity, batch["polarity"].to(device), reduction="none"
+                            )
+                        )
+                        * trust
+                    ).mean()
+                    loss = (loss + again_loss) / 2 + args.rdrop * disagreement.mean()
             scaler.scale(loss / args.accumulate).backward()
             running += float(loss.detach())
 
@@ -832,6 +866,7 @@ def run(args) -> dict:
         "polarity_weight": args.polarity_weight,
         "ema": args.ema,
         "llrd": args.llrd,
+        "rdrop": args.rdrop,
         "pooling": args.pooling,
         "pool": args.pool,
         "pool_targets": args.pool_targets,
@@ -899,6 +934,14 @@ def parse():
         default=1.0,
         help="layer-wise learning-rate decay: each encoder layer trains at this factor of the "
         "rate of the layer above it, the heads at the full rate; 1 is one rate for all",
+    )
+    parser.add_argument(
+        "--rdrop",
+        type=float,
+        default=0.0,
+        help="pass each batch through the dropout twice and charge the two answers this much "
+        "for disagreeing; 0 is off. Doubles the passes, so halve the micro-batch with "
+        "--accumulate 2 to keep the card's memory where it was.",
     )
     parser.add_argument(
         "--pooling",
