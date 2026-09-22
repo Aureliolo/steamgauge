@@ -3115,6 +3115,25 @@ ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the
 words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
 "absturz", which say it in words a reader can read.
 
+### The card was not waiting for text, and the measurement is the whole finding
+
+Tried and refused 2026-09-22. A run sat at forty per cent busy on the card while four of the
+machine's other processes held the processor, and the obvious reading was that the loader was
+starving it: a claim is tokenised on the way out of the dataset, in the same process that is
+waiting for the card. `--workers` was written, tested across process boundaries on Windows,
+and then measured, which is where it died.
+
+The dataset hands out **1,588 claims a second in this process**. The run it was meant to feed
+takes about fifty a second. Four worker processes made it **36 a second**, forty times slower
+than doing it here, because every batch crosses a process boundary and the dataset crosses it
+again with each epoch. There is no version of this knob that helps a loader already thirty
+times faster than the card can consume.
+
+What the forty per cent actually is: a micro-batch of 8 claims at 128 tokens, under
+`--accumulate 4`, is too small to fill a 4090, and R-Drop puts two passes through each one.
+The fold runs get `--accumulate 2`, which is what the two seeds that finished used, and the
+knob goes in the bin rather than into the trainer.
+
 ### The integrity sweep after a day of ingests, and what the splitter change cost
 
 Run 2026-09-22 after three labelling mechanisms had written to the sets in one day: the second
