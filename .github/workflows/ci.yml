@@ -30,6 +30,8 @@ jobs:
       # Deliberately not --all-features: the cuda and metal backends need vendor toolchains
       # the runners do not have, and the default set is what actually ships.
       - run: cargo clippy --all-targets -- -D warnings
+      # The training scripts are Python; `training/ruff.toml` holds their width.
+      - run: pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
 
   test:
     strategy:

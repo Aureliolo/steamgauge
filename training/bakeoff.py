@@ -93,7 +93,7 @@ def main():
                     frozen=False,
                 )
             )
-        except Exception as failure:  # a candidate that cannot be loaded is a result too
+        except Exception as failure:  # noqa: BLE001 - a candidate that cannot be loaded is a result too
             print(f"  {backbone} failed: {failure}")
             results.append({"backbone": backbone, "error": str(failure)})
             continue

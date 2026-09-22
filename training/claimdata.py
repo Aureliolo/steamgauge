@@ -193,9 +193,7 @@ def split_by_game(
     placed = {app_id: place(app_id, seed) for app_id in games}
     test_games = {app_id for app_id, at in placed.items() if at < test_share}
     validation_games = {
-        app_id
-        for app_id, at in placed.items()
-        if test_share <= at < test_share + validation_share
+        app_id for app_id, at in placed.items() if test_share <= at < test_share + validation_share
     }
     ranked = sorted(games, key=lambda app_id: placed[app_id])
     if not test_games:
@@ -235,7 +233,9 @@ def folds_over(games: list[int], seed: int, folds: int) -> dict[int, int]:
     The cost is that adding a game reshuffles the folds, so a cross-validation is read as a
     whole or not at all. It is a few hours of one card either way.
     """
-    ordered = sorted(games, key=lambda app_id: hashlib.sha256(f"fold:{seed}:{app_id}".encode()).digest())
+    ordered = sorted(
+        games, key=lambda app_id: hashlib.sha256(f"fold:{seed}:{app_id}".encode()).digest()
+    )
     return {app_id: at % max(folds, 1) for at, app_id in enumerate(ordered)}
 
 
@@ -288,7 +288,9 @@ def summarise(claims: list[Claim]) -> str:
     languages: dict[str, int] = {}
     for claim in claims:
         languages[claim.language] = languages.get(claim.language, 0) + 1
-    top = ", ".join(f"{name} {count}" for name, count in sorted(languages.items(), key=lambda p: -p[1])[:6])
+    top = ", ".join(
+        f"{name} {count}" for name, count in sorted(languages.items(), key=lambda p: -p[1])[:6]
+    )
     contested = sum(1 for claim in claims if claim.ambiguous)
     miscut = sum(1 for claim in claims if claim.split_wrong)
     return (

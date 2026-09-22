@@ -16,6 +16,7 @@ id discards the only thing the annotator said about their own uncertainty.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 import re
@@ -378,7 +379,7 @@ def expected_calibration_error(confidence, correct, bins=15):
     """
     edges = np.linspace(0.0, 1.0, bins + 1)
     error = 0.0
-    for low, high in zip(edges[:-1], edges[1:]):
+    for low, high in itertools.pairwise(edges):
         inside = (confidence > low) & (confidence <= high)
         if not inside.any():
             continue
@@ -548,7 +549,7 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
 def git_sha() -> str:
     try:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return "unknown"
 
 
