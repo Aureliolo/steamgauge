@@ -55,6 +55,7 @@ training/data/
 # What a run produced. Its metrics and config are committed as a summary; the weights,
 # checkpoints and logs are not, because a model belongs on Hugging Face with a card.
 training/runs/*/checkpoints/
+training/runs/*/backbone/
 training/runs/*/*.bin
 training/runs/*/*.safetensors
 training/runs/*/*.onnx

@@ -1,0 +1,83 @@
+{
+  "app_id": 2338770,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "annual-edition",
+      "label": "This year's edition against last year's",
+      "description": "How this year's entry compares with earlier entries of the same series: nothing new, a reskin, features removed, one good year then one bad, worse with every release, and asking for something the previous edition had; comparisons with other franchises belong in genre.",
+      "refines": null,
+      "evidence": [
+        "145899504",
+        "147113019",
+        "147265508",
+        "152710776",
+        "154932635",
+        "159859197",
+        "162916978",
+        "167505905",
+        "175865885"
+      ]
+    },
+    {
+      "id": "shooting",
+      "label": "Shooting and the shot meter",
+      "description": "Making shots: the shot meter and its green window, release timing, layups that will not fall and shot selection; movement, defence and the other on-court systems belong in gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "146125093",
+        "159452735",
+        "168611291"
+      ]
+    },
+    {
+      "id": "mycareer",
+      "label": "MyCareer and the created player",
+      "description": "The career mode: whether it loads or keeps crashing, whether it has a story this year, and the created player's overall rating and how to raise it; other modes and general progression belong elsewhere.",
+      "refines": null,
+      "evidence": [
+        "154932635",
+        "161017993",
+        "168421578",
+        "168611291",
+        "179218674"
+      ]
+    },
+    {
+      "id": "realism",
+      "label": "Realism and physics",
+      "description": "Whether play on the court moves like real basketball: the physics, how players move and how fast the animations play, and outcomes that could not happen in a real game; how the players look belongs in graphics.",
+      "refines": "gameplay",
+      "evidence": [
+        "146125093",
+        "147558212",
+        "153399980",
+        "168611291"
+      ]
+    },
+    {
+      "id": "rosters-and-likeness",
+      "label": "Real players, courts and roster updates",
+      "description": "The real league content in the game: whether rosters are updated with current players, whether the real alternate courts are present, and how faithfully real players' faces are rendered; the licence itself belongs in licensing.",
+      "refines": "licensing",
+      "evidence": [
+        "152806112",
+        "154185873",
+        "165745661"
+      ]
+    },
+    {
+      "id": "kobe-memes",
+      "label": "Kobe memes",
+      "description": "Jokes and memes about Kobe Bryant, in the Chinese reviews especially, that say nothing about the game; other memes and copypasta belong in offtopic.",
+      "refines": "offtopic",
+      "evidence": [
+        "159455460",
+        "166513109",
+        "173680522"
+      ]
+    }
+  ]
+}

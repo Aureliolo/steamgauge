@@ -1,0 +1,143 @@
+{
+  "app_id": 1465360,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "stuck-and-recovery",
+      "label": "Getting stuck and recovering",
+      "description": "Being bogged in mud or a swamp, tipping the truck over and getting out again by winch or recovery, recounted as a recurring event of play; not the fidelity of the mud simulation itself, which is terrain physics.",
+      "refines": "gameplay",
+      "evidence": [
+        "145500179",
+        "146100620",
+        "152584237",
+        "155144491",
+        "168727664",
+        "182583563",
+        "217410662",
+        "220120530",
+        "225340463"
+      ]
+    },
+    {
+      "id": "terrain-physics",
+      "label": "Mud, water and terrain physics",
+      "description": "How mud, water, snow, rocks and vehicle weight are simulated and whether the driving model is a convincing simulation or feels arcade; not the vehicles themselves or the act of getting stuck.",
+      "refines": "gameplay",
+      "evidence": [
+        "105182810",
+        "122082376",
+        "126356786",
+        "129170218",
+        "134540973",
+        "167230899",
+        "183297544",
+        "92444425"
+      ]
+    },
+    {
+      "id": "gearbox-and-pedals",
+      "label": "Gearbox and pedal behaviour",
+      "description": "How the transmission shifts and how the pedals behave, including the lack of a manual gearbox and braking that drops the truck into reverse; not menus, keybindings or general controller support.",
+      "refines": "controls",
+      "evidence": [
+        "105182810",
+        "192446800",
+        "92444425"
+      ]
+    },
+    {
+      "id": "trucks-and-roster",
+      "label": "Trucks and the vehicle roster",
+      "description": "Which trucks and vehicles are in the game, favourite models and brands, requests for specific vehicles, and their upgrades and customisation; not how they handle on the terrain.",
+      "refines": null,
+      "evidence": [
+        "105182810",
+        "129170218",
+        "152208659",
+        "162625249",
+        "167230899",
+        "190411336",
+        "207705987",
+        "99274842"
+      ]
+    },
+    {
+      "id": "maps-and-regions",
+      "label": "Maps and regions",
+      "description": "The named regions and maps, how they compare with one another, whether they are faithful to the real places they are named after, and the scale of the open world; not the trucks or the physics.",
+      "refines": null,
+      "evidence": [
+        "104445711",
+        "129170218",
+        "143903417",
+        "155144491",
+        "158054709",
+        "166384120",
+        "167230899",
+        "180044532",
+        "192694280",
+        "92303079"
+      ]
+    },
+    {
+      "id": "cargo-hauling",
+      "label": "Cargo hauling and route planning",
+      "description": "Long hauls delivering cargo across the map, working out a route from A to B, trusting or distrusting a shortcut, and the satisfaction of completing a contract; not getting stuck along the way.",
+      "refines": "gameplay",
+      "evidence": [
+        "125561351",
+        "126597991",
+        "167230899",
+        "198358695",
+        "217410662",
+        "223014874"
+      ]
+    },
+    {
+      "id": "meditative-pace",
+      "label": "Slow, meditative pace",
+      "description": "Playing it as a calming, unhurried, anti-stress experience, with an audiobook on or the mind wandering, and accepting that it demands time; not the frustration it also produces.",
+      "refines": "atmosphere",
+      "evidence": [
+        "105182810",
+        "125561351",
+        "126628890",
+        "133148736",
+        "203202153",
+        "225340463"
+      ]
+    },
+    {
+      "id": "frustration-and-rage",
+      "label": "Frustration and rage",
+      "description": "The frustration, nerves and rage the game provokes, cursing the regions, the obstacles and the developer while still coming back for more; not a complaint about difficulty settings or a plain negative verdict.",
+      "refines": "atmosphere",
+      "evidence": [
+        "125410515",
+        "145500179",
+        "158054709",
+        "169178146",
+        "198358695",
+        "202339781",
+        "225861159",
+        "228390876"
+      ]
+    },
+    {
+      "id": "series-lineage",
+      "label": "Predecessors in the series",
+      "description": "How it compares with the earlier games in its own line, what each entry fixed or broke, and what the next instalment should be; not comparisons with games outside the series.",
+      "refines": "genre",
+      "evidence": [
+        "100220700",
+        "129170218",
+        "134540973",
+        "167230899",
+        "180044532"
+      ]
+    }
+  ]
+}

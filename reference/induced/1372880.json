@@ -1,0 +1,136 @@
+{
+  "app_id": 1372880,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "studio-closure",
+      "label": "Studio closed days after launch",
+      "description": "The developer shutting down within days of release, going bankrupt and leaving the game with nobody to fix it; not the accusation that this was deliberate fraud, which has its own row.",
+      "refines": "updates",
+      "evidence": [
+        "153297825",
+        "153397921",
+        "153406379",
+        "153474235",
+        "153662107"
+      ]
+    },
+    {
+      "id": "scam-accusations",
+      "label": "Scam and fraud accusations",
+      "description": "Calling the release a scam, a rug pull or a con and the developers liars or fraudsters who took the money and ran; not the closure as an event, and not plain complaints about the price.",
+      "refines": null,
+      "evidence": [
+        "153060303",
+        "153291848",
+        "153391100",
+        "153398892",
+        "153407925",
+        "153450371"
+      ]
+    },
+    {
+      "id": "developer-studio",
+      "label": "The studio behind the game",
+      "description": "Talk about the developer itself: where it comes from and jibes at its origin, its staff and hiring, its five years of work and its public statements; not the shutdown or the fraud charge as such.",
+      "refines": null,
+      "evidence": [
+        "153076142",
+        "153139863",
+        "153243827",
+        "153297825",
+        "153391283",
+        "153397921",
+        "154193021"
+      ]
+    },
+    {
+      "id": "trailer-mismatch",
+      "label": "Trailers versus the delivered game",
+      "description": "The gap between what the trailers, videos and store pitch promised and what shipped: sold as an open-world MMO survival game and nothing like the footage; not the genre it turned out to be, which has its own row.",
+      "refines": null,
+      "evidence": [
+        "153080714",
+        "153102275",
+        "153115335",
+        "153314519",
+        "153403244",
+        "153474235"
+      ]
+    },
+    {
+      "id": "extraction-shooter",
+      "label": "Extraction shooter in the Tarkov mould",
+      "description": "What kind of game it actually is: an extraction shooter measured against Tarkov and other survival games, with token survival systems; not whether the marketing was honest about it.",
+      "refines": "genre",
+      "evidence": [
+        "153080714",
+        "153102275",
+        "153107730",
+        "153111036",
+        "153115335"
+      ]
+    },
+    {
+      "id": "launch-servers",
+      "label": "Server capacity and logging in",
+      "description": "Getting into the game at all in the first days: full servers in every region, failed logins, being unable to join friends and having to share a server to group up; not lag or matchmaking once inside.",
+      "refines": "multiplayer",
+      "evidence": [
+        "153059855",
+        "153061253",
+        "153066988",
+        "153069706",
+        "153069887",
+        "153080714"
+      ]
+    },
+    {
+      "id": "unfinished-state",
+      "label": "Unfinished state and potential",
+      "description": "The game shipping as a raw alpha that should not have entered early access yet, and the hope or doubt that it has the potential to be finished one day; not how much content there is as such.",
+      "refines": "updates",
+      "evidence": [
+        "153067731",
+        "153080714",
+        "153102275",
+        "153106295",
+        "153114154",
+        "153115777",
+        "153118609",
+        "153161263",
+        "153200175",
+        "153209462",
+        "153249159",
+        "153278728"
+      ]
+    },
+    {
+      "id": "hype-and-waiting",
+      "label": "Hype, waiting and expectations",
+      "description": "The years of anticipation and delays before release, and whether the letdown was foreseeable given them; not the state of the game itself.",
+      "refines": null,
+      "evidence": [
+        "153066988",
+        "153069879",
+        "153076142",
+        "153113299",
+        "153238157",
+        "153243827"
+      ]
+    },
+    {
+      "id": "refunds",
+      "label": "Refunds after the collapse",
+      "description": "Asking how to get the money back, demanding it, or arguing against refunding so the developers can carry on; not whether the price was fair in the first place.",
+      "refines": "price",
+      "evidence": [
+        "153075089",
+        "153092787",
+        "153390689"
+      ]
+    }
+  ]
+}

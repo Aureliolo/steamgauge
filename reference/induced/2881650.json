@@ -1,0 +1,106 @@
+{
+  "app_id": 2881650,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "filming-and-footage",
+      "label": "Filming and extracting the footage",
+      "description": "The camera as the job: pointing it at monsters and friends, running out of film, dying with the footage, and the extraction or upload step failing or losing the best video; stutter while recording with outside software belongs in performance.",
+      "refines": "gameplay",
+      "evidence": [
+        "162058948",
+        "162203876",
+        "162986721",
+        "163724592",
+        "169154755",
+        "184679326"
+      ]
+    },
+    {
+      "id": "views-and-spooktube",
+      "label": "Playing a YouTuber for views",
+      "description": "The premise of being a content creator on SpookTube: chasing views, view addiction, the view quota and what it pays, subscribe-and-like jokes, demonetisation and copyright strikes; the horror mood and the co-op itself do not belong here.",
+      "refines": null,
+      "evidence": [
+        "161980535",
+        "162140301",
+        "162655210",
+        "162799559",
+        "165604416",
+        "166982446",
+        "169154755"
+      ]
+    },
+    {
+      "id": "named-creators",
+      "label": "Real creators and shows it recalls",
+      "description": "Naming a real YouTuber, streamer, TV channel or programme the game feels like, from Mr Beast and Logan Paul to Dima Maslennikov, RTL Klub and Mir Naiznanku; comparisons to other games belong in genre.",
+      "refines": "genre",
+      "evidence": [
+        "162033960",
+        "162059544",
+        "162065414",
+        "162122343",
+        "162276704",
+        "180137584",
+        "180288493"
+      ]
+    },
+    {
+      "id": "trolling-friends",
+      "label": "Trolling and sacrificing friends for the camera",
+      "description": "Co-op as a comedy generator: trapping a friend with a monster, selling out teammates, filming each other's backsides and the funny footage that comes out of it; plain praise for playing with friends or lobby trouble belongs in multiplayer.",
+      "refines": "multiplayer",
+      "evidence": [
+        "162044154",
+        "162671035",
+        "162986721",
+        "163724592",
+        "169154755",
+        "180231763",
+        "191334287"
+      ]
+    },
+    {
+      "id": "monsters",
+      "label": "Monsters and creatures",
+      "description": "The creatures themselves: named or described monsters such as the feet licker, the snails, the ghosts' dad and the rocket dogs, how they behave, how aggressive they are and how many there are; the general fright they cause belongs in atmosphere.",
+      "refines": "gameplay",
+      "evidence": [
+        "162582663",
+        "163215176",
+        "169154755",
+        "184572370",
+        "185469719",
+        "191334287",
+        "199735667",
+        "227333264"
+      ]
+    },
+    {
+      "id": "map-count",
+      "label": "Number and variety of maps",
+      "description": "How many maps or environments there are, the same three coming round, how much a map changes between runs, and wishes for new settings such as Japanese forests; general length and replay value belong in content.",
+      "refines": "content",
+      "evidence": [
+        "162275465",
+        "169154755",
+        "184572370",
+        "191334287"
+      ]
+    },
+    {
+      "id": "lethal-company",
+      "label": "Lethal Company comparison",
+      "description": "Measuring the game against Lethal Company, as a Lethal-like, a better or worse one, or Lethal Company with a twist; comparisons to anything else belong in genre.",
+      "refines": "genre",
+      "evidence": [
+        "162122343",
+        "179068483",
+        "191334287"
+      ]
+    }
+  ]
+}

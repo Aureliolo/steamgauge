@@ -1,0 +1,115 @@
+{
+  "app_id": 916440,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "ubisoft-connect",
+      "label": "Ubisoft Connect launcher and account",
+      "description": "The publisher's own launcher sitting between Steam and the game: being forced to install Ubisoft Connect, it surviving an uninstall, losing access to an account, key activation and login failures, and cloud-save syncing that stalls; general grumbling about DRM elsewhere does not belong.",
+      "refines": "policy",
+      "evidence": [
+        "131672538",
+        "205682916",
+        "207366201",
+        "216792971",
+        "218140706"
+      ]
+    },
+    {
+      "id": "season-passes",
+      "label": "Season passes and editions",
+      "description": "The stack of year passes, season passes and gold or complete editions this game sells, how much they add, which expansions are worth it, and regretting the base game alone; plain remarks about the sticker price without reference to passes or editions do not belong.",
+      "refines": "monetisation",
+      "evidence": [
+        "135289353",
+        "144529597",
+        "151019448",
+        "216792971",
+        "50165991",
+        "58296930",
+        "62491464"
+      ]
+    },
+    {
+      "id": "time-sink",
+      "label": "Lost nights and addiction",
+      "description": "Hours vanishing, playing through the night, skipping sleep or school, twelve-hour sittings and ignoring the game's own reminder to take a break; a plain statement that the game is fun does not belong.",
+      "refines": "atmosphere",
+      "evidence": [
+        "129589544",
+        "135369871",
+        "136159012",
+        "138359023",
+        "152883488",
+        "156650613",
+        "157941290",
+        "189757484",
+        "194943693",
+        "206195684"
+      ]
+    },
+    {
+      "id": "supply-chains",
+      "label": "Production chains across islands and regions",
+      "description": "Building and rebalancing goods chains, shipping between islands, juggling several regions and continents at once and the spreadsheet-like mental load of keeping every need met; talk of what a city looks like or of fighting rivals does not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "143248607",
+        "169452323",
+        "169505615",
+        "176486821",
+        "214631172",
+        "229624798"
+      ]
+    },
+    {
+      "id": "naval-rivals",
+      "label": "Navy, AI rivals and diplomacy",
+      "description": "The military and diplomatic layer on top of the city builder: warships and fleets, AI competitors, being unable to leave a war, having ships sunk, and whether beating opponents is the point at all; the economic competition of trade routes does not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "159849092",
+        "161325665",
+        "169452323",
+        "207670472",
+        "73162565"
+      ]
+    },
+    {
+      "id": "industrial-villainy",
+      "label": "Exploiting and oppressing your citizens",
+      "description": "Relishing the game as an industrial-era tyrant: starving citizens and policing their protests, poisoning richer residents with smelter smoke and railways, and colonial exploitation played for laughs; earnest remarks about balancing citizen needs do not belong.",
+      "refines": null,
+      "evidence": [
+        "155803138",
+        "191002700",
+        "191277680"
+      ]
+    },
+    {
+      "id": "series-lineage",
+      "label": "Place in the Anno series",
+      "description": "Comparing this entry to earlier games in the same series, calling it the best of the franchise or a return to how the old ones felt, and the series' standing as a landmark of the genre; comparisons to games outside the series belong to genre.",
+      "refines": "genre",
+      "evidence": [
+        "131672538",
+        "200546620",
+        "205363899",
+        "206917649"
+      ]
+    },
+    {
+      "id": "street-level",
+      "label": "The city up close",
+      "description": "Walking through the finished city at ground level, how the detail holds up once you zoom in rather than from above, and the lines citizens say as you pass; general praise for the visuals from the usual view does not belong.",
+      "refines": "graphics",
+      "evidence": [
+        "128626148",
+        "50174055",
+        "59661434"
+      ]
+    }
+  ]
+}

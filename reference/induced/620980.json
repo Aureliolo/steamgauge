@@ -1,0 +1,113 @@
+{
+  "app_id": 620980,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "workout-fitness",
+      "label": "Workout and fitness",
+      "description": "The game as exercise: sweating, cardio, losing weight, replacing the gym and being exhausted after a session belong here, while aches and injuries have their own row.",
+      "refines": null,
+      "evidence": [
+        "100517774",
+        "100667280",
+        "119245704",
+        "148095619",
+        "156856314",
+        "166948609",
+        "216535187",
+        "47076481",
+        "52504775",
+        "58098764",
+        "71273742"
+      ]
+    },
+    {
+      "id": "physical-strain",
+      "label": "Aches and injury",
+      "description": "Bodily harm from playing: sore shoulders and neck, wrecked arms and hands, carpal tunnel and finger damage belong here, but simply being tired or sweaty does not.",
+      "refines": null,
+      "evidence": [
+        "114224800",
+        "214283884",
+        "73196154",
+        "85870350"
+      ]
+    },
+    {
+      "id": "custom-songs",
+      "label": "Custom songs and maps",
+      "description": "Player-made tracks and maps: downloading them, the tools and sideloading needed to get them in, wanting a workshop and custom songs being removed belong here, while the official song library does not.",
+      "refines": "mods",
+      "evidence": [
+        "115287795",
+        "119893505",
+        "127779176",
+        "58262322",
+        "61106064",
+        "96435544"
+      ]
+    },
+    {
+      "id": "tracklist-artists",
+      "label": "Song library and artists",
+      "description": "Which songs and artists are in the game and whether the tracklist is any good belongs here, but the price of song packs and player-made maps do not.",
+      "refines": "audio",
+      "evidence": [
+        "183015292",
+        "54340835",
+        "61106064",
+        "70447072",
+        "92694059"
+      ]
+    },
+    {
+      "id": "song-packs-dlc",
+      "label": "Paid song packs",
+      "description": "Songs sold as DLC: what the packs cost, having to buy them again on another platform and not being able to buy them at all belong here, while general microtransaction gripes with no pack in view do not.",
+      "refines": "monetisation",
+      "evidence": [
+        "115287795",
+        "116806623",
+        "70023365"
+      ]
+    },
+    {
+      "id": "breaking-things",
+      "label": "Hitting furniture and breaking controllers",
+      "description": "Damage done while swinging: worn-out or smashed controllers, struck bookshelves, lamps and monitors and warnings to clear the room belong here, but tracking quality and bodily injury do not.",
+      "refines": null,
+      "evidence": [
+        "109834646",
+        "111432135",
+        "43523651",
+        "58328300",
+        "85870350"
+      ]
+    },
+    {
+      "id": "lightsaber-fantasy",
+      "label": "Jedi and lightsaber fantasy",
+      "description": "Playing to feel like a Jedi or Sith with a lightsaber in hand belongs here, while generic comparisons to other rhythm games do not.",
+      "refines": null,
+      "evidence": [
+        "130372104",
+        "131428548",
+        "58262322"
+      ]
+    },
+    {
+      "id": "update-breakage",
+      "label": "Updates breaking the game and version branches",
+      "description": "A patch that breaks sound, tracking or the game itself, the fixes players pass around, and switching to legacy or beta branches to get a working version belong here, but mods breaking on their own do not.",
+      "refines": "updates",
+      "evidence": [
+        "145283394",
+        "175881275",
+        "77523669",
+        "86975727"
+      ]
+    }
+  ]
+}

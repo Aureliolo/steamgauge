@@ -1,0 +1,121 @@
+{
+  "app_id": 774361,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "catholic-imagery",
+      "label": "Catholic imagery and penance",
+      "description": "The game's Catholic and Christian framing: penitence, expiation, prayer, Holy Week, baptisteries and religious iconography as the fabric of the world, not the general plot or the art's technical quality.",
+      "refines": null,
+      "evidence": [
+        "126261845",
+        "134417011",
+        "134993354",
+        "187080396",
+        "203398303",
+        "206336697",
+        "234762320",
+        "60391556",
+        "73943190"
+      ]
+    },
+    {
+      "id": "andalusian-setting",
+      "label": "Andalusian and Spanish setting",
+      "description": "The game as a portrait of Spain and Andalusia in particular, Seville, Holy Week processions and Andalusian identity, as distinct from its religious content in general.",
+      "refines": null,
+      "evidence": [
+        "134993354",
+        "140746284",
+        "146323069",
+        "203398303"
+      ]
+    },
+    {
+      "id": "sluggish-movement",
+      "label": "Slow and stiff character movement",
+      "description": "The protagonist's heavy, slow and stiff movement and the sluggish, laggy feel of steering him; menus, keybindings and the interface belong under controls proper.",
+      "refines": "controls",
+      "evidence": [
+        "117410649",
+        "160779055",
+        "186318279",
+        "93327482"
+      ]
+    },
+    {
+      "id": "platforming-hazards",
+      "label": "Platforming and instant-death hazards",
+      "description": "The jumping and traversal sections and the spikes and pits that kill in one touch, including jumps players cannot make; combat and the map's structure belong elsewhere.",
+      "refines": "gameplay",
+      "evidence": [
+        "198083916",
+        "55559385",
+        "87066598",
+        "93327482"
+      ]
+    },
+    {
+      "id": "map-backtracking",
+      "label": "Map layout, backtracking and fast travel",
+      "description": "The world's layout as a metroidvania map, how much backtracking it demands, whether it earns the label, and how fast travel is unlocked; individual named areas belong in their own row.",
+      "refines": "gameplay",
+      "evidence": [
+        "132762543",
+        "177560086",
+        "55559385",
+        "75536881",
+        "93327482"
+      ]
+    },
+    {
+      "id": "enemies-bosses",
+      "label": "Enemy roster and bosses",
+      "description": "The grotesque enemy designs and the bosses, their gimmicks, and whether they are memorable, annoying or too easy; the protagonist and the general combat feel belong elsewhere.",
+      "refines": "gameplay",
+      "evidence": [
+        "156733869",
+        "177560086",
+        "194962531",
+        "93327482"
+      ]
+    },
+    {
+      "id": "gore-mature-content",
+      "label": "Gore, nudity and dark content",
+      "description": "Blood, gore, nudity and how dark the content is, including whether it is fit for children; the quality of the art belongs under graphics.",
+      "refines": null,
+      "evidence": [
+        "131574526",
+        "163739497",
+        "195916503",
+        "214649483"
+      ]
+    },
+    {
+      "id": "named-areas",
+      "label": "Named areas and optional trials",
+      "description": "Individual areas and optional challenge trials that players single out by name as brutal or easy; the overall map structure and general difficulty belong elsewhere.",
+      "refines": "difficulty",
+      "evidence": [
+        "114310254",
+        "138996913",
+        "203317736"
+      ]
+    },
+    {
+      "id": "combat-feel",
+      "label": "Parry, dodge and hit detection",
+      "description": "The moment-to-moment combat feel: parry and dodge timing, hitboxes and edge judgement, and contact damage from touching enemies; enemy design and upgrade progression belong elsewhere.",
+      "refines": "gameplay",
+      "evidence": [
+        "133519001",
+        "156013654",
+        "73111041",
+        "93327482"
+      ]
+    }
+  ]
+}

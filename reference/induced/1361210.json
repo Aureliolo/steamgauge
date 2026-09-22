@@ -1,0 +1,142 @@
+{
+  "app_id": 1361210,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "warhammer-40k-setting",
+      "label": "Warhammer 40,000 setting",
+      "description": "Whether the game delivers the Warhammer 40,000 universe of the tabletop and the novels, its hive city, Imperium and heresy, and whether it is more than a Warhammer skin on a horde shooter; not the game's own mission plot or dialogue.",
+      "refines": "licensing",
+      "evidence": [
+        "128137108",
+        "181950620",
+        "207320689",
+        "214744963",
+        "216203459"
+      ]
+    },
+    {
+      "id": "imperial-creed",
+      "label": "The Emperor and the Imperial creed",
+      "description": "Reviews that speak as loyal servants of the Imperium, chanting for the Emperor, purging heretics and mutants, quoting the ship's officers and the loading screens, and joking about the Emperor, sainthood and the Golden Throne; not neutral description of the setting.",
+      "refines": null,
+      "evidence": [
+        "125903576",
+        "126289461",
+        "126828277",
+        "127391687",
+        "141205947",
+        "178686012",
+        "184758582",
+        "187528422",
+        "205807712",
+        "216203459",
+        "220223517",
+        "233985423"
+      ]
+    },
+    {
+      "id": "vermintide-comparison",
+      "label": "Comparison with Vermintide",
+      "description": "How it measures up against the studio's earlier Vermintide games, what was kept, removed or made worse, the rats versus the hive city, and whether the series is continuing well; not comparisons with games from other studios.",
+      "refines": "genre",
+      "evidence": [
+        "125830691",
+        "130492385",
+        "134904774",
+        "162745682",
+        "211074255"
+      ]
+    },
+    {
+      "id": "classes",
+      "label": "Classes and class balance",
+      "description": "The playable classes, Veteran, Zealot, Psyker and Ogryn, how distinct they are from one another, nerfs and buffs between them, new classes and what they cost, and the roles they play in a squad; not weapon feel in general.",
+      "refines": "gameplay",
+      "evidence": [
+        "125877914",
+        "127667948",
+        "127713717",
+        "159033143",
+        "197991595",
+        "205807712",
+        "229834806"
+      ]
+    },
+    {
+      "id": "horde-melee",
+      "label": "Horde melee and gore",
+      "description": "Cutting through crowds of enemies in melee, heads and limbs flying, blood and viscera, and how the melee compares with the shooting; not the classes or how hard the hordes are.",
+      "refines": "gameplay",
+      "evidence": [
+        "125830691",
+        "141205947",
+        "181950620",
+        "195556889",
+        "207320689",
+        "220156898"
+      ]
+    },
+    {
+      "id": "connection-drops",
+      "label": "Disconnects and error codes",
+      "description": "Being unable to get into a mission or being thrown out of one part-way, error codes such as 2014 and 30XX, endless loading screens, the servers and the mission-terminated message; not crashes to desktop or frame rate.",
+      "refines": "multiplayer",
+      "evidence": [
+        "125830691",
+        "127813255",
+        "127831710",
+        "188730696",
+        "230732923"
+      ]
+    },
+    {
+      "id": "paid-beta-launch",
+      "label": "Pre-order beta and launch state",
+      "description": "The pre-order beta period and the state the game shipped in, whether it was a paid beta that should have carried an Early Access tag, and whether the full release caught up; not later patches on their own.",
+      "refines": "updates",
+      "evidence": [
+        "125830691",
+        "127009836",
+        "131255828",
+        "146752460"
+      ]
+    },
+    {
+      "id": "missions-and-maps",
+      "label": "Mission board and maps",
+      "description": "Which missions are on offer and whether you can pick the one you want, how few maps there are and how they repeat, and that they are hand-built rather than generated; not run length or replay value in general.",
+      "refines": "content",
+      "evidence": [
+        "125830691",
+        "128006404",
+        "220223517"
+      ]
+    },
+    {
+      "id": "endgame-grind",
+      "label": "Level cap and the endgame grind",
+      "description": "What is left once a character reaches level 30 and has decent weapons, prestige and titles, and having to grind through lower difficulties to unlock the highest; not how hard the fights themselves are.",
+      "refines": "gameplay",
+      "evidence": [
+        "149028937",
+        "212694806",
+        "220223517"
+      ]
+    },
+    {
+      "id": "random-teammates",
+      "label": "Random teammates",
+      "description": "Being matched with strangers in a game that cannot be played alone, teammates who hog ammunition or play their class badly, and not talking to randoms; not the wider community's tone or toxicity.",
+      "refines": "multiplayer",
+      "evidence": [
+        "127713717",
+        "155925410",
+        "162018362",
+        "228978477"
+      ]
+    }
+  ]
+}

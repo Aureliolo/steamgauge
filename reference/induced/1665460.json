@@ -1,0 +1,120 @@
+{
+  "app_id": 1665460,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "missing-modes",
+      "label": "Missing game modes",
+      "description": "Requests for modes the game lacks, such as a career or Become a Legend mode, Master League, and 11v11 or 2v2 and 3v3 matches; not how much there is to do in the modes it has.",
+      "refines": "content",
+      "evidence": [
+        "124050375",
+        "132097269",
+        "143385670",
+        "174841306",
+        "232748667"
+      ]
+    },
+    {
+      "id": "scripting",
+      "label": "Scripting and handicap",
+      "description": "The belief that matches are rigged by hidden momentum or handicap so that luck or an AI-favoured opponent decides the result rather than skill; not ordinary difficulty settings or balance between teams.",
+      "refines": "difficulty",
+      "evidence": [
+        "179517057",
+        "181444754",
+        "185535783",
+        "215114117"
+      ]
+    },
+    {
+      "id": "home-clubs-coverage",
+      "label": "Home clubs and leagues",
+      "description": "Players asking where their own country's league, club or footballer is, why it is missing or half done, and cursing the exclusive licences that keep it out; not the overall count of real names or kits.",
+      "refines": "licensing",
+      "evidence": [
+        "132996956",
+        "137701868",
+        "143525383",
+        "169590676",
+        "224321621"
+      ]
+    },
+    {
+      "id": "server-access",
+      "label": "Logging in and connection",
+      "description": "Getting online at all: login refused or the server always busy, being unable to connect after an update, playing offline because the connection fails, and the lag or cross-region matching once you are in; not co-op or the player count.",
+      "refines": "multiplayer",
+      "evidence": [
+        "138212900",
+        "147102057",
+        "198139481",
+        "218140531",
+        "233900545"
+      ]
+    },
+    {
+      "id": "series-past",
+      "label": "Earlier editions of the series",
+      "description": "Comparing the game with its own earlier editions and the series it replaced, remembering the old ones fondly, wanting last year's version back or declaring the series finished; not comparisons with rival football games.",
+      "refines": "genre",
+      "evidence": [
+        "101383760",
+        "155336135",
+        "172709140",
+        "179517668",
+        "232748667"
+      ]
+    },
+    {
+      "id": "cards-and-coins",
+      "label": "Player cards, coins and squad power",
+      "description": "Building a squad from player cards bought with coins or handed out as bonuses, coin offers in the shop, and whether high-rated players win matches rather than skill; not the price of the game itself.",
+      "refines": "monetisation",
+      "evidence": [
+        "100382118",
+        "128452252",
+        "134182275",
+        "232748667"
+      ]
+    },
+    {
+      "id": "launch-state",
+      "label": "Launch state and the 1.0 relaunch",
+      "description": "The bare state the game shipped in, features promised for launch and missing, waiting for a dated update or the 1.0 version, and dating a verdict to before or after a particular patch; not routine patch notes.",
+      "refines": "updates",
+      "evidence": [
+        "100236560",
+        "100382118",
+        "101670084",
+        "113713780",
+        "113850737"
+      ]
+    },
+    {
+      "id": "divisions-events",
+      "label": "Divisions and events",
+      "description": "The ranked division ladder and the timed events that structure play, climbing to a division and stopping, what happens once you reach a given division, and asking for more events; not matchmaking or server quality.",
+      "refines": null,
+      "evidence": [
+        "128452252",
+        "133666403",
+        "156868356",
+        "185535783"
+      ]
+    },
+    {
+      "id": "ai-players",
+      "label": "AI teammates and opponents",
+      "description": "How computer-controlled footballers behave, teammates loitering behind defenders, a terrible CPU side, and how the game plays against the AI compared with against people; not the responsiveness of the player you control.",
+      "refines": "gameplay",
+      "evidence": [
+        "155780501",
+        "185535783",
+        "218199777"
+      ]
+    }
+  ]
+}

@@ -255,7 +255,8 @@ fn corpora(out: &mut String, report: &Report) {
          over the claims the model was willing to answer, so a game's figure carries a band \
          several points wide and the pooled one at the end of this section is the one worth \
          quoting. It counts agreement with a labeller, which is not the same as being \
-         right.</p>\n",
+         right. A game the model trained on carries no figure: agreeing with labels it \
+         learned from would measure memory.</p>\n",
     );
 }
 
@@ -264,6 +265,7 @@ fn unmeasured(measurement: &crate::report::Measurement) -> String {
     match measurement {
         crate::report::Measurement::Unlabelled => "no reference set".to_owned(),
         crate::report::Measurement::Unscored(_) => "labelled, not scored".to_owned(),
+        crate::report::Measurement::Learned => "trained on its labels".to_owned(),
         crate::report::Measurement::Measured(report) => {
             format!("declined all {} labelled claims", report.matched)
         }
@@ -975,11 +977,7 @@ fn category_row(out: &mut String, app: &AppReport, category: &SubjectCount, wide
     }
 }
 
-/// Reviews the reference set must raise a category in before its recall means anything.
-///
-/// Below this the measurement is a handful of reviews and its own interval is wider than
-/// any finding, so calling the row weak would be reading noise back as a warning.
-const ENOUGH_TO_JUDGE_A_ROW: u64 = 10;
+use crate::measure::{ENOUGH_TO_CORRECT_A_ROW, ENOUGH_TO_JUDGE_A_ROW};
 
 /// Recall below which the number in this row is standing on very little.
 const THINLY_FOUND: f64 = 0.25;
@@ -1061,7 +1059,7 @@ fn how_well_this_row_is_known(
     // or declined, and both are measured, so the arithmetic is the one every prevalence study
     // does. Only where the model finds the subject clearly better than chance: otherwise the
     // observed share carries no information about the true one and the figure is invented.
-    if measured.labelled >= ENOUGH_TO_JUDGE_A_ROW
+    if measured.labelled >= ENOUGH_TO_CORRECT_A_ROW
         && let Some(observed) = observed_claim_share
     {
         match measured.corrected(observed) {
@@ -1070,9 +1068,10 @@ fn how_well_this_row_is_known(
                     out,
                     "<p class=\"note\">Corrected for those errors, the share of claims about \
                      this is about <strong>{}</strong>, against the {} the model read. That is \
-                     an estimate from a few hundred labels, and it moves with them.</p>",
+                     an estimate from {} labels, and it moves with them.</p>",
                     percent(corrected),
-                    percent(observed)
+                    percent(observed),
+                    thousands(measured.labelled)
                 );
             }
             None => {
@@ -1571,23 +1570,38 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
 
 /// What read the corpus, and how sure it had to be before it would answer.
 ///
-/// The threshold is the promise the page is making. Two reports produced by the same model at
-/// different thresholds are not comparable, and a reader given the numbers without it cannot
-/// tell which they have.
+/// The rule is the promise the page is making. Two reports produced by the same weights under
+/// different lines are not comparable, and a reader given the numbers without it cannot tell
+/// which they have. A reader with a name is named, with its run beside it, because the name
+/// is what somebody cites and the run is what the index knows it as.
 fn built_from(app: &AppReport) -> String {
-    let labels = if app.reading.trained_on.is_empty() {
+    // Plain text: the fact it lands in escapes it, and a tag written here would be read out.
+    let reading = &app.reading;
+    let who = match (reading.reader.is_empty(), reading.read_with.is_empty()) {
+        (true, _) => reading.model.clone(),
+        (false, true) => format!("{}, a fine-tune of {}", reading.reader, reading.model),
+        (false, false) => format!(
+            "{} (run {}), a fine-tune of {}",
+            reading.reader, reading.read_with, reading.model
+        ),
+    };
+    let labels = if reading.trained_on.is_empty() {
         String::new()
     } else {
+        format!(" trained on label set {},", reading.trained_on)
+    };
+    // A reader carrying a rule draws a line per subject and per language; the one threshold
+    // is all an older reading can say about itself.
+    let rule = if reading.read_by_rule.is_empty() {
+        format!("answering only above {:.2} confidence", reading.threshold)
+    } else {
         format!(
-            " trained on label set <code>{}</code>,",
-            escape(&app.reading.trained_on)
+            "answering a claim only where it clears the line drawn for its subject and the one \
+             for its language (rule {})",
+            reading.read_by_rule
         )
     };
-    format!(
-        "{},{labels} answering only above {:.2} confidence",
-        escape(&app.reading.model),
-        app.reading.threshold
-    )
+    format!("{who},{labels} {rule}")
 }
 
 /// Why a corpus in these languages declines more than usual, which is two different answers.
@@ -1806,7 +1820,19 @@ fn trust(out: &mut String, app: &AppReport) {
 
     match &app.agreement {
         crate::report::Measurement::Measured(agreement) => agreement_note(out, agreement),
-        crate::report::Measurement::Unlabelled => unmeasured_here(out, app),
+        crate::report::Measurement::Unlabelled => unmeasured_here(
+            out,
+            app,
+            "No claims have been labelled for this game, so how often the model is wrong \
+             <em>here</em> has not been measured.",
+        ),
+        crate::report::Measurement::Learned => unmeasured_here(
+            out,
+            app,
+            "This game's labelled claims are in the model's training set, so how often it \
+             agrees with them says how well it remembers them, not how it reads, and nothing \
+             here is scored against them.",
+        ),
         // Not the same thing as nobody having labelled it, and telling a reader it is sends
         // them to do work that is already done.
         crate::report::Measurement::Unscored(why) => {
@@ -1826,29 +1852,28 @@ fn trust(out: &mut String, app: &AppReport) {
     );
 }
 
-/// What to tell a reader of a game nobody has labelled.
+/// What to tell a reader of a game whose error is not measured here: one nobody has labelled,
+/// or one the model learned from. `why` is the sentence that says which.
 ///
 /// Most games a person runs this on will be in exactly this position, and "not measured" on
 /// its own is both true and useless: it invites the reader either to distrust everything or to
 /// trust everything, and the model does have a measurement, taken on games it had never seen.
 /// That figure is not about this corpus and the wording must not pretend otherwise.
-fn unmeasured_here(out: &mut String, app: &AppReport) {
+fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
     let Some(frozen) = app.reading.frozen else {
-        out.push_str(
-            "<p class=\"warn\">No claims have been labelled for this game, so how often the \
-             model is wrong here has not been measured. Treat every rate as provisional.</p>\n",
+        let _ = writeln!(
+            out,
+            "<p class=\"warn\">{why} Treat every rate as provisional.</p>"
         );
         return;
     };
     let _ = writeln!(
         out,
-        "<p class=\"warn\">No claims have been labelled for this game, so how often the model \
-         is wrong <em>here</em> has not been measured. What is measured is how it does on {} \
-         games it had never seen, over {} labelled claims: it answers {} of them and names the \
-         same subject a separate labeller did {} of the time when it does, declining the rest \
-         rather than guessing. Those labellers were themselves language models. Expect this \
-         corpus to be somewhere near that and treat every rate as provisional until this game \
-         is labelled too.</p>",
+        "<p class=\"warn\">{why} What is measured is how it does on {} games it had never \
+         seen, over {} labelled claims: it answers {} of them and names the same subject a \
+         separate labeller did {} of the time when it does, declining the rest rather than \
+         guessing. Those labellers were themselves language models. Expect this corpus to be \
+         somewhere near that and treat every rate as provisional.</p>",
         frozen.games,
         thousands(u64::from(frozen.claims)),
         percent(frozen.coverage),
@@ -2188,6 +2213,7 @@ mod tests {
                     model: "test-reader".to_owned(),
                     trained_on: "0123456789abcdef".to_owned(),
                     read_with: "a-reader".to_owned(),
+                    reader: "Needle".to_owned(),
                     read_by_rule: String::new(),
                     usual_declined: Some(0.1),
                     frozen: Some(crate::reader::Frozen {
@@ -2432,6 +2458,17 @@ mod tests {
         assert!(
             well.contains("Corrected for those errors"),
             "a subject found four times in five earns a corrected rate: {well}"
+        );
+        assert!(well.contains("from 100 labels"), "{well}");
+
+        // Twelve labels describe a row; the sensitivity they measure has an interval
+        // twenty-five points wide, and a share divided by it would move by more than itself.
+        let mut thin = String::new();
+        how_well_this_row_is_known(&mut thin, &scored(12, 10), Some(0.2));
+        assert!(thin.contains("12 labelled claims"), "{thin}");
+        assert!(
+            !thin.contains("Corrected for those errors"),
+            "a dozen labels cannot correct a rate: {thin}"
         );
 
         let mut none = String::new();

@@ -257,14 +257,15 @@ fn distinctive(
             .iter_mut()
             .find(|kept| shares_a_word(&kept.text, term))
         {
-            if term.contains(' ') && !kept.text.contains(' ') && nearly(reviews, kept.reviews) {
+            if term.len() > kept.text.len() && nearly(reviews, kept.reviews) {
                 term.clone_into(&mut kept.text);
                 kept.reviews = reviews;
             }
             continue;
         }
-        // 中文, 文配 and 配音 used by the same reviewers are one word, 中文配音, cut into the
-        // pairs the counter works in. Joined back up where the pairs overlap.
+        // にほ, ほん and んご used by the same reviewers are one word, にほんご, cut into the
+        // pairs the counter works in for a script it has no dictionary for. Joined back up
+        // where the pairs overlap.
         if let Some(kept) = shown
             .iter_mut()
             .find(|kept| nearly(reviews, kept.reviews) && overlaps(&kept.text, term))
@@ -278,7 +279,43 @@ fn distinctive(
             reviews,
         });
     }
+    coalesce(&mut shown);
     shown
+}
+
+/// Joins runs of pairs that came out in two pieces.
+///
+/// The pairs arrive in an order that has nothing to do with the word, and a pair joins the
+/// first run it overlaps, so にほんごがない can come out as にほん and んごがない with the
+/// bridge taken by the second. Two runs that overlap by a character and were said by the
+/// same reviewers are one word.
+fn coalesce(shown: &mut Vec<Term>) {
+    let mut at = 0;
+    while at < shown.len() {
+        let joined_one = (0..shown.len()).find(|&other| {
+            other != at
+                && nearly(shown[at].reviews, shown[other].reviews)
+                && shown[other].text.chars().next().is_some_and(|first| {
+                    crate::claims::writes_without_spaces(first)
+                        && !is_han(first)
+                        && shown[at].text.chars().count() > 1
+                        && shown[at].text.ends_with(first)
+                })
+        });
+        match joined_one {
+            Some(other) => {
+                let tail: String = shown[other].text.chars().skip(1).collect();
+                let reviews = shown[other].reviews;
+                shown[at].text.push_str(&tail);
+                shown[at].reviews = shown[at].reviews.min(reviews);
+                shown.remove(other);
+                if other < at {
+                    at -= 1;
+                }
+            }
+            None => at += 1,
+        }
+    }
 }
 
 /// Whether two counts are within a twentieth of each other, which is what "the same
@@ -288,12 +325,112 @@ fn nearly(left: u64, right: u64) -> bool {
 }
 
 /// Whether one term is a whole word of the other. "price tag" and "tag" are one finding;
-/// "full price" and "price tag" are two, and a reader wants both.
+/// "full price" and "price tag" are two, and a reader wants both. A Chinese pair is written
+/// solid, so its words are its substrings: 操作手感 holds 操作 the way "price tag" holds "tag".
 fn shares_a_word(left: &str, right: &str) -> bool {
+    if left.chars().all(is_han) && right.chars().all(is_han) {
+        return left.contains(right) || right.contains(left);
+    }
     left.split(' ').any(|word| word == right) || right.split(' ').any(|word| word == left)
 }
 
-/// Whether a pair of characters from a script without spaces continues or precedes a run.
+/// Whether a character is a Chinese ideograph, the script the dictionary cuts.
+fn is_han(ch: char) -> bool {
+    matches!(ch as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF)
+}
+
+/// Whether a character is a Korean syllable.
+fn is_hangul(ch: char) -> bool {
+    matches!(ch as u32, 0xAC00..=0xD7AF)
+}
+
+/// The particles Korean writes on the end of a word: subject, topic, object, "also", "of",
+/// "at", "from", "to", "with", "than", "like", "only". Longest first, so 에서 comes off before
+/// 서 would be looked for, and a word that is nothing but a particle keeps itself.
+const HANGUL_PARTICLES: [&str; 26] = [
+    "에서는",
+    "에서도",
+    "으로는",
+    "으로도",
+    "에서",
+    "으로",
+    "부터",
+    "까지",
+    "에게",
+    "한테",
+    "처럼",
+    "만큼",
+    "보다",
+    "이나",
+    "라도",
+    "이",
+    "가",
+    "은",
+    "는",
+    "을",
+    "를",
+    "도",
+    "의",
+    "에",
+    "로",
+    "만",
+];
+
+/// The endings Korean conjugates a verb or an adjective with: 환불했습니다, 환불하고 and
+/// 환불받았어요 are all "refunded" to a reader and three words to a counter. Longest first.
+const HANGUL_ENDINGS: [&str; 30] = [
+    "했습니다",
+    "됐습니다",
+    "받았습니다",
+    "습니다",
+    "했어요",
+    "됐어요",
+    "합니다",
+    "됩니다",
+    "하네요",
+    "했다가",
+    "하는데",
+    "했는데",
+    "하면서",
+    "하고",
+    "하는",
+    "하다",
+    "했다",
+    "해서",
+    "해요",
+    "하게",
+    "하지",
+    "되는",
+    "되다",
+    "됐다",
+    "이다",
+    "네요",
+    "어요",
+    "아요",
+    "었다",
+    "았다",
+];
+
+/// A Korean word with its particle and its ending taken off, where they are on it and
+/// something is left.
+fn without_particle(word: &str) -> &str {
+    without_suffix(without_suffix(word, &HANGUL_PARTICLES), &HANGUL_ENDINGS)
+}
+
+fn without_suffix<'a>(word: &'a str, suffixes: &[&str]) -> &'a str {
+    suffixes
+        .iter()
+        .find_map(|suffix| {
+            let stem = word.strip_suffix(suffix)?;
+            (stem.chars().count() >= 2).then_some(stem)
+        })
+        .unwrap_or(word)
+}
+
+/// Whether a pair of characters from a script cut into pairs continues or precedes a run.
+///
+/// Chinese is cut into words now, and two of its words that happen to share an end
+/// character (游戏性 and 性能) are two words, not a run to join.
 fn overlaps(run: &str, pair: &str) -> bool {
     let mut chars = pair.chars();
     let (Some(first), Some(second), None) = (chars.next(), chars.next(), chars.next()) else {
@@ -301,6 +438,9 @@ fn overlaps(run: &str, pair: &str) -> bool {
     };
     if !crate::claims::writes_without_spaces(first) || !crate::claims::writes_without_spaces(second)
     {
+        return false;
+    }
+    if is_han(first) && is_han(second) {
         return false;
     }
     run.ends_with(first) || run.starts_with(second)
@@ -340,8 +480,9 @@ fn log_odds(here: u64, of: u64, there: u64, of_other: u64) -> (f64, f64) {
     (delta, delta / sigma)
 }
 
-/// Cuts a claim into the terms worth counting: words, pairs of adjacent words, and pairs of
-/// adjacent characters in the scripts that write without spaces.
+/// Cuts a claim into the terms worth counting: words and pairs of adjacent words, with a
+/// run of Chinese cut into words by a dictionary first, and a run of Japanese or Korean
+/// into pairs of adjacent characters, which is the best that can be done without one.
 ///
 /// Reused across claims so a corpus of millions does not allocate a buffer per word.
 #[derive(Debug, Default)]
@@ -349,34 +490,123 @@ struct Terms {
     word: String,
     previous: String,
     pair: String,
+    /// The run of a spaceless script in hand, cut when it ends.
+    run: String,
 }
+
+/// The Chinese dictionary, loaded on the first Chinese claim and kept, with the words of
+/// the trade added: a general dictionary cuts 掉帧 into "drop" and "frame".
+fn segmenter() -> &'static jieba_rs::Jieba {
+    static JIEBA: std::sync::LazyLock<jieba_rs::Jieba> = std::sync::LazyLock::new(|| {
+        let mut jieba = jieba_rs::Jieba::new();
+        for word in HAN_LEXICON {
+            jieba.add_word(word, None, None);
+        }
+        jieba
+    });
+    &JIEBA
+}
+
+/// What players write about games that a general Chinese dictionary does not know as words:
+/// frame drops, save files, achievements, controls, localisation, the store. Without them the
+/// segmenter hands back single characters, and a single character is heard only in a pair.
+const HAN_LEXICON: [&str; 72] = [
+    "掉帧",
+    "帧数",
+    "帧率",
+    "锁帧",
+    "卡顿",
+    "卡死",
+    "卡关",
+    "闪退",
+    "黑屏",
+    "崩溃",
+    "优化",
+    "上手",
+    "手感",
+    "打击感",
+    "键位",
+    "键鼠",
+    "手柄",
+    "适配",
+    "分辨率",
+    "画质",
+    "画风",
+    "建模",
+    "贴图",
+    "光污染",
+    "存档",
+    "读档",
+    "全成就",
+    "成就",
+    "白金",
+    "流程",
+    "剧情",
+    "结局",
+    "跑图",
+    "刷刷刷",
+    "肉鸽",
+    "魂系",
+    "类魂",
+    "平台跳跃",
+    "银河城",
+    "新手引导",
+    "引导",
+    "判定",
+    "碰撞",
+    "连招",
+    "数值",
+    "氪金",
+    "抽卡",
+    "内购",
+    "皮肤",
+    "季票",
+    "通行证",
+    "开箱",
+    "首发",
+    "史低",
+    "折扣",
+    "退款",
+    "汉化",
+    "简中",
+    "繁中",
+    "中配",
+    "配音",
+    "字幕",
+    "乱码",
+    "联机",
+    "单机",
+    "掉线",
+    "延迟",
+    "服务器",
+    "外挂",
+    "作弊",
+    "热修",
+    "跳票",
+];
+
+/// Single characters that turn the Chinese word after them, as "not" and "too" do: 不好 is
+/// "not good" and 太贵 is "too expensive", and neither half says it alone.
+const HAN_MODIFIERS: [&str; 11] = [
+    "不", "没", "无", "太", "很", "更", "最", "超", "不太", "不够", "超级",
+];
 
 impl Terms {
     fn each_in(&mut self, claim: &str, mut visit: impl FnMut(&str)) {
         self.word.clear();
         self.previous.clear();
-        let mut last_dense: Option<char> = None;
+        self.run.clear();
 
         for ch in claim.chars() {
-            if crate::claims::writes_without_spaces(ch) {
+            // Korean is written with spaces between words, so it goes the way of a spaced
+            // script and only its particles need taking off; the other scripts here do not.
+            if crate::claims::writes_without_spaces(ch) && !is_hangul(ch) {
                 self.close_word(&mut visit);
                 self.previous.clear();
-                if let Some(before) = last_dense {
-                    self.pair.clear();
-                    self.pair.push(before);
-                    self.pair.push(ch);
-                    // A filler pair breaks the chain as a filler word does, so 没有中文 yields
-                    // 中文 and not the bridge 有中 as well.
-                    if filler().contains(self.pair.as_str()) {
-                        last_dense = None;
-                        continue;
-                    }
-                    visit(&self.pair);
-                }
-                last_dense = Some(ch);
+                self.run.push(ch);
                 continue;
             }
-            last_dense = None;
+            self.close_run(&mut visit);
             if ch.is_alphanumeric() {
                 for lower in ch.to_lowercase() {
                     self.word.push(lower);
@@ -394,14 +624,96 @@ impl Terms {
                 }
             }
         }
+        self.close_run(&mut visit);
         self.close_word(&mut visit);
+    }
+
+    /// Cuts the run of a spaceless script in hand and emits its terms.
+    ///
+    /// A run of Chinese alone goes through the dictionary: a pair of characters that
+    /// straddles two words (作手 out of 操作手感) is not a word anybody used, and it was a
+    /// third of what the page showed for a Chinese-speaking game. Words come out the way words
+    /// in a spaced script do, alone and paired with the word before them, the pair written
+    /// solid as Chinese is. A run holding kana or hangul keeps the pairs of characters: the
+    /// dictionary is Chinese, and a Japanese sentence through it is cut wrongly with
+    /// confidence.
+    fn close_run(&mut self, visit: &mut impl FnMut(&str)) {
+        if self.run.is_empty() {
+            return;
+        }
+        if self.run.chars().all(is_han) {
+            // The word a pair starts from, and whether it is a modifier, because modifiers
+            // stack: 不太友好 is "not too friendly", and a pair starting from the last of them
+            // alone would say the opposite.
+            let mut previous = String::new();
+            let mut modifying = false;
+            let mut previous_lone = false;
+            for token in segmenter().cut(&self.run, true) {
+                let word = token.word;
+                if HAN_MODIFIERS.contains(&word) {
+                    if !modifying {
+                        previous.clear();
+                    }
+                    previous.push_str(word);
+                    modifying = true;
+                    previous_lone = false;
+                    continue;
+                }
+                modifying = false;
+                if filler().contains(word) {
+                    previous.clear();
+                    continue;
+                }
+                // A lone character is a syllable more often than a word, so it is heard in
+                // the pair it makes with what came before it and not on its own. Two lone
+                // characters in a row are a word the dictionary lacks (掉帧), so they pair;
+                // a lone character before a whole word is the tail of something (手 out of
+                // 上手 before 难度), and does not lead a pair.
+                let whole = word.chars().count() >= 2;
+                if whole {
+                    visit(word);
+                }
+                if !previous.is_empty() && (!whole || !previous_lone) {
+                    self.pair.clear();
+                    self.pair.push_str(&previous);
+                    self.pair.push_str(word);
+                    visit(&self.pair);
+                }
+                previous.clear();
+                previous.push_str(word);
+                previous_lone = !whole;
+            }
+        } else {
+            let mut last: Option<char> = None;
+            for ch in self.run.chars() {
+                if let Some(before) = last {
+                    self.pair.clear();
+                    self.pair.push(before);
+                    self.pair.push(ch);
+                    // A filler pair breaks the chain as a filler word does, so 没有中文 yields
+                    // 中文 and not the bridge 有中 as well.
+                    if filler().contains(self.pair.as_str()) {
+                        last = None;
+                        continue;
+                    }
+                    visit(&self.pair);
+                }
+                last = Some(ch);
+            }
+        }
+        self.run.clear();
     }
 
     /// Emits the word in hand, and its pair with the word before it, then remembers it.
     fn close_word(&mut self, visit: &mut impl FnMut(&str)) {
-        let word = self.word.trim_matches('\'');
+        let mut word = self.word.trim_matches('\'');
         if word.is_empty() {
             return;
+        }
+        // 그래픽이, 그래픽은 and 그래픽도 are "graphics" with a particle on the end, one
+        // word to a reader and three to a counter until the particle comes off.
+        if word.chars().all(is_hangul) {
+            word = without_particle(word);
         }
         // "runs at 60 fps" must not yield "at fps": a word not worth counting still breaks
         // the chain of pairs.
@@ -463,8 +775,9 @@ const MODIFIERS: [&str; 12] = [
 /// the next six languages Steam is written in; the rest mostly fail the ownership bar on
 /// their own, and a list for each of forty languages would be a maintenance burden with no
 /// measured return. Sentiment words are not here: "great" fails the ownership bar by itself,
-/// and "worth" is what the price subject is made of. The Chinese entries are pairs, because
-/// pairs are what the counter cuts that script into.
+/// and "worth" is what the price subject is made of. The Chinese entries are the words the
+/// dictionary cuts out, and the single characters among them are the particles it leaves
+/// standing alone: 了 and 的 would otherwise pair with every word before them.
 const FILLER: &str = "\
 the a an and or but if so as of to in at by for from with into onto about over under than \
 then that this these those there here it its it's is are was were be been being am i i'm i've \
@@ -480,8 +793,10 @@ reviews \
 游戏 玩家 这个 那个 一个 自己 不是 就是 可以 什么 但是 因为 所以 如果 还是 已经 觉得 知道 一下 \
 一些 非常 比较 这样 那么 然后 而且 或者 虽然 不过 真的 感觉 我们 你们 他们 没有 有点 这种 那种 \
 时候 东西 的话 是的 不能 不会 不要 应该 可能 现在 之后 之前 以及 对于 关于 需要 只是 只有 而已 \
-的时 我的 你的 它的 他的 这些 那些 一样 一直 一点 一定 一起 还有 也是 都是 就会 就能 不了 不太 \
+的时 我的 你的 它的 他的 这些 那些 一样 一直 一点 一定 一起 还有 也是 都是 就会 就能 不了 \
 太多 很多 玩了 玩的 玩过 玩到 小时 多小 个小 \
+的 了 是 在 和 也 都 就 吗 呢 吧 啊 与 及 或 而 被 把 让 给 对 从 到 去 来 有 会 能 要 \
+我 你 他 她 它 们 这 那 个 些 又 还 才 却 并 之 其 所 为 以 于 \
 и в не на что это как но а то же он она они мы вы я ты у из за для по от о до при или \
 если бы был была было были есть нет очень так только уже еще ещё все всё игра игры игру \
 игре этот эта это эти его её их мне меня тебе вас нам них там тут здесь \
@@ -500,7 +815,10 @@ ces ça jeu jeux jouer \
 i w na z do nie się jest są to tak jak ale co za od po dla przez ten ta te tego tej tym \
 gra gry grę grze grać \
 ve bir bu şu o de da için ile çok daha ama ya en gibi kadar var yok mi mı mu mü değil \
-oyun oyunu oyunda oyna";
+oyun oyunu oyunda oyna \
+게임 그리고 하지만 그냥 정말 진짜 너무 이거 저거 그거 이런 그런 저런 있다 없다 하다 같다 되다 \
+있는 없는 하는 되는 입니다 합니다 있습니다 없습니다 것 수 등 더 좀 잘 안 못 왜 다 또 아직 이미 \
+계속 근데 그래서 그런데 만약 뭐 걍 ㅋㅋ ㅎㅎ";
 
 /// The filler words as a set, built once: the tokeniser asks about every word of every claim.
 fn filler() -> &'static HashSet<&'static str> {
@@ -548,8 +866,44 @@ mod tests {
     }
 
     #[test]
-    fn a_dense_script_counts_pairs_of_characters() {
-        assert_eq!(terms("画面很好 lags 卡"), ["画面", "面很", "很好", "lags"]);
+    fn chinese_is_cut_into_words_and_a_lone_character_is_heard_only_in_its_pair() {
+        // 很 turns 好 the way "very" turns "good"; 卡 alone is a syllable.
+        assert_eq!(terms("画面很好 lags 卡"), ["画面", "很好", "lags"]);
+        // Two words and the pair they make, written solid; the pair is what a reader wants
+        // where the two are one thing (操作手感, "the feel of the controls").
+        assert_eq!(
+            terms("操作手感不错"),
+            ["操作", "手感", "操作手感", "不错", "手感不错"]
+        );
+        // A particle ends the chain, so nothing pairs across 了.
+        assert_eq!(terms("画面太差了"), ["画面", "太差", "画面太差"]);
+        // Modifiers stack, and the pair keeps all of them: "not too friendly" is not "too
+        // friendly".
+        assert_eq!(terms("不太友好"), ["友好", "不太友好"]);
+        // Two lone characters are a word the dictionary lacks; a lone character before a
+        // whole word does not lead into it.
+        assert_eq!(terms("帧数很低"), ["帧数", "很低"]);
+        assert_eq!(terms("画面渣"), ["画面", "画面渣"]);
+        assert_eq!(terms("超好玩"), ["好玩", "超好玩"]);
+        // The words of the trade are cut as words: 上手 is "to get the hang of", not "up hand".
+        assert_eq!(terms("上手难度"), ["上手", "难度", "上手难度"]);
+        assert_eq!(terms("掉帧严重"), ["掉帧", "严重", "掉帧严重"]);
+    }
+
+    #[test]
+    fn a_script_without_a_dictionary_counts_pairs_of_characters() {
+        assert_eq!(terms("にほんご"), ["にほ", "ほん", "んご"]);
+    }
+
+    #[test]
+    fn korean_is_spaced_words_with_the_particle_taken_off() {
+        assert_eq!(terms("그래픽이 좋다"), ["그래픽", "좋다", "그래픽 좋다"]);
+        assert_eq!(terms("그래픽은"), ["그래픽"]);
+        assert_eq!(terms("스토리에서는"), ["스토리"]);
+        assert_eq!(terms("환불했습니다"), ["환불"]);
+        assert_eq!(terms("환불하고"), ["환불"]);
+        // A word that is nothing but a particle keeps itself.
+        assert_eq!(terms("이가"), ["이가"]);
     }
 
     #[test]
@@ -558,7 +912,8 @@ mod tests {
         assert!(mentions("Constant frame DROPS in town", "town"));
         assert!(!mentions("frame rate drops", "frame drops"));
         assert!(!mentions("framedrops", "drops"));
-        assert!(mentions("画面很好", "面很"));
+        assert!(mentions("画面很好", "画面"));
+        assert!(!mentions("画面很好", "面很"));
     }
 
     #[test]
@@ -768,7 +1123,7 @@ mod tests {
     }
 
     #[test]
-    fn character_pairs_used_by_the_same_reviewers_are_joined_back_into_the_word() {
+    fn chinese_words_said_together_by_the_same_reviewers_are_shown_as_the_phrase() {
         let mut said = Said::new(1);
         for _ in 0..30 {
             said.note(0, Polarity::Complaint, "没有中文配音");
@@ -781,8 +1136,26 @@ mod tests {
             .iter()
             .map(|t| t.text.as_str())
             .collect();
-        // 没有 is "there is no", a function word, and the pair bridging it to the noun goes
-        // with it: what is left is the noun, joined back up from its pairs.
+        // 没有 is "there is no", a function word, and no pair bridges it to the noun. The
+        // two words after it were said by exactly the same reviewers, so the phrase stands
+        // for both of them, as "full price" stands for "full".
         assert_eq!(criticised, ["中文配音"]);
+    }
+
+    #[test]
+    fn character_pairs_used_by_the_same_reviewers_are_joined_back_into_the_word() {
+        let mut said = Said::new(1);
+        for _ in 0..30 {
+            said.note(0, Polarity::Complaint, "にほんごがない");
+            said.note(0, Polarity::Praise, "very good indeed");
+            said.next_review();
+        }
+        let found = said.finish(&[("language", "Language and localisation")]);
+        let criticised: Vec<&str> = found[0]
+            .criticised
+            .iter()
+            .map(|t| t.text.as_str())
+            .collect();
+        assert_eq!(criticised, ["にほんごがない"]);
     }
 }
