@@ -1299,14 +1299,14 @@
     "subset": "retrieved",
     "start": 0,
     "end": 71,
-    "taxonomy": "core-6",
+    "taxonomy": "1022adc2bdd1",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": true
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "20534766",

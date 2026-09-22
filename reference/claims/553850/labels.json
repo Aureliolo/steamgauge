@@ -1231,13 +1231,13 @@
     "subset": "random",
     "start": 0,
     "end": 44,
-    "taxonomy": "core-5",
+    "taxonomy": "1022adc2bdd1",
     "produced_by": "claude-fable-5-1",
-    "subject": "genre",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false
   },
   {

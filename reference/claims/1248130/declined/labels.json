@@ -993,13 +993,13 @@
     "subset": "declined",
     "start": 673,
     "end": 886,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "1022adc2bdd1",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": true,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": true
   },
   {
