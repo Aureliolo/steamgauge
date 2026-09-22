@@ -2957,6 +2957,50 @@ reading. Neither has been run yet. Both are queued behind the three seeds, each 
 run of the same configuration on the same fresh export, because a knob read against a run that
 learned different labels is not read at all.
 
+### The Chinese gap is mostly a labelling gap, and the second reading is what could show it
+
+Measured 2026-09-22 with `settled-mistakes`, a new example that lists the claims **two
+labellers settled and the model read differently**, which is the only list of its mistakes
+nobody can argue with: where one labeller disagrees with the model, the figure mixes the
+model's errors with the labeller's, and this does not.
+
+The reason the language balance knob exists is a 6.5-point gap: against single labels over
+2,088 claims, Simplified Chinese was read at 63.9% [61.9, 66.0] where English was 70.4%
+[69.8, 71.0]. Against labels two labellers settled, that gap is not there. Over every set read
+twice, 4,353 settled claims the model answered: **English 90.0% of 3,336, Simplified Chinese
+93.0% of 171**; over the six frozen games read twice, where no memorisation flatters anything,
+English 85.7% of 1,799 and Simplified Chinese 85.7% of 77.
+
+What did move is the labellers. Over the same sets they reach the same subject on **89.1% of
+4,659 English claims and 83.8% of 265 Chinese ones**, and on the frozen games alone 91.3%
+against 85.3%. Two labellers who agree five points less often leave a label five points
+noisier, and a model scored against one of them loses about that much whatever it read. The
+gap was the sheet and the labellers in Chinese, not the reader in Chinese.
+
+Two caveats kept with the finding. The Chinese samples are 171 and 77 claims, so the interval
+around them is wide enough to hold a small real gap; what the evidence rules out is a gap the
+size of the one being corrected for. And Turkish stays low on both counts (labellers 77.5% of
+40, model 82.6% of 23), which is the one language where a look is still owed.
+
+**So `--language-balance` aims at something that has not been shown to exist**, and stays off
+in the shipping configuration. The honest correction for a language whose labels are noisier
+is a second reading of it, not a heavier gradient.
+
+### The reader's own mistakes, ranked, on claims nobody disputes
+
+From the same run, over the six frozen games read twice: 2,349 settled claims answered, 2,017
+read the same way, and the mistakes concentrate in a handful of pairs. `verdict` read as
+`offtopic` (19) is the largest, and reading the claims behind it shows the labellers were
+right and the model wrong on the short foreign-language verdicts ("funky", "mola"), where a
+one-word judgement in Spanish reads to it as nothing at all. `gameplay` read as `content` (17)
+and as `story` (16) are the boundary pairs the sheet already draws, and the claims there are
+long sentences that name a mechanic and its amount in one breath. `difficulty` against
+`gameplay` runs both ways (12 each), which is what an unbiased confusion looks like rather
+than a lean.
+
+Nothing here is a code change. It is the list to draw the next labelling round from, and the
+first entry on it is short verdicts in languages other than English.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
