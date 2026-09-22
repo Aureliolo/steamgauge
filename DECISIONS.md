@@ -3115,6 +3115,23 @@ ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the
 words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
 "absturz", which say it in words a reader can read.
 
+### The integrity sweep after a day of ingests, and what the splitter change cost
+
+Run 2026-09-22 after three labelling mechanisms had written to the sets in one day: the second
+reading, the revisit and the declined draws. `check-readings` reconciles all 53 readings with
+their own rows. `check-draws` finds **83,084 drawn claims, 6,353 the splitter no longer cuts
+as drawn** and 599 cut in the same place and tidied differently, which score.
+
+That is 7.6% against 5.6% on 2026-09-20, and the two points are the price of one change: the
+rule that read a lowercase letter after a full stop as the middle of a sentence is gone, which
+was right, and every draw made before it holds spans this build cuts differently. The labels
+are said rather than scored, as the rule here has always been. 920210 is the shape of it: 980
+labelled claims found in the readings, 54 naming a span no claim sits at now.
+
+The library on disk was last read before that change, so its readings describe the old cut.
+The re-read that fixes it is the one the shipping script runs after a new reader is installed,
+which is queued behind tonight's runs rather than spent twice.
+
 ### What a mixture of experts would be here, and the four encoders worth the card
 
 Asked 2026-09-22, because the instruction was to try what is current and name what was
