@@ -3144,6 +3144,16 @@ while dropping macro F1 by more than a point is trading the rare rows for the co
 which is the trade this project has refused every time it has been offered. AURC says whether
 the confidence ordering is any good, which is what the abstention rule is made of.
 
+**The runs on the fresh export are compared among themselves and not against the seeds.** They
+learn a different set of labels: today's revisit moved 61 of them, the declined and mined
+draws added 900, and the export now carries 21,124 second answers rather than 8,106. A run on
+more labels is not a better configuration, which is why the sweep refuses to put two label sets
+in one table, and it is why the queue trains the same configuration on the fresh export beside
+the two knobs. **The reader ships from that group**, because the newest labels are the best
+labels this project has; what the seeds settle is whether the configuration is steady and
+whether it beats the reader in place, and on the frozen games it does: 93.0% at 0.781 against
+91.9% at 0.771, macro F1 0.696 against 0.680, AURC 0.093 against 0.101.
+
 **The frozen games are not a chooser.** They are read once, by whatever was already chosen, and
 the only question they answer is whether the promise transfers to a game nobody trained on. If
 it does not, that is a finding about the threshold, and the reader ships with the frozen figure
