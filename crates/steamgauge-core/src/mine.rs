@@ -467,7 +467,7 @@ pub fn hooked_among(claim: &str, only: &[String]) -> Option<&'static str> {
 ///
 /// Without the boundary "mod" matches "modern" and "model", and "vr" matches nothing useful at
 /// all in a language that happens to spell a common word with those two letters together.
-fn contains_term(haystack: &str, term: &str) -> bool {
+pub(crate) fn contains_term(haystack: &str, term: &str) -> bool {
     if !term.is_ascii() {
         return haystack.contains(term);
     }
