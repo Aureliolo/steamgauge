@@ -1,0 +1,140 @@
+{
+  "app_id": 1449850,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "archetypes",
+      "label": "Decks and archetypes",
+      "description": "The named decks and archetypes players run, love or hate, and the meta they form, including calls for a theme to be buffed or for the meta to change; not the general mechanics of summoning.",
+      "refines": null,
+      "evidence": [
+        "111096410",
+        "126049840",
+        "126336685",
+        "133291593",
+        "136740894",
+        "142224080",
+        "159242849",
+        "188073699",
+        "191481266",
+        "196679311",
+        "210007776",
+        "216775138"
+      ]
+    },
+    {
+      "id": "banlist",
+      "label": "Banlist and formats",
+      "description": "Which cards are forbidden or limited, whether the list follows the TCG, calls to ban a specific card, and requests for other formats or queues such as Genesys, tag duels or unranked; not balance complaints that name no card.",
+      "refines": "difficulty",
+      "evidence": [
+        "108796257",
+        "109220272",
+        "109226716",
+        "145020639",
+        "162997764",
+        "207937915"
+      ]
+    },
+    {
+      "id": "hand-traps",
+      "label": "Hand traps and the coin toss",
+      "description": "Maxx C, Ash Blossom, Nibiru and the rest of the negation game, going first or second, being negated on every play and bricking; not the length of the opponent's turn, which has its own row.",
+      "refines": "gameplay",
+      "evidence": [
+        "108796257",
+        "109739507",
+        "113636790",
+        "162997764",
+        "179700530",
+        "210922033"
+      ]
+    },
+    {
+      "id": "turn-length",
+      "label": "Long opponent turns",
+      "description": "Sitting through an opponent's solitaire turn while they build a full board in one go, alt-tabbing until it is over, and the one-turn combo as a spectacle; not hand traps or the coin toss.",
+      "refines": "gameplay",
+      "evidence": [
+        "108666943",
+        "112349898",
+        "117087423",
+        "132075575",
+        "201053576"
+      ]
+    },
+    {
+      "id": "gems",
+      "label": "Gems and pay to win",
+      "description": "Earning gems, quests that stop paying out, pack pulls, dismantling cards for craft points, and whether a competitive deck is reachable without a credit card; not cosmetics.",
+      "refines": "monetisation",
+      "evidence": [
+        "108857362",
+        "109220272",
+        "117749649",
+        "119901138",
+        "225874313"
+      ]
+    },
+    {
+      "id": "konami",
+      "label": "Konami",
+      "description": "Reviews that address the company by name, cursing or crediting it for the state of the game; not complaints about the game that never name it.",
+      "refines": null,
+      "evidence": [
+        "109220272",
+        "115450117",
+        "117749649",
+        "145020639",
+        "186425972",
+        "199013314",
+        "202462373"
+      ]
+    },
+    {
+      "id": "nostalgia",
+      "label": "The anime and childhood",
+      "description": "Playground memories of the card game, the anime and its summon chants, players returning after a decade away, and whether you need to know the franchise at all; not the game's own story mode.",
+      "refines": null,
+      "evidence": [
+        "108793095",
+        "109431613",
+        "117486427",
+        "118743815",
+        "127112769",
+        "144043205",
+        "192235222",
+        "213821085"
+      ]
+    },
+    {
+      "id": "card-text",
+      "label": "Card text and effect design",
+      "description": "The paragraphs of effect text on a card, cards written to be unreadable, and rules terms a newcomer does not know; not the tutorial itself.",
+      "refines": "tutorial",
+      "evidence": [
+        "108476883",
+        "108735600",
+        "176993324",
+        "194164092"
+      ]
+    },
+    {
+      "id": "rage",
+      "label": "Rage and addiction",
+      "description": "Tilting, broken mice and monitors, raised blood pressure, suffering, and being unable to stop queueing anyway; not the mood or atmosphere of the game itself.",
+      "refines": "atmosphere",
+      "evidence": [
+        "126053347",
+        "141373735",
+        "183952748",
+        "187285153",
+        "197565352",
+        "222545716",
+        "223788405"
+      ]
+    }
+  ]
+}

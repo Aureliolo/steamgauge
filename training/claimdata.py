@@ -100,6 +100,42 @@ def load(path: str | Path) -> list[Claim]:
     return claims
 
 
+def load_pool(path: str | Path) -> list[Claim]:
+    """Reads the JSONL that `steamgauge export-pool` writes: claims nobody has labelled.
+
+    The same shape as a labelled claim with the label left blank, so the windowing and the
+    tokenisation are the code the labelled claims go through. A blank subject never reaches a
+    loss: what a pool row is scored against is a teacher's answer, carried beside it.
+    """
+    claims = []
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            claims.append(
+                Claim(
+                    text=row["text"],
+                    review=row["review"],
+                    review_offset=_offset_in(row["review"], row["text"], row["review_offset"]),
+                    subject="",
+                    polarity="neutral",
+                    confidence="high",
+                    ambiguous=False,
+                    ironic=False,
+                    split_wrong=False,
+                    language=row.get("language", ""),
+                    app_id=int(row["app_id"]),
+                    review_id=str(row["review_id"]),
+                    claim_index=int(row["claim_index"]),
+                    subset=row.get("subset", "pool"),
+                )
+            )
+    if not claims:
+        raise SystemExit(f"{path} holds no claims; run `steamgauge export-pool` first")
+    return claims
+
+
 def fingerprint(claims: list[Claim]) -> str:
     """A hash of the label set, recorded with every run.
 

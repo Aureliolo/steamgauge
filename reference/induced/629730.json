@@ -1,0 +1,131 @@
+{
+  "app_id": 629730,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "gore-and-dismemberment",
+      "label": "Gore and dismemberment",
+      "description": "Blood, severed heads and limbs, burning bodies and how graphic the violence is; the joke that the player has become a psychopath belongs in its own row.",
+      "refines": null,
+      "evidence": [
+        "131856221",
+        "167841830",
+        "176717901",
+        "181334274",
+        "229331885",
+        "57056266"
+      ]
+    },
+    {
+      "id": "psychopath-jokes-and-catharsis",
+      "label": "Psychopath jokes and catharsis",
+      "description": "The running joke that the game has made the player a murderer, from FBI watchlists and needing therapy to what grandma would think, together with using it to vent anger; the gore itself is not this row.",
+      "refines": "atmosphere",
+      "evidence": [
+        "107439724",
+        "115064972",
+        "116235601",
+        "118925252",
+        "121899165",
+        "141122521",
+        "155980998",
+        "156498478",
+        "167675214",
+        "190397904",
+        "51043302",
+        "60977044"
+      ]
+    },
+    {
+      "id": "physics-and-ragdolls",
+      "label": "Physics and ragdolls",
+      "description": "The physics-driven combat: how a blade lands, ragdolls that cling or flop, bodies reacting to a stab, and whether the physics feels right or awful; the weapons and spells themselves have their own rows.",
+      "refines": "gameplay",
+      "evidence": [
+        "124561088",
+        "153614670",
+        "182478278",
+        "228049032",
+        "65098779"
+      ]
+    },
+    {
+      "id": "spells-and-telekinesis",
+      "label": "Spells and telekinesis",
+      "description": "Casting magic: telekinesis, summoned and thrown daggers, fire and gravity, and the game as a magic sandbox; steel weapons do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "176717901",
+        "182478278",
+        "206333728",
+        "76467905"
+      ]
+    },
+    {
+      "id": "melee-arsenal",
+      "label": "Melee arsenal",
+      "description": "The weapons themselves: swords, daggers, spears and shields and how many there are to pick up; how a hit behaves belongs in the physics row.",
+      "refines": "gameplay",
+      "evidence": [
+        "144826997",
+        "167746972",
+        "172251867",
+        "182478278",
+        "63427879"
+      ]
+    },
+    {
+      "id": "enemies-and-npc-behaviour",
+      "label": "Enemies and NPC behaviour",
+      "description": "The opponents: how they react when hit, fighting a group at once, enemy types such as golems and the ones players feel are missing; the player's own tools are not this row.",
+      "refines": "gameplay",
+      "evidence": [
+        "153614670",
+        "175086290",
+        "175767478",
+        "176943876"
+      ]
+    },
+    {
+      "id": "sandbox-versus-campaign",
+      "label": "Sandbox versus campaign",
+      "description": "The game as a goalless sandbox with no story, and the progression mode with lore and an ending that arrived later; how many hours it lasts in general stays in the content row.",
+      "refines": "content",
+      "evidence": [
+        "129241198",
+        "131181668",
+        "170714636",
+        "182478278",
+        "233391156"
+      ]
+    },
+    {
+      "id": "franchise-roleplay",
+      "label": "Franchise roleplay",
+      "description": "Playing as characters from other franchises, above all Star Wars with lightsabers and Jedi through mods such as the Outer Rim, plus Thanos and Batman; the game's own medieval setting is not this row.",
+      "refines": "mods",
+      "evidence": [
+        "110109621",
+        "168324518",
+        "60808239",
+        "89826841",
+        "89829753"
+      ]
+    },
+    {
+      "id": "exertion-and-room-knocks",
+      "label": "Exertion and room knocks",
+      "description": "Playing it as a workout that burns calories, and the bruises that come with it: hurt fingers, hitting a friend with the controller, and the walls of the room; motion sickness and tracking stay in the VR row.",
+      "refines": "vr",
+      "evidence": [
+        "111736752",
+        "116461317",
+        "121331612",
+        "57056266",
+        "95062785"
+      ]
+    }
+  ]
+}

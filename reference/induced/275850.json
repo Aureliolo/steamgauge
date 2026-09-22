@@ -1,0 +1,100 @@
+{
+  "app_id": 275850,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "launch-promises",
+      "label": "Launch promises versus what shipped",
+      "description": "The gap between what was promised or shown before release and what the launch build actually held, including calling it a scam or still waiting for the promised features to arrive; ordinary patch notes and the later recovery belong elsewhere.",
+      "refines": "updates",
+      "evidence": [
+        "109022268",
+        "174565138",
+        "203029373",
+        "24942182",
+        "81299342"
+      ]
+    },
+    {
+      "id": "comeback",
+      "label": "The comeback",
+      "description": "The game's reputation reversing through years of free updates: it gets better every year, players flipping their review to positive, the redemption arc, the awards for ongoing support; a single patch or bug fix is not this.",
+      "refines": "updates",
+      "evidence": [
+        "126516146",
+        "132266611",
+        "181010760",
+        "181066425",
+        "213088300",
+        "25175750",
+        "34271453",
+        "46329542",
+        "53582519",
+        "67807733",
+        "72947452",
+        "81299342"
+      ]
+    },
+    {
+      "id": "planet-exploration",
+      "label": "Exploring planets and the universe",
+      "description": "Flying between systems and landing on planets to see what is there, the scale of the universe, getting lost on a world, and whether the planets feel distinct or are variations on a theme; space combat and building are separate rows.",
+      "refines": "gameplay",
+      "evidence": [
+        "103753923",
+        "181143184",
+        "206771247",
+        "75141757",
+        "81299342"
+      ]
+    },
+    {
+      "id": "ships-and-freighters",
+      "label": "Ships, frigates and freighters",
+      "description": "Starships, frigates and capital-class freighters as possessions: wanting bigger ones, upgrading them, building or styling your own; base building and on-foot play do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "119628515",
+        "225261651",
+        "43975327",
+        "88858604"
+      ]
+    },
+    {
+      "id": "base-building",
+      "label": "Base building",
+      "description": "Placing, upgrading and dismantling bases and their parts, and the resource gathering that feeds them; ships and general crafting talk do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "134338052",
+        "138687435",
+        "195922097"
+      ]
+    },
+    {
+      "id": "direction-and-goals",
+      "label": "Direction and goals",
+      "description": "Whether the sandbox gives you objectives or leaves you aimless: no real goals beyond a thin main story, lacking direction, feeling lost with no idea what to do next; how many hours it lasts and whether individual systems are explained are separate rows.",
+      "refines": "content",
+      "evidence": [
+        "126861237",
+        "24942182",
+        "26171191",
+        "81299342"
+      ]
+    },
+    {
+      "id": "against-big-studios",
+      "label": "Held up against the big studios",
+      "description": "Measuring this game against AAA studios and their games and finding the big names wanting: Starfield by comparison, not even Kojima, the big publishers should learn from this; a plain statement of what genre it is does not belong here.",
+      "refines": "genre",
+      "evidence": [
+        "153726848",
+        "174565138",
+        "213660567"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "app_id": 2399830,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "creatures-and-taming",
+      "label": "Creatures and taming",
+      "description": "The dinosaurs and other creatures themselves: taming them, how the wild and tamed ones behave and whether they obey, being chased or eaten by them, and creatures that shrug off your weapons; not combat or crafting in general.",
+      "refines": "gameplay",
+      "evidence": [
+        "149748013",
+        "149826910",
+        "159305128",
+        "198115932",
+        "207294313",
+        "224428775"
+      ]
+    },
+    {
+      "id": "remaster-versus-original",
+      "label": "Remaster versus the original",
+      "description": "Weighing this remaster against the game it remakes: whether it is better or worse than the original, missing the old engine, features removed in the reboot, and whether the original still gets the new content; not comparisons with unrelated games.",
+      "refines": null,
+      "evidence": [
+        "148955972",
+        "159504224",
+        "176634802",
+        "190676412",
+        "192399941",
+        "232110728"
+      ]
+    },
+    {
+      "id": "graphics-card-tier",
+      "label": "Which graphics card you need",
+      "description": "Players naming the card or rig they own and whether it copes, the GPU tier they say you must have, and needing new hardware to play at all; not frame-rate complaints without a hardware frame of reference.",
+      "refines": "compatibility",
+      "evidence": [
+        "148955972",
+        "188447446",
+        "218554455",
+        "226958498",
+        "235023054"
+      ]
+    },
+    {
+      "id": "install-size-and-patches",
+      "label": "Install size and patch downloads",
+      "description": "The footprint of the game, its maps, its updates and its dev kit on disk: patches of many gigabytes that take hours to install, running out of space, and updates for content you do not own; not what the patches change.",
+      "refines": null,
+      "evidence": [
+        "188120753",
+        "205280074",
+        "214846526",
+        "230293685"
+      ]
+    },
+    {
+      "id": "official-versus-community-servers",
+      "label": "Official versus community servers",
+      "description": "Choosing where to play: official servers against unofficial or boosted ones with custom rates and admins, self-hosted dedicated clusters, and adverts for a server; not lag, matchmaking or co-op in general.",
+      "refines": "multiplayer",
+      "evidence": [
+        "153875454",
+        "192827981",
+        "232110728"
+      ]
+    },
+    {
+      "id": "expansion-maps",
+      "label": "Expansion maps and what they add",
+      "description": "The named expansion maps and the headline additions they bring, such as trains, poker and mythological creatures, whether a map is free or paid, and whether the old game gets it too; not how much content the base game holds.",
+      "refines": "content",
+      "evidence": [
+        "162357383",
+        "166886478",
+        "184949693",
+        "188120753",
+        "190676412",
+        "230431514"
+      ]
+    },
+    {
+      "id": "time-sink-and-compulsion",
+      "label": "Time sink and compulsion",
+      "description": "The game swallowing hundreds or thousands of hours and any life outside it, and the love-hate bond of hating it yet being unable to stop; not whether a single session feels immersive or atmospheric.",
+      "refines": "atmosphere",
+      "evidence": [
+        "160243610",
+        "166707076",
+        "177245084",
+        "177282524",
+        "205280074",
+        "232110728"
+      ]
+    }
+  ]
+}

@@ -369,6 +369,8 @@ struct Reading {
     /// read again.
     subjects: Vec<Subject>,
     measured: Option<Measured>,
+    /// Whether this game's labels are in the model's weights, which is why it is not measured.
+    learned: bool,
     /// What the reader scored on games it had never seen. The window says this where the game
     /// on screen has no labels of its own, which is most games anybody will ever open: telling
     /// them only that nothing is measured invites them to distrust everything or to trust
@@ -417,7 +419,7 @@ fn subject_row(
     let top_rate = share_of(subject.top_mention_reviews, found.top_helpful);
     let measured = agreement
         .and_then(|found| found.subjects.iter().find(|s| s.id == subject.id))
-        .filter(|s| s.labelled >= 10);
+        .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_JUDGE_A_ROW);
     let said = found.said.iter().find(|said| said.subject == subject.id);
     Subject {
         id: subject.id.clone(),
@@ -434,9 +436,11 @@ fn subject_row(
             _ => None,
         },
         positive: share_of(subject.positive_mentions, subject.mention_reviews),
-        corrected: measured.and_then(|s| {
-            share_of(subject.claims, found.claims).and_then(|observed| s.corrected(observed))
-        }),
+        corrected: measured
+            .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_CORRECT_A_ROW)
+            .and_then(|s| {
+                share_of(subject.claims, found.claims).and_then(|observed| s.corrected(observed))
+            }),
         found: measured.and_then(steamgauge_core::measure::SubjectAgreement::recall),
         praised_terms: said.map(|said| said.praised.clone()).unwrap_or_default(),
         criticised_terms: said.map(|said| said.criticised.clone()).unwrap_or_default(),
@@ -464,12 +468,16 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
     let found = read_report(&snapshot)?;
     let facts = report::crawl_facts(&dir, app_id).map_err(text)?;
 
-    // The measurement, where this game has labelled claims. A game without them still
-    // renders; it just cannot say how often it is wrong, and the window says that instead.
+    // The measurement, where this game has labelled claims the model never trained on. A game
+    // without them still renders; it just cannot say how often it is wrong, and the window
+    // says that instead. On a game it learned from the model reproduces its labels at 99%,
+    // and that figure would advertise its memory.
     let reference = steamgauge_core::claimset::default_reference_dir(app_id);
-    let agreement = reference
-        .join("labels.json")
-        .is_file()
+    let labelled = reference.join("labels.json").is_file();
+    let learned = labelled
+        && steamgauge_core::measure::role(app_id, steamgauge_core::measure::SPLIT_SEED)
+            == steamgauge_core::measure::Role::Train;
+    let agreement = (labelled && !learned)
         .then(|| steamgauge_core::measure::agreement(&dir, app_id, &reference).ok())
         .flatten();
     let subjects = found
@@ -509,6 +517,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
             .filter(|swept| found.captured_unix < *swept),
         subjects,
         measured,
+        learned,
         frozen: found.frozen,
         months: found
             .months

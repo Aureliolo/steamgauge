@@ -1,0 +1,138 @@
+{
+  "app_id": 1295660,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "age-transitions",
+      "label": "Age transitions and civilisation switching",
+      "description": "The split of a game into ages, the reset and the change of civilisation at each boundary, the race to the next civilisation, and the game ending with the last age; not the pacing of a turn or of combat within an age.",
+      "refines": "gameplay",
+      "evidence": [
+        "188289403",
+        "188939208",
+        "190166257",
+        "192412092",
+        "202700917",
+        "205475026",
+        "210455769",
+        "212559866"
+      ]
+    },
+    {
+      "id": "ui-clutter",
+      "label": "Interface clutter and hidden information",
+      "description": "Pop-ups that keep interrupting, overlapping panels, units and tiles that are hard to spot, and the information the screens fail to surface such as tooltips, data panels and an encyclopaedia that explains mechanics; not keybindings or controller support.",
+      "refines": "controls",
+      "evidence": [
+        "187315268",
+        "187414870",
+        "187442156",
+        "189687046",
+        "210455769",
+        "234414995",
+        "234442035",
+        "234667168",
+        "234678557"
+      ]
+    },
+    {
+      "id": "series-comparison",
+      "label": "Comparison with earlier entries",
+      "description": "Judging this game against the earlier numbered entries in its own series, whether it is a step forward, a step back or a remaster of an older one; not comparisons with other games in the genre.",
+      "refines": "genre",
+      "evidence": [
+        "187710095",
+        "187765299",
+        "194502826",
+        "195128790",
+        "209198171",
+        "216713999",
+        "227463250",
+        "234414995",
+        "234442035"
+      ]
+    },
+    {
+      "id": "unfinished-launch",
+      "label": "Unfinished at launch",
+      "description": "The game having shipped as a paid beta, with features the series had or that were promised missing on day one and players told to wait for patches before it is what it should have been; not how many hours the finished game lasts.",
+      "refines": "content",
+      "evidence": [
+        "187314650",
+        "187722385",
+        "187734401",
+        "187885153",
+        "188054595",
+        "188836533",
+        "210455769",
+        "220775329",
+        "225962959",
+        "234700012"
+      ]
+    },
+    {
+      "id": "data-privacy",
+      "label": "Data collection and privacy terms",
+      "description": "The publisher's terms and what they let it collect from the player's computer, from disk scanning to personal and payment data; not DRM, launchers or region locks.",
+      "refines": "policy",
+      "evidence": [
+        "196895273",
+        "197009912",
+        "197193330"
+      ]
+    },
+    {
+      "id": "diplomacy-war",
+      "label": "Diplomacy and the cost of war",
+      "description": "Diplomacy with other leaders, the diplomatic attribute tree, treaties after a war, and whether acts of war such as dropping a nuclear bomb carry any political consequence; not tactical combat itself.",
+      "refines": "gameplay",
+      "evidence": [
+        "187442156",
+        "187765299",
+        "188157661",
+        "191772966",
+        "232042927"
+      ]
+    },
+    {
+      "id": "leader-roster",
+      "label": "Leader and civilisation roster",
+      "description": "Which leaders and civilisations are available, which are missing or wanted, how many there are, and how the leaders fit the civilisations they lead; not the age-switch mechanic itself.",
+      "refines": null,
+      "evidence": [
+        "188720483",
+        "190166257",
+        "228945822"
+      ]
+    },
+    {
+      "id": "editions-dlc",
+      "label": "Editions and the DLC roll-out",
+      "description": "The tiered editions and pre-order packs, regret over pre-ordering, DLC that arrives piecemeal, and the advice to wait for the complete bundle; not microtransactions or the base price alone.",
+      "refines": "monetisation",
+      "evidence": [
+        "187705081",
+        "187734401",
+        "189918294",
+        "193321501",
+        "220775329",
+        "228945822",
+        "231822028"
+      ]
+    },
+    {
+      "id": "one-more-turn",
+      "label": "One more turn",
+      "description": "The compulsion to keep playing turn after turn until it is the small hours and meals are skipped; not general remarks that the game is fun or entertaining.",
+      "refines": "atmosphere",
+      "evidence": [
+        "187283106",
+        "187401481",
+        "188845745",
+        "190096840"
+      ]
+    }
+  ]
+}

@@ -44,6 +44,16 @@ impl Polarity {
             _ => Self::Neutral,
         }
     }
+
+    /// The polarity a stored reading names, as [`Self::as_str`] wrote it.
+    #[must_use]
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "praise" => Self::Praise,
+            "complaint" => Self::Complaint,
+            _ => Self::Neutral,
+        }
+    }
 }
 
 /// What the model said about one claim.
@@ -133,6 +143,10 @@ pub struct Provenance {
     /// backbone and a label set, so this is the only thing that tells two of them apart.
     #[serde(default)]
     pub run_id: String,
+    /// What the reader is called, for a page to say who read the corpus. A run id names
+    /// weights for the index; a name is what somebody downloads and cites.
+    #[serde(default)]
+    pub name: String,
     /// The share of claims this model declined on games it never saw. A corpus declined at
     /// far above this is a corpus about something the taxonomy lacks, and the only way a
     /// reader of one game's report can know that is if the reader carries the comparison.
@@ -146,6 +160,20 @@ pub struct Provenance {
 }
 
 impl Provenance {
+    /// Reads `reader.json` alone, for the passes that need what the model promised and not
+    /// the model: a recount of stored readings has every answer already.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the file is missing or is not a reader's record.
+    pub fn load(dir: &Path) -> Result<Self> {
+        Ok(serde_json::from_slice(
+            &std::fs::read(dir.join("reader.json")).map_err(|_| Error::NoAnchors {
+                path: dir.join("reader.json"),
+            })?,
+        )?)
+    }
+
     /// The line this subject has to clear, by the model's own class index.
     ///
     /// Infinity where a subject has a line of `None`, so a subject nothing can make reliable
@@ -353,12 +381,7 @@ impl ClaimReader {
     /// refused rather than worked around: a model that learned twenty categories cannot be
     /// asked about twenty-four, and letting it try would move every number silently.
     pub fn load(dir: &Path) -> Result<Self> {
-        let provenance: Provenance =
-            serde_json::from_slice(&std::fs::read(dir.join("reader.json")).map_err(|_| {
-                Error::NoAnchors {
-                    path: dir.join("reader.json"),
-                }
-            })?)?;
+        let provenance = Provenance::load(dir)?;
 
         if !crate::taxonomy::categories_still_mean(&provenance.subjects) {
             return Err(Error::StaleAnchors {

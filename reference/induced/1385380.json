@@ -1,0 +1,113 @@
+{
+  "app_id": 1385380,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "paradox-launcher",
+      "label": "Forced publisher launcher",
+      "description": "The mandatory launcher and extra platform pushed in by an update after the new publisher took over, and resentment of that publisher for it; general DLC pricing or patch complaints belong elsewhere.",
+      "refines": "policy",
+      "evidence": [
+        "134536407",
+        "140532603",
+        "153546690",
+        "153920373",
+        "155204080",
+        "158274506"
+      ]
+    },
+    {
+      "id": "party-composition",
+      "label": "Party composition and the meta",
+      "description": "Which four heroes and roles to field together, the current version's answer, three-protect-one and double-tank setups, and the tedium of building four decks at once; single card or status interactions belong under status stacking.",
+      "refines": "gameplay",
+      "evidence": [
+        "120976567",
+        "121346226",
+        "121716311",
+        "123318038",
+        "134697283",
+        "209312614",
+        "93474268"
+      ]
+    },
+    {
+      "id": "status-stacking",
+      "label": "Status effects and stacking",
+      "description": "Poison, thorns, freeze and buff or debuff stacks as the engine of fights, whether run by the player or suffered from enemies; which heroes to pair belongs under party composition.",
+      "refines": "gameplay",
+      "evidence": [
+        "107343707",
+        "121015844",
+        "131256817",
+        "195370415",
+        "93474268"
+      ]
+    },
+    {
+      "id": "hero-roster",
+      "label": "Hero roster and favourites",
+      "description": "Individual playable heroes named as favourites, their animal and furry designs, and characters players want added as playable; the plot and dialogue belong under story.",
+      "refines": "story",
+      "evidence": [
+        "115570305",
+        "121777912",
+        "122837822",
+        "132031805",
+        "137294679",
+        "185932473"
+      ]
+    },
+    {
+      "id": "notable-enemies",
+      "label": "Enemies and encounters singled out",
+      "description": "Specific enemies, bosses and encounter types called out as unfair, memorable or badly tuned, such as minion spawners, chain-freezing bosses, doubled elites and the final boss; general difficulty talk belongs under difficulty.",
+      "refines": "difficulty",
+      "evidence": [
+        "113328112",
+        "121015844",
+        "121956076",
+        "122665146",
+        "181933028",
+        "201386567"
+      ]
+    },
+    {
+      "id": "meta-progression",
+      "label": "Progression between runs",
+      "description": "What carries over from run to run: hero unlocks, perks and skill trees, growth through failed runs, and losing that accumulated progress; in-run deck growth belongs under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "120756364",
+        "120976567",
+        "162921254",
+        "175544479",
+        "202290219"
+      ]
+    },
+    {
+      "id": "run-length",
+      "label": "Run length and pace",
+      "description": "How long a single run takes, battles that drag against high enemy health late in a run, and wanting a way to speed things up; total hours of content belong under content.",
+      "refines": "content",
+      "evidence": [
+        "126027356",
+        "202418251",
+        "209312614"
+      ]
+    },
+    {
+      "id": "finding-partner",
+      "label": "Finding a co-op partner",
+      "description": "Needing someone to play with and struggling to find them, recruiting teammates or buying a copy for a friend so they will join; how the online play itself works belongs under multiplayer.",
+      "refines": "multiplayer",
+      "evidence": [
+        "128788237",
+        "160755304",
+        "163505406"
+      ]
+    }
+  ]
+}

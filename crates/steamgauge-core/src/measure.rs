@@ -105,6 +105,20 @@ impl SubjectAgreement {
 /// at most ten times its own measurement error, which is already a wide answer.
 const CORRECTABLE_GAP: f64 = 0.1;
 
+/// Labelled claims a subject needs before its recall means anything.
+///
+/// Below this the measurement is a handful of claims and its own interval is wider than any
+/// finding, so calling the row weak would be reading noise back as a warning.
+pub const ENOUGH_TO_JUDGE_A_ROW: u64 = 10;
+
+/// Labelled claims a subject needs before its rate is corrected by what they measure.
+///
+/// The correction divides by the gap between sensitivity and the false-positive rate, and at
+/// a dozen labels that sensitivity carries an interval twenty-five points wide: the corrected
+/// share would move by more than itself between one draw of the labels and the next. A row
+/// with ten labels can be described; it cannot be corrected.
+pub const ENOUGH_TO_CORRECT_A_ROW: u64 = 40;
+
 /// How well the model and the labels agree over one game.
 #[derive(Debug, Clone, Serialize)]
 pub struct ClaimAgreement {

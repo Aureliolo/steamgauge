@@ -1,0 +1,156 @@
+{
+  "app_id": 597180,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "characters-and-dynasty",
+      "label": "Characters, families and succession",
+      "description": "The ruling family as a system: heirs and succession, marriages and kidnapped relatives, relationships between named characters, the portraits that tell them apart and whether you can make your own dynasty rather than pick a preset one; it does not cover the plot of a single event or the factions as nations.",
+      "refines": "gameplay",
+      "evidence": [
+        "125862855",
+        "153880532",
+        "156385033",
+        "189588611",
+        "193037327",
+        "205229654",
+        "206692623",
+        "221563888",
+        "229360342"
+      ]
+    },
+    {
+      "id": "orders-system",
+      "label": "Orders and the action limit per turn",
+      "description": "The pool of orders that caps how many units and actions you can spend each turn, whether it is a clever innovation or a pointless restriction; it does not cover combat or movement rules in general.",
+      "refines": "gameplay",
+      "evidence": [
+        "122542829",
+        "147695991",
+        "193037327",
+        "196065244",
+        "205229654"
+      ]
+    },
+    {
+      "id": "events-system",
+      "label": "Story events and event pop-ups",
+      "description": "The random narrative events and event chains that interrupt each turn, whether their choices matter, whether they repeat across playthroughs and whether the pop-ups engage or merely interrupt; it does not cover the historical setting or the family system as such.",
+      "refines": "story",
+      "evidence": [
+        "147695991",
+        "162315063",
+        "189588611",
+        "195586412",
+        "205229654",
+        "206692623",
+        "207607136",
+        "229138075"
+      ]
+    },
+    {
+      "id": "civ-and-ck-comparison",
+      "label": "Measured against Civilization and Crusader Kings",
+      "description": "Explicit comparison with Sid Meier's Civilization or Crusader Kings, as a Civ-killer, a Civ clone, Civ 4.5, the Civ 6 that should have been or a hybrid of the two; it does not cover 4X genre labels that name no specific game.",
+      "refines": "genre",
+      "evidence": [
+        "116403539",
+        "119720859",
+        "125862855",
+        "127229548",
+        "189092742",
+        "196065244",
+        "203894691",
+        "205229654",
+        "207607136",
+        "210571756",
+        "222702464",
+        "229138075",
+        "230469343",
+        "230477896"
+      ]
+    },
+    {
+      "id": "historical-setting",
+      "label": "The ancient world and historical fidelity",
+      "description": "The ancient Mediterranean as a setting, real figures such as Hypatia and Herodotus, learning history from it and whether the game is true to the period or revises it; it does not cover which nations are missing or how long the era lasts.",
+      "refines": null,
+      "evidence": [
+        "118403504",
+        "147695991",
+        "156385033",
+        "162529001",
+        "162935584",
+        "174370156",
+        "178953365",
+        "205229654",
+        "207607136"
+      ]
+    },
+    {
+      "id": "nations-and-eras",
+      "label": "Which nations and how far in time",
+      "description": "The scope of the roster and the timeline: wishes for India, Armenia or later ages and techs, and whether the narrow era ends too soon or is exactly the focus wanted; it does not cover map count or the setting's authenticity.",
+      "refines": "content",
+      "evidence": [
+        "116265598",
+        "158201209",
+        "196065244",
+        "205229654",
+        "207607136",
+        "218625489"
+      ]
+    },
+    {
+      "id": "late-game-slowdown",
+      "label": "Late-game slowdown",
+      "description": "The game degrading as the turn count climbs, with next-turn waits that stretch out past turn 100 or 200 and crashes late in a campaign even on capable hardware; it does not cover general optimisation complaints with no turn count behind them.",
+      "refines": "performance",
+      "evidence": [
+        "116457341",
+        "153880532",
+        "220274429",
+        "221563888"
+      ]
+    },
+    {
+      "id": "ai-opponent",
+      "label": "The AI opponent",
+      "description": "How the computer players and tribes behave: whether the AI is a real challenge, whether it cheats or has an unfair edge, tribes spawning units and turning hostile, and the monthly AI work on the test branch; it does not cover difficulty settings in the abstract.",
+      "refines": "difficulty",
+      "evidence": [
+        "142160387",
+        "152566229",
+        "161123747",
+        "221563888"
+      ]
+    },
+    {
+      "id": "one-more-turn",
+      "label": "One more turn",
+      "description": "The pull of the next turn: sitting down for a couple of turns and finding it is dawn, twenty minutes before work, a time-eater and a genuine addiction; it does not cover the mood or tension of play itself.",
+      "refines": "atmosphere",
+      "evidence": [
+        "159193285",
+        "160872892",
+        "169199370",
+        "196805652",
+        "229360342"
+      ]
+    },
+    {
+      "id": "pace-of-play",
+      "label": "Pace of play",
+      "description": "How slowly a game unfolds by design: sluggish opening, turns that drag even at maximum speed, not a game for anyone who wants a quick match; it does not cover technical lag or how many hours the game lasts.",
+      "refines": null,
+      "evidence": [
+        "116209213",
+        "127229548",
+        "153880532",
+        "162768644"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "app_id": 2878980,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "shooting-and-dunking",
+      "label": "Shooting and dunking",
+      "description": "How shots and dunks play out on the court: the shot meter, release timing, whether scoring feels fair or impossible, and posterising an opponent; not the wider game systems or the modes.",
+      "refines": "gameplay",
+      "evidence": [
+        "175534262",
+        "188196960",
+        "191264978",
+        "194903035"
+      ]
+    },
+    {
+      "id": "virtual-currency",
+      "label": "Virtual currency and paying to progress",
+      "description": "The in-game currency, buying your player's rating rather than earning it, and the casino-like design that steers every mode towards spending; not the base price of the game.",
+      "refines": "monetisation",
+      "evidence": [
+        "178208238",
+        "182206630",
+        "187235834",
+        "192302051",
+        "194775989"
+      ]
+    },
+    {
+      "id": "career-mode",
+      "label": "Career mode",
+      "description": "The single-player career with a created player, its pre-NBA and dynasty stages, the tasks between games and whether the mode is worth playing; not online park play or the general grind.",
+      "refines": "gameplay",
+      "evidence": [
+        "182602701",
+        "185341047",
+        "194624198",
+        "200488577"
+      ]
+    },
+    {
+      "id": "annual-edition",
+      "label": "Yearly edition versus earlier ones",
+      "description": "Whether this year's release is a reskin of last year's, how it compares with earlier numbered entries and the old-generation version, and whether anything actually changed; not comparisons with other games.",
+      "refines": "genre",
+      "evidence": [
+        "174323172",
+        "174697072",
+        "174928869",
+        "194775989",
+        "201667855",
+        "208131186"
+      ]
+    },
+    {
+      "id": "real-players-and-ratings",
+      "label": "Real players, cover athlete and ratings",
+      "description": "The real players in the game: who was put on the cover, the rosters, favourite players, and whether a player's numeric rating matches how he plays; not whether the licence exists at all.",
+      "refines": "licensing",
+      "evidence": [
+        "175571988",
+        "177649858",
+        "182875469",
+        "199160551",
+        "199396332"
+      ]
+    },
+    {
+      "id": "pc-versus-console",
+      "label": "PC version versus console",
+      "description": "Whether the PC release is treated as an equal to the console one: crossplay with console friends, getting the new-generation version, and the feeling that PC players are an afterthought; not raw performance on a given machine.",
+      "refines": null,
+      "evidence": [
+        "174323172",
+        "182206630",
+        "186466059",
+        "199579043"
+      ]
+    },
+    {
+      "id": "ai-and-referees",
+      "label": "AI players and referees",
+      "description": "The computer-controlled teammates and opponents and the officiating: stupid or inconsistent AI in offline modes and fouls the referees fail to call; not human opponents online.",
+      "refines": "gameplay",
+      "evidence": [
+        "182206630",
+        "200820212",
+        "231391147"
+      ]
+    },
+    {
+      "id": "player-rating-grind",
+      "label": "Grinding your player's rating",
+      "description": "Raising a created player's overall rating through play: how long the climb to the cap takes, daily limits on workouts, and the tedious tasks in between; not paying to skip it, which is the virtual currency row.",
+      "refines": "difficulty",
+      "evidence": [
+        "178208238",
+        "185341047",
+        "186213300",
+        "197196734"
+      ]
+    }
+  ]
+}

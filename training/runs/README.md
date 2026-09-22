@@ -12,14 +12,14 @@ points of coverage, so a gap smaller than that is not a finding.
 
 | run | encoder | what it changed | labels | label set | answers | at accuracy | macro F1 |
 |---|---|---|---:|---|---:|---:|---:|
-| alone-256 | gte-multilingual-base | max length 256, context unrecorded | 12523 | `8d9da611` | 54.4% | 75.1% | 0.566 |
+| alone-256 | gte-multilingual-base | max length 256, no context | 12523 | `8d9da611` | 54.4% | 75.1% | 0.566 |
 | amb02 | gte-multilingual-base | ambiguous weight 0.2 | 12523 | `8d9da611` | 68.1% | 75.5% | 0.634 |
 | amb05 | gte-multilingual-base | ambiguous weight 0.5 | 12523 | `8d9da611` | 66.4% | 75.0% | 0.632 |
 | amb05cut05 | gte-multilingual-base | ambiguous weight 0.5, split wrong weight 0.5 | 12523 | `8d9da611` | 66.1% | 75.1% | 0.632 |
-| bakeoff-Alibaba-NLP-gte-multilingual-base | gte-multilingual-base | context unrecorded | 5494 | `f06e7881` | 34.1% | 75.5% | 0.449 |
-| bakeoff-intfloat-multilingual-e5-base | multilingual-e5-base | context unrecorded | 5494 | `f06e7881` | 32.1% | 75.2% | 0.423 |
-| bakeoff-microsoft-mdeberta-v3-base | mdeberta-v3-base | context unrecorded | 5494 | `f06e7881` | 16.1% | 76.0% | 0.276 |
-| bakeoff-xlm-roberta-base | xlm-roberta-base | context unrecorded | 5494 | `f06e7881` | 23.4% | 75.6% | 0.375 |
+| bakeoff-Alibaba-NLP-gte-multilingual-base | gte-multilingual-base | no context | 5494 | `f06e7881` | 34.1% | 75.5% | 0.449 |
+| bakeoff-intfloat-multilingual-e5-base | multilingual-e5-base | no context | 5494 | `f06e7881` | 32.1% | 75.2% | 0.423 |
+| bakeoff-microsoft-mdeberta-v3-base | mdeberta-v3-base | no context | 5494 | `f06e7881` | 16.1% | 76.0% | 0.276 |
+| bakeoff-xlm-roberta-base | xlm-roberta-base | no context | 5494 | `f06e7881` | 23.4% | 75.6% | 0.375 |
 | bal03 | gte-multilingual-base | balance 0.3 | 12523 | `8d9da611` | 55.2% | 75.2% | 0.612 |
 | bal05 | gte-multilingual-base | balance 0.5 | 12523 | `8d9da611` | 47.2% | 75.7% | 0.605 |
 | bal07 | gte-multilingual-base | balance 0.7 | 12523 | `8d9da611` | 42.4% | 75.0% | 0.581 |
@@ -27,44 +27,55 @@ points of coverage, so a gap smaller than that is not a finding.
 | bgem3 | bge-m3 | learning rate 3e-5 | 12523 | `8d9da611` | 75.0% | 75.2% | 0.650 |
 | bs16 | gte-multilingual-base | batch size 16 | 12523 | `8d9da611` | 68.1% | 75.1% | 0.611 |
 | bs64 | gte-multilingual-base | batch size 64 | 12523 | `8d9da611` | 54.3% | 75.2% | 0.619 |
-| ctx-256 | gte-multilingual-base | max length 256, context unrecorded | 12523 | `8d9da611` | 66.2% | 75.1% | 0.616 |
+| ctx-256 | gte-multilingual-base | max length 256, no context | 12523 | `8d9da611` | 66.2% | 75.1% | 0.616 |
 | ctx-96 | gte-multilingual-base | max length 96 | 12523 | `8d9da611` | 57.4% | 75.5% | 0.571 |
-| curve-12 | gte-multilingual-base | context unrecorded | 6483 | `f577ab6a` | 39.3% | 75.2% | 0.510 |
-| curve-18 | gte-multilingual-base | context unrecorded | 9551 | `f577ab6a` | 49.2% | 75.1% | 0.547 |
-| curve-24 | gte-multilingual-base | context unrecorded | 12523 | `f577ab6a` | 51.8% | 75.6% | 0.560 |
-| curve-6 | gte-multilingual-base | context unrecorded | 3176 | `f577ab6a` | 23.0% | 75.0% | 0.384 |
+| curve-12 | gte-multilingual-base | no context | 6483 | `f577ab6a` | 39.3% | 75.2% | 0.510 |
+| curve-18 | gte-multilingual-base | no context | 9551 | `f577ab6a` | 49.2% | 75.1% | 0.547 |
+| curve-24 | gte-multilingual-base | no context | 12523 | `f577ab6a` | 51.8% | 75.6% | 0.560 |
+| curve-6 | gte-multilingual-base | no context | 3176 | `f577ab6a` | 23.0% | 75.0% | 0.384 |
 | cut05 | gte-multilingual-base | split wrong weight 0.5 | 12523 | `8d9da611` | 63.9% | 75.0% | 0.634 |
-| cv-e5-25481-0 | multilingual-e5-large | the usual settings | 24214 | `431de257` | 91.2% | 75.2% | 0.660 |
-| cv-e5-25481-1 | multilingual-e5-large | the usual settings | 23668 | `431de257` | 95.9% | 75.1% | 0.697 |
-| cv-e5-25481-2 | multilingual-e5-large | the usual settings | 24446 | `431de257` | 89.3% | 75.1% | 0.706 |
-| cv-e5-25481-3 | multilingual-e5-large | the usual settings | 25014 | `431de257` | 86.0% | 75.0% | 0.664 |
-| cv-e5-25481-4 | multilingual-e5-large | the usual settings | 23214 | `431de257` | 85.2% | 75.1% | 0.680 |
-| cv-e5-27681-0 | multilingual-e5-large | the usual settings | 26014 | `8a01195c` | 85.7% | 75.2% | 0.648 |
-| cv-e5-27681-1 | multilingual-e5-large | the usual settings | 25468 | `8a01195c` | 91.2% | 75.1% | 0.685 |
-| cv-e5-27681-2 | multilingual-e5-large | the usual settings | 26146 | `8a01195c` | 84.1% | 75.2% | 0.692 |
-| cv-e5-27681-3 | multilingual-e5-large | the usual settings | 26814 | `8a01195c` | 82.3% | 75.1% | 0.651 |
-| cv-e5-27681-4 | multilingual-e5-large | the usual settings | 24914 | `8a01195c` | 80.1% | 75.3% | 0.675 |
-| cv-e5-27881-weighted-0 | multilingual-e5-large | the usual settings | 26214 | `8887cdbc` | 86.3% | 75.3% | 0.648 |
-| cv-e5-27881-weighted-1 | multilingual-e5-large | the usual settings | 25668 | `8887cdbc` | 90.7% | 75.1% | 0.678 |
-| cv-e5-27881-weighted-2 | multilingual-e5-large | the usual settings | 26246 | `8887cdbc` | 83.4% | 75.0% | 0.686 |
-| cv-e5-27881-weighted-3 | multilingual-e5-large | the usual settings | 26914 | `8887cdbc` | 81.3% | 75.0% | 0.645 |
-| cv-e5-27881-weighted-4 | multilingual-e5-large | the usual settings | 25114 | `8887cdbc` | 79.8% | 75.1% | 0.670 |
-| cv-e5-29006-0 | multilingual-e5-large | the usual settings | 27194 | `2871969f` | 86.4% | 75.2% | 0.647 |
-| cv-e5-29006-1 | multilingual-e5-large | the usual settings | 26782 | `2871969f` | 91.6% | 75.1% | 0.674 |
-| cv-e5-29006-2 | multilingual-e5-large | the usual settings | 27096 | `2871969f` | 82.0% | 75.1% | 0.689 |
-| cv-e5-29006-3 | multilingual-e5-large | the usual settings | 27724 | `2871969f` | 84.9% | 75.1% | 0.658 |
-| cv-e5-29006-4 | multilingual-e5-large | the usual settings | 26204 | `2871969f` | 79.0% | 75.0% | 0.662 |
-| cv5-0 | multilingual-e5-large | learning rate 3e-5 | 11889 | `8d9da611` | 99.6% | 75.0% | 0.716 |
-| cv5-1 | multilingual-e5-large | learning rate 3e-5 | 12175 | `8d9da611` | 80.4% | 75.3% | 0.580 |
-| cv5-2 | multilingual-e5-large | learning rate 3e-5 | 11530 | `8d9da611` | 73.9% | 75.2% | 0.642 |
-| cv5-3 | multilingual-e5-large | learning rate 3e-5 | 13268 | `8d9da611` | 91.9% | 75.2% | 0.626 |
-| cv5-4 | multilingual-e5-large | learning rate 3e-5 | 11690 | `8d9da611` | 83.6% | 75.2% | 0.658 |
+| cv-e5-25481-0 | multilingual-e5-large | fold 0 | 24214 | `431de257` | 91.2% | 75.2% | 0.660 |
+| cv-e5-25481-1 | multilingual-e5-large | fold 1 | 23668 | `431de257` | 95.9% | 75.1% | 0.697 |
+| cv-e5-25481-2 | multilingual-e5-large | fold 2 | 24446 | `431de257` | 89.3% | 75.1% | 0.706 |
+| cv-e5-25481-3 | multilingual-e5-large | fold 3 | 25014 | `431de257` | 86.0% | 75.0% | 0.664 |
+| cv-e5-25481-4 | multilingual-e5-large | fold 4 | 23214 | `431de257` | 85.2% | 75.1% | 0.680 |
+| cv-e5-27681-0 | multilingual-e5-large | fold 0 | 26014 | `8a01195c` | 85.7% | 75.2% | 0.648 |
+| cv-e5-27681-1 | multilingual-e5-large | fold 1 | 25468 | `8a01195c` | 91.2% | 75.1% | 0.685 |
+| cv-e5-27681-2 | multilingual-e5-large | fold 2 | 26146 | `8a01195c` | 84.1% | 75.2% | 0.692 |
+| cv-e5-27681-3 | multilingual-e5-large | fold 3 | 26814 | `8a01195c` | 82.3% | 75.1% | 0.651 |
+| cv-e5-27681-4 | multilingual-e5-large | fold 4 | 24914 | `8a01195c` | 80.1% | 75.3% | 0.675 |
+| cv-e5-27881-weighted-0 | multilingual-e5-large | language balance 0.3, fold 0 | 26214 | `8887cdbc` | 86.3% | 75.3% | 0.648 |
+| cv-e5-27881-weighted-1 | multilingual-e5-large | language balance 0.3, fold 1 | 25668 | `8887cdbc` | 90.7% | 75.1% | 0.678 |
+| cv-e5-27881-weighted-2 | multilingual-e5-large | language balance 0.3, fold 2 | 26246 | `8887cdbc` | 83.4% | 75.0% | 0.686 |
+| cv-e5-27881-weighted-3 | multilingual-e5-large | language balance 0.3, fold 3 | 26914 | `8887cdbc` | 81.3% | 75.0% | 0.645 |
+| cv-e5-27881-weighted-4 | multilingual-e5-large | language balance 0.3, fold 4 | 25114 | `8887cdbc` | 79.8% | 75.1% | 0.670 |
+| cv-e5-29006-0 | multilingual-e5-large | fold 0 | 27194 | `2871969f` | 86.4% | 75.2% | 0.647 |
+| cv-e5-29006-1 | multilingual-e5-large | fold 1 | 26782 | `2871969f` | 91.6% | 75.1% | 0.674 |
+| cv-e5-29006-2 | multilingual-e5-large | fold 2 | 27096 | `2871969f` | 82.0% | 75.1% | 0.689 |
+| cv-e5-29006-3 | multilingual-e5-large | fold 3 | 27724 | `2871969f` | 84.9% | 75.1% | 0.658 |
+| cv-e5-29006-4 | multilingual-e5-large | fold 4 | 26204 | `2871969f` | 79.0% | 75.0% | 0.662 |
+| cv5-0 | multilingual-e5-large | learning rate 3e-5, fold 0 | 11889 | `8d9da611` | 99.6% | 75.0% | 0.716 |
+| cv5-1 | multilingual-e5-large | learning rate 3e-5, fold 1 | 12175 | `8d9da611` | 80.4% | 75.3% | 0.580 |
+| cv5-2 | multilingual-e5-large | learning rate 3e-5, fold 2 | 11530 | `8d9da611` | 73.9% | 75.2% | 0.642 |
+| cv5-3 | multilingual-e5-large | learning rate 3e-5, fold 3 | 13268 | `8d9da611` | 91.9% | 75.2% | 0.626 |
+| cv5-4 | multilingual-e5-large | learning rate 3e-5, fold 4 | 11690 | `8d9da611` | 83.6% | 75.2% | 0.658 |
 | e5-12523 | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 82.8% | 75.0% | 0.660 |
 | e5-25481 | multilingual-e5-large | the usual settings | 25481 | `431de257` | 87.0% | 75.3% | 0.636 |
 | e5-27681 | multilingual-e5-large | the usual settings | 27681 | `8a01195c` | 88.6% | 75.1% | 0.649 |
 | e5-27881 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 86.8% | 75.2% | 0.625 |
-| e5-27881-weighted | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 87.5% | 75.0% | 0.631 |
+| e5-27881-weighted | multilingual-e5-large | language balance 0.3 | 27881 | `8887cdbc` | 87.5% | 75.0% | 0.631 |
 | **e5-29006** (ships) | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 90.3% | 75.0% | 0.646 |
+| e5-29006-distil-s1 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 89.8% | 75.2% | 0.647 |
+| e5-29006-ema-s1 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 88.4% | 75.0% | 0.642 |
+| e5-29006-ema-s2 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 87.6% | 75.1% | 0.621 |
+| e5-29006-ema-s3 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 88.1% | 75.2% | 0.646 |
+| e5-29006-ep7 | multilingual-e5-large | epochs 7 | 29006 | `2871969f` | 90.2% | 75.0% | 0.641 |
+| e5-29006-lr3e5 | multilingual-e5-large | learning rate 3e-5 | 29006 | `2871969f` | 89.2% | 75.1% | 0.628 |
+| e5-29006-rdrop | multilingual-e5-large | rdrop 1.0 | 29006 | `2871969f` | 91.1% | 75.1% | 0.635 |
+| e5-29006-s2 | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 87.7% | 75.2% | 0.620 |
+| e5-29006-s3 | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 89.0% | 75.0% | 0.643 |
+| e5inst-distil-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.2% | 75.2% | 0.653 |
+| e5inst-ema-29006 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 92.0% | 75.0% | 0.634 |
 | e5large | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.9% | 75.1% | 0.669 |
 | e5large-ep3 | multilingual-e5-large | epochs 3 | 12523 | `8d9da611` | 78.2% | 75.3% | 0.656 |
 | e5large-instruct | multilingual-e5-large-instruct | learning rate 3e-5 | 12523 | `8d9da611` | 83.2% | 75.2% | 0.671 |
@@ -83,10 +94,11 @@ points of coverage, so a gap smaller than that is not a finding.
 | epochs-7 | multilingual-e5-large | epochs 7 | 27881 | `8887cdbc` | 90.6% | 75.0% | 0.654 |
 | granite-r2 | granite-embedding-311m-multilingual-r2 | learning rate 5e-5 | 12523 | `8d9da611` | 65.3% | 75.2% | 0.566 |
 | gte-12523 | gte-multilingual-base | learning rate 5e-5 | 12523 | `8d9da611` | 75.3% | 75.0% | 0.636 |
-| gte-12523-newsheet | gte-multilingual-base | context unrecorded | 12523 | `f577ab6a` | 53.7% | 75.1% | 0.550 |
-| gte-5988 | gte-multilingual-base | context unrecorded | 5988 | `8e89a2c2` | 31.9% | 75.5% | 0.437 |
-| gte-7579 | gte-multilingual-base | context unrecorded | 7579 | `6dde3985` | 38.6% | 75.7% | 0.476 |
-| gte-8751 | gte-multilingual-base | context unrecorded | 8751 | `4bdcc46c` | 44.1% | 75.5% | 0.500 |
+| gte-12523-newsheet | gte-multilingual-base | no context | 12523 | `f577ab6a` | 53.7% | 75.1% | 0.550 |
+| gte-5988 | gte-multilingual-base | no context | 5988 | `8e89a2c2` | 31.9% | 75.5% | 0.437 |
+| gte-7579 | gte-multilingual-base | no context | 7579 | `6dde3985` | 38.6% | 75.7% | 0.476 |
+| gte-8751 | gte-multilingual-base | no context | 8751 | `4bdcc46c` | 44.1% | 75.5% | 0.500 |
+| harrier06-last-29006 | harrier-oss-v1-0.6b | learning rate 1e-5, pooling last | 29006 | `2871969f` | 78.5% | 75.2% | 0.583 |
 | lr1e4 | gte-multilingual-base | learning rate 1e-4 | 12523 | `8d9da611` | 73.3% | 75.2% | 0.639 |
 | lr1e5 | gte-multilingual-base | learning rate 1e-5 | 12523 | `8d9da611` | 47.8% | 75.8% | 0.584 |
 | lr3e5 | gte-multilingual-base | learning rate 3e-5 | 12523 | `8d9da611` | 70.4% | 75.1% | 0.632 |
@@ -99,10 +111,12 @@ points of coverage, so a gap smaller than that is not a finding.
 | mark192 | gte-multilingual-base | max length 192, mark True | 12523 | `8d9da611` | 63.4% | 75.3% | 0.628 |
 | mmbert-base | mmBERT-base | learning rate 5e-5 | 12523 | `8d9da611` | 70.2% | 75.2% | 0.598 |
 | mmbert-small | mmBERT-small | learning rate 5e-5 | 12523 | `8d9da611` | 59.0% | 75.2% | 0.560 |
-| pilot-2 | xlm-roberta-base | epochs 6, context unrecorded | 1629 | `15619efd` | - | - | - |
-| pilot-xlmr | xlm-roberta-base | batch size 16, context unrecorded | 430 | `6bc3a9a4` | - | - | - |
+| pilot-2 | xlm-roberta-base | epochs 6, no context | 1629 | `15619efd` | - | - | - |
+| pilot-xlmr | xlm-roberta-base | batch size 16, no context | 430 | `6bc3a9a4` | - | - | - |
 | pol02 | gte-multilingual-base | polarity weight 0.2 | 12523 | `8d9da611` | 63.3% | 75.0% | 0.620 |
 | pol10 | gte-multilingual-base | polarity weight 1.0 | 12523 | `8d9da611` | 59.7% | 75.3% | 0.627 |
+| qwen3e06-29006 | Qwen3-Embedding-0.6B | the usual settings | 29006 | `2871969f` | 77.4% | 75.1% | 0.616 |
+| qwen3e06-last-29006 | Qwen3-Embedding-0.6B | learning rate 1e-5, pooling last | 29006 | `2871969f` | 82.0% | 75.1% | 0.612 |
 | seed-2 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 88.1% | 75.1% | 0.637 |
 | seed-3 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 88.3% | 75.2% | 0.646 |
 | seed-4 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 88.8% | 75.1% | 0.643 |
@@ -120,8 +134,8 @@ points of coverage, so a gap smaller than that is not a finding.
 | window-256-seed-3 | multilingual-e5-large | max length 256 | 27881 | `8887cdbc` | 89.6% | 75.2% | 0.660 |
 | window-256-seed-4 | multilingual-e5-large | max length 256 | 27881 | `8887cdbc` | 90.6% | 75.1% | 0.647 |
 | window-256-seed-5 | multilingual-e5-large | max length 256 | 27881 | `8887cdbc` | 92.5% | 75.1% | 0.657 |
-| xlmr-2725 | xlm-roberta-base | epochs 6, context unrecorded | 2725 | `7deb903e` | - | - | - |
-| xlmr-3047 | xlm-roberta-base | epochs 4, context unrecorded | 3047 | `49697fd4` | 23.9% | 75.6% | 0.320 |
-| xlmr-4566 | xlm-roberta-base | epochs 4, context unrecorded | 4566 | `3b96f2b5` | 17.8% | 75.7% | 0.330 |
-| xlmr-5988 | xlm-roberta-base | context unrecorded | 5988 | `8e89a2c2` | 22.2% | 75.3% | 0.373 |
+| xlmr-2725 | xlm-roberta-base | epochs 6, no context | 2725 | `7deb903e` | - | - | - |
+| xlmr-3047 | xlm-roberta-base | epochs 4, no context | 3047 | `49697fd4` | 23.9% | 75.6% | 0.320 |
+| xlmr-4566 | xlm-roberta-base | epochs 4, no context | 4566 | `3b96f2b5` | 17.8% | 75.7% | 0.330 |
+| xlmr-5988 | xlm-roberta-base | no context | 5988 | `8e89a2c2` | 22.2% | 75.3% | 0.373 |
 | xlmr-large | xlm-roberta-large | learning rate 3e-5 | 12523 | `8d9da611` | 78.0% | 75.2% | 0.601 |

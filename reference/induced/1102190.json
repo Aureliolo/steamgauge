@@ -1,0 +1,116 @@
+{
+  "app_id": 1102190,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "clans-and-champions",
+      "label": "Clans and champions",
+      "description": "Which clan or champion a player runs, how the clans differ from one another, which is strongest or weakest and wants a buff, random clan selection, and wanting more of them; not general remarks that the game is a deckbuilder.",
+      "refines": "gameplay",
+      "evidence": [
+        "117523310",
+        "155805608",
+        "206090332",
+        "70043370",
+        "70573526",
+        "71552644",
+        "89984695",
+        "96119412",
+        "98891143"
+      ]
+    },
+    {
+      "id": "builds-and-keywords",
+      "label": "Builds and card keywords",
+      "description": "A named build or card keyword a run is put together around, such as frostbite, multistrike, thorns stacking or kill triggers, and whether it carries a run; not which clan was picked in itself.",
+      "refines": "gameplay",
+      "evidence": [
+        "194282384",
+        "70393531",
+        "70573526",
+        "89984695"
+      ]
+    },
+    {
+      "id": "covenant-ladder",
+      "label": "Covenant ranks and unlock progression",
+      "description": "The ladder of covenant difficulty ranks opened after a win and the clan levels and card unlocks that persist between runs, including their being lost or blocked; not a one-off complaint that a fight is too hard.",
+      "refines": "difficulty",
+      "evidence": [
+        "70573526",
+        "71832822",
+        "96119412",
+        "98653521"
+      ]
+    },
+    {
+      "id": "one-more-run",
+      "label": "One more run",
+      "description": "The pull to start another run straight after the last one, staying up past midnight, sinking twenty hours in two days and being unable to put it down; not a plain statement that the game is fun.",
+      "refines": "atmosphere",
+      "evidence": [
+        "114539863",
+        "124030407",
+        "131533890",
+        "152785580",
+        "69730045",
+        "69735467",
+        "69874678",
+        "70927772",
+        "71704137",
+        "75583923"
+      ]
+    },
+    {
+      "id": "train-premise",
+      "label": "Train premise and puns",
+      "description": "The game being set on a train and the jokes that invites: choo choo, all aboard, driving the train, passengers on board, a train-shaped take on tower climbing; not the story told along the way.",
+      "refines": null,
+      "evidence": [
+        "106987368",
+        "127490184",
+        "156946918",
+        "69722026",
+        "71271348",
+        "76719096"
+      ]
+    },
+    {
+      "id": "bosses-and-enemies",
+      "label": "Bosses and the enemy roster",
+      "description": "The angels, seraphs and named bosses that board the train, what particular enemies do, and how hard the late waves and bosses hit; not the player's own units or decks.",
+      "refines": "gameplay",
+      "evidence": [
+        "127495476",
+        "188417518",
+        "70573526",
+        "78060107",
+        "82572984"
+      ]
+    },
+    {
+      "id": "streamers-and-videos",
+      "label": "Streamers and videos",
+      "description": "Coming to the game because a streamer or YouTuber played it, or telling others to watch videos of it before judging; not the reviewer's own verdict on the game.",
+      "refines": null,
+      "evidence": [
+        "69557935",
+        "70280784",
+        "88091429"
+      ]
+    },
+    {
+      "id": "run-length",
+      "label": "Run length",
+      "description": "How long a single run takes, whether runs or the game feel short, and whether a short run makes it easier to go again; not how many hours the game lasts overall or how much content there is.",
+      "refines": "content",
+      "evidence": [
+        "80080804",
+        "80365450",
+        "96119412"
+      ]
+    }
+  ]
+}

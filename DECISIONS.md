@@ -2595,6 +2595,173 @@ card and `reader.json` carry the name, the run id stays the run id, and a publis
 will number it. Nothing is published: the pin in `reader.rs` is empty, and that is the user's
 step.
 
+### Every set has now been read twice in part, and the figure did not move
+
+Settled the night of 2026-09-21 to 22, while the user was away with a mandate to make the
+reader the best it can be and to keep one second-reading agent running throughout. The 21
+sets that still had no second reading got one, a tenth of each drawn by `second-opinion` and
+read blind by Opus in seven sittings of one agent each: 504230, 546560, 620980, 629730, 690790,
+774361, 916440, 920210, 949230, 990080, 438100, 1222670, 1248130, 1372880, 1449850, 1517290,
+1665460, 1888930, 2338770, 2399830, 2878980. Pooled over every set, **2,976 claims read twice:
+subject 86.5% at kappa 0.85, polarity 94.2% at 0.91**, contested 75.6% at 0.48 with the first
+labeller flagging 30.6% and the second 42.8%; on the 1,521 claims neither flagged they agree on
+the subject 98.9% of the time, on the 1,455 either flagged, 73.6%. The commonest split is still
+`difficulty` against `gameplay`, 33 claims. Ten games, thirty, fifty-one: the figures have not
+moved by a point, which is what a stable sheet looks like from outside.
+
+**Every captured game now has its own rows.** Opus reads a 120-review handout per game
+(`distinct`) and names what the sheet has no row for; each answer goes through
+`ingest-induced`, which refuses a subject with fewer than three cited reviews. The 36 games
+that had review embeddings were handed out through the night; the 16 that had none were
+embedded once the training sweep left the card (a review-level pass over 2.2 million reviews
+took 36 minutes on a free card, against six for one game of 23,000 beside a training run),
+handed out and read the same way. 52 games, 432 induced subjects, every one of them kept by
+the ingest: not a single agent cited a review that did not raise its subject. The two
+remaining app ids have nothing to read: 5126340 has no capture and 5181900 one review.
+
+### The report was scoring the model on its own homework, and a third of its Chinese was not words
+
+Settled 2026-09-22, from reading the reports with the user's "fix what is wrong" in hand.
+Three things were wrong, and one thing made fixing them affordable.
+
+**A training game was scored against its own labels.** The page measured every game with a
+reference set against that set, and 37 of the 51 are games the model trained on, where it
+reproduces the labels at 98.8% (1272080: 504 answered, 98.8% agreement, macro F1 0.981). The
+page printed that as the game's agreement figure, drew per-row precision and recall from it,
+and corrected the row's prevalence by errors measured on claims the model had memorised. A
+game whose role is `Train` now carries `Measurement::Learned`: no figure, no per-row
+measurement, no correction, and the note says the labels are in the weights and quotes the
+out-of-fold figure instead, as an unlabelled game's note does. Validation games keep their
+figure, since the shipped weights never trained on them.
+
+**A row was corrected from a dozen labels.** The correction divides the observed share by the
+gap between sensitivity and false-positive rate, and it ran from ten labelled claims, where
+sensitivity carries a twenty-five-point interval; the text then called it "an estimate from a
+few hundred labels". Forty labels is the floor now, and the sentence prints the count.
+
+**Chinese was cut into pairs of characters, and a pair that straddles two words is not a
+word.** 操作手感 ("the feel of the controls") came out as 作手; the controls row showed 作手,
+作感, 作很, 作简, all halves of 操作 glued to what followed it. Chinese is a quarter of the
+library. Runs of Chinese now go through a dictionary (`jieba-rs`, MIT, with 72 words of the
+trade added because a general dictionary reads 掉帧 as "drop" and "frame"); a lone character
+is heard only in the pair it makes with what came before, two lone characters in a row are a
+word the dictionary lacks, and modifiers stack so 不太友好 keeps its "not". Japanese and Korean
+stay as pairs of characters, joined back into runs, because there is no dictionary for them
+here. On 1057090 the performance complaints went from `优化 掉帧 卡顿 化不 化问 化有` to
+`优化 掉帧 卡顿`, difficulty from `不友 全成 好难` to `不友好 全成就 好难 蜘蛛`, content from
+`性很 富了 容丰` to `内容丰富 意犹未尽 不够玩`.
+
+**What made it affordable: `steamgauge recount`.** Everything the page shows is added up
+during the reading, and until tonight a change to the adding up meant reading the library
+again, four hours and forty-eight minutes of the card. The answers had not changed. The
+recount replays `readings.parquet` through the same counting a reading goes through, writes
+`reading.json`, never rewrites the readings, and refuses if this build cuts a review
+differently from the build that read it (the claim and unanswered counts must match the
+reading's) or the reader named is not the one that answered (the lines fingerprint must
+match). The 53 games recounted in about seven minutes, every one reconciling.
+
+Korean went the other way from Chinese: it is written with spaces, so a word is what sits
+between them with its particle (이, 은, 을, 에서) and its verb ending (했습니다, 하고) taken
+off, from two short lists. That trades 환불 counted inside every inflection for 환불 counted
+as a word (68 reviews became 34 on 1778820), and fragments like 워야 and 하지 for nothing at
+all. A morphological analyser would do both; there is none here, and Korean is under four
+percent of the library.
+
+### A night of training experiments, and what each was worth
+
+Settled 2026-09-22, from the sweep that ran while the user was away, on the e5-29006 labels
+(27,194 training claims, 6,556 validation, 5,423 frozen). Every run below is
+`sweep.py --fingerprint 2871969fd84a8278 --against e5-29006`; the seed spread of the shipped
+configuration is the bar, and three seeds put it at 2.6 points of validation coverage and
+under a point of frozen accuracy. The research behind the list is the reader-improvement
+survey in the session scratchpad, ranked by expected gain per hour of the card.
+
+| run | what it changed | validation answers at 75% | frozen answers | frozen accuracy | frozen AURC |
+|---|---|---|---|---|---|
+| e5-29006 | the baseline, seed 1 | 90.3% | 91.9% | 77.1% | 0.101 |
+| e5-29006-s2 | seed 2 | 87.7% | 89.9% | 78.0% | 0.103 |
+| e5-29006-s3 | seed 3 | 89.0% | 90.1% | 77.6% | 0.103 |
+| e5-29006-lr3e5 | learning rate 3e-5 | 89.2% | 90.5% | 78.0% | 0.101 |
+| e5-29006-ep7 | 7 epochs | 90.2% | 92.3% | 77.2% | 0.102 |
+| e5-29006-ema-s1..s3 | 10 epochs, EMA 0.999, layer-wise decay 0.9 | 88.4, 87.6, 88.1% | 89.7, 89.2, 90.0% | 77.8, 78.4, 77.7% | 0.106, 0.104, 0.104 |
+| qwen3e06-29006 | Qwen3-Embedding-0.6B, mean pooling | 77.4% | 79.7% | 77.2% | 0.132 |
+| qwen3e06-last-29006 | Qwen3-Embedding-0.6B, last-token pooling | 82.0% | 83.1% | 77.6% | 0.120 |
+| harrier06-last-29006 | Harrier 0.6B, last-token pooling | 78.5% | 79.7% | 78.4% | 0.126 |
+| e5-29006-distil-s1 | the EMA schedule plus a 247k-claim pool taught by the three EMA seeds | 89.8% | 90.8% | 77.9% | 0.097 |
+| e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
+| e5-29006-rdrop | R-Drop at 1.0, the shipped schedule | 91.1% | 92.9% | 77.8% | 0.097 |
+| e5inst-distil-s1 | e5-large-instruct, the EMA schedule, the pool | 91.2% | 92.8% | 77.7% | 0.096 |
+
+**Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
+and the stabilised schedule the survey ranked first (an exponential average of the weights,
+layer-wise rate decay, ten epochs) all land inside the seed spread; the EMA runs sit at the
+low edge of coverage with a slightly worse AURC, which is what averaging a run that has
+memorised its labels into one that has not looks like. The configuration is at the floor of
+what these labels can teach an e5-large, and the floor is flat.
+
+**A decoder read by its last token is better than the same decoder read by its mean, and
+still worse than the encoder.** Qwen3-Embedding-0.6B mean-pooled answered 77% where e5-large
+answers 90%; by its last token, the way it was trained, 82%, and Harrier 0.6B by its last
+token 80% at 78.4% on the frozen games. The gap is the causal mask: only the last token has
+seen the whole claim. Neither is a candidate at this size.
+
+**Distillation is the one thing that moved, and it moved by about the noise.** The three EMA
+seeds read 250,668 unlabelled claims drawn from the training games (`export-pool`, 2,500
+reviews a game, nothing any reference set holds) and agreed on 85.7% of them; a student of
+the same configuration learned their averaged distributions beside the labels, one pool batch
+per labelled batch. It lands at 89.8% validation coverage against its teachers' 88.4, 87.6 and
+88.1, and on the frozen games at 90.8% answered at 77.9% with the best AURC of the night,
+0.097 against 0.101 for the shipped run and 0.104 to 0.106 for its teachers. That is a point
+and a half over the runs it learned from and inside the spread of the runs it did not, at
+four and a half times the training time. Worth a second seed and a bigger pool before it is
+called an improvement; not worth shipping on one run.
+
+**The instruction-tuned e5 answers the most of anything trained tonight.** On the same EMA
+schedule as its sibling, `multilingual-e5-large-instruct` answers 92.0% of validation claims
+where the plain e5 on that schedule answers 88.4, and 92.9% of frozen claims at 77.4% where
+the shipped run answers 91.9% at 77.1%: three and a half points over its like-for-like
+sibling, one point over the best plain seed, with a lower validation macro F1 (0.634 against
+0.646) and the same frozen one. One seed, at the edge of the spread. The two findings point
+the same way, and they stack: the next round is e5-large-instruct with the pool, on three
+seeds, and if that clears the bar it goes through the folds and ships.
+
+**R-Drop is the third small positive, and the cheapest.** Each batch through the dropout
+twice and the two answers charged for disagreeing (`--rdrop 1.0`, with `--accumulate 2` to
+keep the card's memory where it was): 91.1% validation coverage, 92.9% frozen at 77.8%, the
+best frozen macro F1 of the night at 0.697 and an AURC of 0.097 tying the student's, for
+twice the passes. One seed, on the good side of every figure and inside the spread on each.
+It belongs in the next round's configuration beside the pool.
+
+**Stacked, they hold.** The instruction-tuned e5 learning the pool on the EMA schedule
+(`e5inst-distil-s1`) is the best-rounded run of the night: 91.2% validation coverage with
+the best validation macro F1 (0.653) and AURC (0.113) of anything trained, and on the frozen
+games 92.8% answered at 77.7%, macro F1 0.682, AURC 0.096, the lowest of all. Each gain on
+its own is a point or two and inside the spread; that the same configuration leads on
+coverage, macro F1 and AURC at once, on validation and frozen alike, is what a real but small
+improvement looks like from one seed. **The next round is this configuration with R-Drop, on
+three seeds; if the three hold the lead, it goes through the five folds, is exported, and
+replaces `e5-29006`.** About seven hours of the card.
+
+**Masked-language pretraining did not run.** The logits over a 250k-word vocabulary at 32
+reviews of 256 tokens are eight gigabytes on their own, and the card had the fine-tune's
+allocator beside them; it is queued again at 16 reviews of 128 tokens behind the embedding
+leg, and its fine-tune with it.
+
+### The frontier comparison, drawn again
+
+Settled 2026-09-22. The 471-claim sample's key was lost with a session's scratch space, so the
+comparison was drawn again: 487 claims from the ten frozen games, twenty a subject, the key
+kept in `training/data/frontier-key.json` beside the frozen key this time. Opus 5, given the
+sheet and the review around each claim, blind to the game: **99.4% answered at 87.6%, macro
+F1 0.875**, for 389,000 tokens. The reader that ships, on exactly the same claims: **83.6% at
+78.4%, macro F1 0.691**, against 79% at 77.2% and 0.652 for the previous export on the
+previous draw. The baselines on the same claims: bag of words 40% at 75.1% (0.474), nearest
+centroid 6% at 78.6% (0.465), the commonest subject never. The frozen-set baselines were
+refreshed on the current labels too (`reference/baselines-frozen.json`, 5,423 claims):
+commonest 27.2%, bag of words 42% at 75.2%, centroid 9% at 79.4%. The gap to the frontier is
+nine points of agreement and sixteen of coverage, down from ten and twenty; the README's
+table is this draw.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
