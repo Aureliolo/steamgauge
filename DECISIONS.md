@@ -3001,6 +3001,41 @@ than a lean.
 Nothing here is a code change. It is the list to draw the next labelling round from, and the
 first entry on it is short verdicts in languages other than English.
 
+### Three checks on the second reading, one of which was a hypothesis that did not survive
+
+Run 2026-09-22 over the five frozen games read twice in full (2,864 claims).
+
+**The second labeller is no closer to the model than the first, which is the check that the
+whole exercise rests on.** If the second reading resembled the model more than the first did,
+"the claims both labellers settled" would be a set selected towards the model's answers and
+the ceiling would flatter it. Measured: the reader agrees with the first labeller on **82.9%**
+of the claims it answers and with the second on **82.8%** of the same claims, macro F1 0.660
+against 0.673. Two labellers, one trained by a different company from the model's teacher, and
+the reader is equidistant. On the claims they settle it reaches 85.9%, which is the gain from
+dropping the claims where there is no single answer rather than from choosing a friendlier
+labeller.
+
+**The per-language abstention lines do not track how much the labellers agree, so the noise
+theory explains Chinese and not the lines.** The thought was cheap and wrong: if a language's
+labels are noisier, the line fitted for it should sit higher, and the reader should be
+declining Chinese for the labellers' benefit. Against the ten languages with forty claims read
+twice, the lines that ship run Korean 0.867 (labellers agree 92.7%), Chinese 0.843 (82.5%),
+Spanish 0.788 (90.7%), English 0.649 (89.1%), Turkish 0.636 (81.5%), Polish 0.576 (88.2%).
+Korean has the highest line and the best agreement; Turkish has a low line and the worst. There
+is no relationship, and a refit of the lines against settled labels is not the lever it looked
+like.
+
+**The `gameplay` against `story` confusion has a shape.** Sharper than the entry above: the
+thirteen claims are narrative-flavoured descriptions of what the player does, "Amanda has to
+make her way through the Sevastopol with the alien in chase", "the player must navigate the
+Sevastopol, picking up tools while avoiding faulty Synthetics". Both labellers read what the
+player does; the reader reads the proper nouns and files it under the plot. The
+`gameplay` against `content` seventeen are the other shape: a list of what the game contains,
+"sempre contendo segredos, armadilhas e algumas side quests". Neither is a sheet defect. The
+sheet says what the player does is gameplay and how much there is is content, and the
+labellers applied it; changing the sheet so that the reader is right would be fitting the
+sheet to the model, which is the one direction this project never goes.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
