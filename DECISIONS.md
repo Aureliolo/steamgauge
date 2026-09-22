@@ -2691,6 +2691,7 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
 | e5-29006-rdrop | R-Drop at 1.0, the shipped schedule | 91.1% | 92.9% | 77.8% | 0.097 |
 | e5inst-distil-s1 | e5-large-instruct, the EMA schedule, the pool | 91.2% | 92.8% | 77.7% | 0.096 |
+| e5tapt-29006 | one masked-language pass over 205,685 training reviews, then the shipped schedule | 84.8% | 86.7% | 76.9% | 0.122 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2742,10 +2743,20 @@ improvement looks like from one seed. **The next round is this configuration wit
 three seeds; if the three hold the lead, it goes through the five folds, is exported, and
 replaces `e5-29006`.** About seven hours of the card.
 
-**Masked-language pretraining did not run.** The logits over a 250k-word vocabulary at 32
-reviews of 256 tokens are eight gigabytes on their own, and the card had the fine-tune's
-allocator beside them; it is queued again at 16 reviews of 128 tokens behind the embedding
-leg, and its fine-tune with it.
+**Masked-language pretraining made the encoder worse.** The logits over a 250k-word
+vocabulary at 32 reviews of 256 tokens are eight gigabytes on their own, so the pass ran at 16
+reviews of 128 tokens: one epoch over 205,685 training-game reviews, 12,856 steps, fifty-one
+minutes, ending at a perplexity of 79. The fine-tune from that backbone (`e5tapt-29006`, the
+shipped schedule) answers 84.8% of validation claims against the baseline's 90.3, 86.7% of
+frozen claims at 76.9% against 91.9 at 77.1, with the worst AURC of any e5 run (0.122) and a
+validation macro F1 of 0.621 against 0.646: five points of coverage lost, outside the spread
+on the wrong side. The reason is what the checkpoint is. e5-large is a contrastively trained
+embedder, not a masked-language model; its head was thrown away, and one epoch of masked
+prediction through a head that starts from noise pulls the encoder away from the geometry the
+contrastive training gave it, which is the geometry the classifier's window reads. A
+masked-language pass would need to be far longer than a night, or start from XLM-R rather than
+from e5, to be worth anything, and the labels then have to teach the sentence-level geometry
+back. Not a candidate. `tapt.py` stays, because the finding is only about this checkpoint.
 
 ### The frontier comparison, drawn again
 
@@ -2987,10 +2998,16 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
 Then, in order:
 
-3. **The sheet revision and the splitter together, once.** `reference/GAPS.md` holds the wording for every
+3. **The sheet revision and the splitter together, once. Done 2026-09-21.** `reference/GAPS.md` holds the wording for every
    rule, each traced to a labeller who could not see the others. The contested rate of 29% and
    the `difficulty` against `gameplay` confusion say the sheet is the ceiling now, not the
    model. Measure the relabel cost on one game before paying it for thirty-six.
+
+   Every rule the gap list asked for is on the sheet; the last four went on together, and the
+   entry "The four rules the gap list still asked for" says what they cost: a revisit of 77
+   claims, 23 of which moved, at one game's worth of labelling rather than thirty-six. The
+   splitter's own changes (headings, lists, the lowercase writer) went in beside them, and the
+   library was read again under both.
 4. **Games chosen for the rows that are starved**, not more games at random. `licensing` has
    32 claims over four games, `vr` 40, `accessibility` 48, and all three score zero. A random
    game costs the same as a chosen one and buys almost none of them. Fifteen such games are
@@ -3142,7 +3159,9 @@ Then, in order:
    been, and the fix reads every teaching set's sample before drawing.
 7. **Publishing**, which is the user's decision and not near.
 8. **Induced per-game categories** for the remaining games, one agent call of about 70k tokens
-   each, behind everything else.
+   each, behind everything else. **Done 2026-09-22**: every game with a corpus has its
+   induced subjects, 52 games and 432 subjects, and the two without (one never captured, one
+   holding a single review) have nothing to induce from.
 
 Built since this list was first written: the report page on readings, the polarity split,
 corrected prevalence, the second reading and its comparison, the fetch-by-checksum path, the
