@@ -3448,6 +3448,35 @@ had a blind second reading, that one stays: a reading of the whole set outranks 
 The export now writes **40,695 rows, every one a distinct claim**, 20,244 with a second answer
 and 2,358 of those disagreeing on the subject.
 
+### Four of every ten epochs buy less than the noise bar
+
+Measured 2026-09-22, from the per-epoch validation lines the three seeds of
+`e5inst-pool-rdrop` left in their logs. `run.json` records only the last epoch, so this was
+never in front of anybody: the curve is in the log and the record is a point.
+
+| epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| seed 1 | .659 | .702 | .718 | .716 | .721 | .726 | .713 | **.727** | .718 | .718 |
+| seed 2 | .663 | .691 | .711 | .712 | .716 | **.720** | .717 | .718 | .716 | .719 |
+| seed 3 | .629 | .681 | .696 | .708 | .697 | .717 | .713 | **.718** | .716 | .717 |
+
+Every seed is within half a point of its final accuracy by epoch 6, and the best epoch is
+somewhere in 6 to 8 depending on the seed, which is the same as saying the difference between
+them is noise. Epochs 7 to 10 are 40% of a run: `e5inst-fresh` took 1h14m to reach the end of
+epoch 5 tonight, so about an hour of a two-and-a-half hour run, every run, for a gain smaller
+than the one-point bar the seed spread set.
+
+So **six epochs is the length of a comparison run from here**, and the bake-off's five stay
+five. Two things this does not settle. The frozen games are read once, at the end, so what a
+six-epoch run delivers there is inferred from the validation curve rather than measured; the
+first six-epoch run to read them answers it. And a run that ships is a different question from
+a run that ranks: if the fold runs are shortened, the shipping run is shortened with them,
+because the abstention rule is fitted on out-of-fold answers and a rule fitted to a
+six-epoch model does not describe a ten-epoch one.
+
+The queue in flight was left at ten. Editing the length of a run that is already comparing
+three configurations would have made the comparison about the edit.
+
 ### The contested flag moves with the sitting, not only with the claim
 
 Measured 2026-09-22, over the seventeen mined sets, which are the same draw method and the same
