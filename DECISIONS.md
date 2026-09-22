@@ -3115,6 +3115,26 @@ ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the
 words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
 "absturz", which say it in words a reader can read.
 
+### What `--second-weight` can possibly do, written down before the run reports
+
+Counted 2026-09-22, before the run that tests it. The knob mixes the second labeller's answer
+into the target wherever a claim has been read twice, so its reach is exactly the claims where
+the two labellers wrote different subjects: everywhere else the target is the same one-hot it
+already was.
+
+Of 23,378 training claims, **2,140 have been read twice** (9.2%), and the two labellers differ
+on **297 of them**. That is **1.27% of the training set** whose target the knob can move at
+all, and it moves each of those by half. A change to one claim in eighty, weighted at a half,
+cannot clear a seed spread of 2.6 points of coverage, and a run that shows it clearing one is
+showing the seed.
+
+So the run is worth its three hours for the record rather than for the result, and the honest
+reading of it is: anything inside the noise is nothing. What would give the knob something to
+work with is a second reading of the training games, which is 21,000 claims of labelling
+aimed at the half of the set that teaches rather than the half that measures. The frozen games
+were read twice first because they are what every figure rests on; this is the case for doing
+the training games next, and it is a case about labelling budget rather than about the loss.
+
 ### The card was not waiting for text, and the measurement is the whole finding
 
 Tried and refused 2026-09-22. A run sat at forty per cent busy on the card while four of the
