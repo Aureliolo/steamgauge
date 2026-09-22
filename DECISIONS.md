@@ -3115,6 +3115,50 @@ ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the
 words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
 "absturz", which say it in words a reader can read.
 
+### What a mixture of experts would be here, and the four encoders worth the card
+
+Asked 2026-09-22, because the instruction was to try what is current and name what was
+rejected, and "MoE" and "embedding" were named in it. Three things could be meant by a mixture
+of experts in a claim reader, and only one of them is worth a night.
+
+**A mixture-of-experts head** on the pooled vector, eight small experts with a router instead
+of one linear layer, is the cheap version and the one to refuse. The head here is 26 outputs
+on a 1024-wide vector over thirty thousand labelled claims; it is not where the capacity is
+short, and a router learned from thirty thousand examples is a second thing to overfit. The
+same argument killed every reweighting scheme tried here: a gradient that 32 `licensing`
+claims do not contain cannot be redistributed into one.
+
+**Experts routed by language** is the version this project has already measured the case
+against. The language gap it would be aimed at is mostly the labellers rather than the reader:
+on claims two labellers settle, Chinese sits at 86.9% against English at 85.5%. Routing by
+language would spend parameters separating what the evidence says is not separate.
+
+**A pretrained MoE encoder as the trunk** is the one worth measuring, and it exists:
+`nomic-ai/nomic-embed-text-v2-moe` is 475M parameters of which 305M are active, eight experts
+with top-2 routing, trained on 1.6B pairs across about a hundred languages
+([arXiv:2502.07972](https://arxiv.org/abs/2502.07972)). It loads here, reads a claim inside
+its window, and is the first general-purpose MoE text embedder; whether sparsity buys anything
+on this task is a measurement nobody here has taken.
+
+It goes into a second bake-off rather than in alone, because the backbone family was the
+largest lever this project ever found and the encoder in place has not been asked to defend
+itself since the 560M ones were compared. Four candidates against `multilingual-e5-large-
+instruct`, each a different bet:
+
+| candidate | size | the bet |
+|---|---|---|
+| `jhu-clsp/mmBERT-base` | 307M | a modern recipe beats size: ModernBERT's architecture, 3T tokens, 1,800 languages, two to four times faster than XLM-R ([arXiv:2509.06888](https://arxiv.org/abs/2509.06888)) |
+| `nomic-ai/nomic-embed-text-v2-moe` | 475M, 305M active | sparsity buys capacity a dense model of its size cannot have |
+| `Qwen/Qwen3-Embedding-0.6B` | 596M | a decoder used as an embedder, read at its last token |
+| `EuroBERT/EuroBERT-610m` | 608M | a dense encoder the same size as the one in place, trained later |
+
+All five load and read a claim-and-window pair; the mixture of experts needs `einops`, which
+is in `requirements.txt` now. `bakeoff.py --later` runs them, and it was rewritten to take the
+trainer's own defaults through its parser rather than a hand-written `Namespace`: every knob
+added since it was written was a field it did not have, and it would have stopped at the first
+one `run` asked for. The round is queued behind everything the shipping decision needs,
+because it decides what to try next rather than what to ship now.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
@@ -3421,9 +3465,12 @@ Then, in order:
 
    **`steamgauge mine` ships as of 2026-09-12**, with a written probe list per starved subject
    in `mine.rs`, a round-robin quota so a game rich in one subject cannot eat the draw, and the
-   same refusal as the declined draw to touch a game held back from training. The retrieval
-   half, which is the stronger one, is still to build: probes are lexical and mostly ride on
-   borrowed tokens, so a Russian review complaining about subtitles is not caught.
+   same refusal as the declined draw to touch a game held back from training. Its probes are
+   lexical and mostly ride on borrowed tokens, so a Russian review complaining about subtitles
+   is not caught by them. **The retrieval half ships too, as `mine --by-neighbour`**: every
+   labelled claim of a starved subject is embedded and the corpus is walked for its nearest
+   neighbours, which finds the paraphrases no word list holds and crosses the languages a word
+   list cannot. It costs a forward pass over the corpus per game and lands in `retrieved/`.
 
    **Read what a probe catches before spending a labeller on it**, with
    `cargo run --release -p steamgauge-core --example mine-check -- <app id>`. Four of the eight
