@@ -512,6 +512,37 @@ def area_under_risk_coverage(confidence, correct):
 
 
 @torch.no_grad()
+def scored_twice(predicted, truth, claims, index_of) -> dict:
+    """The model against the second labeller, where there is one.
+
+    The first labeller's figure stays the figure. These say how much of what the model gets
+    wrong is the two labellers disagreeing rather than the model: scored against the second
+    reading, against the claims the two agree on, and as right if either would call it so.
+    """
+    twice = np.array([claim.second_subject is not None for claim in claims], dtype=bool)
+    if not twice.any():
+        return {}
+    second = np.array(
+        [
+            index_of.get(claim.second_subject, -1) if twice[at] else -1
+            for at, claim in enumerate(claims)
+        ]
+    )
+    correct = (predicted == truth).astype(float)
+    right_by_second = (predicted == second).astype(float)
+    agreed = twice & (second == truth)
+    return {
+        "claims": int(twice.sum()),
+        "against_first": float(correct[twice].mean()),
+        "against_second": float(right_by_second[twice].mean()),
+        "against_either": float(np.maximum(correct, right_by_second)[twice].mean()),
+        "where_both_agree": {
+            "claims": int(agreed.sum()),
+            "accuracy": float(correct[agreed].mean()) if agreed.any() else None,
+        },
+    }
+
+
 def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     model.eval()
     subject_logits, polarity_logits = [], []
@@ -559,6 +590,7 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     return {
         "accuracy": float(correct.mean()),
         "macro_f1": macro,
+        "read_twice": scored_twice(predicted, truth, claims, index_of),
         "threshold": chosen["threshold"],
         "threshold_coverage": chosen["coverage"],
         "threshold_accuracy": chosen["accuracy"],
@@ -872,6 +904,15 @@ def run(args) -> dict:
             if at_threshold["coverage"] > 0
             else "frozen games: nothing cleared the threshold"
         )
+        if held["read_twice"]:
+            twice = held["read_twice"]
+            print(
+                f"  on the {twice['claims']} frozen claims read twice: {twice['against_first']:.3f} "
+                f"against the first labeller, {twice['against_second']:.3f} against the second, "
+                f"{twice['against_either']:.3f} against either, "
+                f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
+                f"{twice['where_both_agree']['claims']} they agree on"
+            )
         if (
             metrics["threshold_met"]
             and at_threshold["accuracy"] is not None

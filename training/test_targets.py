@@ -8,11 +8,12 @@ from __future__ import annotations
 import dataclasses
 import json
 
+import numpy as np
 import torch
 
 import claimdata
 from test_claimdata import claim
-from train import Claims, charged
+from train import Claims, charged, scored_twice
 
 
 class Tokenizer:
@@ -67,6 +68,27 @@ def test_a_one_hot_target_is_charged_exactly_what_the_hard_form_charges():
     hard = torch.nn.functional.cross_entropy(logits, labels, weight=class_weight, reduction="none")
     soft = charged(logits, torch.nn.functional.one_hot(labels, 3).float(), class_weight)
     assert torch.allclose(hard, soft)
+
+
+def test_a_model_is_scored_against_both_labellers_where_there_are_two():
+    index_of = {name: at for at, name in enumerate(SUBJECTS)}
+    claims = [
+        # both say verdict, model says verdict: right by either, and an agreed claim
+        dataclasses.replace(claim(1, 0), subject="verdict", second_subject="verdict"),
+        # first says verdict, second says story, model says story: wrong by the first only
+        dataclasses.replace(claim(1, 1), subject="verdict", second_subject="story"),
+        # read once, model wrong: not counted here at all
+        dataclasses.replace(claim(1, 2), subject="gameplay"),
+    ]
+    predicted = np.array([0, 2, 0])
+    truth = np.array([0, 0, 1])
+    found = scored_twice(predicted, truth, claims, index_of)
+    assert found["claims"] == 2
+    assert found["against_first"] == 0.5
+    assert found["against_second"] == 1.0
+    assert found["against_either"] == 1.0
+    assert found["where_both_agree"] == {"claims": 1, "accuracy": 1.0}
+    assert scored_twice(predicted, truth, [claim(1, 2)], index_of) == {}
 
 
 def test_the_export_row_carries_the_second_reading_when_there_is_one(tmp_path):
