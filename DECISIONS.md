@@ -3154,6 +3154,40 @@ folds of a single seed, because five folds of a three-seed soup is fifteen runs 
 thirty hours of a shared card. That mismatch is a real one and the frozen read is what tests
 it: if a soup's promise does not transfer where a seed's does, the seed ships.
 
+### The soup answers more on the validation games and not on the frozen ones
+
+Measured 2026-09-22 against the rule written before it, which is the only reason the answer is
+worth anything: averaging the three seeds' weights was my idea and the evidence says no.
+
+| | validation | macro F1 | AURC | ECE | threshold | frozen |
+|---|---|---|---|---|---|---|
+| seed 1 | 91.88% at 0.752 | 0.656 | 0.111 | 0.149 | 0.540 | 92.7% at 0.782 |
+| seed 2 | 92.01% at 0.751 | 0.655 | 0.112 | 0.154 | 0.540 | 93.0% at 0.781 |
+| seed 3 | 91.74% at 0.751 | 0.657 | 0.111 | 0.152 | 0.540 | 92.4% at 0.781 |
+| their soup | **93.09%** at 0.752 | 0.645 | 0.111 | 0.197 | 0.230 | 92.7% at 0.778 |
+
+**On the validation games the soup answers 1.08 points more than the best seed, which clears
+the bar. On the frozen games it lands exactly on the seeds' mean and 0.3 points short of the
+best of them.** Coverage at a promised accuracy cannot be manufactured by recalibration, since
+a monotone transform moves the threshold and not the ordering, so the validation gain is real
+and it is a gain that does not travel. That is what the frozen set is for, and it is the second
+time this project has caught a threshold promise failing to transfer.
+
+Two things underneath it, both predicted this morning and both confirmed. The soup is the
+better classifier by raw accuracy, 0.726 against 0.717 to 0.721, and best on the clear-cut
+claims and on the contested ones; and it is **worse at macro F1**, 0.645 against 0.655 to
+0.657, which is averaging pulling a seed's confident rare-subject calls towards the middle.
+The entry that proposed the soup said it would make that trade, and it made it.
+
+Its confidence is also flatter: ECE 0.197 against about 0.15, and the threshold that promises
+0.75 sits at 0.230 where every seed sits at 0.540. Averaged weights answer with less certainty
+about the same ordering.
+
+**So the soup does not ship**, by the macro F1 veto and by the frozen games. It stays in the
+repository as a measured configuration, `training/soup.py` stays because the question was
+worth asking and will be worth asking again of the runs on the fresh export, and the seeds
+remain what the reader is chosen from.
+
 ### Half the second reading was on disk and nothing read it
 
 Counted 2026-09-22 to say what `--second-weight` could possibly do before the run that tests
