@@ -1570,23 +1570,38 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
 
 /// What read the corpus, and how sure it had to be before it would answer.
 ///
-/// The threshold is the promise the page is making. Two reports produced by the same model at
-/// different thresholds are not comparable, and a reader given the numbers without it cannot
-/// tell which they have.
+/// The rule is the promise the page is making. Two reports produced by the same weights under
+/// different lines are not comparable, and a reader given the numbers without it cannot tell
+/// which they have. A reader with a name is named, with its run beside it, because the name
+/// is what somebody cites and the run is what the index knows it as.
 fn built_from(app: &AppReport) -> String {
-    let labels = if app.reading.trained_on.is_empty() {
+    // Plain text: the fact it lands in escapes it, and a tag written here would be read out.
+    let reading = &app.reading;
+    let who = match (reading.reader.is_empty(), reading.read_with.is_empty()) {
+        (true, _) => reading.model.clone(),
+        (false, true) => format!("{}, a fine-tune of {}", reading.reader, reading.model),
+        (false, false) => format!(
+            "{} (run {}), a fine-tune of {}",
+            reading.reader, reading.read_with, reading.model
+        ),
+    };
+    let labels = if reading.trained_on.is_empty() {
         String::new()
     } else {
+        format!(" trained on label set {},", reading.trained_on)
+    };
+    // A reader carrying a rule draws a line per subject and per language; the one threshold
+    // is all an older reading can say about itself.
+    let rule = if reading.read_by_rule.is_empty() {
+        format!("answering only above {:.2} confidence", reading.threshold)
+    } else {
         format!(
-            " trained on label set <code>{}</code>,",
-            escape(&app.reading.trained_on)
+            "answering a claim only where it clears the line drawn for its subject and the one \
+             for its language (rule {})",
+            reading.read_by_rule
         )
     };
-    format!(
-        "{},{labels} answering only above {:.2} confidence",
-        escape(&app.reading.model),
-        app.reading.threshold
-    )
+    format!("{who},{labels} {rule}")
 }
 
 /// Why a corpus in these languages declines more than usual, which is two different answers.
@@ -2198,6 +2213,7 @@ mod tests {
                     model: "test-reader".to_owned(),
                     trained_on: "0123456789abcdef".to_owned(),
                     read_with: "a-reader".to_owned(),
+                    reader: "Needle".to_owned(),
                     read_by_rule: String::new(),
                     usual_declined: Some(0.1),
                     frozen: Some(crate::reader::Frozen {

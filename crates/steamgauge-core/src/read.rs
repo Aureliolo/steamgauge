@@ -307,6 +307,9 @@ pub struct ReadReport {
     /// game the old one read and the corpus quietly holds two models' answers.
     #[serde(default)]
     pub read_with: String,
+    /// What the reader is called, where it has a name; empty on a reading made before it did.
+    #[serde(default)]
+    pub reader: String,
     /// Which abstention rule the reader was carrying. The run id names the weights; the lines
     /// are drawn separately and can be redrawn without retraining, so two readings of one
     /// corpus by one run id can hold different answers and this is what says why.
@@ -462,6 +465,7 @@ pub fn read_corpus(
         model: model.provenance().trained_from.clone(),
         trained_on: model.provenance().data_fingerprint.clone(),
         read_with: model.provenance().run_id.clone(),
+        reader: model.provenance().name.clone(),
         read_by_rule: model.provenance().lines_fingerprint.clone(),
         usual_declined: model.provenance().usual_declined,
         frozen: model.provenance().frozen,
@@ -562,6 +566,12 @@ pub fn recount_corpus(
         model: earlier.model,
         trained_on: earlier.trained_on,
         read_with: earlier.read_with,
+        // The name the reader carries now: a reading made before it had one is still its.
+        reader: if earlier.reader.is_empty() {
+            provenance.name.clone()
+        } else {
+            earlier.reader
+        },
         read_by_rule: earlier.read_by_rule,
         usual_declined: earlier.usual_declined,
         frozen: earlier.frozen,
@@ -1203,6 +1213,7 @@ impl Counting {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: None,
             frozen: None,
@@ -1562,6 +1573,7 @@ mod tests {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: Some(0.73),
             frozen: None,
