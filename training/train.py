@@ -728,7 +728,8 @@ def run(args) -> dict:
             ),
             batch_size=micro if name == "train" else args.batch_size,
             shuffle=name == "train",
-            num_workers=0,
+            num_workers=args.workers,
+            persistent_workers=args.workers > 0,
         )
         for name, part in (("train", train), ("validation", validation), ("test", test))
     }
@@ -768,7 +769,8 @@ def run(args) -> dict:
             ),
             batch_size=args.pool_batch_size or micro,
             shuffle=True,
-            num_workers=0,
+            num_workers=args.workers,
+            persistent_workers=args.workers > 0,
         )
         taught_batches = forever(taught)
 
@@ -1135,6 +1137,15 @@ def parse():
         type=int,
         default=None,
         help="pool claims read per optimiser step; the labelled micro-batch's size unless set",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="processes cutting and tokenising the next batch while the card works on this "
+        "one. The window is cut once at startup, but a claim is tokenised on the way out, and "
+        "with the processor busy the card waits for it: measured at 40% busy on a machine "
+        "whose other work had half the cores. 0 does it all in this process.",
     )
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument(
