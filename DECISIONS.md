@@ -3036,6 +3036,33 @@ sheet says what the player does is gameplay and how much there is is content, an
 labellers applied it; changing the sheet so that the reader is right would be fitting the
 sheet to the model, which is the one direction this project never goes.
 
+### The seeds are averaged rather than chosen between
+
+Decided 2026-09-22, from the seed spread that keeps being the largest number in every
+comparison. Three seeds of one configuration land 2.6 points of validation coverage apart,
+which is wider than every difference the runs are being asked to settle, so shipping the best
+of three ships whichever seed the validation draw flattered: the frozen figure does not follow
+it, and a fold spread is not a seed spread.
+
+Fine-tunes that start from the same pretrained encoder stay in one basin, so their weights can
+be averaged into one model that costs nothing to train and holds none of what each seed
+invented alone (Wortsman et al., model soups). `training/soup.py` sums the saved weights one
+file at a time, reads each ingredient and the average on the validation games under one
+loader, and reads the frozen games once, with whichever soup was already chosen: reading them
+per ingredient would turn the one set nothing is picked on into a set something was picked on.
+
+It refuses to average runs that differ on the encoder, the subjects, the window, the split or
+the export, because those are two different models being added together or one being scored on
+games the other trained on. It allows runs that differ on the learning rate or the objective,
+which is the soup worth making: what each setting overfits is different, and the average holds
+none of it.
+
+Measured on the first two seeds, validation only: each answers 92% of claims at 0.752 and
+0.751, the average of the two answers 94% at 0.751, AURC 0.110 against 0.111 and 0.112. Macro
+F1 falls, 0.645 against 0.656, which is the trade this is expected to make: averaging pulls a
+seed's confident rare-subject calls towards the middle and buys coverage with them. The
+three-seed soup and the same over the two abstention knobs decide whether it ships.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
