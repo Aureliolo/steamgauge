@@ -2800,6 +2800,71 @@ not a seed of them. **Everything after it, the folds and the reader that ships, 
 a fresh export**, and the export is written by the same command immediately before the run
 rather than found on disk, which is the rule that would have caught this.
 
+### The frozen games are being read twice in full, and the reader is scored against both readings
+
+Settled 2026-09-22 with the user, from three options: read the ten frozen games in full a
+second time (chosen), top every set up to a fifth, or spend nothing until the round reports.
+The benchmark is the ten frozen games, and a benchmark read by one labeller can only say how
+well the model agrees with that labeller; 449 of its 5,579 claims had a second reading, the
+tenth every set has. The other 5,130 go to Opus in 31 sittings of two batches, one agent at a
+time as the budget says, ingested as each sitting returns.
+
+Three things were built for it. **A second reading grows**: `second-opinion --share 1.0` on a
+set whose reading exists keeps the whole draw in the sample, so the ingest keeps every label
+already made, and hands out only the reviews nobody has read; a draw with another seed, which
+would leave out reviews already read and have the ingest drop their labels, is refused. **The
+training export carries the second labeller's answer** beside the first wherever a set has one
+(`second_subject`, `second_polarity`, `second_confidence`, `second_by`), and
+`train.py --second-weight W` charges the loss against the two answers mixed by W on those
+claims rather than against one of them at full confidence; the loss on a claim read once is
+unchanged to the bit, which a test holds, and the fingerprint hashes the first labels only,
+so runs stay comparable. It is the fourth item of the night's survey (two-labeller targets,
++1 to +3 in the literature at no compute) and has not been run: the round in progress was
+started before it existed, and the export it learns from has no second fields. **A run scores
+its frozen claims against the second labeller too**, where there is one: against the first
+(the figure), against the second, against either, and on the claims the two agree on, which
+is what `steamgauge ceiling` prints from stored readings and the run record now carries
+beside the rest. After the first two games (214490 and 620980, 737 claims answered): the two
+labellers reach the same subject on 90.5%, the shipped reader agrees with them on 83.5% of
+those, and where they split it lands on one of their two answers 84.3% of the time.
+
+### What stands out is compared within each language, and a subject's name in any language is not a finding
+
+Settled 2026-09-22, reading a report as the user asked. Alien: Isolation's story row led its
+praise with "historia" and "história", and once the comparison was made fairly, with "сюжет".
+Two faults.
+
+**A language that leans one way made its words distinctive.** Praise was compared with
+complaint over the whole corpus, so a word Spanish speakers use whichever side they take stood
+out in praise because Spanish speakers praised the story more often than they complained,
+which is a fact about who reviewed the game and not about what anybody said. The terms are
+now counted per language the review was written in; each language's praise is compared with
+its own complaints; and the log-odds are pooled across languages, weighted by the inverse of
+each language's variance, so a language that says nothing about a term contributes nothing and
+one whose reviewers say it either way contributes an even zero. "stutter" said only in English
+scores exactly what it scored before, which a test holds. The counters are bounded per
+language at half what one counter held, and only the largest languages on the largest subjects
+fill one.
+
+**The subject's name in another language is not a finding either.** The English label was
+kept off a subject's rows; "сюжет", "grafik", "剧情" and "그래픽" were not, and within Russian
+"сюжет" is genuinely likelier in praise of a story than in complaints about one, as "story"
+would be in English if the label did not keep it off. `ALSO_CALLED` in `said.rs` lists what
+each subject is called in the languages the library is written in, read from the corpus with
+`subject-names` (an example that prints, for one language, the terms most of its reviews about
+each subject use: the name sits at a quarter to a half of them where the next term sits at a
+tenth) rather than translated, nouns and their common inflections only, because "optimised",
+"hard" and "worth" are findings and stay. A test refuses any entry the counter would never
+produce as a term: the kana words go to character pairs and are not listed, and Korean loses
+its particle, so 게임플레이 is listed as the 게임플레 the counter makes of it.
+
+Before, on the game's paragraph: story praised for "historia", "história" and "great story",
+gameplay for "ai", "unpredictable" and "ia", atmosphere for "terrifying", "movie" and
+"tense". After: "great story", "good story", "story line"; "ai", "unpredictable", "smart";
+"terrifying", "tense", "movie". "концовка" stays among the story complaints beside "ending",
+because Russian speakers complaining about the ending is what was said. Every captured game
+was recounted in seven minutes; nothing was read again.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
