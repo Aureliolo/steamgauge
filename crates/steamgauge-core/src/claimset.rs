@@ -478,6 +478,11 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
 /// cannot cross. "Worth" appears in claims about eleven subjects and the rule about what a
 /// thing is worth paying touches two of them.
 ///
+/// With subjects and no words, every claim under them is asked about. A revision that narrows
+/// a row rather than teaching the sheet a new name puts the whole row back in question, and
+/// there are no words for that: `accessibility` was redefined from a purpose to a test, and
+/// what has to be re-asked is each of its claims, not the ones that happen to say "subtitle".
+///
 /// Returns the claims that matched, as a set the labeller reads exactly like a fresh one.
 ///
 /// # Errors
@@ -514,9 +519,10 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
                 .iter()
                 .filter(|claim| labelled.contains(&(review.id.as_str(), claim.index)))
                 .filter(|claim| {
-                    words
-                        .iter()
-                        .any(|word| crate::said::mentions(&claim.text, word))
+                    words.is_empty()
+                        || words
+                            .iter()
+                            .any(|word| crate::said::mentions(&claim.text, word))
                 })
                 .map(|claim| claim.index)
                 .collect();
@@ -532,6 +538,16 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
 /// compare. Every one of them is labelled as its own `subset`, and no prevalence figure
 /// counts a row from any of them.
 pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved", "multilingual"];
+
+/// The directories that hold another labeller's answers to claims a set already has, newest
+/// first, because the first one holding a claim is the one that answers it.
+///
+/// Both are blind readings of the same drawn batches with no labels in them. `second` is what
+/// `second-opinion` writes, a share of each set and the frozen games in full; `opus` is what a
+/// second model wrote reading twenty-six games from end to end. Reading only the first of them
+/// left 9,072 second opinions on training claims unused, 1,069 of them disagreements, which is
+/// most of what a loss charged against two labellers has to work with.
+pub const SECOND_READINGS: &[&str] = &["second", "opus"];
 
 /// Draws the claims the reader would not answer, as a set to teach it on.
 ///
@@ -700,6 +716,7 @@ pub fn draw_mined(
     dir: &Path,
     wanted: usize,
     seed: u64,
+    only: &[String],
 ) -> Result<Mined> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let reading: crate::read::ReadReport =
@@ -727,7 +744,7 @@ pub fn draw_mined(
             .enumerate()
             .zip(depth.spans_of(text))
         {
-            let Some(subject) = crate::mine::hooked(&claim) else {
+            let Some(subject) = crate::mine::hooked_among(&claim, only) else {
                 continue;
             };
             let at = crate::mine::PROBES
@@ -1117,6 +1134,25 @@ pub struct LabelledClaim {
     pub review_offset: usize,
 }
 
+/// What a second labeller said about the claims of one set, from whichever reading holds each.
+///
+/// [`SECOND_READINGS`] in order, first one wins: a claim read by both is answered by the
+/// newer sheet's reading, and a claim only the older one covers is still answered.
+fn read_again(set: &Path) -> Result<std::collections::HashMap<(String, u16), ClaimLabel>> {
+    let mut again = std::collections::HashMap::new();
+    for reading in SECOND_READINGS {
+        let Ok(bytes) = std::fs::read(set.join(reading).join("labels.json")) else {
+            continue;
+        };
+        for label in serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)? {
+            again
+                .entry((label.review_id.clone(), label.index))
+                .or_insert(label);
+        }
+    }
+    Ok(again)
+}
+
 /// Every labelled claim under a reference root, with its text, in a fixed order.
 ///
 /// A game's directory holds its random draw, and beside it the teaching draws named in
@@ -1148,14 +1184,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
         let drawn: Vec<DrawnReview> =
             serde_json::from_slice(&std::fs::read(set.join("sample.json"))?)?;
-        let mut again: std::collections::HashMap<(String, u16), ClaimLabel> =
-            match std::fs::read(set.join("second").join("labels.json")) {
-                Ok(bytes) => serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)?
-                    .into_iter()
-                    .map(|label| ((label.review_id.clone(), label.index), label))
-                    .collect(),
-                Err(_) => std::collections::HashMap::new(),
-            };
+        let mut again = read_again(&set)?;
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
@@ -1191,35 +1220,134 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
     Ok(found)
 }
 
+/// What the training export wrote, and what it would not write.
+#[derive(Debug, Clone, Default)]
+pub struct ExportReport {
+    pub written: usize,
+    /// Rows whose text carries no proposition.
+    pub no_claim: usize,
+    /// Teaching rows drawn from a game the model is measured on, and the games they sat on.
+    pub measured_on: usize,
+    pub measured_on_games: std::collections::BTreeSet<u32>,
+    /// Rows naming bytes this build cuts no claim at.
+    pub recut: usize,
+    /// Claims two draws both handed out, folded into one row carrying both answers.
+    pub twice: usize,
+}
+
+/// One row per claim, with a claim drawn twice keeping its second answer rather than both rows.
+///
+/// A teaching draw skips a review the game's sets already hold, so no claim should be labelled
+/// under two of them. The draws made before that guard existed did not, and 616 claims sit in
+/// two sets at once, 108 of them under two different subjects. Exported as two rows, the model
+/// sees one claim twice an epoch and, on those 108, is taught both answers in the same pass.
+///
+/// The row from the random draw is the one kept, because that is the draw every figure is
+/// measured on and the other is a teaching copy of it. The teaching label is not thrown away:
+/// where the kept row has no second answer, it becomes one. Two labellers who read the same
+/// claim without seeing each other's answer are a second reading, whichever draw handed it to
+/// them, and the export already carries a column for exactly that.
+fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<LabelledClaim> {
+    let teaching = |one: &LabelledClaim| TEACHING_SETS.contains(&one.label.subset.as_str());
+    let mut place: std::collections::HashMap<(u32, String, u16), usize> =
+        std::collections::HashMap::new();
+    let mut kept: Vec<LabelledClaim> = Vec::with_capacity(found.len());
+
+    for mut claim in found {
+        let key = (
+            claim.label.app_id,
+            claim.label.review_id.clone(),
+            claim.label.index,
+        );
+        let Some(&at) = place.get(&key) else {
+            place.insert(key, kept.len());
+            kept.push(claim);
+            continue;
+        };
+        report.twice += 1;
+        if teaching(&kept[at]) && !teaching(&claim) {
+            std::mem::swap(&mut kept[at], &mut claim);
+        }
+        // Where the kept row already has a second answer, this third one is dropped: the
+        // column holds one, and a blind reading of the whole set is the better one to hold.
+        if kept[at].again.is_none() {
+            kept[at].again = Some(claim.label);
+        }
+    }
+    kept
+}
+
 /// Writes every labelled claim, with its text, as JSONL for training.
 ///
 /// The file it writes holds review text and never leaves the machine: what gets published is
 /// the label set, which carries ids and offsets and no text at all.
 ///
-/// Returns how many rows it wrote and how many it refused for carrying no claim.
+/// The captures are read because a label names bytes, and the sets were cut by several
+/// splitters over the run. A row whose span this build cuts no claim at is not a label of any
+/// claim the reader will ever be handed: at best it is a true label of a sentence that now
+/// sits inside a larger claim, at worst one label over what are now two claims, taught under
+/// one subject. The adjudication page has refused to ask about them since it was written;
+/// training kept learning them, because the export joined a label to the text the draw stored
+/// rather than to the text the splitter produces.
+///
+/// A game with no capture on this machine holds nothing back, exactly as in the adjudication
+/// draw: the alternative is an export that silently shrinks depending on what was crawled.
 ///
 /// # Errors
 ///
 /// Fails if a reference set cannot be read or the destination cannot be written.
-pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize)> {
+pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Result<ExportReport> {
     use std::io::Write as _;
 
     if let Some(parent) = to.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
-    let mut written = 0;
+    let mut report = ExportReport::default();
 
-    let mut refused = 0;
-    for claim in labelled_claims(reference_root)? {
+    let found = read_once(labelled_claims(reference_root)?, &mut report);
+    let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
+        std::collections::BTreeMap::new();
+    for claim in &found {
+        wanted
+            .entry(claim.label.app_id)
+            .or_default()
+            .insert(claim.label.review_id.clone());
+    }
+    let cuts: std::collections::HashMap<u32, CutSpans> = wanted
+        .into_iter()
+        .filter_map(|(app_id, ids)| Some((app_id, spans_cut_now(captures, app_id, &ids).ok()?)))
+        .collect();
+
+    for claim in found {
         // Most of the set was cut before the rules that recognise these, so it still holds
         // thousands of them. A row whose text carries no proposition has a label that could
         // not have been right, and training on it teaches the string rather than the task.
         if crate::claims::is_not_a_claim(&claim.text) {
-            refused += 1;
+            report.no_claim += 1;
             continue;
         }
         let label = &claim.label;
+        // A teaching set is drawn for being hard or for holding a word, so a row of one on a
+        // validation or frozen game is measured on claims chosen for the model rather than
+        // drawn at random, and the coverage figure stops meaning what it says. The draw
+        // commands refuse such a game, but the sets drawn before that guard existed are still
+        // on disk, and the split reads whatever the export hands it.
+        if TEACHING_SETS.contains(&label.subset.as_str())
+            && crate::measure::role(label.app_id, crate::measure::SPLIT_SEED)
+                != crate::measure::Role::Train
+        {
+            report.measured_on += 1;
+            report.measured_on_games.insert(label.app_id);
+            continue;
+        }
+        if cuts
+            .get(&label.app_id)
+            .is_some_and(|cut| cut_at(cut, label).is_none())
+        {
+            report.recut += 1;
+            continue;
+        }
         let row = serde_json::json!({
             "text": claim.text,
             "review": claim.review,
@@ -1242,10 +1370,10 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize
             "second_by": claim.again.as_ref().map(|again| &again.produced_by),
         });
         writeln!(out, "{row}")?;
-        written += 1;
+        report.written += 1;
     }
     out.flush()?;
-    Ok((written, refused))
+    Ok(report)
 }
 
 /// What a pool draw wrote for one game.
@@ -1347,6 +1475,32 @@ pub fn export_pool(
 mod tests {
     use super::*;
 
+    fn a_label(
+        app_id: u32,
+        review_id: &str,
+        index: u16,
+        subset: &str,
+        subject: &str,
+    ) -> ClaimLabel {
+        ClaimLabel {
+            review_id: review_id.to_owned(),
+            index,
+            app_id,
+            language: "english".to_owned(),
+            subset: subset.to_owned(),
+            start: 0,
+            end: 0,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a-labeller".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        }
+    }
+
     fn review(id: &str, claims: &[&str]) -> DrawnReview {
         DrawnReview {
             id: id.to_owned(),
@@ -1365,6 +1519,205 @@ mod tests {
                 .collect(),
             asked: None,
         }
+    }
+
+    #[test]
+    fn a_claim_only_the_older_reading_answered_still_has_a_second_answer() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-again-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let label = |id: &str, subject: &str| ClaimLabel {
+            review_id: id.to_owned(),
+            index: 0,
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start: 0,
+            end: 0,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a-labeller".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        };
+        for (reading, labels) in [
+            ("second", vec![label("a", "gameplay")]),
+            ("opus", vec![label("a", "story"), label("b", "performance")]),
+        ] {
+            std::fs::create_dir_all(dir.join(reading)).unwrap();
+            std::fs::write(
+                dir.join(reading).join("labels.json"),
+                serde_json::to_vec(&labels).unwrap(),
+            )
+            .unwrap();
+        }
+
+        let again = read_again(&dir).unwrap();
+        // The newer reading answers the claim both hold, and the older one is not thrown away
+        // for the claim it alone read.
+        assert_eq!(again[&("a".to_owned(), 0)].subject, "gameplay");
+        assert_eq!(again[&("b".to_owned(), 0)].subject, "performance");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_teaching_set_on_a_game_the_model_is_measured_on_never_reaches_the_export() {
+        let role_of = |app_id| crate::measure::role(app_id, crate::measure::SPLIT_SEED);
+        let first = |wanted| {
+            (1..u32::MAX)
+                .find(|&app_id| role_of(app_id) == wanted)
+                .unwrap()
+        };
+        let (trains_on, held_back) = (
+            first(crate::measure::Role::Train),
+            first(crate::measure::Role::Validation),
+        );
+
+        let root = std::env::temp_dir().join(format!("steamgauge-export-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for (app_id, set, subset) in [
+            (trains_on, "", "random"),
+            (trains_on, "mined", "mined"),
+            (held_back, "", "random"),
+            (held_back, "mined", "mined"),
+        ] {
+            let dir = root.join(app_id.to_string()).join(set);
+            std::fs::create_dir_all(&dir).unwrap();
+            let id = format!("{app_id}-{subset}");
+            let drawn = DrawnReview {
+                id: id.clone(),
+                app_id,
+                subset: subset.to_owned(),
+                ..review(&id, &["The combat is superb."])
+            };
+            std::fs::write(
+                dir.join("sample.json"),
+                serde_json::to_vec(&[drawn]).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                dir.join("labels.json"),
+                serde_json::json!([{
+                    "review_id": id, "index": 0, "app_id": app_id, "language": "english",
+                    "subset": subset, "start": 0, "end": 0, "subject": "gameplay",
+                    "polarity": "praise", "ironic": false, "confidence": "high",
+                    "ambiguous": false, "split_wrong": false
+                }])
+                .to_string(),
+            )
+            .unwrap();
+        }
+
+        let to = root.join("claims.jsonl");
+        // No captures, so nothing is held back for being cut differently: this test is about
+        // which game a teaching row sits on.
+        let report = export_training(&root, &root.join("no-captures"), &to).unwrap();
+        let written = std::fs::read_to_string(&to).unwrap();
+
+        assert_eq!(report.measured_on, 1, "the held-back game's mined row");
+        assert_eq!(report.measured_on_games, [held_back].into_iter().collect());
+        assert_eq!(report.written, 3);
+        assert!(
+            written.contains(&format!("{trains_on}-mined")),
+            "a teaching row on a game the model trains on is what teaching sets are for"
+        );
+        // The random draw is the measurement, so it stays whatever else the game carries.
+        assert!(written.contains(&format!("{held_back}-random")));
+        assert!(!written.contains(&format!("{held_back}-mined")));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_claim_two_draws_both_handed_out_is_one_row_holding_both_answers() {
+        let claim = |subset: &str, subject: &str, again: Option<&str>| LabelledClaim {
+            text: "The combat is superb.".to_owned(),
+            review: "The combat is superb.".to_owned(),
+            review_offset: 0,
+            again: again.map(|subject| ClaimLabel {
+                subject: subject.to_owned(),
+                ..a_label(1, "r1", 0, "second", subject)
+            }),
+            label: a_label(1, "r1", 0, subset, subject),
+        };
+
+        let mut report = ExportReport::default();
+        let kept = read_once(
+            vec![
+                claim("multilingual", "audio", None),
+                claim("random", "gameplay", None),
+            ],
+            &mut report,
+        );
+        assert_eq!(report.twice, 1);
+        assert_eq!(kept.len(), 1, "one claim, one row");
+        // The random draw is what every figure is measured on, whichever order the sets were
+        // read in, and the teaching copy is a second reading of the same claim.
+        assert_eq!(kept[0].label.subject, "gameplay");
+        assert_eq!(kept[0].label.subset, "random");
+        assert_eq!(
+            kept[0].again.as_ref().map(|a| a.subject.as_str()),
+            Some("audio")
+        );
+
+        let mut report = ExportReport::default();
+        let kept = read_once(
+            vec![
+                claim("random", "gameplay", Some("story")),
+                claim("multilingual", "audio", None),
+            ],
+            &mut report,
+        );
+        assert_eq!(
+            kept[0].again.as_ref().map(|a| a.subject.as_str()),
+            Some("story"),
+            "a blind reading of the whole set outranks a teaching draw's copy"
+        );
+    }
+
+    #[test]
+    fn a_revisit_with_no_words_asks_about_every_claim_under_the_subjects() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-revisit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let drawn = DrawnReview {
+            app_id: 1,
+            ..review(
+                "r1",
+                &[
+                    "No subtitle size setting.",
+                    "The combat is superb.",
+                    "It runs at nine frames.",
+                ],
+            )
+        };
+        std::fs::write(
+            dir.join("sample.json"),
+            serde_json::to_vec(&[drawn]).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&[
+                a_label(1, "r1", 0, "random", "accessibility"),
+                a_label(1, "r1", 1, "random", "accessibility"),
+                a_label(1, "r1", 2, "random", "performance"),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+
+        let by_word = draw_revisit(&dir, &["subtitle".to_owned()], &[]).unwrap();
+        assert_eq!(by_word[0].asked, Some(vec![0]));
+
+        // A row redefined rather than renamed puts every claim under it back in question, and
+        // the claim that says nothing about the new wording is exactly the one to re-ask.
+        let whole_row = draw_revisit(&dir, &[], &["accessibility".to_owned()]).unwrap();
+        assert_eq!(whole_row[0].asked, Some(vec![0, 1]));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

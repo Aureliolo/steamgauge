@@ -3036,6 +3036,620 @@ sheet says what the player does is gameplay and how much there is is content, an
 labellers applied it; changing the sheet so that the reader is right would be fitting the
 sheet to the model, which is the one direction this project never goes.
 
+### One word in three forms was three of the eight words a row shows
+
+Found 2026-09-22, reading a page for a game with a million reviews. The updates row's praise
+read `thank, fixed, listened, job, live service, listening, listens`: three of the eight places
+went to one verb, and the multiplayer complaints spent two on `servers` and `server`. A list
+whose job is to say what a subject's complaints hold that its praise does not cannot afford to
+say it twice.
+
+Two terms are now one finding when they are the same word in two forms, and the form more
+reviewers used takes the place, because the list says what was said. The test is deliberately
+narrow: the beginning they share has to be three characters or more, and the endings they
+differ by have to come from a short list (nothing, -s, -es, -ed, -ing, and -y against -ies).
+`mode` and `mods` share three characters and differ by `e` against `s`, so they stay two
+findings; `car` and `card` would be one if `-d` were on the list, which is why it is not. A
+Chinese or Korean term cannot match an ASCII ending, so the rule never fires on one.
+
+After it, the same row reads `thank, listened, fixed, job, 终于, live service, active` and the
+multiplayer complaints `servers, capacity, join, matchmaking, connection, server issues,
+waiting, connect`. The counting does not change, only which of the counted terms are worth a
+place, so a `recount` is enough and no game needs reading again.
+
+### The frozen games are read twice in full, and that is the ceiling
+
+Finished 2026-09-22: 31 sittings, 5,130 claims, ten games, every one of them read by a second
+labeller who saw no label of the first and was not told which game a review came from.
+
+Over the ten games the model has never seen, 4,060 claims were read twice and answered. **The
+two labellers reach the same subject on 91.7% of them, and on those the model agrees 85.3%**,
+somewhere in [0.842, 0.864]. On the 335 they split it lands on one of the two answers 82.4% of
+the time, which is a floor rather than a score, because there is no single right answer there.
+The first figure is the ceiling: a model taught one labeller's reading cannot be more right
+than two labellers manage with each other, so the second is what it scores out of the first.
+
+The contested flag sorts the block as it sorts everything else: where neither labeller reached
+for it the model is right on 92.8% of 2,618 claims, where one did 73.7%, where both did 60.2%.
+Per language over settled claims it answered: English 85.5% of 2,767, Chinese 86.9% of 153,
+German 87.9% of 132, Russian 84.1% of 182, Korean 80.0% of 35. The Chinese gap the agreement
+column showed is not in this block at all, which is the third measurement to say so.
+
+Over every set, 8,106 claims are now read twice: the labellers agree on the subject 89.0% of
+the time, kappa 0.88, and on polarity 95.1%, kappa 0.92. Those did not move as the second
+reading grew from a share of each set to all of the frozen ones.
+
+**Both readings were then moved onto the sheet's two new rules**, which is what keeps the
+figures above honest: 479 claims re-answered in the first reading and the 132 of them the
+second reading also holds re-answered there, 61 and 20 of them moving subject. The ceiling
+moved by two tenths of a point and the agreement by one, which says a boundary clarification
+of this size changes what a labeller writes without changing what the set is worth.
+
+### "can't" was a finding about a game, and a negation in six languages was not
+
+Found 2026-09-22 on the same page. The policy complaints of a game with a million reviews read
+`account, countries, data, playstation, people, access, can't, months`. "can't" says nothing at
+all on its own, and it took a place from "network", which says something. It was there because
+the list of words that turn what follows held "not" and "never" and none of the contractions a
+review actually negates with.
+
+The contractions are in it now, and so are the same words in the languages the library is
+written in, which was checked rather than guessed: over the 53 counted games, "keine", "без",
+"слишком" and "нельзя" had each already taken a place on a row by themselves. German, Russian,
+Spanish, Portuguese, French, Italian, Polish, Turkish and Korean negations and intensifiers
+join the English ones. Chinese and Japanese negate inside the word and are handled where those
+scripts are cut.
+
+A word that turns what follows is not counted alone, so a corpus counted before this holds
+counts that differ by those words. It is a `recount` rather than a reading: the model's
+answers do not move.
+
+**Then the same question was asked of all 1,559 term lists rather than of the page in hand.**
+No list holds two forms of one word any more, and none holds a word that only turns what
+follows. Eighty-one terms are shorter than three letters, and reading them is how the last one
+was found: `ai`, `4k`, `ui`, `vr`, `ea`, `2k`, `m1` and `i5` are what they look like, `ku` is
+the owl in Ori and the Will of the Wisps, `ur` is an Ultra Rare card in Master Duel, and `ab`
+is German for nothing at all. It was the end of "stürzt ab", the separable verb that means the
+game crashes, and it outnumbered "stürzt" on the bugs row of three games because "schmiert
+ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the function
+words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
+"absturz", which say it in words a reader can read.
+
+### What tonight's runs have to show before anything ships, written before they report
+
+Set 2026-09-22, while the runs are still training, because a rule written after the numbers
+are in is a rule fitted to them.
+
+Six things will be comparable on the same labels: the three seeds of instruct + pool + R-Drop,
+their uniform soup, their greedy soup, and the three runs on the fresh export (the same
+configuration, plus `--error-reg 1.0`, plus `--second-weight 0.5`) with a soup of those.
+
+**The figure that decides is coverage at the promised accuracy on the validation games**, because
+the promise is fixed: the reader answers at 0.75 or it abstains, so the configuration that
+answers more claims at that promise is the better one. **The bar is the seed spread**, 2.6
+points of coverage, measured over three seeds of one configuration. A difference smaller than
+that is not a finding, whatever it looks like, and where nothing clears it the incumbent
+configuration stays: the shipped reader changes on evidence, not on the best of eight numbers.
+
+**Amended once the three seeds were in, before any of the others reported.** They landed
+**91.9%, 92.0% and 91.7%** on the validation games and **92.7%, 93.0% and 92.4%** on the frozen
+ones: 0.3 points apart and 0.6 points apart. The 2.6 came from three seeds of `e5-29006`, a
+different configuration, and this one is visibly steadier. Scoring one model on 6,556
+validation claims carries about 0.8 points of its own, so the bar for this round is **a point
+of coverage**, which is the wider of the two, and it is set now rather than after the runs
+that have to clear it.
+
+**Macro F1 and AURC are vetoes rather than tie-breakers.** A configuration that buys coverage
+while dropping macro F1 by more than a point is trading the rare rows for the common ones,
+which is the trade this project has refused every time it has been offered. AURC says whether
+the confidence ordering is any good, which is what the abstention rule is made of.
+
+**The runs on the fresh export are compared among themselves and not against the seeds.** They
+learn a different set of labels: today's revisit moved 61 of them, the declined and mined
+draws added 900, and the export now carries 21,124 second answers rather than 8,106. A run on
+more labels is not a better configuration, which is why the sweep refuses to put two label sets
+in one table, and it is why the queue trains the same configuration on the fresh export beside
+the two knobs. **The reader ships from that group**, because the newest labels are the best
+labels this project has; what the seeds settle is whether the configuration is steady and
+whether it beats the reader in place, and on the frozen games it does: 93.0% at 0.781 against
+91.9% at 0.771, macro F1 0.696 against 0.680, AURC 0.093 against 0.101.
+
+**The frozen games are not a chooser.** They are read once, by whatever was already chosen, and
+the only question they answer is whether the promise transfers to a game nobody trained on. If
+it does not, that is a finding about the threshold, and the reader ships with the frozen figure
+quoted rather than the validation one.
+
+**The soup is a configuration like any other**, and if it wins it ships with lines fitted on
+folds of a single seed, because five folds of a three-seed soup is fifteen runs and about
+thirty hours of a shared card. That mismatch is a real one and the frozen read is what tests
+it: if a soup's promise does not transfer where a seed's does, the seed ships.
+
+### The soup answers more on the validation games and not on the frozen ones
+
+Measured 2026-09-22 against the rule written before it, which is the only reason the answer is
+worth anything: averaging the three seeds' weights was my idea and the evidence says no.
+
+| | validation | macro F1 | AURC | ECE | threshold | frozen |
+|---|---|---|---|---|---|---|
+| seed 1 | 91.88% at 0.752 | 0.656 | 0.111 | 0.149 | 0.540 | 92.7% at 0.782 |
+| seed 2 | 92.01% at 0.751 | 0.655 | 0.112 | 0.154 | 0.540 | 93.0% at 0.781 |
+| seed 3 | 91.74% at 0.751 | 0.657 | 0.111 | 0.152 | 0.540 | 92.4% at 0.781 |
+| their soup | **93.09%** at 0.752 | 0.645 | 0.111 | 0.197 | 0.230 | 92.7% at 0.778 |
+
+**On the validation games the soup answers 1.08 points more than the best seed, which clears
+the bar. On the frozen games it lands exactly on the seeds' mean and 0.3 points short of the
+best of them.** Coverage at a promised accuracy cannot be manufactured by recalibration, since
+a monotone transform moves the threshold and not the ordering, so the validation gain is real
+and it is a gain that does not travel. That is what the frozen set is for, and it is the second
+time this project has caught a threshold promise failing to transfer.
+
+Two things underneath it, both predicted this morning and both confirmed. The soup is the
+better classifier by raw accuracy, 0.726 against 0.717 to 0.721, and best on the clear-cut
+claims and on the contested ones; and it is **worse at macro F1**, 0.645 against 0.655 to
+0.657, which is averaging pulling a seed's confident rare-subject calls towards the middle.
+The entry that proposed the soup said it would make that trade, and it made it.
+
+Its confidence is also flatter: ECE 0.197 against about 0.15, and the threshold that promises
+0.75 sits at 0.230 where every seed sits at 0.540. Averaged weights answer with less certainty
+about the same ordering.
+
+**The greedy soup is the interesting one, and it does not ship either.** Adding the seeds best
+first, it kept seed 2, kept seed 1 at 93.9%, and refused seed 3 for costing a point:
+
+| | validation | macro F1 | ECE | frozen | frozen F1 | frozen AURC |
+|---|---|---|---|---|---|---|
+| seed 2, the best single | 92.01% at 0.751 | 0.655 | 0.154 | 92.99% at 0.781 | 0.696 | 0.0925 |
+| the soup of two | **93.87%** at 0.751 | 0.645 | **0.023** | **93.93%** at 0.778 | 0.683 | 0.0928 |
+
+Its validation figure is chosen on the validation games and therefore flattering, but **the
+frozen one is not: it answers 0.94 points more of the claims nobody trained on**, at 0.27
+points less accuracy. That is the gain the three-seed soup did not have.
+
+It still fails the veto, and by more on the set that matters: **macro F1 0.683 against 0.696 on
+the frozen games**, 1.3 points. The coverage it buys comes out of the rare rows, which is the
+trade refused here every time it has been offered, and it is the trade every hour of mining
+and declined-claim labelling exists to avoid making. Two seeds averaged are also startlingly
+well calibrated, ECE 0.023 against 0.154 and 0.197 for one seed and for three; that is a
+curiosity worth a note and not worth a night.
+
+**So no soup ships.** `training/soup.py` stays, because the question was worth asking, because
+it will be asked again of the runs on the fresh export where the ingredients differ by
+objective rather than by seed, and because the answer is now on the record with the numbers
+that produced it.
+
+### Half the second reading was on disk and nothing read it
+
+Counted 2026-09-22 to say what `--second-weight` could possibly do before the run that tests
+it reported, which is how the defect turned up. The knob mixes the second labeller's answer
+into the target wherever a claim has been read twice, so its reach is the claims where the two
+labellers wrote different subjects. The count came back at **2,140 training claims read twice
+and 297 disagreements**, 1.27% of the set: too little to clear a seed spread, and the entry
+was written saying so.
+
+It was too little because the export was reading one of the two blind readings. A set holds
+`second/`, which `second-opinion` writes, a share of each game and the frozen ones in full;
+beside it sits `opus/`, where a second model read twenty-six games from end to end, blind,
+from batches regenerated with no labels in them. `export_training` and `ceiling` looked only
+at the first. **9,072 second opinions on training claims, 1,069 of them disagreements, were on
+disk and unused.**
+
+Both now read every blind reading of a set, newest sheet first, so a claim both cover is
+answered by the newer one and a claim only the older covers is still answered. The export went
+from 8,106 second answers to **21,124**, and from 297 disagreements to **2,435**.
+
+So the expectation changes with the arithmetic. The knob now reaches 5.8% of training claims
+rather than 1.27%, which is still small against a 2.6-point seed spread, but it is a test
+worth its three hours rather than a formality. What it cannot do is make the knob look better
+than it is: the same run, on the same seed, against the same fresh export.
+
+### The card was not waiting for text, and the measurement is the whole finding
+
+Tried and refused 2026-09-22. A run sat at forty per cent busy on the card while four of the
+machine's other processes held the processor, and the obvious reading was that the loader was
+starving it: a claim is tokenised on the way out of the dataset, in the same process that is
+waiting for the card. `--workers` was written, tested across process boundaries on Windows,
+and then measured, which is where it died.
+
+The dataset hands out **1,588 claims a second in this process**. The run it was meant to feed
+takes about fifty a second. Four worker processes made it **36 a second**, forty times slower
+than doing it here, because every batch crosses a process boundary and the dataset crosses it
+again with each epoch. There is no version of this knob that helps a loader already thirty
+times faster than the card can consume.
+
+What the forty per cent actually is: a micro-batch of 8 claims at 128 tokens, under
+`--accumulate 4`, is too small to fill a 4090, and R-Drop puts two passes through each one.
+The fold runs get `--accumulate 2`, which is what the two seeds that finished used, and the
+knob goes in the bin rather than into the trainer.
+
+### The integrity sweep after a day of ingests, and what the splitter change cost
+
+Run 2026-09-22 after three labelling mechanisms had written to the sets in one day: the second
+reading, the revisit and the declined draws. `check-readings` reconciles all 53 readings with
+their own rows. `check-draws` finds **83,084 drawn claims, 6,353 the splitter no longer cuts
+as drawn** and 599 cut in the same place and tidied differently, which score.
+
+That is 7.6% against 5.6% on 2026-09-20, and the two points are the price of one change: the
+rule that read a lowercase letter after a full stop as the middle of a sentence is gone, which
+was right, and every draw made before it holds spans this build cuts differently. The labels
+are said rather than scored, as the rule here has always been. 920210 is the shape of it: 980
+labelled claims found in the readings, 54 naming a span no claim sits at now.
+
+The library on disk was last read before that change, so its readings describe the old cut.
+The re-read that fixes it is the one the shipping script runs after a new reader is installed,
+which is queued behind tonight's runs rather than spent twice.
+
+### What a mixture of experts would be here, and the four encoders worth the card
+
+Asked 2026-09-22, because the instruction was to try what is current and name what was
+rejected, and "MoE" and "embedding" were named in it. Three things could be meant by a mixture
+of experts in a claim reader, and only one of them is worth a night.
+
+**A mixture-of-experts head** on the pooled vector, eight small experts with a router instead
+of one linear layer, is the cheap version and the one to refuse. The head here is 26 outputs
+on a 1024-wide vector over thirty thousand labelled claims; it is not where the capacity is
+short, and a router learned from thirty thousand examples is a second thing to overfit. The
+same argument killed every reweighting scheme tried here: a gradient that 32 `licensing`
+claims do not contain cannot be redistributed into one.
+
+**Experts routed by language** is the version this project has already measured the case
+against. The language gap it would be aimed at is mostly the labellers rather than the reader:
+on claims two labellers settle, Chinese sits at 86.9% against English at 85.5%. Routing by
+language would spend parameters separating what the evidence says is not separate.
+
+**A pretrained MoE encoder as the trunk** is the one worth measuring, and it exists:
+`nomic-ai/nomic-embed-text-v2-moe` is 475M parameters of which 305M are active, eight experts
+with top-2 routing, trained on 1.6B pairs across about a hundred languages
+([arXiv:2502.07972](https://arxiv.org/abs/2502.07972)). It loads here, reads a claim inside
+its window, and is the first general-purpose MoE text embedder; whether sparsity buys anything
+on this task is a measurement nobody here has taken.
+
+It goes into a second bake-off rather than in alone, because the backbone family was the
+largest lever this project ever found and the encoder in place has not been asked to defend
+itself since the 560M ones were compared. Four candidates against `multilingual-e5-large-
+instruct`, each a different bet:
+
+| candidate | size | the bet |
+|---|---|---|
+| `jhu-clsp/mmBERT-base` | 307M | a modern recipe beats size: ModernBERT's architecture, 3T tokens, 1,800 languages, two to four times faster than XLM-R ([arXiv:2509.06888](https://arxiv.org/abs/2509.06888)) |
+| `nomic-ai/nomic-embed-text-v2-moe` | 475M, 305M active | sparsity buys capacity a dense model of its size cannot have |
+| `Qwen/Qwen3-Embedding-0.6B` | 596M | a decoder used as an embedder, read at its last token |
+| `EuroBERT/EuroBERT-610m` | 608M | a dense encoder the same size as the one in place, trained later |
+
+All five load and read a claim-and-window pair; the mixture of experts needs `einops`, which
+is in `requirements.txt` now. `bakeoff.py --later` runs them, and it was rewritten to take the
+trainer's own defaults through its parser rather than a hand-written `Namespace`: every knob
+added since it was written was a field it did not have, and it would have stopped at the first
+one `run` asked for. The round is queued behind everything the shipping decision needs,
+because it decides what to try next rather than what to ship now.
+
+### The seeds are averaged rather than chosen between
+
+Decided 2026-09-22, from the seed spread that keeps being the largest number in every
+comparison. Three seeds of one configuration land 2.6 points of validation coverage apart,
+which is wider than every difference the runs are being asked to settle, so shipping the best
+of three ships whichever seed the validation draw flattered: the frozen figure does not follow
+it, and a fold spread is not a seed spread.
+
+Fine-tunes that start from the same pretrained encoder stay in one basin, so their weights can
+be averaged into one model that costs nothing to train and holds none of what each seed
+invented alone (Wortsman et al., model soups). `training/soup.py` sums the saved weights one
+file at a time, reads each ingredient and the average on the validation games under one
+loader, and reads the frozen games once, with whichever soup was already chosen: reading them
+per ingredient would turn the one set nothing is picked on into a set something was picked on.
+
+It refuses to average runs that differ on the encoder, the subjects, the window, the split or
+the export, because those are two different models being added together or one being scored on
+games the other trained on. It allows runs that differ on the learning rate or the objective,
+which is the soup worth making: what each setting overfits is different, and the average holds
+none of it.
+
+Measured on the first two seeds, validation only: each answers 92% of claims at 0.752 and
+0.751, the average of the two answers 94% at 0.751, AURC 0.110 against 0.111 and 0.112. Macro
+F1 falls, 0.645 against 0.656, which is the trade this is expected to make: averaging pulls a
+seed's confident rare-subject calls towards the middle and buys coverage with them. The
+three-seed soup and the same over the two abstention knobs decide whether it ships.
+
+### 3.1% of the validation set was a teaching draw, and the export now refuses it
+
+Found 2026-09-22, while checking which training games still have no mined set. Every teaching
+draw is selected rather than random: `declined` holds the claims the reader would not answer,
+`mined` and `retrieved` hold the claims a word probe or a nearest-neighbour walk went looking
+for, `multilingual` holds a deliberately non-English draw. A row of any of them is trained on,
+so drawing one from a validation or frozen game trains the model on the games it is measured
+on. The draw commands refuse a held-back game and have for some time.
+
+They were not always there. **275850 is a validation game carrying 147 `multilingual` rows**,
+drawn before the guard existed, and nothing since has taken them out: `labelled_claims` walks
+every teaching set under every game, the export writes what it walks, and `split_by_game`
+places a claim by its game and never looks at its subset. So 147 of 4,744 validation claims,
+3.1% of the set and 147 of that one game's 787, were a draw chosen for being non-English. Every
+abstention threshold this project has chosen was chosen on that set, and the frozen figure is
+read at the threshold it picked.
+
+The guard belongs in the export as well as in the draw, because the draw guards an action and
+the export guards the file: a set drawn before the rule, restored from a backup, or written by
+hand reaches the split all the same. `export_training` now holds back a teaching row whose game
+is not `Role::Train` and names the game on the way past. Nothing was deleted; 147 labels stay in
+the reference tree, where they are honest labels of claims that cannot be trained on and cannot
+be measured on.
+
+What it does to the numbers is not yet known and is bounded. The four knob runs in flight share
+the contaminated validation set, so the comparison between them is on the same claims and the
+choice between them stands. The folds behind the winner train on the fixed export, so the
+threshold that ships, and the frozen figure read at it, are clean. No figure already published
+moves, because nothing is published.
+
+### 6.9% of the labels name bytes the splitter no longer cuts a claim at
+
+Measured 2026-09-22, from the adjudication draw's own `recut` counter, which had been printing
+1,274 for weeks over the English frozen claims and had never been read as a number about
+training. Over every label in the reference tree it is **3,031 of 43,851, 6.9%**
+(`examples/recut-labels.rs`):
+
+| subset | labels | still cut | inside one claim | covers two or more | straddles a boundary | nothing there |
+|---|---|---|---|---|---|---|
+| random | 33,615 | 30,944 | 871 | 644 | 683 | 473 |
+| declined | 2,940 | 2,855 | 28 | 38 | 17 | 2 |
+| retrieved | 2,899 | 2,775 | 66 | 34 | 21 | 3 |
+| mined | 2,680 | 2,591 | 10 | 70 | 9 | 0 |
+| multilingual | 1,717 | 1,655 | 17 | 20 | 5 | 20 |
+
+A label is the bytes it covers, which is the rule that lets a published set carry offsets and
+no text, and it is why a splitter change costs a re-read rather than a refusal. What nobody had
+noticed is that the cost was being paid by the adjudication page alone. `gold` has always
+refused to put a drifted span in front of a person: there is no claim there to judge. The
+export did not, because it joins a label to the text the **draw** stored, which is what the
+splitter said the day the set was cut. So the model was being taught 498 strings the reader can
+never be handed, 806 spans that are now two whole claims under one subject, and 735 that begin
+inside one claim and end inside another.
+
+The four shapes are not equally bad and the rule does not need to distinguish them. A span
+inside a claim the splitter now cuts is a true label of a sentence, and the only thing wrong
+with it is that the reader will never see that sentence alone. A span covering two claims
+teaches one subject over two. A span with nothing overlapping it is a ballot template or a
+drawing the splitter drops. In all four the label is not a label of any claim this build
+produces, which is the one sentence the refusal needs.
+
+`export-training` now reads the captures, as `gold` does, and holds back a row whose span this
+build cuts no claim at. A game with no capture on this machine holds nothing back, so an export
+does not silently shrink depending on what was crawled. It costs 25 seconds.
+
+**What it moves.** Written rows 42,669 to 41,011 on the same reference tree plus that evening's
+labelling; train 32,502 to 31,618, validation 4,744 to 4,310, frozen 5,423 to 5,083. The frozen
+set losing 340 claims is the part that matters for reading the record: **every frozen figure
+quoted before this, tonight's included, was measured partly on claims the reader could not have
+been handed.** They are not wrong about the runs they compare, which all sat the same paper.
+They are wrong about the corpus, and they will move when the folds re-measure on the clean set.
+
+The 3,031 labels stay in the reference tree. They name real spans of real reviews, and a
+revisit that re-draws those reviews under the current cut would win most of them back; that is
+a labelling round nobody has spent yet, not a deletion.
+
+### 616 claims were in the training set twice, 108 of them under two subjects
+
+Found 2026-09-22, in the sweep that followed the two above: the same question asked a third
+time, which is what the pipeline assumes that nothing enforces. Counting distinct
+`(app_id, review_id, claim_index)` against rows in the export answered it. **616 claims are
+exported twice**, 615 of them from the random draw and the `multilingual` one, and **108 carry
+two different subjects**. A teaching draw skips a review the game's sets already hold and has
+since `already_drawn` was written; these predate it, like the other two findings.
+
+Two rows for one claim means the model sees it twice an epoch, which is a quiet reweighting,
+and on the 108 it is taught both answers in the same pass, which is a label fight it cannot
+win. Neither shows up in any figure, because both rows are correct on their own terms.
+
+Dropping the teaching copy would have thrown away a labelling. It is not a duplicate in the
+useful sense: two labellers read that claim without seeing each other's answer, which is the
+definition of a second reading, and the export has carried a column for one since the second
+reading began. So the random draw's row is kept, because that is what every figure is measured
+on, and the teaching copy becomes its second answer where it has none. Where the claim already
+had a blind second reading, that one stays: a reading of the whole set outranks a copy.
+
+The export now writes **40,695 rows, every one a distinct claim**, 20,244 with a second answer
+and 2,358 of those disagreeing on the subject.
+
+### The reader is worst exactly where the labellers are, and labels are not what those rows need
+
+Measured 2026-09-22, over the 24 subjects with at least 30 claims read twice and at least 15
+claims in the frozen games. Two numbers per row: how often the two blind readings reached the
+same subject, and what the reader scores on that row on games it never saw (`e5inst-pool-rdrop`
+seed 2, frozen `per_subject`).
+
+| | agreement vs frozen F1 | training labels vs frozen F1 |
+|---|---|---|
+| Pearson | **+0.79** | +0.29 |
+| Spearman | **+0.65** | +0.22 |
+
+**How well two labellers agree about a row predicts how well the model reads it. How many
+labels the row has barely does.** The ends of the table are where it is plainest:
+
+| subject | labellers agree | frozen F1 | training labels | where the second reading went instead |
+|---|---|---|---|---|
+| accessibility | 68% | 0.28 | 299 | difficulty, gameplay |
+| policy | 70% | 0.60 | 737 | compatibility 23, updates 12 |
+| licensing | 78% | 0.49 | 255 | content |
+| genre | 87% | 0.60 | 969 | verdict 25, gameplay 24 |
+| ... | | | | |
+| price | 91% | 0.84 | 621 | verdict |
+| performance | 92% | 0.85 | 933 | updates |
+| monetisation | 95% | 0.79 | 493 | policy |
+| audio | 96% | 0.77 | 284 | atmosphere |
+
+`accessibility` is the case that makes the point. It holds 299 training labels, more than
+`audio`'s 284 and `vr`'s 273, and it scores 0.28 against their 0.77 and 0.56. Its precision and
+recall are both about 0.28, which is not a row the model cannot find: it is a row nobody has
+defined. Two readings of the same claim land on the same subject 68% of the time, the worst on
+the sheet, and where they differ they go to `difficulty` and `gameplay`. No number of further
+`accessibility` labels fixes that, because each new one is drawn from the same 68%.
+
+The correlation is not proof of direction: a row can be intrinsically hard and drag both numbers
+down at once. What does not depend on the direction is the ceiling. A row two careful readers
+split on three times in ten cannot be learned past seven in ten, however much of it is labelled,
+so a mining draw aimed at it is buying the 68% rather than the row.
+
+**So the labelling splits in two.** A row that is starved and precise, where the reader finds
+little and is right when it does, wants more labels: `licensing` at precision 0.70 and recall
+0.38 is the clearest, and `vr`, `community` and `language` are the same shape at sizes too small
+to score. A row that is well taught and confused wants a rule, not a draw: `accessibility`,
+`policy`, `genre`, `content`. The four boundaries the adjudication page can now be aimed at are
+the second kind, and the entries in `reference/GAPS.md` are where each names the seam.
+
+**Acted on the same evening, on the worst row.** `accessibility`'s description was a purpose,
+"the settings players need in order to play at all", and a purpose is the one thing a labeller
+cannot check a claim against; it also listed "difficulty options" and "remappable controls",
+which are two of the three rows the second reading sends its disagreements to. The row now
+names what it holds and gives the test, the accommodation and never the thing it accommodates,
+so "the subtitles are tiny" is `graphics` and "no subtitle size setting" stays here.
+`compatibility` gains the matching sentence for its seam with `policy`.
+
+The revisit needed two changes to reach the row. `--words` is optional now: a revision that
+narrows a row rather than teaching the sheet a new name puts every claim under it back in
+question, and there are no words for that. And the draw walks the teaching sets, not only the
+game's random draw: **261 of the 369 `accessibility` labels are in `mined`, `retrieved`,
+`declined` and `multilingual` sets**, so a revision reaching only the random draw would have
+left seven in ten claims under the wording it just replaced. That is the fourth instance of
+the evening's pattern, a rule enforced where it was written and nowhere else.
+
+### The word probes were aimed at the rows that were thin two weeks ago
+
+Measured 2026-09-22, over the 3,357 mined labels so far. The lines were written when eight
+subjects had under 250 labels between them, and they worked: `mods` and `compatibility` now
+hold 850 and 787 training labels and score 0.74 and 0.79 on games the reader never saw. They
+are also still two of the ten lines cast every draw, and they took **20% of everything the
+draws caught**, while `licensing` at F1 0.49 and recall 0.38 took **1%**.
+
+| where a mined label landed | share | training labels | frozen F1 |
+|---|---|---|---|
+| `mods` | 11% | 850 | 0.74 |
+| `compatibility` | 9% | 787 | 0.79 |
+| `language` | 8% | 502 | 0.62 |
+| `policy` | 7% | 737 | 0.60 |
+| `audio`, `tutorial` | 8% | 284, 335 | 0.77, 0.77 |
+| `vr`, `community`, `accessibility` | 9% | 273, 509, 299 | 0.56, 0.53, 0.28 |
+| `licensing` | 1% | 255 | 0.49 |
+| a row no line was cast for | 47% | | |
+
+The 47% is not waste: it is the labeller correcting the probe, which is the method working, and
+those labels are as real as any other. The 20% is waste in the only sense that matters, which
+is that the same labeller hour could have gone to a row that needs it.
+
+`mine --only licensing vr community language` casts those four and leaves the rest, the way
+`--by-neighbour --only` already could. Deleting a line would throw away vocabulary that took
+several narrowings to get right, and the rows will move again; **which rows are worth a draw is
+a measurement, and the flag is where it goes**. The first aimed draw, four games: 193
+`licensing` candidates, 277 `community`, 209 `language`, 121 `vr`. Every mined draw before it,
+across seventeen games, produced 31 `licensing` labels in total.
+
+### The bake-off goes before the folds, because a backbone change makes the folds moot
+
+Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
+card, at the fifteen minutes an epoch this machine does with the user's other work on it:
+
+| | runs | epochs | hours |
+|---|---|---|---|
+| the three knobs and their soup | 3 | 10 | ~7.5, in flight |
+| the second bake-off, five encoders | 5 | 5 | ~6 |
+| five folds for whatever ships | 5 | 10 | ~12.5 |
+
+Eighteen and a half hours behind the queue in flight is two nights, not one, so the order is a
+decision rather than a detail. **The bake-off goes first.** The folds exist to fit the
+abstention lines for one model, and they have to be the model that ships: a line fitted on a
+ten-epoch run does not describe a six-epoch one, and a line fitted on `e5-large-instruct` does
+not describe `mmBERT`. The one thing that would waste twelve hours is fitting lines to a
+backbone the bake-off is about to replace, and the project's own history says that is a live
+possibility: varying the family, not the size, is what took a reader from answering 68.1% of
+claims to 84.9%.
+
+Nothing about the knob winner is lost by waiting. It is a saved run with a `model.bin`, and
+`ship-a-run.sh` reads it whenever its lines exist.
+
+### 29 of the 487 benchmark claims were spans nothing can read
+
+Checked 2026-09-22, after the export learned to hold back a label whose span this build cuts no
+claim at: the frontier comparison's own sample is drawn from the export, so it holds them in
+the same proportion. **29 of its 487 claims, 6.0%**, across eighteen subjects.
+
+Re-scored on the 458 that survive, from the answers already on disk, no model run again:
+
+| | answers | agreement where it answers | macro F1 |
+|---|---|---|---|
+| Claude Opus 5, 487 claims | 99.4% | 87.6% | 0.875 |
+| Claude Opus 5, 458 claims | 99.3% | **87.0%** | 0.870 |
+| `e5-29006`, the reader that ships, 487 claims | 84% | 78.4% | 0.691 |
+| `e5-29006`, 458 claims | 84.1% | **77.7%** | 0.681 |
+
+Both rows lose about six tenths of a point, which says the dropped claims were slightly easier
+than the rest for both readers, and the gap between them does not move. So the comparison the
+table exists to make survives; the absolute figures in it were over a sample 6% of which cannot
+be handed to the thing being measured.
+
+The key is not patched. A benchmark key is a draw, and narrowing one after the fact is the
+thing this project refuses everywhere else: the next draw comes from the clean export and every
+row is run again on it, at the same time the new reader is measured. Until then the README
+keeps the figures it has, because the rows in it were all scored on the same claims, and this
+entry is what says what they are over.
+
+### Four of every ten epochs buy less than the noise bar
+
+Measured 2026-09-22, from the per-epoch validation lines the three seeds of
+`e5inst-pool-rdrop` left in their logs. `run.json` records only the last epoch, so this was
+never in front of anybody: the curve is in the log and the record is a point.
+
+| epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| seed 1 | .659 | .702 | .718 | .716 | .721 | .726 | .713 | **.727** | .718 | .718 |
+| seed 2 | .663 | .691 | .711 | .712 | .716 | **.720** | .717 | .718 | .716 | .719 |
+| seed 3 | .629 | .681 | .696 | .708 | .697 | .717 | .713 | **.718** | .716 | .717 |
+
+Every seed is within half a point of its final accuracy by epoch 6, and the best epoch is
+somewhere in 6 to 8 depending on the seed, which is the same as saying the difference between
+them is noise. Epochs 7 to 10 are 40% of a run: `e5inst-fresh` took 1h14m to reach the end of
+epoch 5 tonight, so about an hour of a two-and-a-half hour run, every run, for a gain smaller
+than the one-point bar the seed spread set.
+
+So **six epochs is the length of a comparison run from here**, and the bake-off's five stay
+five. Two things this does not settle. The frozen games are read once, at the end, so what a
+six-epoch run delivers there is inferred from the validation curve rather than measured; the
+first six-epoch run to read them answers it. And a run that ships is a different question from
+a run that ranks: if the fold runs are shortened, the shipping run is shortened with them,
+because the abstention rule is fitted on out-of-fold answers and a rule fitted to a
+six-epoch model does not describe a ten-epoch one.
+
+The queue in flight was left at ten. Editing the length of a run that is already comparing
+three configurations would have made the comparison about the edit.
+
+### The contested flag moves with the sitting, not only with the claim
+
+Measured 2026-09-22, over the seventeen mined sets, which are the same draw method and the same
+brief seventeen times. The share of claims a labeller flags `ambiguous` runs from 6.7% to 51.1%
+between sets, and the spread is not two labellers disagreeing: within `claude-opus-5` alone the
+four sets of this evening came back at 11.1%, 15.6%, 6.7% and 37.8%, against 31.1% to 51.1% for
+its four earlier ones.
+
+| subset | claims | contested | mis-split |
+|---|---|---|---|
+| random | 33,010 | 28.5% | 14.1% |
+| mined | 2,160 | 39.3% | 17.9% |
+| declined | 2,935 | 48.1% | 12.8% |
+| retrieved | 2,867 | 29.2% | 10.8% |
+| multilingual | 1,697 | 33.1% | 19.3% |
+
+The subset differences are the ones the draws were built to produce and read as expected: a set
+of claims the reader declined is half contested, a random set is a quarter. The sitting
+differences sit on top of them and are as large. `split_wrong` does not do this to anything like
+the same degree, 11% to 37% across sets and mostly 15% to 22%.
+
+This is the third measurement pointing the same way. The two blind readings agree on the subject
+at kappa 0.87 and on the contested flag at kappa 0.46, the lowest of the three fields; the flag's
+rate differs between the two readings, 27.4% against 43.9%; and now it differs between sittings
+of one reader. A field that moves this much with who asked and when is not a property of the
+claim, and training on it as though it were teaches the model to predict a labeller's mood.
+
+The disagreement between two blind readings is the measurement that does not move: it is
+computed, not reported, and the ceiling already uses it. Whether the reader's `on_contested`
+figure tracks the flag or the disagreement better is a scored question, and the queue owns the
+card until it drains.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
@@ -3315,9 +3929,12 @@ Then, in order:
 
    **`steamgauge mine` ships as of 2026-09-12**, with a written probe list per starved subject
    in `mine.rs`, a round-robin quota so a game rich in one subject cannot eat the draw, and the
-   same refusal as the declined draw to touch a game held back from training. The retrieval
-   half, which is the stronger one, is still to build: probes are lexical and mostly ride on
-   borrowed tokens, so a Russian review complaining about subtitles is not caught.
+   same refusal as the declined draw to touch a game held back from training. Its probes are
+   lexical and mostly ride on borrowed tokens, so a Russian review complaining about subtitles
+   is not caught by them. **The retrieval half ships too, as `mine --by-neighbour`**: every
+   labelled claim of a starved subject is embedded and the corpus is walked for its nearest
+   neighbours, which finds the paraphrases no word list holds and crosses the languages a word
+   list cannot. It costs a forward pass over the corpus per game and lands in `retrieved/`.
 
    **Read what a probe catches before spending a labeller on it**, with
    `cargo run --release -p steamgauge-core --example mine-check -- <app id>`. Four of the eight

@@ -54,10 +54,15 @@ pub struct Probe {
     pub terms: &'static [&'static str],
 }
 
-/// The eight subjects with the fewest labels, and what to look for.
+/// The subjects a word probe can find, and what to look for.
 ///
-/// Ordered by how starved the subject is, because the draw fills its quotas in this order and
-/// a claim that matches two subjects is counted once, for the first of them.
+/// Ordered by how starved the subject was when each line was written, because the draw fills
+/// its quotas in this order and a claim that matches two subjects is counted once, for the
+/// first of them. The order is not a claim about today: `mods` and `compatibility` were among
+/// the thinnest rows here and now score 0.74 and 0.79 on games the reader never saw, while
+/// `licensing` sits at 0.49 and takes 1% of what these draws catch. Which rows are worth a
+/// draw is a measurement, and `--only` is where it goes; the lines themselves are vocabulary
+/// and stay whether or not a row needs them this week.
 pub const PROBES: &[Probe] = &[
     Probe {
         // Real names, not licence agreements: a protest about an EULA is `policy`, and this
@@ -314,6 +319,75 @@ pub const PROBES: &[Probe] = &[
             "requires an account",
         ],
     },
+    Probe {
+        // Not bare "sound" or "music": "sounds fun" is a verdict, "sounds like Dark Souls" is
+        // genre, and "the music of the setting" is atmosphere. The words that are about the
+        // audio itself carry a maker, a track or an ear with them.
+        subject: "audio",
+        terms: &[
+            "soundtrack",
+            "soundtracks",
+            "ost",
+            "bgm",
+            // Not "score": in a games corpus it is the review score four times in six, and
+            // the two that mean the music are already caught by "soundtrack".
+            "sound design",
+            "sound effects",
+            "sound effect",
+            "sfx",
+            "voice acting",
+            "voice actor",
+            "voice actors",
+            "voiceover",
+            "voice over",
+            "dub",
+            "dubbing",
+            "audio mixing",
+            "audio bug",
+            "音楽",
+            "音效",
+            "配音",
+            "саундтрек",
+            "озвучка",
+            "musik",
+            "vertonung",
+            "banda sonora",
+            "doblaje",
+            "trilha sonora",
+            "dublagem",
+        ],
+    },
+    Probe {
+        // The row is about being taught the game, so the line is the teaching and its absence.
+        // Not "learning curve": how hard a game is to learn is difficulty by the sheet's rule,
+        // and the curve is the commonest way to say it.
+        subject: "tutorial",
+        terms: &[
+            "tutorial",
+            "tutorials",
+            "tutoriel",
+            "tutoriales",
+            "onboarding",
+            "no explanation",
+            "never explains",
+            "does not explain",
+            "doesn't explain",
+            "explains nothing",
+            "without explaining",
+            "figure it out yourself",
+            "figure out how",
+            "wiki to play",
+            "read the wiki",
+            "チュートリアル",
+            "教程",
+            "新手教学",
+            "튜토리얼",
+            "обучение",
+            "туториал",
+            "einführung",
+            "erklärt nichts",
+        ],
+    },
 ];
 
 /// Which subject's line a claim took, if any.
@@ -323,9 +397,22 @@ pub const PROBES: &[Probe] = &[
 /// right way round: `vr` has forty-one labels and `mods` has a hundred and forty-six.
 #[must_use]
 pub fn hooked(claim: &str) -> Option<&'static str> {
+    hooked_among(claim, &[])
+}
+
+/// The same, restricted to the subjects named, or every probe when none are.
+///
+/// Which rows are worth fishing for is a measurement and it moves: `mods` and `compatibility`
+/// were among the thinnest rows when these lines were written and now score 0.74 and 0.79 on
+/// games the reader never saw, while `licensing` sits at 0.49 and takes 1% of what the draws
+/// catch. Deleting their lines would throw away the vocabulary; naming the rows per draw keeps
+/// it and puts the aiming where the evidence is.
+#[must_use]
+pub fn hooked_among(claim: &str, only: &[String]) -> Option<&'static str> {
     let haystack = claim.to_lowercase();
     PROBES
         .iter()
+        .filter(|probe| only.is_empty() || only.iter().any(|name| name == probe.subject))
         .find(|probe| {
             probe
                 .terms
@@ -705,7 +792,7 @@ fn margin_key(margin: f32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{PROBES, hooked};
+    use super::{PROBES, hooked, hooked_among};
 
     /// A term listed twice is a term that was edited twice and reconciled neither time, and
     /// nothing else in the file would notice.
@@ -750,6 +837,25 @@ mod tests {
     }
 
     #[test]
+    fn a_draw_aimed_at_one_row_casts_that_line_and_not_the_ones_above_it() {
+        let only = |name: &str| vec![name.to_owned()];
+        // `vr` comes before `mods` in the list, so without narrowing it takes the claim.
+        assert_eq!(
+            hooked_among("the VR modding scene is incredible", &only("mods")),
+            Some("mods")
+        );
+        // A claim only another line catches is not offered under the row that was asked for.
+        assert_eq!(
+            hooked_among("no Steam Deck support", &only("licensing")),
+            None
+        );
+        assert_eq!(
+            hooked_among("no Steam Deck support", &[]),
+            Some("compatibility")
+        );
+    }
+
+    #[test]
     fn a_term_that_is_not_ascii_matches_without_a_boundary() {
         assert_eq!(hooked("求求你们加个中文吧"), Some("language"));
         assert_eq!(hooked("创意工坊的模组很多"), Some("mods"));
@@ -767,6 +873,30 @@ mod tests {
         assert_eq!(hooked("a tone deaf announcement from the publisher"), None);
         assert_eq!(hooked("upgrade your bear license, drink beer"), None);
         assert_eq!(hooked("vive la DRG, longue vie a eux"), None);
+        // "sounds like" is a comparison and "the score" is the review's, four times in six.
+        assert_eq!(hooked("it sounds like Dark Souls with guns"), None);
+        assert_eq!(hooked("its 97% review score is here for a reason"), None);
+        // How hard a game is to learn is difficulty by the sheet's rule, not tutorial.
+        assert_eq!(hooked("the learning curve is brutal"), None);
+    }
+
+    #[test]
+    fn the_two_rows_that_joined_the_list_have_lines_that_reach_them() {
+        assert_eq!(hooked("the soundtrack is unbelievable"), Some("audio"));
+        assert_eq!(
+            hooked("the voice acting carries the whole thing"),
+            Some("audio")
+        );
+        assert_eq!(hooked("音楽が最高"), Some("audio"));
+        assert_eq!(hooked("the tutorial teaches you nothing"), Some("tutorial"));
+        assert_eq!(
+            hooked("the game never explains its systems"),
+            Some("tutorial")
+        );
+        assert_eq!(
+            hooked("you have to read the wiki to play it"),
+            Some("tutorial")
+        );
     }
 
     #[test]

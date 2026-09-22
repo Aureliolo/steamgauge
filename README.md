@@ -390,9 +390,11 @@ rather than about somebody's afternoon:
   contested, and whether the claim was cut in the wrong place. The last two are read back:
   agreement is reported separately over the contested claims, and the mis-split rate is what
   drives the splitting rules. Three rounds of them came from labellers reporting it.
-- **A tenth is read again by a different labeller, blind.** `steamgauge second-opinion` draws the
-  same reviews as fresh batches with no labels in them, and `steamgauge compare-labels` reads the
-  two labellings together. It reports each field apart from the others, because they fail
+- **Every game the model is measured on is read again by a different labeller, blind, in full,
+  and a share of every other set is too.** That is 21,449 of the 33,615 claims the random draws
+  hold, nearly two thirds, and all 4,060 of the ones the frozen games answer. `steamgauge second-opinion` draws the same reviews as fresh
+  batches with no labels in them, and `steamgauge compare-labels` reads the two labellings
+  together. It reports each field apart from the others, because they fail
   differently: subject is a judgement about the claim, and `ambiguous` is a judgement about the
   taxonomy. Beside every percentage is Cohen's kappa, which is what the percentage cannot tell
   you: a corpus is mostly `verdict` and `offtopic`, so two labellers who never read a claim
@@ -502,9 +504,10 @@ These rules keep those figures honest:
   labeller, so they carry that labeller's noise as well as the reader's error. Since then the
   sets have been read a second time, blind, and on the claims **two** labellers settled the
   Chinese gap is not there: 93.0% of 171 Chinese claims against 90.0% of 3,336 English ones
-  over every set read twice, and 85.7% each over the frozen games read twice so far. What
-  differs is the labellers, who agree on 89.1% of English claims and 83.8% of Chinese ones.
-  Korean's settled sample is 38 claims and says nothing either way yet. The Chinese samples are
+  over every set read twice, and over the ten frozen games, now read twice in full, 86.9% of
+  153 Chinese claims against 85.5% of 2,767 English ones. What differs is the labellers, who
+  agree on 89.1% of English claims and 83.8% of Chinese ones. Korean's settled sample is 35
+  claims, at 80.0%, and says nothing either way yet. The Chinese samples are
   small enough to hide a point or two, and small enough to rule out the six the column shows;
   the correction a noisier language needs is a second reading of it, which is what is being
   bought, rather than a heavier gradient, which was tried and is off.
@@ -587,15 +590,17 @@ These rules keep those figures honest:
   does not apply: the labels were written by a model, so what is measured is consistency
   between two models.
 
-  Measured over 2,976 claims on every one of the 51 games: two labellers agree on the subject
-  86.5% of the time, kappa 0.85, and on polarity 94%, kappa 0.91. Those are figures a set can
-  stand on, and they did not move when the set grew from ten games to thirty to fifty-one.
+  Measured over 21,449 claims on every one of the 51 games, with the ten frozen games read
+  twice in full: two labellers agree on the subject 88.6% of the time, kappa 0.87, and on
+  polarity 94.9%, kappa 0.92. Those are figures a set can stand on, and they did not move when
+  the set grew from ten games to thirty to fifty-one, nor when the second reading went from a
+  share of each set to all of the frozen ones.
 
 - **The contested flag measures the labeller as much as the claim.** Two labellers given the
-  same definition reached for it on three tenths and on half of the same claims, kappa 0.48.
+  same definition reached for it on 27.4% and on 43.9% of the same 21,449 claims, kappa 0.46.
   The flag does find the right claims: where neither reached for it the two agree on the
-  subject 99% of the time, and where either did they agree three times in four. What differs is the
-  bar. So a game's contested rate is not compared with another game's, and agreement is
+  subject 98.8% of the time, where one of them did 82.4%, and where both did 72.5%. What
+  differs is the bar. So a game's contested rate is not compared with another game's, and agreement is
   reported over the contested claims as a floor on how hard the taxonomy is rather than as a
   property of the corpus.
 

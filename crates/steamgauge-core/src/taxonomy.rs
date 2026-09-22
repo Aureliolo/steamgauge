@@ -184,8 +184,8 @@ pub const SHEET: &[Category] = &[
         label: "Genre and comparisons",
         description: "What kind of game this is. A roguelike, turn-based tactics, a \
                       management sim, a deckbuilder, a soulslike. It plays like FTL, it is \
-                      XCOM meets Darkest Dungeon, if you liked Slay the Spire you will like \
-                      this, it reminds me of the old games in the genre.",
+                      XCOM meets Darkest Dungeon, it reminds me of the old games in the \
+                      genre.",
         boundary: Some(
             "Naming what kind of game it is, or which games it resembles, belongs here, and \
              that includes calling it a co-op game or comparing it to other co-op games. As \
@@ -199,7 +199,11 @@ pub const SHEET: &[Category] = &[
              Darkest Dungeon\", \"a deckbuilder with no deck\", \"not really a soulslike at \
              all\", \"I normally hate management sims\". That holds for any comparison and not \
              only with this game's own predecessor: better or worse is a verdict, how it \
-             differs is genre. A bare list of what the game is about, \"dwarves, beer, space, \
+             differs is genre. A recommendation is a verdict whether or not it names a \
+             condition or another game: \"if you like horror and survival this is perfect for \
+             you\", \"for fans of MetroidVanias this might be worth trying\" and \"if you \
+             liked Slay the Spire you will like this\" all say who should buy it, which is a \
+             judgement. A bare list of what the game is about, \"dwarves, beer, space, \
              guns, bugs\", with no judgement attached, is genre too: it says what kind of game \
              this is and nothing else.",
         ),
@@ -219,9 +223,13 @@ pub const SHEET: &[Category] = &[
              names one specific thing belongs to that thing: \"super fun, and the story is \
              great\" is story. A judgement with only the kind of game attached, \"excellent \
              city builder\", is a verdict; genre is for when what kind of game it is, or \
-             which game it resembles, is the point being made. A community's own catchphrase \
-             used as a salute, \"Rock and Stone\", is a verdict and it is praise. Asking for \
-             a sequel belongs here; asking for a port belongs to compatibility.",
+             which game it resembles, is the point being made. A recommendation is a verdict \
+             whatever condition it carries: \"if you like horror this is perfect for you\" \
+             recommends the game to a group of people, and who should buy it is a judgement. \
+             A community's own catchphrase used as a salute, \"Rock and Stone\", is a verdict \
+             and it is praise. Asking for a sequel belongs here; asking for a port belongs to \
+             compatibility. Looking forward to the game, or wishing the reader a good time \
+             with it, judges nothing and is offtopic.",
         ),
         alone: true,
     },
@@ -243,8 +251,12 @@ pub const SHEET: &[Category] = &[
              does pass judgement, good or terrible or 10/10, is a verdict, and so is one that \
              carries an attitude without naming anything, \"yum\", \"god\", \"finally\". A word \
              carrying no attitude at all, a bare title like \"WARHAMMER\" or a noise like \
-             \"ooookkkk\", is offtopic. Where you cannot tell whether a fragment carries an \
-             attitude, that is what the ambiguous flag is for; do not force it either way.",
+             \"ooookkkk\", is offtopic. Looking forward to playing, \"I am so excited to play \
+             this\", and telling the reader to enjoy it, \"have fun\", are about the reviewer \
+             and the reader rather than about the game, and belong here: a verdict needs a \
+             judgement of the game, however bare. Where you cannot tell whether a fragment \
+             carries an attitude, that is what the ambiguous flag is for; do not force it \
+             either way.",
         ),
         alone: true,
     },
@@ -484,17 +496,29 @@ pub const SHEET: &[Category] = &[
             "Asking for a port to another platform belongs here, and so does a game that \
              will not start at all when no reason is given. A game that starts and then \
              crashes is bugs. Asking for a sequel belongs to verdict, and anything about \
-             playing it in a headset belongs to VR.",
+             playing it in a headset belongs to VR. This row is about the machine: a \
+             requirement the publisher chose, a second account, a launcher, a permanent \
+             connection, is policy however completely it stops the game from running.",
         ),
         alone: false,
     },
     Category {
         id: "accessibility",
         label: "Accessibility and options",
-        description: "Settings and accommodations. Subtitles, colourblind modes, remappable \
-                      controls, difficulty options, text size, and the settings players need \
-                      in order to play at all.",
-        boundary: Some("Which languages the game is available in belongs to language, not here."),
+        description: "A setting or feature put there so somebody can play who otherwise could \
+                      not. Subtitles and their size, colourblind modes, one-handed and \
+                      remappable control schemes, screen reader support, turning off screen \
+                      shake or flashing, and a difficulty or assist option offered for the \
+                      same reason.",
+        boundary: Some(
+            "This is the accommodation, never the thing it accommodates. Text being too small \
+             to read is graphics, a game being too hard is difficulty, a control scheme that \
+             does not respond is controls, and which languages the game is available in is \
+             language; an option offered so that somebody can read it, beat it or play it \
+             one-handed is here. The test is whether the claim is about something the game \
+             provides on purpose for that reason: \"no subtitle size setting\" and \"the \
+             colourblind mode is excellent\" are here, \"the subtitles are tiny\" is graphics.",
+        ),
         alone: false,
     },
     // Bundled into accessibility until it was measured: language complaints were most of

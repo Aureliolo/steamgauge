@@ -345,6 +345,19 @@ fn distinctive(
             }
             continue;
         }
+        // "listened", "listening" and "listens" are one thing said three ways, and on a real
+        // game they took three of the seven places a row has. The form more reviewers used
+        // takes the place, because the point of the list is what was said.
+        if let Some(kept) = shown
+            .iter_mut()
+            .find(|kept| one_word_inflected(&kept.text, term))
+        {
+            if reviews > kept.reviews {
+                term.clone_into(&mut kept.text);
+                kept.reviews = reviews;
+            }
+            continue;
+        }
         // にほ, ほん and んご used by the same reviewers are one word, にほんご, cut into the
         // pairs the counter works in for a script it has no dictionary for. Joined back up
         // where the pairs overlap.
@@ -406,6 +419,13 @@ fn nearly(left: u64, right: u64) -> bool {
     left * 20 >= right * 19 && right * 20 >= left * 19
 }
 
+/// Whether a term is one of the words that say nothing alone and turn what follows. A term
+/// list holding one is a defect, which is what the diagnostic that asks this checks for.
+#[must_use]
+pub fn turns_what_follows(term: &str) -> bool {
+    MODIFIERS.contains(&term)
+}
+
 /// Whether a term opens on a word that turns what follows: "no bugs", "not worth".
 fn turned_by_a_modifier(term: &str) -> bool {
     term.split(' ')
@@ -429,6 +449,38 @@ fn shares_a_word(left: &str, right: &str) -> bool {
     long.split(' ').any(|word| word == short)
         || (short.contains(' ')
             && (long.starts_with(&format!("{short} ")) || long.ends_with(&format!(" {short}"))))
+}
+
+/// The endings two inflections of one word may differ by. Deliberately short: "d" alone would
+/// make "car" and "card" one word, and "y" alone would make "part" and "party" one, so a
+/// plural in -ies is the one pair allowed to differ on both sides.
+const ENDINGS: &[&str] = &["", "s", "es", "ed", "ing"];
+
+/// Whether two terms are the same word in two forms: "server" and "servers", "listened" and
+/// "listening", "story" and "stories". The shared beginning has to be a word's worth of
+/// characters, because a three-letter agreement is a coincidence: "mode" and "mods" share
+/// "mod" and are two findings, and the endings they differ by settle it.
+///
+/// Public so that a diagnostic can ask the same question of every page that has been counted,
+/// which is how the rule is checked at the size it has to hold at.
+#[must_use]
+pub fn one_word_inflected(left: &str, right: &str) -> bool {
+    if left == right {
+        return false;
+    }
+    let shared = left
+        .char_indices()
+        .zip(right.chars())
+        .take_while(|((_, here), there)| here == there)
+        .map(|((at, here), _)| at + here.len_utf8())
+        .last()
+        .unwrap_or(0);
+    if shared < 3 {
+        return false;
+    }
+    let (here, there) = (&left[shared..], &right[shared..]);
+    (ENDINGS.contains(&here) && ENDINGS.contains(&there))
+        || matches!((here, there), ("y", "ies") | ("ies", "y"))
 }
 
 /// Whether a character is a Chinese ideograph, the script the dictionary cuts.
@@ -1482,8 +1534,87 @@ const ALSO_CALLED: &[(&str, &[&str])] = &[
 ];
 
 /// Function words that carry meaning into the word after them.
-const MODIFIERS: [&str; 12] = [
-    "no", "not", "never", "without", "too", "on", "off", "less", "more", "only", "still", "always",
+///
+/// The contractions are here because a review negates with them far more often than with
+/// "not": "can't" was a complaint term of its own on a million-review page, where it said
+/// nothing at all, and "can't recommend" said the thing the reviewer meant.
+///
+/// The rest are the same word in the languages the library is written in. Read from what the
+/// pages already show: over 53 counted games, "keine", "без", "слишком" and "нельзя" had each
+/// taken a place on a row by themselves. A negation is the one word whose absence changes a
+/// finding into its opposite, so the languages that write it as a word of its own get the
+/// same treatment English does. Japanese and Chinese negate inside the word and are handled
+/// where those scripts are cut.
+const MODIFIERS: &[&str] = &[
+    // English, including the contractions a review actually uses.
+    "no",
+    "not",
+    "never",
+    "without",
+    "too",
+    "on",
+    "off",
+    "less",
+    "more",
+    "only",
+    "still",
+    "always",
+    "can't",
+    "cannot",
+    "don't",
+    "doesn't",
+    "didn't",
+    "won't",
+    "wouldn't",
+    "couldn't",
+    "shouldn't",
+    "isn't",
+    "wasn't", //
+    // German.
+    "nicht",
+    "kein",
+    "keine",
+    "keinen",
+    "ohne",
+    "nie",
+    "zu",
+    "sehr", //
+    // Russian and Ukrainian.
+    "не",
+    "нет",
+    "без",
+    "нельзя",
+    "слишком",
+    "очень", //
+    // Spanish and Portuguese.
+    "sin",
+    "sem",
+    "não",
+    "nunca",
+    "demasiado",
+    "muy",
+    "muito", //
+    // French.
+    "pas",
+    "sans",
+    "jamais",
+    "trop", //
+    // Italian.
+    "non",
+    "senza",
+    "mai",
+    "troppo", //
+    // Polish and Czech.
+    "nie",
+    "bez",
+    "zbyt", //
+    // Turkish.
+    "değil",
+    "yok",
+    "çok", //
+    // Korean, which is written with spaces and negates with a word of its own.
+    "안",
+    "못",
 ];
 
 /// Function words, and the handful of words that are function words in a Steam review:
@@ -1518,6 +1649,7 @@ reviews \
 игре этот эта это эти его её их мне меня тебе вас нам них там тут здесь \
 der das und ist nicht ein eine einer einen dem den des ich du er sie es wir ihr \
 mit von zu auf für aus bei nach über auch nur noch schon sehr aber oder wenn dass wie \
+ab um \
 wo da hier dort wird sind habe haben kann spiel spiele spielen \
 el la los las un una unos unas y o pero de del en con por para que es son está están \
 muy más menos también ya no sí este esta esto ese esa eso lo le les se me te su sus mi \
@@ -1570,7 +1702,15 @@ mod tests {
 
     #[test]
     fn apostrophes_stay_inside_a_word_and_case_is_folded() {
-        assert_eq!(terms("Don’t BUY it"), ["don't", "buy", "don't buy"]);
+        // "don't" turns what follows and says nothing alone, so the pair is where it shows.
+        assert_eq!(terms("Don’t BUY it"), ["buy", "don't buy"]);
+    }
+
+    #[test]
+    fn a_contraction_negates_the_word_after_it_rather_than_standing_alone() {
+        let found = terms("can't recommend the combat");
+        assert!(!found.contains(&"can't".to_owned()), "{found:?}");
+        assert!(found.contains(&"can't recommend".to_owned()), "{found:?}");
     }
 
     #[test]
@@ -1898,6 +2038,61 @@ mod tests {
             .map(|t| t.text.as_str())
             .collect();
         assert_eq!(criticised.len(), 1, "{criticised:?}");
+    }
+
+    #[test]
+    fn two_forms_of_one_word_are_shown_once_in_the_form_more_reviewers_used() {
+        let mut said = Said::new(1);
+        // The filler changes with the review so that no phrase survives the cut and the two
+        // forms of the word stand alone, which is the shape a real row has.
+        for review in 0..200 {
+            said.note(0, Polarity::Praise, &format!("{review} they are listening"));
+            if review < 120 {
+                said.note(0, Polarity::Praise, &format!("{review} they listened"));
+            }
+            said.note(
+                0,
+                Polarity::Complaint,
+                &format!("{review} roadmap is empty"),
+            );
+            said.next_review("english");
+        }
+        let found = said.finish(&[("updates", "Updates and developer support")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(
+            praised.iter().filter(|t| t.contains("listen")).count(),
+            1,
+            "{praised:?}"
+        );
+        assert!(praised.contains(&"listening"), "{praised:?}");
+    }
+
+    #[test]
+    fn words_that_only_start_the_same_are_two_findings() {
+        for (left, right) in [
+            ("mode", "mods"),
+            ("car", "card"),
+            ("part", "party"),
+            ("play", "player"),
+            ("服务", "服务器"),
+        ] {
+            assert!(!one_word_inflected(left, right), "{left} and {right}");
+            assert!(!one_word_inflected(right, left), "{right} and {left}");
+        }
+    }
+
+    #[test]
+    fn one_word_in_two_forms_is_recognised_whichever_way_round_it_comes() {
+        for (left, right) in [
+            ("server", "servers"),
+            ("listened", "listening"),
+            ("story", "stories"),
+            ("fix", "fixes"),
+            ("no bug", "no bugs"),
+        ] {
+            assert!(one_word_inflected(left, right), "{left} and {right}");
+            assert!(one_word_inflected(right, left), "{right} and {left}");
+        }
     }
 
     #[test]

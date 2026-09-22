@@ -9,10 +9,23 @@ redrawn against both.
 Ordered by how many labellers reported the same thing without being able to see each other's
 work, which is the only evidence any of it has. The second reading adds a different kind of
 evidence: where two labellers given the same sheet disagree on the subject, the sheet is what
-failed. Their commonest disagreements, over 1,400 claims read twice across thirty games, are
-`difficulty` against `gameplay` (25), `genre` against `verdict` (14), `updates` against
-`verdict` (10), `atmosphere` against `verdict` (9) and `content` against `verdict` (8). Every
-one of those is below.
+failed.
+
+**Over 21,449 claims read twice, 2,452 of them split on the subject.** The commonest pairs are
+`difficulty`/`gameplay` (198), `offtopic`/`verdict` (121), `updates`/`verdict` (120),
+`atmosphere`/`verdict` (109), `content`/`gameplay` (107), `genre`/`verdict` (101),
+`gameplay`/`verdict` (88) and `price`/`verdict` (81). Every one of those is below. Four of them
+are directional rather than a coin toss, which is two readers drawing one line in two places
+rather than a claim that fits both: on `atmosphere`/`verdict` the first reading says `verdict`
+85% of the time, on `genre`/`verdict` 81%, and on `updates`/`verdict` it says `updates` 75%.
+`steamgauge gold --boundary atmosphere/verdict` draws a page of one boundary at a time.
+
+**Why this file is the lever and not the labelling.** Over the 24 subjects with enough claims
+to judge, how often two readings agree about a row predicts the reader's own F1 on games it
+never saw at Pearson +0.79; how many training labels the row holds predicts it at +0.29. A row
+two readers split on three times in ten cannot be learned past seven in ten, so a draw aimed at
+it buys the disagreement rather than the row. The rows that want labels are the ones that are
+starved and precise; the rows that want a rule are here.
 
 ## Defects in the sheet, to fix in the next revision
 
@@ -43,6 +56,47 @@ the thing and the option for it: how the keys are laid out and whether they resp
 `controls`; whether the game lets you change them is `accessibility`, which is where "the
 settings players need in order to play at all" already points. The revision adds that
 sentence as a RULE on `controls`.
+
+### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
+
+No labeller named this one, which is why it took measuring to find. `accessibility` holds 299
+training labels, more than `audio` (284) and `vr` (273), and the reader scores 0.28 on it
+against their 0.77 and 0.56, with precision and recall both about 0.28. Two blind readings of
+the same claim reach the same subject 68% of the time, the lowest on the sheet, and where they
+differ they go to `difficulty` and `gameplay`.
+
+The description is "the settings players need in order to play at all", which reads as a
+purpose rather than a test, and a purpose is the one thing a labeller cannot check a claim
+against. "I could not finish it because the text is unreadable" is `accessibility` by purpose
+and `graphics` by content; "no difficulty options for disabled players" is `accessibility` by
+purpose and `difficulty` by content; "cannot rebind" is already split with `controls` by the
+entry above. Every one of those goes to the aspect under the current sheet, which leaves
+`accessibility` holding only claims that name a named accessibility feature, and that is the
+row the description should describe. The revision needs the test written out: a claim is
+`accessibility` when it is about a setting or feature provided so that somebody can play who
+otherwise could not (subtitle size, colourblind modes, one-handed schemes, screen readers,
+remapping), and belongs to the aspect when it is about the aspect being hard to see, hear or
+beat.
+
+### `policy` against `compatibility`: the 23 claims the second reading moved
+
+`policy` is second-worst on both counts, 70% agreement and 0.60, on 737 labels. The second
+reading sent 23 of its disagreements to `compatibility` and 12 to `updates`. The shape is an
+account, a launcher or a connection the publisher requires: one reading files "needs a
+Rockstar account" under what the publisher demands, the other under what stops the game
+running. The sheet settles the neighbouring case already, on `bugs`: "Being unable to log in
+is here when the login itself is broken and `policy` when needing an account at all is the
+complaint." The same sentence has to be said about `compatibility`, which currently takes
+anything that stops a game starting: a requirement the publisher chose is `policy` however
+completely it stops the game, and `compatibility` is for the machine.
+
+### `licensing` against `content`: five of its 65 claims read twice
+
+`licensing` is the clearest case of the other kind, a row that is starved rather than
+contested: 78% agreement, precision 0.70 and recall 0.38, which is a reader that finds little
+and is right when it does. The disagreements go to `content`, which is the missing-competition
+seam the entry further down already reports from the licensing draws. It is on this list to
+say that its fix is labels and games, not a rule.
 
 ## Needs a rule, not a category
 

@@ -75,14 +75,14 @@
     "subset": "random",
     "start": 618,
     "end": 726,
-    "taxonomy": "4c0f706325b0",
+    "taxonomy": "ef412286fa09",
     "produced_by": "claude-opus-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false
   },
   {
     "review_id": "100177227",
@@ -2302,7 +2302,7 @@
     "subset": "random",
     "start": 0,
     "end": 32,
-    "taxonomy": "4c0f706325b0",
+    "taxonomy": "ef412286fa09",
     "produced_by": "claude-opus-5",
     "subject": "verdict",
     "polarity": "praise",

@@ -332,9 +332,11 @@ enum Command {
         /// Claims per forward pass, when `--by-neighbour`.
         #[arg(long, default_value_t = 256)]
         embed_batch: usize,
-        /// Fish for these starved subjects only, when `--by-neighbour`. The rest still vote
-        /// against, so a draw for `licensing` alone is a draw for `licensing` and not for
-        /// whatever else is rare.
+        /// Fish for these subjects only. With `--by-neighbour` the rest still vote against,
+        /// so a draw for `licensing` alone is a draw for `licensing` and not for whatever
+        /// else is rare; with the word probes the other lines are simply not cast. Which rows
+        /// are worth a draw is a measurement that moves, and `steamgauge measure-claims` is
+        /// what says which they are today.
         #[arg(long, num_args = 1..)]
         only: Vec<String>,
     },
@@ -480,8 +482,10 @@ enum Command {
     /// its name, so naming the words finds the slice: eight games of "modding" sat under
     /// `content` and `updates` and not one of them failed to use the word.
     Revisit {
-        /// Words that put a claim back in question. A claim using any of them is drawn.
-        #[arg(long, required = true, num_args = 1..)]
+        /// Words that put a claim back in question. A claim using any of them is drawn. Left
+        /// out, every claim under the subjects named is drawn, which is what a revision that
+        /// narrows a row rather than naming a new one puts back in question.
+        #[arg(long, num_args = 1..)]
         words: Vec<String>,
         /// Only claims currently filed under these subjects. A rule moves a boundary between
         /// two rows, and a claim on neither side of it cannot cross. Every subject when none
@@ -601,6 +605,13 @@ enum Command {
         /// one that has to change. The new answer replaces the old at the next ingest.
         #[arg(long)]
         rejudge: bool,
+        /// Ask only about disagreements on this boundary, written `difficulty/gameplay`, and
+        /// repeated once per boundary. The blind sample is untouched: aiming that would make
+        /// the accuracy figure a fact about the boundaries somebody chose. Four boundaries
+        /// carry a third of every disagreement the two readings produce, and a sitting spent
+        /// on those settles more of the sheet per question than one spread over all of them.
+        #[arg(long, value_parser = a_boundary)]
+        boundary: Vec<(String, String)>,
     },
 
     /// Merge adjudicated answers back, as the only labels in the set written by a person.
@@ -630,6 +641,12 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         from: PathBuf,
+        /// Directory holding the captures, which is what says whether this build still cuts a
+        /// claim where a label names one. A label whose span it no longer cuts is not a label
+        /// of anything the reader will be handed, and training on it teaches a string that
+        /// cannot come back. A game with no capture here holds nothing back.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
         /// Where to write the JSONL.
         #[arg(long, default_value = "training/data/claims.jsonl")]
         to: PathBuf,
@@ -808,17 +825,7 @@ pub async fn run() -> Result<()> {
             let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
-        Command::ExportTraining { from, to } => {
-            let (written, refused) = steamgauge_core::claimset::export_training(&from, &to)?;
-            println!("{written} labelled claims -> {}", to.display());
-            if refused > 0 {
-                println!(
-                    "{refused} rows held back for carrying no claim: an option nobody ticked, \
-                     or a piece with no word in it"
-                );
-            }
-            Ok(())
-        }
+        Command::ExportTraining { from, out, to } => run_export_training(&from, &out, &to),
         Command::ExportPool {
             app_ids,
             out,
@@ -963,9 +970,10 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             batch_size,
             seed,
             reference,
+            only,
             by_neighbour: false,
             ..
-        } => run_mine(app_ids, out, *claims, *batch_size, *seed, reference),
+        } => run_mine(app_ids, out, *claims, *batch_size, *seed, reference, only),
         Command::Revisit {
             words,
             subjects,
@@ -986,6 +994,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             answers,
             port,
             rejudge,
+            boundary,
         } => run_gold(
             reference,
             out,
@@ -996,6 +1005,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
                 languages: language,
                 reading: labels,
                 rejudge: *rejudge,
+                boundaries: boundary,
             },
             if *serve {
                 Delivery::Served {
@@ -1274,6 +1284,50 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
     Ok(())
 }
 
+fn run_export_training(
+    from: &std::path::Path,
+    captures: &std::path::Path,
+    to: &std::path::Path,
+) -> Result<()> {
+    let report = steamgauge_core::claimset::export_training(from, captures, to)?;
+    println!("{} labelled claims -> {}", report.written, to.display());
+    if report.no_claim > 0 {
+        println!(
+            "{} rows held back for carrying no claim: an option nobody ticked, or a piece \
+             with no word in it",
+            report.no_claim
+        );
+    }
+    if report.twice > 0 {
+        println!(
+            "{} claims two draws both handed out, folded into one row: the random draw's \
+             answer, with the other kept beside it as a second reading",
+            report.twice
+        );
+    }
+    if report.recut > 0 {
+        println!(
+            "{} rows held back for naming bytes this build cuts no claim at: what they were \
+             written about is not something the reader will ever be handed",
+            report.recut
+        );
+    }
+    if report.measured_on > 0 {
+        println!(
+            "{} teaching rows held back for sitting on {}, which the model is measured on \
+             and never trains on",
+            report.measured_on,
+            report
+                .measured_on_games
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    Ok(())
+}
+
 /// Refuses to draw a teaching set from a game the model is measured on.
 ///
 /// Every teaching draw is labelled and trained on, so drawing one from a validation or frozen
@@ -1403,14 +1457,29 @@ fn run_mine(
     batch_size: usize,
     seed: u64,
     reference: &std::path::Path,
+    only: &[String],
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
+    if let Some(unknown) = only.iter().find(|name| {
+        !steamgauge_core::mine::PROBES
+            .iter()
+            .any(|p| p.subject == name.as_str())
+    }) {
+        anyhow::bail!(
+            "{unknown} has no probe; the lines are {}",
+            steamgauge_core::mine::PROBES
+                .iter()
+                .map(|p| p.subject)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
 
     let (mut reviews, mut asked, mut batches) = (0, 0, 0);
     let mut by_line: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
     for &app_id in app_ids {
         let dir = reference.join(app_id.to_string());
-        let mined = steamgauge_core::claimset::draw_mined(out, app_id, &dir, claims, seed)?;
+        let mined = steamgauge_core::claimset::draw_mined(out, app_id, &dir, claims, seed, only)?;
         for (subject, count) in &mined.by_line {
             *by_line.entry(subject).or_default() += count;
         }
@@ -1687,6 +1756,14 @@ fn run_revisit(
     reference: &std::path::Path,
     batch_size: usize,
 ) -> Result<()> {
+    // Neither narrowing given, every claim in the reference set is re-asked, which costs what
+    // the set cost and is never what a revision needs.
+    if words.is_empty() && subjects.is_empty() {
+        anyhow::bail!(
+            "--words, --subjects or both: a revisit with neither asks the whole reference set \
+             again"
+        );
+    }
     let wanted = if app_ids.is_empty() {
         labelled_sets(reference)?
     } else {
@@ -1699,21 +1776,49 @@ fn run_revisit(
     let (mut reviews, mut claims, mut games) = (0, 0, 0);
     let mut drew_for = Vec::new();
     for app_id in wanted {
-        let dir = reference.join(app_id.to_string());
-        let drawn = steamgauge_core::claimset::draw_revisit(&dir, words, subjects)?;
-        if drawn.is_empty() {
-            continue;
-        }
-        drew_for.push(app_id);
-        let report =
-            steamgauge_core::claimset::write_set(&dir.join("revisit"), &drawn, batch_size)?;
-        println!(
-            "{:<10} {:>4} reviews {:>5} claims {:>3} batches",
-            app_id, report.reviews, report.claims, report.batches
+        let game = reference.join(app_id.to_string());
+        // Every set of the game, not only its random draw. A teaching set is labelled against
+        // the same sheet and trained on like any other row, so a revision that reaches only
+        // the random draw leaves most of a row under the wording it just replaced: 261 of the
+        // 369 `accessibility` labels are in teaching sets.
+        let sets = std::iter::once(String::new()).chain(
+            steamgauge_core::claimset::TEACHING_SETS
+                .iter()
+                .map(|name| (*name).to_owned()),
         );
-        reviews += report.reviews;
-        claims += report.claims;
-        games += 1;
+        let mut for_this_game = 0;
+        for set in sets {
+            let dir = if set.is_empty() {
+                game.clone()
+            } else {
+                game.join(&set)
+            };
+            if !dir.join("labels.json").is_file() {
+                continue;
+            }
+            let drawn = steamgauge_core::claimset::draw_revisit(&dir, words, subjects)?;
+            if drawn.is_empty() {
+                continue;
+            }
+            let report =
+                steamgauge_core::claimset::write_set(&dir.join("revisit"), &drawn, batch_size)?;
+            drew_for.push(dir.join("revisit"));
+            let named = if set.is_empty() {
+                app_id.to_string()
+            } else {
+                format!("{app_id}/{set}")
+            };
+            println!(
+                "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
+                named, report.reviews, report.claims, report.batches
+            );
+            reviews += report.reviews;
+            claims += report.claims;
+            for_this_game += 1;
+        }
+        if for_this_game > 0 {
+            games += 1;
+        }
     }
 
     if games == 0 {
@@ -1725,25 +1830,35 @@ fn run_revisit(
     let mut cleared = 0;
     if app_ids.is_empty() {
         for app_id in labelled_sets(reference)? {
-            if drew_for.contains(&app_id) {
-                continue;
-            }
-            let stale = reference.join(app_id.to_string()).join("revisit");
-            if stale.is_dir() {
-                std::fs::remove_dir_all(&stale)?;
-                cleared += 1;
+            let game = reference.join(app_id.to_string());
+            for set in std::iter::once(String::new()).chain(
+                steamgauge_core::claimset::TEACHING_SETS
+                    .iter()
+                    .map(|name| (*name).to_owned()),
+            ) {
+                let stale = if set.is_empty() {
+                    game.join("revisit")
+                } else {
+                    game.join(&set).join("revisit")
+                };
+                if stale.is_dir() && !drew_for.contains(&stale) {
+                    std::fs::remove_dir_all(&stale)?;
+                    cleared += 1;
+                }
             }
         }
     }
 
     println!("\ndrawn      {reviews:>4} reviews {claims:>5} claims over {games} games");
     if cleared > 0 {
-        println!("cleared    {cleared} games this draw no longer asks about");
+        println!("cleared    {cleared} sets this draw no longer asks about");
     }
     println!(
         "\nHand these to a labeller with the current sheet, exactly as a fresh set. Ingest\n\
          each with `steamgauge ingest-revisit <app id> --from <dir>`, which replaces only the\n\
-         claims asked about and leaves every other label where it was."
+         claims asked about and leaves every other label where it was. A set printed as\n\
+         `<app id>/<set>` ingests with `--to reference/claims/<app id>/<set>`, or its answers\n\
+         land on the random draw's labels and place nothing."
     );
     Ok(())
 }
@@ -1772,6 +1887,26 @@ struct Asking<'a> {
     languages: &'a [String],
     reading: &'a str,
     rejudge: bool,
+    boundaries: &'a [(String, String)],
+}
+
+/// Reads `difficulty/gameplay` as the two subjects it names, refusing a subject the sheet
+/// does not have: a typo would otherwise draw an empty page and look like agreement.
+fn a_boundary(written: &str) -> std::result::Result<(String, String), String> {
+    let (left, right) = written
+        .split_once('/')
+        .ok_or_else(|| format!("{written} is not two subjects separated by a slash"))?;
+    for side in [left, right] {
+        if steamgauge_core::taxonomy::by_id(side).is_none() {
+            return Err(format!(
+                "{side} is not a subject on the sheet; `steamgauge brief` lists them"
+            ));
+        }
+    }
+    if left == right {
+        return Err(format!("{left} is not a boundary with itself"));
+    }
+    Ok((left.to_owned(), right.to_owned()))
 }
 
 fn run_gold(
@@ -1787,6 +1922,7 @@ fn run_gold(
         languages,
         reading,
         rejudge,
+        boundaries,
     } = *asking;
     if rejudge {
         let (questions, found) = steamgauge_core::gold::rejudge(reference, reading)?;
@@ -1804,8 +1940,18 @@ fn run_gold(
         );
         return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
     }
-    let (questions, found) =
-        steamgauge_core::gold::draw(reference, out, blind, splits, seed, languages, reading)?;
+    let (questions, found) = steamgauge_core::gold::draw(
+        reference,
+        out,
+        &steamgauge_core::gold::Asked {
+            blind,
+            splits,
+            seed,
+            languages,
+            reading,
+            boundaries,
+        },
+    )?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1814,6 +1960,16 @@ fn run_gold(
     }
     let page = steamgauge_core::gold::render(&questions, &found);
 
+    say_what_was_drawn(&found, reading);
+
+    deliver(page, delivery)
+}
+
+/// What a draw turned out to be, in the order a person reads it: what they are being asked,
+/// then what was held back from them and why.
+fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
+    let languages = &found.languages;
+    let boundaries = &found.boundaries;
     println!("games      {} frozen", found.games);
     if !languages.is_empty() {
         println!(
@@ -1832,6 +1988,17 @@ fn run_gold(
         "split      {} claims the `{reading}` reading answered differently, asked first",
         found.split
     );
+    if !boundaries.is_empty() {
+        println!(
+            "aimed at   {}, leaving {} disagreements on other boundaries unasked",
+            boundaries
+                .iter()
+                .map(|(left, right)| format!("{left}/{right}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            found.elsewhere
+        );
+    }
     println!(
         "contested  {} of those had neither labeller hedging, which is where an hour buys most",
         found.contested_sure
@@ -1861,8 +2028,6 @@ fn run_gold(
             found.mistagged
         );
     }
-
-    deliver(page, delivery)
 }
 
 /// Writes the page, or serves it and writes every answer as it is made.

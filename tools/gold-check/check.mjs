@@ -16,8 +16,6 @@ import { pathToFileURL } from "node:url";
 
 import { connect, debuggerUrl, open, sleep } from "./chrome.mjs";
 
-const PORT = 9334;
-
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong.
 const PROBE = `(function () {
   var wrong = [];
@@ -377,11 +375,11 @@ const NARROW = `(function () {
 const file = resolve(process.argv[2] ?? "gold.html");
 const page = pathToFileURL(file).href;
 
-const chrome = await open(page, PORT);
+const chrome = await open(page, { prefix: "steamgauge-gold-check-" });
 
 let failed = true;
 try {
-  const { socket, send, asked, evaluate, ready } = await connect(await debuggerUrl(PORT));
+  const { socket, send, asked, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
   await send("Network.enable", {});
   await send("Page.reload", { ignoreCache: true });
   await ready();

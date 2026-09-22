@@ -806,13 +806,13 @@
     "subset": "random",
     "start": 62,
     "end": 175,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "ef412286fa09",
     "produced_by": "claude-opus-5",
     "subject": "genre",
-    "polarity": "praise",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": true
   },
   {
