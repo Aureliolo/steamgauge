@@ -313,14 +313,14 @@
     "subset": "declined",
     "start": 243,
     "end": 319,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "1022adc2bdd1",
+    "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true
+    "split_wrong": false
   },
   {
     "review_id": "168960527",
