@@ -1140,7 +1140,7 @@ impl Counting {
                 reading,
             );
         }
-        self.said.next_review();
+        self.said.next_review(&row.language);
 
         // Helpfulness ranks descending, and the bounded keeper takes the smallest key.
         self.top.offer(
