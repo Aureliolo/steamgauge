@@ -14,7 +14,7 @@ direction of the confusion does say:
 
 Run on the validation games, never the frozen ones.
 
-    python confusion.py --model ../models/claim-reader --subject story
+    python confusion.py --model ../models/game-review-reader --subject story
 """
 
 from __future__ import annotations
@@ -47,7 +47,9 @@ def rates(truth, predicted, index):
 
 def confusions(truth, predicted, index, subjects, most=4):
     """The subjects this one is mistaken for, and the ones mistaken for it."""
-    became = np.bincount(predicted[(truth == index) & (predicted != index)], minlength=len(subjects))
+    became = np.bincount(
+        predicted[(truth == index) & (predicted != index)], minlength=len(subjects)
+    )
     came_from = np.bincount(truth[(predicted == index) & (truth != index)], minlength=len(subjects))
 
     def top(counts):
@@ -59,7 +61,7 @@ def confusions(truth, predicted, index, subjects, most=4):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=str(HERE.parent / "models" / "claim-reader"))
+    parser.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     parser.add_argument(
         "--oof",
@@ -100,9 +102,7 @@ def main():
             continue
         became, _ = confusions(truth, predicted, index, subjects, most=3)
         trail = ", ".join(f"{other} {count}" for other, count in became)
-        print(
-            f"{name:<16} {support:>5} {said:>5} {precision:>6.2f} {recall:>6.2f}   {trail}"
-        )
+        print(f"{name:<16} {support:>5} {said:>5} {precision:>6.2f} {recall:>6.2f}   {trail}")
 
     if not args.subject:
         return

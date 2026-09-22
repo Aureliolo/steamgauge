@@ -40,8 +40,8 @@ python train.py --backbone intfloat/multilingual-e5-large --context --epochs 5 \
 python sweep.py --against win-128                        # every run ranked, with the noise beside it
 python export.py --run runs/<id> --categories <fingerprint> --fp16   # ONNX, with a parity assertion
 python publish.py --run runs/<id> \
-    --model-repo <you>/steam-review-claim-reader \
-    --data-repo <you>/steam-review-claims                # to Hugging Face, and pinned in the tool
+    --model-repo <you>/game-review-reader \
+    --data-repo <you>/game-review-claims                 # to Hugging Face, and pinned in the tool
 ```
 
 `--context` is what ships: the model reads a claim inside a window of its review centred on it,

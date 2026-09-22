@@ -13,7 +13,7 @@ whose number survives contact with a game nobody has seen. So each game is score
 fitted on the others, the held-out answers are pooled, and the interval around them resamples
 whole games rather than claims, because claims from one game are not independent.
 
-    python confidence.py --model ../models/claim-reader
+    python confidence.py --model ../models/game-review-reader
     python confidence.py --oof <dir of fold logits>
 
 The second form is the one to trust. Four validation games give intervals eight points wide,
@@ -282,6 +282,7 @@ def game_interval(answered, correct, app_ids, draws, rng):
         said = answered[drawn]
         coverages.append(said.mean())
         accuracies.append(correct[drawn][said].mean() if said.any() else np.nan)
+
     def span(values):
         return float(np.nanpercentile(values, 2.5)), float(np.nanpercentile(values, 97.5))
 
@@ -320,7 +321,7 @@ def pooled_folds(paths):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=str(HERE.parent / "models" / "claim-reader"))
+    parser.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     parser.add_argument(
         "--oof",
@@ -370,9 +371,7 @@ def main():
         for policy, answered in pooled[name].items():
             coverage = float(answered.mean())
             accuracy = float(correct[answered].mean()) if answered.any() else float("nan")
-            low_coverage, low_accuracy = game_interval(
-                answered, correct, app_ids, args.draws, rng
-            )
+            low_coverage, low_accuracy = game_interval(answered, correct, app_ids, args.draws, rng)
             row["policies"][policy] = {
                 "coverage": coverage,
                 "coverage_interval": low_coverage,

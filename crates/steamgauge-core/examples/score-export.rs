@@ -10,7 +10,7 @@
 //! the exported file, so a disagreement with Python is the reader and nothing else.
 //!
 //!     cargo run --release -p steamgauge-core --example score-export -- \
-//!         training/data/claims.jsonl models/claim-reader 214490
+//!         training/data/claims.jsonl models/game-review-reader 214490
 
 use std::collections::HashMap;
 
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "training/data/claims.jsonl".to_owned());
     let model = args
         .next()
-        .unwrap_or_else(|| "models/claim-reader".to_owned());
+        .unwrap_or_else(|| "models/game-review-reader".to_owned());
     let only: Option<u32> = args.next().and_then(|id| id.parse().ok());
 
     let mut reader = ClaimReader::load(std::path::Path::new(&model))?;

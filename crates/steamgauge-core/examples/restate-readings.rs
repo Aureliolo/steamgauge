@@ -9,7 +9,7 @@
 //! not just different restatements, and no amount of recomputing fixes that: it has to be read
 //! again. So this refuses every reading whose rule is not the installed reader's, and says which.
 //!
-//!     cargo run --release -p steamgauge-core --example restate-readings -- data models/claim-reader
+//!     cargo run --release -p steamgauge-core --example restate-readings -- data models/game-review-reader
 
 use std::path::Path;
 
@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = args.next().unwrap_or_else(|| "data".to_owned());
     let model = args
         .next()
-        .unwrap_or_else(|| "models/claim-reader".to_owned());
+        .unwrap_or_else(|| "models/game-review-reader".to_owned());
 
     let provenance: Provenance =
         serde_json::from_slice(&std::fs::read(Path::new(&model).join("reader.json"))?)?;

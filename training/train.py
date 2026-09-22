@@ -16,6 +16,7 @@ id discards the only thing the annotator said about their own uncertainty.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 import re
@@ -70,10 +71,17 @@ class Claims(Dataset):
         balance=0.0,
         prefix=False,
         language_balance=0.0,
+        second_weight=0.0,
     ):
         self.claims = claims
         self.ambiguous_weight = ambiguous_weight
         self.split_wrong_weight = split_wrong_weight
+        # How much of the target the second labeller's answer is, on a claim read twice. The
+        # loss otherwise learns one labeller's answer to a contested claim at full confidence
+        # and the disagreement, which is the only thing known about such a claim, is thrown
+        # away. At 0.5 a split claim is a coin between the two answers; the flag's weight
+        # above already discounts it.
+        self.second_weight = second_weight
         self.mark = mark
         # What a claim about a rare subject is worth against one about a common subject. The
         # loss treats a `verdict` claim and a `licensing` claim as equally informative when
@@ -189,8 +197,25 @@ class Claims(Dataset):
             "attention_mask": encoded["attention_mask"][0],
             "subject": torch.tensor(self.subjects[claim.subject]),
             "polarity": torch.tensor(self.polarities.get(claim.polarity, 2)),
+            "subject_target": self.target(
+                self.subjects, claim.subject, claim.second_subject, len(self.subjects)
+            ),
+            "polarity_target": self.target(
+                self.polarities, claim.polarity, claim.second_polarity, len(POLARITIES)
+            ),
             "weight": torch.tensor(self.weight_of(claim), dtype=torch.float),
         }
+
+    def target(self, index, first, second, size):
+        """The distribution the loss is charged against: one labeller's answer, or two mixed."""
+        distribution = torch.zeros(size, dtype=torch.float)
+        at = index.get(first, size - 1)
+        if second is None or self.second_weight <= 0 or second not in index:
+            distribution[at] = 1.0
+            return distribution
+        distribution[at] = 1.0 - self.second_weight
+        distribution[index[second]] += self.second_weight
+        return distribution
 
     def weight_of(self, claim):
         """What this claim is worth in the loss.
@@ -286,6 +311,19 @@ def forever(loader):
         yield from loader
 
 
+def charged(logits, target, class_weight=None):
+    """Cross-entropy against a distribution, each class weighted as the hard form weights it.
+
+    On a one-hot target this is exactly what `cross_entropy(weight=..., reduction="none")`
+    charges, so a run whose claims were read once is charged what every earlier run was; a
+    claim read twice is charged against both answers in the proportion the dataset mixed.
+    """
+    log_probabilities = torch.log_softmax(logits.float(), dim=-1)
+    if class_weight is not None:
+        target = target * class_weight
+    return -(target * log_probabilities).sum(dim=-1)
+
+
 def soft_cross_entropy(logits, target, temperature):
     """What a student pays for disagreeing with a teacher's distribution.
 
@@ -378,7 +416,7 @@ def expected_calibration_error(confidence, correct, bins=15):
     """
     edges = np.linspace(0.0, 1.0, bins + 1)
     error = 0.0
-    for low, high in zip(edges[:-1], edges[1:]):
+    for low, high in itertools.pairwise(edges):
         inside = (confidence > low) & (confidence <= high)
         if not inside.any():
             continue
@@ -474,6 +512,37 @@ def area_under_risk_coverage(confidence, correct):
 
 
 @torch.no_grad()
+def scored_twice(predicted, truth, claims, index_of) -> dict:
+    """The model against the second labeller, where there is one.
+
+    The first labeller's figure stays the figure. These say how much of what the model gets
+    wrong is the two labellers disagreeing rather than the model: scored against the second
+    reading, against the claims the two agree on, and as right if either would call it so.
+    """
+    twice = np.array([claim.second_subject is not None for claim in claims], dtype=bool)
+    if not twice.any():
+        return {}
+    second = np.array(
+        [
+            index_of.get(claim.second_subject, -1) if twice[at] else -1
+            for at, claim in enumerate(claims)
+        ]
+    )
+    correct = (predicted == truth).astype(float)
+    right_by_second = (predicted == second).astype(float)
+    agreed = twice & (second == truth)
+    return {
+        "claims": int(twice.sum()),
+        "against_first": float(correct[twice].mean()),
+        "against_second": float(right_by_second[twice].mean()),
+        "against_either": float(np.maximum(correct, right_by_second)[twice].mean()),
+        "where_both_agree": {
+            "claims": int(agreed.sum()),
+            "accuracy": float(correct[agreed].mean()) if agreed.any() else None,
+        },
+    }
+
+
 def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     model.eval()
     subject_logits, polarity_logits = [], []
@@ -521,6 +590,7 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     return {
         "accuracy": float(correct.mean()),
         "macro_f1": macro,
+        "read_twice": scored_twice(predicted, truth, claims, index_of),
         "threshold": chosen["threshold"],
         "threshold_coverage": chosen["coverage"],
         "threshold_accuracy": chosen["accuracy"],
@@ -548,7 +618,7 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
 def git_sha() -> str:
     try:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return "unknown"
 
 
@@ -560,6 +630,14 @@ def run(args) -> dict:
     np.random.seed(args.seed)
 
     claims = claimdata.load(args.data)
+    newer = claimdata.labels_newer_than(args.data, HERE.parent / "reference" / "claims")
+    if newer:
+        print(
+            f"WARNING: {len(newer)} label files are newer than {args.data}, the first being "
+            f"{newer[0]}; this run learns an export that lacks them. "
+            f"`steamgauge export-training` writes a current one.",
+            flush=True,
+        )
     if args.only_language:
         # Dropped before the split rather than inside the training half, so the frozen games
         # are scored on the same languages they are taught: a model trained on English and
@@ -620,6 +698,7 @@ def run(args) -> dict:
                 args.balance if name == "train" else 0.0,
                 args.prefix,
                 args.language_balance if name == "train" else 0.0,
+                args.second_weight if name == "train" else 0.0,
             ),
             batch_size=micro if name == "train" else args.batch_size,
             shuffle=name == "train",
@@ -705,12 +784,10 @@ def run(args) -> dict:
                 attention = batch["attention_mask"].to(device)
                 subject, polarity, _ = model(input_ids, attention)
                 trust = batch["weight"].to(device)
-                subject_loss = torch.nn.functional.cross_entropy(
-                    subject, batch["subject"].to(device), weight=weights, reduction="none"
-                )
-                polarity_loss = torch.nn.functional.cross_entropy(
-                    polarity, batch["polarity"].to(device), reduction="none"
-                )
+                subject_target = batch["subject_target"].to(device)
+                polarity_target = batch["polarity_target"].to(device)
+                subject_loss = charged(subject, subject_target, weights)
+                polarity_loss = charged(polarity, polarity_target)
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
                 if args.rdrop > 0:
                     # The same batch through the dropout again gives a second opinion from
@@ -723,16 +800,8 @@ def run(args) -> dict:
                     )
                     again_loss = (
                         (
-                            torch.nn.functional.cross_entropy(
-                                again_subject,
-                                batch["subject"].to(device),
-                                weight=weights,
-                                reduction="none",
-                            )
-                            + args.polarity_weight
-                            * torch.nn.functional.cross_entropy(
-                                again_polarity, batch["polarity"].to(device), reduction="none"
-                            )
+                            charged(again_subject, subject_target, weights)
+                            + args.polarity_weight * charged(again_polarity, polarity_target)
                         )
                         * trust
                     ).mean()
@@ -835,6 +904,15 @@ def run(args) -> dict:
             if at_threshold["coverage"] > 0
             else "frozen games: nothing cleared the threshold"
         )
+        if held["read_twice"]:
+            twice = held["read_twice"]
+            print(
+                f"  on the {twice['claims']} frozen claims read twice: {twice['against_first']:.3f} "
+                f"against the first labeller, {twice['against_second']:.3f} against the second, "
+                f"{twice['against_either']:.3f} against either, "
+                f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
+                f"{twice['where_both_agree']['claims']} they agree on"
+            )
         if (
             metrics["threshold_met"]
             and at_threshold["accuracy"] is not None
@@ -882,6 +960,8 @@ def run(args) -> dict:
         "ambiguous_weight": args.ambiguous_weight,
         "split_wrong_weight": args.split_wrong_weight,
         "polarity_weight": args.polarity_weight,
+        "second_weight": args.second_weight,
+        "read_twice": sum(claim.second_subject is not None for claim in train),
         "ema": args.ema,
         "llrd": args.llrd,
         "rdrop": args.rdrop,
@@ -897,6 +977,7 @@ def run(args) -> dict:
         "device": device,
         "git_sha": git_sha(),
         "data_fingerprint": claimdata.fingerprint(claims),
+        "labels_newer_than_export": len(newer),
         "claims": {"train": len(train), "validation": len(validation), "test": len(test)},
         "games": {
             "train": sorted({claim.app_id for claim in train}),
@@ -960,6 +1041,14 @@ def parse():
         help="pass each batch through the dropout twice and charge the two answers this much "
         "for disagreeing; 0 is off. Doubles the passes, so halve the micro-batch with "
         "--accumulate 2 to keep the card's memory where it was.",
+    )
+    parser.add_argument(
+        "--second-weight",
+        type=float,
+        default=0.0,
+        help="on a claim read twice, this share of the target is the second labeller's answer "
+        "and the rest the first's; 0 is off and learns the first answer alone. The export "
+        "carries the second reading beside the first wherever a set has one.",
     )
     parser.add_argument(
         "--pooling",

@@ -205,9 +205,7 @@ def main():
             json.dumps(
                 {
                     "held_out": (
-                        "frontier sample"
-                        if args.key
-                        else "frozen" if args.frozen else "validation"
+                        "frontier sample" if args.key else "frozen" if args.frozen else "validation"
                     ),
                     "games": sorted({claim.app_id for claim in held}),
                     "claims": len(held),

@@ -108,9 +108,7 @@ def main():
 
     best_macro = max(found, key=lambda tau: found[tau]["macro_f1"])
     best_coverage = max(found, key=lambda tau: found[tau]["coverage"])
-    print(
-        f"\nmacro F1 wants tau {best_macro}, coverage at the promise wants tau {best_coverage}"
-    )
+    print(f"\nmacro F1 wants tau {best_macro}, coverage at the promise wants tau {best_coverage}")
 
     # The starved subjects are the ones this is for, so they are shown rather than summarised:
     # a macro F1 that moved because `verdict` moved would be the wrong win.

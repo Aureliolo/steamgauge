@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 
 import claimdata
-from confidence import answered_by, mondrian, most_coverage, softmax, pooled_folds
+from confidence import answered_by, mondrian, most_coverage, pooled_folds, softmax
 from language import wilson
 
 HERE = Path(__file__).resolve().parent
@@ -38,9 +38,7 @@ def languages_of(paths, data):
     parts = [np.load(path, allow_pickle=False) for path in sorted(paths)]
     review_ids = np.concatenate([part["review_id"] for part in parts])
     claim_index = np.concatenate([part["claim_index"] for part in parts])
-    labelled = {
-        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))
-    }
+    labelled = {(claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))}
     beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
     return np.array([one.language if one else "" for one in beside])
 
@@ -158,9 +156,7 @@ def main() -> None:
         "a line per subject (what ships)": per_game(
             score, correct, predicted, app_ids, args.min_accuracy, subjects
         ),
-        "a line per language": per_game(
-            score, correct, index, app_ids, args.min_accuracy, names
-        ),
+        "a line per language": per_game(score, correct, index, app_ids, args.min_accuracy, names),
         "a line per subject and per language": per_game(
             score,
             correct,

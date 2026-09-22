@@ -2588,12 +2588,18 @@ backed up; the README's table row is the previous reader's until the frontier co
 run again on a fresh draw, and the key of that draw goes in `training/data/` where the frozen
 key already lives.
 
-**The reader is called Needle.** A run is named for its encoder and its label count, which is
-the right name for the index and a bad name for a thing somebody downloads and cites, as the
-user said in fewer words. The part of a gauge that reads the value is the needle; the model
-card and `reader.json` carry the name, the run id stays the run id, and a published release
-will number it. Nothing is published: the pin in `reader.rs` is empty, and that is the user's
-step.
+**The reader is called Game Review Reader.** A run is named for its encoder and its label
+count, which is the right name for the index and a bad name for a thing somebody downloads
+and cites, as the user said in fewer words. The first name chosen was Needle, the part of a
+gauge that reads the value, and it lasted a day: the user's rule for the name, put on
+2026-09-22, is that it be clear, direct and understandable rather than a figure of speech,
+and a list of forty such figures (Litmus, Fathom, Governor, Gloss, Thumbs) was the wrong
+answer to it. The name says what the thing reads, is not tied to one store, and needs no
+explaining on a report page or a model card. The model card and `reader.json` carry it, the
+local copy lives at `models/game-review-reader`, the repositories will be
+`game-review-reader` and `game-review-claims`, the run id stays the run id, and a published
+release will number it. Nothing is published: the pin in `reader.rs` is empty, and that is
+the user's step.
 
 ### Every set has now been read twice in part, and the figure did not move
 
@@ -2772,6 +2778,27 @@ refreshed on the current labels too (`reference/baselines-frozen.json`, 5,423 cl
 commonest 27.2%, bag of words 42% at 75.2%, centroid 9% at 79.4%. The gap to the frontier is
 nine points of agreement and sixteen of coverage, down from ten and twenty; the README's
 table is this draw.
+
+### The shipped reader and the whole night's sweep trained on an export eight minutes too old
+
+Found 2026-09-22, exporting the training set again so that it could carry the second
+labeller's answers. `training/data/claims.jsonl` was written at 15:46 on 2026-09-21; the last
+three starved-row draws (990080, 438100 and the second half of 546560, 2,596 labels, the
+ones aimed at `community`, `vr` and `licensing`) were merged at 15:54, and the four-rule
+revisit that moved 36 labels at 20:30. `e5-29006` was trained at 23:03 on the 15:46 file, and
+so was every run of the night after it: 39,173 claims exported where 41,769 were there to
+export. The fingerprint `2871969fd84a8278` is the fingerprint of the older file, and the run
+index has said 29,006 training claims beside every one of those runs, truthfully.
+
+What that costs and what it does not. The night's table compares configurations, and a
+comparison wants one label set; it has one, and every conclusion in it stands. What it means
+is that the reader in `models/game-review-reader` never saw the 2,596 labels bought for the
+rows it is weakest on, and that the frozen figures of the night were measured with the
+revisit's 36 moves absent from both sides. The three-seed round running as this is written
+finishes on the same file, because a seed trained on different labels from its siblings is
+not a seed of them. **Everything after it, the folds and the reader that ships, trains on
+a fresh export**, and the export is written by the same command immediately before the run
+rather than found on disk, which is the rule that would have caught this.
 
 ## Nothing here is identified by a number somebody incremented
 

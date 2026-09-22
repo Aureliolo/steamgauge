@@ -369,7 +369,8 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Share of each set to read again.
+        /// Share of each set to read again. Drawing again with a larger share grows a reading
+        /// that exists: the reviews already read stay in it and only the rest are handed out.
         #[arg(long, default_value_t = 0.1)]
         share: f64,
         /// Reviews per batch, as with the first draw.
@@ -384,7 +385,7 @@ enum Command {
         subset: Option<String>,
         /// Directory inside the set to write the fresh batches into, which is also where the
         /// reading will be ingested. A set can hold several independent readings, one per
-        /// labeller; naming them keeps a new one from landing on an older one's answers.
+        /// labeller; naming them keeps one labeller's answers apart from another's.
         #[arg(long, default_value = "second")]
         into: String,
     },
@@ -676,7 +677,7 @@ enum Command {
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Directory holding model.onnx, tokenizer.json and reader.json. Defaults to
-        /// models/claim-reader in the working tree if there is one, else the platform cache.
+        /// models/game-review-reader in the working tree if there is one, else the platform cache.
         #[arg(long)]
         model: Option<PathBuf>,
         /// Claims per forward pass. The default reads about a tenth faster than half of it and
@@ -711,7 +712,7 @@ enum Command {
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Directory holding the reader.json of the reader that answered. Defaults to
-        /// models/claim-reader in the working tree if there is one, else the platform cache.
+        /// models/game-review-reader in the working tree if there is one, else the platform cache.
         #[arg(long)]
         model: Option<PathBuf>,
         /// How many of the most-helpful reviews count as the top of the pile.
@@ -2249,22 +2250,38 @@ fn run_second_opinion(
         if let Some(subset) = subset {
             dir = dir.join(subset);
         }
-        // Fresh batches over a reading that already exists would ask for the same work twice
-        // and, once ingested, the answers would land on top of the ones already there.
         let target = dir.join(into);
-        if target.join("labels.json").exists() {
+        let drawn = steamgauge_core::claimset::draw_second(&dir, share, seed)?;
+        // A reading grows by drawing again with a larger share: the same seed ranks the set the
+        // same way, so the reviews already read are the head of the new draw and only the rest
+        // go out. A draw that leaves out a review already read would have the ingest drop its
+        // labels, since a label is kept only for a claim the sample asks about.
+        let answered = steamgauge_core::claimset::answered_reviews(&target, &drawn)?;
+        let already = steamgauge_core::claimset::answered_reviews(
+            &target,
+            &steamgauge_core::claimset::draw_second(&dir, 1.0, seed)?,
+        )?;
+        if already.len() > answered.len() {
             anyhow::bail!(
-                "{} already holds a labelling; name a different reading with --into",
-                target.display()
+                "{} already holds {} labelled reviews this draw leaves out; draw with the seed \
+                 and at least the share it was drawn with, or name another reading with --into",
+                target.display(),
+                already.len() - answered.len()
             );
         }
-        let drawn = steamgauge_core::claimset::draw_second(&dir, share, seed)?;
-        let report = steamgauge_core::claimset::write_set(&target, &drawn, batch_size)?;
+        let report = steamgauge_core::claimset::write_set_handing_out(
+            &target, &drawn, batch_size, &answered,
+        )?;
         reviews += report.reviews;
         claims += report.claims;
         batches += report.batches;
+        let kept = if answered.is_empty() {
+            String::new()
+        } else {
+            format!("  ({} reviews already read)", answered.len())
+        };
         println!(
-            "{app_id:<9} {:>4} reviews  {:>5} claims  {:>3} batches",
+            "{app_id:<9} {:>4} reviews  {:>5} claims  {:>3} batches{kept}",
             report.reviews, report.claims, report.batches
         );
     }

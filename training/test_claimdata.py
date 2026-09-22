@@ -1,6 +1,6 @@
 """What the split has to guarantee, because every number reported rests on it.
 
-    python -m pytest training/test_claimdata.py
+python -m pytest training/test_claimdata.py
 """
 
 from __future__ import annotations
@@ -57,7 +57,10 @@ def test_every_role_is_filled_however_few_games_there_are():
 
 def test_the_shares_hold_over_many_games():
     found = roles([claim(g) for g in range(1, 2001)])
-    counts = {name: sum(1 for role in found.values() if role == name) for name in ("test", "validation", "train")}
+    counts = {
+        name: sum(1 for role in found.values() if role == name)
+        for name in ("test", "validation", "train")
+    }
     assert 0.17 < counts["test"] / 2000 < 0.23, counts
     assert 0.12 < counts["validation"] / 2000 < 0.18, counts
 
