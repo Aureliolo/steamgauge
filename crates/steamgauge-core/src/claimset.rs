@@ -186,8 +186,35 @@ pub fn write_set(
     drawn: &[DrawnReview],
     reviews_per_batch: usize,
 ) -> Result<DrawReport> {
+    write_set_handing_out(
+        dir,
+        drawn,
+        reviews_per_batch,
+        &std::collections::HashSet::new(),
+    )
+}
+
+/// Writes the drawn sample, and batches for the reviews nobody has answered yet.
+///
+/// A reading that grows keeps the whole draw in its sample, so the labels already made stay
+/// in question and the ingest keeps them, and hands out only the rest. The report counts what
+/// is handed out, because that is the labeller's work.
+///
+/// # Errors
+///
+/// Fails if the directory cannot be created or a file cannot be written.
+pub fn write_set_handing_out<S: std::hash::BuildHasher>(
+    dir: &Path,
+    drawn: &[DrawnReview],
+    reviews_per_batch: usize,
+    answered: &std::collections::HashSet<String, S>,
+) -> Result<DrawReport> {
     std::fs::create_dir_all(dir)?;
     std::fs::write(dir.join("sample.json"), serde_json::to_vec_pretty(&drawn)?)?;
+    let to_hand_out: Vec<&DrawnReview> = drawn
+        .iter()
+        .filter(|review| !answered.contains(&review.id))
+        .collect();
 
     let batches = dir.join("batches");
     std::fs::create_dir_all(&batches)?;
@@ -209,10 +236,10 @@ pub fn write_set(
 
     let mut written = 0;
     if reviews_per_batch > 0 {
-        for (index, chunk) in drawn.chunks(reviews_per_batch).enumerate() {
+        for (index, chunk) in to_hand_out.chunks(reviews_per_batch).enumerate() {
             let items: Vec<Handout<'_>> = chunk
                 .iter()
-                .map(|review| Handout {
+                .map(|&review| Handout {
                     review_id: &review.id,
                     review: rejoined(review),
                     claims: review
@@ -235,10 +262,43 @@ pub fn write_set(
     }
 
     Ok(DrawReport {
-        reviews: drawn.len(),
-        claims: drawn.iter().map(DrawnReview::asked_count).sum(),
+        reviews: to_hand_out.len(),
+        claims: to_hand_out.iter().map(|review| review.asked_count()).sum(),
         batches: written,
     })
+}
+
+/// The reviews of a reading whose every asked claim already has a label.
+///
+/// A review the labeller skipped a claim of is not answered: it goes out again whole, because
+/// a claim cannot be read without the review around it.
+///
+/// # Errors
+///
+/// Fails if the reading's labels cannot be read.
+pub fn answered_reviews(
+    dir: &Path,
+    drawn: &[DrawnReview],
+) -> Result<std::collections::HashSet<String>> {
+    let Ok(bytes) = std::fs::read(dir.join("labels.json")) else {
+        return Ok(std::collections::HashSet::new());
+    };
+    let labels: Vec<ClaimLabel> = serde_json::from_slice(&bytes)?;
+    let labelled: std::collections::HashSet<(&str, u16)> = labels
+        .iter()
+        .map(|label| (label.review_id.as_str(), label.index))
+        .collect();
+    Ok(drawn
+        .iter()
+        .filter(|review| {
+            review
+                .claims
+                .iter()
+                .filter(|claim| review.asks(claim.index))
+                .all(|claim| labelled.contains(&(review.id.as_str(), claim.index)))
+        })
+        .map(|review| review.id.clone())
+        .collect())
 }
 
 /// The review as the labeller reads it, rebuilt from its claims.
@@ -1356,6 +1416,69 @@ mod tests {
         assert!(
             !first.contains("app_id"),
             "a labeller told which game it is can infer what the model cannot"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_reading_that_grows_hands_out_only_what_nobody_has_read() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-grows-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let drawn = vec![
+            review("a", &["The combat is superb.", "It runs badly."]),
+            review("b", &["gg"]),
+            review("c", &["The story drags."]),
+        ];
+        // "a" is answered in full, "b" had its one claim skipped: it goes out again whole.
+        let label = |id: &str, index: u16| ClaimLabel {
+            review_id: id.to_owned(),
+            index,
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start: 0,
+            end: 0,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a-labeller".to_owned(),
+            subject: "gameplay".to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        };
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&[label("a", 0), label("a", 1)]).unwrap(),
+        )
+        .unwrap();
+
+        let answered = answered_reviews(&dir, &drawn).unwrap();
+        assert_eq!(answered.len(), 1);
+        assert!(answered.contains("a"));
+
+        let report = write_set_handing_out(&dir, &drawn, 1, &answered).unwrap();
+        assert_eq!(report.reviews, 2);
+        assert_eq!(report.claims, 2);
+        assert_eq!(report.batches, 2);
+        let handed: String = ["batch-000.json", "batch-001.json"]
+            .iter()
+            .map(|name| std::fs::read_to_string(dir.join("batches").join(name)).unwrap())
+            .collect();
+        assert!(!handed.contains("The combat is superb."));
+        assert!(handed.contains("gg"));
+        assert!(handed.contains("The story drags."));
+        assert!(
+            !dir.join("batches").join("batch-002.json").exists(),
+            "the answered review still took a batch"
+        );
+        let sample: Vec<DrawnReview> =
+            serde_json::from_slice(&std::fs::read(dir.join("sample.json")).unwrap()).unwrap();
+        assert_eq!(
+            sample.len(),
+            3,
+            "the sample must keep the answered review, or the ingest drops its labels"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
