@@ -54,13 +54,15 @@ pub struct Probe {
     pub terms: &'static [&'static str],
 }
 
-/// The subjects with the fewest labels, and what to look for.
+/// The subjects a word probe can find, and what to look for.
 ///
-/// Ordered by how starved the subject is, because the draw fills its quotas in this order and
-/// a claim that matches two subjects is counted once, for the first of them. `audio` and
-/// `tutorial` joined the list once the first eight lines had filled their rows past them: at
-/// 395 and 451 labels they are now thinner than `mods`, `compatibility` and `policy`, which
-/// the lines above them have carried to about nine hundred each.
+/// Ordered by how starved the subject was when each line was written, because the draw fills
+/// its quotas in this order and a claim that matches two subjects is counted once, for the
+/// first of them. The order is not a claim about today: `mods` and `compatibility` were among
+/// the thinnest rows here and now score 0.74 and 0.79 on games the reader never saw, while
+/// `licensing` sits at 0.49 and takes 1% of what these draws catch. Which rows are worth a
+/// draw is a measurement, and `--only` is where it goes; the lines themselves are vocabulary
+/// and stay whether or not a row needs them this week.
 pub const PROBES: &[Probe] = &[
     Probe {
         // Real names, not licence agreements: a protest about an EULA is `policy`, and this
@@ -395,9 +397,22 @@ pub const PROBES: &[Probe] = &[
 /// right way round: `vr` has forty-one labels and `mods` has a hundred and forty-six.
 #[must_use]
 pub fn hooked(claim: &str) -> Option<&'static str> {
+    hooked_among(claim, &[])
+}
+
+/// The same, restricted to the subjects named, or every probe when none are.
+///
+/// Which rows are worth fishing for is a measurement and it moves: `mods` and `compatibility`
+/// were among the thinnest rows when these lines were written and now score 0.74 and 0.79 on
+/// games the reader never saw, while `licensing` sits at 0.49 and takes 1% of what the draws
+/// catch. Deleting their lines would throw away the vocabulary; naming the rows per draw keeps
+/// it and puts the aiming where the evidence is.
+#[must_use]
+pub fn hooked_among(claim: &str, only: &[String]) -> Option<&'static str> {
     let haystack = claim.to_lowercase();
     PROBES
         .iter()
+        .filter(|probe| only.is_empty() || only.iter().any(|name| name == probe.subject))
         .find(|probe| {
             probe
                 .terms
@@ -777,7 +792,7 @@ fn margin_key(margin: f32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{PROBES, hooked};
+    use super::{PROBES, hooked, hooked_among};
 
     /// A term listed twice is a term that was edited twice and reconciled neither time, and
     /// nothing else in the file would notice.
@@ -819,6 +834,25 @@ mod tests {
     #[test]
     fn the_starved_subject_wins_a_claim_that_matches_two() {
         assert_eq!(hooked("the VR modding scene is incredible"), Some("vr"));
+    }
+
+    #[test]
+    fn a_draw_aimed_at_one_row_casts_that_line_and_not_the_ones_above_it() {
+        let only = |name: &str| vec![name.to_owned()];
+        // `vr` comes before `mods` in the list, so without narrowing it takes the claim.
+        assert_eq!(
+            hooked_among("the VR modding scene is incredible", &only("mods")),
+            Some("mods")
+        );
+        // A claim only another line catches is not offered under the row that was asked for.
+        assert_eq!(
+            hooked_among("no Steam Deck support", &only("licensing")),
+            None
+        );
+        assert_eq!(
+            hooked_among("no Steam Deck support", &[]),
+            Some("compatibility")
+        );
     }
 
     #[test]

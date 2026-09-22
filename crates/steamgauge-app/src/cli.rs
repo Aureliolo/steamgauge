@@ -332,9 +332,11 @@ enum Command {
         /// Claims per forward pass, when `--by-neighbour`.
         #[arg(long, default_value_t = 256)]
         embed_batch: usize,
-        /// Fish for these starved subjects only, when `--by-neighbour`. The rest still vote
-        /// against, so a draw for `licensing` alone is a draw for `licensing` and not for
-        /// whatever else is rare.
+        /// Fish for these subjects only. With `--by-neighbour` the rest still vote against,
+        /// so a draw for `licensing` alone is a draw for `licensing` and not for whatever
+        /// else is rare; with the word probes the other lines are simply not cast. Which rows
+        /// are worth a draw is a measurement that moves, and `steamgauge measure-claims` is
+        /// what says which they are today.
         #[arg(long, num_args = 1..)]
         only: Vec<String>,
     },
@@ -968,9 +970,10 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             batch_size,
             seed,
             reference,
+            only,
             by_neighbour: false,
             ..
-        } => run_mine(app_ids, out, *claims, *batch_size, *seed, reference),
+        } => run_mine(app_ids, out, *claims, *batch_size, *seed, reference, only),
         Command::Revisit {
             words,
             subjects,
@@ -1454,14 +1457,29 @@ fn run_mine(
     batch_size: usize,
     seed: u64,
     reference: &std::path::Path,
+    only: &[String],
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
+    if let Some(unknown) = only.iter().find(|name| {
+        !steamgauge_core::mine::PROBES
+            .iter()
+            .any(|p| p.subject == name.as_str())
+    }) {
+        anyhow::bail!(
+            "{unknown} has no probe; the lines are {}",
+            steamgauge_core::mine::PROBES
+                .iter()
+                .map(|p| p.subject)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
 
     let (mut reviews, mut asked, mut batches) = (0, 0, 0);
     let mut by_line: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
     for &app_id in app_ids {
         let dir = reference.join(app_id.to_string());
-        let mined = steamgauge_core::claimset::draw_mined(out, app_id, &dir, claims, seed)?;
+        let mined = steamgauge_core::claimset::draw_mined(out, app_id, &dir, claims, seed, only)?;
         for (subject, count) in &mined.by_line {
             *by_line.entry(subject).or_default() += count;
         }

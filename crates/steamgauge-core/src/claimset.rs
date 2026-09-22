@@ -716,6 +716,7 @@ pub fn draw_mined(
     dir: &Path,
     wanted: usize,
     seed: u64,
+    only: &[String],
 ) -> Result<Mined> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let reading: crate::read::ReadReport =
@@ -743,7 +744,7 @@ pub fn draw_mined(
             .enumerate()
             .zip(depth.spans_of(text))
         {
-            let Some(subject) = crate::mine::hooked(&claim) else {
+            let Some(subject) = crate::mine::hooked_among(&claim, only) else {
                 continue;
             };
             let at = crate::mine::PROBES
