@@ -78,6 +78,37 @@ otherwise could not (subtitle size, colourblind modes, one-handed schemes, scree
 remapping), and belongs to the aspect when it is about the aspect being hard to see, hear or
 beat.
 
+**The test went on the sheet, and the revisit it owed is labelled (2026-09-22).** Every one of
+the 369 claims filed under `accessibility`, across 75 sets, read again by three Fable
+labellers against the new wording. 162 left the row and none came in: 55 to `graphics`, 31
+`difficulty`, 21 `gameplay`, 19 `controls`, 12 `performance`, 7 `compatibility`, 6 `vr`. 207
+stay. That is the row the entry above asked for, a named accommodation, and what left is the
+aspect it was standing in for.
+
+All three labellers, none able to see the others, hit the same five places the test does not
+reach:
+
+- **Motion sickness in a flat game, with no cause named**, about twenty claims over seven
+  games ("gives me motion sickness", "3D酔いするゲームです"). The test rules `accessibility`
+  out ("the accommodation, never the thing it accommodates"), `vr` owns sickness only in a
+  headset, and nothing owns the nausea itself. All three filed `graphics`, low, flagged, which
+  is a consistent guess and not a rule. The same holds for flashing that triggers epilepsy.
+- **VR comfort options** (teleport, snap turning) are claimed by `vr` ("comfort options") and
+  by the test (an option so somebody can play). Filed `vr`.
+- **A difficulty or assist mode with no motive stated.** The test needs the option to be
+  there so somebody can play who otherwise could not, and "a ton of difficulty levels" does not
+  say. Filed `difficulty` unless the claim names who it is for.
+- **Settings in general** ("the settings are comprehensive", a graphics-settings recipe for a
+  playable frame rate, menu entries nobody explains): the row's title says "and options", its
+  test excludes these, and nothing else takes them. Filed `controls`, `gameplay` or
+  `performance`, flagged.
+- **Display modes**: a missing fullscreen mode (five claims on 1888930), "runs great in window
+  mode". Filed `compatibility` as the nearest, flagged.
+
+Once each: subtitles that do not match the dialogue (`language`, low), and "IF YOU ARE
+EPILEPTIC, DO NOT BUY THIS" as a conditional recommendation (`verdict`) that names the
+animation (`graphics`).
+
 ### `policy` against `compatibility`: the 23 claims the second reading moved
 
 `policy` is second-worst on both counts, 70% agreement and 0.60, on 737 labels. The second

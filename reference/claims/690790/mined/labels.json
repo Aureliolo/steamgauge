@@ -925,13 +925,13 @@
     "subset": "mined",
     "start": 624,
     "end": 729,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "accessibility",
+    "taxonomy": "1022adc2bdd1",
+    "produced_by": "claude-fable-5-1",
+    "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true
   },
   {
