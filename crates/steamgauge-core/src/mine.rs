@@ -229,10 +229,10 @@ pub const PROBES: &[Probe] = &[
             "steam forums",
             "subreddit",
         ],
-        // In a game with mod tools "the community" is nearly always the modding one, and a
-        // labeller files that under `mods`: on the first draw aimed at this row, 52 of one
-        // headset game's 200 claims. Measured on that draw and the one beside it, these
-        // terms turn away 45 claims that went elsewhere and not one that was `community`.
+        // "The community" is most often the modding one or the one the developers listen to,
+        // and a labeller files those under `mods` and `updates`: on the first draw aimed at
+        // this row, 15% of what this line caught was `community`. Over those three games these
+        // terms turn away 75 claims, 34 `mods` and 28 `updates`, and not one `community`.
         unless: &[
             "mods",
             "modded",
@@ -243,6 +243,15 @@ pub const PROBES: &[Probe] = &[
             "workshop",
             "custom maps",
             "custom levels",
+            "dev",
+            "devs",
+            "developer",
+            "developers",
+            "listen",
+            "listens",
+            "listened",
+            "listening",
+            "feedback",
         ],
     },
     Probe {
@@ -904,6 +913,10 @@ mod tests {
             None
         );
         assert_eq!(hooked("the modding community keeps it alive"), Some("mods"));
+        assert_eq!(
+            hooked_among("the devs never listen to the community", &only("community")),
+            None
+        );
         assert_eq!(
             hooked_among("the community is toxic and elitist", &only("community")),
             Some("community")
