@@ -503,7 +503,7 @@ These rules keep those figures honest:
   sets have been read a second time, blind, and on the claims **two** labellers settled the
   Chinese gap is not there: 93.0% of 171 Chinese claims against 90.0% of 3,336 English ones
   over every set read twice, and over the ten frozen games, now read twice in full, 86.9% of
-  153 Chinese claims against 85.8% of 2,766 English ones. What differs is the labellers, who
+  153 Chinese claims against 85.5% of 2,767 English ones. What differs is the labellers, who
   agree on 89.1% of English claims and 83.8% of Chinese ones. Korean's settled sample is 35
   claims, at 80.0%, and says nothing either way yet. The Chinese samples are
   small enough to hide a point or two, and small enough to rule out the six the column shows;
@@ -589,15 +589,15 @@ These rules keep those figures honest:
   between two models.
 
   Measured over 8,106 claims on every one of the 51 games, with the ten frozen games read
-  twice in full: two labellers agree on the subject 88.9% of the time, kappa 0.87, and on
+  twice in full: two labellers agree on the subject 89.0% of the time, kappa 0.88, and on
   polarity 95.1%, kappa 0.92. Those are figures a set can stand on, and they did not move when
   the set grew from ten games to thirty to fifty-one, nor when the second reading went from a
   share of each set to all of the frozen ones.
 
 - **The contested flag measures the labeller as much as the claim.** Two labellers given the
-  same definition reached for it on 29.0% and on 35.0% of the same 8,106 claims, kappa 0.52.
+  same definition reached for it on 29.1% and on 34.8% of the same 8,106 claims, kappa 0.53.
   The flag does find the right claims: where neither reached for it the two agree on the
-  subject 98.8% of the time, where one of them did 79.3%, and where both did 71.9%. What
+  subject 98.8% of the time, where one of them did 79.7%, and where both did 71.8%. What
   differs is the bar. So a game's contested rate is not compared with another game's, and agreement is
   reported over the contested claims as a floor on how hard the taxonomy is rather than as a
   property of the corpus.

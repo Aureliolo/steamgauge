@@ -3063,21 +3063,27 @@ Finished 2026-09-22: 31 sittings, 5,130 claims, ten games, every one of them rea
 labeller who saw no label of the first and was not told which game a review came from.
 
 Over the ten games the model has never seen, 4,060 claims were read twice and answered. **The
-two labellers reach the same subject on 91.7% of them, and on those the model agrees 85.5%**,
-somewhere in [0.844, 0.866]. On the 337 they split it lands on one of the two answers 82.8% of
+two labellers reach the same subject on 91.7% of them, and on those the model agrees 85.3%**,
+somewhere in [0.842, 0.864]. On the 335 they split it lands on one of the two answers 82.4% of
 the time, which is a floor rather than a score, because there is no single right answer there.
 The first figure is the ceiling: a model taught one labeller's reading cannot be more right
 than two labellers manage with each other, so the second is what it scores out of the first.
 
 The contested flag sorts the block as it sorts everything else: where neither labeller reached
-for it the model is right on 93.1% of 2,612 claims, where one did 73.5%, where both did 60.5%.
-Per language over settled claims it answered: English 85.8% of 2,766, Chinese 86.9% of 153,
-German 88.5% of 131, Russian 84.1% of 182, Korean 80.0% of 35. The Chinese gap the agreement
+for it the model is right on 92.8% of 2,618 claims, where one did 73.7%, where both did 60.2%.
+Per language over settled claims it answered: English 85.5% of 2,767, Chinese 86.9% of 153,
+German 87.9% of 132, Russian 84.1% of 182, Korean 80.0% of 35. The Chinese gap the agreement
 column showed is not in this block at all, which is the third measurement to say so.
 
-Over every set, 8,106 claims are now read twice: the labellers agree on the subject 88.9% of
-the time, kappa 0.87, and on polarity 95.1%, kappa 0.92. Those did not move as the second
+Over every set, 8,106 claims are now read twice: the labellers agree on the subject 89.0% of
+the time, kappa 0.88, and on polarity 95.1%, kappa 0.92. Those did not move as the second
 reading grew from a share of each set to all of the frozen ones.
+
+**Both readings were then moved onto the sheet's two new rules**, which is what keeps the
+figures above honest: 479 claims re-answered in the first reading and the 132 of them the
+second reading also holds re-answered there, 61 and 20 of them moving subject. The ceiling
+moved by two tenths of a point and the agreement by one, which says a boundary clarification
+of this size changes what a labeller writes without changing what the set is worth.
 
 ### "can't" was a finding about a game, and a negation in six languages was not
 
@@ -3097,6 +3103,17 @@ scripts are cut.
 A word that turns what follows is not counted alone, so a corpus counted before this holds
 counts that differ by those words. It is a `recount` rather than a reading: the model's
 answers do not move.
+
+**Then the same question was asked of all 1,559 term lists rather than of the page in hand.**
+No list holds two forms of one word any more, and none holds a word that only turns what
+follows. Eighty-one terms are shorter than three letters, and reading them is how the last one
+was found: `ai`, `4k`, `ui`, `vr`, `ea`, `2k`, `m1` and `i5` are what they look like, `ku` is
+the owl in Ori and the Will of the Wisps, `ur` is an Ultra Rare card in Master Duel, and `ab`
+is German for nothing at all. It was the end of "stürzt ab", the separable verb that means the
+game crashes, and it outnumbered "stürzt" on the bugs row of three games because "schmiert
+ab", "kackt ab" and "ab und zu" all leave the same particle behind. It joins the function
+words, where "auf", "aus" and "nach" already were, and the row keeps "stürzt", "abstürze" and
+"absturz", which say it in words a reader can read.
 
 ### The seeds are averaged rather than chosen between
 
