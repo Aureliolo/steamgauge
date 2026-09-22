@@ -391,8 +391,8 @@ rather than about somebody's afternoon:
   agreement is reported separately over the contested claims, and the mis-split rate is what
   drives the splitting rules. Three rounds of them came from labellers reporting it.
 - **Every game the model is measured on is read again by a different labeller, blind, in full,
-  and a share of every other set is too.** That is 8,106 of the 33,615 claims the random draws
-  hold, a quarter of them, and all 4,060 of the ones the frozen games answer. `steamgauge second-opinion` draws the same reviews as fresh
+  and a share of every other set is too.** That is 21,449 of the 33,615 claims the random draws
+  hold, nearly two thirds, and all 4,060 of the ones the frozen games answer. `steamgauge second-opinion` draws the same reviews as fresh
   batches with no labels in them, and `steamgauge compare-labels` reads the two labellings
   together. It reports each field apart from the others, because they fail
   differently: subject is a judgement about the claim, and `ambiguous` is a judgement about the
@@ -590,16 +590,16 @@ These rules keep those figures honest:
   does not apply: the labels were written by a model, so what is measured is consistency
   between two models.
 
-  Measured over 8,106 claims on every one of the 51 games, with the ten frozen games read
-  twice in full: two labellers agree on the subject 89.0% of the time, kappa 0.88, and on
-  polarity 95.1%, kappa 0.92. Those are figures a set can stand on, and they did not move when
+  Measured over 21,449 claims on every one of the 51 games, with the ten frozen games read
+  twice in full: two labellers agree on the subject 88.6% of the time, kappa 0.87, and on
+  polarity 94.9%, kappa 0.92. Those are figures a set can stand on, and they did not move when
   the set grew from ten games to thirty to fifty-one, nor when the second reading went from a
   share of each set to all of the frozen ones.
 
 - **The contested flag measures the labeller as much as the claim.** Two labellers given the
-  same definition reached for it on 29.1% and on 34.8% of the same 8,106 claims, kappa 0.53.
+  same definition reached for it on 27.4% and on 43.9% of the same 21,449 claims, kappa 0.46.
   The flag does find the right claims: where neither reached for it the two agree on the
-  subject 98.8% of the time, where one of them did 79.7%, and where both did 71.8%. What
+  subject 98.8% of the time, where one of them did 82.4%, and where both did 72.5%. What
   differs is the bar. So a game's contested rate is not compared with another game's, and agreement is
   reported over the contested claims as a floor on how hard the taxonomy is rather than as a
   property of the corpus.
