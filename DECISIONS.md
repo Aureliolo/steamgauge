@@ -2865,6 +2865,40 @@ gameplay for "ai", "unpredictable" and "ia", atmosphere for "terrifying", "movie
 because Russian speakers complaining about the ending is what was said. Every captured game
 was recounted in seven minutes; nothing was read again.
 
+### The sheet tells a labeller two different things about "if you like X, you will like this"
+
+Found 2026-09-22 in the second reading of the frozen games, which is what a second reading is
+for. Over 2,864 claims read twice on five of the ten, the two labellers split 265 times, and
+after `offtopic` against `verdict` (18) the commonest split is **`genre` against `verdict`,
+17 claims**, nine of them a conditional recommendation: "if you like horror and survival,
+this is a perfect game for you", "For fans of MetroidVanias, this might be worth trying out",
+"If you like star wars then you probably will like this game".
+
+Neither labeller is wrong, because the sheet says both things. `genre`'s **description** lists
+"if you liked Slay the Spire you will like this" as an example of genre. `genre`'s **boundary**
+says to ask what the claim is for, and that where it is praising or condemning and the other
+game is only the noun being judged, it is a verdict. A conditional recommendation is praising
+and names another game, so the description sends it to `genre` and the rule sends it to
+`verdict`.
+
+**The rule that settles it, once the frozen reading is finished: a recommendation is a
+verdict, conditional or not.** "If you like X you will like this" recommends the game to a
+group of people, and who should buy it is a verdict; `genre` keeps the claims that only say
+what kind of game this is or what it resembles, with no recommendation attached: "a
+deckbuilder with no deck", "XCOM meets Darkest Dungeon", "not really a soulslike", "True
+Survival Horror game", "it's a LEGO game". Read against the seventeen split claims, the rule
+answers eleven the way one of the two labellers did and leaves six genuinely mixed ("Great
+game! different from the other lego games" is a verdict and a comparison in one claim), which
+is what the contested flag is for. The description's Slay the Spire example goes.
+
+It is **not applied yet**, deliberately. The sheet's wording is hashed into every label, and
+the ten frozen games are being read a second time as this is written; a sheet that moves
+under a labelling in flight gives half a sitting one wording and half another, which is the
+one thing the fingerprint exists to prevent. When the reading is finished: change the wording,
+let the fingerprint move, and `revisit` the claims the rule can reach. A word probe over the
+random sets ("if you like", "if you enjoy", "fans of", "if you played") finds **153 claims of
+33,615** filed under `genre` or `verdict` that it could move, which is one sitting.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
