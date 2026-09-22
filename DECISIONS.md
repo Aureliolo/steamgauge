@@ -3193,10 +3193,29 @@ Its confidence is also flatter: ECE 0.197 against about 0.15, and the threshold 
 0.75 sits at 0.230 where every seed sits at 0.540. Averaged weights answer with less certainty
 about the same ordering.
 
-**So the soup does not ship**, by the macro F1 veto and by the frozen games. It stays in the
-repository as a measured configuration, `training/soup.py` stays because the question was
-worth asking and will be worth asking again of the runs on the fresh export, and the seeds
-remain what the reader is chosen from.
+**The greedy soup is the interesting one, and it does not ship either.** Adding the seeds best
+first, it kept seed 2, kept seed 1 at 93.9%, and refused seed 3 for costing a point:
+
+| | validation | macro F1 | ECE | frozen | frozen F1 | frozen AURC |
+|---|---|---|---|---|---|---|
+| seed 2, the best single | 92.01% at 0.751 | 0.655 | 0.154 | 92.99% at 0.781 | 0.696 | 0.0925 |
+| the soup of two | **93.87%** at 0.751 | 0.645 | **0.023** | **93.93%** at 0.778 | 0.683 | 0.0928 |
+
+Its validation figure is chosen on the validation games and therefore flattering, but **the
+frozen one is not: it answers 0.94 points more of the claims nobody trained on**, at 0.27
+points less accuracy. That is the gain the three-seed soup did not have.
+
+It still fails the veto, and by more on the set that matters: **macro F1 0.683 against 0.696 on
+the frozen games**, 1.3 points. The coverage it buys comes out of the rare rows, which is the
+trade refused here every time it has been offered, and it is the trade every hour of mining
+and declined-claim labelling exists to avoid making. Two seeds averaged are also startlingly
+well calibrated, ECE 0.023 against 0.154 and 0.197 for one seed and for three; that is a
+curiosity worth a note and not worth a night.
+
+**So no soup ships.** `training/soup.py` stays, because the question was worth asking, because
+it will be asked again of the runs on the fresh export where the ingredients differ by
+objective rather than by seed, and because the answer is now on the record with the numbers
+that produced it.
 
 ### Half the second reading was on disk and nothing read it
 
