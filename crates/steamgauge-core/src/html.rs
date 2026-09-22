@@ -2213,7 +2213,7 @@ mod tests {
                     model: "test-reader".to_owned(),
                     trained_on: "0123456789abcdef".to_owned(),
                     read_with: "a-reader".to_owned(),
-                    reader: "Needle".to_owned(),
+                    reader: "Game Review Reader".to_owned(),
                     read_by_rule: String::new(),
                     usual_declined: Some(0.1),
                     frozen: Some(crate::reader::Frozen {

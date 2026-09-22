@@ -389,7 +389,7 @@ def main() -> None:
         raise SystemExit(f"no runs under {arguments.runs}")
 
     if arguments.index:
-        card = HERE.parent / "models" / "claim-reader" / "reader.json"
+        card = HERE.parent / "models" / "game-review-reader" / "reader.json"
         shipped = None
         if card.is_file():
             with card.open(encoding="utf-8") as handle:

@@ -570,12 +570,10 @@ pub fn recount_corpus(
         model: earlier.model,
         trained_on: earlier.trained_on,
         read_with: earlier.read_with,
-        // The name the reader carries now: a reading made before it had one is still its.
-        reader: if earlier.reader.is_empty() {
-            provenance.name.clone()
-        } else {
-            earlier.reader
-        },
+        // The name the reader carries now: the run id is the identity, and the recount has
+        // already checked the reading is this reader's, so a reading made before it had a
+        // name, or under an earlier one, is called what it is called today.
+        reader: provenance.name.clone(),
         read_by_rule: earlier.read_by_rule,
         usual_declined: earlier.usual_declined,
         frozen: earlier.frozen,

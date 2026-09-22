@@ -160,9 +160,7 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None):
             continue
         precision = counts["hit"] / max(counts["found"], 1)
         recall = counts["hit"] / max(counts["wanted"], 1)
-        scores.append(
-            0.0 if not counts["hit"] else 2 * precision * recall / (precision + recall)
-        )
+        scores.append(0.0 if not counts["hit"] else 2 * precision * recall / (precision + recall))
 
     return {
         "claims": len(wanted),
@@ -284,7 +282,7 @@ def main():
     )
 
     mine = sub.add_parser("reader")
-    mine.add_argument("--model", default=str(HERE.parent / "models" / "claim-reader"))
+    mine.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
     mine.add_argument("--key", default=None)
     mine.add_argument(
         "--frozen",

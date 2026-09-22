@@ -24,10 +24,10 @@ from train import ClaimReader
 
 HERE = Path(__file__).resolve().parent
 
-# The reader's name: the part of a gauge that reads the value. A run id names an experiment
-# by its encoder and label count and is the right name for the index; a thing somebody
-# downloads and cites wants a name that is not a serial.
-READER_NAME = "Needle"
+# The reader's name says what it reads. A run id names an experiment by its encoder and label
+# count and is the right name for the index; a thing somebody downloads and cites wants a
+# name that is not a serial and needs no explaining.
+READER_NAME = "Game Review Reader"
 
 # What a claim's logits may drift by between PyTorch and the exported graph. Tight enough
 # that a changed argmax cannot hide inside it on anything but a genuine tie.
@@ -273,8 +273,8 @@ def abstention_lines(
     )
     answered = (confidence >= at[mine]) & (confidence >= spoken_at)
     carried = {
-        "games": int(len(set(app_ids.tolist()))),
-        "claims": int(len(truth)),
+        "games": len(set(app_ids.tolist())),
+        "claims": len(truth),
         "coverage": float(answered.mean()),
         "accuracy": float(correct[answered].mean()) if answered.any() else 0.0,
         "macro_f1": macro_f1(predicted[answered], truth[answered], len(theirs)),
@@ -296,9 +296,7 @@ def languages_of(paths, data):
     parts = [np.load(path, allow_pickle=False) for path in sorted(paths)]
     review_ids = np.concatenate([part["review_id"] for part in parts])
     claim_index = np.concatenate([part["claim_index"] for part in parts])
-    labelled = {
-        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))
-    }
+    labelled = {(claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))}
     beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
     return np.array([one.language if one else "" for one in beside])
 
@@ -314,7 +312,9 @@ def macro_f1(predicted, truth, classes: int) -> float:
             continue
         precision = hit / said if said else 0.0
         recall = hit / was
-        scores.append(0.0 if not (precision + recall) else 2 * precision * recall / (precision + recall))
+        scores.append(
+            0.0 if not (precision + recall) else 2 * precision * recall / (precision + recall)
+        )
     return float(np.mean(scores)) if scores else 0.0
 
 
@@ -572,9 +572,7 @@ def main():
                 # retraining gives a reader that answers differently under the same `run_id`,
                 # and a reading that cannot say which rule made it cannot be reconciled with
                 # one made under the other.
-                "lines_fingerprint": rule_fingerprint(
-                    threshold, subjects, lines, by_language
-                ),
+                "lines_fingerprint": rule_fingerprint(threshold, subjects, lines, by_language),
                 "name": READER_NAME,
                 "run_id": run.name,
                 "usual_declined": usual_declined,
@@ -626,7 +624,7 @@ def main():
     card.write_text(
         "\n".join(
             [
-                f"# {READER_NAME}, SteamGauge's claim reader",
+                f"# {READER_NAME}",
                 "",
                 f"Run `{run.name}`, fine-tuned from `{record['backbone']}`.",
                 "",
@@ -636,14 +634,12 @@ def main():
                 "",
                 "## Measured",
                 "",
-                f"- Accuracy {frozen.get('accuracy', 0):.3f}, macro F1 "
-                f"{frozen.get('macro_f1', 0):.3f}",
+                f"- Accuracy {frozen.get('accuracy', 0):.3f}, macro F1 {frozen.get('macro_f1', 0):.3f}",
                 f"- Polarity macro F1 {frozen.get('polarity_macro_f1', 0):.3f}",
                 f"- Calibration error {frozen.get('calibration_error', 0):.3f}",
                 f"- Below {threshold:.2f} confidence it says nothing, which leaves it answering "
                 f"{at_threshold.get('coverage', 0):.0%} of claims at "
-                f"{at_threshold.get('accuracy') or 0:.3f} accuracy"
-                + wilson_note(at_threshold),
+                f"{at_threshold.get('accuracy') or 0:.3f} accuracy" + wilson_note(at_threshold),
                 *(
                     [
                         f"- **What ships abstains per subject and per language**, not at that "
@@ -658,10 +654,14 @@ def main():
                     if lines
                     else []
                 ),
-                f"- Area under the risk-coverage curve {frozen.get('aurc', 0):.3f} (lower is "
-                f"better; it says whether the model knows when it does not know)",
-                f"- Trained on {record['claims']['train']} claims, validated on "
-                f"{record['claims']['validation']}, measured on {record['claims']['test']}",
+                (
+                    f"- Area under the risk-coverage curve {frozen.get('aurc', 0):.3f} (lower is "
+                    f"better; it says whether the model knows when it does not know)"
+                ),
+                (
+                    f"- Trained on {record['claims']['train']} claims, validated on "
+                    f"{record['claims']['validation']}, measured on {record['claims']['test']}"
+                ),
                 f"- Data fingerprint `{record['data_fingerprint']}`, code `{record['git_sha'][:12]}`",
                 "",
                 "**Every figure above is from the frozen games**, which the model never saw and",

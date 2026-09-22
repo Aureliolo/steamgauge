@@ -232,11 +232,11 @@ pub struct Frozen {
 /// how a freshly trained model is tried before it is published.
 #[must_use]
 pub fn default_dir() -> std::path::PathBuf {
-    let local = std::path::PathBuf::from("models").join("claim-reader");
+    let local = std::path::PathBuf::from("models").join("game-review-reader");
     if local.join("model.onnx").is_file() {
         return local;
     }
-    crate::model::default_cache_dir().join("claim-reader")
+    crate::model::default_cache_dir().join("game-review-reader")
 }
 
 /// The published model, pinned file by file.
@@ -993,7 +993,7 @@ mod tests {
     #[test]
     fn a_pin_with_any_hash_missing_is_no_pin_at_all() {
         let mut half = PUBLISHED;
-        half.repository = "someone/claim-reader";
+        half.repository = "someone/game-review-reader";
         half.files[0].sha256 = "0".repeat(64).leak();
         half.files[1].sha256 = "0".repeat(64).leak();
         assert!(

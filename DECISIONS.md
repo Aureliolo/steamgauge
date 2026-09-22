@@ -2588,12 +2588,18 @@ backed up; the README's table row is the previous reader's until the frontier co
 run again on a fresh draw, and the key of that draw goes in `training/data/` where the frozen
 key already lives.
 
-**The reader is called Needle.** A run is named for its encoder and its label count, which is
-the right name for the index and a bad name for a thing somebody downloads and cites, as the
-user said in fewer words. The part of a gauge that reads the value is the needle; the model
-card and `reader.json` carry the name, the run id stays the run id, and a published release
-will number it. Nothing is published: the pin in `reader.rs` is empty, and that is the user's
-step.
+**The reader is called Game Review Reader.** A run is named for its encoder and its label
+count, which is the right name for the index and a bad name for a thing somebody downloads
+and cites, as the user said in fewer words. The first name chosen was Needle, the part of a
+gauge that reads the value, and it lasted a day: the user's rule for the name, put on
+2026-09-22, is that it be clear, direct and understandable rather than a figure of speech,
+and a list of forty such figures (Litmus, Fathom, Governor, Gloss, Thumbs) was the wrong
+answer to it. The name says what the thing reads, is not tied to one store, and needs no
+explaining on a report page or a model card. The model card and `reader.json` carry it, the
+local copy lives at `models/game-review-reader`, the repositories will be
+`game-review-reader` and `game-review-claims`, the run id stays the run id, and a published
+release will number it. Nothing is published: the pin in `reader.rs` is empty, and that is
+the user's step.
 
 ### Every set has now been read twice in part, and the figure did not move
 

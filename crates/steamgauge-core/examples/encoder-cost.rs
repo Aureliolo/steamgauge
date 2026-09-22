@@ -6,7 +6,7 @@
 //! measured here rather than argued about.
 //!
 //!     cargo run --release -p steamgauge-core --example encoder-cost -- \
-//!         data models/claim-reader 245170
+//!         data models/game-review-reader 245170
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = args.next().unwrap_or_else(|| "data".to_owned());
     let model = args
         .next()
-        .unwrap_or_else(|| "models/claim-reader".to_owned());
+        .unwrap_or_else(|| "models/game-review-reader".to_owned());
     let app_id: u32 = args
         .next()
         .and_then(|id| id.parse().ok())
