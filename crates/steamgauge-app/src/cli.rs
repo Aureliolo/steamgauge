@@ -601,6 +601,13 @@ enum Command {
         /// one that has to change. The new answer replaces the old at the next ingest.
         #[arg(long)]
         rejudge: bool,
+        /// Ask only about disagreements on this boundary, written `difficulty/gameplay`, and
+        /// repeated once per boundary. The blind sample is untouched: aiming that would make
+        /// the accuracy figure a fact about the boundaries somebody chose. Four boundaries
+        /// carry a third of every disagreement the two readings produce, and a sitting spent
+        /// on those settles more of the sheet per question than one spread over all of them.
+        #[arg(long, value_parser = a_boundary)]
+        boundary: Vec<(String, String)>,
     },
 
     /// Merge adjudicated answers back, as the only labels in the set written by a person.
@@ -976,6 +983,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             answers,
             port,
             rejudge,
+            boundary,
         } => run_gold(
             reference,
             out,
@@ -986,6 +994,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
                 languages: language,
                 reading: labels,
                 rejudge: *rejudge,
+                boundaries: boundary,
             },
             if *serve {
                 Delivery::Served {
@@ -1788,6 +1797,26 @@ struct Asking<'a> {
     languages: &'a [String],
     reading: &'a str,
     rejudge: bool,
+    boundaries: &'a [(String, String)],
+}
+
+/// Reads `difficulty/gameplay` as the two subjects it names, refusing a subject the sheet
+/// does not have: a typo would otherwise draw an empty page and look like agreement.
+fn a_boundary(written: &str) -> std::result::Result<(String, String), String> {
+    let (left, right) = written
+        .split_once('/')
+        .ok_or_else(|| format!("{written} is not two subjects separated by a slash"))?;
+    for side in [left, right] {
+        if steamgauge_core::taxonomy::by_id(side).is_none() {
+            return Err(format!(
+                "{side} is not a subject on the sheet; `steamgauge brief` lists them"
+            ));
+        }
+    }
+    if left == right {
+        return Err(format!("{left} is not a boundary with itself"));
+    }
+    Ok((left.to_owned(), right.to_owned()))
 }
 
 fn run_gold(
@@ -1803,6 +1832,7 @@ fn run_gold(
         languages,
         reading,
         rejudge,
+        boundaries,
     } = *asking;
     if rejudge {
         let (questions, found) = steamgauge_core::gold::rejudge(reference, reading)?;
@@ -1820,8 +1850,18 @@ fn run_gold(
         );
         return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
     }
-    let (questions, found) =
-        steamgauge_core::gold::draw(reference, out, blind, splits, seed, languages, reading)?;
+    let (questions, found) = steamgauge_core::gold::draw(
+        reference,
+        out,
+        &steamgauge_core::gold::Asked {
+            blind,
+            splits,
+            seed,
+            languages,
+            reading,
+            boundaries,
+        },
+    )?;
     if questions.is_empty() {
         anyhow::bail!(
             "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
@@ -1830,6 +1870,16 @@ fn run_gold(
     }
     let page = steamgauge_core::gold::render(&questions, &found);
 
+    say_what_was_drawn(&found, reading);
+
+    deliver(page, delivery)
+}
+
+/// What a draw turned out to be, in the order a person reads it: what they are being asked,
+/// then what was held back from them and why.
+fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
+    let languages = &found.languages;
+    let boundaries = &found.boundaries;
     println!("games      {} frozen", found.games);
     if !languages.is_empty() {
         println!(
@@ -1848,6 +1898,17 @@ fn run_gold(
         "split      {} claims the `{reading}` reading answered differently, asked first",
         found.split
     );
+    if !boundaries.is_empty() {
+        println!(
+            "aimed at   {}, leaving {} disagreements on other boundaries unasked",
+            boundaries
+                .iter()
+                .map(|(left, right)| format!("{left}/{right}"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            found.elsewhere
+        );
+    }
     println!(
         "contested  {} of those had neither labeller hedging, which is where an hour buys most",
         found.contested_sure
@@ -1877,8 +1938,6 @@ fn run_gold(
             found.mistagged
         );
     }
-
-    deliver(page, delivery)
 }
 
 /// Writes the page, or serves it and writes every answer as it is made.

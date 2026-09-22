@@ -104,6 +104,12 @@ pub struct GoldDraw {
     /// to what the adjudicator reads is a random sample of those languages and not of the
     /// corpus, and the figure it produces has to say so.
     pub languages: Vec<String>,
+    /// Which boundaries the disagreements were narrowed to, empty for all of them. Only the
+    /// splits are aimed; the blind sample stays a random sample of the frozen games, because
+    /// aiming it would make the accuracy figure a fact about the boundaries that were chosen.
+    pub boundaries: Vec<(String, String)>,
+    /// Disagreements left out because they fall on a boundary that was not asked for.
+    pub elsewhere: usize,
 }
 
 impl GoldDraw {
@@ -146,6 +152,21 @@ pub enum Splits {
     Everywhere,
 }
 
+/// What a person is asked, past where the sets and captures are.
+#[derive(Debug, Clone, Copy)]
+pub struct Asked<'a> {
+    /// How many claims to draw blind.
+    pub blind: usize,
+    pub splits: Splits,
+    pub seed: u64,
+    /// Only claims in these languages, empty for every language.
+    pub languages: &'a [String],
+    /// Which second reading the disagreements come from.
+    pub reading: &'a str,
+    /// Only disagreements on these boundaries, empty for every boundary.
+    pub boundaries: &'a [(String, String)],
+}
+
 /// Where a claim is, so the blind draw and the disagreements cannot both take the same one.
 type At = (u32, String, u16);
 /// A frozen claim that could be asked blind: its draw order, where it is, whether both
@@ -153,6 +174,80 @@ type At = (u32, String, u16);
 type Candidate = ([u8; 32], At, bool, Question);
 /// A disagreement: where it is, whether either labeller hedged, and the question.
 type Contested = (At, bool, Question);
+
+/// One game's draw, its labels and the second reading's, or nothing where the game has no
+/// drawn sample or has never been labelled.
+type Set = (Vec<DrawnReview>, Vec<ClaimLabel>, Vec<ClaimLabel>);
+
+fn read_set(dir: &Path, reading: &str) -> Result<Option<Set>> {
+    let (Ok(sample), Ok(first)) = (
+        std::fs::read(dir.join("sample.json")),
+        std::fs::read(dir.join("labels.json")),
+    ) else {
+        return Ok(None);
+    };
+    // A set with no second reading is still drawn from: its claims can be asked blind, and
+    // only its disagreements are missing, because there is no second answer to differ from.
+    let second = std::fs::read(dir.join(reading).join("labels.json"))
+        .ok()
+        .and_then(|raw| serde_json::from_slice(&raw).ok())
+        .unwrap_or_default();
+    Ok(Some((
+        serde_json::from_slice(&sample)?,
+        serde_json::from_slice(&first)?,
+        second,
+    )))
+}
+
+/// What one game's labels are looked up against: where this build cuts claims, the review
+/// around each claim, and the second reading keyed by claim.
+type Indexed<'a> = (
+    Option<crate::claimset::CutSpans>,
+    std::collections::HashMap<&'a str, Rejoined<'a>>,
+    std::collections::HashMap<(&'a str, u16), &'a ClaimLabel>,
+);
+
+fn indexed<'a>(
+    captures: &Path,
+    app_id: u32,
+    drawn: &'a [DrawnReview],
+    first: &[ClaimLabel],
+    second: &'a [ClaimLabel],
+) -> Indexed<'a> {
+    // A capture that is not here cannot say what this build cuts, so nothing is held back on a
+    // guess: the alternative is a draw that silently shrinks on a machine holding only the
+    // reference sets.
+    let labelled: std::collections::HashSet<String> =
+        first.iter().map(|label| label.review_id.clone()).collect();
+    (
+        crate::claimset::spans_cut_now(captures, app_id, &labelled).ok(),
+        drawn
+            .iter()
+            .map(|review| (review.id.as_str(), Rejoined::of(review)))
+            .collect(),
+        second
+            .iter()
+            .map(|label| ((label.review_id.as_str(), label.index), label))
+            .collect(),
+    )
+}
+
+/// Whether a disagreement falls outside the boundaries asked for, counted as it goes past.
+///
+/// A person settles a boundary, and the boundaries are not equally expensive: four of them
+/// carry a third of every disagreement the two readings produce. Asking about those four in
+/// one sitting settles more of the sheet per question than a draw that samples all of them,
+/// and the ones left out are still there to ask about next time.
+fn elsewhere(wanted: &[(String, String)], first: &str, second: &str, passed: &mut usize) -> bool {
+    if wanted.is_empty() {
+        return false;
+    }
+    let asked = wanted.iter().any(|(left, right)| {
+        (left == first && right == second) || (left == second && right == first)
+    });
+    *passed += usize::from(!asked);
+    !asked
+}
 
 /// Whether a labeller signalled doubt, by any of the three means the sheet gives them.
 fn hedged(label: &ClaimLabel) -> bool {
@@ -253,12 +348,16 @@ pub fn still_cut(cut: Option<&crate::claimset::CutSpans>, label: &ClaimLabel) ->
 pub fn draw(
     reference: &Path,
     captures: &Path,
-    blind_wanted: usize,
-    splits: Splits,
-    seed: u64,
-    languages: &[String],
-    reading: &str,
+    asked: &Asked<'_>,
 ) -> Result<(Vec<Question>, GoldDraw)> {
+    let Asked {
+        blind: blind_wanted,
+        splits,
+        seed,
+        languages,
+        reading,
+        boundaries,
+    } = *asked;
     // Ranked, whether the two labellers had both answered it, and the question itself.
     let mut blind: Vec<Candidate> = Vec::new();
     // Ranked as they are collected: a claim both readers answered without hedging, and still
@@ -280,36 +379,11 @@ pub fn draw(
         if !frozen && splits != Splits::Everywhere {
             continue;
         }
-        let Ok(sample) = std::fs::read(dir.join("sample.json")) else {
+        let Some((drawn, first, second)) = read_set(&dir, reading)? else {
             continue;
         };
-        let Ok(first) = std::fs::read(dir.join("labels.json")) else {
-            continue;
-        };
-        let drawn: Vec<DrawnReview> = serde_json::from_slice(&sample)?;
-        let first: Vec<ClaimLabel> = serde_json::from_slice(&first)?;
-        let second: Vec<ClaimLabel> = std::fs::read(dir.join(reading).join("labels.json"))
-            .ok()
-            .and_then(|raw| serde_json::from_slice(&raw).ok())
-            .unwrap_or_default();
         found.games += usize::from(frozen);
-
-        // A capture that is not here cannot say what this build cuts, so nothing is held back
-        // on a guess: the alternative is a draw that silently shrinks on a machine holding only
-        // the reference sets.
-        let labelled: std::collections::HashSet<String> =
-            first.iter().map(|label| label.review_id.clone()).collect();
-        let cut = crate::claimset::spans_cut_now(captures, app_id, &labelled).ok();
-
-        let around: std::collections::HashMap<&str, Rejoined<'_>> = drawn
-            .iter()
-            .map(|review| (review.id.as_str(), Rejoined::of(review)))
-            .collect();
-
-        let twice: std::collections::HashMap<(&str, u16), &ClaimLabel> = second
-            .iter()
-            .map(|label| ((label.review_id.as_str(), label.index), label))
-            .collect();
+        let (cut, around, twice) = indexed(captures, app_id, &drawn, &first, &second);
 
         for label in &first {
             let Some(rejoined) = around.get(label.review_id.as_str()) else {
@@ -353,6 +427,12 @@ pub fn draw(
             if let Some(other) = read_twice
                 && !both_said_the_same
                 && splits != Splits::None
+                && !elsewhere(
+                    boundaries,
+                    &label.subject,
+                    &other.subject,
+                    &mut found.elsewhere,
+                )
             {
                 split.push((
                     (app_id, label.review_id.clone(), label.index),
@@ -383,6 +463,7 @@ pub fn draw(
     }
 
     found.languages = languages.to_vec();
+    found.boundaries = boundaries.to_vec();
     let questions = assemble(blind, split, blind_wanted, &mut found);
 
     Ok((questions, found))
@@ -609,6 +690,18 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
 mod tests {
     use super::*;
 
+    /// The usual draw: every language, the `second` reading, every boundary.
+    fn asking(blind: usize, splits: Splits) -> Asked<'static> {
+        Asked {
+            blind,
+            splits,
+            seed: 1,
+            languages: &[],
+            reading: "second",
+            boundaries: &[],
+        }
+    }
+
     /// A reference set on disk: one frozen game and one training game, each with three claims.
     /// The second labeller reads two of them, agreeing on one and differing on the other, and
     /// never sees the third, which is therefore the only one left to read blind.
@@ -668,11 +761,7 @@ mod tests {
         let (frozen_only, counts) = draw(
             &root,
             &root.join("no-captures"),
-            100,
-            Splits::Frozen,
-            1,
-            &[],
-            "second",
+            &asking(100, Splits::Frozen),
         )
         .unwrap();
         assert!(
@@ -705,11 +794,7 @@ mod tests {
         let (everywhere, wider) = draw(
             &root,
             &root.join("no-captures"),
-            100,
-            Splits::Everywhere,
-            1,
-            &[],
-            "second",
+            &asking(100, Splits::Everywhere),
         )
         .unwrap();
         assert_eq!(
@@ -730,18 +815,51 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(
-            &root,
-            &root.join("no-captures"),
-            100,
-            Splits::None,
-            1,
-            &[],
-            "second",
-        )
-        .unwrap();
+        let (none, quiet) =
+            draw(&root, &root.join("no-captures"), &asking(100, Splits::None)).unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_draw_aimed_at_one_boundary_asks_about_that_one_and_leaves_the_blind_sample_alone() {
+        let root = std::env::temp_dir().join(format!("steamgauge-aimed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        a_reference_set(&root);
+        // The fixture's one disagreement, in both games: the first reading said `verdict` and
+        // the second said `price`.
+        let asked = |boundaries: &[(String, String)]| {
+            draw(
+                &root,
+                &root.join("no-captures"),
+                &Asked {
+                    boundaries,
+                    ..asking(0, Splits::Everywhere)
+                },
+            )
+            .unwrap()
+            .1
+        };
+
+        let every = asked(&[]);
+        let named = asked(&[("price".to_owned(), "verdict".to_owned())]);
+        let other = asked(&[("difficulty".to_owned(), "gameplay".to_owned())]);
+
+        assert_eq!(every.split, 2);
+        assert_eq!(every.elsewhere, 0, "an unaimed draw leaves nothing out");
+        // Named either way round, because which reading said which is not the boundary.
+        assert_eq!(named.split, 2);
+        assert_eq!(named.elsewhere, 0);
+        assert_eq!(other.split, 0, "a boundary nothing falls on asks nothing");
+        assert_eq!(other.elsewhere, 2);
+        assert_eq!(
+            (every.blind, named.blind, other.blind),
+            (0, 0, 0),
+            "aiming the disagreements must not touch the sample the measurement comes from"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -772,16 +890,8 @@ mod tests {
             .replace("214490", "1274570");
         std::fs::write(bare.join("labels.json"), relabelled).unwrap();
 
-        let (questions, counts) = draw(
-            &root,
-            &root.join("no-captures"),
-            100,
-            Splits::None,
-            1,
-            &[],
-            "second",
-        )
-        .unwrap();
+        let (questions, counts) =
+            draw(&root, &root.join("no-captures"), &asking(100, Splits::None)).unwrap();
         let asked: std::collections::HashSet<u32> =
             questions.iter().map(|question| question.app_id).collect();
         assert!(
@@ -815,11 +925,7 @@ mod tests {
         let (questions, counts) = draw(
             &root,
             &root.join("no-captures"),
-            0,
-            Splits::Everywhere,
-            1,
-            &[],
-            "second",
+            &asking(0, Splits::Everywhere),
         )
         .unwrap();
         assert_eq!(counts.blind, 0);
@@ -851,11 +957,7 @@ mod tests {
         let (questions, counts) = draw(
             &root,
             &root.join("no-captures"),
-            3,
-            Splits::Everywhere,
-            1,
-            &[],
-            "second",
+            &asking(3, Splits::Everywhere),
         )
         .unwrap();
         let blind: Vec<&Question> = questions
@@ -922,16 +1024,8 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) = draw(
-            &root,
-            &root.join("no-captures"),
-            0,
-            Splits::Frozen,
-            1,
-            &[],
-            "second",
-        )
-        .unwrap();
+        let (questions, counts) =
+            draw(&root, &root.join("no-captures"), &asking(0, Splits::Frozen)).unwrap();
         assert_eq!(counts.split, 2);
         assert_eq!(
             counts.contested_sure, 1,
@@ -1122,11 +1216,7 @@ mod tests {
         let (questions, counts) = draw(
             &root,
             &root.join("no-captures"),
-            10,
-            Splits::Frozen,
-            1,
-            &[],
-            "second",
+            &asking(10, Splits::Frozen),
         )
         .unwrap();
         assert_eq!(counts.declined, 1, "the blank option was not held back");
