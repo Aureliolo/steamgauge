@@ -478,6 +478,11 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
 /// cannot cross. "Worth" appears in claims about eleven subjects and the rule about what a
 /// thing is worth paying touches two of them.
 ///
+/// With subjects and no words, every claim under them is asked about. A revision that narrows
+/// a row rather than teaching the sheet a new name puts the whole row back in question, and
+/// there are no words for that: `accessibility` was redefined from a purpose to a test, and
+/// what has to be re-asked is each of its claims, not the ones that happen to say "subtitle".
+///
 /// Returns the claims that matched, as a set the labeller reads exactly like a fresh one.
 ///
 /// # Errors
@@ -514,9 +519,10 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
                 .iter()
                 .filter(|claim| labelled.contains(&(review.id.as_str(), claim.index)))
                 .filter(|claim| {
-                    words
-                        .iter()
-                        .any(|word| crate::said::mentions(&claim.text, word))
+                    words.is_empty()
+                        || words
+                            .iter()
+                            .any(|word| crate::said::mentions(&claim.text, word))
                 })
                 .map(|claim| claim.index)
                 .collect();
@@ -1668,6 +1674,49 @@ mod tests {
             Some("story"),
             "a blind reading of the whole set outranks a teaching draw's copy"
         );
+    }
+
+    #[test]
+    fn a_revisit_with_no_words_asks_about_every_claim_under_the_subjects() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-revisit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let drawn = DrawnReview {
+            app_id: 1,
+            ..review(
+                "r1",
+                &[
+                    "No subtitle size setting.",
+                    "The combat is superb.",
+                    "It runs at nine frames.",
+                ],
+            )
+        };
+        std::fs::write(
+            dir.join("sample.json"),
+            serde_json::to_vec(&[drawn]).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&[
+                a_label(1, "r1", 0, "random", "accessibility"),
+                a_label(1, "r1", 1, "random", "accessibility"),
+                a_label(1, "r1", 2, "random", "performance"),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+
+        let by_word = draw_revisit(&dir, &["subtitle".to_owned()], &[]).unwrap();
+        assert_eq!(by_word[0].asked, Some(vec![0]));
+
+        // A row redefined rather than renamed puts every claim under it back in question, and
+        // the claim that says nothing about the new wording is exactly the one to re-ask.
+        let whole_row = draw_revisit(&dir, &[], &["accessibility".to_owned()]).unwrap();
+        assert_eq!(whole_row[0].asked, Some(vec![0, 1]));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

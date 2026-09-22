@@ -480,8 +480,10 @@ enum Command {
     /// its name, so naming the words finds the slice: eight games of "modding" sat under
     /// `content` and `updates` and not one of them failed to use the word.
     Revisit {
-        /// Words that put a claim back in question. A claim using any of them is drawn.
-        #[arg(long, required = true, num_args = 1..)]
+        /// Words that put a claim back in question. A claim using any of them is drawn. Left
+        /// out, every claim under the subjects named is drawn, which is what a revision that
+        /// narrows a row rather than naming a new one puts back in question.
+        #[arg(long, num_args = 1..)]
         words: Vec<String>,
         /// Only claims currently filed under these subjects. A rule moves a boundary between
         /// two rows, and a claim on neither side of it cannot cross. Every subject when none
@@ -1736,6 +1738,14 @@ fn run_revisit(
     reference: &std::path::Path,
     batch_size: usize,
 ) -> Result<()> {
+    // Neither narrowing given, every claim in the reference set is re-asked, which costs what
+    // the set cost and is never what a revision needs.
+    if words.is_empty() && subjects.is_empty() {
+        anyhow::bail!(
+            "--words, --subjects or both: a revisit with neither asks the whole reference set \
+             again"
+        );
+    }
     let wanted = if app_ids.is_empty() {
         labelled_sets(reference)?
     } else {
@@ -1748,21 +1758,49 @@ fn run_revisit(
     let (mut reviews, mut claims, mut games) = (0, 0, 0);
     let mut drew_for = Vec::new();
     for app_id in wanted {
-        let dir = reference.join(app_id.to_string());
-        let drawn = steamgauge_core::claimset::draw_revisit(&dir, words, subjects)?;
-        if drawn.is_empty() {
-            continue;
-        }
-        drew_for.push(app_id);
-        let report =
-            steamgauge_core::claimset::write_set(&dir.join("revisit"), &drawn, batch_size)?;
-        println!(
-            "{:<10} {:>4} reviews {:>5} claims {:>3} batches",
-            app_id, report.reviews, report.claims, report.batches
+        let game = reference.join(app_id.to_string());
+        // Every set of the game, not only its random draw. A teaching set is labelled against
+        // the same sheet and trained on like any other row, so a revision that reaches only
+        // the random draw leaves most of a row under the wording it just replaced: 261 of the
+        // 369 `accessibility` labels are in teaching sets.
+        let sets = std::iter::once(String::new()).chain(
+            steamgauge_core::claimset::TEACHING_SETS
+                .iter()
+                .map(|name| (*name).to_owned()),
         );
-        reviews += report.reviews;
-        claims += report.claims;
-        games += 1;
+        let mut for_this_game = 0;
+        for set in sets {
+            let dir = if set.is_empty() {
+                game.clone()
+            } else {
+                game.join(&set)
+            };
+            if !dir.join("labels.json").is_file() {
+                continue;
+            }
+            let drawn = steamgauge_core::claimset::draw_revisit(&dir, words, subjects)?;
+            if drawn.is_empty() {
+                continue;
+            }
+            let report =
+                steamgauge_core::claimset::write_set(&dir.join("revisit"), &drawn, batch_size)?;
+            drew_for.push(dir.join("revisit"));
+            let named = if set.is_empty() {
+                app_id.to_string()
+            } else {
+                format!("{app_id}/{set}")
+            };
+            println!(
+                "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
+                named, report.reviews, report.claims, report.batches
+            );
+            reviews += report.reviews;
+            claims += report.claims;
+            for_this_game += 1;
+        }
+        if for_this_game > 0 {
+            games += 1;
+        }
     }
 
     if games == 0 {
@@ -1774,25 +1812,35 @@ fn run_revisit(
     let mut cleared = 0;
     if app_ids.is_empty() {
         for app_id in labelled_sets(reference)? {
-            if drew_for.contains(&app_id) {
-                continue;
-            }
-            let stale = reference.join(app_id.to_string()).join("revisit");
-            if stale.is_dir() {
-                std::fs::remove_dir_all(&stale)?;
-                cleared += 1;
+            let game = reference.join(app_id.to_string());
+            for set in std::iter::once(String::new()).chain(
+                steamgauge_core::claimset::TEACHING_SETS
+                    .iter()
+                    .map(|name| (*name).to_owned()),
+            ) {
+                let stale = if set.is_empty() {
+                    game.join("revisit")
+                } else {
+                    game.join(&set).join("revisit")
+                };
+                if stale.is_dir() && !drew_for.contains(&stale) {
+                    std::fs::remove_dir_all(&stale)?;
+                    cleared += 1;
+                }
             }
         }
     }
 
     println!("\ndrawn      {reviews:>4} reviews {claims:>5} claims over {games} games");
     if cleared > 0 {
-        println!("cleared    {cleared} games this draw no longer asks about");
+        println!("cleared    {cleared} sets this draw no longer asks about");
     }
     println!(
         "\nHand these to a labeller with the current sheet, exactly as a fresh set. Ingest\n\
          each with `steamgauge ingest-revisit <app id> --from <dir>`, which replaces only the\n\
-         claims asked about and leaves every other label where it was."
+         claims asked about and leaves every other label where it was. A set printed as\n\
+         `<app id>/<set>` ingests with `--to reference/claims/<app id>/<set>`, or its answers\n\
+         land on the random draw's labels and place nothing."
     );
     Ok(())
 }
