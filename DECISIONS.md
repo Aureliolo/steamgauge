@@ -3510,6 +3510,29 @@ game's random draw: **261 of the 369 `accessibility` labels are in `mined`, `ret
 left seven in ten claims under the wording it just replaced. That is the fourth instance of
 the evening's pattern, a rule enforced where it was written and nowhere else.
 
+### The bake-off goes before the folds, because a backbone change makes the folds moot
+
+Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
+card, at the fifteen minutes an epoch this machine does with the user's other work on it:
+
+| | runs | epochs | hours |
+|---|---|---|---|
+| the three knobs and their soup | 3 | 10 | ~7.5, in flight |
+| the second bake-off, five encoders | 5 | 5 | ~6 |
+| five folds for whatever ships | 5 | 10 | ~12.5 |
+
+Eighteen and a half hours behind the queue in flight is two nights, not one, so the order is a
+decision rather than a detail. **The bake-off goes first.** The folds exist to fit the
+abstention lines for one model, and they have to be the model that ships: a line fitted on a
+ten-epoch run does not describe a six-epoch one, and a line fitted on `e5-large-instruct` does
+not describe `mmBERT`. The one thing that would waste twelve hours is fitting lines to a
+backbone the bake-off is about to replace, and the project's own history says that is a live
+possibility: varying the family, not the size, is what took a reader from answering 68.1% of
+claims to 84.9%.
+
+Nothing about the knob winner is lost by waiting. It is a saved run with a `model.bin`, and
+`ship-a-run.sh` reads it whenever its lines exist.
+
 ### 29 of the 487 benchmark claims were spans nothing can read
 
 Checked 2026-09-22, after the export learned to hold back a label whose span this build cuts no
