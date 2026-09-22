@@ -141,6 +141,13 @@ it under `updates` and flagged every one. The revision gives `updates` a second 
 praise or blame aimed at the studio as a whole, with no patch, decision or term named, is
 `updates`; a named decision is `policy`.
 
+**Two more reports on the first aimed draw, and the revision made two rows claim it.** "Greed
+machine" and "the shady way Bandai treat the community" on 1778820, "Shame on you Snail Games"
+on 2399830. The sheet now says both that blame aimed at the studio itself is `updates` and
+that a protest that is angry, brief and names no term is `policy`, and a bare insult at a
+publisher is both. The two labellers split, one to each row, and each flagged it. Whichever
+row keeps it, the other's sentence has to say it does not.
+
 ### A patch that removed content: one report, and it was most of that game
 
 Skullgirls' 2023 censorship patch (245170) is the bulk of its set: "not what I paid for",
@@ -203,13 +210,18 @@ anti-cheat complaints between `policy` (the kernel driver is the objection) and
 `multiplayer` (it blocks joining), settled by the existing line: what a decision is is
 `policy`, what it does when playing is where it does it.
 
-### Luck that is sold: one report
+### Luck that is sold: two reports
 
 FC 25's pack luck (2669320) is `monetisation` (loot boxes) and `difficulty` (luck deciding the
 outcome) at once, and "scripting" (the game decides you lose) is `difficulty` by the
 fairness clause and reads as a `bugs` accusation. The labeller filed both under `difficulty`
 and flagged them. A RULE on `monetisation`: what a purchase gives you is `monetisation`, how
 it plays once you have it is whatever it is about.
+
+The same game's aimed draw brought "matches are scripted" back to a second labeller, who could
+not see the first, and who split it between `difficulty` and `gameplay` rather than `bugs`.
+Three rows for one accusation. The sheet never names a rigged outcome; `difficulty`'s fairness
+clause is the nearest, and saying so settles it.
 
 ### A balance change blamed on a patch: one report, and it dominated that game
 
@@ -292,6 +304,20 @@ sheet's "how many clicks it takes to do anything", and nothing says so.
 
 "Bought it, installed it, cannot run it". Splits between `bugs` and `compatibility` with
 nothing to choose between them.
+
+The sheet has since settled the no-reason case (`compatibility`), and 1592190 found the case
+beside it: a game that will not launch on a Turkish-locale Windows. A reason is given, and it
+is the machine's setup, which reads as `compatibility`; the labeller filed all three `bugs`,
+flagged. "No reason given" should become "no reason, or a reason in the player's own setup".
+
+### A voice in a given language: two reports, on the first aimed draw
+
+"No Turkish commentator is a big lack" and "Korean commentary is the best ever" on 2669320;
+characters who each speak their own language and understand one another on 1778820. `audio`
+owns the voice acting and `language` owns whether a language exists, and a voice in one
+language is both. The first labeller flagged every one; the second, with no row that fit,
+filed them under `story` as a writing choice. A RULE on `language`: whether a language is
+spoken, in commentary or dubbing, is `language`; how well the voice is performed is `audio`.
 
 ## Might need a category
 
@@ -454,8 +480,30 @@ the polarity is about the reviewer rather than the game, which the sheet says po
 - Complaints about world plausibility ("how does XIX-century tech forecast a storm 88 weeks
   out") fit neither `story` nor `gameplay`.
 - A reviewer's own hardware ("using an RTX 3070") sits between `compatibility` and
-  `performance`.
+  `performance`. Reported again on 2399830 as a bare spec sheet ("Sound card: HyperX"),
+  which says nothing about the game and went to `offtopic`, flagged.
 - Neutral narrative lines inside a long bug report have nowhere to go but `bugs`.
+- Wishing a licence away ("pray FIFA gives the licensing to another studio", 2669320) fits
+  `licensing`, `policy` and `updates` at once.
+- A bare "toxic game" (2669320): one word that judges is `verdict`, but the word belongs to
+  `community`; nothing says whether a row's own adjective makes it that row.
+- "The devs are over-relying on the modding community" (1592190): `mods` owns whether the
+  developers support modding, `updates` owns blame at the studio.
+- "$40 for a six-hour campaign" (1592190): `price` and `content` named in one breath, and
+  neither rule ranks them.
+- A player's avatar joked about ("the anime girls have physics", 1592190): the joke rule sends
+  it to what it jokes about without saying whether that is the model (`graphics`) or the
+  physics (`gameplay`).
+- A character creator the developers built (1778820) has no row; `mods` excludes it by being
+  player-made.
+- A training mode (1778820) sits between `tutorial` and `gameplay`.
+- A font too small in one language only (2399830): the sheet sends small text to `graphics`
+  and how a language reads to `language`.
+- A request for a feature ("would love VR support", eight claims on 2399830) has no polarity
+  guidance; the labeller used `neutral` throughout.
+- A studio's television show that streamers rejected (2399830): `offtopic` owns a protest
+  about something the publisher did elsewhere, `policy` keeps everything but no connection at
+  all.
 
 ## Splitter, not taxonomy
 
@@ -463,11 +511,15 @@ Both labellers flagged these through `split_wrong`, and they are fixed: bullet m
 numbered list markers, headings ending in a colon, semicolons, quotations, parenthetical
 asides, Steam markup, and web addresses.
 
-### The comma list, reported by five labellers and counting
+### The comma list, reported by six labellers and counting
 
 "Stunning visual, calm music, epic story". "Great story and the sound design is top notch".
 "Music 9/10 Buildings 9/10". "Runs well, isn't misrepresented, just not for me". Three subjects
 in one claim, so the labeller picks one and marks it contested, and two subjects go uncounted.
+
+The sixth, on 2669320's aimed draw, found about thirty in two hundred claims ("Trash Server,
+Bugs, Toxic Players") and asked the question the sheet does not answer: which of the stacked
+points gets the one subject. They took the first or the loudest.
 
 This looks fixable after all, and precisely: split on a comma only when the sentence is three
 or more comma-separated parts that are each *short*, measured in the same weight the splitter

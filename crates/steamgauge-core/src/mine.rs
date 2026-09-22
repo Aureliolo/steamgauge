@@ -52,6 +52,9 @@ pub struct Probe {
     /// boundary, so "mod" does not match "modern"; a term with non-ASCII characters matches
     /// as a bare substring, because the scripts that need it do not write word boundaries.
     pub terms: &'static [&'static str],
+    /// A claim holding any of these is not this line's, however many terms it matches: the
+    /// word the line fishes with also names something another row owns.
+    pub unless: &'static [&'static str],
 }
 
 /// The subjects a word probe can find, and what to look for.
@@ -83,7 +86,8 @@ pub const PROBES: &[Probe] = &[
             "real names",
             "real teams",
             "real cars",
-            "real players",
+            // Not "real players": it means human opponents rather than bots, which is
+            // `multiplayer`, and it did so in all 21 claims it caught, the football game's too.
             "fake names",
             "official teams",
             "fictional",
@@ -100,6 +104,7 @@ pub const PROBES: &[Probe] = &[
             "lore accurate",
             "lore-accurate",
         ],
+        unless: &[],
     },
     Probe {
         subject: "vr",
@@ -132,6 +137,7 @@ pub const PROBES: &[Probe] = &[
             // Not "motion sickness": a flat game induces it through camera shake and field of
             // view, which is `graphics` or `accessibility`, and DRG alone offered dozens.
         ],
+        unless: &[],
     },
     Probe {
         subject: "accessibility",
@@ -169,6 +175,7 @@ pub const PROBES: &[Probe] = &[
             "hard of hearing",
             // Not bare "deaf": "tone deaf" is a complaint about a publisher, not a subtitle.
         ],
+        unless: &[],
     },
     Probe {
         subject: "language",
@@ -199,6 +206,7 @@ pub const PROBES: &[Probe] = &[
             "français",
             "türkçe",
         ],
+        unless: &[],
     },
     Probe {
         subject: "community",
@@ -221,6 +229,30 @@ pub const PROBES: &[Probe] = &[
             "the forums",
             "steam forums",
             "subreddit",
+        ],
+        // "The community" is most often the modding one or the one the developers listen to,
+        // and a labeller files those under `mods` and `updates`: on the first draw aimed at
+        // this row, 16% of what this line caught was `community`. Over its four games these
+        // terms turn away 84 claims, 70 of them `mods` or `updates`, and not one `community`.
+        unless: &[
+            "mods",
+            "modded",
+            "modding",
+            "modder",
+            "moddable",
+            "sdk",
+            "workshop",
+            "custom maps",
+            "custom levels",
+            "dev",
+            "devs",
+            "developer",
+            "developers",
+            "listen",
+            "listens",
+            "listened",
+            "listening",
+            "feedback",
         ],
     },
     Probe {
@@ -246,6 +278,7 @@ pub const PROBES: &[Probe] = &[
             "мастерская",
             "创意工坊",
         ],
+        unless: &[],
     },
     Probe {
         subject: "compatibility",
@@ -277,6 +310,7 @@ pub const PROBES: &[Probe] = &[
             "handheld",
             "rog ally",
         ],
+        unless: &[],
     },
     Probe {
         subject: "policy",
@@ -318,6 +352,7 @@ pub const PROBES: &[Probe] = &[
             "always-online",
             "requires an account",
         ],
+        unless: &[],
     },
     Probe {
         // Not bare "sound" or "music": "sounds fun" is a verdict, "sounds like Dark Souls" is
@@ -356,6 +391,7 @@ pub const PROBES: &[Probe] = &[
             "trilha sonora",
             "dublagem",
         ],
+        unless: &[],
     },
     Probe {
         // The row is about being taught the game, so the line is the teaching and its absence.
@@ -387,6 +423,7 @@ pub const PROBES: &[Probe] = &[
             "einführung",
             "erklärt nichts",
         ],
+        unless: &[],
     },
 ];
 
@@ -418,6 +455,10 @@ pub fn hooked_among(claim: &str, only: &[String]) -> Option<&'static str> {
                 .terms
                 .iter()
                 .any(|term| contains_term(&haystack, term))
+                && !probe
+                    .unless
+                    .iter()
+                    .any(|term| contains_term(&haystack, term))
         })
         .map(|probe| probe.subject)
 }
@@ -856,6 +897,34 @@ mod tests {
     }
 
     #[test]
+    fn the_modding_community_is_not_offered_as_community() {
+        let only = |name: &str| vec![name.to_owned()];
+        assert_eq!(
+            hooked_among(
+                "cant wait for the modding community to take it somewhere",
+                &only("community")
+            ),
+            None
+        );
+        assert_eq!(
+            hooked_among(
+                "I hope that the community makes some cool mods",
+                &only("community")
+            ),
+            None
+        );
+        assert_eq!(hooked("the modding community keeps it alive"), Some("mods"));
+        assert_eq!(
+            hooked_among("the devs never listen to the community", &only("community")),
+            None
+        );
+        assert_eq!(
+            hooked_among("the community is toxic and elitist", &only("community")),
+            Some("community")
+        );
+    }
+
+    #[test]
     fn a_term_that_is_not_ascii_matches_without_a_boundary() {
         assert_eq!(hooked("求求你们加个中文吧"), Some("language"));
         assert_eq!(hooked("创意工坊的模组很多"), Some("mods"));
@@ -870,6 +939,7 @@ mod tests {
         assert_eq!(hooked("the grenade launcher is devastating"), None);
         assert_eq!(hooked("interesting weapon mods to unlock"), None);
         assert_eq!(hooked("I found it entertaining and accessible"), None);
+        assert_eq!(hooked("way more fun against real players than bots"), None);
         assert_eq!(hooked("a tone deaf announcement from the publisher"), None);
         assert_eq!(hooked("upgrade your bear license, drink beer"), None);
         assert_eq!(hooked("vive la DRG, longue vie a eux"), None);
