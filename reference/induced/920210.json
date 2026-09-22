@@ -1,0 +1,97 @@
+{
+  "app_id": 920210,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "earlier-lego-games",
+      "label": "Earlier LEGO games and the series",
+      "description": "How this game stands against the earlier LEGO games it remakes and the LEGO series as a whole: the original and the Complete Saga, nostalgia for them, whether the fully voiced dialogue loses the old mumbled charm, and where it ranks among LEGO games; comparisons with games outside the LEGO series stay under genre.",
+      "refines": "genre",
+      "evidence": [
+        "113449888",
+        "118303684",
+        "125943306",
+        "162964130",
+        "176217694",
+        "196108239",
+        "209952277"
+      ]
+    },
+    {
+      "id": "collectibles-and-completion",
+      "label": "Collectibles and completion",
+      "description": "The completionist checklist: studs, kyber bricks, minikits, data cards, characters and ships to unlock, level challenges and whether they register, how many there are and how long full completion takes; the story levels themselves do not belong here.",
+      "refines": "content",
+      "evidence": [
+        "113703974",
+        "185308421",
+        "196108239",
+        "220293699"
+      ]
+    },
+    {
+      "id": "kids-and-family",
+      "label": "Children and family play",
+      "description": "Who the game is for: whether it suits young children, playing it together with a son or daughter, and whether adults enjoy it as much as the children it is made for; the wider player community does not belong here.",
+      "refines": null,
+      "evidence": [
+        "124122628",
+        "142429527",
+        "196108239",
+        "215145024",
+        "223599462"
+      ]
+    },
+    {
+      "id": "gags-and-details",
+      "label": "Gags and small details",
+      "description": "The visual gags, easter eggs and small touches players spot, such as a recurring joke kept from the earlier games, a character placed somewhere absurd or a droid leaving tread marks; the written jokes and dialogue stay under story.",
+      "refines": "story",
+      "evidence": [
+        "113416472",
+        "113503753",
+        "126871109",
+        "196108239"
+      ]
+    },
+    {
+      "id": "film-quotes",
+      "label": "Film quotes as reviews",
+      "description": "The review is a line or scene from the source films quoted for its own sake and says nothing about the game; a review that judges how the game handles a scene from the films belongs under licensing instead.",
+      "refines": "offtopic",
+      "evidence": [
+        "113388801",
+        "113455233",
+        "113821069",
+        "114035669",
+        "114442933",
+        "116366232",
+        "137189996"
+      ]
+    },
+    {
+      "id": "open-world-and-side-missions",
+      "label": "Open-world planets and side missions",
+      "description": "Exploring the open-world planets between story levels and the side missions found there, how much there is to explore and whether it is too much; the collectible checklist has its own row.",
+      "refines": "gameplay",
+      "evidence": [
+        "114197373",
+        "114518319",
+        "196108239"
+      ]
+    },
+    {
+      "id": "lightsaber-and-blaster-combat",
+      "label": "Lightsaber and blaster combat",
+      "description": "Swinging a lightsaber or firing a blaster: how the combat feels, smashing bricks with it, how much fighting there is and which characters' weapons are overpowered; puzzles and traversal stay under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "113674404",
+        "123794686",
+        "202127425"
+      ]
+    }
+  ]
+}

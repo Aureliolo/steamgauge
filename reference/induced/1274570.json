@@ -1,0 +1,119 @@
+{
+  "app_id": 1274570,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "scares",
+      "label": "Scares and fright",
+      "description": "Whether the game actually frightens, its jump scares and the screech when the monster catches you, and the reactions players report such as screaming, wet trousers, cold sweat and quitting out; general mood and tension without a scare stays in atmosphere.",
+      "refines": "atmosphere",
+      "evidence": [
+        "100246264",
+        "102377907",
+        "108491784",
+        "110961103",
+        "111375335",
+        "114036752",
+        "117549996",
+        "119639393",
+        "134961964",
+        "139101226",
+        "148652724",
+        "175318604",
+        "175369524",
+        "188802792",
+        "224915326",
+        "90709467",
+        "91110223",
+        "93333979",
+        "95926941",
+        "96899169"
+      ]
+    },
+    {
+      "id": "monster",
+      "label": "The monster",
+      "description": "The creature that hunts you: how it chases and catches, how much more aggressive it grows as the ritual advances, whether its kills feel random, and what it turns out to be; the spiders and other lesser enemies have their own row.",
+      "refines": null,
+      "evidence": [
+        "104074820",
+        "108141604",
+        "111375335",
+        "113044399",
+        "131998673",
+        "150247324",
+        "159992926",
+        "166143346",
+        "85872663",
+        "91618931"
+      ]
+    },
+    {
+      "id": "ritual",
+      "label": "Goats, eggs and the ritual",
+      "description": "The objective itself: finding and carrying the goats or eggs, washing and matching them to the right altar, burning ten to finish, and how far a group got; the monster that punishes that progress is its own row.",
+      "refines": "gameplay",
+      "evidence": [
+        "101203801",
+        "104074820",
+        "111375335",
+        "85872663",
+        "97138654"
+      ]
+    },
+    {
+      "id": "maps",
+      "label": "Maps and scenarios",
+      "description": "The individual maps: the house, the asylum, the hotel and each new one added, how large or confusing their layouts are, which suits beginners, and the call for more; how long the game lasts overall stays in content.",
+      "refines": "content",
+      "evidence": [
+        "103971561",
+        "111375335",
+        "150247324",
+        "186898606",
+        "207063220",
+        "210839659"
+      ]
+    },
+    {
+      "id": "friends",
+      "label": "Playing it with friends",
+      "description": "The game as something done with your own friends or dorm mates: watching them get scared, naming them, buying it together and asking for someone to play with; matchmaking, lobbies and connection with strangers stay in multiplayer.",
+      "refines": "multiplayer",
+      "evidence": [
+        "101151860",
+        "111375335",
+        "127809951",
+        "188666581",
+        "90709467",
+        "91770825"
+      ]
+    },
+    {
+      "id": "lesser-enemies",
+      "label": "Spiders and lesser enemies",
+      "description": "The spiders, zombies and other minor enemies that harass and chase you around the map apart from the main monster; the monster itself is its own row.",
+      "refines": null,
+      "evidence": [
+        "108491784",
+        "111375335",
+        "224915326"
+      ]
+    },
+    {
+      "id": "characters",
+      "label": "Characters and their looks",
+      "description": "The named characters, hostile and playable (Anna, Molly, Kai), what they look like and the running joke about how attractive the woman hunting you is; what she does in the chase is the monster row.",
+      "refines": null,
+      "evidence": [
+        "104062413",
+        "104455020",
+        "153510956",
+        "158359634",
+        "85794717"
+      ]
+    }
+  ]
+}

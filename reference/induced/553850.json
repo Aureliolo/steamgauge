@@ -1,0 +1,117 @@
+{
+  "app_id": 553850,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "managed-democracy-satire",
+      "label": "Managed Democracy satire and role-play",
+      "description": "Reviews written in the voice of Super Earth's propaganda or pointing at the game's satire of militarism, fascism, war crimes and oil wars, including the for-democracy sign-offs and traitor jokes; the plot and characters in the ordinary sense stay under story.",
+      "refines": "story",
+      "evidence": [
+        "158565266",
+        "159218002",
+        "159700549",
+        "160560129",
+        "161018088",
+        "162617252",
+        "163684816",
+        "164524875",
+        "164754244",
+        "166241310",
+        "170878618",
+        "194096518",
+        "195516761",
+        "209915836",
+        "210280072",
+        "218749034",
+        "219244292",
+        "232647046"
+      ]
+    },
+    {
+      "id": "psn-linking",
+      "label": "PSN linking and the Sony fallout",
+      "description": "The demand to link a PlayStation account, the countries locked out or delisted over it, Sony taking the blame while the developer is spared, and the reversal after the protest; other publisher or platform decisions stay under policy.",
+      "refines": "policy",
+      "evidence": [
+        "158955418",
+        "159250830",
+        "160440609",
+        "164137467",
+        "164190863",
+        "164193644",
+        "164435345",
+        "164750732"
+      ]
+    },
+    {
+      "id": "enemy-factions",
+      "label": "Enemy factions",
+      "description": "The Terminid bugs, Automaton bots and Illuminate as enemies, which front is worth fighting on, new enemy types and how they behave, and the Starship Troopers and Terminator flavour of each; how hard the fights are stays under difficulty.",
+      "refines": "gameplay",
+      "evidence": [
+        "157987085",
+        "159815351",
+        "161021017",
+        "162575447",
+        "164752448",
+        "165105536",
+        "192722805",
+        "220212574",
+        "225237109"
+      ]
+    },
+    {
+      "id": "galactic-war",
+      "label": "Galactic war and Major Orders",
+      "description": "The shared war every player contributes to: Major Orders, planetary liberation and defence campaigns, enemy offensives under way and assets such as the Democracy Space Station; playing alongside other people stays under multiplayer.",
+      "refines": null,
+      "evidence": [
+        "162575447",
+        "164752448",
+        "164754244",
+        "183618119"
+      ]
+    },
+    {
+      "id": "stratagems-friendly-fire",
+      "label": "Stratagems and friendly fire",
+      "description": "Stratagem call-ins and loadouts, the arrow codes, orbital barrages, mortars and mechs, and the team kills that follow from them; weapon tuning between patches stays under balance patches and nerfs.",
+      "refines": "gameplay",
+      "evidence": [
+        "162343740",
+        "162924775",
+        "163501934",
+        "220212574"
+      ]
+    },
+    {
+      "id": "balance-patches",
+      "label": "Balance patches and nerfs",
+      "description": "How the studio tunes the game between patches: weapon, stim and mech nerfs, armour changes, enemy density, and the sense that the developer balances against its own players; the base difficulty curve stays under difficulty.",
+      "refines": "difficulty",
+      "evidence": [
+        "160087195",
+        "162549501",
+        "219244292",
+        "220212574"
+      ]
+    },
+    {
+      "id": "horde-slaughter",
+      "label": "Horde slaughter and firepower",
+      "description": "The pleasure of mowing down hordes with overwhelming firepower, the gore, explosions and chaos as the point of playing; the enemies themselves stay under enemy factions and the mechanics under gameplay.",
+      "refines": "atmosphere",
+      "evidence": [
+        "159815351",
+        "161499823",
+        "187731507",
+        "192722805",
+        "219621292",
+        "232647046"
+      ]
+    }
+  ]
+}

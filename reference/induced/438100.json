@@ -1,0 +1,145 @@
+{
+  "app_id": 438100,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "avatars",
+      "label": "Avatars and skins",
+      "description": "The avatars players wear and meet, from anime and furry models to memes and characters lifted from other games, custom models and emotes, and avatars failing to show; not the people behind them.",
+      "refines": null,
+      "evidence": [
+        "153312219",
+        "190102887",
+        "194898287",
+        "220383730",
+        "39110645",
+        "73260260"
+      ]
+    },
+    {
+      "id": "worlds",
+      "label": "Worlds and rooms",
+      "description": "The user-made worlds and rooms players hop between, the home world, roleplay and game worlds such as murder mystery or fishing, worlds failing to load, and what there is to do inside them; not the people met there.",
+      "refines": null,
+      "evidence": [
+        "106137500",
+        "120205333",
+        "139474133",
+        "192820055",
+        "220383730",
+        "41610038"
+      ]
+    },
+    {
+      "id": "socialising",
+      "label": "Talking to strangers and making friends",
+      "description": "Socialising as the activity itself: chatting with strangers, practising a language, visiting distant friends, finding a partner, and whether any real conversation is to be had; not whether the playerbase is toxic.",
+      "refines": "community",
+      "evidence": [
+        "149802366",
+        "186583372",
+        "192820055",
+        "211483922",
+        "51822311",
+        "62888793",
+        "69394514",
+        "78635542",
+        "88781287"
+      ]
+    },
+    {
+      "id": "real-life",
+      "label": "Effect on life outside the game",
+      "description": "What the game does to the reviewer's real life: replacing a social life, not leaving the house, weight gained, hours wasted, therapy during lockdown, social anxiety following you in; not the mood inside the game.",
+      "refines": null,
+      "evidence": [
+        "119558470",
+        "125138664",
+        "167090149",
+        "176764984",
+        "188064098",
+        "222684267",
+        "83695073",
+        "91866970"
+      ]
+    },
+    {
+      "id": "children-predators",
+      "label": "Children and predators",
+      "description": "Minors on the platform and adults preying on them, warnings not to talk to young girls, staff accused of hiring paedophiles, and jokes about it; not general rudeness between adults.",
+      "refines": "community",
+      "evidence": [
+        "123771555",
+        "153312219",
+        "192829217",
+        "223250323",
+        "41610038",
+        "84174635"
+      ]
+    },
+    {
+      "id": "moderation-bans",
+      "label": "Staff, moderation and bans",
+      "description": "Bans handed out without explanation, moderators accused of abusing instance moderation, and staff accused of lying to the community or hiring badly; not the anti-cheat or the game's patches.",
+      "refines": null,
+      "evidence": [
+        "192820055",
+        "223250323",
+        "66192013"
+      ]
+    },
+    {
+      "id": "knuckles-meme",
+      "label": "Ugandan Knuckles meme",
+      "description": "The Ugandan Knuckles swarm and its catchphrases (do you know the way, Uganda, ebola) as something met or joked about on the platform; not memes unrelated to the game.",
+      "refines": "community",
+      "evidence": [
+        "39110645",
+        "39526180",
+        "39907553",
+        "40834101",
+        "48414705"
+      ]
+    },
+    {
+      "id": "play-device",
+      "label": "Desktop, headset or phone",
+      "description": "Which device you play from and what each allows: desktop mode without a headset, features desktop players lack such as raising a hand, the full experience needing a PC, wanting a headset, asking for it on a phone; not headset comfort or tracking.",
+      "refines": "vr",
+      "evidence": [
+        "164513170",
+        "176094393",
+        "188128317",
+        "75861417"
+      ]
+    },
+    {
+      "id": "presence-future",
+      "label": "Presence and the future of the internet",
+      "description": "The platform talked about as a technology rather than a game: a glimpse of the future of the internet, science fiction made real, a semi-physical medium, the feeling of having actually been somewhere; not the mood of a particular world.",
+      "refines": null,
+      "evidence": [
+        "206230968",
+        "39174559",
+        "51335081",
+        "68887197",
+        "78635542"
+      ]
+    },
+    {
+      "id": "lewd-content",
+      "label": "Lewd and fetish content",
+      "description": "Pornographic, sexual and fetish content met on the platform, from too much porn in worlds to lewd avatars and the degeneracy players say it breeds; not harassment of the reviewer or minors, which have their own rows.",
+      "refines": null,
+      "evidence": [
+        "172319394",
+        "207881062",
+        "220383730",
+        "48414705",
+        "52916186"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "app_id": 1336490,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "species",
+      "label": "Villager species",
+      "description": "The animal peoples who settle the town, beavers, foxes, harpies, frogs and bats, their species-specific needs and buildings, affection for a favourite among them and requests for more of them; not the villagers' general mood or the art style.",
+      "refines": null,
+      "evidence": [
+        "126503918",
+        "126791115",
+        "131711942",
+        "154640994",
+        "162632678",
+        "179399443",
+        "183876087",
+        "219493672",
+        "220595106",
+        "220630400",
+        "231767449"
+      ]
+    },
+    {
+      "id": "queen-and-viceroy",
+      "label": "The Queen and the viceroy",
+      "description": "The Queen the player serves and the viceroy role players speak in, her impatience and the effort of pleasing her; not the villagers or the story at large.",
+      "refines": null,
+      "evidence": [
+        "126791115",
+        "131652862",
+        "148418282",
+        "156795942"
+      ]
+    },
+    {
+      "id": "settlement-cycle",
+      "label": "Settlement cycle and meta-progression",
+      "description": "Each settlement being temporary, won and left behind, the world map resetting after a cycle, the upgrades that carry over, and whether that loop rewards speed over building a perfect town; not the roguelike label itself or how many hours the game lasts.",
+      "refines": "gameplay",
+      "evidence": [
+        "126791115",
+        "130427221",
+        "132986629",
+        "136228947",
+        "155606210",
+        "220630400"
+      ]
+    },
+    {
+      "id": "storms-and-seasons",
+      "label": "Storms and the seasons",
+      "description": "The storm cycle as a mechanic: rain and thunder that sap the villagers' spirits, surviving the storm season and keeping the fire burning through it; not the general mood or atmosphere it creates.",
+      "refines": "gameplay",
+      "evidence": [
+        "131935576",
+        "153445460",
+        "162492997",
+        "220226878"
+      ]
+    },
+    {
+      "id": "villager-needs",
+      "label": "Villager needs and resolve",
+      "description": "Keeping villagers fed, warm and content so they neither starve nor leave: food and fuel running out, satisfaction collapsing, the impossibility of pleasing everyone and cannibalism when the food is gone; not the species themselves or the weather that causes it.",
+      "refines": "gameplay",
+      "evidence": [
+        "129001467",
+        "131935576",
+        "141009859",
+        "153445460",
+        "156795942",
+        "157338574",
+        "162492997",
+        "220226878"
+      ]
+    },
+    {
+      "id": "glades",
+      "label": "Glades and forest clearing",
+      "description": "Cutting into the forest to open glades, the events, crates, graves and resources found there, and the danger of opening more than the settlement can handle; not the map as scenery.",
+      "refines": "gameplay",
+      "evidence": [
+        "125055653",
+        "129001467",
+        "134732189",
+        "155606210"
+      ]
+    },
+    {
+      "id": "blueprints-and-production",
+      "label": "Blueprints and production chains",
+      "description": "The settlement's economy: which building makes what, the random blueprint picks that decide it, resource chains, hauling and worker assignment; not building placement as looks or the difficulty verdict.",
+      "refines": "gameplay",
+      "evidence": [
+        "127668086",
+        "135798093",
+        "137583023",
+        "180948638",
+        "190584805",
+        "220630400"
+      ]
+    }
+  ]
+}

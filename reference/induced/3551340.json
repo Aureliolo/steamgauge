@@ -1,0 +1,127 @@
+{
+  "app_id": 3551340,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "match-engine",
+      "label": "Match engine",
+      "description": "How the simulated football plays out: defenders' positioning, shots hitting the bar or skied, weak-foot finishing, the AI's tactics and the pattern of results in the table; not the menus around the match or the wider career game.",
+      "refines": "gameplay",
+      "evidence": [
+        "208414957",
+        "208415333",
+        "208506834",
+        "221808958",
+        "227895341"
+      ]
+    },
+    {
+      "id": "scripted-results",
+      "label": "Scripted results",
+      "description": "The belief that the game decides matches rather than the players on the pitch: the AI cheating in big games, fouls and bounces conjured to hand one side chances, results that feel fixed; not ordinary complaints that the game is hard.",
+      "refines": "difficulty",
+      "evidence": [
+        "208415333",
+        "220983788",
+        "221808958"
+      ]
+    },
+    {
+      "id": "interface-redesign",
+      "label": "The new interface",
+      "description": "The redesigned interface itself: the new layout against the old menus, pages nested inside pages, a confusing or headache-inducing screen, wasted space on wide displays and operations that feel backwards; not bugs that stop a screen working.",
+      "refines": "controls",
+      "evidence": [
+        "208499145",
+        "208619304",
+        "208750262",
+        "208765682",
+        "209122867",
+        "214939260",
+        "223406971",
+        "223485547",
+        "230922749"
+      ]
+    },
+    {
+      "id": "missing-features",
+      "label": "Missing and removed features",
+      "description": "Features earlier editions had or players expected and cannot find: the timeline and end-of-season review, saved database search filters, managing a national team and details felt to be absent; not features that exist but work badly.",
+      "refines": "content",
+      "evidence": [
+        "208425830",
+        "216130145",
+        "216347632",
+        "220485299"
+      ]
+    },
+    {
+      "id": "two-year-wait",
+      "label": "The two-year wait",
+      "description": "The two years between this edition and the last, and whether what shipped justifies the gap; belongs only when the review weighs the game against the wait, not when it discusses patches after release.",
+      "refines": "updates",
+      "evidence": [
+        "208425830",
+        "208506834",
+        "208619304",
+        "225315546"
+      ]
+    },
+    {
+      "id": "unfinished-release",
+      "label": "Released unfinished",
+      "description": "The claim that the game was sold before it was finished: it should not have been released or charged for in this state, buy it once the fixes land, or skip this edition and wait for the next; not individual bugs listed on their own.",
+      "refines": "updates",
+      "evidence": [
+        "208407624",
+        "208449770",
+        "208460206",
+        "215746980",
+        "216805103"
+      ]
+    },
+    {
+      "id": "series-direction",
+      "label": "Earlier editions and the series' direction",
+      "description": "How this edition compares with the ones before it and where the series is heading: a console game aimed at a new audience, a bold new chapter, a franchise that has lost its core, not as good as the others; not comparisons with games from other series.",
+      "refines": null,
+      "evidence": [
+        "208424560",
+        "208441328",
+        "208460485",
+        "208506834",
+        "208850024",
+        "213369590",
+        "228430670"
+      ]
+    },
+    {
+      "id": "reception-backlash",
+      "label": "The backlash",
+      "description": "The wave of negative reviews as a subject in itself: telling readers to ignore the complainers, saying the problems are exaggerated, or liking it although most people did not; not the reviewer's own complaint about the game.",
+      "refines": "community",
+      "evidence": [
+        "208406216",
+        "208424560",
+        "208695965",
+        "214681852",
+        "220291944",
+        "232027643"
+      ]
+    },
+    {
+      "id": "save-stories",
+      "label": "Save stories",
+      "description": "What happened in the reviewer's own career: the club taken to five straight titles, the champions they crowned, the newgens who took over world football, the side relegated every time; not the systems that produced those outcomes.",
+      "refines": null,
+      "evidence": [
+        "210441367",
+        "224324545",
+        "227895341",
+        "233587988"
+      ]
+    }
+  ]
+}

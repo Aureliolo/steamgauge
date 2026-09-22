@@ -307,6 +307,9 @@ pub struct ReadReport {
     /// game the old one read and the corpus quietly holds two models' answers.
     #[serde(default)]
     pub read_with: String,
+    /// What the reader is called, where it has a name; empty on a reading made before it did.
+    #[serde(default)]
+    pub reader: String,
     /// Which abstention rule the reader was carrying. The run id names the weights; the lines
     /// are drawn separately and can be redrawn without retraining, so two readings of one
     /// corpus by one run id can hold different answers and this is what says why.
@@ -462,6 +465,7 @@ pub fn read_corpus(
         model: model.provenance().trained_from.clone(),
         trained_on: model.provenance().data_fingerprint.clone(),
         read_with: model.provenance().run_id.clone(),
+        reader: model.provenance().name.clone(),
         read_by_rule: model.provenance().lines_fingerprint.clone(),
         usual_declined: model.provenance().usual_declined,
         frozen: model.provenance().frozen,
@@ -469,6 +473,201 @@ pub fn read_corpus(
         captured_unix: captured.changed_unix(),
         ..counted
     })
+}
+
+/// Counts a corpus again from the readings a model already wrote, without the model.
+///
+/// What a page shows is added up at read time, and a change to the adding up (which words
+/// stand out, how a month is cut) would otherwise cost every game a reading again, five hours
+/// of the card for a library. The answers do not change; only what is counted from them does,
+/// so they are replayed from `readings.parquet` through the same counting a reading goes
+/// through, and the counts land in `reading.json` as before. The readings themselves are
+/// never rewritten: what the replay writes goes to a file beside them and is thrown away.
+///
+/// The provenance must be the reader that answered: the language lines it draws are part of
+/// the counting, and a reading records which lines it was answered under.
+///
+/// # Errors
+///
+/// Fails if the capture, the readings or the reading are missing, if the readings were
+/// answered under other lines than the reader named, or if this build takes a review apart
+/// differently from the build that read it, so the answers no longer name its claims.
+pub fn recount_corpus(
+    out_dir: &Path,
+    app_id: u32,
+    top_helpful: usize,
+    provenance: &crate::reader::Provenance,
+    mut on_progress: impl FnMut(ReadProgress),
+) -> Result<ReadReport> {
+    let started = Instant::now();
+    let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
+    let earlier: ReadReport =
+        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
+            Error::NoClassifications {
+                path: snapshot.join("reading.json"),
+            }
+        })?)?;
+    if earlier.read_by_rule != provenance.lines_fingerprint {
+        return Err(Error::Refused(format!(
+            "the readings of {app_id} were answered under the lines {} and the reader named \
+             draws {}; a recount adds up what the reader that answered declined, so it needs \
+             that reader",
+            earlier.read_by_rule, provenance.lines_fingerprint
+        )));
+    }
+    let options = ReadOptions {
+        out_dir: out_dir.to_path_buf(),
+        top_helpful,
+        batch_size: earlier.batch_size.unwrap_or_default(),
+        language: earlier.language.clone(),
+        depth: earlier.depth,
+    };
+    let context = earlier.context;
+
+    let position = |name: &str| SHEET.iter().position(|category| category.id == name);
+    let mut stored: Stored = HashMap::new();
+    for_each_reading(
+        &snapshot.join("readings.parquet"),
+        |id, at, subject, confidence, polarity| {
+            let reading = Reading {
+                subject: subject.and_then(position),
+                confidence,
+                polarity: Polarity::from_name(polarity),
+            };
+            stored.entry(id.to_owned()).or_default().push((at, reading));
+        },
+    )?;
+
+    let replay = snapshot.join("readings.recount.parquet");
+    let counted = recount_rows(
+        &snapshot,
+        &replay,
+        &options,
+        context,
+        &stored,
+        &mut on_progress,
+    )
+    .and_then(|counted| {
+        // A claim the replay found no answer for is one this build cuts differently from
+        // the build that read it, and the counts would quietly be about another corpus.
+        if counted.claims != earlier.claims || counted.unclassified != earlier.unclassified_claims {
+            return Err(Error::Refused(format!(
+                "this build takes {app_id} apart into {} claims, {} of them unanswered, \
+                     where the reading counted {} and {}; the readings no longer name this \
+                     build's claims, so read the game again",
+                counted.claims, counted.unclassified, earlier.claims, earlier.unclassified_claims
+            )));
+        }
+        counted.finish(app_id, &options, provenance)
+    });
+    let _ = std::fs::remove_file(&replay);
+    let counted = counted?;
+    Ok(ReadReport {
+        elapsed: started.elapsed(),
+        forward_passes: earlier.forward_passes,
+        device: earlier.device,
+        threshold: earlier.threshold,
+        model: earlier.model,
+        trained_on: earlier.trained_on,
+        read_with: earlier.read_with,
+        // The name the reader carries now: a reading made before it had one is still its.
+        reader: if earlier.reader.is_empty() {
+            provenance.name.clone()
+        } else {
+            earlier.reader
+        },
+        read_by_rule: earlier.read_by_rule,
+        usual_declined: earlier.usual_declined,
+        frozen: earlier.frozen,
+        context,
+        captured_unix: earlier.captured_unix,
+        ..counted
+    })
+}
+
+/// Every stored answer of a corpus, by review id and then by the span each names.
+type Stored = HashMap<String, Vec<((u32, u32), Reading)>>;
+
+/// Walks the capture once, handing every review its stored answers, and returns the counting
+/// before it is finished, so the walk's totals can be checked against the reading's.
+fn recount_rows(
+    snapshot: &Path,
+    replay: &Path,
+    options: &ReadOptions,
+    context: bool,
+    stored: &Stored,
+    on_progress: &mut impl FnMut(ReadProgress),
+) -> Result<Counting> {
+    let mut counting = Counting::new(replay, options.top_helpful)?;
+    let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
+    let mut claims_seen: u64 = 0;
+    crate::capture::for_each_row(snapshot, |row, text| {
+        counting.note_corpus(&row);
+        if options
+            .language
+            .as_ref()
+            .is_some_and(|wanted| wanted != &row.language)
+        {
+            return Ok(());
+        }
+        let claims = options.depth.claims_of(text);
+        let joined: Arc<str> = Arc::from(rejoined(&claims));
+        let fingerprint = if context {
+            review_key(&joined)
+        } else {
+            [0; 32]
+        };
+        let origin: Vec<(u32, u32)> = options
+            .depth
+            .spans_of(text)
+            .into_iter()
+            .map(|span| {
+                (
+                    u32::try_from(span.start).unwrap_or(u32::MAX),
+                    u32::try_from(span.end).unwrap_or(u32::MAX),
+                )
+            })
+            .collect();
+        let filed = stored.get(&row.recommendationid);
+        let mut spans = Vec::with_capacity(claims.len());
+        let mut at = 0;
+        answers.clear();
+        for (index, claim) in claims.iter().enumerate() {
+            let starts = at;
+            at += claim.len() + 1;
+            spans.push((starts, starts + claim.len()));
+            let answered = filed.and_then(|filed| {
+                let span = origin.get(index)?;
+                filed.iter().find(|(where_, _)| where_ == span)
+            });
+            if let Some((_, reading)) = answered {
+                answers.insert(
+                    key(context, &fingerprint, index, claim, &row.language),
+                    *reading,
+                );
+            }
+        }
+        claims_seen += claims.len() as u64;
+        counting.count(
+            &Pending {
+                row,
+                text: joined,
+                spans,
+                at: origin,
+                fingerprint,
+            },
+            context,
+            &answers,
+        )?;
+        if counting.reviews % 25_000 == 0 {
+            on_progress(ReadProgress {
+                claims_read: claims_seen,
+                reviews_counted: counting.reviews,
+            });
+        }
+        Ok(())
+    })?;
+    Ok(counting)
 }
 
 /// Where a reading is filed.
@@ -580,7 +779,7 @@ fn read_and_count(
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
     let mut window: Vec<Queued> = Vec::with_capacity(LENGTH_WINDOW);
     let mut pending: Vec<Pending> = Vec::new();
-    let mut counting = Counting::new(snapshot, options.top_helpful)?;
+    let mut counting = Counting::new(&snapshot.join("readings.parquet"), options.top_helpful)?;
     // One allocation for every review a model that reads claims alone will ever queue.
     let nothing: Arc<str> = Arc::from("");
 
@@ -826,10 +1025,10 @@ struct Counting {
 }
 
 impl Counting {
-    fn new(snapshot: &Path, top_helpful: usize) -> Result<Self> {
+    fn new(readings: &Path, top_helpful: usize) -> Result<Self> {
         let schema = reading_schema();
         let writer = ArrowWriter::try_new(
-            std::fs::File::create(snapshot.join("readings.parquet"))?,
+            std::fs::File::create(readings)?,
             Arc::clone(&schema),
             Some(
                 WriterProperties::builder()
@@ -1021,6 +1220,7 @@ impl Counting {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: None,
             frozen: None,
@@ -1380,6 +1580,7 @@ mod tests {
             model: String::new(),
             trained_on: String::new(),
             read_with: String::new(),
+            reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: Some(0.73),
             frozen: None,

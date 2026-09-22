@@ -202,7 +202,10 @@ pub enum Measurement {
     Unlabelled,
     /// A set exists and nothing was scored against it, for the reason carried.
     Unscored(String),
-    /// Boxed because the report behind it dwarfs the other two and every game carries one.
+    /// The model trained on this game's labels. Agreement with them would measure how well
+    /// it memorised them, which on the games it knows best reads as 99%, so it is not taken.
+    Learned,
+    /// Boxed because the report behind it dwarfs the other three and every game carries one.
     Measured(Box<crate::measure::ClaimAgreement>),
 }
 
@@ -692,6 +695,12 @@ fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Measurement {
     if labels.is_empty() {
         return Measurement::Unlabelled;
     }
+    // Which games train is decided by the id and the split seed alone, the same way the
+    // trainer decides it, so the page and the weights never disagree about whose labels are
+    // in them. A validation game is held out of training and its figure stands.
+    if crate::measure::role(app_id, crate::measure::SPLIT_SEED) == crate::measure::Role::Train {
+        return Measurement::Learned;
+    }
     match crate::measure::agreement(out_dir, app_id, reference) {
         Ok(report) if report.matched == 0 => Measurement::Unscored(format!(
             "none of its {} labelled claims is a claim this build cuts",
@@ -773,6 +782,7 @@ mod tests {
                 model: "test".to_owned(),
                 trained_on: String::new(),
                 read_with: String::new(),
+                reader: String::new(),
                 read_by_rule: String::new(),
                 usual_declined: None,
                 frozen: None,
@@ -847,6 +857,8 @@ mod tests {
     /// work that has already been done.
     #[test]
     fn a_set_nothing_could_be_scored_against_says_why_rather_than_passing_as_no_set() {
+        // A game the model never saw, so its labels are something to score against at all.
+        const FROZEN: u32 = 214_490;
         let dir = std::env::temp_dir().join(format!("steamgauge-unscored-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let reference = dir.join("reference");
@@ -855,13 +867,19 @@ mod tests {
         std::fs::create_dir_all(&out).unwrap();
 
         assert!(
-            matches!(agreement_for(1, &out, &reference), Measurement::Unlabelled),
+            matches!(
+                agreement_for(FROZEN, &out, &reference),
+                Measurement::Unlabelled
+            ),
             "no labels file is a game nobody has labelled"
         );
 
         std::fs::write(reference.join("labels.json"), "[]").unwrap();
         assert!(
-            matches!(agreement_for(1, &out, &reference), Measurement::Unlabelled),
+            matches!(
+                agreement_for(FROZEN, &out, &reference),
+                Measurement::Unlabelled
+            ),
             "an empty set is a game nobody has labelled"
         );
 
@@ -876,7 +894,7 @@ mod tests {
             .to_string(),
         )
         .unwrap();
-        match agreement_for(1, &out, &reference) {
+        match agreement_for(FROZEN, &out, &reference) {
             Measurement::Unscored(why) => assert!(
                 why.contains("no capture"),
                 "the reason does not name what is missing: {why}"
@@ -885,13 +903,59 @@ mod tests {
         }
 
         std::fs::write(reference.join("labels.json"), "not json").unwrap();
-        match agreement_for(1, &out, &reference) {
+        match agreement_for(FROZEN, &out, &reference) {
             Measurement::Unscored(why) => assert!(
                 why.starts_with("its labels cannot be read"),
                 "a corrupt set is not named as one: {why}"
             ),
             other => panic!("a corrupt set was reported as {other:?}"),
         }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The reader reproduces the labels it trained on at 99%, and a page that scored a
+    /// training game against its own set printed that as the game's agreement.
+    #[test]
+    fn a_game_the_model_trained_on_is_not_scored_against_its_own_labels() {
+        const TRAINS: u32 = 228_380;
+        assert_eq!(
+            crate::measure::role(TRAINS, crate::measure::SPLIT_SEED),
+            crate::measure::Role::Train
+        );
+        let dir = std::env::temp_dir().join(format!("steamgauge-learned-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let reference = dir.join("reference");
+        let out = dir.join("data");
+        std::fs::create_dir_all(&reference).unwrap();
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(
+            reference.join("labels.json"),
+            serde_json::json!([{
+                "review_id": "a", "index": 0, "app_id": TRAINS, "language": "english",
+                "subset": "random", "start": 0, "end": 12, "subject": "gameplay",
+                "polarity": "praise", "ironic": false, "confidence": "high",
+                "ambiguous": false, "split_wrong": false
+            }])
+            .to_string(),
+        )
+        .unwrap();
+
+        // Learned before anything is read: the capture is not even looked for.
+        assert!(matches!(
+            agreement_for(TRAINS, &out, &reference),
+            Measurement::Learned
+        ));
+        assert!(agreement_for(TRAINS, &out, &reference).report().is_none());
+
+        std::fs::write(reference.join("labels.json"), "[]").unwrap();
+        assert!(
+            matches!(
+                agreement_for(TRAINS, &out, &reference),
+                Measurement::Unlabelled
+            ),
+            "a training game with no labels has nothing in the weights"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

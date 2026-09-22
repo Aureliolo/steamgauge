@@ -1,0 +1,142 @@
+{
+  "app_id": 1091500,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "endings",
+      "label": "Endings and the point of no return",
+      "description": "The endings themselves and the run-up to them: no happy endings, which route unlocks which ending, whether the point of no return has been reached yet and what is left to do after the credits; not the plot or characters in general.",
+      "refines": "story",
+      "evidence": [
+        "112918856",
+        "178273557",
+        "202285218",
+        "82192186",
+        "82618913"
+      ]
+    },
+    {
+      "id": "promises-and-cut-content",
+      "label": "Promises, hype and cut content",
+      "description": "The gap between what was marketed and what shipped: content visibly cut, lifepaths and augmentations that do less than promised, the freedom the marketing sold, free DLC that never came and a launch that should have waited after years of development; not ordinary patch notes.",
+      "refines": "updates",
+      "evidence": [
+        "110816680",
+        "113205241",
+        "139921013",
+        "148911372",
+        "82215614",
+        "82304724",
+        "82445725"
+      ]
+    },
+    {
+      "id": "post-patch-turnaround",
+      "label": "The game then and now",
+      "description": "Judging the game twice, at launch and after the big patches such as 1.5 and 2.0: revised scores, an update the size of a whole game, bugs finally fixed and the long wait for a passing grade; not complaints about what was cut.",
+      "refines": "updates",
+      "evidence": [
+        "111009582",
+        "112039191",
+        "113205241",
+        "152267171",
+        "160260020",
+        "81944330",
+        "85251546"
+      ]
+    },
+    {
+      "id": "gpu-and-hardware",
+      "label": "Your graphics card",
+      "description": "Naming the card or rig it runs on and whether it is enough, from an old 1060 or 1050 Ti to a 4090, regret over not buying a bigger card, ray tracing as the showcase and needing a powerful PC; not frame-rate complaints on their own.",
+      "refines": "compatibility",
+      "evidence": [
+        "109636688",
+        "134532637",
+        "137959026",
+        "82121879",
+        "82641389",
+        "83062574",
+        "86039370"
+      ]
+    },
+    {
+      "id": "edgerunners-anime",
+      "label": "The Edgerunners anime",
+      "description": "The tie-in anime and coming to the game from it: David and Lucy, whether to watch it before or after buying, and the grief it left behind; not the game's own story.",
+      "refines": null,
+      "evidence": [
+        "127332617",
+        "197411452",
+        "82148515"
+      ]
+    },
+    {
+      "id": "named-characters",
+      "label": "The cast and romances",
+      "description": "Reviews built around one named character: Johnny Silverhand and Keanu Reeves in your head, Panam as a romance, Jackie, Adam Smasher as the boss to kill, Songbird; not the plot as a whole.",
+      "refines": "story",
+      "evidence": [
+        "122630500",
+        "147438948",
+        "184678644",
+        "214910415",
+        "216061199",
+        "81994876",
+        "82142975"
+      ]
+    },
+    {
+      "id": "night-city",
+      "label": "Night City as a place",
+      "description": "The city itself as somewhere to live: how it feels to inhabit, its legends and its Afterlife, and where it is empty or hollow inside; not the graphics or the plot.",
+      "refines": "atmosphere",
+      "evidence": [
+        "122630500",
+        "122672377",
+        "212385250",
+        "82394898"
+      ]
+    },
+    {
+      "id": "npc-jank",
+      "label": "NPC behaviour and jank",
+      "description": "What the people in the world do: crowd AI, NPCs stuck in T-pose or walking through solid objects, ragdoll backflips and wheelchair users running away from a gun; not crashes or lost saves.",
+      "refines": "bugs",
+      "evidence": [
+        "120590829",
+        "123925470",
+        "124788979",
+        "82192276",
+        "84671759"
+      ]
+    },
+    {
+      "id": "builds-and-cyberware",
+      "label": "Builds and cyberware",
+      "description": "Character builds and implants: katana builds, Sandevistan cooldowns, remaking yourself into a cyborg, calling the doctor for implants, and augmentations that fail to change how you look; not combat mechanics in general.",
+      "refines": "gameplay",
+      "evidence": [
+        "122478054",
+        "188010981",
+        "195141079",
+        "82036312",
+        "82445725"
+      ]
+    },
+    {
+      "id": "themes",
+      "label": "Themes of technology and capitalism",
+      "description": "What the game says about the world: anti-capitalism, the dilemmas of technology in daily life, brain chips as a coming future and the idea that nobody is innocent; not the plot or the characters.",
+      "refines": "story",
+      "evidence": [
+        "179664451",
+        "182684774",
+        "82053190",
+        "82283098"
+      ]
+    }
+  ]
+}

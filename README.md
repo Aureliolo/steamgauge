@@ -162,6 +162,15 @@ outrank one three hundred used against ten, and a side with a handful of reviews
 rather than promoting whatever those few happened to write. Counts are by reviewer, once per
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
+A term is a word or a pair of adjacent words. Chinese, which a quarter of the library is
+written in, is cut into words by a dictionary (jieba, with the words of the trade added, since a
+general dictionary reads 掉帧 as "drop" and "frame"); Japanese and Korean, which have no
+dictionary here, are cut into pairs of adjacent characters, the best that can be done without
+one. Everything the page shows is added up when a game is read, so a change to the adding up
+does not cost the hours of a reading again: `steamgauge recount` replays the stored readings
+through the same counting in seconds, and refuses if this build takes a review apart
+differently from the build that read it.
+
 ### Ratings that disagree with the text
 
 A thumbs-down is not always a complaint. "0/10, haven't slept in three days" is praise wearing
@@ -188,7 +197,10 @@ A census that cannot say how often it is wrong is just an opinion with decimal p
 The model is measured against **reference sets**: claims labelled one at a time, stored under
 `reference/claims/<app id>/` with the drawn sample beside them. Whole games are held out rather
 than whole claims, because two claims from one review are not independent evidence and a score
-that mixes them is a score for how well the model repeats itself.
+that mixes them is a score for how well the model repeats itself. A report scores a game
+against its own set only when the model never trained on it: on the games it learned from it
+reproduces its labels at 99%, and a page that printed that as agreement would advertise its
+memory.
 
 Three things are reported together, and separating them is what makes the number mean anything:
 
@@ -200,45 +212,46 @@ Three things are reported together, and separating them is what makes the number
 
 ### What it is worth against the alternatives
 
-Measured over one set of 471 claims drawn from the frozen games, twenty a subject, which chose
-nothing about any row. Every row abstains where it is unsure, and every row is scored only on
-what it answered, because a score that quietly drops the declined claims is a score for a
-classifier nobody is running.
+Measured over one set of 487 claims drawn from the frozen games on 2026-09-22, twenty a
+subject, which chose nothing about any row. Every row abstains where it is unsure, and every
+row is scored only on what it answered, because a score that quietly drops the declined claims
+is a score for a classifier nobody is running.
 
 | | answers | agreement where it answers | macro F1 |
 |---|---|---|---|
-| the commonest subject | never reaches the promise | 4.9% | 0.004 |
-| TF-IDF bag of words | 34% | 75.3% | 0.412 |
-| nearest subject centroid over an untuned encoder | 6% | 90.0% | 0.439 |
-| this reader, 278M parameters (2026-09-11) | 61% | 74.8% | 0.525 |
-| **this reader, 560M parameters** (the previous export, `e5-27681`) | **79%** | **77.2%** | **0.652** |
-| Claude Opus 5, given the same sheet | 99.6% | 87.0% | 0.873 |
+| the commonest subject | never reaches the promise | 4.1% | 0.003 |
+| TF-IDF bag of words | 40% | 75.1% | 0.474 |
+| nearest subject centroid over an untuned encoder | 6% | 78.6% | 0.465 |
+| **this reader, 560M parameters** (`e5-29006`, the one that ships) | **84%** | **78.4%** | **0.691** |
+| Claude Opus 5, given the same sheet | 99.4% | 87.6% | 0.875 |
 
-The reader row is the export before the one that ships: the sample's key was lost with a
-session's scratch space, so the row moves when the frontier comparison is drawn again. On the
-whole frozen set the reader that ships, Needle (`e5-29006`), answers 79.9% at 82.2%.
+On the previous draw of this sample the earlier 278M reader answered 61% at 74.8% (macro F1
+0.525) and the previous 560M export 79% at 77.2% (0.652); those rows are not repeated here
+because they were measured on other claims. On the whole frozen set the reader that ships
+answers 79.9% at 82.2%: a stratified sample is the harder question, and the one above.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
-quarter of which is `verdict`, the commonest-subject baseline scores 25.8% rather than 4.9% and
-TF-IDF answers two fifths of claims at 75.1% rather than a third. A stratified sample is the harder question and the
-useful one, because the rows a reader has to get right are the rare ones. Both sets of figures
-are kept, in `reference/baselines-frontier-sample.json` and `reference/baselines-frozen.json`,
-and a row from one does not belong in a table with a row from the other.
+quarter of which is `verdict`, the commonest-subject baseline scores 27.2% rather than 4.1% and
+TF-IDF answers 42% of claims at 75.2% rather than 40%. A stratified sample is the harder
+question and the useful one, because the rows a reader has to get right are the rare ones.
+Both sets of figures are kept, in `reference/baselines-frontier-sample.json` and
+`reference/baselines-frozen.json`, and a row from one does not belong in a table with a row
+from the other.
 
 The third row is what this project did before it trained anything, and it is why the rebuild
 happened: cosine distance to a prototype cannot say "this is about nothing", so at the accuracy
-it promises it can answer one claim in twenty.
+it promises it can answer one claim in sixteen.
 
-The fourth and fifth rows are the same claims, and three things separate them: reading each
-claim inside its review, a backbone of twice the size, and nineteen thousand more labels, many
-of them drawn at the subjects the reader was worst at. Eighteen points of coverage, two and a
-half of agreement and thirteen hundredths of macro F1. A
-forty-configuration sweep of everything else, measured the same way, moved nothing outside its
-own noise: `DECISIONS.md` has the table and what each change was worth on its own.
+What separates the reader from the bag of words is reading each claim inside its review, a
+pretrained encoder of 560M parameters, and twenty-nine thousand labels, many of them drawn at
+the subjects the reader was worst at: forty-four points of coverage at the same promise and
+twenty-two hundredths of macro F1. A sweep of everything else, some fifty configurations
+measured the same way, moved nothing outside its own noise: `DECISIONS.md` has the tables and
+what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by ten points of agreement and twenty of coverage.** What it is not is
-affordable: that comparison cost 405,000 tokens for 471 claims, and a single large game holds
+than this, by nine points of agreement and sixteen of coverage.** What it is not is
+affordable: that comparison cost 389,000 tokens for 487 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
 is that it gets most of the way there at four orders of magnitude less cost, and that it can
@@ -558,9 +571,9 @@ These rules keep those figures honest:
   does not apply: the labels were written by a model, so what is measured is consistency
   between two models.
 
-  Measured so far, over 1,400 claims on thirty games: two labellers agree on the subject
-  87% of the time, kappa 0.85, and on polarity 93%, kappa 0.90. Those are figures a set can
-  stand on, and they did not move when the set grew from ten games to thirty.
+  Measured over 2,976 claims on every one of the 51 games: two labellers agree on the subject
+  86.5% of the time, kappa 0.85, and on polarity 94%, kappa 0.91. Those are figures a set can
+  stand on, and they did not move when the set grew from ten games to thirty to fifty-one.
 
 - **The contested flag measures the labeller as much as the claim.** Two labellers given the
   same definition reached for it on three tenths and on half of the same claims, kappa 0.48.

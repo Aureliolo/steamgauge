@@ -1170,6 +1170,101 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<(usize, usize
     Ok((written, refused))
 }
 
+/// What a pool draw wrote for one game.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PoolReport {
+    pub reviews: usize,
+    pub claims: usize,
+    /// Reviews the draw reached that a reference set already holds.
+    pub labelled: usize,
+    /// Rows held back for carrying no claim.
+    pub refused: usize,
+}
+
+/// Every review id a game's reference sets hold, whichever draw put it there.
+///
+/// Walks every `sample.json` under the game's directory rather than the named sets, so a
+/// second reading and a revisit count too: the pool is for reviews nobody has read.
+fn reviews_in_sets(game: &Path) -> Result<std::collections::HashSet<String>> {
+    let mut ids = std::collections::HashSet::new();
+    let mut dirs = vec![game.to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.filter_map(std::result::Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else if path.file_name().is_some_and(|name| name == "sample.json") {
+                let drawn: Vec<DrawnReview> = serde_json::from_slice(&std::fs::read(&path)?)?;
+                ids.extend(drawn.into_iter().map(|review| review.id));
+            }
+        }
+    }
+    Ok(ids)
+}
+
+/// Draws reviews no reference set holds and appends every claim of each, with its text, as
+/// JSONL for a teacher model to read.
+///
+/// A labelled claim is already in the training set with its label; what a pool adds is claims
+/// nobody has read, in the numbers a labeller never could, for a student to learn a teacher's
+/// answers on. The rows are shaped like the training export without the label fields, and
+/// hold review text, so the file never leaves the machine either.
+///
+/// The caller keeps the draw to games the model trains on. A frozen or validation game's
+/// reviews, even unlabelled, carry the teacher's knowledge of that game into the student, and
+/// the figure measured on it would stop being about a game nobody trained on.
+///
+/// # Errors
+///
+/// Fails if there is no capture for the app, a reference set cannot be read, or the
+/// destination cannot be written.
+pub fn export_pool(
+    out_dir: &Path,
+    app_id: u32,
+    game_sets: &Path,
+    wanted: usize,
+    english_share: f64,
+    seed: u64,
+    out: &mut impl std::io::Write,
+) -> Result<PoolReport> {
+    let labelled = reviews_in_sets(game_sets)?;
+    let drawn = draw(out_dir, app_id, wanted, english_share, seed, "pool")?;
+    let mut report = PoolReport::default();
+    for review in drawn {
+        if labelled.contains(&review.id) {
+            report.labelled += 1;
+            continue;
+        }
+        let around = rejoined(&review);
+        let mut at = 0;
+        for claim in &review.claims {
+            let offset = at;
+            at += claim.text.len() + 1;
+            if crate::claims::is_not_a_claim(&claim.text) {
+                report.refused += 1;
+                continue;
+            }
+            let row = serde_json::json!({
+                "text": claim.text,
+                "review": around,
+                "review_offset": offset,
+                "language": review.language,
+                "app_id": review.app_id,
+                "review_id": review.id,
+                "claim_index": claim.index,
+                "subset": review.subset,
+            });
+            writeln!(out, "{row}")?;
+            report.claims += 1;
+        }
+        report.reviews += 1;
+    }
+    Ok(report)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

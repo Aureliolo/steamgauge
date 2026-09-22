@@ -1,0 +1,124 @@
+{
+  "app_id": 548430,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "beer-and-drunkenness",
+      "label": "Beer and getting drunk",
+      "description": "Drinking beer at the bar, the drinks and their effects, playing drunk and jokes about alcoholism; being unable to stop playing the game itself does not belong here.",
+      "refines": null,
+      "evidence": [
+        "117177109",
+        "126636394",
+        "141175352",
+        "178752356",
+        "204237938",
+        "216668436",
+        "229910491",
+        "68137600"
+      ]
+    },
+    {
+      "id": "rock-and-stone",
+      "label": "Rock and Stone and the salute",
+      "description": "The salute and its catchphrases, Rock and Stone and For Karl, used as a greeting, a sign-off or a running joke; remarks about how friendly the players are belong under community instead.",
+      "refines": null,
+      "evidence": [
+        "119123329",
+        "119154771",
+        "126533721",
+        "140529433",
+        "70962689"
+      ]
+    },
+    {
+      "id": "dwarves",
+      "label": "Being a dwarf",
+      "description": "The dwarves themselves, their height, beards, hairiness and screaming, and the joke of playing as a short bearded miner; what the classes do in a team belongs under classes and team roles.",
+      "refines": null,
+      "evidence": [
+        "117412864",
+        "126257719",
+        "127958364",
+        "135371341",
+        "141405833",
+        "193940290",
+        "222146477",
+        "80106504"
+      ]
+    },
+    {
+      "id": "company-employee",
+      "label": "Working for the company",
+      "description": "Role-playing an employee of the mining corporation: Mission Control as the boss, promotions, not turning up for work, forklift certification and workplace safety; the digging itself belongs under mining and digging.",
+      "refines": null,
+      "evidence": [
+        "134973486",
+        "162597368",
+        "178114160",
+        "216079175",
+        "68137600"
+      ]
+    },
+    {
+      "id": "mining-and-digging",
+      "label": "Mining and digging",
+      "description": "Digging through caves and mining minerals as the core activity, pickaxes, and comparisons with real miners and mining towns; the fiction of being on the company payroll belongs under working for the company.",
+      "refines": "gameplay",
+      "evidence": [
+        "125983689",
+        "167476778",
+        "167934494",
+        "179943364",
+        "211631672",
+        "222146477",
+        "229980462",
+        "76393450"
+      ]
+    },
+    {
+      "id": "crew-and-companions",
+      "label": "Molly, Steeve, Lloyd and the crew",
+      "description": "The non-player companions and staff: Molly, Steeve, Lloyd the bartender, Mission Control and the robot teammate for solo play; the creatures fought in the caves belong under the bugs.",
+      "refines": null,
+      "evidence": [
+        "119154771",
+        "125225538",
+        "127088962",
+        "141175352",
+        "155686122",
+        "162597368",
+        "80106504"
+      ]
+    },
+    {
+      "id": "the-bugs",
+      "label": "The bugs",
+      "description": "The alien creatures fought in the caves, swarms, named species such as the acid spreader or Q'ronor Shellback, and which enemies players want removed; a named pet or companion belongs under the crew.",
+      "refines": null,
+      "evidence": [
+        "127597901",
+        "140441598",
+        "164850523",
+        "168358130",
+        "171270699",
+        "191084065",
+        "214879346"
+      ]
+    },
+    {
+      "id": "classes-and-roles",
+      "label": "Classes and team roles",
+      "description": "The four classes, Gunner, Driller, Engineer and Scout, what each brings and whether every role matters to the team; complaints about the guns without reference to a class belong under gameplay.",
+      "refines": "gameplay",
+      "evidence": [
+        "104119060",
+        "127088962",
+        "140529433",
+        "145067767"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "app_id": 1222670,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "pack-pricing",
+      "label": "Packs and the cost of the full collection",
+      "description": "The game being sold as dozens of expansion and stuff packs, the total it costs to own them all, single packs priced at forty dollars and content carved into separately sold pieces; a bare verdict that the game is a scam with no mention of packs does not belong.",
+      "refines": "monetisation",
+      "evidence": [
+        "119750672",
+        "135140740",
+        "166556601",
+        "203979684",
+        "212156059"
+      ]
+    },
+    {
+      "id": "free-base-game",
+      "label": "Base game gone free",
+      "description": "The base game having become free to play, surprise at when that happened, and having paid for it before it was given away; general remarks on price and sales do not belong.",
+      "refines": "price",
+      "evidence": [
+        "127921728",
+        "135140740",
+        "166793362"
+      ]
+    },
+    {
+      "id": "publisher-account-launcher",
+      "label": "Publisher account and launcher",
+      "description": "Needing the publisher's own account and launcher on top of Steam: registering, its captcha, linking a console account, and the launcher failing to start on a given device; crashes inside the game itself do not belong.",
+      "refines": "policy",
+      "evidence": [
+        "144456594",
+        "146903742",
+        "90934198"
+      ]
+    },
+    {
+      "id": "build-buy-mode",
+      "label": "Building and furnishing homes",
+      "description": "Designing houses, laying roofs, decorating interiors and placing objects in buy mode, and whether the building tools cooperate; remarks about the characters who live in the house do not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "161269051",
+        "173374088",
+        "79468780",
+        "88967413"
+      ]
+    },
+    {
+      "id": "character-creation",
+      "label": "Character looks and clothing",
+      "description": "Making a character look a certain way: body, height, attractiveness, the wardrobe on offer and whether it is dated, and the outfits players download; building homes and the characters' behaviour do not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "106773730",
+        "120749008",
+        "135140740",
+        "158511862",
+        "188284910"
+      ]
+    },
+    {
+      "id": "romance-woohoo",
+      "label": "Romance and hooking up",
+      "description": "Flirting, dating, pairing characters off, same-sex couples, harems, and sleeping with anyone or anything up to and including a robot; raising the resulting children belongs under family instead.",
+      "refines": "gameplay",
+      "evidence": [
+        "180225149",
+        "193054469",
+        "75431670",
+        "87052944",
+        "95442696"
+      ]
+    },
+    {
+      "id": "family-children",
+      "label": "Family, babies and children",
+      "description": "Starting a family, having a baby, raising children, whether the reviewer feels ready for family life, and social services taking the children away; courtship before the family exists belongs under romance.",
+      "refines": "gameplay",
+      "evidence": [
+        "113308152",
+        "178629565",
+        "193054469",
+        "224511056",
+        "91926323"
+      ]
+    },
+    {
+      "id": "death-and-cruelty",
+      "label": "Death, disasters and cruelty",
+      "description": "Characters dying, drowning in the pool, stoves catching fire, murder mods, picking fights with strangers and the pleasure of ruining a virtual person's life; a death caused only by a bug is not this.",
+      "refines": "gameplay",
+      "evidence": [
+        "132212284",
+        "160594370",
+        "167420859",
+        "193054469",
+        "84153229",
+        "89560448"
+      ]
+    },
+    {
+      "id": "life-mirror",
+      "label": "The simulation as a mirror of real life",
+      "description": "Reflections on what the game models about daily life: solving everyday problems, what is left once basic needs are met, trying out personalities and their points of view, and whether the simulated people behave like real humans; plain enjoyment or boredom is a verdict, not this.",
+      "refines": null,
+      "evidence": [
+        "100664245",
+        "158129299",
+        "169580197",
+        "179501879"
+      ]
+    },
+    {
+      "id": "emergent-stories",
+      "label": "Tales from my save",
+      "description": "The review recounts what happened to the reviewer's own characters as an anecdote, such as a kitten running away, a painting cult that made them rich or a brawl with a passer-by, rather than judging any system; a review that names a mechanic and rates it is not this.",
+      "refines": null,
+      "evidence": [
+        "113308152",
+        "143502400",
+        "189766890",
+        "193054469",
+        "89560448"
+      ]
+    }
+  ]
+}

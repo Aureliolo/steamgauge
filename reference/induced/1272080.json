@@ -1,0 +1,130 @@
+{
+  "app_id": 1272080,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "server-outage",
+      "label": "Servers and matchmaking queues",
+      "description": "The servers being down or the matchmaking queue never resolving so that the game cannot be entered at all, including login failures and the endless main-menu wait; lag inside a heist that does start does not belong here.",
+      "refines": "multiplayer",
+      "evidence": [
+        "146718203",
+        "146747473",
+        "146790843",
+        "146791883",
+        "146793862",
+        "146800525",
+        "146894472",
+        "146963004",
+        "146971755",
+        "147007490",
+        "147067576",
+        "147287717",
+        "221512615"
+      ]
+    },
+    {
+      "id": "always-online",
+      "label": "Always-online and offline mode",
+      "description": "The requirement to reach the servers even to play alone, requests for an offline mode, and the move from peer-to-peer hosting to dedicated servers; the servers merely being down belongs under the outage row.",
+      "refines": "policy",
+      "evidence": [
+        "146821722",
+        "146894472",
+        "146905264",
+        "152024282"
+      ]
+    },
+    {
+      "id": "predecessor",
+      "label": "Compared with the previous game",
+      "description": "Whether this entry is a step down from, the same as, or a replacement for the previous game in the series, including how much it shipped with next to what the earlier one had; comparisons with games outside the series do not belong here.",
+      "refines": "genre",
+      "evidence": [
+        "147287717",
+        "148782400",
+        "157727366",
+        "208143170",
+        "216610514",
+        "230809221"
+      ]
+    },
+    {
+      "id": "heist-roster",
+      "label": "Heist count and roster",
+      "description": "How many heists ship, which named heists players love or miss, and which locations they want added; the tasks inside a heist belong under the objectives row.",
+      "refines": "content",
+      "evidence": [
+        "146745774",
+        "146815252",
+        "157727366",
+        "177532186",
+        "207257562"
+      ]
+    },
+    {
+      "id": "stealth-loud",
+      "label": "Stealth versus loud",
+      "description": "The choice between running a heist quietly or going loud, which of the two is fun or dead, and restarting a long stealth run when caught; weapons and builds belong in their own row.",
+      "refines": "gameplay",
+      "evidence": [
+        "146996283",
+        "147287717",
+        "164370193"
+      ]
+    },
+    {
+      "id": "heist-objectives",
+      "label": "Heist objectives and chores",
+      "description": "The tasks inside a heist, such as hunting for a USB stick, scanning QR codes, lockpicking and carrying loot bags, and whether the objectives are shown clearly or turn into tedium; the choice of approach belongs under stealth versus loud.",
+      "refines": "gameplay",
+      "evidence": [
+        "146929229",
+        "164370193",
+        "200010272",
+        "223581235"
+      ]
+    },
+    {
+      "id": "weapons-builds",
+      "label": "Weapons, builds and unlocks",
+      "description": "Gun damage and weapon levels, skill and perk builds, challenges that gate experience and unlocks, and pre-heist favours bought with money; the number of heists belongs under the roster row.",
+      "refines": "gameplay",
+      "evidence": [
+        "147140011",
+        "147287717",
+        "147836600",
+        "158594037",
+        "164370193",
+        "182236100"
+      ]
+    },
+    {
+      "id": "bring-back",
+      "label": "Bring back from the last game",
+      "description": "Named heisters, heists, DLC packs, builds and the peer-to-peer model that players ask to have returned from the previous game; a verdict that the new game is better or worse than the old one belongs under the predecessor row.",
+      "refines": "content",
+      "evidence": [
+        "146815252",
+        "146960172",
+        "147836600",
+        "152024282",
+        "178029588",
+        "180279593"
+      ]
+    },
+    {
+      "id": "recipe-reviews",
+      "label": "Recipes posted as reviews",
+      "description": "Cooking recipes written out in full in place of a review, as a joke about the time spent waiting for the servers or matchmaking; cooking metaphors such as letting the developers cook do not belong here.",
+      "refines": "offtopic",
+      "evidence": [
+        "146800525",
+        "146971755",
+        "147405992"
+      ]
+    }
+  ]
+}

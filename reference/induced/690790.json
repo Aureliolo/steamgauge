@@ -1,0 +1,123 @@
+{
+  "app_id": 690790,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "co-driver",
+      "label": "Co-driver and pace notes",
+      "description": "The co-driver and the pace notes: the phrasing of the calls, following or ignoring what is called, the voice and accent in your ear and the calls players quote back; not the soundtrack or the engine sound, which belong under audio.",
+      "refines": null,
+      "evidence": [
+        "102530162",
+        "107140979",
+        "118052461",
+        "137286842",
+        "187568214",
+        "232007496",
+        "83722798",
+        "88512898"
+      ]
+    },
+    {
+      "id": "roadside-hazards",
+      "label": "Roadside hazards",
+      "description": "What stands beside the road and ends a stage on contact: trees, rocks, logs, ditches and drops, and how a metre off the line is punished; not the car tumbling itself, which has its own row.",
+      "refines": null,
+      "evidence": [
+        "107140979",
+        "134096186",
+        "186225880",
+        "188184373",
+        "79169989",
+        "89646129"
+      ]
+    },
+    {
+      "id": "rolling-the-car",
+      "label": "Rolling the car",
+      "description": "The car flipping, somersaulting and finishing on its roof, whether laughed about or blamed on a tiny bump; not striking scenery, which belongs under roadside hazards.",
+      "refines": null,
+      "evidence": [
+        "102530162",
+        "113111176",
+        "83193296"
+      ]
+    },
+    {
+      "id": "handling-realism",
+      "label": "Handling physics and realism",
+      "description": "Whether the driving physics feel like real rallying: sim against arcade, how the car behaves on the road and whether that is believable; not how hard the stages are, which belongs under difficulty.",
+      "refines": "gameplay",
+      "evidence": [
+        "114610192",
+        "120017766",
+        "59441790",
+        "71252161"
+      ]
+    },
+    {
+      "id": "car-roster",
+      "label": "Cars and favourites",
+      "description": "Which cars are in the game, which are missing or wanted, and which car players swear by or warn against; not whether the cars carry official licences.",
+      "refines": null,
+      "evidence": [
+        "116546590",
+        "136300477",
+        "184699740",
+        "214220821",
+        "64443220",
+        "91943343"
+      ]
+    },
+    {
+      "id": "wheels-ffb",
+      "label": "Steering wheels and force feedback",
+      "description": "Playing on a steering wheel: which wheels are detected, force feedback settings, and setting up a handbrake; not gamepad or keyboard controls in general.",
+      "refines": "controls",
+      "evidence": [
+        "148618159",
+        "233674928",
+        "49450034",
+        "49890222"
+      ]
+    },
+    {
+      "id": "series-heritage",
+      "label": "The first game and the series",
+      "description": "Comparison with the previous game in the series and with its lineage, including what was dropped between releases; not comparisons with other racing games.",
+      "refines": "genre",
+      "evidence": [
+        "135807568",
+        "212988309",
+        "58183944",
+        "76159064"
+      ]
+    },
+    {
+      "id": "concentration",
+      "label": "Concentration and nerves",
+      "description": "The sustained focus a stage demands and the stress it produces: sweaty palms, no distractions, nerves worn down by the conditions; not general immersion or mood.",
+      "refines": "atmosphere",
+      "evidence": [
+        "103384655",
+        "212626011",
+        "232007496",
+        "89780794"
+      ]
+    },
+    {
+      "id": "career-mode",
+      "label": "Career and championship",
+      "description": "The career and championship mode: progression through cars and events, what players want added to it, and career progress lost along the way; not single stages or time trials.",
+      "refines": "gameplay",
+      "evidence": [
+        "116546590",
+        "71252161",
+        "71683351",
+        "79653976"
+      ]
+    }
+  ]
+}

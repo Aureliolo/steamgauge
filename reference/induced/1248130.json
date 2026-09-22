@@ -1,0 +1,124 @@
+{
+  "app_id": 1248130,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "relaxing-work",
+      "label": "Relaxing routine work",
+      "description": "The feel of the game as calm repetitive labour: a morning coffee while sowing fields, chilling with a beer, the brain turning to mush, and the joke that it is a second job or slavery; not moods of tension, dread or immersion in a story.",
+      "refines": "atmosphere",
+      "evidence": [
+        "103658231",
+        "112840887",
+        "134092655",
+        "134950282",
+        "139605786",
+        "157199889",
+        "165545095",
+        "179457657",
+        "223201632"
+      ]
+    },
+    {
+      "id": "vehicles-brands",
+      "label": "Tractors, machinery and brands",
+      "description": "The vehicles and implements themselves: named makes such as Ursus, Valtra or Zetor, a favourite tractor, the range of machines on offer and how they drive; not whether the farming as a whole is realistic or how the game looks.",
+      "refines": null,
+      "evidence": [
+        "103658231",
+        "106153971",
+        "129795999",
+        "146177723",
+        "150301016",
+        "170331715",
+        "197825095",
+        "227981467"
+      ]
+    },
+    {
+      "id": "real-farming",
+      "label": "Realism and real farming",
+      "description": "Whether the simulation matches real agriculture and what it teaches about it: authentic or unrealistic detail such as log weights or missing irrigation, learning about farm economics and forestry, and the game standing in for a farming life or career; not graphical fidelity.",
+      "refines": null,
+      "evidence": [
+        "103658231",
+        "104157026",
+        "113552211",
+        "114945755",
+        "121350374",
+        "139895832",
+        "161005304",
+        "169369019"
+      ]
+    },
+    {
+      "id": "farm-economy",
+      "label": "Production chains and farm economy",
+      "description": "Running the farm as a business: production chains, which products earn most, managing money, contracts, sell points and deliveries; not the vehicles or the field work itself.",
+      "refines": "gameplay",
+      "evidence": [
+        "103285409",
+        "105444490",
+        "106153971",
+        "107851211",
+        "139895832",
+        "169369019"
+      ]
+    },
+    {
+      "id": "crops",
+      "label": "Crops and growing",
+      "description": "The crops and what is done with them: grains, greenhouse vegetables and fruit, silage, growth times and the stages of cultivation such as irrigation; not animals, forestry or the machines used.",
+      "refines": "gameplay",
+      "evidence": [
+        "104157026",
+        "106614664",
+        "114945755",
+        "124480693",
+        "155708282"
+      ]
+    },
+    {
+      "id": "livestock",
+      "label": "Livestock and animals",
+      "description": "Keeping animals: cows, pigs, chickens and their eggs, bees, their pens and their products, including animals escaping; not crops or forestry.",
+      "refines": "gameplay",
+      "evidence": [
+        "106117113",
+        "106255379",
+        "116681931",
+        "159519628"
+      ]
+    },
+    {
+      "id": "forestry",
+      "label": "Forestry and logging",
+      "description": "Felling trees with the chainsaw, log weights, hauling and selling timber, and bugs with trees; not field crops or livestock.",
+      "refines": "gameplay",
+      "evidence": [
+        "104157026",
+        "111610401",
+        "137036533",
+        "139895832"
+      ]
+    },
+    {
+      "id": "series-iteration",
+      "label": "Changes from the previous edition",
+      "description": "How this edition compares with earlier entries in the same series and the next one due: what is new, whether it has evolved enough, and waiting for the next release; not comparisons with other games or genres.",
+      "refines": "genre",
+      "evidence": [
+        "103658231",
+        "103811415",
+        "104307710",
+        "104339647",
+        "113552211",
+        "114945755",
+        "157649065",
+        "175438234"
+      ]
+    }
+  ]
+}

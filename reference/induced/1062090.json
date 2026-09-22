@@ -1,0 +1,118 @@
+{
+  "app_id": 1062090,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "dams-and-water-physics",
+      "label": "Dams and water physics",
+      "description": "Building dams, levees, sluices and aqueducts and how the simulated water then flows, floods or strands a village downstream; praise for the building sandbox that never mentions water does not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "100210637",
+        "100565091",
+        "101232943",
+        "130361634",
+        "131701287",
+        "133171716",
+        "213207013",
+        "221530071",
+        "99422457"
+      ]
+    },
+    {
+      "id": "drought-and-badwater",
+      "label": "Drought, badwater and water storage",
+      "description": "Surviving the dry season and badwater: storing water, irrigating fields, working the gates while the river is stopped and what dies when it runs out; dam engineering for its own sake belongs under dams and water physics.",
+      "refines": "gameplay",
+      "evidence": [
+        "100565091",
+        "131701287",
+        "138538404",
+        "162659058",
+        "178400609"
+      ]
+    },
+    {
+      "id": "starvation-and-food",
+      "label": "Starvation and food supply",
+      "description": "Keeping the colony fed: beavers starving to death, famines, how much they eat, farming and whether food keeps; a shortage of water rather than food belongs under drought.",
+      "refines": "gameplay",
+      "evidence": [
+        "107530915",
+        "124703567",
+        "131701287",
+        "137865083",
+        "168478701",
+        "221023154"
+      ]
+    },
+    {
+      "id": "update-churn",
+      "label": "Mechanics removed or reworked by updates",
+      "description": "Features taken away or changed between versions, such as irrigation, water tanks, the sluice or a difficulty rebalance, and players asking for the old version back; whether the developers are active at all is plain updates.",
+      "refines": "updates",
+      "evidence": [
+        "156408538",
+        "156581504",
+        "157329989",
+        "162659058",
+        "178400609",
+        "221530071"
+      ]
+    },
+    {
+      "id": "late-game-slowdown",
+      "label": "Slowdown as the colony grows",
+      "description": "Frame drops, lag and crashes that only appear once the settlement is large or the session long, growing with beaver count and buildings; a game that runs badly from the first minute is plain performance.",
+      "refines": "performance",
+      "evidence": [
+        "106434125",
+        "134557672",
+        "182455060",
+        "188271390"
+      ]
+    },
+    {
+      "id": "districts",
+      "label": "The district system",
+      "description": "Districts as a mechanic: being forced to split the settlement, resources stranded on the wrong side of a border, goods handed over at district edges and the prompt to build a road or a new district; expansion complaints that never mention districts do not belong.",
+      "refines": "gameplay",
+      "evidence": [
+        "100358071",
+        "113510552",
+        "130361634",
+        "157329989"
+      ]
+    },
+    {
+      "id": "factions",
+      "label": "Folktails and Iron Teeth",
+      "description": "The two playable beaver factions, how they differ, which is stronger and the wish for more of them; the beaver premise in general belongs elsewhere.",
+      "refines": "gameplay",
+      "evidence": [
+        "130361634",
+        "131701287",
+        "134519902"
+      ]
+    },
+    {
+      "id": "beaver-premise",
+      "label": "The beaver premise",
+      "description": "Beavers as the thing the game is about: wanting to be one, their habits and cuteness, and the bobr jokes and beaver puns the premise invites; a verdict that never mentions beavers does not belong.",
+      "refines": null,
+      "evidence": [
+        "100742916",
+        "114204543",
+        "121882483",
+        "128808996",
+        "129501598",
+        "129719363",
+        "148878007",
+        "167635853",
+        "226497380"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "app_id": 245170,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "content-revisions",
+      "label": "Content revisions and censorship",
+      "description": "The update that altered or removed existing art and story content, players objecting that content they paid for was changed by people who did not make it and calling it censorship or a betrayal of the game's spirit; not routine bug fixes or balance patches.",
+      "refines": "updates",
+      "evidence": [
+        "118858114",
+        "140772690",
+        "140805550",
+        "140876209",
+        "140893783",
+        "140932307",
+        "140955073",
+        "141234512",
+        "141298304",
+        "141366045",
+        "141478213",
+        "141678484",
+        "142928933",
+        "155670837",
+        "68747929"
+      ]
+    },
+    {
+      "id": "culture-war",
+      "label": "Politics blamed for the changes",
+      "description": "Reviews that put the revisions down to political correctness, ESG, journalists, Twitter, liberals, western developers or an update for modern audiences and talk about that politics; a review that only names what was removed belongs under content revisions instead.",
+      "refines": null,
+      "evidence": [
+        "140805550",
+        "140908806",
+        "140910250",
+        "140941208",
+        "140945092",
+        "141488658",
+        "171454744"
+      ]
+    },
+    {
+      "id": "fan-service",
+      "label": "Fan service and sex appeal",
+      "description": "The sexual appeal of the cast: busty anime girls, panty shots, bara, buying it for research purposes, and being beaten up by a hottie; not the quality or style of the art as such.",
+      "refines": null,
+      "evidence": [
+        "105837959",
+        "106683961",
+        "14568041",
+        "155670837",
+        "16762826",
+        "170652039",
+        "175142301",
+        "18872585",
+        "221099660",
+        "34385217",
+        "37144713",
+        "71590085",
+        "71674520",
+        "99131325"
+      ]
+    },
+    {
+      "id": "roster",
+      "label": "Roster and named characters",
+      "description": "Individual characters named as favourites or hated matchups, the roster being small and mostly female, and characters still wanted or still being added; not the characters as figures in the story.",
+      "refines": null,
+      "evidence": [
+        "105367295",
+        "13945826",
+        "140870002",
+        "14568041",
+        "16187524",
+        "215641334",
+        "227781738",
+        "58543130",
+        "66970166",
+        "90696134"
+      ]
+    },
+    {
+      "id": "combo-execution",
+      "label": "Combos and execution",
+      "description": "Combos, cancels, hit confirms, mixups and how strict the inputs are, from finger-breaking sequences to combo strings written out in notation; not how hard the game is to win in general.",
+      "refines": "gameplay",
+      "evidence": [
+        "102508624",
+        "16187524",
+        "168724759",
+        "18073654",
+        "48033657",
+        "90696134"
+      ]
+    },
+    {
+      "id": "newcomer-entry",
+      "label": "Newcomers and the tutorial",
+      "description": "Whether someone new to fighting games can get in, the tutorial as a school for genre fundamentals, and its lessons that some players cannot get past; not the difficulty of matches against other people.",
+      "refines": "tutorial",
+      "evidence": [
+        "16187524",
+        "16642068",
+        "168912995",
+        "20672341"
+      ]
+    }
+  ]
+}

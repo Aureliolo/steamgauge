@@ -1,0 +1,163 @@
+{
+  "app_id": 1601580,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "factions-and-demands",
+      "label": "Factions and their demands",
+      "description": "The political groups and communities in the city, what they demand, managing their favour, their rallies and protests, and loathing particular ones such as the Pilgrims; not the council vote or the laws themselves.",
+      "refines": "gameplay",
+      "evidence": [
+        "175403375",
+        "175442512",
+        "175448070",
+        "175869026",
+        "175986094",
+        "176465796",
+        "180351649",
+        "180876671",
+        "194709852",
+        "224301113"
+      ]
+    },
+    {
+      "id": "council-and-laws",
+      "label": "Council and laws",
+      "description": "Passing laws through the council: the votes, the laws on offer such as child labour, mandatory reproduction, prisons or martial law, and what signing them leads to; not the factions who cast the votes.",
+      "refines": "gameplay",
+      "evidence": [
+        "175801331",
+        "176035609",
+        "176193518",
+        "177492649",
+        "182663797",
+        "186517852",
+        "228723866"
+      ]
+    },
+    {
+      "id": "child-labour",
+      "label": "Child labour",
+      "description": "Sending children to work, above all in the mines, as the law the game offers and players joke about accepting; not other harsh laws or general cruelty.",
+      "refines": null,
+      "evidence": [
+        "175801331",
+        "182663797",
+        "231910546"
+      ]
+    },
+    {
+      "id": "stewards-fate",
+      "label": "The Steward's standing",
+      "description": "How the city treats its Steward: being blamed for the dead, voted out or exiled by your own people, or seizing absolute power and becoming Leader under martial law; not exiling factions or ordinary law-making.",
+      "refines": null,
+      "evidence": [
+        "175424825",
+        "175454740",
+        "175884132",
+        "177073043",
+        "180680210",
+        "186517852"
+      ]
+    },
+    {
+      "id": "unrest-and-exile",
+      "label": "Unrest, exile and force",
+      "description": "Riots and protests and how the player puts them down: exiling factions or rioters to the Frostland, calling in guards and the military; not the Steward's own exile.",
+      "refines": null,
+      "evidence": [
+        "175403375",
+        "175442512",
+        "175554942",
+        "175808638",
+        "175869026",
+        "194709852"
+      ]
+    },
+    {
+      "id": "versus-the-first-game",
+      "label": "Compared with the first game",
+      "description": "Weighing the sequel against its predecessor: whether it is a continuation or a different game, what was expanded, what was lost, and whether fans of the first should buy it; not comparisons with other games or genres.",
+      "refines": "genre",
+      "evidence": [
+        "175391141",
+        "175417087",
+        "175615148",
+        "175723091",
+        "178213761",
+        "178629463",
+        "180351649",
+        "181410887",
+        "190207224",
+        "194278639",
+        "203011530",
+        "224301113"
+      ]
+    },
+    {
+      "id": "scale-shift",
+      "label": "Macro scale instead of individuals",
+      "description": "The move from managing individual buildings and people to districts and whole-city systems, and whether that larger scale loses the personal survival feel; not general praise or complaint about the mechanics.",
+      "refines": "gameplay",
+      "evidence": [
+        "175391141",
+        "175417200",
+        "175723091",
+        "190207224",
+        "224301113"
+      ]
+    },
+    {
+      "id": "districts-and-hex-grid",
+      "label": "Districts on the hex grid",
+      "description": "Laying out districts and hubs on the hexagonal grid, which district goes where, and tools or complaints about the hex layout; not the broader scale shift from the first game.",
+      "refines": "gameplay",
+      "evidence": [
+        "175391141",
+        "175428969",
+        "176278438",
+        "179433951"
+      ]
+    },
+    {
+      "id": "deluxe-edition-extras",
+      "label": "Deluxe edition extras",
+      "description": "The deluxe edition and pre-order: the promised DLC, the digital novel and art book, and regret over having paid for them; not the base price or general DLC policy.",
+      "refines": "monetisation",
+      "evidence": [
+        "186338628",
+        "206019562",
+        "222789612"
+      ]
+    },
+    {
+      "id": "real-world-politics",
+      "label": "Real-world political parallels",
+      "description": "Reading the city through real ideologies and places: building communism, a Stalin ending, oil and American democracy, life in Norilsk, whether the game is woke; not the in-game factions themselves.",
+      "refines": null,
+      "evidence": [
+        "175514055",
+        "183080978",
+        "186517852",
+        "186601191",
+        "193650519"
+      ]
+    },
+    {
+      "id": "the-cold",
+      "label": "The cold and freezing",
+      "description": "The frozen world as the subject itself: jokes about freezing, citizens dying of cold, snow and winter as the setting; not the mood it creates or how it looks.",
+      "refines": null,
+      "evidence": [
+        "175884132",
+        "176046644",
+        "180700193",
+        "180841262",
+        "181434254",
+        "190207224"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "app_id": 1888930,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "playstation-port",
+      "label": "PlayStation game brought to PC",
+      "description": "The game as a console title ported to PC: waiting a decade for it to leave PlayStation, the state of the port as a port, keyboard rebinding as a porting job, and comparing or preferring the PS5 version; whether the port runs well on a given machine belongs under performance.",
+      "refines": null,
+      "evidence": [
+        "135616461",
+        "135797798",
+        "135952523",
+        "176557765",
+        "189858702"
+      ]
+    },
+    {
+      "id": "launch-then-patched",
+      "label": "Broken launch, later patched",
+      "description": "The arc from an unplayable launch to a patched game: telling others to wait for patches, asking whether QA played it before it was sold, comparing the launch to other notorious launches, and reviewers who changed their verdict once an update fixed it; a crash or stutter on its own belongs under bugs or performance.",
+      "refines": "updates",
+      "evidence": [
+        "135612928",
+        "135621173",
+        "135625789",
+        "135875731",
+        "136036349",
+        "136247833",
+        "136529805"
+      ]
+    },
+    {
+      "id": "shader-building",
+      "label": "Shader building",
+      "description": "The shader pre-building step: how long it takes, that it runs again and again, jokes about it, and the suspicion that it exists to push players past the refund window; general loading times without the shader step belong under performance.",
+      "refines": "performance",
+      "evidence": [
+        "135656127",
+        "137862534",
+        "161648967",
+        "193784285"
+      ]
+    },
+    {
+      "id": "father-daughter-bond",
+      "label": "Joel and Ellie's father-daughter bond",
+      "description": "The surrogate father-daughter relationship at the centre of the story: two people who are not kin but come to be, one as the other's redemption, and reviewers addressing them as a parent would; Ellie on her own as a companion, and the ending's choice, have their own rows.",
+      "refines": "story",
+      "evidence": [
+        "141159950",
+        "156088287",
+        "188407381",
+        "223958054"
+      ]
+    },
+    {
+      "id": "joels-choice",
+      "label": "The ending and Joel's choice",
+      "description": "The hospital ending and the lie: whether Joel was right to choose one girl over the world, quoting his closing lines back as the review, and shooting the surgeon on repeat; the wider plot and pacing belong under story.",
+      "refines": "story",
+      "evidence": [
+        "168845940",
+        "172175035",
+        "191350885",
+        "216431133",
+        "222047691"
+      ]
+    },
+    {
+      "id": "ellie-companion",
+      "label": "Ellie as the companion",
+      "description": "Ellie herself as the girl you travel with: the escort-mission and babysitting framing, her stand-up jokes, her sexuality, and plain affection for her as a character; her bond with Joel is its own row.",
+      "refines": "story",
+      "evidence": [
+        "135660991",
+        "141159950",
+        "181895898",
+        "194593709",
+        "216570184"
+      ]
+    },
+    {
+      "id": "the-sequel",
+      "label": "Part II and what it does next",
+      "description": "Reading this game through its sequel: eagerly awaiting Part II, the golf joke, the surgeon being Abby's father, and sarcastic hopes that nothing happens to the main characters; a plain wish for more games belongs under verdict.",
+      "refines": null,
+      "evidence": [
+        "155936598",
+        "176557765",
+        "199571664",
+        "222047691"
+      ]
+    },
+    {
+      "id": "fungal-infected",
+      "label": "The fungal infected",
+      "description": "The cordyceps infected as premise and enemy: fungus zombies, how to deal with runners, and jokes about mould starting the outbreak; human enemies and the combat system belong under gameplay.",
+      "refines": null,
+      "evidence": [
+        "165189610",
+        "178835483",
+        "198672812"
+      ]
+    },
+    {
+      "id": "linear-cinematic",
+      "label": "Linear, cinematic structure",
+      "description": "The game as a linear, film-like or TV-drama-like experience: praised as absolute cinema, or faulted because linear levels kill any sense of freedom and players wanting open exploration are pointed elsewhere; the plot itself belongs under story.",
+      "refines": "genre",
+      "evidence": [
+        "156088287",
+        "176557765",
+        "185574672",
+        "221982601"
+      ]
+    }
+  ]
+}

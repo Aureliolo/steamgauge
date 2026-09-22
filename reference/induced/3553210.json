@@ -1,0 +1,186 @@
+{
+  "app_id": 3553210,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "programming-conditions",
+      "label": "Programming the skill conditions",
+      "description": "The game read as programming: gambits, if statements, flowcharts, Scratch, macros, code golf and debugging, and who that suits; general praise of the mechanics without the programming framing does not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "195478916",
+        "195559693",
+        "195701870",
+        "195814362",
+        "195821744",
+        "196055652",
+        "196154243",
+        "196553330",
+        "197212401",
+        "199222208",
+        "200334512",
+        "207707421",
+        "209145428",
+        "209403065",
+        "218314504"
+      ]
+    },
+    {
+      "id": "combos-infinite-scaling",
+      "label": "Combos and infinite scaling",
+      "description": "Finding synergies and building loops that scale without a cap, one-turn kills, no-damage clears and numbers exploding; the feel of the game or its difficulty in general does not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "195515784",
+        "195576568",
+        "195577388",
+        "195599012",
+        "195623538",
+        "195639847",
+        "195755955",
+        "196437193",
+        "196645127",
+        "196811128",
+        "197284420",
+        "201706599",
+        "202455706",
+        "207707421",
+        "209629745"
+      ]
+    },
+    {
+      "id": "mama-turn-limit",
+      "label": "Mama and the turn limit",
+      "description": "The parent who chases the runaway child and the distance from her that acts as the run's turn limit, whether as a mechanic or as the story players read into it; other resources and enemies do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "195515784",
+        "196712838",
+        "197212401",
+        "197382864"
+      ]
+    },
+    {
+      "id": "retries-battle-preview",
+      "label": "Free retries and battle preview",
+      "description": "Seeing the predicted outcome before a fight, stepping through it, and redoing any battle without penalty until it works, including whether that safety net makes things too easy; saving a run for later does not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "195474700",
+        "195515784",
+        "195527146",
+        "196645127",
+        "197789427",
+        "204411607",
+        "235014803"
+      ]
+    },
+    {
+      "id": "challenge-levels",
+      "label": "Challenge levels and NG+",
+      "description": "The numbered challenge levels, Hard mode, the extra stages, the bonus boss and how the demands change at level five; the ordinary first clear and general difficulty remarks do not belong here.",
+      "refines": "difficulty",
+      "evidence": [
+        "195515784",
+        "195538700",
+        "196811128",
+        "199086845",
+        "202412811",
+        "204411607",
+        "207707421",
+        "235014803"
+      ]
+    },
+    {
+      "id": "build-breaking-bosses",
+      "label": "Bosses that counter builds",
+      "description": "Particular bosses such as the Golem or the Crystal and how their rules break or demand a rearranged build; ordinary enemies and the run's overall difficulty do not belong here.",
+      "refines": "difficulty",
+      "evidence": [
+        "195538371",
+        "196437193",
+        "197541512",
+        "199086845"
+      ]
+    },
+    {
+      "id": "endless-mode",
+      "label": "Endless mode request",
+      "description": "Wanting an endless or infinite stage so a finished build can keep going after the run ends; other content wishes such as more characters do not belong here.",
+      "refines": "content",
+      "evidence": [
+        "195480184",
+        "195577388",
+        "196233796",
+        "196357661"
+      ]
+    },
+    {
+      "id": "character-roster",
+      "label": "Character roster",
+      "description": "How many playable characters there are, the single unlock, and wanting more of them; wishes for other kinds of content do not belong here.",
+      "refines": "content",
+      "evidence": [
+        "195576568",
+        "195755935",
+        "196233796",
+        "197272953",
+        "199086845"
+      ]
+    },
+    {
+      "id": "saving-runs",
+      "label": "Saving mid-run",
+      "description": "Wanting to suspend a run and resume it later, leaving the game open because you cannot, and carrying a save between machines; retrying a battle does not belong here.",
+      "refines": null,
+      "evidence": [
+        "195472214",
+        "196281625",
+        "199086845",
+        "204411607",
+        "214130492"
+      ]
+    },
+    {
+      "id": "battle-log-results",
+      "label": "Battle log and results screen",
+      "description": "Wanting a readable battle log and a results screen that shows which skills fired and how the run went; other interface wishes do not belong here.",
+      "refines": "controls",
+      "evidence": [
+        "196281625",
+        "199671795",
+        "204411607"
+      ]
+    },
+    {
+      "id": "demo",
+      "label": "The demo",
+      "description": "Having played the demo before buying, how the full game compares with it, and telling others to try it first; watching someone else play does not belong here.",
+      "refines": null,
+      "evidence": [
+        "195472214",
+        "199086845",
+        "200845300"
+      ]
+    },
+    {
+      "id": "casual-pace",
+      "label": "Low-stress casual pace",
+      "description": "Short runs played briskly as a breather or beside a video, with nothing to think about but the build; losing sleep because you could not stop does not belong here.",
+      "refines": "atmosphere",
+      "evidence": [
+        "195474700",
+        "195478916",
+        "195527146",
+        "195599012",
+        "196247486",
+        "197455274",
+        "204411607",
+        "207992041",
+        "227929511"
+      ]
+    }
+  ]
+}
