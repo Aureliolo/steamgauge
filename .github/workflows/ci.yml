@@ -46,6 +46,28 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo test --workspace
 
+  # The training scripts decide every figure the reader is quoted with, and their tests need
+  # no card and no labels. The lock is resolved for Windows (onnxruntime-directml has no other
+  # wheel), and its torch is the CUDA build: the same version from the CPU index runs the same
+  # code without a multi-gigabyte download of libraries a runner cannot use.
+  python:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14"
+          activate-environment: true
+      - shell: bash
+        run: |
+          torch=$(grep '^torch==' training/requirements.lock | sed 's/+.*//')
+          grep -v -e '^torch==' -e '^--extra-index-url' training/requirements.lock > "$RUNNER_TEMP/requirements.txt"
+          uv pip install --no-config --index-strategy unsafe-best-match \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r "$RUNNER_TEMP/requirements.txt" "$torch+cpu"
+      - run: python -m pytest -q
+        working-directory: training
+
   # The report's folding, filtering, sorting and deep links only exist once a browser has run
   # them, and so does its rendering: a stylesheet rule can flatten a chart or turn a printed
   # page into blocks of ink while the markup stays exactly right. Both are the one part of
