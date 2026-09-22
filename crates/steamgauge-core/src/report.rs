@@ -176,6 +176,10 @@ pub struct AppReport {
     pub top: Vec<Example>,
     /// Measured agreement against a reference set, or why there is none.
     pub agreement: Measurement,
+    /// What two labellers reached together on this game, where a second of them has read part
+    /// of the set. Agreement with one labeller cannot say whether a disagreement is the
+    /// model's; agreement on the claims two of them reached the same answer for can.
+    pub ceiling: Option<crate::measure::Ceiling>,
     /// What this game's players talk about that the sheet has no row for, where a reading
     /// has induced any, with the reviews behind each.
     pub induced: Vec<InducedEvidence>,
@@ -518,11 +522,9 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     top.sort_by_key(|example| std::cmp::Reverse(example.review.votes_up));
     top.dedup_by(|a, b| a.review.id == b.review.id);
 
-    let agreement = agreement_for(
-        app_id,
-        &options.out_dir,
-        &crate::claimset::default_reference_dir(app_id),
-    );
+    let reference = crate::claimset::default_reference_dir(app_id);
+    let agreement = agreement_for(app_id, &options.out_dir, &reference);
+    let ceiling = ceiling_for(app_id, &options.out_dir, &reference, &agreement);
     let induced = induced_for(app_id, &snapshot, options.examples)?;
     Ok(AppReport {
         crawl,
@@ -530,6 +532,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         examples,
         top,
         agreement,
+        ceiling,
         induced,
     })
 }
@@ -711,6 +714,25 @@ fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Measurement {
     }
 }
 
+/// What two labellers reached together on this game, where the set has been read twice.
+///
+/// Only where the game's own figure is a measurement: on a game the model trained on, the
+/// claims two labellers agree about are the ones it memorised best, and a ceiling read off
+/// them would be the flattering figure with a second labeller's name attached.
+fn ceiling_for(
+    app_id: u32,
+    out_dir: &Path,
+    reference: &Path,
+    agreement: &Measurement,
+) -> Option<crate::measure::Ceiling> {
+    if agreement.report().is_none() || !reference.join("second").join("labels.json").is_file() {
+        return None;
+    }
+    crate::measure::ceiling(out_dir, app_id, reference)
+        .ok()
+        .filter(|found| found.labellers_agreed > 0)
+}
+
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     let bytes = std::fs::read(path).map_err(|_| crate::Error::NoClassifications {
         path: path.to_path_buf(),
@@ -815,6 +837,7 @@ mod tests {
             examples: Vec::new(),
             top: Vec::new(),
             agreement: Measurement::Unlabelled,
+            ceiling: None,
             induced: Vec::new(),
         }
     }
@@ -947,6 +970,21 @@ mod tests {
             Measurement::Learned
         ));
         assert!(agreement_for(TRAINS, &out, &reference).report().is_none());
+
+        // And no ceiling either: the claims two labellers settle are the ones a model that
+        // trained on them remembers best, so the figure would flatter it twice over.
+        let second = reference.join("second");
+        std::fs::create_dir_all(&second).unwrap();
+        std::fs::copy(reference.join("labels.json"), second.join("labels.json")).unwrap();
+        assert!(
+            ceiling_for(
+                TRAINS,
+                &out,
+                &reference,
+                &agreement_for(TRAINS, &out, &reference)
+            )
+            .is_none()
+        );
 
         std::fs::write(reference.join("labels.json"), "[]").unwrap();
         assert!(

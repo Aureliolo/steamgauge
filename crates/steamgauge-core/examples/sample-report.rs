@@ -158,6 +158,17 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         } else {
             Measurement::Unlabelled
         },
+        // A measured game whose set has been read twice, which is what the frozen games are,
+        // so the page's ceiling paragraph is in the fixture a browser checks.
+        ceiling: measured.then_some(steamgauge_core::measure::Ceiling {
+            compared: 420,
+            labellers_agreed: 387,
+            model_agreed_where_they_did: 331,
+            labellers_split: 33,
+            model_matched_either: 27,
+            model_agreed_with_first: 348,
+            model_agreed_with_second: 340,
+        }),
         induced: induced(app_id),
     }
 }

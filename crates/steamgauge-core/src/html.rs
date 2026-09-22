@@ -1818,8 +1818,18 @@ fn trust(out: &mut String, app: &AppReport) {
     }
     out.push_str("</dl>\n");
 
+    measured_here(out, app);
+}
+
+/// What this game's own labels say about the reading, or why they cannot say anything.
+fn measured_here(out: &mut String, app: &AppReport) {
     match &app.agreement {
-        crate::report::Measurement::Measured(agreement) => agreement_note(out, agreement),
+        crate::report::Measurement::Measured(agreement) => {
+            agreement_note(out, agreement);
+            if let Some(ceiling) = &app.ceiling {
+                ceiling_note(out, ceiling);
+            }
+        }
         crate::report::Measurement::Unlabelled => unmeasured_here(
             out,
             app,
@@ -1878,6 +1888,44 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
         thousands(u64::from(frozen.claims)),
         percent(frozen.coverage),
         percent(frozen.accuracy),
+    );
+}
+
+/// What a second labeller does to the figure above it.
+///
+/// Agreement with one labeller cannot say whether a disagreement is the model's mistake or the
+/// labeller's, and on a silver standard that is the whole question. Where part of the set has
+/// been read a second time, blind, the claims the two reached the same answer for are the ones
+/// worth scoring against, and the claims they split on have no single answer to be right about.
+fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
+    let (Some(between), Some(settled)) =
+        (ceiling.between_labellers(), ceiling.against_the_settled())
+    else {
+        return;
+    };
+    let range = ceiling.interval().map_or_else(String::new, |(low, high)| {
+        format!(", somewhere in [{}, {}]", percent(low), percent(high))
+    });
+    let split = ceiling.where_they_split().map_or_else(String::new, |rate| {
+        format!(
+            " On the {} they read differently there is no single answer to be right about, and \
+             it lands on one of their two {} of the time.",
+            thousands(ceiling.labellers_split),
+            percent(rate)
+        )
+    });
+    let _ = writeln!(
+        out,
+        "<p class=\"note\"><strong>{} of those claims were read a second time</strong>, by a \
+         different labeller working blind, and the two reached the same subject on {} of them. \
+         On those settled claims the model agrees {}{}, which is the nearest thing to accuracy \
+         a set labelled by models can produce: a label two independent readings reached is one \
+         worth scoring against.{}</p>",
+        thousands(ceiling.compared),
+        percent(between),
+        percent(settled),
+        range,
+        split
     );
 }
 
@@ -2254,6 +2302,7 @@ mod tests {
                 examples: vec![("bugs".to_owned(), vec![example])],
                 top: Vec::new(),
                 agreement: crate::report::Measurement::Unlabelled,
+                ceiling: None,
                 induced: Vec::new(),
             }],
         }
@@ -2414,6 +2463,43 @@ mod tests {
 
     /// A rate the model is measured to miss most of is not a count, and a reader scanning the
     /// table has no way to tell the two apart unless the page says so.
+    #[test]
+    fn a_set_read_twice_says_what_the_two_labellers_settled() {
+        let ceiling = crate::measure::Ceiling {
+            compared: 400,
+            labellers_agreed: 360,
+            model_agreed_where_they_did: 306,
+            labellers_split: 40,
+            model_matched_either: 32,
+            model_agreed_with_first: 320,
+            model_agreed_with_second: 316,
+        };
+        let mut out = String::new();
+        ceiling_note(&mut out, &ceiling);
+        assert!(
+            out.contains("400 of those claims were read a second time"),
+            "{out}"
+        );
+        assert!(
+            out.contains("90.0%"),
+            "the two labellers agreed on 360 of 400: {out}"
+        );
+        assert!(
+            out.contains("85.0%"),
+            "the model agreed on 306 of those 360: {out}"
+        );
+        assert!(
+            out.contains("80.0%"),
+            "it matched one of two on 32 of 40 split: {out}"
+        );
+        assert!(out.contains("somewhere in ["), "{out}");
+
+        // Nothing to say where nobody has read the set twice, rather than a row of dashes.
+        let mut out = String::new();
+        ceiling_note(&mut out, &crate::measure::Ceiling::default());
+        assert!(out.is_empty(), "{out}");
+    }
+
     #[test]
     fn a_row_the_model_barely_finds_is_marked_as_one() {
         let scored = |labelled, agreed| crate::measure::SubjectAgreement {
