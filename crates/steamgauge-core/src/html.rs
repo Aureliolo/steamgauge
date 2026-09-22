@@ -1773,10 +1773,19 @@ fn trust(out: &mut String, app: &AppReport) {
                 ". That is {ratio:.1} times what it declines on a game it has never seen: this \
                  game's players talk about something the taxonomy has no row for"
             ),
-            Some(ratio) => format!(
-                ", about {:.0}% of what it usually declines on a game it has never seen",
-                ratio * 100.0
-            ),
+            // Both rates rather than the ratio between them. "About 76% of what it usually
+            // declines" is a true sentence that reads, at a glance, as a share of the claims.
+            Some(_) => app
+                .reading
+                .usual_declined
+                .map_or_else(String::new, |usual| {
+                    let usual = f64::from(usual);
+                    format!(
+                        ", {} the {} it usually declines on a game it has never seen",
+                        if share > usual { "above" } else { "below" },
+                        percent(usual)
+                    )
+                }),
             None => String::new(),
         };
         fact(
