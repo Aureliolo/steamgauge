@@ -119,17 +119,17 @@ fn main() -> steamgauge_core::Result<()> {
         "all", total.labels, total.still, total.inside, total.covers, total.straddles, total.gone
     );
     let moved = total.labels - total.still;
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a reference set is tens of thousands of labels, not 2^53 of them"
+    )]
+    let share = 100.0 * moved as f64 / total.labels as f64;
     println!(
         "\n{moved} of {} labels name a span this build cuts no claim at ({:.1}%). Of those, \
          {} sit inside one claim it now cuts, {} cover more than one whole claim, {} overlap \
          a claim without either containing it or sitting inside it, and {} have no claim \
          overlapping them at all.",
-        total.labels,
-        100.0 * moved as f64 / total.labels as f64,
-        total.inside,
-        total.covers,
-        total.straddles,
-        total.gone
+        total.labels, share, total.inside, total.covers, total.straddles, total.gone
     );
     Ok(())
 }
