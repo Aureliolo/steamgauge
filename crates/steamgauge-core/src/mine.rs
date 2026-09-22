@@ -86,7 +86,8 @@ pub const PROBES: &[Probe] = &[
             "real names",
             "real teams",
             "real cars",
-            "real players",
+            // Not "real players": it means human opponents rather than bots, which is
+            // `multiplayer`, and it did so in all 21 claims it caught, the football game's too.
             "fake names",
             "official teams",
             "fictional",
@@ -938,6 +939,7 @@ mod tests {
         assert_eq!(hooked("the grenade launcher is devastating"), None);
         assert_eq!(hooked("interesting weapon mods to unlock"), None);
         assert_eq!(hooked("I found it entertaining and accessible"), None);
+        assert_eq!(hooked("way more fun against real players than bots"), None);
         assert_eq!(hooked("a tone deaf announcement from the publisher"), None);
         assert_eq!(hooked("upgrade your bear license, drink beer"), None);
         assert_eq!(hooked("vive la DRG, longue vie a eux"), None);
