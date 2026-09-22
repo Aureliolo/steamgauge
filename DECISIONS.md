@@ -2657,6 +2657,45 @@ differently from the build that read it (the claim and unanswered counts must ma
 reading's) or the reader named is not the one that answered (the lines fingerprint must
 match). The 53 games recounted in about seven minutes, every one reconciling.
 
+Korean went the other way from Chinese: it is written with spaces, so a word is what sits
+between them with its particle (이, 은, 을, 에서) and its verb ending (했습니다, 하고) taken
+off, from two short lists. That trades 환불 counted inside every inflection for 환불 counted
+as a word (68 reviews became 34 on 1778820), and fragments like 워야 and 하지 for nothing at
+all. A morphological analyser would do both; there is none here, and Korean is under four
+percent of the library.
+
+### A night of training experiments, and what each was worth
+
+Settled 2026-09-22, from the sweep that ran while the user was away, on the e5-29006 labels
+(27,194 training claims, 6,556 validation, 5,423 frozen). Every run below is
+`sweep.py --fingerprint 2871969fd84a8278 --against e5-29006`; the seed spread of the shipped
+configuration is the bar, and three seeds put it at 2.6 points of validation coverage and
+under a point of frozen accuracy. The research behind the list is the reader-improvement
+survey in the session scratchpad, ranked by expected gain per hour of the card.
+
+| run | what it changed | validation answers at 75% | frozen answers | frozen accuracy | frozen AURC |
+|---|---|---|---|---|---|
+| e5-29006 | the baseline, seed 1 | 90.3% | 91.9% | 77.1% | 0.101 |
+| e5-29006-s2 | seed 2 | 87.7% | 89.9% | 78.0% | 0.103 |
+| e5-29006-s3 | seed 3 | 89.0% | 90.1% | 77.6% | 0.103 |
+| e5-29006-lr3e5 | learning rate 3e-5 | 89.2% | 90.5% | 78.0% | 0.101 |
+| e5-29006-ep7 | 7 epochs | 90.2% | 92.3% | 77.2% | 0.102 |
+| e5-29006-ema-s1..s3 | 10 epochs, EMA 0.999, layer-wise decay 0.9 | 88.4, 87.6, 88.1% | 89.7, 89.2, 90.0% | 77.8, 78.4, 77.7% | 0.106, 0.104, 0.104 |
+| qwen3e06-29006 | Qwen3-Embedding-0.6B, mean pooling | 77.4% | 79.7% | 77.2% | 0.132 |
+| qwen3e06-last-29006 | Qwen3-Embedding-0.6B, last-token pooling | 82.0% | 83.1% | 77.6% | 0.120 |
+
+**Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
+and the stabilised schedule the survey ranked first (an exponential average of the weights,
+layer-wise rate decay, ten epochs) all land inside the seed spread; the EMA runs sit at the
+low edge of coverage with a slightly worse AURC, which is what averaging a run that has
+memorised its labels into one that has not looks like. The configuration is at the floor of
+what these labels can teach an e5-large, and the floor is flat.
+
+**A decoder read by its last token is better than the same decoder read by its mean, and
+still worse than the encoder.** Qwen3-Embedding-0.6B mean-pooled answered 77% where e5-large
+answers 90%; by its last token, the way it was trained, 82%. The gap is the causal mask: only
+the last token has seen the whole claim. It is not a candidate at this size.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
