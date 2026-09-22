@@ -610,12 +610,18 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
         Ok(serde_json::from_slice(&bytes)?)
     };
     let first = read_labels(reference.join("labels.json"))?;
-    let second = read_labels(reference.join("second").join("labels.json"))?;
-
-    let theirs: HashMap<(&str, u16), &ClaimLabel> = second
+    // Every blind reading of these claims, newest sheet first, because a game read twice by
+    // one exercise and again by another has two second opinions and both are second opinions.
+    let mut theirs: HashMap<(&str, u16), &ClaimLabel> = HashMap::new();
+    let readings: Vec<Vec<ClaimLabel>> = crate::claimset::SECOND_READINGS
         .iter()
-        .map(|label| ((label.review_id.as_str(), label.index), label))
+        .map(|reading| read_labels(reference.join(reading).join("labels.json")).unwrap_or_default())
         .collect();
+    for label in readings.iter().flatten() {
+        theirs
+            .entry((label.review_id.as_str(), label.index))
+            .or_insert(label);
+    }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(&snapshot, &first)?;

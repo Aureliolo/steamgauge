@@ -533,6 +533,16 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
 /// counts a row from any of them.
 pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved", "multilingual"];
 
+/// The directories that hold another labeller's answers to claims a set already has, newest
+/// first, because the first one holding a claim is the one that answers it.
+///
+/// Both are blind readings of the same drawn batches with no labels in them. `second` is what
+/// `second-opinion` writes, a share of each set and the frozen games in full; `opus` is what a
+/// second model wrote reading twenty-six games from end to end. Reading only the first of them
+/// left 9,072 second opinions on training claims unused, 1,069 of them disagreements, which is
+/// most of what a loss charged against two labellers has to work with.
+pub const SECOND_READINGS: &[&str] = &["second", "opus"];
+
 /// Draws the claims the reader would not answer, as a set to teach it on.
 ///
 /// Every set so far is a random draw, which is what makes prevalence measurable and is the
@@ -1117,6 +1127,25 @@ pub struct LabelledClaim {
     pub review_offset: usize,
 }
 
+/// What a second labeller said about the claims of one set, from whichever reading holds each.
+///
+/// [`SECOND_READINGS`] in order, first one wins: a claim read by both is answered by the
+/// newer sheet's reading, and a claim only the older one covers is still answered.
+fn read_again(set: &Path) -> Result<std::collections::HashMap<(String, u16), ClaimLabel>> {
+    let mut again = std::collections::HashMap::new();
+    for reading in SECOND_READINGS {
+        let Ok(bytes) = std::fs::read(set.join(reading).join("labels.json")) else {
+            continue;
+        };
+        for label in serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)? {
+            again
+                .entry((label.review_id.clone(), label.index))
+                .or_insert(label);
+        }
+    }
+    Ok(again)
+}
+
 /// Every labelled claim under a reference root, with its text, in a fixed order.
 ///
 /// A game's directory holds its random draw, and beside it the teaching draws named in
@@ -1148,14 +1177,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
         let drawn: Vec<DrawnReview> =
             serde_json::from_slice(&std::fs::read(set.join("sample.json"))?)?;
-        let mut again: std::collections::HashMap<(String, u16), ClaimLabel> =
-            match std::fs::read(set.join("second").join("labels.json")) {
-                Ok(bytes) => serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)?
-                    .into_iter()
-                    .map(|label| ((label.review_id.clone(), label.index), label))
-                    .collect(),
-                Err(_) => std::collections::HashMap::new(),
-            };
+        let mut again = read_again(&set)?;
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
@@ -1365,6 +1387,47 @@ mod tests {
                 .collect(),
             asked: None,
         }
+    }
+
+    #[test]
+    fn a_claim_only_the_older_reading_answered_still_has_a_second_answer() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-again-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let label = |id: &str, subject: &str| ClaimLabel {
+            review_id: id.to_owned(),
+            index: 0,
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start: 0,
+            end: 0,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a-labeller".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+        };
+        for (reading, labels) in [
+            ("second", vec![label("a", "gameplay")]),
+            ("opus", vec![label("a", "story"), label("b", "performance")]),
+        ] {
+            std::fs::create_dir_all(dir.join(reading)).unwrap();
+            std::fs::write(
+                dir.join(reading).join("labels.json"),
+                serde_json::to_vec(&labels).unwrap(),
+            )
+            .unwrap();
+        }
+
+        let again = read_again(&dir).unwrap();
+        // The newer reading answers the claim both hold, and the older one is not thrown away
+        // for the claim it alone read.
+        assert_eq!(again[&("a".to_owned(), 0)].subject, "gameplay");
+        assert_eq!(again[&("b".to_owned(), 0)].subject, "performance");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

@@ -3146,25 +3146,30 @@ folds of a single seed, because five folds of a three-seed soup is fifteen runs 
 thirty hours of a shared card. That mismatch is a real one and the frozen read is what tests
 it: if a soup's promise does not transfer where a seed's does, the seed ships.
 
-### What `--second-weight` can possibly do, written down before the run reports
+### Half the second reading was on disk and nothing read it
 
-Counted 2026-09-22, before the run that tests it. The knob mixes the second labeller's answer
-into the target wherever a claim has been read twice, so its reach is exactly the claims where
-the two labellers wrote different subjects: everywhere else the target is the same one-hot it
-already was.
+Counted 2026-09-22 to say what `--second-weight` could possibly do before the run that tests
+it reported, which is how the defect turned up. The knob mixes the second labeller's answer
+into the target wherever a claim has been read twice, so its reach is the claims where the two
+labellers wrote different subjects. The count came back at **2,140 training claims read twice
+and 297 disagreements**, 1.27% of the set: too little to clear a seed spread, and the entry
+was written saying so.
 
-Of 23,378 training claims, **2,140 have been read twice** (9.2%), and the two labellers differ
-on **297 of them**. That is **1.27% of the training set** whose target the knob can move at
-all, and it moves each of those by half. A change to one claim in eighty, weighted at a half,
-cannot clear a seed spread of 2.6 points of coverage, and a run that shows it clearing one is
-showing the seed.
+It was too little because the export was reading one of the two blind readings. A set holds
+`second/`, which `second-opinion` writes, a share of each game and the frozen ones in full;
+beside it sits `opus/`, where a second model read twenty-six games from end to end, blind,
+from batches regenerated with no labels in them. `export_training` and `ceiling` looked only
+at the first. **9,072 second opinions on training claims, 1,069 of them disagreements, were on
+disk and unused.**
 
-So the run is worth its three hours for the record rather than for the result, and the honest
-reading of it is: anything inside the noise is nothing. What would give the knob something to
-work with is a second reading of the training games, which is 21,000 claims of labelling
-aimed at the half of the set that teaches rather than the half that measures. The frozen games
-were read twice first because they are what every figure rests on; this is the case for doing
-the training games next, and it is a case about labelling budget rather than about the loss.
+Both now read every blind reading of a set, newest sheet first, so a claim both cover is
+answered by the newer one and a claim only the older covers is still answered. The export went
+from 8,106 second answers to **21,124**, and from 297 disagreements to **2,435**.
+
+So the expectation changes with the arithmetic. The knob now reaches 5.8% of training claims
+rather than 1.27%, which is still small against a 2.6-point seed spread, but it is a test
+worth its three hours rather than a formality. What it cannot do is make the knob look better
+than it is: the same run, on the same seed, against the same fresh export.
 
 ### The card was not waiting for text, and the measurement is the whole finding
 
