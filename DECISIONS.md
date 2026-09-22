@@ -3057,6 +3057,28 @@ multiplayer complaints `servers, capacity, join, matchmaking, connection, server
 waiting, connect`. The counting does not change, only which of the counted terms are worth a
 place, so a `recount` is enough and no game needs reading again.
 
+### The frozen games are read twice in full, and that is the ceiling
+
+Finished 2026-09-22: 31 sittings, 5,130 claims, ten games, every one of them read by a second
+labeller who saw no label of the first and was not told which game a review came from.
+
+Over the ten games the model has never seen, 4,060 claims were read twice and answered. **The
+two labellers reach the same subject on 91.7% of them, and on those the model agrees 85.5%**,
+somewhere in [0.844, 0.866]. On the 337 they split it lands on one of the two answers 82.8% of
+the time, which is a floor rather than a score, because there is no single right answer there.
+The first figure is the ceiling: a model taught one labeller's reading cannot be more right
+than two labellers manage with each other, so the second is what it scores out of the first.
+
+The contested flag sorts the block as it sorts everything else: where neither labeller reached
+for it the model is right on 93.1% of 2,612 claims, where one did 73.5%, where both did 60.5%.
+Per language over settled claims it answered: English 85.8% of 2,766, Chinese 86.9% of 153,
+German 88.5% of 131, Russian 84.1% of 182, Korean 80.0% of 35. The Chinese gap the agreement
+column showed is not in this block at all, which is the third measurement to say so.
+
+Over every set, 8,106 claims are now read twice: the labellers agree on the subject 88.9% of
+the time, kappa 0.87, and on polarity 95.1%, kappa 0.92. Those did not move as the second
+reading grew from a share of each set to all of the frozen ones.
+
 ### "can't" was a finding about a game, and a negation in six languages was not
 
 Found 2026-09-22 on the same page. The policy complaints of a game with a million reviews read
