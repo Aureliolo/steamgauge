@@ -21,6 +21,15 @@
 //! a story that Spanish speakers happened to like, and said nothing but "story". Praise against
 //! complaint among the reviews that share a language is the comparison that cannot be won by
 //! a language leaning one way.
+//!
+//! What it cannot do is read a negation that is not next to what it negates. "no
+//! microtransactions" and "no micro transactions" are caught, because a word that turns what
+//! follows reaches the word and the pair after it; "I never ran into any performance issues"
+//! is not, and its "performance issues" is counted in praise like any other. Measured on one
+//! game's performance row, three of the eight praising reviews that used the phrase wrote the
+//! negation beside it and five wrote it further off. The page answers this by opening every
+//! term onto the claims it was counted from, which is the only honest answer a counter that
+//! does not parse can give.
 
 use std::collections::{HashMap, HashSet};
 
