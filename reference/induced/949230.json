@@ -1,0 +1,113 @@
+{
+  "app_id": 949230,
+  "seed": 1,
+  "handout_size": 120,
+  "induced_by": "claude-opus-5",
+  "subjects": [
+    {
+      "id": "predecessor-comparison",
+      "label": "Comparison with the first game",
+      "description": "Measuring this sequel against its direct predecessor, being a fan of the first, preferring the old one modded or finding the new one better; comparisons with other city builders or genres stay under genre.",
+      "refines": "genre",
+      "evidence": [
+        "149472147",
+        "149880085",
+        "150172069",
+        "150846532",
+        "153404847",
+        "156111044",
+        "208673831"
+      ]
+    },
+    {
+      "id": "roads-and-traffic",
+      "label": "Roads and traffic",
+      "description": "The road tools and how vehicles behave on them, lane changing, traffic signals and phasing, and jams; the wider economy and service systems belong in their own rows.",
+      "refines": "gameplay",
+      "evidence": [
+        "148799702",
+        "173928498",
+        "181645484",
+        "185892350"
+      ]
+    },
+    {
+      "id": "economy-and-taxes",
+      "label": "City economy and taxes",
+      "description": "Taxes, the budget, upkeep and expenses, money running short and whether the economic simulation makes sense; road and traffic matters and the price of the game itself do not belong here.",
+      "refines": "gameplay",
+      "evidence": [
+        "149271977",
+        "149373611",
+        "150799196",
+        "173162965",
+        "179974711",
+        "227885881"
+      ]
+    },
+    {
+      "id": "services-and-demand",
+      "label": "City services and zone demand",
+      "description": "The simulation of services such as rubbish collection and service buildings and their upgrades, zoning demand and export or trade working or failing; money and taxes stay under the economy row.",
+      "refines": "gameplay",
+      "evidence": [
+        "148866680",
+        "149271977",
+        "154719019"
+      ]
+    },
+    {
+      "id": "hardware-strain",
+      "label": "Hardware demands and overheating",
+      "description": "The game needing a top-end card or absurd memory to run at all, cooking the GPU, heating the room or shutting the PC down; ordinary frame-rate and stutter complaints stay under performance.",
+      "refines": "performance",
+      "evidence": [
+        "148804921",
+        "148812719",
+        "148831497",
+        "161236692",
+        "182137278",
+        "207893481"
+      ]
+    },
+    {
+      "id": "city-size-scaling",
+      "label": "Performance against city size",
+      "description": "How large a city gets, measured in population, before the game slows or crashes, and whether that ceiling has moved; frame-rate complaints without a city size belong under performance.",
+      "refines": "performance",
+      "evidence": [
+        "148816384",
+        "149271977",
+        "191584139"
+      ]
+    },
+    {
+      "id": "wait-before-buying",
+      "label": "Shipped unfinished, buy later",
+      "description": "The game having launched in an early access state and the advice to wait for patches, years or a finished version before buying; whether a discount is worth waiting for is a price matter.",
+      "refines": "updates",
+      "evidence": [
+        "148829366",
+        "149146661",
+        "149472147",
+        "150430891",
+        "150683525",
+        "163588621",
+        "196142042"
+      ]
+    },
+    {
+      "id": "realism-governance",
+      "label": "Realism and lessons in governing",
+      "description": "The simulation as a mirror of real cities and governments, what playing mayor teaches about real politics and whether the outcome is realistic or absurd; plain political jokes with no link to the game are off topic.",
+      "refines": null,
+      "evidence": [
+        "148832424",
+        "208836826",
+        "227885881",
+        "228487801",
+        "228690541"
+      ]
+    }
+  ]
+}
