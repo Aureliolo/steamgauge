@@ -2685,6 +2685,7 @@ survey in the session scratchpad, ranked by expected gain per hour of the card.
 | qwen3e06-last-29006 | Qwen3-Embedding-0.6B, last-token pooling | 82.0% | 83.1% | 77.6% | 0.120 |
 | harrier06-last-29006 | Harrier 0.6B, last-token pooling | 78.5% | 79.7% | 78.4% | 0.126 |
 | e5-29006-distil-s1 | the EMA schedule plus a 247k-claim pool taught by the three EMA seeds | 89.8% | 90.8% | 77.9% | 0.097 |
+| e5inst-ema-29006 | multilingual-e5-large-instruct, the EMA schedule | 92.0% | 92.9% | 77.4% | 0.103 |
 
 **Nothing on the schedule side moved anything.** Three seeds, a higher rate, two more epochs,
 and the stabilised schedule the survey ranked first (an exponential average of the weights,
@@ -2709,6 +2710,15 @@ per labelled batch. It lands at 89.8% validation coverage against its teachers' 
 and a half over the runs it learned from and inside the spread of the runs it did not, at
 four and a half times the training time. Worth a second seed and a bigger pool before it is
 called an improvement; not worth shipping on one run.
+
+**The instruction-tuned e5 answers the most of anything trained tonight.** On the same EMA
+schedule as its sibling, `multilingual-e5-large-instruct` answers 92.0% of validation claims
+where the plain e5 on that schedule answers 88.4, and 92.9% of frozen claims at 77.4% where
+the shipped run answers 91.9% at 77.1%: three and a half points over its like-for-like
+sibling, one point over the best plain seed, with a lower validation macro F1 (0.634 against
+0.646) and the same frozen one. One seed, at the edge of the spread. The two findings point
+the same way, and they stack: the next round is e5-large-instruct with the pool, on three
+seeds, and if that clears the bar it goes through the folds and ships.
 
 ### The frontier comparison, drawn again
 
