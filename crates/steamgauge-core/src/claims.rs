@@ -910,7 +910,8 @@ fn weight(piece: &str) -> usize {
 
 /// Whether a character belongs to a script that carries about a word per character and puts
 /// no spaces between them.
-pub(crate) fn writes_without_spaces(ch: char) -> bool {
+#[must_use]
+pub fn writes_without_spaces(ch: char) -> bool {
     matches!(ch as u32,
         0x3040..=0x30FF   // Hiragana and Katakana
         | 0x3400..=0x4DBF // CJK unified ideographs, extension A

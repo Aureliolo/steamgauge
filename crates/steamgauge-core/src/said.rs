@@ -419,6 +419,13 @@ fn nearly(left: u64, right: u64) -> bool {
     left * 20 >= right * 19 && right * 20 >= left * 19
 }
 
+/// Whether a term is one of the words that say nothing alone and turn what follows. A term
+/// list holding one is a defect, which is what the diagnostic that asks this checks for.
+#[must_use]
+pub fn turns_what_follows(term: &str) -> bool {
+    MODIFIERS.contains(&term)
+}
+
 /// Whether a term opens on a word that turns what follows: "no bugs", "not worth".
 fn turned_by_a_modifier(term: &str) -> bool {
     term.split(' ')
@@ -453,7 +460,11 @@ const ENDINGS: &[&str] = &["", "s", "es", "ed", "ing"];
 /// "listening", "story" and "stories". The shared beginning has to be a word's worth of
 /// characters, because a three-letter agreement is a coincidence: "mode" and "mods" share
 /// "mod" and are two findings, and the endings they differ by settle it.
-fn one_word_inflected(left: &str, right: &str) -> bool {
+///
+/// Public so that a diagnostic can ask the same question of every page that has been counted,
+/// which is how the rule is checked at the size it has to hold at.
+#[must_use]
+pub fn one_word_inflected(left: &str, right: &str) -> bool {
     if left == right {
         return false;
     }
@@ -1638,6 +1649,7 @@ reviews \
 игре этот эта это эти его её их мне меня тебе вас нам них там тут здесь \
 der das und ist nicht ein eine einer einen dem den des ich du er sie es wir ihr \
 mit von zu auf für aus bei nach über auch nur noch schon sehr aber oder wenn dass wie \
+ab um \
 wo da hier dort wird sind habe haben kann spiel spiele spielen \
 el la los las un una unos unas y o pero de del en con por para que es son está están \
 muy más menos también ya no sí este esta esto ese esa eso lo le les se me te su sus mi \
