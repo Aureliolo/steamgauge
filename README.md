@@ -390,9 +390,11 @@ rather than about somebody's afternoon:
   contested, and whether the claim was cut in the wrong place. The last two are read back:
   agreement is reported separately over the contested claims, and the mis-split rate is what
   drives the splitting rules. Three rounds of them came from labellers reporting it.
-- **A tenth is read again by a different labeller, blind.** `steamgauge second-opinion` draws the
-  same reviews as fresh batches with no labels in them, and `steamgauge compare-labels` reads the
-  two labellings together. It reports each field apart from the others, because they fail
+- **Every game the model is measured on is read again by a different labeller, blind, in full,
+  and a share of every other set is too.** That is 8,106 of the 33,615 claims the random draws
+  hold, a quarter of them, and all 4,060 of the ones the frozen games answer. `steamgauge second-opinion` draws the same reviews as fresh
+  batches with no labels in them, and `steamgauge compare-labels` reads the two labellings
+  together. It reports each field apart from the others, because they fail
   differently: subject is a judgement about the claim, and `ambiguous` is a judgement about the
   taxonomy. Beside every percentage is Cohen's kappa, which is what the percentage cannot tell
   you: a corpus is mostly `verdict` and `offtopic`, so two labellers who never read a claim
