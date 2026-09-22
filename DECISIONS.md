@@ -3448,6 +3448,68 @@ had a blind second reading, that one stays: a reading of the whole set outranks 
 The export now writes **40,695 rows, every one a distinct claim**, 20,244 with a second answer
 and 2,358 of those disagreeing on the subject.
 
+### The reader is worst exactly where the labellers are, and labels are not what those rows need
+
+Measured 2026-09-22, over the 24 subjects with at least 30 claims read twice and at least 15
+claims in the frozen games. Two numbers per row: how often the two blind readings reached the
+same subject, and what the reader scores on that row on games it never saw (`e5inst-pool-rdrop`
+seed 2, frozen `per_subject`).
+
+| | agreement vs frozen F1 | training labels vs frozen F1 |
+|---|---|---|
+| Pearson | **+0.79** | +0.29 |
+| Spearman | **+0.65** | +0.22 |
+
+**How well two labellers agree about a row predicts how well the model reads it. How many
+labels the row has barely does.** The ends of the table are where it is plainest:
+
+| subject | labellers agree | frozen F1 | training labels | where the second reading went instead |
+|---|---|---|---|---|
+| accessibility | 68% | 0.28 | 299 | difficulty, gameplay |
+| policy | 70% | 0.60 | 737 | compatibility 23, updates 12 |
+| licensing | 78% | 0.49 | 255 | content |
+| genre | 87% | 0.60 | 969 | verdict 25, gameplay 24 |
+| ... | | | | |
+| price | 91% | 0.84 | 621 | verdict |
+| performance | 92% | 0.85 | 933 | updates |
+| monetisation | 95% | 0.79 | 493 | policy |
+| audio | 96% | 0.77 | 284 | atmosphere |
+
+`accessibility` is the case that makes the point. It holds 299 training labels, more than
+`audio`'s 284 and `vr`'s 273, and it scores 0.28 against their 0.77 and 0.56. Its precision and
+recall are both about 0.28, which is not a row the model cannot find: it is a row nobody has
+defined. Two readings of the same claim land on the same subject 68% of the time, the worst on
+the sheet, and where they differ they go to `difficulty` and `gameplay`. No number of further
+`accessibility` labels fixes that, because each new one is drawn from the same 68%.
+
+The correlation is not proof of direction: a row can be intrinsically hard and drag both numbers
+down at once. What does not depend on the direction is the ceiling. A row two careful readers
+split on three times in ten cannot be learned past seven in ten, however much of it is labelled,
+so a mining draw aimed at it is buying the 68% rather than the row.
+
+**So the labelling splits in two.** A row that is starved and precise, where the reader finds
+little and is right when it does, wants more labels: `licensing` at precision 0.70 and recall
+0.38 is the clearest, and `vr`, `community` and `language` are the same shape at sizes too small
+to score. A row that is well taught and confused wants a rule, not a draw: `accessibility`,
+`policy`, `genre`, `content`. The four boundaries the adjudication page can now be aimed at are
+the second kind, and the entries in `reference/GAPS.md` are where each names the seam.
+
+**Acted on the same evening, on the worst row.** `accessibility`'s description was a purpose,
+"the settings players need in order to play at all", and a purpose is the one thing a labeller
+cannot check a claim against; it also listed "difficulty options" and "remappable controls",
+which are two of the three rows the second reading sends its disagreements to. The row now
+names what it holds and gives the test, the accommodation and never the thing it accommodates,
+so "the subtitles are tiny" is `graphics` and "no subtitle size setting" stays here.
+`compatibility` gains the matching sentence for its seam with `policy`.
+
+The revisit needed two changes to reach the row. `--words` is optional now: a revision that
+narrows a row rather than teaching the sheet a new name puts every claim under it back in
+question, and there are no words for that. And the draw walks the teaching sets, not only the
+game's random draw: **261 of the 369 `accessibility` labels are in `mined`, `retrieved`,
+`declined` and `multilingual` sets**, so a revision reaching only the random draw would have
+left seven in ten claims under the wording it just replaced. That is the fourth instance of
+the evening's pattern, a rule enforced where it was written and nowhere else.
+
 ### Four of every ten epochs buy less than the noise bar
 
 Measured 2026-09-22, from the per-epoch validation lines the three seeds of
