@@ -37,6 +37,8 @@ export function browser() {
 
 export const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
+const START_LIMIT_MS = 90_000;
+
 /// Starts Chrome on the page, in a profile of its own, and waits for it to say which port it
 /// listens on. Throws with whatever Chrome said if it dies first.
 export async function open(url, { prefix = "steamgauge-check-" } = {}) {
@@ -68,10 +70,19 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
     stopped = signal ? `killed by ${signal}` : `exited with ${code}`;
   });
 
+  // A start usually takes a second or two, but on a CI runner two in twenty-three needed more
+  // than twenty, still starting with nothing wrong. The wait is for a browser that will never
+  // answer, so it is set well past a slow one, and a slow one is said out loud: a start that
+  // keeps getting slower is a finding, and a limit that is simply raised would hide it.
   const active = join(profile, "DevToolsActivePort");
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  const started = Date.now();
+  while (Date.now() - started < START_LIMIT_MS) {
     const [port] = (await readFile(active, "utf8").catch(() => "")).split("\n");
     if (port) {
+      const took = (Date.now() - started) / 1000;
+      if (took > 5) {
+        console.error(`headless Chrome took ${took.toFixed(1)}s to open its debugging port`);
+      }
       return { chrome, port: Number(port), close: () => close(chrome, profile) };
     }
     if (stopped) {
@@ -81,7 +92,9 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
     await sleep(100);
   }
   await close(chrome, profile);
-  throw new Error(`headless Chrome never opened a debugging port in 20s\n${said}`);
+  throw new Error(
+    `headless Chrome never opened a debugging port in ${START_LIMIT_MS / 1000}s\n${said}`,
+  );
 }
 
 async function close(chrome, profile) {
