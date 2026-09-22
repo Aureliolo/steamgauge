@@ -3510,6 +3510,32 @@ game's random draw: **261 of the 369 `accessibility` labels are in `mined`, `ret
 left seven in ten claims under the wording it just replaced. That is the fourth instance of
 the evening's pattern, a rule enforced where it was written and nowhere else.
 
+### 29 of the 487 benchmark claims were spans nothing can read
+
+Checked 2026-09-22, after the export learned to hold back a label whose span this build cuts no
+claim at: the frontier comparison's own sample is drawn from the export, so it holds them in
+the same proportion. **29 of its 487 claims, 6.0%**, across eighteen subjects.
+
+Re-scored on the 458 that survive, from the answers already on disk, no model run again:
+
+| | answers | agreement where it answers | macro F1 |
+|---|---|---|---|
+| Claude Opus 5, 487 claims | 99.4% | 87.6% | 0.875 |
+| Claude Opus 5, 458 claims | 99.3% | **87.0%** | 0.870 |
+| `e5-29006`, the reader that ships, 487 claims | 84% | 78.4% | 0.691 |
+| `e5-29006`, 458 claims | 84.1% | **77.7%** | 0.681 |
+
+Both rows lose about six tenths of a point, which says the dropped claims were slightly easier
+than the rest for both readers, and the gap between them does not move. So the comparison the
+table exists to make survives; the absolute figures in it were over a sample 6% of which cannot
+be handed to the thing being measured.
+
+The key is not patched. A benchmark key is a draw, and narrowing one after the fact is the
+thing this project refuses everywhere else: the next draw comes from the clean export and every
+row is run again on it, at the same time the new reader is measured. Until then the README
+keeps the figures it has, because the rows in it were all scored on the same claims, and this
+entry is what says what they are over.
+
 ### Four of every ten epochs buy less than the noise bar
 
 Measured 2026-09-22, from the per-epoch validation lines the three seeds of
