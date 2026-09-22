@@ -14,6 +14,13 @@
 //!
 //! Counted by reviews, once per review however often it repeated itself, for the same reason
 //! the headline is a mention rate: nobody's verbosity moves it.
+//!
+//! And compared within each language, then pooled. A corpus is written in thirty languages
+//! whose speakers do not praise and complain in the same proportions, so against the whole
+//! other side a word is distinctive for being Spanish: "historia" stood out in the praise of
+//! a story that Spanish speakers happened to like, and said nothing but "story". Praise against
+//! complaint among the reviews that share a language is the comparison that cannot be won by
+//! a language leaning one way.
 
 use std::collections::{HashMap, HashSet};
 
@@ -45,10 +52,11 @@ const AT_LEAST_TWICE: f64 = std::f64::consts::LN_2;
 /// unevenly the two sides of one subject happen to use it.
 const OWNED: f64 = 0.25;
 
-/// Distinct terms kept per side of a subject while counting. Twice this is the most the map
-/// ever holds, so fifty sides over a million reviews stay within tens of megabytes whatever
-/// the vocabulary does.
-const KEPT: usize = 8_192;
+/// Distinct terms kept per side of a subject in one language while counting. Twice this is
+/// the most a map ever holds, and only the largest languages on the largest subjects fill
+/// one, so fifty sides over a million reviews in thirty languages stay within a hundred
+/// megabytes whatever the vocabulary does.
+const KEPT: usize = 4_096;
 
 /// A term and how many reviews used it on one side of a subject.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,7 +81,9 @@ pub struct SaidAbout {
 
 /// Counts terms per side of every subject over a corpus, in bounded memory.
 pub(crate) struct Said {
-    sides: Vec<[Counter; 2]>,
+    /// Per language the reviews were written in: the two sides of every subject.
+    languages: HashMap<String, Vec<[Counter; 2]>>,
+    subjects: usize,
     /// What the review in hand has said so far, each term once per side of a subject.
     heard: HashSet<(usize, usize, String)>,
     scratch: Terms,
@@ -82,9 +92,8 @@ pub(crate) struct Said {
 impl Said {
     pub(crate) fn new(subjects: usize) -> Self {
         Self {
-            sides: (0..subjects)
-                .map(|_| [Counter::default(), Counter::default()])
-                .collect(),
+            languages: HashMap::new(),
+            subjects,
             heard: HashSet::new(),
             scratch: Terms::default(),
         }
@@ -97,7 +106,7 @@ impl Said {
             Polarity::Complaint => 1,
             Polarity::Neutral => return,
         };
-        if subject >= self.sides.len() {
+        if subject >= self.subjects {
             return;
         }
         let heard = &mut self.heard;
@@ -106,11 +115,23 @@ impl Said {
         });
     }
 
-    /// Closes the review in hand and counts what it said.
-    pub(crate) fn next_review(&mut self) {
+    /// Closes the review in hand and counts what it said, under the language it was written in.
+    pub(crate) fn next_review(&mut self, language: &str) {
+        if self.heard.is_empty() {
+            return;
+        }
+        let subjects = self.subjects;
+        let sides = self
+            .languages
+            .entry(language.to_owned())
+            .or_insert_with(|| {
+                (0..subjects)
+                    .map(|_| [Counter::default(), Counter::default()])
+                    .collect()
+            });
         let mut sides_taken: HashSet<(usize, usize)> = HashSet::new();
         for (subject, side, term) in self.heard.drain() {
-            let counter = &mut self.sides[subject][side];
+            let counter = &mut sides[subject][side];
             if sides_taken.insert((subject, side)) {
                 counter.reviews += 1;
             }
@@ -122,34 +143,64 @@ impl Said {
     /// as `(id, label)`. A subject's own name is never one of its words: "graphics" under
     /// graphics and "tutorial" under tutorial say what the row label already said.
     pub(crate) fn finish(self, subjects: &[(&str, &str)]) -> Vec<SaidAbout> {
+        // The languages pooled, for the candidates, the totals and the words of the language;
+        // the languages apart, for the comparison.
+        let mut pooled: Vec<[Counter; 2]> = (0..self.subjects)
+            .map(|_| [Counter::default(), Counter::default()])
+            .collect();
+        for sides in self.languages.values() {
+            for (subject, [praise, complaint]) in sides.iter().enumerate() {
+                pooled[subject][0].absorb(praise);
+                pooled[subject][1].absorb(complaint);
+            }
+        }
         let mut everywhere: HashMap<&str, u64> = HashMap::new();
-        for [praise, complaint] in &self.sides {
+        for [praise, complaint] in &pooled {
             for counter in [praise, complaint] {
                 for (term, count) in &counter.terms {
                     *everywhere.entry(term.as_str()).or_default() += count;
                 }
             }
         }
-        self.sides
+        pooled
             .iter()
             .zip(subjects)
-            .map(|([praise, complaint], (id, label))| {
+            .enumerate()
+            .map(|(subject, ([praise, complaint], (id, label)))| {
                 let mut own: Vec<String> = label
                     .split(|ch: char| !ch.is_alphanumeric())
                     .filter(|word| !word.is_empty())
                     .map(str::to_lowercase)
                     .collect();
                 own.push((*id).to_lowercase());
+                if let Some((_, elsewhere)) = ALSO_CALLED.iter().find(|(named, _)| named == id) {
+                    own.extend(elsewhere.iter().map(|name| (*name).to_owned()));
+                }
+                let apart: Vec<(&Counter, &Counter)> = self
+                    .languages
+                    .values()
+                    .map(|sides| (&sides[subject][0], &sides[subject][1]))
+                    .collect();
+                let reversed: Vec<(&Counter, &Counter)> = apart
+                    .iter()
+                    .map(|(praise, complaint)| (*complaint, *praise))
+                    .collect();
                 SaidAbout {
                     subject: (*id).to_owned(),
                     praising: praise.reviews,
                     complaining: complaint.reviews,
-                    praised: distinctive(praise, complaint, &everywhere, &own),
-                    criticised: distinctive(complaint, praise, &everywhere, &own),
+                    praised: distinctive(praise, &apart, &everywhere, &own),
+                    criticised: distinctive(complaint, &reversed, &everywhere, &own),
                 }
             })
             .collect()
     }
+}
+
+/// Every term of a claim, by the cut that counts them, for diagnostics that read the corpus
+/// the way the page does.
+pub fn each_term(claim: &str, found: impl FnMut(&str)) {
+    Terms::default().each_in(claim, found);
 }
 
 /// Whether a claim uses a term, by the same cut that counted it, so the claims a term opens
@@ -187,6 +238,15 @@ impl Counter {
         }
     }
 
+    /// Adds another language's counts of the same side to this one.
+    fn absorb(&mut self, other: &Self) {
+        self.reviews += other.reviews;
+        self.forgotten = self.forgotten.max(other.forgotten);
+        for (term, count) in &other.terms {
+            *self.terms.entry(term.clone()).or_default() += count;
+        }
+    }
+
     /// Keeps the commonest half. A term that comes back after being dropped starts again
     /// from one, so what survives is an undercount rather than an estimate, and a term used
     /// by many reviewers is never in the half that goes.
@@ -211,7 +271,7 @@ impl Counter {
 )]
 fn distinctive(
     this: &Counter,
-    other: &Counter,
+    by_language: &[(&Counter, &Counter)],
     everywhere: &HashMap<&str, u64>,
     own_words: &[String],
 ) -> Vec<Term> {
@@ -229,8 +289,7 @@ fn distinctive(
             **here as f64 >= OWNED * counted as f64
         })
         .filter_map(|(term, &here)| {
-            let there = other.terms.get(term).copied().unwrap_or(other.forgotten);
-            let (delta, z) = log_odds(here, this.reviews, there, other.reviews);
+            let (delta, z) = pooled_log_odds(term, by_language);
             (delta >= AT_LEAST_TWICE && z >= CLEARLY).then_some((z, term.as_str(), here))
         })
         .collect();
@@ -461,7 +520,7 @@ fn joined(run: &str, pair: &str) -> String {
     }
 }
 
-/// The log-odds of a term between two sides, and how many standard deviations that is.
+/// The log-odds of a term between two sides, and their standard deviation.
 ///
 /// Half a count added to every cell so a term absent from one side is very unlikely rather
 /// than infinitely so, which is the usual prior and keeps a term seen five times against
@@ -477,7 +536,37 @@ fn log_odds(here: u64, of: u64, there: u64, of_other: u64) -> (f64, f64) {
     let d = of_other.saturating_sub(there) as f64 + 0.5;
     let delta = (a / b).ln() - (c / d).ln();
     let sigma = (1.0 / a + 1.0 / b + 1.0 / c + 1.0 / d).sqrt();
-    (delta, delta / sigma)
+    (delta, sigma)
+}
+
+/// The log-odds of a term between two sides compared within each language and then pooled,
+/// weighted by how much each language can say, and how many standard deviations that is.
+///
+/// A language whose reviewers lean one way cannot make its words distinctive of that side:
+/// each language's odds are its own praise against its own complaints. A term absent from a
+/// language's counter on this side is taken as unused there, and on the other side as used
+/// by as many reviews as the counter may have forgotten, which errs against showing it.
+fn pooled_log_odds(term: &str, by_language: &[(&Counter, &Counter)]) -> (f64, f64) {
+    let (mut weight, mut weighted) = (0.0, 0.0);
+    for (this, other) in by_language {
+        if this.reviews == 0 && other.reviews == 0 {
+            continue;
+        }
+        let (here, there) = match (this.terms.get(term), other.terms.get(term)) {
+            (None, None) => continue,
+            (Some(&here), None) => (here, other.forgotten),
+            (here, Some(&there)) => (here.copied().unwrap_or(0), there),
+        };
+        let (delta, sigma) = log_odds(here, this.reviews, there, other.reviews);
+        let w = 1.0 / (sigma * sigma);
+        weight += w;
+        weighted += w * delta;
+    }
+    if weight == 0.0 {
+        return (0.0, 0.0);
+    }
+    let delta = weighted / weight;
+    (delta, delta * weight.sqrt())
 }
 
 /// Cuts a claim into the terms worth counting: words and pairs of adjacent words, with a
@@ -765,6 +854,575 @@ fn kind_of(word: &str) -> Word {
     }
 }
 
+/// What each subject is called in the languages the library is written in, which the page
+/// keeps off the subject's rows as it keeps the English label off them: "сюжет" under story
+/// says what the row said. Read from the corpus rather than translated: the term most of a
+/// language's reviews about a subject use is its name there (`subject-names`, an example),
+/// and it sits at a quarter to a half of them where the next term sits at a tenth. Nouns and
+/// their common inflections only; "optimised", "hard" and "worth" are findings and stay.
+const ALSO_CALLED: &[(&str, &[&str])] = &[
+    (
+        "performance",
+        &[
+            "производительность",
+            "оптимизация",
+            "оптимизации",
+            "optimierung",
+            "optimisation",
+            "rendimiento",
+            "optimización",
+            "desempenho",
+            "otimização",
+            "prestazioni",
+            "ottimizzazione",
+            "wydajność",
+            "optymalizacja",
+            "performans",
+            "optimizasyon",
+            "优化",
+            "性能",
+            "優化",
+            "最適化",
+            "최적화",
+            "성능",
+        ],
+    ),
+    (
+        "bugs",
+        &[
+            "bug",
+            "crash",
+            "баги",
+            "баг",
+            "багов",
+            "ошибки",
+            "вылеты",
+            "вылет",
+            "fehler",
+            "abstürze",
+            "bogues",
+            "plantages",
+            "errores",
+            "erros",
+            "travamentos",
+            "bugi",
+            "błędy",
+            "hatalar",
+            "hata",
+            "çökme",
+            "버그",
+            "闪退",
+            "崩溃",
+            "错误",
+            "閃退",
+            "崩潰",
+        ],
+    ),
+    (
+        "gameplay",
+        &[
+            "геймплей",
+            "геймплея",
+            "игровой процесс",
+            "механики",
+            "механика",
+            "spielmechanik",
+            "mechaniken",
+            "jugabilidad",
+            "mecánicas",
+            "mecânicas",
+            "giocabilità",
+            "meccaniche",
+            "rozgrywka",
+            "mechanika",
+            "oynanış",
+            "mekanikler",
+            "玩法",
+            "游戏性",
+            "机制",
+            "遊戲性",
+            "게임플레",
+            "게임성",
+        ],
+    ),
+    (
+        "genre",
+        &[
+            "жанр",
+            "жанра",
+            "género",
+            "gênero",
+            "genere",
+            "gatunek",
+            "tür",
+            "类型",
+            "類型",
+            "장르",
+        ],
+    ),
+    (
+        "story",
+        &[
+            "сюжет",
+            "сюжета",
+            "сюжетом",
+            "сюжету",
+            "история",
+            "истории",
+            "geschichte",
+            "handlung",
+            "histoire",
+            "l'histoire",
+            "scénario",
+            "historia",
+            "trama",
+            "história",
+            "enredo",
+            "storia",
+            "fabuła",
+            "fabuły",
+            "hikaye",
+            "hikayesi",
+            "senaryo",
+            "剧情",
+            "故事",
+            "劇情",
+            "物語",
+            "스토리",
+            "시나리오",
+        ],
+    ),
+    (
+        "atmosphere",
+        &[
+            "атмосфера",
+            "атмосферу",
+            "атмосферы",
+            "атмосферой",
+            "atmosphäre",
+            "ambiance",
+            "l'ambiance",
+            "atmosphère",
+            "atmósfera",
+            "ambiente",
+            "atmosfera",
+            "clima",
+            "klimat",
+            "klimatu",
+            "atmosfer",
+            "氛围",
+            "气氛",
+            "氛圍",
+            "분위기",
+        ],
+    ),
+    (
+        "graphics",
+        &[
+            "графика",
+            "графику",
+            "графики",
+            "графикой",
+            "grafik",
+            "die grafik",
+            "graphismes",
+            "graphisme",
+            "graphiques",
+            "gráficos",
+            "graficos",
+            "grafica",
+            "grafika",
+            "grafiki",
+            "grafikler",
+            "grafikleri",
+            "画面",
+            "画质",
+            "畫面",
+            "畫質",
+            "그래픽",
+        ],
+    ),
+    (
+        "audio",
+        &[
+            "sound",
+            "sounds",
+            "soundtrack",
+            "музыка",
+            "музыку",
+            "звук",
+            "звуки",
+            "звуковое",
+            "саундтрек",
+            "musik",
+            "sonore",
+            "bande",
+            "musique",
+            "sonido",
+            "sonora",
+            "banda sonora",
+            "música",
+            "som",
+            "trilha",
+            "trilha sonora",
+            "suono",
+            "sonoro",
+            "colonna sonora",
+            "comparto",
+            "muzyka",
+            "dźwięk",
+            "udźwiękowienie",
+            "ses",
+            "sesler",
+            "müzik",
+            "müzikler",
+            "音效",
+            "音乐",
+            "音樂",
+            "配乐",
+            "bgm",
+            "音楽",
+            "사운드",
+            "소리",
+            "음악",
+        ],
+    ),
+    (
+        "controls",
+        &[
+            "управление",
+            "управления",
+            "интерфейс",
+            "steuerung",
+            "contrôles",
+            "commandes",
+            "controles",
+            "mandos",
+            "controlli",
+            "comandi",
+            "sterowanie",
+            "interfejs",
+            "kontroller",
+            "kontrol",
+            "arayüz",
+            "操作",
+            "控制",
+            "界面",
+            "操作性",
+            "컨트롤",
+            "조작",
+            "인터페이스",
+        ],
+    ),
+    (
+        "difficulty",
+        &[
+            "сложность",
+            "сложности",
+            "баланс",
+            "schwierigkeit",
+            "schwierigkeitsgrad",
+            "difficulté",
+            "dificultad",
+            "dificuldade",
+            "difficoltà",
+            "trudność",
+            "trudności",
+            "poziom trudności",
+            "zorluk",
+            "denge",
+            "难度",
+            "難度",
+            "난이",
+            "밸런스",
+        ],
+    ),
+    (
+        "content",
+        &[
+            "контент",
+            "контента",
+            "inhalt",
+            "contenu",
+            "contenido",
+            "conteúdo",
+            "contenuto",
+            "contenuti",
+            "zawartość",
+            "içerik",
+            "内容",
+            "內容",
+            "컨텐츠",
+            "콘텐츠",
+        ],
+    ),
+    (
+        "mods",
+        &[
+            "mod",
+            "моды",
+            "модов",
+            "modding",
+            "mody",
+            "modlar",
+            "模组",
+            "模組",
+            "모드",
+        ],
+    ),
+    (
+        "price",
+        &[
+            "цена", "цены", "цену", "preis", "prix", "precio", "preço", "prezzo", "cena", "ceny",
+            "fiyat", "价格", "價格", "値段", "価格", "가격",
+        ],
+    ),
+    (
+        "monetisation",
+        &[
+            "монетизация",
+            "донат",
+            "микротранзакции",
+            "monetarisierung",
+            "monétisation",
+            "monetización",
+            "monetização",
+            "monetizzazione",
+            "monetyzacja",
+            "mikrotransakcje",
+            "内购",
+            "氪金",
+            "交易",
+            "과금",
+            "課金",
+        ],
+    ),
+    (
+        "multiplayer",
+        &[
+            "мультиплеер",
+            "онлайн",
+            "mehrspieler",
+            "multijoueur",
+            "multijugador",
+            "tryb wieloosobowy",
+            "oyunculu",
+            "多人",
+            "联机",
+            "聯機",
+            "線上",
+            "온라인",
+            "멀티",
+            "멀티플레",
+        ],
+    ),
+    (
+        "community",
+        &[
+            "сообщество",
+            "комьюнити",
+            "игроки",
+            "spieler",
+            "communauté",
+            "joueurs",
+            "comunidad",
+            "jugadores",
+            "comunidade",
+            "jogadores",
+            "comunità",
+            "giocatori",
+            "społeczność",
+            "gracze",
+            "topluluk",
+            "oyuncular",
+            "社区",
+            "社群",
+            "커뮤니티",
+            "유저",
+            "플레이어",
+        ],
+    ),
+    (
+        "updates",
+        &[
+            "обновления",
+            "обновление",
+            "разработчики",
+            "разработчик",
+            "патчи",
+            "entwickler",
+            "développeurs",
+            "actualizaciones",
+            "desarrolladores",
+            "atualizações",
+            "desenvolvedores",
+            "aggiornamenti",
+            "sviluppatori",
+            "aktualizacje",
+            "deweloperzy",
+            "güncelleme",
+            "güncellemeler",
+            "geliştiriciler",
+            "更新",
+            "开发者",
+            "开发商",
+            "開發",
+            "업데이트",
+            "개발자",
+        ],
+    ),
+    (
+        "policy",
+        &[
+            "издатель",
+            "издателя",
+            "verlag",
+            "éditeur",
+            "editora",
+            "editore",
+            "wydawca",
+            "yayıncı",
+            "发行商",
+            "퍼블리셔",
+        ],
+    ),
+    (
+        "compatibility",
+        &[
+            "совместимость",
+            "железо",
+            "kompatibilität",
+            "compatibilité",
+            "compatibilidad",
+            "compatibilidade",
+            "compatibilità",
+            "kompatybilność",
+            "uyumluluk",
+            "兼容",
+            "配置",
+            "兼容性",
+            "호환",
+            "사양",
+        ],
+    ),
+    (
+        "accessibility",
+        &[
+            "доступность",
+            "настройки",
+            "barrierefreiheit",
+            "einstellungen",
+            "accessibilité",
+            "accesibilidad",
+            "opciones",
+            "acessibilidade",
+            "opções",
+            "accessibilità",
+            "opzioni",
+            "dostępność",
+            "opcje",
+            "erişilebilirlik",
+            "seçenekler",
+            "ayarlar",
+            "无障碍",
+            "选项",
+            "設定",
+            "옵션",
+            "접근성",
+        ],
+    ),
+    (
+        "language",
+        &[
+            "язык",
+            "перевод",
+            "локализация",
+            "sprache",
+            "übersetzung",
+            "langue",
+            "traduction",
+            "idioma",
+            "traducción",
+            "doblaje",
+            "tradução",
+            "dublagem",
+            "lingua",
+            "traduzione",
+            "język",
+            "tłumaczenie",
+            "dil",
+            "çeviri",
+            "中文",
+            "汉化",
+            "语言",
+            "翻译",
+            "繁中",
+            "簡中",
+            "한국어",
+            "한글",
+            "번역",
+            "日本語",
+            "翻訳",
+        ],
+    ),
+    (
+        "tutorial",
+        &[
+            "обучение",
+            "туториал",
+            "anleitung",
+            "tutoriel",
+            "didacticiel",
+            "samouczek",
+            "öğretici",
+            "教程",
+            "教學",
+            "新手",
+            "튜토리얼",
+        ],
+    ),
+    (
+        "licensing",
+        &[
+            "лицензия",
+            "лицензии",
+            "lizenz",
+            "licence",
+            "licences",
+            "licencia",
+            "licença",
+            "licenza",
+            "licencja",
+            "lisans",
+            "授权",
+            "版权",
+            "授權",
+            "라이선스",
+            "라이센스",
+        ],
+    ),
+    (
+        "vr",
+        &[
+            "виар",
+            "шлем",
+            "гарнитура",
+            "headset",
+            "casque",
+            "visor",
+            "óculos",
+            "visore",
+            "gogle",
+            "sanal gerçeklik",
+            "虚拟现实",
+            "头显",
+            "頭顯",
+            "헤드셋",
+            "가상현실",
+        ],
+    ),
+];
+
 /// Function words that carry meaning into the word after them.
 const MODIFIERS: [&str; 12] = [
     "no", "not", "never", "without", "too", "on", "off", "less", "more", "only", "still", "always",
@@ -922,11 +1580,94 @@ mod tests {
         said.note(0, Polarity::Complaint, "stutter everywhere");
         said.note(0, Polarity::Complaint, "constant stutter");
         said.note(0, Polarity::Praise, "stutter aside, it looks great");
-        said.next_review();
-        assert_eq!(said.sides[0][1].terms["stutter"], 1);
-        assert_eq!(said.sides[0][1].reviews, 1);
-        assert_eq!(said.sides[0][0].terms["stutter"], 1);
-        assert_eq!(said.sides[0][0].reviews, 1);
+        said.next_review("english");
+        let sides = &said.languages["english"];
+        assert_eq!(sides[0][1].terms["stutter"], 1);
+        assert_eq!(sides[0][1].reviews, 1);
+        assert_eq!(sides[0][0].terms["stutter"], 1);
+        assert_eq!(sides[0][0].reviews, 1);
+    }
+
+    #[test]
+    fn the_names_elsewhere_belong_to_subjects_the_sheet_has_and_are_cut_as_terms() {
+        let mut wrong = Vec::new();
+        for (subject, names) in ALSO_CALLED {
+            assert!(
+                crate::taxonomy::SHEET
+                    .iter()
+                    .any(|category| category.id == *subject),
+                "{subject} is not on the sheet"
+            );
+            for name in *names {
+                // A name the counter would never produce as a term can never be kept off.
+                let mut cut = Vec::new();
+                each_term(name, |term| cut.push(term.to_owned()));
+                if !cut.iter().any(|term| term == name) {
+                    wrong.push(format!("{name} under {subject} is cut as {cut:?}"));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    #[test]
+    fn a_subjects_name_in_another_language_is_not_a_finding_either() {
+        let mut said = Said::new(1);
+        for turn in 0..120 {
+            if turn % 4 == 0 {
+                said.note(0, Polarity::Complaint, "концовка слабая");
+            } else {
+                said.note(0, Polarity::Praise, "сюжет отличный");
+            }
+            said.next_review("russian");
+        }
+        let found = said.finish(&[("story", "Story and writing")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert!(!praised.contains(&"сюжет"), "{praised:?}");
+        // The phrase keeps the name, as "no bugs" keeps "bugs": it says more than the row.
+        assert!(
+            praised.iter().any(|term| term.contains("отличный")),
+            "{praised:?}"
+        );
+    }
+
+    #[test]
+    fn a_language_that_leans_one_way_does_not_make_its_words_distinctive() {
+        // Spanish speakers praise the story three times as often as they complain about it,
+        // and every one of them calls it "historia" either way. Against the whole other side
+        // the word is twelve times likelier in praise; within Spanish it is even, and even is
+        // what it is.
+        let mut said = Said::new(1);
+        for turn in 0..120 {
+            if turn % 4 == 0 {
+                said.note(0, Polarity::Complaint, "la historia es floja");
+            } else {
+                said.note(0, Polarity::Praise, "la historia es buena");
+            }
+            said.next_review("spanish");
+        }
+        for turn in 0..200 {
+            if turn % 2 == 0 {
+                said.note(0, Polarity::Complaint, "the ending is weak");
+            } else {
+                said.note(0, Polarity::Praise, "gripping from start to finish");
+            }
+            said.next_review("english");
+        }
+        let found = said.finish(&[("story", "Story and writing")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert!(
+            !praised.contains(&"historia"),
+            "a Spanish word stood out for being Spanish: {praised:?}"
+        );
+        // What English complaints say and English praise does not is still found.
+        let criticised: Vec<&str> = found[0]
+            .criticised
+            .iter()
+            .map(|t| t.text.as_str())
+            .collect();
+        assert!(criticised.contains(&"ending"), "{criticised:?}");
+        assert!(criticised.contains(&"weak"), "{criticised:?}");
     }
 
     #[test]
@@ -939,7 +1680,7 @@ mod tests {
             } else {
                 said.note(0, Polarity::Complaint, "the game crashed once");
             }
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("performance", "Performance")]);
         let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
@@ -989,12 +1730,12 @@ mod tests {
     fn a_side_with_too_few_reviews_shows_nothing_rather_than_its_accidents() {
         let mut said = Said::new(1);
         said.note(0, Polarity::Complaint, "laggy menus");
-        said.next_review();
+        said.next_review("english");
         said.note(0, Polarity::Complaint, "laggy menus");
-        said.next_review();
+        said.next_review("english");
         for _ in 0..50 {
             said.note(0, Polarity::Praise, "buttery smooth");
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("performance", "Performance")]);
         assert!(found[0].criticised.is_empty(), "{:?}", found[0].criticised);
@@ -1006,7 +1747,7 @@ mod tests {
         for _ in 0..60 {
             said.note(0, Polarity::Complaint, "frame drops");
             said.note(0, Polarity::Praise, "looks lovely");
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("performance", "Performance")]);
         let criticised: Vec<&str> = found[0]
@@ -1031,12 +1772,38 @@ mod tests {
         assert_eq!(counter.forgotten, 1);
     }
 
+    fn deviations(here: u64, of: u64, there: u64, of_other: u64) -> f64 {
+        let (delta, sigma) = log_odds(here, of, there, of_other);
+        delta / sigma
+    }
+
     #[test]
     fn log_odds_prefer_the_well_attested_over_the_merely_absent_elsewhere() {
-        let (_, few) = log_odds(3, 100, 0, 100);
-        let (_, many) = log_odds(300, 1000, 10, 1000);
+        let few = deviations(3, 100, 0, 100);
+        let many = deviations(300, 1000, 10, 1000);
         assert!(many > few, "{many} vs {few}");
-        assert!(log_odds(90, 100, 85, 100).1 < CLEARLY);
+        assert!(deviations(90, 100, 85, 100) < CLEARLY);
+    }
+
+    #[test]
+    fn pooling_across_languages_is_the_one_language_alone_where_the_others_are_silent() {
+        let mut english = [Counter::default(), Counter::default()];
+        english[0].reviews = 1000;
+        english[0].terms.insert("stutter".to_owned(), 300);
+        english[1].reviews = 1000;
+        english[1].terms.insert("stutter".to_owned(), 10);
+        let mut spanish = [Counter::default(), Counter::default()];
+        spanish[0].reviews = 200;
+        spanish[1].reviews = 50;
+        let alone = pooled_log_odds("stutter", &[(&english[0], &english[1])]);
+        let with_a_silent_language = pooled_log_odds(
+            "stutter",
+            &[(&english[0], &english[1]), (&spanish[0], &spanish[1])],
+        );
+        assert_eq!(alone, with_a_silent_language);
+        let (delta, sigma) = log_odds(300, 1000, 10, 1000);
+        assert!((alone.0 - delta).abs() < 1e-9);
+        assert!((alone.1 - delta / sigma).abs() < 1e-9);
     }
 
     #[test]
@@ -1044,7 +1811,8 @@ mod tests {
         // "and" in 42% of a thousand praising reviews against 30% of five hundred complaining
         // ones is a real difference and says nothing: praise runs longer. It fails the twice
         // bar. A word used across every subject fails the ownership bar even where it leans.
-        let (delta, z) = log_odds(420, 1000, 150, 500);
+        let (delta, _) = log_odds(420, 1000, 150, 500);
+        let z = deviations(420, 1000, 150, 500);
         assert!(z >= CLEARLY, "{z}");
         assert!(delta < AT_LEAST_TWICE, "{delta}");
 
@@ -1068,7 +1836,7 @@ mod tests {
                     said.note(slot, Polarity::Complaint, "you might hate it though");
                 }
             }
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&subjects);
         let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
@@ -1087,7 +1855,7 @@ mod tests {
             if review < 30 {
                 said.note(0, Polarity::Complaint, "bugs, bugs, bugs");
             }
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("bugs", "Bugs and crashes")]);
         let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
@@ -1110,7 +1878,7 @@ mod tests {
                     "the full game is a joke"
                 },
             );
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("price", "Price and value")]);
         let criticised: Vec<&str> = found[0]
@@ -1128,7 +1896,7 @@ mod tests {
         for _ in 0..30 {
             said.note(0, Polarity::Complaint, "没有中文配音");
             said.note(0, Polarity::Praise, "very good indeed");
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("language", "Language and localisation")]);
         let criticised: Vec<&str> = found[0]
@@ -1148,7 +1916,7 @@ mod tests {
         for _ in 0..30 {
             said.note(0, Polarity::Complaint, "にほんごがない");
             said.note(0, Polarity::Praise, "very good indeed");
-            said.next_review();
+            said.next_review("english");
         }
         let found = said.finish(&[("language", "Language and localisation")]);
         let criticised: Vec<&str> = found[0]
