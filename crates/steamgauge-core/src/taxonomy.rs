@@ -496,17 +496,29 @@ pub const SHEET: &[Category] = &[
             "Asking for a port to another platform belongs here, and so does a game that \
              will not start at all when no reason is given. A game that starts and then \
              crashes is bugs. Asking for a sequel belongs to verdict, and anything about \
-             playing it in a headset belongs to VR.",
+             playing it in a headset belongs to VR. This row is about the machine: a \
+             requirement the publisher chose, a second account, a launcher, a permanent \
+             connection, is policy however completely it stops the game from running.",
         ),
         alone: false,
     },
     Category {
         id: "accessibility",
         label: "Accessibility and options",
-        description: "Settings and accommodations. Subtitles, colourblind modes, remappable \
-                      controls, difficulty options, text size, and the settings players need \
-                      in order to play at all.",
-        boundary: Some("Which languages the game is available in belongs to language, not here."),
+        description: "A setting or feature put there so somebody can play who otherwise could \
+                      not. Subtitles and their size, colourblind modes, one-handed and \
+                      remappable control schemes, screen reader support, turning off screen \
+                      shake or flashing, and a difficulty or assist option offered for the \
+                      same reason.",
+        boundary: Some(
+            "This is the accommodation, never the thing it accommodates. Text being too small \
+             to read is graphics, a game being too hard is difficulty, a control scheme that \
+             does not respond is controls, and which languages the game is available in is \
+             language; an option offered so that somebody can read it, beat it or play it \
+             one-handed is here. The test is whether the claim is about something the game \
+             provides on purpose for that reason: \"no subtitle size setting\" and \"the \
+             colourblind mode is excellent\" are here, \"the subtitles are tiny\" is graphics.",
+        ),
         alone: false,
     },
     // Bundled into accessibility until it was measured: language complaints were most of
