@@ -70,6 +70,14 @@ of them at full confidence; the export carries the second reading beside the fir
 `--error-reg` charges the subject head for being surer of a wrong claim in the batch than of a
 right one, which is the pairwise hinge of Xin et al. (ACL 2021). A run records both.
 
+`soup.py runs/a runs/b runs/c --run-id <id> --save` averages the weights of runs that already
+exist and reads the average, which is the cheapest answer there is to the seed spread: the
+best of three seeds is the seed the validation draw flattered, and the mean of the three is
+neither. It refuses ingredients that differ on the encoder, the subjects, the window or the
+export, and allows ones that differ on the learning rate or the objective, which is the soup
+worth making. `--greedy` adds them best first and keeps one only while the soup answers more.
+The frozen games are read once, by the soup that was chosen on the validation games.
+
 `claims.jsonl` holds review text and is never committed. What gets published is the model and a
 label set of review ids, claim offsets and labels, built from `reference/claims/` rather than
 from the training export, which anyone can rehydrate with `steamgauge` itself. Reviews belong to
