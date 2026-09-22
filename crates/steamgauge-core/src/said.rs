@@ -345,6 +345,19 @@ fn distinctive(
             }
             continue;
         }
+        // "listened", "listening" and "listens" are one thing said three ways, and on a real
+        // game they took three of the seven places a row has. The form more reviewers used
+        // takes the place, because the point of the list is what was said.
+        if let Some(kept) = shown
+            .iter_mut()
+            .find(|kept| one_word_inflected(&kept.text, term))
+        {
+            if reviews > kept.reviews {
+                term.clone_into(&mut kept.text);
+                kept.reviews = reviews;
+            }
+            continue;
+        }
         // にほ, ほん and んご used by the same reviewers are one word, にほんご, cut into the
         // pairs the counter works in for a script it has no dictionary for. Joined back up
         // where the pairs overlap.
@@ -429,6 +442,34 @@ fn shares_a_word(left: &str, right: &str) -> bool {
     long.split(' ').any(|word| word == short)
         || (short.contains(' ')
             && (long.starts_with(&format!("{short} ")) || long.ends_with(&format!(" {short}"))))
+}
+
+/// The endings two inflections of one word may differ by. Deliberately short: "d" alone would
+/// make "car" and "card" one word, and "y" alone would make "part" and "party" one, so a
+/// plural in -ies is the one pair allowed to differ on both sides.
+const ENDINGS: &[&str] = &["", "s", "es", "ed", "ing"];
+
+/// Whether two terms are the same word in two forms: "server" and "servers", "listened" and
+/// "listening", "story" and "stories". The shared beginning has to be a word's worth of
+/// characters, because a three-letter agreement is a coincidence: "mode" and "mods" share
+/// "mod" and are two findings, and the endings they differ by settle it.
+fn one_word_inflected(left: &str, right: &str) -> bool {
+    if left == right {
+        return false;
+    }
+    let shared = left
+        .char_indices()
+        .zip(right.chars())
+        .take_while(|((_, here), there)| here == there)
+        .map(|((at, here), _)| at + here.len_utf8())
+        .last()
+        .unwrap_or(0);
+    if shared < 3 {
+        return false;
+    }
+    let (here, there) = (&left[shared..], &right[shared..]);
+    (ENDINGS.contains(&here) && ENDINGS.contains(&there))
+        || matches!((here, there), ("y", "ies") | ("ies", "y"))
 }
 
 /// Whether a character is a Chinese ideograph, the script the dictionary cuts.
@@ -1898,6 +1939,61 @@ mod tests {
             .map(|t| t.text.as_str())
             .collect();
         assert_eq!(criticised.len(), 1, "{criticised:?}");
+    }
+
+    #[test]
+    fn two_forms_of_one_word_are_shown_once_in_the_form_more_reviewers_used() {
+        let mut said = Said::new(1);
+        // The filler changes with the review so that no phrase survives the cut and the two
+        // forms of the word stand alone, which is the shape a real row has.
+        for review in 0..200 {
+            said.note(0, Polarity::Praise, &format!("{review} they are listening"));
+            if review < 120 {
+                said.note(0, Polarity::Praise, &format!("{review} they listened"));
+            }
+            said.note(
+                0,
+                Polarity::Complaint,
+                &format!("{review} roadmap is empty"),
+            );
+            said.next_review("english");
+        }
+        let found = said.finish(&[("updates", "Updates and developer support")]);
+        let praised: Vec<&str> = found[0].praised.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(
+            praised.iter().filter(|t| t.contains("listen")).count(),
+            1,
+            "{praised:?}"
+        );
+        assert!(praised.contains(&"listening"), "{praised:?}");
+    }
+
+    #[test]
+    fn words_that_only_start_the_same_are_two_findings() {
+        for (left, right) in [
+            ("mode", "mods"),
+            ("car", "card"),
+            ("part", "party"),
+            ("play", "player"),
+            ("服务", "服务器"),
+        ] {
+            assert!(!one_word_inflected(left, right), "{left} and {right}");
+            assert!(!one_word_inflected(right, left), "{right} and {left}");
+        }
+    }
+
+    #[test]
+    fn one_word_in_two_forms_is_recognised_whichever_way_round_it_comes() {
+        for (left, right) in [
+            ("server", "servers"),
+            ("listened", "listening"),
+            ("story", "stories"),
+            ("fix", "fixes"),
+            ("no bug", "no bugs"),
+        ] {
+            assert!(one_word_inflected(left, right), "{left} and {right}");
+            assert!(one_word_inflected(right, left), "{right} and {left}");
+        }
     }
 
     #[test]

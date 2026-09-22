@@ -3036,6 +3036,27 @@ sheet says what the player does is gameplay and how much there is is content, an
 labellers applied it; changing the sheet so that the reader is right would be fitting the
 sheet to the model, which is the one direction this project never goes.
 
+### One word in three forms was three of the eight words a row shows
+
+Found 2026-09-22, reading a page for a game with a million reviews. The updates row's praise
+read `thank, fixed, listened, job, live service, listening, listens`: three of the eight places
+went to one verb, and the multiplayer complaints spent two on `servers` and `server`. A list
+whose job is to say what a subject's complaints hold that its praise does not cannot afford to
+say it twice.
+
+Two terms are now one finding when they are the same word in two forms, and the form more
+reviewers used takes the place, because the list says what was said. The test is deliberately
+narrow: the beginning they share has to be three characters or more, and the endings they
+differ by have to come from a short list (nothing, -s, -es, -ed, -ing, and -y against -ies).
+`mode` and `mods` share three characters and differ by `e` against `s`, so they stay two
+findings; `car` and `card` would be one if `-d` were on the list, which is why it is not. A
+Chinese or Korean term cannot match an ASCII ending, so the rule never fires on one.
+
+After it, the same row reads `thank, listened, fixed, job, 终于, live service, active` and the
+multiplayer complaints `servers, capacity, join, matchmaking, connection, server issues,
+waiting, connect`. The counting does not change, only which of the counted terms are worth a
+place, so a `recount` is enough and no game needs reading again.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
