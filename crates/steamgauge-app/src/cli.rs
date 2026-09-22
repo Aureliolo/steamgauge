@@ -1293,6 +1293,13 @@ fn run_export_training(
             report.no_claim
         );
     }
+    if report.twice > 0 {
+        println!(
+            "{} claims two draws both handed out, folded into one row: the random draw's \
+             answer, with the other kept beside it as a second reading",
+            report.twice
+        );
+    }
     if report.recut > 0 {
         println!(
             "{} rows held back for naming bytes this build cuts no claim at: what they were \
