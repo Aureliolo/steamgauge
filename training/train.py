@@ -366,10 +366,17 @@ def soft_cross_entropy(logits, target, temperature):
 class ClaimReader(torch.nn.Module):
     """The trunk, plus the two heads, plus the pooled vector everything else wants."""
 
-    def __init__(self, backbone: str, subjects: int, dropout: float = 0.1, pooling: str = "mean"):
+    def __init__(
+        self,
+        backbone: str,
+        subjects: int,
+        dropout: float = 0.1,
+        pooling: str = "mean",
+        dtype: torch.dtype | None = None,
+    ):
         super().__init__()
         config = AutoConfig.from_pretrained(backbone, trust_remote_code=True)
-        self.trunk = AutoModel.from_pretrained(backbone, trust_remote_code=True)
+        self.trunk = AutoModel.from_pretrained(backbone, trust_remote_code=True, torch_dtype=dtype)
         width = getattr(config, "hidden_size", 768)
         self.pooling = pooling
         self.drop = torch.nn.Dropout(dropout)
@@ -390,8 +397,29 @@ class ClaimReader(torch.nn.Module):
             # some of them would decide the bake-off instead of the models doing it.
             mask = attention_mask.unsqueeze(-1).to(hidden.dtype)
             pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
+        # A trunk held in bf16 to fit the card feeds heads kept in fp32, and outside autocast
+        # the two do not multiply.
+        pooled = pooled.to(self.subject.weight.dtype)
         dropped = self.drop(pooled)
         return self.subject(dropped), self.polarity(dropped), pooled
+
+
+def adapt(model: ClaimReader, rank: int) -> None:
+    """Puts low-rank adapters on every linear layer of the trunk and freezes the rest of it.
+
+    For a backbone too large to fine-tune whole on this card. It is a teacher: what it knows
+    reaches the tool through teach.py and a student the tool can run, never as a graph of its
+    own. The heads stay whole and trainable."""
+    from peft import LoraConfig, get_peft_model
+
+    model.trunk.gradient_checkpointing_enable(
+        gradient_checkpointing_kwargs={"use_reentrant": False}
+    )
+    model.trunk.enable_input_require_grads()
+    model.trunk = get_peft_model(
+        model.trunk,
+        LoraConfig(r=rank, lora_alpha=2 * rank, lora_dropout=0.05, target_modules="all-linear"),
+    )
 
 
 def parameter_groups(model, learning_rate: float, decay: float):
@@ -399,12 +427,13 @@ def parameter_groups(model, learning_rate: float, decay: float):
     lower than the one above it, the embeddings lowest of all. The layers nearest the input
     carry what pretraining taught and are the ones a full rate at this label count overwrites.
     A decay of 1.0 is one group at one rate."""
+    trainable = [(name, p) for name, p in model.named_parameters() if p.requires_grad]
     if decay >= 1.0:
-        return [{"params": list(model.parameters()), "lr": learning_rate}]
+        return [{"params": [p for _, p in trainable], "lr": learning_rate}]
     depth = getattr(model.trunk.config, "num_hidden_layers", 0)
     layered = re.compile(r"\.(?:layer|layers|h)\.(\d+)\.")
     groups: dict[float, list] = {}
-    for name, parameter in model.named_parameters():
+    for name, parameter in trainable:
         if not name.startswith("trunk."):
             rate = learning_rate
         elif (found := layered.search(name)) is not None:
@@ -702,7 +731,19 @@ def run(args) -> dict:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(args.backbone, trust_remote_code=True)
-    model = ClaimReader(args.backbone, len(subjects), pooling=args.pooling).to(device)
+    if args.lora_rank and args.ema > 0:
+        # The average is a second copy of every weight, frozen base included, and the base is
+        # the part that does not fit twice.
+        raise SystemExit("--ema keeps a copy of the whole model; it cannot run beside --lora-rank")
+    model = ClaimReader(
+        args.backbone,
+        len(subjects),
+        pooling=args.pooling,
+        dtype=torch.bfloat16 if args.lora_rank else None,
+    )
+    if args.lora_rank:
+        adapt(model, args.lora_rank)
+    model = model.to(device)
     if args.pooling == "last" and tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     # Right padding is what last-token pooling counts on, whatever the tokenizer's own habit.
@@ -1001,6 +1042,8 @@ def run(args) -> dict:
         "llrd": args.llrd,
         "rdrop": args.rdrop,
         "pooling": args.pooling,
+        "lora_rank": args.lora_rank or None,
+        "dtype": "bfloat16" if args.lora_rank else "float32",
         "pool": args.pool,
         "pool_targets": args.pool_targets,
         "pool_claims": pool_claims,
@@ -1031,6 +1074,10 @@ def run(args) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     (out / "run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     if args.save:
+        if args.lora_rank:
+            # Folded into the weights, so the saved state is a plain reader's and teach.py
+            # loads it the way it loads any other run.
+            model.trunk = model.trunk.merge_and_unload()
         torch.save(model.state_dict(), out / "model.bin")
         tokenizer.save_pretrained(out / "tokenizer")
     print(f"\nwritten to {out}")
@@ -1076,6 +1123,14 @@ def parse():
         help="pass each batch through the dropout twice and charge the two answers this much "
         "for disagreeing; 0 is off. Doubles the passes, so halve the micro-batch with "
         "--accumulate 2 to keep the card's memory where it was.",
+    )
+    parser.add_argument(
+        "--lora-rank",
+        type=int,
+        default=0,
+        help="teach the backbone through low-rank adapters of this rank on every linear layer, "
+        "with the base held in bf16 and gradient checkpointing on; 0 fine-tunes it whole. For a "
+        "teacher too large to fine-tune on the card, read by teach.py and never exported.",
     )
     parser.add_argument(
         "--second-weight",
