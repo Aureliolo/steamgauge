@@ -3217,6 +3217,24 @@ it will be asked again of the runs on the fresh export where the ingredients dif
 objective rather than by seed, and because the answer is now on the record with the numbers
 that produced it.
 
+**The three runs on the fresh export, against the same bar (2026-09-22).** One configuration,
+trained three times with one thing changed, on labels where 11,104 training claims were read
+twice:
+
+| run | validation answered | frozen answered | frozen delivered | frozen macro F1 |
+|---|---|---|---|---|
+| plain | 92.0% | 93.1% | 78.1% | 0.693 |
+| `--error-reg 1.0` | 92.6% | 93.8% | 77.8% | 0.693 |
+| `--second-weight 0.5` | 91.9% | 93.7% | 78.0% | 0.697 |
+| the three averaged (`soup.py`) | 92.7% | 93.8% | 77.8% | 0.695 |
+
+Nothing clears a point of coverage, the soup included: averaging runs that differ by objective
+bought what averaging runs that differ by seed did, which is the best ingredient's figure. Paying for a confident wrong answer moved validation by 0.6
+and the frozen games by 0.7, with delivered accuracy 0.3 lower; learning from both labellers'
+answers moved nothing at all. Neither knob ships, both stay, and the labels are where the next
+point is: the knobs' job was to use the disagreement better, and at 5.8% of training claims
+the disagreement is too little to use.
+
 ### Half the second reading was on disk and nothing read it
 
 Counted 2026-09-22 to say what `--second-weight` could possibly do before the run that tests
