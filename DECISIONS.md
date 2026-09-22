@@ -3349,6 +3349,68 @@ F1 falls, 0.645 against 0.656, which is the trade this is expected to make: aver
 seed's confident rare-subject calls towards the middle and buys coverage with them. The
 three-seed soup and the same over the two abstention knobs decide whether it ships.
 
+### 3.1% of the validation set was a teaching draw, and the export now refuses it
+
+Found 2026-09-22, while checking which training games still have no mined set. Every teaching
+draw is selected rather than random: `declined` holds the claims the reader would not answer,
+`mined` and `retrieved` hold the claims a word probe or a nearest-neighbour walk went looking
+for, `multilingual` holds a deliberately non-English draw. A row of any of them is trained on,
+so drawing one from a validation or frozen game trains the model on the games it is measured
+on. The draw commands refuse a held-back game and have for some time.
+
+They were not always there. **275850 is a validation game carrying 147 `multilingual` rows**,
+drawn before the guard existed, and nothing since has taken them out: `labelled_claims` walks
+every teaching set under every game, the export writes what it walks, and `split_by_game`
+places a claim by its game and never looks at its subset. So 147 of 4,744 validation claims,
+3.1% of the set and 147 of that one game's 787, were a draw chosen for being non-English. Every
+abstention threshold this project has chosen was chosen on that set, and the frozen figure is
+read at the threshold it picked.
+
+The guard belongs in the export as well as in the draw, because the draw guards an action and
+the export guards the file: a set drawn before the rule, restored from a backup, or written by
+hand reaches the split all the same. `export_training` now holds back a teaching row whose game
+is not `Role::Train` and names the game on the way past. Nothing was deleted; 147 labels stay in
+the reference tree, where they are honest labels of claims that cannot be trained on and cannot
+be measured on.
+
+What it does to the numbers is not yet known and is bounded. The four knob runs in flight share
+the contaminated validation set, so the comparison between them is on the same claims and the
+choice between them stands. The folds behind the winner train on the fixed export, so the
+threshold that ships, and the frozen figure read at it, are clean. No figure already published
+moves, because nothing is published.
+
+### The contested flag moves with the sitting, not only with the claim
+
+Measured 2026-09-22, over the seventeen mined sets, which are the same draw method and the same
+brief seventeen times. The share of claims a labeller flags `ambiguous` runs from 6.7% to 51.1%
+between sets, and the spread is not two labellers disagreeing: within `claude-opus-5` alone the
+four sets of this evening came back at 11.1%, 15.6%, 6.7% and 37.8%, against 31.1% to 51.1% for
+its four earlier ones.
+
+| subset | claims | contested | mis-split |
+|---|---|---|---|
+| random | 33,010 | 28.5% | 14.1% |
+| mined | 2,160 | 39.3% | 17.9% |
+| declined | 2,935 | 48.1% | 12.8% |
+| retrieved | 2,867 | 29.2% | 10.8% |
+| multilingual | 1,697 | 33.1% | 19.3% |
+
+The subset differences are the ones the draws were built to produce and read as expected: a set
+of claims the reader declined is half contested, a random set is a quarter. The sitting
+differences sit on top of them and are as large. `split_wrong` does not do this to anything like
+the same degree, 11% to 37% across sets and mostly 15% to 22%.
+
+This is the third measurement pointing the same way. The two blind readings agree on the subject
+at kappa 0.87 and on the contested flag at kappa 0.46, the lowest of the three fields; the flag's
+rate differs between the two readings, 27.4% against 43.9%; and now it differs between sittings
+of one reader. A field that moves this much with who asked and when is not a property of the
+claim, and training on it as though it were teaches the model to predict a labeller's mood.
+
+The disagreement between two blind readings is the measurement that does not move: it is
+computed, not reported, and the ceiling already uses it. Whether the reader's `on_contested`
+figure tracks the flag or the disagreement better is a scored question, and the queue owns the
+card until it drains.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
