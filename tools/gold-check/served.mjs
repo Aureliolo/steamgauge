@@ -19,8 +19,6 @@ import { resolve } from "node:path";
 
 import { connect, debuggerUrl, open, sleep } from "./chrome.mjs";
 
-const DEBUG_PORT = 9336;
-
 const file = resolve(process.argv[2] ?? "gold.html");
 const page = await readFile(file, "utf8");
 
@@ -89,10 +87,10 @@ const ANSWERED = `(function () {
   return counter ? counter.textContent : '';
 })()`;
 
-const chrome = await open(served, DEBUG_PORT);
+const chrome = await open(served, { prefix: "steamgauge-gold-served-" });
 let failed = true;
 try {
-  const { socket, send, evaluate, ready } = await connect(await debuggerUrl(DEBUG_PORT));
+  const { socket, send, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
   await send("Network.enable", {});
   if (!(await ready())) throw new Error("the served page never became answerable");
 

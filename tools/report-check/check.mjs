@@ -14,90 +14,12 @@
 //   node tools/report-check/check.mjs page.html
 //
 // Chrome is found through CHROME_PATH, or in the usual places on each platform.
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const PORT = 9333;
-
-const CANDIDATES = [
-  process.env.CHROME_PATH,
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-  "/usr/bin/google-chrome",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-  "/snap/bin/chromium",
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-];
-
-function browser() {
-  const found = CANDIDATES.filter(Boolean).find((path) => existsSync(path));
-  if (!found) {
-    throw new Error(
-      `no Chrome found. Set CHROME_PATH, or install one of:\n  ${CANDIDATES.filter(Boolean).join("\n  ")}`,
-    );
-  }
-  return found;
-}
-
-const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-
-async function debuggerUrl() {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const list = await fetch(`http://127.0.0.1:${PORT}/json/list`).then((r) => r.json());
-      const page = list.find((t) => t.type === "page" && t.webSocketDebuggerUrl);
-      if (page) return page.webSocketDebuggerUrl;
-    } catch {
-      // Chrome has not opened the port yet, which is the usual case for the first second.
-    }
-    await sleep(250);
-  }
-  throw new Error("headless Chrome never opened a debugging port");
-}
-
-async function connect(url) {
-  const socket = new WebSocket(url);
-  await new Promise((ok, bad) => {
-    socket.addEventListener("open", ok, { once: true });
-    socket.addEventListener("error", bad, { once: true });
-  });
-  let id = 0;
-  const waiting = new Map();
-  // Every URL the page asks for, which is the only way to hold it to fetching nothing: the
-  // markup can be free of every http:// this tool would have written and still pull a font
-  // in from a stylesheet nobody read closely.
-  const asked = [];
-  socket.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
-    if (message.method === "Network.requestWillBeSent") {
-      asked.push(message.params.request.url);
-    }
-    const settle = waiting.get(message.id);
-    if (settle) {
-      waiting.delete(message.id);
-      settle(message);
-    }
-  });
-  const send = (method, params) =>
-    new Promise((ok) => {
-      id += 1;
-      waiting.set(id, ok);
-      socket.send(JSON.stringify({ id, method, params }));
-    });
-  return {
-    socket,
-    send,
-    asked,
-    evaluate: (expression) =>
-      send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }),
-  };
-}
+import { connect, debuggerUrl, open, sleep } from "../chrome.mjs";
 
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong
 // rather than the first thing wrong.
@@ -595,33 +517,22 @@ const ON_PAPER = `(function () {
 
 const file = resolve(process.argv[2] ?? "sample-report.html");
 const page = pathToFileURL(file).href;
-const profile = await mkdtemp(join(tmpdir(), "steamgauge-report-check-"));
+// Somewhere to put the second copy of the page. Chrome's own profile is the launcher's.
+const scratch = await mkdtemp(join(tmpdir(), "steamgauge-report-page-"));
 
 // The same page with the script cut out, which is exactly what a reader with scripting off
 // is served. Driven as a page of its own rather than by turning scripting off in the
 // browser, because a debugger that cannot run script cannot ask the page anything either.
-const mute = join(profile, "without-scripting.html");
+const mute = join(scratch, "without-scripting.html");
 await writeFile(
   mute,
   (await readFile(file, "utf8")).replace(/<script>[\s\S]*?<\/script>/g, ""),
 );
-const chrome = spawn(
-  browser(),
-  [
-    "--headless=new",
-    `--remote-debugging-port=${PORT}`,
-    `--user-data-dir=${profile}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-gpu",
-    page,
-  ],
-  { stdio: "ignore" },
-);
+const chrome = await open(page, { prefix: "steamgauge-report-check-" });
 
 let failed = true;
 try {
-  const { socket, send, asked, evaluate } = await connect(await debuggerUrl());
+  const { socket, send, asked, evaluate } = await connect(await debuggerUrl(chrome.port));
   // Loaded once already by the launch, before anything could watch it, so it is loaded again
   // with the network being listened to.
   await send("Network.enable", {});
@@ -686,7 +597,7 @@ try {
     }
   }
 } finally {
-  chrome.kill();
-  await rm(profile, { recursive: true, force: true }).catch(() => {});
+  await chrome.close();
+  await rm(scratch, { recursive: true, force: true }).catch(() => {});
 }
 process.exit(failed ? 1 : 0);
