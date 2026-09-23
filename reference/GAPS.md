@@ -291,6 +291,21 @@ claims "usually lead with atmosphere words" and the sheet sends faithfulness to 
 Two readers who could not see each other's work naming the same boundary is the strongest
 evidence in this file, and the rule is still not written.
 
+**Third report, 2026-09-23, after the rule was written.** `atmosphere` now says faithfulness to
+the film it adapts is `licensing`, and on 1433140, a film adaptation, the labeller still split
+the one shape the rule does not name: "it makes you feel like you are in the movie" went to
+`licensing` and "brilliant atmosphere, like you're in the movie" to `atmosphere`, both flagged.
+The rule speaks of faithfulness; a feeling of being inside the film is the same claim said as a
+feeling, and the rule should say so in those words.
+
+The same draw found two edges of the row the sheet does not draw at all. A remaster "faithful
+to the originals" (2395210, five claims) is not an adaptation of anything, and `genre` owns how
+a game differs from its predecessor; filed `licensing`, flagged. And a licence withheld or
+expiring ("NFL, open the licensing", "SI are not extending the licensing") is both the licence
+lost (`licensing`) and the agreement protested (`policy`); the labeller filed who holds it as
+`policy` and what went missing as `licensing`, which is a workable line and should be the
+written one.
+
 ### A real competition that is missing: two reports, on the licensing draws
 
 "No Liga MX", "no World Cup mode", "add the Czech league", "the national teams are gone", on
