@@ -1928,14 +1928,14 @@
     "subset": "random",
     "start": 2706,
     "end": 2877,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": true
   },
   {
     "review_id": "160099097",
@@ -6654,7 +6654,7 @@
     "subset": "random",
     "start": 979,
     "end": 1208,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",

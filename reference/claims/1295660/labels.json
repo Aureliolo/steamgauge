@@ -1095,13 +1095,13 @@
     "subset": "random",
     "start": 3834,
     "end": 3926,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {
@@ -11193,13 +11193,13 @@
     "subset": "random",
     "start": 2867,
     "end": 3147,
-    "taxonomy": "4c0f706325b0",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

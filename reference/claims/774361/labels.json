@@ -1146,7 +1146,7 @@
     "subset": "random",
     "start": 203,
     "end": 358,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "compatibility",
     "polarity": "complaint",

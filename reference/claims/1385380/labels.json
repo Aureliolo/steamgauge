@@ -7249,7 +7249,7 @@
     "subset": "random",
     "start": 0,
     "end": 228,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "policy",
     "polarity": "complaint",

@@ -5056,7 +5056,7 @@
     "subset": "random",
     "start": 147,
     "end": 213,
-    "taxonomy": "core-6",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
