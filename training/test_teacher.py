@@ -32,8 +32,17 @@ def backbone(tmp_path):
     return str(tmp_path)
 
 
-def test_only_the_adapters_and_the_heads_learn(backbone):
+def test_a_teacher_holds_its_trunk_in_bf16_and_its_heads_in_fp32(backbone):
+    # Checked without multiplying anything: bf16 arithmetic on a CPU runs kernels chosen per
+    # instruction set, and a CI runner lacking one dies with an illegal instruction rather than
+    # failing. The teacher only ever computes on the card.
     model = ClaimReader(backbone, 3, pooling="last", dtype=torch.bfloat16)
+    assert {p.dtype for p in model.trunk.parameters()} == {torch.bfloat16}
+    assert model.subject.weight.dtype == torch.float32
+
+
+def test_only_the_adapters_and_the_heads_learn(backbone):
+    model = ClaimReader(backbone, 3, pooling="last")
     adapt(model, 4)
     learning = {name for name, p in model.named_parameters() if p.requires_grad}
     assert learning, "nothing would learn"
@@ -43,7 +52,7 @@ def test_only_the_adapters_and_the_heads_learn(backbone):
 
 
 def test_a_merged_teacher_loads_as_a_plain_reader_and_answers_the_same(backbone):
-    model = ClaimReader(backbone, 3, pooling="last", dtype=torch.bfloat16)
+    model = ClaimReader(backbone, 3, pooling="last")
     adapt(model, 4)
     ids = torch.randint(0, 64, (2, 6))
     mask = torch.ones_like(ids)
@@ -57,8 +66,8 @@ def test_a_merged_teacher_loads_as_a_plain_reader_and_answers_the_same(backbone)
     model.trunk = model.trunk.merge_and_unload()
     state = model.state_dict()
 
-    plain = ClaimReader(backbone, 3, pooling="last", dtype=torch.bfloat16)
+    plain = ClaimReader(backbone, 3, pooling="last")
     plain.load_state_dict(state)
     plain.eval()
     after, _, _ = plain(ids, mask)
-    assert torch.allclose(before, after, atol=5e-2)
+    assert torch.allclose(before, after, atol=1e-4)
