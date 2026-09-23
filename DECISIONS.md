@@ -3604,6 +3604,28 @@ So the row that most needs labels is the one this method moves least. `licensing
 choosing games that adapt or license something, as the six chosen on 2026-09-13 showed, and
 the word draw is only worth running on those.
 
+**So it was run on those, 2026-09-23.** Six games chosen for holding the row and for training
+by the hash of their ids, captured, read, and drawn with `--only licensing` and the narrowed
+lines. A free check first, reviews that name a licence outright in the capture, said which
+games would pay; the labels agreed:
+
+| game | candidates | `licensing` | |
+|---|---|---|---|
+| 1433140, a film adaptation | 200 | 102 | "feels like being in the movie" |
+| 2252570, a football manager | 54 | 40 | the leagues and national teams it lacks |
+| 2395210, a skating remaster | 30 | 20 | the skaters and the licensed songs |
+| 2842040, a film-universe game | 71 | 21 | the rest is its own story |
+| 2315690, a wrestling game | 28 | 6 | the roster talk is not about the licence |
+| 2582560, an American football game | 12 | 0 | eight were the exclusive licence itself, `policy` |
+
+**189 of 395, 48%**, one Fable labeller for the film game and one for the other five. The row
+held about 255 labels; this adds three quarters again, from one sitting. The labellers found the
+row's edges where the sheet has not drawn them: whether feeling like the film is `licensing`
+or `atmosphere` (the sheet names faithfulness in both), whether a remaster being faithful to
+the originals is an adaptation at all, and whether a licence that is withheld or expiring is
+the licence lost (`licensing`) or the agreement protested (`policy`); `reference/GAPS.md` has
+them.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
