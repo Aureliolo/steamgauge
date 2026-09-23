@@ -3405,6 +3405,67 @@ pretraining, and ten epochs of 32,443 claims do not teach it. The encoder stays,
 folds are fitted to it, and the next bet is not another family of the same size but a larger
 model teaching this one.
 
+### A teacher seven times the reader's size, taught through adapters (2026-09-23)
+
+The last time the backbone changed size it bought more than every other setting combined, and
+nothing larger than 610M has been tried since, because nothing larger fine-tunes whole on this
+card. `Qwen/Qwen3-Embedding-4B`, read at its last token, trained through rank-16 adapters on
+every linear layer with the base in bf16 and gradient checkpointing (`train.py --lora-rank`),
+fits in about 11 GB, which leaves the card room for everything else on it. Three epochs, three
+hours. It was trained as a teacher, so what it knows reaches the tool through `teach.py` and a
+560M student; whether it can be a reader itself is measured below it, since a graph of eight
+gigabytes in half precision needs a card most people do not have and is too large for one
+protobuf (`export.py --external-data` keeps its weights beside the graph).
+
+The teacher and its students train on the midnight export (labels `3957afe410639ee6`, after the
+accessibility revisit). The 560M row below is the knob round's, on the labels before it
+(`7b20375556e2782f`), so it is the encoder in place rather than a control; the control is
+`e5inst-pool-e5ensemble-s1`, below.
+
+| | validation answered | frozen answered | frozen delivered | frozen macro F1 | frozen AURC |
+|---|---|---|---|---|---|
+| the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
+| `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | 78.5% | 0.689 | 0.081 |
+| `e5inst-pool-qwen4b-s2`, the same, second seed | 96.5% | 97.0% | **79.1%** | 0.698 | 0.079 |
+| `e5inst-pool-e5ensemble-s1`, the control: the same, taught by three `e5-29006` seeds | 92.3% | 93.4% | 78.4% | 0.679 | 0.090 |
+| `e5-large-instruct`, bake-off recipe, 5 epochs | 89.9% | | | | |
+| the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
+
+It answers nearly every claim at the accuracy it promises, and its confidence ranks right above
+wrong better than anything trained here: AURC falls by a fifth. Seven points of coverage is
+seven times the bar the knob round set, on one seed, from size alone.
+
+**And most of that reaches the 560M.** Taught by the 4B's answers over the 250,668-claim pool,
+the shipped student recipe answers 97.0-97.7% of frozen claims at 78.5-79.1%; taught by the
+three `e5-29006` seeds, on the same labels, the same recipe answers 93.4% at 78.4%, where every
+560M has landed since the pool was introduced. Four points of coverage at equal or better
+accuracy, with AURC down from 0.090 to 0.080: wider than the 2.6-point seed spread that is the
+bar for every change here, and the two seeds of the 4B's students sit 0.7 apart. The labels did
+not do it; the teacher did. So every student from here on is taught by the 4B, the licensed
+retrain included, and the next candidate reader is one of them. The teacher itself stays three
+points of coverage above its students, and whether that is worth an eight-gigabyte reader is the
+next measurement.
+
+Macro F1 barely moves, and the mean hides where the gain is. Against `e5inst-pool-rdrop-s1` on
+the frozen games, row by row, the 4B is ten points better on `controls` (108 claims), nine on
+`audio` (79), eight on `licensing` (37), seven on `graphics` (190) and five on `atmosphere`
+(255), and worse only on `vr`, `community` and `accessibility`, which hold 12, 6 and 12 frozen
+claims: a row that small moves twenty points on two claims, so those three are noise in both
+directions, and they are what cancels the rest out of the mean.
+
+### A reader in more than one size (2026-09-23)
+
+Decided by the user on seeing the teacher: measure it as a reader, and treat reader size as a
+choice the tool offers rather than one it makes for everybody, recommended from the card it
+finds. A reader that answers seven points more of every game is worth having for whoever has
+the card for it, and nobody without one should be handed it; nor should somebody on a
+processor wait for the 560M when a smaller reader would do. Each size is judged the way every
+reader here is: frozen coverage and accuracy, the frontier key, and the time and card memory of
+a real `steamgauge read` of the same frozen game (920210, 117,664 claims). The candidates are
+the 4B itself at the top, the 560M in the middle, and `multilingual-e5-base` (278M) and `-small`
+(118M) taught by the 4B at the bottom. `bge-m3` and the 0.6B decoders are not among them: they
+lost to the encoder at its own size and are no cheaper to run, so they fill no tier.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
