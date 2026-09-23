@@ -3352,6 +3352,26 @@ added since it was written was a field it did not have, and it would have stoppe
 one `run` asked for. The round is queued behind everything the shipping decision needs,
 because it decides what to try next rather than what to ship now.
 
+**Run 2026-09-23, and the encoder in place defends itself by twenty points.** Validation games,
+the bake-off's own recipe, the claim in its window; `Qwen3-Embedding-0.6B` was left out, having
+been measured already as `qwen3e06-29006`:
+
+| backbone | epochs | answers at 75% | macro F1 | AURC | claims/s |
+|---|---|---|---|---|---|
+| `multilingual-e5-large-instruct`, in place | 5 | **90%** | 0.607 | 0.123 | not timed |
+| `jhu-clsp/mmBERT-base` | 10 | 72% | 0.525 | 0.167 | 368 |
+| `EuroBERT/EuroBERT-610m` | 10 | 71% | 0.546 | 0.166 | 258 |
+| `nomic-ai/nomic-embed-text-v2-moe` | 10 | 68% | 0.545 | 0.185 | 237 |
+
+None of the four bets pays. The modern recipe at half the size, the dense encoder of the same
+size trained later, and the mixture of experts all land within four points of each other and
+twenty below the incumbent, and the gap is not the training length: a five-epoch pass of the
+same three, run by mistake beside this one, reached 72%, 71% and 68% as well. Whatever
+`e5-large-instruct` knows about reading a claim in its window, these did not learn from their
+pretraining, and ten epochs of 32,443 claims do not teach it. The encoder stays, the
+folds are fitted to it, and the next bet is not another family of the same size but a larger
+model teaching this one.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
