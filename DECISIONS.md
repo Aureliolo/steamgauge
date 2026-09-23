@@ -3417,11 +3417,15 @@ hours. It was trained as a teacher, so what it knows reaches the tool through `t
 gigabytes in half precision needs a card most people do not have and is too large for one
 protobuf (`export.py --external-data` keeps its weights beside the graph).
 
-On the midnight export, against the encoder in place on the same labels:
+The teacher and its students train on the midnight export (labels `3957afe410639ee6`, after the
+accessibility revisit). The 560M row below is the knob round's, on the labels before it
+(`7b20375556e2782f`), so it is the encoder in place rather than a control; the control is
+`e5inst-pool-e5ensemble-s1`, below.
 
 | | validation answered | frozen answered | frozen delivered | frozen macro F1 | frozen AURC |
 |---|---|---|---|---|---|
 | the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
+| `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | **78.5%** | 0.689 | 0.081 |
 | `e5-large-instruct`, bake-off recipe, 5 epochs | 89.9% | | | | |
 | the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
 
