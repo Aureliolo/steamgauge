@@ -226,6 +226,10 @@ pub const SHEET: &[Category] = &[
              which game it resembles, is the point being made. A recommendation is a verdict \
              whatever condition it carries: \"if you like horror this is perfect for you\" \
              recommends the game to a group of people, and who should buy it is a judgement. \
+             It stays a verdict when the condition names what the reader likes, \"if you like \
+             good graphics and a real story\", because that says who the game is for; saying \
+             it plays like another game, \"if you like Marvel vs Capcom 2, this is very \
+             similar\", conveys the resemblance and is genre. \
              A community's own catchphrase used as a salute, \"Rock and Stone\", is a verdict \
              and it is praise. Asking for a sequel belongs here; asking for a port belongs to \
              compatibility. Looking forward to the game, or wishing the reader a good time \
@@ -298,8 +302,8 @@ pub const SHEET: &[Category] = &[
              feels, I was terrified. Where a review says what creates the mood, that part \
              belongs to what creates it: a frightening creature design is graphics, a \
              soundtrack that unsettles is audio, a mechanic that keeps you on edge is \
-             gameplay, faithfulness to the film or book it adapts is licensing, and immersion \
-             broken by a crash is bugs.",
+             gameplay, faithfulness to the film or book it adapts is licensing, and so is \
+             feeling as if you are inside that film, and immersion broken by a crash is bugs.",
         ),
         alone: false,
     },
@@ -311,7 +315,10 @@ pub const SHEET: &[Category] = &[
                       it is beautiful or ugly or charming.",
         boundary: Some(
             "Animation quality and animation speed belong here. Frame rate belongs to \
-             performance.",
+             performance. Motion sickness in a game played on a screen, from the camera, head \
+             bob or field of view, belongs here, and so does flashing that can bring on a \
+             seizure; the option to turn either down is accessibility, and sickness in a \
+             headset is VR.",
         ),
         alone: false,
     },
@@ -336,7 +343,9 @@ pub const SHEET: &[Category] = &[
              given device belongs to compatibility. How the keys are laid out and whether \
              they respond is here; whether the game lets you change them, \"I wish I could \
              remap the keys\", is accessibility, which owns the settings players need in order \
-             to play at all.",
+             to play at all. The settings menu itself, how many options it holds and display \
+             modes such as fullscreen and windowed, belongs here; which graphics settings give \
+             a playable frame rate is performance.",
         ),
         alone: false,
     },
@@ -570,7 +579,11 @@ pub const SHEET: &[Category] = &[
              keeps only a mode or feature that names nothing real. What is sold on top of the \
              game belongs to monetisation, whether an adaptation is well written belongs to \
              story, and a protest about a licence agreement, terms of service or an account \
-             belongs to policy.",
+             belongs to policy. Feeling as if you are inside the film, show or book the game \
+             adapts is faithfulness said as a feeling, and belongs here. A licence withheld or \
+             running out is here where the claim is about what the game lacks because of it, \
+             \"the national teams are gone again\", and policy where it is about who holds the \
+             licence or what they agreed, \"let somebody else have the NFL licence\".",
         ),
         alone: false,
     },
