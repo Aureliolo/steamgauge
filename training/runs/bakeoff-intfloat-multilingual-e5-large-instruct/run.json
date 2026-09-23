@@ -1,0 +1,922 @@
+{
+  "backbone": "intfloat/multilingual-e5-large-instruct",
+  "epochs": 5,
+  "batch_size": 32,
+  "accumulate": 2,
+  "learning_rate": 2e-05,
+  "max_length": 128,
+  "context": true,
+  "seed": 1,
+  "mark": false,
+  "prefix": false,
+  "balance": 0.0,
+  "language_balance": 0.0,
+  "only_language": [],
+  "ambiguous_weight": 1.0,
+  "split_wrong_weight": 1.0,
+  "polarity_weight": 0.5,
+  "second_weight": 0.0,
+  "read_twice": 10851,
+  "error_reg": 0.0,
+  "error_reg_margin": null,
+  "ema": 0.0,
+  "llrd": 1.0,
+  "rdrop": 0.0,
+  "pooling": "mean",
+  "lora_rank": null,
+  "dtype": "float32",
+  "pool": null,
+  "pool_targets": null,
+  "pool_claims": 0,
+  "pool_weight": null,
+  "pool_temperature": null,
+  "split_seed": 1,
+  "fold": null,
+  "folds": null,
+  "device": "cuda",
+  "git_sha": "9da0ef2f23af198a69b3bd7661697a96c61130f3",
+  "data_fingerprint": "3957afe410639ee6",
+  "labels_newer_than_export": 0,
+  "claims": {
+    "train": 32443,
+    "validation": 4310,
+    "test": 5083
+  },
+  "games": {
+    "train": [
+      228380,
+      245170,
+      296970,
+      438100,
+      504230,
+      546560,
+      548430,
+      553850,
+      597180,
+      629730,
+      690790,
+      916440,
+      949230,
+      990080,
+      1062090,
+      1091500,
+      1102190,
+      1248130,
+      1272080,
+      1336490,
+      1361210,
+      1384160,
+      1385380,
+      1449850,
+      1517290,
+      1592190,
+      1665460,
+      1716740,
+      1778820,
+      1888930,
+      2357570,
+      2399830,
+      2669320,
+      2878980,
+      3551340
+    ],
+    "validation": [
+      275850,
+      1295660,
+      1372880,
+      1465360,
+      1601580,
+      2338770
+    ],
+    "test": [
+      214490,
+      620980,
+      774361,
+      920210,
+      1057090,
+      1222670,
+      1274570,
+      1466860,
+      1809540,
+      2881650
+    ]
+  },
+  "subjects": [
+    "accessibility",
+    "atmosphere",
+    "audio",
+    "bugs",
+    "community",
+    "compatibility",
+    "content",
+    "controls",
+    "difficulty",
+    "gameplay",
+    "genre",
+    "graphics",
+    "language",
+    "licensing",
+    "mods",
+    "monetisation",
+    "multiplayer",
+    "offtopic",
+    "performance",
+    "policy",
+    "price",
+    "story",
+    "tutorial",
+    "updates",
+    "verdict",
+    "vr"
+  ],
+  "seconds": 2715,
+  "validation": {
+    "accuracy": 0.7102088167053364,
+    "macro_f1": 0.607221763895385,
+    "read_twice": {
+      "claims": 4310,
+      "against_first": 0.7102088167053364,
+      "against_second": 0.702784222737819,
+      "against_either": 0.7519721577726218,
+      "where_both_agree": {
+        "claims": 3799,
+        "accuracy": 0.7499341932087391
+      }
+    },
+    "threshold": 0.63,
+    "threshold_coverage": 0.8986078886310905,
+    "threshold_accuracy": 0.7500645494448748,
+    "threshold_met": true,
+    "min_accuracy": 0.75,
+    "risk_coverage": [
+      {
+        "threshold": 0.05,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.06,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.07,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.08,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.09,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.1,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.11,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.12,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.13,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.14,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.15,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.16,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.17,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.18,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.19,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.2,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.21,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.22,
+        "coverage": 1.0,
+        "accuracy": 0.7102088167053364
+      },
+      {
+        "threshold": 0.23,
+        "coverage": 0.9995359628770302,
+        "accuracy": 0.7103064066852368
+      },
+      {
+        "threshold": 0.24,
+        "coverage": 0.9995359628770302,
+        "accuracy": 0.7103064066852368
+      },
+      {
+        "threshold": 0.25,
+        "coverage": 0.9993039443155453,
+        "accuracy": 0.710471325748781
+      },
+      {
+        "threshold": 0.26,
+        "coverage": 0.9993039443155453,
+        "accuracy": 0.710471325748781
+      },
+      {
+        "threshold": 0.27,
+        "coverage": 0.9990719257540603,
+        "accuracy": 0.7106363214119833
+      },
+      {
+        "threshold": 0.28,
+        "coverage": 0.9988399071925754,
+        "accuracy": 0.7105691056910569
+      },
+      {
+        "threshold": 0.29,
+        "coverage": 0.9981438515081207,
+        "accuracy": 0.7110646211064621
+      },
+      {
+        "threshold": 0.3,
+        "coverage": 0.9981438515081207,
+        "accuracy": 0.7110646211064621
+      },
+      {
+        "threshold": 0.31,
+        "coverage": 0.9981438515081207,
+        "accuracy": 0.7110646211064621
+      },
+      {
+        "threshold": 0.32,
+        "coverage": 0.9974477958236659,
+        "accuracy": 0.711560828099558
+      },
+      {
+        "threshold": 0.33,
+        "coverage": 0.9969837587006961,
+        "accuracy": 0.7118920176867582
+      },
+      {
+        "threshold": 0.34,
+        "coverage": 0.9965197215777262,
+        "accuracy": 0.7122235157159488
+      },
+      {
+        "threshold": 0.35,
+        "coverage": 0.9948955916473318,
+        "accuracy": 0.7126865671641791
+      },
+      {
+        "threshold": 0.36,
+        "coverage": 0.9937354988399072,
+        "accuracy": 0.7130515993462526
+      },
+      {
+        "threshold": 0.37,
+        "coverage": 0.9925754060324826,
+        "accuracy": 0.7138849929873773
+      },
+      {
+        "threshold": 0.38,
+        "coverage": 0.991647331786543,
+        "accuracy": 0.71408516612073
+      },
+      {
+        "threshold": 0.39,
+        "coverage": 0.9897911832946635,
+        "accuracy": 0.7151898734177216
+      },
+      {
+        "threshold": 0.4,
+        "coverage": 0.988631090487239,
+        "accuracy": 0.7160291011499648
+      },
+      {
+        "threshold": 0.41,
+        "coverage": 0.9870069605568446,
+        "accuracy": 0.7167371885284438
+      },
+      {
+        "threshold": 0.42,
+        "coverage": 0.98584686774942,
+        "accuracy": 0.717345257707696
+      },
+      {
+        "threshold": 0.43,
+        "coverage": 0.9846867749419954,
+        "accuracy": 0.7177191328934966
+      },
+      {
+        "threshold": 0.44,
+        "coverage": 0.9830626450116009,
+        "accuracy": 0.7186688694831248
+      },
+      {
+        "threshold": 0.45,
+        "coverage": 0.9812064965197216,
+        "accuracy": 0.71860960037834
+      },
+      {
+        "threshold": 0.46,
+        "coverage": 0.9774941995359628,
+        "accuracy": 0.7201519107524329
+      },
+      {
+        "threshold": 0.47,
+        "coverage": 0.9761020881670533,
+        "accuracy": 0.7209412883289755
+      },
+      {
+        "threshold": 0.48,
+        "coverage": 0.9740139211136891,
+        "accuracy": 0.7215340638399238
+      },
+      {
+        "threshold": 0.49,
+        "coverage": 0.971461716937355,
+        "accuracy": 0.7227131597802723
+      },
+      {
+        "threshold": 0.5,
+        "coverage": 0.9679814385150812,
+        "accuracy": 0.7245925215723873
+      },
+      {
+        "threshold": 0.51,
+        "coverage": 0.9638051044083527,
+        "accuracy": 0.7260471834376505
+      },
+      {
+        "threshold": 0.52,
+        "coverage": 0.9603248259860789,
+        "accuracy": 0.7269871949746316
+      },
+      {
+        "threshold": 0.53,
+        "coverage": 0.954524361948956,
+        "accuracy": 0.7292173067574137
+      },
+      {
+        "threshold": 0.54,
+        "coverage": 0.9491879350348028,
+        "accuracy": 0.7318504033243706
+      },
+      {
+        "threshold": 0.55,
+        "coverage": 0.9440835266821346,
+        "accuracy": 0.7331039567461293
+      },
+      {
+        "threshold": 0.56,
+        "coverage": 0.9366589327146172,
+        "accuracy": 0.7359425315828586
+      },
+      {
+        "threshold": 0.57,
+        "coverage": 0.9317865429234339,
+        "accuracy": 0.7377988047808764
+      },
+      {
+        "threshold": 0.58,
+        "coverage": 0.9264501160092807,
+        "accuracy": 0.7390433258201853
+      },
+      {
+        "threshold": 0.59,
+        "coverage": 0.9167053364269142,
+        "accuracy": 0.7436092128575045
+      },
+      {
+        "threshold": 0.6,
+        "coverage": 0.9127610208816705,
+        "accuracy": 0.7435180477885104
+      },
+      {
+        "threshold": 0.61,
+        "coverage": 0.9078886310904872,
+        "accuracy": 0.745208280092001
+      },
+      {
+        "threshold": 0.62,
+        "coverage": 0.9034802784222737,
+        "accuracy": 0.7475603492552645
+      },
+      {
+        "threshold": 0.63,
+        "coverage": 0.8986078886310905,
+        "accuracy": 0.7500645494448748
+      },
+      {
+        "threshold": 0.64,
+        "coverage": 0.8925754060324826,
+        "accuracy": 0.7512347283597609
+      },
+      {
+        "threshold": 0.65,
+        "coverage": 0.8888631090487239,
+        "accuracy": 0.7520229705037849
+      },
+      {
+        "threshold": 0.66,
+        "coverage": 0.8830626450116009,
+        "accuracy": 0.7543352601156069
+      },
+      {
+        "threshold": 0.67,
+        "coverage": 0.8767981438515081,
+        "accuracy": 0.757078592220164
+      },
+      {
+        "threshold": 0.68,
+        "coverage": 0.8721577726218097,
+        "accuracy": 0.7581803671189146
+      },
+      {
+        "threshold": 0.69,
+        "coverage": 0.8668213457076566,
+        "accuracy": 0.7604389721627409
+      },
+      {
+        "threshold": 0.7,
+        "coverage": 0.8626450116009281,
+        "accuracy": 0.7616998386229156
+      },
+      {
+        "threshold": 0.71,
+        "coverage": 0.8554524361948956,
+        "accuracy": 0.7640358014646054
+      },
+      {
+        "threshold": 0.72,
+        "coverage": 0.8494199535962877,
+        "accuracy": 0.7656378038787217
+      },
+      {
+        "threshold": 0.73,
+        "coverage": 0.8412993039443155,
+        "accuracy": 0.7683397683397684
+      },
+      {
+        "threshold": 0.74,
+        "coverage": 0.8359628770301624,
+        "accuracy": 0.7704690535664724
+      },
+      {
+        "threshold": 0.75,
+        "coverage": 0.8313225058004641,
+        "accuracy": 0.7716996929946972
+      },
+      {
+        "threshold": 0.76,
+        "coverage": 0.8278422273781902,
+        "accuracy": 0.773542600896861
+      },
+      {
+        "threshold": 0.77,
+        "coverage": 0.8176334106728538,
+        "accuracy": 0.7761066969353008
+      },
+      {
+        "threshold": 0.78,
+        "coverage": 0.8132250580046404,
+        "accuracy": 0.7771754636233952
+      },
+      {
+        "threshold": 0.79,
+        "coverage": 0.8076566125290023,
+        "accuracy": 0.7790864694053433
+      },
+      {
+        "threshold": 0.8,
+        "coverage": 0.8009280742459397,
+        "accuracy": 0.7821552723059096
+      },
+      {
+        "threshold": 0.81,
+        "coverage": 0.7941995359628771,
+        "accuracy": 0.7849839322231961
+      },
+      {
+        "threshold": 0.82,
+        "coverage": 0.7874709976798144,
+        "accuracy": 0.7860931054802592
+      },
+      {
+        "threshold": 0.83,
+        "coverage": 0.7786542923433875,
+        "accuracy": 0.7878426698450537
+      },
+      {
+        "threshold": 0.84,
+        "coverage": 0.7696055684454757,
+        "accuracy": 0.791980705456738
+      },
+      {
+        "threshold": 0.85,
+        "coverage": 0.7593967517401392,
+        "accuracy": 0.7956003666361137
+      },
+      {
+        "threshold": 0.86,
+        "coverage": 0.7503480278422274,
+        "accuracy": 0.7990105132962276
+      },
+      {
+        "threshold": 0.87,
+        "coverage": 0.7412993039443155,
+        "accuracy": 0.8028169014084507
+      },
+      {
+        "threshold": 0.88,
+        "coverage": 0.7308584686774942,
+        "accuracy": 0.8073015873015873
+      },
+      {
+        "threshold": 0.89,
+        "coverage": 0.7194895591647332,
+        "accuracy": 0.8123186069009997
+      },
+      {
+        "threshold": 0.9,
+        "coverage": 0.7076566125290024,
+        "accuracy": 0.8183606557377049
+      },
+      {
+        "threshold": 0.91,
+        "coverage": 0.6958236658932715,
+        "accuracy": 0.8232744248082694
+      },
+      {
+        "threshold": 0.92,
+        "coverage": 0.6805104408352668,
+        "accuracy": 0.8302079781793386
+      },
+      {
+        "threshold": 0.93,
+        "coverage": 0.6631090487238979,
+        "accuracy": 0.8365990202939119
+      },
+      {
+        "threshold": 0.94,
+        "coverage": 0.6522041763341068,
+        "accuracy": 0.8406261117040199
+      },
+      {
+        "threshold": 0.95,
+        "coverage": 0.6350348027842228,
+        "accuracy": 0.845451223967848
+      },
+      {
+        "threshold": 0.96,
+        "coverage": 0.6150812064965198,
+        "accuracy": 0.8555262165220672
+      },
+      {
+        "threshold": 0.97,
+        "coverage": 0.5872389791183295,
+        "accuracy": 0.866455946266298
+      },
+      {
+        "threshold": 0.98,
+        "coverage": 0.5494199535962877,
+        "accuracy": 0.8817567567567568
+      },
+      {
+        "threshold": 0.99,
+        "coverage": 0.4895591647331787,
+        "accuracy": 0.9028436018957346
+      }
+    ],
+    "aurc": 0.12288232212940405,
+    "polarity_macro_f1": 0.8192521468129735,
+    "calibration_error": 0.19006050609380631,
+    "on_clear_cut": 0.8000668672684721,
+    "on_contested": 0.5064442759666414,
+    "per_subject": {
+      "accessibility": {
+        "precision": 0.25,
+        "recall": 0.5,
+        "f1": 0.3333333333333333,
+        "support": 2
+      },
+      "atmosphere": {
+        "precision": 0.6049382716049383,
+        "recall": 0.532608695652174,
+        "f1": 0.5664739884393064,
+        "support": 92
+      },
+      "audio": {
+        "precision": 0.7142857142857143,
+        "recall": 0.7692307692307693,
+        "f1": 0.7407407407407408,
+        "support": 26
+      },
+      "bugs": {
+        "precision": 0.7696078431372549,
+        "recall": 0.7104072398190046,
+        "f1": 0.7388235294117647,
+        "support": 221
+      },
+      "community": {
+        "precision": 0.36363636363636365,
+        "recall": 0.5714285714285714,
+        "f1": 0.4444444444444444,
+        "support": 14
+      },
+      "compatibility": {
+        "precision": 0.5245901639344263,
+        "recall": 0.7272727272727273,
+        "f1": 0.6095238095238097,
+        "support": 44
+      },
+      "content": {
+        "precision": 0.5775193798449613,
+        "recall": 0.6286919831223629,
+        "f1": 0.602020202020202,
+        "support": 237
+      },
+      "controls": {
+        "precision": 0.7410071942446043,
+        "recall": 0.7518248175182481,
+        "f1": 0.7463768115942029,
+        "support": 137
+      },
+      "difficulty": {
+        "precision": 0.5882352941176471,
+        "recall": 0.6428571428571429,
+        "f1": 0.6143344709897611,
+        "support": 140
+      },
+      "gameplay": {
+        "precision": 0.7140468227424749,
+        "recall": 0.6651090342679128,
+        "f1": 0.6887096774193548,
+        "support": 642
+      },
+      "genre": {
+        "precision": 0.5422885572139303,
+        "recall": 0.6193181818181818,
+        "f1": 0.5782493368700264,
+        "support": 176
+      },
+      "graphics": {
+        "precision": 0.6951219512195121,
+        "recall": 0.6063829787234043,
+        "f1": 0.6477272727272727,
+        "support": 94
+      },
+      "language": {
+        "precision": 0.25,
+        "recall": 0.5,
+        "f1": 0.3333333333333333,
+        "support": 2
+      },
+      "licensing": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 5
+      },
+      "mods": {
+        "precision": 0.631578947368421,
+        "recall": 1.0,
+        "f1": 0.7741935483870968,
+        "support": 12
+      },
+      "monetisation": {
+        "precision": 0.6363636363636364,
+        "recall": 0.8235294117647058,
+        "f1": 0.717948717948718,
+        "support": 51
+      },
+      "multiplayer": {
+        "precision": 0.7437185929648241,
+        "recall": 0.8862275449101796,
+        "f1": 0.8087431693989071,
+        "support": 167
+      },
+      "offtopic": {
+        "precision": 0.6277372262773723,
+        "recall": 0.6615384615384615,
+        "f1": 0.644194756554307,
+        "support": 260
+      },
+      "performance": {
+        "precision": 0.7402597402597403,
+        "recall": 0.8636363636363636,
+        "f1": 0.7972027972027972,
+        "support": 66
+      },
+      "policy": {
+        "precision": 0.3235294117647059,
+        "recall": 0.2391304347826087,
+        "f1": 0.275,
+        "support": 46
+      },
+      "price": {
+        "precision": 0.796875,
+        "recall": 0.8793103448275862,
+        "f1": 0.8360655737704917,
+        "support": 232
+      },
+      "story": {
+        "precision": 0.36363636363636365,
+        "recall": 0.7333333333333333,
+        "f1": 0.48618784530386744,
+        "support": 60
+      },
+      "tutorial": {
+        "precision": 0.6666666666666666,
+        "recall": 0.8285714285714286,
+        "f1": 0.7388535031847134,
+        "support": 70
+      },
+      "updates": {
+        "precision": 0.7890625,
+        "recall": 0.6530172413793104,
+        "f1": 0.7146226415094339,
+        "support": 464
+      },
+      "verdict": {
+        "precision": 0.8445378151260504,
+        "recall": 0.769377990430622,
+        "f1": 0.8052078117175765,
+        "support": 1045
+      },
+      "vr": {
+        "precision": 0.5,
+        "recall": 0.6,
+        "f1": 0.5454545454545454,
+        "support": 5
+      }
+    },
+    "per_language": {
+      "english": {
+        "accuracy": 0.7144686299615877,
+        "claims": 3124
+      },
+      "german": {
+        "accuracy": 0.7106227106227107,
+        "claims": 273
+      },
+      "schinese": {
+        "accuracy": 0.7096774193548387,
+        "claims": 248
+      },
+      "russian": {
+        "accuracy": 0.7,
+        "claims": 240
+      },
+      "french": {
+        "accuracy": 0.7850467289719626,
+        "claims": 107
+      },
+      "brazilian": {
+        "accuracy": 0.6417910447761194,
+        "claims": 67
+      },
+      "spanish": {
+        "accuracy": 0.639344262295082,
+        "claims": 61
+      },
+      "japanese": {
+        "accuracy": 0.7068965517241379,
+        "claims": 58
+      },
+      "swedish": {
+        "accuracy": 0.717948717948718,
+        "claims": 39
+      },
+      "polish": {
+        "accuracy": 0.7727272727272727,
+        "claims": 22
+      },
+      "koreana": {
+        "accuracy": 0.4117647058823529,
+        "claims": 17
+      },
+      "italian": {
+        "accuracy": 0.6363636363636364,
+        "claims": 11
+      },
+      "tchinese": {
+        "accuracy": 0.45454545454545453,
+        "claims": 11
+      },
+      "turkish": {
+        "accuracy": 0.5714285714285714,
+        "claims": 7
+      },
+      "hungarian": {
+        "accuracy": 0.6666666666666666,
+        "claims": 6
+      },
+      "latam": {
+        "accuracy": 0.75,
+        "claims": 4
+      },
+      "greek": {
+        "accuracy": 0.75,
+        "claims": 4
+      },
+      "norwegian": {
+        "accuracy": 0.3333333333333333,
+        "claims": 3
+      },
+      "thai": {
+        "accuracy": 1.0,
+        "claims": 2
+      },
+      "czech": {
+        "accuracy": 0.5,
+        "claims": 2
+      },
+      "dutch": {
+        "accuracy": 0.0,
+        "claims": 1
+      },
+      "ukrainian": {
+        "accuracy": 1.0,
+        "claims": 1
+      },
+      "bulgarian": {
+        "accuracy": 1.0,
+        "claims": 1
+      },
+      "portuguese": {
+        "accuracy": 0.0,
+        "claims": 1
+      }
+    },
+    "per_length": {
+      "short": {
+        "accuracy": 0.7642276422764228,
+        "claims": 1476
+      },
+      "medium": {
+        "accuracy": 0.6911504424778762,
+        "claims": 2260
+      },
+      "long": {
+        "accuracy": 0.6463414634146342,
+        "claims": 574
+      }
+    },
+    "abstention": {
+      "0.3": {
+        "answers_for": 0.9981438515081207,
+        "accuracy": 0.7110646211064621
+      },
+      "0.5": {
+        "answers_for": 0.9679814385150812,
+        "accuracy": 0.7245925215723873
+      },
+      "0.7": {
+        "answers_for": 0.8626450116009281,
+        "accuracy": 0.7616998386229156
+      },
+      "0.9": {
+        "answers_for": 0.7076566125290024,
+        "accuracy": 0.8183606557377049
+      }
+    }
+  }
+}
