@@ -345,6 +345,14 @@ def main():
         "language no threshold can make reliable is declined outright. Without this the reader "
         "carries the one threshold it always has.",
     )
+    parser.add_argument(
+        "--external-data",
+        action="store_true",
+        help="keep the weights in model.onnx.data beside the graph instead of inside it. A "
+        "protobuf cannot hold more than 2 GB, so a reader above about a billion parameters in "
+        "half precision cannot be one file; such a reader is two files, and whatever pins it "
+        "has to pin both.",
+    )
     parser.add_argument("--min-accuracy", type=float, default=0.75)
     parser.add_argument(
         "--min-language-claims",
@@ -425,13 +433,20 @@ def main():
     )
 
     # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
-    # before it is run, and a checksum over one of two files is a checksum over nothing.
+    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
+    # reader too large for one protobuf is two files (--external-data), and then both are its.
     import onnx
 
     inlined = onnx.load(str(graph), load_external_data=True)
-    onnx.save(inlined, str(graph), save_as_external_data=False)
     for stray in graph.parent.glob("model.onnx.data*"):
         stray.unlink()
+    onnx.save(
+        inlined,
+        str(graph),
+        save_as_external_data=args.external_data,
+        all_tensors_to_one_file=True,
+        location="model.onnx.data",
+    )
 
     import onnxruntime
 
