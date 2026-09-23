@@ -345,6 +345,14 @@ def main():
         "language no threshold can make reliable is declined outright. Without this the reader "
         "carries the one threshold it always has.",
     )
+    parser.add_argument(
+        "--external-data",
+        action="store_true",
+        help="keep the weights in model.onnx.data beside the graph instead of inside it. A "
+        "protobuf cannot hold more than 2 GB, so a reader above about a billion parameters in "
+        "half precision cannot be one file; such a reader is two files, and whatever pins it "
+        "has to pin both.",
+    )
     parser.add_argument("--min-accuracy", type=float, default=0.75)
     parser.add_argument(
         "--min-language-claims",
@@ -391,11 +399,10 @@ def main():
     with torch.no_grad():
         wanted = model(encoded["input_ids"], encoded["attention_mask"])[0].numpy()
 
-    exported = model
-    if args.fp16:
-        half = ClaimReader(record["backbone"], len(subjects), pooling=pooling)
-        half.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
-        exported = InFullPrecisionOut(half.eval().half()).eval()
+    # Halved in place: the reference answers are already taken, and building a second copy to
+    # halve puts two full-precision models in memory at once. For a reader of a few billion
+    # parameters that is forty gigabytes, more than the machine has spare.
+    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model
 
     # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
     # the graph is the same either way, and tracing a 560M model on 256 sequences at once
@@ -425,13 +432,20 @@ def main():
     )
 
     # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
-    # before it is run, and a checksum over one of two files is a checksum over nothing.
+    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
+    # reader too large for one protobuf is two files (--external-data), and then both are its.
     import onnx
 
     inlined = onnx.load(str(graph), load_external_data=True)
-    onnx.save(inlined, str(graph), save_as_external_data=False)
     for stray in graph.parent.glob("model.onnx.data*"):
         stray.unlink()
+    onnx.save(
+        inlined,
+        str(graph),
+        save_as_external_data=args.external_data,
+        all_tensors_to_one_file=True,
+        location="model.onnx.data",
+    )
 
     import onnxruntime
 

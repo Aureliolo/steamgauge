@@ -48,6 +48,8 @@ credentials.*
 # Embedding models are fetched on first run and verified by checksum.
 models/
 *.onnx
+# The weights of a reader too large for one protobuf, which sit beside its graph.
+*.onnx.data
 
 # Training data carries review text, for the same reason the captures are not here. The
 # label set beside it names claims by review id and byte offset and is committed.
