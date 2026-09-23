@@ -44,7 +44,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          persist-credentials: false
+      # No build cache. The cache is written by every CI run, pull requests included, and a
+      # signed, attested binary built on top of one inherits whatever a run left in it.
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --release --locked --target ${{ matrix.target }} --bin steamgauge ${{ matrix.features }}
 
@@ -81,6 +84,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -147,4 +152,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" staging/* --generate-notes --verify-tag
+          # Through the environment, not expanded into the script: a tag name may hold
+          # characters the shell would run.
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" staging/* --generate-notes --verify-tag
