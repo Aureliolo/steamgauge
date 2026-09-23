@@ -3412,8 +3412,10 @@ nothing larger than 610M has been tried since, because nothing larger fine-tunes
 card. `Qwen/Qwen3-Embedding-4B`, read at its last token, trained through rank-16 adapters on
 every linear layer with the base in bf16 and gradient checkpointing (`train.py --lora-rank`),
 fits in about 11 GB, which leaves the card room for everything else on it. Three epochs, three
-hours. It is a teacher and never a reader: the tool cannot carry a four-billion-parameter graph,
-so what it knows reaches the tool through `teach.py` and a 560M student.
+hours. It was trained as a teacher, so what it knows reaches the tool through `teach.py` and a
+560M student; whether it can be a reader itself is measured below it, since a graph of eight
+gigabytes in half precision needs a card most people do not have and is too large for one
+protobuf (`export.py --external-data` keeps its weights beside the graph).
 
 On the midnight export, against the encoder in place on the same labels:
 
@@ -3424,9 +3426,28 @@ On the midnight export, against the encoder in place on the same labels:
 | the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
 
 It answers nearly every claim at the accuracy it promises, and its confidence ranks right above
-wrong better than anything trained here: AURC falls by a fifth. Macro F1 barely moves, so the
-gain is in knowing when it is right rather than in any row it could not read before. Seven
-points of coverage is seven times the bar the knob round set, on one seed, from size alone.
+wrong better than anything trained here: AURC falls by a fifth. Seven points of coverage is
+seven times the bar the knob round set, on one seed, from size alone.
+
+Macro F1 barely moves, and the mean hides where the gain is. Against `e5inst-pool-rdrop-s1` on
+the frozen games, row by row, the 4B is ten points better on `controls` (108 claims), nine on
+`audio` (79), eight on `licensing` (37), seven on `graphics` (190) and five on `atmosphere`
+(255), and worse only on `vr`, `community` and `accessibility`, which hold 12, 6 and 12 frozen
+claims: a row that small moves twenty points on two claims, so those three are noise in both
+directions, and they are what cancels the rest out of the mean.
+
+### A reader in more than one size (2026-09-23)
+
+Decided by the user on seeing the teacher: measure it as a reader, and treat reader size as a
+choice the tool offers rather than one it makes for everybody, recommended from the card it
+finds. A reader that answers seven points more of every game is worth having for whoever has
+the card for it, and nobody without one should be handed it; nor should somebody on a
+processor wait for the 560M when a smaller reader would do. Each size is judged the way every
+reader here is: frozen coverage and accuracy, the frontier key, and the time and card memory of
+a real `steamgauge read` of the same frozen game (920210, 117,664 claims). The candidates are
+the 4B itself at the top, the 560M in the middle, and `multilingual-e5-base` (278M) and `-small`
+(118M) taught by the 4B at the bottom. `bge-m3` and the 0.6B decoders are not among them: they
+lost to the encoder at its own size and are no cheaper to run, so they fill no tier.
 
 ### The seeds are averaged rather than chosen between
 
