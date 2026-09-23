@@ -3405,6 +3405,29 @@ pretraining, and ten epochs of 32,443 claims do not teach it. The encoder stays,
 folds are fitted to it, and the next bet is not another family of the same size but a larger
 model teaching this one.
 
+### A teacher seven times the reader's size, taught through adapters (2026-09-23)
+
+The last time the backbone changed size it bought more than every other setting combined, and
+nothing larger than 610M has been tried since, because nothing larger fine-tunes whole on this
+card. `Qwen/Qwen3-Embedding-4B`, read at its last token, trained through rank-16 adapters on
+every linear layer with the base in bf16 and gradient checkpointing (`train.py --lora-rank`),
+fits in about 11 GB, which leaves the card room for everything else on it. Three epochs, three
+hours. It is a teacher and never a reader: the tool cannot carry a four-billion-parameter graph,
+so what it knows reaches the tool through `teach.py` and a 560M student.
+
+On the midnight export, against the encoder in place on the same labels:
+
+| | validation answered | frozen answered | frozen delivered | frozen macro F1 | frozen AURC |
+|---|---|---|---|---|---|
+| the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
+| `e5-large-instruct`, bake-off recipe, 5 epochs | 89.9% | | | | |
+| the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
+
+It answers nearly every claim at the accuracy it promises, and its confidence ranks right above
+wrong better than anything trained here: AURC falls by a fifth. Macro F1 barely moves, so the
+gain is in knowing when it is right rather than in any row it could not read before. Seven
+points of coverage is seven times the bar the knob round set, on one seed, from size alone.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
