@@ -1027,7 +1027,7 @@
     "subset": "retrieved",
     "start": 60,
     "end": 199,
-    "taxonomy": "core-6",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "compatibility",
     "polarity": "complaint",

@@ -2727,7 +2727,7 @@
     "subset": "random",
     "start": 1001,
     "end": 1204,
-    "taxonomy": "core-5",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "praise",

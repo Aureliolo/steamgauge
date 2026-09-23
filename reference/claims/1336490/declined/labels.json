@@ -1503,13 +1503,13 @@
     "subset": "declined",
     "start": 410,
     "end": 732,
-    "taxonomy": "core-6",
+    "taxonomy": "a05d00cf2f39",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true
   },
   {

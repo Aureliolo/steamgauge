@@ -2225,6 +2225,16 @@ written down:
 
 The first four reach 529 labelled claims by the words and subjects they turn on, drawn as one
 revisit of 607 because a draw takes one list of each.
+
+**Revisited the same day: 473 claims drawn, 72 moved, 15%.** Four Fable labellers read them
+against the new wording; the revisit was ingested by the core crate's own `ingest_revisit`
+built from the new sheet, because the release binary could not be rebuilt beside a training
+run and stamps its own sheet on everything it ingests. The moves are spread thin, the largest
+six from `vr` to `graphics` (sickness on a screen), five `gameplay` to `controls` (settings),
+five `compatibility` to `performance` (a settings recipe for a frame rate): a clarification, as
+the last revision was, rather than a correction. The labellers found the new rules' own edge
+at once, and `reference/GAPS.md` has it: a bare "motion sickness" in a review that never says
+whether it was played in a headset.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

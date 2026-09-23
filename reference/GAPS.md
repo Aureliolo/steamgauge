@@ -518,6 +518,22 @@ verdict to many. A single line would settle it either way.
 "Made me cry", "the feels", "I'm scared", "AHHH". Sits between `atmosphere` and `story`, and
 the polarity is about the reviewer rather than the game, which the sheet says polarity is not.
 
+### Sickness with no screen or headset named: three reports, the day the rule was written
+
+The rule sends motion sickness on a screen to `graphics` and in a headset to `vr`, and three of
+the four labellers of its revisit met the claim that says neither: "motion sickness
+simulator" as a whole review, "gives me motion sickness" in a review that never mentions how
+it was played. The sheet forbids labelling from more than the text, so the fact the rule turns
+on is not there to read. Two filed `graphics`, one `vr`, all flagged. Two readings of the fix:
+default to `graphics` unless a headset is named, since most games are played on a screen; or
+give the claim to whatever the review blames (the camera, the controls, "motion blur and film
+grain"), which a labeller also reported. The first is a rule a labeller can follow every time.
+
+Beside it, once each: settings nobody explains ("don't know what 3-4 of the settings do")
+between `controls` and `tutorial`; VR comfort options between `vr` and `accessibility`, a
+second report of that entry above; and advice or a wish about who should hold a licence
+("hope some other studio picks up the license") between `policy` and `updates`.
+
 ## Smaller, one report each
 
 - Pre-order regret ("I who pre-ordered deluxe am a clown") fits neither `price` nor
