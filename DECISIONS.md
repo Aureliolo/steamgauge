@@ -3425,7 +3425,8 @@ accessibility revisit). The 560M row below is the knob round's, on the labels be
 | | validation answered | frozen answered | frozen delivered | frozen macro F1 | frozen AURC |
 |---|---|---|---|---|---|
 | the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
-| `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | **78.5%** | 0.689 | 0.081 |
+| `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | 78.5% | 0.689 | 0.081 |
+| `e5inst-pool-qwen4b-s2`, the same, second seed | 96.5% | 97.0% | **79.1%** | 0.698 | 0.079 |
 | `e5-large-instruct`, bake-off recipe, 5 epochs | 89.9% | | | | |
 | the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
 
