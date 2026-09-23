@@ -399,11 +399,10 @@ def main():
     with torch.no_grad():
         wanted = model(encoded["input_ids"], encoded["attention_mask"])[0].numpy()
 
-    exported = model
-    if args.fp16:
-        half = ClaimReader(record["backbone"], len(subjects), pooling=pooling)
-        half.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
-        exported = InFullPrecisionOut(half.eval().half()).eval()
+    # Halved in place: the reference answers are already taken, and building a second copy to
+    # halve puts two full-precision models in memory at once. For a reader of a few billion
+    # parameters that is forty gigabytes, more than the machine has spare.
+    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model
 
     # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
     # the graph is the same either way, and tracing a 560M model on 256 sequences at once
