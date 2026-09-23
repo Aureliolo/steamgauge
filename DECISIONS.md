@@ -2202,6 +2202,29 @@ second reading of any 77 claims does. The one remapping claim in a random set st
 `controls`. At 12% moved on the rows the rules aim at, this is a clarification and not a
 correction, as the `licensing` and `vr` revisit was and the `mods` one was not.
 
+### Five more rules, each from labellers who could not see each other (2026-09-23)
+
+The draws and revisits of 2026-09-22 and 23 put eleven labellers on the sheet, and where two or
+more of them stopped at the same place without seeing each other's work, the place is now
+written down:
+
+- **Feeling as if you are inside the film is `licensing`.** Reported three times, the last
+  after the rule on faithfulness was written: "it makes you feel like you are in the movie"
+  went to `licensing` and "brilliant atmosphere, like you're in the movie" to `atmosphere`.
+  Both `licensing` and `atmosphere` now say it.
+- **A licence withheld is `licensing` for what the game lacks and `policy` for who holds
+  it.** The line the labeller of the licensed draw drew for themselves, now the sheet's.
+- **Motion sickness on a screen, and flashing, are `graphics`.** All three labellers of the
+  `accessibility` revisit filed them there with nothing on the sheet saying so; the option to
+  turn either down stays `accessibility`, and sickness in a headset stays `vr`.
+- **The settings menu and display modes are `controls`**; which graphics settings give a
+  playable frame rate is `performance`. Three labellers filed these three different ways.
+- **A recommendation stays a verdict when its condition names what the reader likes**, and
+  saying it plays like another game is `genre`. The phrase revisit's labellers already drew
+  this line, so the claims it reaches were read under it an hour before it was written.
+
+The first four reach 529 labelled claims by the words and subjects they turn on, drawn as one
+revisit of 607 because a draw takes one list of each.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
