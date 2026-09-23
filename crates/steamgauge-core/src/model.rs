@@ -431,8 +431,16 @@ pub fn session_at(path: &Path) -> Result<(Session, &'static str)> {
     if let Ok(session) = try_session(path, ort::ep::CUDA::default().build()) {
         return Ok((session, "cuda"));
     }
+    // High performance, not the default order: on a laptop with two graphics adapters the
+    // default is the one driving the display, which is the integrated one, and a reading meant
+    // for the card would run on a fraction of it while still reporting "directml".
     #[cfg(feature = "directml")]
-    if let Ok(session) = try_session(path, ort::ep::DirectML::default().build()) {
+    if let Ok(session) = try_session(
+        path,
+        ort::ep::DirectML::default()
+            .with_performance_preference(ort::ep::directml::PerformancePreference::HighPerformance)
+            .build(),
+    ) {
         return Ok((session, "directml"));
     }
     #[cfg(feature = "coreml")]

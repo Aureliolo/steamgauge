@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       # The desktop shell is Tauri, which links against the system webview. On Linux that is
       # WebKitGTK, and without it the workspace does not build at all: the failure is
       # `glib-sys` failing its build script, which names nothing about Tauri.
@@ -33,6 +35,26 @@ jobs:
       # The training scripts are Python; `training/ruff.toml` holds their width.
       - run: pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
 
+  # What ships on Windows and macOS is built with a GPU backend, and the code behind each is
+  # behind its feature, so the default lint above never compiles it. Without this the first
+  # compile of the provider code a release actually runs is the release build.
+  backends:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            feature: directml
+          - os: macos-latest
+            feature: coreml
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - run: cargo clippy --workspace --all-targets --features steamgauge-core/${{ matrix.feature }} -- -D warnings
+
   test:
     strategy:
       fail-fast: false
@@ -41,6 +63,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -54,6 +78,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"
@@ -77,6 +103,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       # No system webview needed here: the example lives in the core crate, which is the
       # half of the workspace that knows nothing about a window.
