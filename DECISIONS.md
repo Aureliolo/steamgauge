@@ -3427,12 +3427,24 @@ accessibility revisit). The 560M row below is the knob round's, on the labels be
 | the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
 | `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | 78.5% | 0.689 | 0.081 |
 | `e5inst-pool-qwen4b-s2`, the same, second seed | 96.5% | 97.0% | **79.1%** | 0.698 | 0.079 |
+| `e5inst-pool-e5ensemble-s1`, the control: the same, taught by three `e5-29006` seeds | 92.3% | 93.4% | 78.4% | 0.679 | 0.090 |
 | `e5-large-instruct`, bake-off recipe, 5 epochs | 89.9% | | | | |
 | the best 560M runs of the night before | ~92% | ~93.8% | ~77.9% | ~0.695 | ~0.094 |
 
 It answers nearly every claim at the accuracy it promises, and its confidence ranks right above
 wrong better than anything trained here: AURC falls by a fifth. Seven points of coverage is
 seven times the bar the knob round set, on one seed, from size alone.
+
+**And most of that reaches the 560M.** Taught by the 4B's answers over the 250,668-claim pool,
+the shipped student recipe answers 97.0-97.7% of frozen claims at 78.5-79.1%; taught by the
+three `e5-29006` seeds, on the same labels, the same recipe answers 93.4% at 78.4%, where every
+560M has landed since the pool was introduced. Four points of coverage at equal or better
+accuracy, with AURC down from 0.090 to 0.080: wider than the 2.6-point seed spread that is the
+bar for every change here, and the two seeds of the 4B's students sit 0.7 apart. The labels did
+not do it; the teacher did. So every student from here on is taught by the 4B, the licensed
+retrain included, and the next candidate reader is one of them. The teacher itself stays three
+points of coverage above its students, and whether that is worth an eight-gigabyte reader is the
+next measurement.
 
 Macro F1 barely moves, and the mean hides where the gain is. Against `e5inst-pool-rdrop-s1` on
 the frozen games, row by row, the 4B is ten points better on `controls` (108 claims), nine on
