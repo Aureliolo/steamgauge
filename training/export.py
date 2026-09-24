@@ -46,6 +46,50 @@ TOLERANCE = 2e-3
 HALF_TOLERANCE = 2.5e-1
 
 
+def trace_graph(model, input_ids, attention_mask, path, opset: int):
+    """Writes a reader's graph, whatever its trunk.
+
+    A decoder trunk needs two things changed for the tracer, and an encoder needs neither. Current
+    transformers builds a decoder's causal mask with `torch.vmap`, which the tracing exporter
+    cannot follow: the 4B died in it with "invalid unordered_map<K, T> key". The same library
+    keeps a builder of plain tensor operations for older torch, and it is swapped in for the
+    trace alone; the parity check after the export is what says the two masks agree. A decoder
+    also keeps a cache of past keys for generating text, which a reader that answers once has no
+    use for and a traced graph should not carry as outputs.
+    """
+    from transformers.masking_utils import ALL_MASK_ATTENTION_FUNCTIONS, sdpa_mask_older_torch
+
+    for module in model.modules():
+        config = getattr(module, "config", None)
+        if config is not None and hasattr(config, "use_cache"):
+            config.use_cache = False
+    ALL_MASK_ATTENTION_FUNCTIONS["sdpa"] = sdpa_mask_older_torch
+    try:
+        torch.onnx.export(
+            model,
+            (input_ids, attention_mask),
+            path,
+            input_names=["input_ids", "attention_mask"],
+            output_names=["subject_logits", "polarity_logits", "pooled"],
+            dynamic_axes={
+                "input_ids": {0: "batch", 1: "tokens"},
+                "attention_mask": {0: "batch", 1: "tokens"},
+                "subject_logits": {0: "batch"},
+                "polarity_logits": {0: "batch"},
+                "pooled": {0: "batch"},
+            },
+            opset_version=opset,
+            # The tracing exporter rather than the dynamo one. Dynamo produces a graph full of
+            # operators ONNX Runtime's CUDA provider does not implement, so it partitions the
+            # model and copies tensors between host and device at every boundary: measured, the
+            # same weights ran at sixty claims a second on a 4090 and the card sat at a quarter
+            # busy. The traced graph is plainer and stays on the card.
+            dynamo=False,
+        )
+    finally:
+        del ALL_MASK_ATTENTION_FUNCTIONS["sdpa"]
+
+
 class InFullPrecisionOut(torch.nn.Module):
     """Runs the model in half precision and hands back full-precision numbers.
 
@@ -409,26 +453,12 @@ def main():
     # crashes the exporter outright rather than reporting anything.
     TRACE = 8
     graph = run / "model.onnx"
-    torch.onnx.export(
+    trace_graph(
         exported,
-        (encoded["input_ids"][:TRACE], encoded["attention_mask"][:TRACE]),
+        encoded["input_ids"][:TRACE],
+        encoded["attention_mask"][:TRACE],
         graph,
-        input_names=["input_ids", "attention_mask"],
-        output_names=["subject_logits", "polarity_logits", "pooled"],
-        dynamic_axes={
-            "input_ids": {0: "batch", 1: "tokens"},
-            "attention_mask": {0: "batch", 1: "tokens"},
-            "subject_logits": {0: "batch"},
-            "polarity_logits": {0: "batch"},
-            "pooled": {0: "batch"},
-        },
-        opset_version=args.opset,
-        # The tracing exporter rather than the dynamo one. Dynamo produces a graph full of
-        # operators ONNX Runtime's CUDA provider does not implement, so it partitions the
-        # model and copies tensors between host and device at every boundary: measured, the
-        # same weights ran at sixty claims a second on a 4090 and the card sat at a quarter
-        # busy. The traced graph is plainer and stays on the card.
-        dynamo=False,
+        args.opset,
     )
 
     # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
