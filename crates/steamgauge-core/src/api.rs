@@ -14,9 +14,32 @@ use crate::{Error, Result, query::ReviewQuery};
 /// Valve documents no rate limit for this endpoint, so the ceiling is unknown and can only
 /// be found by exceeding it. The client paces itself and treats any push-back as
 /// authoritative rather than probing for the real limit.
-const MAX_ATTEMPTS: u32 = 5;
 const BACKOFF_BASE: Duration = Duration::from_secs(2);
+/// The longest single wait the client picks for itself. Valve's refusals come in windows of
+/// minutes, so doubling past this only overshoots the end of one.
+const BACKOFF_CAP: Duration = Duration::from_mins(5);
+/// How long a run of refusals is waited out before the crawl is abandoned. Five attempts two to
+/// sixteen seconds apart gave up after half a minute, inside a window that lifted on its own a
+/// few minutes later, and four crawls failed that way in a row. A crawl is a long job, and
+/// waiting is what the person who started it would choose.
+pub const PATIENCE: Duration = Duration::from_mins(30);
 pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
+
+/// How long to wait before asking again after the `refusals`-th refusal in a row, having waited
+/// `waited` already; `None` when that would run past `patience` and the request should fail.
+/// Valve's own Retry-After wins over any guess the client could make, and is never shortened.
+fn next_wait(
+    refusals: u32,
+    waited: Duration,
+    told: Option<Duration>,
+    patience: Duration,
+) -> Option<Duration> {
+    let guess = BACKOFF_BASE
+        .saturating_mul(2_u32.saturating_pow(refusals.saturating_sub(1)))
+        .min(BACKOFF_CAP);
+    let wait = told.unwrap_or(guess);
+    (waited + wait <= patience).then_some(wait)
+}
 
 /// Totals as Valve reports them for the query's filters, present only on the first page.
 ///
@@ -50,16 +73,49 @@ pub struct Page {
     pub cursor: Option<String>,
 }
 
+/// Told how long the client is about to wait after Valve refused it, and with what status.
+type Notice = Arc<dyn Fn(Duration, u16) + Send + Sync>;
+
 /// Paces every request through one shared slot, so raising shard concurrency changes how
 /// the work is ordered but never how hard Valve is hit.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SteamClient {
     http: reqwest::Client,
     pace: Duration,
     next_slot: Arc<Mutex<Instant>>,
+    notice: Option<Notice>,
+    patience: Duration,
+}
+
+impl std::fmt::Debug for SteamClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SteamClient")
+            .field("pace", &self.pace)
+            .field("notice", &self.notice.is_some())
+            .field("patience", &self.patience)
+            .finish_non_exhaustive()
+    }
 }
 
 impl SteamClient {
+    /// How long a run of refusals is waited out before a request fails. [`PATIENCE`] suits a
+    /// crawl; somebody who typed a game into a search box would rather hear in seconds that
+    /// Steam is refusing than watch the box wait for half an hour.
+    #[must_use]
+    pub fn with_patience(mut self, patience: Duration) -> Self {
+        self.patience = patience;
+        self
+    }
+
+    /// Says so whenever Valve refuses and the client settles in to wait. A wait can run to
+    /// minutes, and a crawl that stops moving for minutes with nothing said looks exactly like
+    /// one that has hung.
+    #[must_use]
+    pub fn with_notice(mut self, notice: impl Fn(Duration, u16) + Send + Sync + 'static) -> Self {
+        self.notice = Some(Arc::new(notice));
+        self
+    }
+
     /// # Errors
     ///
     /// Fails if the HTTP client cannot be constructed, which in practice means a missing or
@@ -77,6 +133,8 @@ impl SteamClient {
             http,
             pace,
             next_slot: Arc::new(Mutex::new(Instant::now())),
+            notice: None,
+            patience: PATIENCE,
         })
     }
 
@@ -117,11 +175,12 @@ impl SteamClient {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Throttled`] if Valve keeps refusing after five attempts, and
-    /// [`Error::NoSuchCorpus`] if it answers `success: 0`.
+    /// Returns [`Error::Throttled`] if Valve keeps refusing for longer than the client's
+    /// patience, and [`Error::NoSuchCorpus`] if it answers `success: 0`.
     pub async fn fetch(&self, query: &ReviewQuery, app_id: u32) -> Result<Page> {
         let url = query.to_url();
         let mut attempt = 0;
+        let mut waited = Duration::ZERO;
 
         loop {
             attempt += 1;
@@ -139,16 +198,21 @@ impl SteamClient {
             }
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
-            if !retryable || attempt >= MAX_ATTEMPTS {
+            let wait = if retryable {
+                next_wait(attempt, waited, retry_after(&response), self.patience)
+            } else {
+                None
+            };
+            let Some(wait) = wait else {
                 return Err(Error::Throttled {
                     attempts: attempt,
                     status: status.as_u16(),
                 });
+            };
+            if let Some(notice) = &self.notice {
+                notice(wait, status.as_u16());
             }
-
-            // Valve's own Retry-After wins over any guess the client could make.
-            let wait =
-                retry_after(&response).unwrap_or_else(|| BACKOFF_BASE * 2_u32.pow(attempt - 1));
+            waited += wait;
             tokio::time::sleep(wait).await;
         }
     }
@@ -177,4 +241,61 @@ fn retry_after(response: &reqwest::Response) -> Option<Duration> {
         .parse::<u64>()
         .ok()
         .map(Duration::from_secs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_client_waits_out_a_window_of_minutes_rather_than_half_a_minute() {
+        let mut waited = Duration::ZERO;
+        let mut refusals = 0;
+        while let Some(wait) = next_wait(refusals + 1, waited, None, PATIENCE) {
+            refusals += 1;
+            waited += wait;
+        }
+        assert!(
+            waited >= Duration::from_mins(20),
+            "gave up after {waited:?}, inside the minutes a refusal lasts"
+        );
+        assert!(waited <= PATIENCE);
+    }
+
+    #[test]
+    fn no_single_guess_overshoots_a_window() {
+        for refusals in 1..40 {
+            assert!(next_wait(refusals, Duration::ZERO, None, PATIENCE).unwrap() <= BACKOFF_CAP);
+        }
+    }
+
+    #[test]
+    fn valve_saying_how_long_is_obeyed_and_not_shortened() {
+        let told = Duration::from_secs(600);
+        assert_eq!(
+            next_wait(1, Duration::ZERO, Some(told), PATIENCE),
+            Some(told)
+        );
+    }
+
+    #[test]
+    fn a_wait_past_the_patience_is_a_refusal_to_keep_waiting() {
+        assert_eq!(next_wait(1, PATIENCE, None, PATIENCE), None);
+        assert_eq!(
+            next_wait(1, Duration::ZERO, Some(PATIENCE * 2), PATIENCE),
+            None
+        );
+    }
+
+    #[test]
+    fn a_short_patience_gives_up_in_seconds() {
+        let patience = Duration::from_secs(30);
+        let mut waited = Duration::ZERO;
+        let mut refusals = 0;
+        while let Some(wait) = next_wait(refusals + 1, waited, None, patience) {
+            refusals += 1;
+            waited += wait;
+        }
+        assert!(waited <= patience);
+    }
 }

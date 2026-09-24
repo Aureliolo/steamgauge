@@ -3276,8 +3276,19 @@ async fn run_embed(
     Ok(())
 }
 
+/// A client that says when Valve refuses it and how long it will wait. The wait can run to
+/// minutes, and a crawl that stops printing for minutes reads as a hang.
+fn steam_client(pace: Duration) -> Result<SteamClient> {
+    Ok(SteamClient::new(pace)?.with_notice(|wait, status| {
+        eprintln!(
+            "\n  steam answered {status}; asking again in {}s",
+            wait.as_secs()
+        );
+    }))
+}
+
 async fn run_crawl(app_id: u32, options: &CrawlOptions, pace: Duration) -> Result<()> {
-    let client = SteamClient::new(pace)?;
+    let client = steam_client(pace)?;
 
     // A crawl of a large corpus runs for hours, so it is often piped to a log, where a
     // carriage-returned progress line becomes one unreadable smear.
@@ -3310,7 +3321,7 @@ async fn run_crawl(app_id: u32, options: &CrawlOptions, pace: Duration) -> Resul
 }
 
 async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
-    let client = SteamClient::new(pace)?;
+    let client = steam_client(pace)?;
     let interactive = std::io::stderr().is_terminal();
 
     eprintln!("bringing app {app_id} up to date");

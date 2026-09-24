@@ -902,6 +902,16 @@ async function start() {
   }
 }
 
+/* Steam refusing a download is not an error yet: the client waits for the refusal to lift, which
+   can take minutes, and the next progress event replaces this line once it has. */
+listen('steam-wait', ({ payload }) => {
+  if (payload.app_id !== chosen) return;
+  set(
+    el('work-what'),
+    `Steam is refusing requests (${payload.status}); asking again in ${payload.seconds} s`,
+  );
+});
+
 listen('crawl', ({ payload }) => {
   if (payload.app_id !== chosen) return;
   const done = payload.shards_total ? payload.shards_done / payload.shards_total : 0;
