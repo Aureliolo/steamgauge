@@ -26,8 +26,13 @@ bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside train
   command silently runs the old binary. Stop it, rebuild, see `Finished`.
 - Check the device line of `embed` or `read` says `directml` before trusting any timing.
 - The GPU and system RAM are shared with other work on this machine. Check the card is idle
-  before a GPU task, and never run a workspace build beside training: a CUDA OOM with VRAM free
-  means system commit ran out.
+  before a GPU task. A CUDA OOM with VRAM free means system commit ran out: on Windows every
+  byte a run reserves on the card is charged to commit too, about 21.5 GB for a 560M run, and
+  System event 2004 names who held the rest.
+- Beside training, only the core crate builds, and only through
+  `tools/cargo-beside-training.sh` (`check`, `clippy`, `test` or `run --example`, with
+  `-p steamgauge-core`): two jobs, 25 GB of commit free to start, stopped under 12. Never a
+  workspace, app or release build beside training.
 - A training queue imports `training/train.py` and `claimdata.py` from disk at each launch. While
   one runs, never stash, checkout, rebase or edit them in this tree; use a worktree. Before
   launching one, `grep -B1 "^def evaluate" training/train.py` must show `@torch.no_grad()`:
