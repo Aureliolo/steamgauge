@@ -313,13 +313,13 @@
     "subset": "mined",
     "start": 1717,
     "end": 1840,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false
   },
   {
@@ -1860,13 +1860,13 @@
     "subset": "mined",
     "start": 0,
     "end": 290,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true
   },
   {

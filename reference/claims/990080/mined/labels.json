@@ -2676,13 +2676,13 @@
     "subset": "mined",
     "start": 131,
     "end": 230,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
+    "confidence": "medium",
+    "ambiguous": true,
     "split_wrong": false
   },
   {
@@ -2880,13 +2880,13 @@
     "subset": "mined",
     "start": 0,
     "end": 76,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": true
   },
   {

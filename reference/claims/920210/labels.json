@@ -1316,13 +1316,13 @@
     "subset": "random",
     "start": 130,
     "end": 215,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
-    "subject": "atmosphere",
+    "subject": "licensing",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

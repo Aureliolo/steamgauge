@@ -8932,13 +8932,13 @@
     "subset": "random",
     "start": 2,
     "end": 35,
-    "taxonomy": "core-5",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
-    "subject": "bugs",
-    "polarity": "complaint",
+    "subject": "atmosphere",
+    "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": true
   },
   {

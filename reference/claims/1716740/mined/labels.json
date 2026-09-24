@@ -245,14 +245,14 @@
     "subset": "mined",
     "start": 840,
     "end": 1119,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "story",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": true
+    "ambiguous": false,
+    "split_wrong": false
   },
   {
     "review_id": "145753812",
@@ -432,7 +432,7 @@
     "subset": "mined",
     "start": 0,
     "end": 657,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",

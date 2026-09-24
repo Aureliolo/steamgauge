@@ -3900,13 +3900,13 @@
     "subset": "random",
     "start": 0,
     "end": 148,
-    "taxonomy": "core-5",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true
   },
   {

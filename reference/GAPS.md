@@ -377,6 +377,17 @@ sheet 2026-09-24:** how a game enforces its rules on its players (bans, reports,
 verdict and its appeal, and the moderators who apply them, including one who abuses the role)
 is `policy`; what the players do to one another is `community`.
 
+The revisit found the rule's edges at once. **An anti-cheat that fails** ("does nothing against
+the cheaters", "good anti-cheat now which prevents the obvious cheating"; 2357570, 2338770,
+2878980) is the decision and its effect at once: `policy` owns the verdict, `multiplayer` owns
+whether cheaters ruin it, and the labellers split. The line that follows the rule's own logic:
+what the anti-cheat is and does to an innocent player is `policy`; how many cheaters get
+through is `multiplayer`. **"Ban" that is not discipline**: a card game's ban list (1449850) is
+a balance change, and lobbies whose players ban certain cars (228380) are players, not the
+publisher. The rule should say it means an action against a player. **An anti-cheat that stops
+the game launching** (1361210, 553850) went to `policy` by the launcher rule, flagged, which
+that rule already settles.
+
 ### A headset game called immersive, with nothing named: three reports, a dozen claims in one set
 
 "One of the most immersive VR games out there", twelve times on 1012790 alone, and again on
@@ -388,6 +399,15 @@ is `atmosphere` in a headset game as in any other; `vr` takes it only when the h
 is named as the reason ("being able to lean over the table in VR"). **Written into the sheet
 2026-09-24**, on `vr`.
 
+Its edge, reported by two revisit labellers: **immersion with more than one thing named**.
+"Beautiful immersive game", "immersive and lore rich", immersion credited to the environments,
+the soundtrack and the threats together (548430, 916440, 68267013, 163864741). `atmosphere`
+sends immersion to what creates it, and when several things are named no single one is left
+to take it. The same shape as the comma list: the claim carries several subjects, and one is
+picked. And **"an immersive dive into the wizarding world"** (990080, four claims) sits between
+this rule and `licensing`'s "feeling as if you are inside the film, show or book the game
+adapts"; the labeller took `licensing`, which the licensing rule settles.
+
 ### A VR controller is a headset and a controller: two reports
 
 Quest controllers detected as Vive wands (eight claims on 916840), "it says it supports Valve
@@ -397,6 +417,12 @@ matches the line already drawn under "A VR complaint whose cause is not the head
 that exists only because the player's body is tracked is `vr`. **Written into the sheet
 2026-09-24:** `controls` owns whether a gamepad is supported, and the tracked controllers of a
 headset belong to `vr` with the headset they come with.
+
+Its edge, from the revisit: **how a game uses those controllers** is a design choice rather
+than the hardware. "Jump is really annoying on Quest controllers" (629730) went to `controls`,
+a physics-based control scheme (1592190, three claims) split. The line: whether the controllers
+are detected, tracked and supported is `vr`; what the game binds to them and how its scheme
+feels in the hand is `controls`, headset or not.
 
 ### "Community" meaning how many: two reports
 
