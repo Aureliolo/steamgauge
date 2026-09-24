@@ -44,7 +44,20 @@
   // Posted whole rather than as a delta. A thousand answers is a few hundred kilobytes to a
   // process on the same machine, and sending the lot means a dropped request costs nothing: the
   // next answer carries everything the missed one did.
+  //
+  // One post at a time. A subject and a polarity are two keys and two posts, and two posts in
+  // flight can land in either order, so the older one, with the polarity still missing, can
+  // overwrite the newer on disk. A change made while one is out is sent when it returns, and
+  // because a post carries everything, that one carries every change made meanwhile.
+  var posting = false;
+  var changedSince = false;
+
   function post() {
+    if (posting) {
+      changedSince = true;
+      return;
+    }
+    posting = true;
     var rows = exportable();
     fetch("answers", {
       method: "POST",
@@ -53,10 +66,17 @@
     })
       .then(function (reply) {
         kept = reply.ok ? "saved" : "not saved";
-        paintKept();
       })
       .catch(function () {
         kept = "not saved";
+      })
+      .then(function () {
+        posting = false;
+        if (changedSince) {
+          changedSince = false;
+          post();
+          return;
+        }
         paintKept();
       });
   }

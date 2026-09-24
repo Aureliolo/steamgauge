@@ -37,20 +37,27 @@ const server = createServer((request, reply) => {
     return;
   }
   if (request.method === "POST" && path === "/answers") {
+    // The first post is kept late on purpose. A subject and a polarity are two keys and two
+    // posts, and a page that sends the second before the first has been answered lets them
+    // land in either order: the older one, with no polarity, then overwrites the newer. That
+    // failed this check one run in twelve by chance; held back, it fails every time it can.
+    const late = posts === 0 ? 300 : 0;
+    posts += 1;
     let body = "";
     request.on("data", (chunk) => {
       body += chunk;
     });
     request.on("end", () => {
-      try {
-        held = JSON.parse(body);
-        posts += 1;
-      } catch {
-        // A body that is not JSON is a failure the assertions below will report as a missing
-        // answer, which is the shape the reader would see.
-      }
-      reply.writeHead(200, { "Content-Type": "application/json" });
-      reply.end('{"saved":true}');
+      setTimeout(() => {
+        try {
+          held = JSON.parse(body);
+        } catch {
+          // A body that is not JSON is a failure the assertions below will report as a
+          // missing answer, which is the shape the reader would see.
+        }
+        reply.writeHead(200, { "Content-Type": "application/json" });
+        reply.end('{"saved":true}');
+      }, late);
     });
     return;
   }
@@ -96,7 +103,7 @@ try {
 
   const wrong = [];
   const pressed = (await evaluate(ANSWER)).result?.result?.value ?? {};
-  await sleep(500);
+  await sleep(1000);
 
   if (posts === 0) wrong.push("answering posted nothing, so the answer only exists in the browser");
   if (!held.length) wrong.push("the post carried no answers");
