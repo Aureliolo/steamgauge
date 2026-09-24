@@ -126,9 +126,40 @@ fn library(app: AppHandle) -> Shelf {
     shelf(&library_dir(&app))
 }
 
+/// Steam refusing a download, and how long the client will wait before asking again.
+#[derive(Debug, Clone, Serialize)]
+struct SteamWait {
+    app_id: u32,
+    seconds: u64,
+    status: u16,
+}
+
+/// A client for a download that tells the window whenever Steam refuses it. A crawl can wait
+/// minutes for a refusal to lift, and a bar that stops for minutes with nothing said is a bar
+/// that looks hung.
+fn waiting_client(app: &AppHandle, app_id: u32) -> Result<SteamClient, String> {
+    let window = app.clone();
+    Ok(SteamClient::new(DEFAULT_PACE)
+        .map_err(text)?
+        .with_notice(move |wait, status| {
+            let _ = window.emit(
+                "steam-wait",
+                SteamWait {
+                    app_id,
+                    seconds: wait.as_secs(),
+                    status,
+                },
+            );
+        }))
+}
+
 #[tauri::command]
 async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
-    let client = SteamClient::new(DEFAULT_PACE).map_err(text)?;
+    // A search waits seconds, not the half hour a crawl will: whoever typed the id would rather
+    // hear that Steam is refusing than watch the box wait.
+    let client = SteamClient::new(DEFAULT_PACE)
+        .map_err(text)?
+        .with_patience(std::time::Duration::from_secs(30));
     let page = client
         .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
         .await
@@ -168,7 +199,7 @@ async fn crawl(app: AppHandle, app_id: u32) -> Result<Shelf, String> {
         shard_target: DEFAULT_SHARD_TARGET,
         resume: true,
     };
-    let client = SteamClient::new(DEFAULT_PACE).map_err(text)?;
+    let client = waiting_client(&app, app_id)?;
     let window = app.clone();
     steamgauge_core::crawl(&client, app_id, &options, move |progress| {
         let _ = window.emit(
@@ -209,7 +240,7 @@ struct Swept {
 #[tauri::command]
 async fn sweep(app: AppHandle, app_id: u32) -> Result<Swept, String> {
     let out_dir = library_dir(&app);
-    let client = SteamClient::new(DEFAULT_PACE).map_err(text)?;
+    let client = waiting_client(&app, app_id)?;
     let window = app.clone();
     let report = steamgauge_core::crawl::sweep(&client, app_id, &out_dir, move |progress| {
         let _ = window.emit(
