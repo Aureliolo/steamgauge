@@ -3835,6 +3835,45 @@ line that hits a quarter of a game's claims says nothing about the row in that g
 draw on a headset game goes `--by-neighbour` from now on, where the verdict, genre and
 gameplay labels these games just gave (529) vote against exactly the claims this draw caught.
 
+**Drawn again by neighbour the same night, with `accessibility` beside it, and the neighbour
+draw is the answer for a row whose word is everywhere.** The user decided both rows on
+2026-09-24: `vr` on the same four headset games, and `accessibility`, which the accessibility
+revisit had narrowed to about 140 training labels and twelve frozen claims, on four games chosen
+for long accessibility menus (1817070, 1895880, 2215430 and 1649240, all training by hash and
+new to the set). 200 claims a game, one Fable labeller a game, 1.64M tokens:
+
+| draw | game | on its row | the words drawn by | |
+|---|---|---|---|---|
+| `vr` | 555160 | **161** | 8 | |
+| `vr` | 450540 | **147** | 10 | |
+| `vr` | 916840 | **182** | 40 | |
+| `vr` | 1012790 | **125** | 19 | |
+| `accessibility` | 1817070 | 55 | | `controls` 53 |
+| `accessibility` | 1895880 | 44 | | `controls` 45 |
+| `accessibility` | 2215430 | 36 | | `controls` 69 |
+| `accessibility` | 1649240 | 34 | | `controls` 39, `difficulty` 22 |
+
+**`vr`: 615 of 800, 77%**, where the word draw on the same games got 77. The row held about 375
+training labels; it now holds about a thousand, and the verdicts the word draw caught are what
+kept the neighbour draw off them.
+
+**`accessibility`: 169 of 800, 21%**, which more than doubles the row, and the other number in
+the table is the finding. Every labeller put about as many claims under `controls` as under
+`accessibility`, and the sheet is why: `controls`' description lists keybindings, and its rule
+sends "whether the game lets you change them" to `accessibility`. A remapping claim fits both,
+and the labellers drew the line in four places. Two of them independently found where it should
+be: a setting a player needs in order to play at all is `accessibility`, a preference (aim
+assist, aim acceleration, a deadzone, a toggle for aiming) is `controls`, and a remap option that
+exists but does not work is `bugs`. `reference/GAPS.md` has it with the rest of the edges; the
+draw itself is sound, since the claims it caught are about settings either way.
+
+The draws had to be run twice, and both reasons are worth keeping. Run beside a training fold, a
+neighbour draw's encoder took the card past the watchdog and killed the fold; alone at the
+default 256 claims a pass of up to 512 tokens it filled the whole card through DirectML by
+itself. At `--embed-batch 64` it ran in thirteen minutes. And the four accessibility crawls were
+refused by Steam from their first request and gave up after half a minute of backoff, inside a
+window that lifted minutes later, which #117 fixed by waiting a refusal out.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

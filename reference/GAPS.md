@@ -57,6 +57,22 @@ the thing and the option for it: how the keys are laid out and whether they resp
 settings players need in order to play at all" already points. The revision adds that
 sentence as a RULE on `controls`.
 
+**The rule went in and the description stayed, and the accessibility draw of 2026-09-24/25
+measured what that costs.** Four labellers on four games with long accessibility menus put 206
+claims under `controls` against 169 under `accessibility`, and all four stopped at remapping:
+the description still says "keybindings", the rule says the option to change them is
+`accessibility`, and each labeller settled it differently. Two of them, not seeing each other's
+work, found the line the sheet should draw: **a setting a player needs in order to play at all
+is `accessibility`** (remapping, subtitles, colour-blind modes, a toggle for a held button); **a
+setting that is a preference is `controls`** (aim assist, aim acceleration, a deadzone, how many
+options the menu holds); and **an option that exists but does not work is `bugs`** (a remap that
+does not remap, reported twice). The fix is two edits: take "keybindings" out of `controls`'
+description, and put the need-or-preference test in its rule. Two more edges from the same
+draw: "accessibility" meaning approachable or available in a region (four claims, which the row
+should warn off), and a missing difficulty or assist option (about ten claims on one game), for
+which `accessibility`'s "offered for the same reason" gives no test against an ordinary
+difficulty selector.
+
 ### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
 
 No labeller named this one, which is why it took measuring to find. `accessibility` holds 299
@@ -424,6 +440,15 @@ a physics-based control scheme (1592190, three claims) split. The line: whether 
 are detected, tracked and supported is `vr`; what the game binds to them and how its scheme
 feels in the hand is `controls`, headset or not.
 
+**Three more reports from the neighbour draw of 2026-09-24/25, five in all.** A scheme judged
+on one headset's controllers (555160, 36452827 and 92266170; "intuitive for Quest headsets",
+about ten claims on 450540), "no way to change controller layout" (916840), and a game's own
+body model misplacing the tracked hands (hand offset, a body that turns with the head, gear
+slots that grab the wrong thing; five claims on 1012790). The labeller of 450540 drew exactly
+the line above without having seen it, and the others split. Five reports are enough to write
+it into the `vr` rule, with the body model on the `controls` side: the headset tracks the hands
+correctly and the game places them wrong.
+
 ### "Community" meaning how many: two reports
 
 "The community is pretty small", "deader than my grandma", "a big community", "3/10
@@ -596,11 +621,39 @@ on is not there to read. Two filed `graphics`, one `vr`, all flagged. Two readin
 default to `graphics` unless a headset is named, since most games are played on a screen; or
 give the claim to whatever the review blames (the camera, the controls, "motion blur and film
 grain"), which a labeller also reported. The first is a rule a labeller can follow every time.
+Two more reports from the VR neighbour draw ("好晕哦" on 555160, "very little motion sickness"
+on 450540), where the game is a headset game and both went to `vr`: the default should be the
+platform the game is played on, which the store page says and the claim does not.
 
 Beside it, once each: settings nobody explains ("don't know what 3-4 of the settings do")
 between `controls` and `tutorial`; VR comfort options between `vr` and `accessibility`, a
 second report of that entry above; and advice or a wish about who should hold a licence
 ("hope some other studio picks up the license") between `policy` and `updates`.
+
+### A headset that stopped working after an update: three reports from two labellers
+
+"After the most recent update the game will not open with WMR headsets" (555160), "no longer
+playable on Quest" (916840, 160610529 and 199033877), supported through Steam at release and
+now only through the Oculus store (916840). `bugs` owns what "worked and now does not", `vr`
+owns whether a given headset is supported, and a removal by decision is `policy`. Both
+labellers filed `vr`, flagged. The line the other rows already draw would give it to `bugs`
+when the text calls it broken and to `policy` when it calls it withdrawn, and to `vr` only when
+it says which headsets work without saying anything changed.
+
+### A recommendation conditioned on a headset: four reports
+
+"Do not buy if you own an Oculus headset" (555160), "if you have a Quest 2, skip it" (450540),
+"unless you have a Quest 2, then I recommend the Quest 2 version" (916840), "not for beginning
+VR players" (1012790). `verdict`'s rule gives every recommendation to `verdict`; the reason the
+reader wants is the headset. The labellers split between `verdict` and `vr`. The same shape
+as a recommendation with a reason anywhere on the sheet, and it wants the same answer: the
+reason, when one is named, is the subject.
+
+### "An actual game, not a tech demo": one report, four claims
+
+On 1012790 (104282741, 127689974, 173865089, 161828427). Whether a headset title is a real game
+or a showcase is an axis `content`'s "finished or thin" comes close to and `verdict` does not
+name. Filed `content`.
 
 ## Smaller, one report each
 
@@ -649,6 +702,20 @@ second report of that entry above; and advice or a wish about who should hold a 
   implies compulsion without stating it, between `atmosphere` and `verdict`.
 - Seated play (450540): `vr` owns it, `accessibility` owns a setting so somebody can play who
   otherwise could not; filed `vr`.
+- Launching through the Oculus runtime rather than SteamVR for smoothness (1012790, five
+  claims): `performance` or `vr` for a choice of runtime; split by what the sentence leads with.
+- Teleport and arm-swing locomotion (450540, six claims): `gameplay`'s movement or `vr`; filed
+  `gameplay`.
+- A bare "crouching" in a headset game (916840): `vr` only when the player crouches physically.
+- Pride flags and a missing UN flag in the scenery (1817070, four claims): no row owns
+  depicted political content; filed `graphics`, low.
+- Motion blur that stays on after being turned off (1817070): `graphics`, the option under
+  `accessibility`, or `bugs` for an option that does not work; filed `graphics`.
+- Subtitles that vanish in some cutscenes (2215430, five claims): `bugs`, `language` or the
+  subtitles under `accessibility`; filed `bugs`.
+- A PSN sign-in fixed or broken (2215430): `bugs`' broken login and `policy`'s launcher that
+  will not sign you in point opposite ways for one event.
+
 
 ## Splitter, not taxonomy
 
