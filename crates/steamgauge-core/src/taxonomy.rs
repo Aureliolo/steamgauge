@@ -337,10 +337,11 @@ pub const SHEET: &[Category] = &[
                       keybindings, controller support, menus, the HUD, the inventory screens, \
                       and how many clicks it takes to do anything.",
         boundary: Some(
-            "Whether a controller is supported belongs here, and so does anything the game \
-             makes you sit through or click past: a cutscene that cannot be skipped is a \
-             question of how many clicks it takes to do anything. Whether the game runs on a \
-             given device belongs to compatibility. How the keys are laid out and whether \
+            "Whether a gamepad is supported belongs here, and so does anything the game makes \
+             you sit through or click past: a cutscene that cannot be skipped is a question of \
+             how many clicks it takes to do anything. The tracked controllers of a headset \
+             belong to VR, with the headset they come with. Whether the game runs on a given \
+             device belongs to compatibility. How the keys are laid out and whether \
              they respond is here; whether the game lets you change them, \"I wish I could \
              remap the keys\", is accessibility, which owns the settings players need in order \
              to play at all. The settings menu itself, how many options it holds and display \
@@ -448,7 +449,9 @@ pub const SHEET: &[Category] = &[
                       griefing and harassment, and what the playerbase is like.",
         boundary: Some(
             "What the people are like belongs here. What they have made belongs to mods, and \
-             whether there are enough of them online belongs to multiplayer.",
+             how many of them there are belongs to multiplayer whatever word the review uses \
+             for them: \"the community is tiny\" and \"the playerbase is dead\" are multiplayer. \
+             How the game disciplines them, bans, reports and moderators, belongs to policy.",
         ),
         alone: false,
     },
@@ -490,7 +493,10 @@ pub const SHEET: &[Category] = &[
              one that was reversed: \"we won\" about a withdrawn account requirement is this, \
              and it is praise. What a decision is belongs here; what it does while playing \
              belongs where it happens, so a launcher that will not sign you in is here and an \
-             anti-cheat that keeps you out of a match is multiplayer. Only a protest about \
+             anti-cheat that keeps you out of a match is multiplayer. How the game enforces its \
+             rules on its players belongs here too: bans, reports, an anti-cheat verdict and \
+             its appeal, and the moderators who apply them, including one who abuses the role. \
+             What the players do to one another belongs to community. Only a protest about \
              something with no connection to this game at all belongs to offtopic.",
         ),
         alone: false,
@@ -599,9 +605,12 @@ pub const SHEET: &[Category] = &[
                       headsets it works with.",
         boundary: Some(
             "Anything about being in a headset belongs here, including whether a given headset \
-             is supported. A flat game called immersive is not this: immersion belongs to \
-             whatever creates it, most often graphics or story. How the game looks on a \
-             monitor belongs to graphics.",
+             is supported, and the tracked controllers that come with it, whether they are \
+             detected and which ones work. A game called immersive is not this, in a headset \
+             or out of one: immersion with nothing named behind it is atmosphere, and \
+             immersion a review explains belongs to what it names, so it is this only when \
+             the headset itself is the reason, as in leaning over the table to look. How the \
+             game looks on a monitor belongs to graphics.",
         ),
         alone: false,
     },

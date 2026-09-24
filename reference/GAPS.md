@@ -372,10 +372,10 @@ appeal, "a single chat moderator abusing his role", "elitist chat moderation", f
 Discord bans by the studio: on 471710, 1203220, 230410 and 381210. `policy` owns what the
 publisher or platform requires of the player, `updates` owns blame aimed at the studio, and
 `community` owns harassment by other players; none names the enforcement of the rules. The
-labellers split it between `policy` and `community`, flagged throughout. The rule that settles
-it: how a game enforces its rules on its players (bans, reports, anti-cheat verdicts, appeals,
-moderators the studio appoints) is `policy`; what the players do to one another is
-`community`, even when one of them holds a moderator's badge the community gave them.
+labellers split it between `policy` and `community`, flagged throughout. **Written into the
+sheet 2026-09-24:** how a game enforces its rules on its players (bans, reports, an anti-cheat
+verdict and its appeal, and the moderators who apply them, including one who abuses the role)
+is `policy`; what the players do to one another is `community`.
 
 ### A headset game called immersive, with nothing named: three reports, a dozen claims in one set
 
@@ -385,7 +385,8 @@ belongs to whatever creates it", which settles the flat game and leaves the head
 nothing named unplaced. All three labellers filed it `atmosphere`, flagged. That is the right
 answer by the sheet's own logic, and it should say so: immersion with nothing named behind it
 is `atmosphere` in a headset game as in any other; `vr` takes it only when the headset itself
-is named as the reason ("being able to lean over the table in VR").
+is named as the reason ("being able to lean over the table in VR"). **Written into the sheet
+2026-09-24**, on `vr`.
 
 ### A VR controller is a headset and a controller: two reports
 
@@ -393,8 +394,9 @@ Quest controllers detected as Vive wands (eight claims on 916840), "it says it s
 Index" (450540). `vr` owns which headsets a game supports, `controls` owns whether a controller
 is supported, and a tracked VR controller is both. Both labellers filed `vr`, flagged, which
 matches the line already drawn under "A VR complaint whose cause is not the headset": anything
-that exists only because the player's body is tracked is `vr`. The `controls` RULE should say it
-means gamepads, mice and keyboards.
+that exists only because the player's body is tracked is `vr`. **Written into the sheet
+2026-09-24:** `controls` owns whether a gamepad is supported, and the tracked controllers of a
+headset belong to `vr` with the headset they come with.
 
 ### "Community" meaning how many: two reports
 
@@ -403,7 +405,7 @@ Playerbase", on 381210 and 1203220. The sheet sends whether there are enough pla
 `multiplayer`, and reviewers say "community" for the headcount, so the word and the rule pull
 apart. Both labellers followed the rule, flagged. The rule is right and should say it outright:
 the size of the player base is `multiplayer` whatever word names it; `community` is what the
-players are like.
+players are like. **Written into the sheet 2026-09-24**, on `community`.
 
 ## Might need a category
 

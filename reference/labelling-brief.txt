@@ -45,7 +45,7 @@ Audio and music (audio)
 
 Controls and interface (controls)
   The controls and the user interface. Clunky or responsive controls, keybindings, controller support, menus, the HUD, the inventory screens, and how many clicks it takes to do anything.
-  RULE: Whether a controller is supported belongs here, and so does anything the game makes you sit through or click past: a cutscene that cannot be skipped is a question of how many clicks it takes to do anything. Whether the game runs on a given device belongs to compatibility. How the keys are laid out and whether they respond is here; whether the game lets you change them, "I wish I could remap the keys", is accessibility, which owns the settings players need in order to play at all. The settings menu itself, how many options it holds and display modes such as fullscreen and windowed, belongs here; which graphics settings give a playable frame rate is performance.
+  RULE: Whether a gamepad is supported belongs here, and so does anything the game makes you sit through or click past: a cutscene that cannot be skipped is a question of how many clicks it takes to do anything. The tracked controllers of a headset belong to VR, with the headset they come with. Whether the game runs on a given device belongs to compatibility. How the keys are laid out and whether they respond is here; whether the game lets you change them, "I wish I could remap the keys", is accessibility, which owns the settings players need in order to play at all. The settings menu itself, how many options it holds and display modes such as fullscreen and windowed, belongs here; which graphics settings give a playable frame rate is performance.
 
 Difficulty and balance (difficulty)
   How hard the game is and whether it is fair. Difficulty spikes, grinding, whether the options are balanced against each other, luck and randomness deciding the outcome, and whether it is too easy or punishing.
@@ -73,7 +73,7 @@ Multiplayer and online (multiplayer)
 
 Community and players (community)
   The people who play it. Whether the community is welcoming or toxic, griefing and harassment, and what the playerbase is like.
-  RULE: What the people are like belongs here. What they have made belongs to mods, and whether there are enough of them online belongs to multiplayer.
+  RULE: What the people are like belongs here. What they have made belongs to mods, and how many of them there are belongs to multiplayer whatever word the review uses for them: "the community is tiny" and "the playerbase is dead" are multiplayer. How the game disciplines them, bans, reports and moderators, belongs to policy.
 
 Updates and developer support (updates)
   What the developers do after release. Patches, roadmaps, early access progress, communication with players, whether promises were kept, and whether the game is abandoned.
@@ -81,7 +81,7 @@ Updates and developer support (updates)
 
 Publisher and platform policy (policy)
   Decisions taken by the publisher or the platform rather than by the game. Needing a second account to play, region locks and delistings, DRM and kernel-level anti-cheat, launcher requirements, price rises, and terms that changed after people had bought it.
-  RULE: Anything the publisher or the platform decided belongs here, including a protest that is angry and brief and names no particular term, and including celebrating one that was reversed: "we won" about a withdrawn account requirement is this, and it is praise. What a decision is belongs here; what it does while playing belongs where it happens, so a launcher that will not sign you in is here and an anti-cheat that keeps you out of a match is multiplayer. Only a protest about something with no connection to this game at all belongs to offtopic.
+  RULE: Anything the publisher or the platform decided belongs here, including a protest that is angry and brief and names no particular term, and including celebrating one that was reversed: "we won" about a withdrawn account requirement is this, and it is praise. What a decision is belongs here; what it does while playing belongs where it happens, so a launcher that will not sign you in is here and an anti-cheat that keeps you out of a match is multiplayer. How the game enforces its rules on its players belongs here too: bans, reports, an anti-cheat verdict and its appeal, and the moderators who apply them, including one who abuses the role. What the players do to one another belongs to community. Only a protest about something with no connection to this game at all belongs to offtopic.
 
 Hardware and compatibility (compatibility)
   Whether it runs on your setup at all. System requirements, Steam Deck, Linux and Proton, ultrawide and multi-monitor support, drivers and hardware, and asking for it on a console or handheld.
@@ -105,7 +105,7 @@ Licensed content (licensing)
 
 VR and headsets (vr)
   Playing it in a headset. Room scale and seated play, motion sickness and comfort options, tracking and the controllers in your hands, whether it was built for a headset or is a flat game bolted into one, and which headsets it works with.
-  RULE: Anything about being in a headset belongs here, including whether a given headset is supported. A flat game called immersive is not this: immersion belongs to whatever creates it, most often graphics or story. How the game looks on a monitor belongs to graphics.
+  RULE: Anything about being in a headset belongs here, including whether a given headset is supported, and the tracked controllers that come with it, whether they are detected and which ones work. A game called immersive is not this, in a headset or out of one: immersion with nothing named behind it is atmosphere, and immersion a review explains belongs to what it names, so it is this only when the headset itself is the reason, as in leaning over the table to look. How the game looks on a monitor belongs to graphics.
 
 Every label is five fields. The first two say which categories the review covers; the other
 three are judgements about the review, and none of them changes which category it belongs to.
