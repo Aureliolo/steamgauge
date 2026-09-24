@@ -3740,6 +3740,40 @@ the originals is an adaptation at all, and whether a licence that is withheld or
 the licence lost (`licensing`) or the agreement protested (`policy`); `reference/GAPS.md` has
 them.
 
+**The same was tried for `vr` and `community`, 2026-09-24, and one of them repeated a failure
+this entry had already written down.** Four games chosen for each row, all training by hash,
+read and drawn with `--only vr` and `--only community`, 200 claims a game, one Fable labeller a
+game, every file checked (1.33M tokens for the eight):
+
+| draw | game | on its row | commonest otherwise |
+|---|---|---|---|
+| `vr` | 555160 | 8 | `verdict` 87, `genre` 47 |
+| `vr` | 450540 | 10 | `verdict` 116 |
+| `vr` | 916840 | 40 | `verdict` 99 |
+| `vr` | 1012790 | 19 | `verdict` 98 |
+| `community` | 471710 | 148 | `multiplayer` 10 |
+| `community` | 1203220 | 59 | `multiplayer` 58 |
+| `community` | 230410 | 126 | `updates` 21 |
+| `community` | 381210 | 145 | `updates` 13 |
+
+**`community` is fixed: 478 of 800, 60%**, against 16% before the line learned to turn away
+claims about mods and the developers. The row held about 550 training labels before this; it
+now holds nearly twice that, where the frozen games hold six claims of it to measure by. 1203220's 58 `multiplayer` are the other side of the one line
+the sheet draws there, whether the players are pleasant or merely present, and are worth as
+much.
+
+**`vr` is not: 77 of 800, 10%**, half the rate on the mixed games above, because all four were
+headset games, and the paragraph above says in so many words that a headset game's reviews
+mention the headset in everything. The games were chosen for holding the row, which is right
+for `licensing`, where a licensed game's reviews do not all name the licence, and wrong for
+`vr`, where the word draw needs games in which the headset is the exception: flat games with a
+VR mode. The labels are not wasted, every one of the 723 other claims is a labelled claim of a
+headset game, which the reader had almost none of, but they are not what the draw was for.
+What would have told it beforehand is the share of each game's claims a line's terms hit; a
+line that hits a quarter of a game's claims says nothing about the row in that game. A `vr`
+draw on a headset game goes `--by-neighbour` from now on, where the verdict, genre and
+gameplay labels these games just gave (529) vote against exactly the claims this draw caught.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
