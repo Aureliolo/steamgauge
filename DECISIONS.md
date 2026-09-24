@@ -3496,6 +3496,37 @@ the 4B itself at the top, the 560M in the middle, and `multilingual-e5-base` (27
 (118M) taught by the 4B at the bottom. `bge-m3` and the 0.6B decoders are not among them: they
 lost to the encoder at its own size and are no cheaper to run, so they fill no tier.
 
+### The licensed labels, taught by the 4B, and the reader that replaces `e5-29006` (2026-09-24)
+
+The user's rule, decided 2026-09-23: if a retrain on the 189 new `licensing` labels beats the
+installed reader on frozen `licensing` without losing coverage, its lines are fitted, it is
+exported and installed locally, and the frozen games are read again. Two seeds of the student
+recipe on the export holding everything labelled through 2026-09-23 (labels `d07674128d32d683`,
+42,231 claims), taught by the 4B, since the control above showed the teacher is worth four
+points:
+
+| run | frozen answered | delivered | macro F1 | AURC | `licensing` F1 (recall) |
+|---|---|---|---|---|---|
+| `e5inst-pool-qwen4b-licensed-s1` | **98.1%** | 78.5% | 0.693 | 0.080 | **0.63** (0.64) |
+| `e5inst-pool-qwen4b-licensed-s2` | 96.3% | **78.9%** | 0.691 | **0.078** | 0.60 |
+| the 4B's students without those labels | 97.0-97.7% | 78.5-79.1% | 0.689-0.698 | ~0.080 | 0.51-0.57 (0.43-0.46) |
+| `e5-29006`, installed | 91.9% | 77.1% | 0.680 | 0.101 | 0.36 (0.27) |
+
+Both seeds clear the rule on every figure it names, so it goes ahead. **Seed 1 is the one that
+ships, and was chosen before seed 2 finished**: no soup ships (above), and picking the better
+of two seeds ships whichever the validation draw flattered. The frozen games hold 37 to 39
+`licensing` claims, so a single seed's F1 there is wide; both seeds above the students, and
+recall up by a third, is the finding, not the second decimal.
+
+**`accessibility` reads 0.00 on the frozen games, and that is not this reader's regression.**
+The accessibility revisit (#95) narrowed the row to the settings a player needs in order to play
+at all and moved 162 claims out of it, and the frozen games' share went from 22 claims to 12.
+On the current labels every reader is near nothing: the 4B one claim in twelve, the control one,
+its students none. `e5-29006`'s 0.23 was measured against the wider row and does not compare.
+The row is starved again and the frozen games cannot measure it, which is the same position
+`licensing` was in before its draw; its lines will likely leave it silent, which is the honest
+answer until it has labels.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
