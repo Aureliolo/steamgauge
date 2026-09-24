@@ -815,8 +815,14 @@ def run(args) -> dict:
 
     per_epoch = math.ceil(len(loaders["train"]) / args.accumulate)
     steps = per_epoch * args.epochs
+    # Fused on the card: the same update in one kernel, where the default builds temporaries the
+    # size of every parameter at each step. On Windows the card's memory is charged against the
+    # machine's commit as well, so those temporaries are gigabytes the rest of the machine loses,
+    # and the run that died of "out of memory" with the card half empty died in them.
     optimiser = torch.optim.AdamW(
-        parameter_groups(model, args.learning_rate, args.llrd), weight_decay=0.01
+        parameter_groups(model, args.learning_rate, args.llrd),
+        weight_decay=0.01,
+        fused=device == "cuda",
     )
     schedule = get_linear_schedule_with_warmup(optimiser, int(steps * 0.1), steps)
     scaler = torch.amp.GradScaler(device, enabled=device == "cuda")
@@ -917,8 +923,17 @@ def run(args) -> dict:
             # its batch has already gone back to the top, so a count of those reports progress
             # only on the passes this line never sees.
             if taken % 50 == 1:
+                # What the run holds on the card, which on Windows it also holds of the machine's
+                # memory: the figure to read when the machine runs short, beside the step it ran
+                # short at.
+                held = (
+                    f" card {torch.cuda.memory_reserved() / 2**30:.1f} GB"
+                    if device == "cuda"
+                    else ""
+                )
                 print(
-                    f"  epoch {epoch + 1} step {taken}/{per_epoch} loss {running / (step + 1):.4f}",
+                    f"  epoch {epoch + 1} step {taken}/{per_epoch} "
+                    f"loss {running / (step + 1):.4f}{held}",
                     flush=True,
                 )
 
