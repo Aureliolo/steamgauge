@@ -365,6 +365,46 @@ language is both. The first labeller flagged every one; the second, with no row 
 filed them under `story` as a writing choice. A RULE on `language`: whether a language is
 spoken, in commentary or dubbing, is `language`; how well the voice is performed is `audio`.
 
+### Bans and moderation: four reports, from every community draw but one
+
+"You get banned for anything", "banned for being mass reported", a false anti-cheat ban and its
+appeal, "a single chat moderator abusing his role", "elitist chat moderation", forum and
+Discord bans by the studio: on 471710, 1203220, 230410 and 381210. `policy` owns what the
+publisher or platform requires of the player, `updates` owns blame aimed at the studio, and
+`community` owns harassment by other players; none names the enforcement of the rules. The
+labellers split it between `policy` and `community`, flagged throughout. The rule that settles
+it: how a game enforces its rules on its players (bans, reports, anti-cheat verdicts, appeals,
+moderators the studio appoints) is `policy`; what the players do to one another is
+`community`, even when one of them holds a moderator's badge the community gave them.
+
+### A headset game called immersive, with nothing named: three reports, a dozen claims in one set
+
+"One of the most immersive VR games out there", twelve times on 1012790 alone, and again on
+555160 and 916840. The `vr` RULE says "a flat game called immersive is not this: immersion
+belongs to whatever creates it", which settles the flat game and leaves the headset one with
+nothing named unplaced. All three labellers filed it `atmosphere`, flagged. That is the right
+answer by the sheet's own logic, and it should say so: immersion with nothing named behind it
+is `atmosphere` in a headset game as in any other; `vr` takes it only when the headset itself
+is named as the reason ("being able to lean over the table in VR").
+
+### A VR controller is a headset and a controller: two reports
+
+Quest controllers detected as Vive wands (eight claims on 916840), "it says it supports Valve
+Index" (450540). `vr` owns which headsets a game supports, `controls` owns whether a controller
+is supported, and a tracked VR controller is both. Both labellers filed `vr`, flagged, which
+matches the line already drawn under "A VR complaint whose cause is not the headset": anything
+that exists only because the player's body is tracked is `vr`. The `controls` RULE should say it
+means gamepads, mice and keyboards.
+
+### "Community" meaning how many: two reports
+
+"The community is pretty small", "deader than my grandma", "a big community", "3/10
+Playerbase", on 381210 and 1203220. The sheet sends whether there are enough players online to
+`multiplayer`, and reviewers say "community" for the headcount, so the word and the rule pull
+apart. Both labellers followed the rule, flagged. The rule is right and should say it outright:
+the size of the player base is `multiplayer` whatever word names it; `community` is what the
+players are like.
+
 ## Might need a category
 
 ### Lost immersion, emotional distance: three reports, the commonest complaint in one set
@@ -566,6 +606,21 @@ second report of that entry above; and advice or a wish about who should hold a 
 - A studio's television show that streamers rejected (2399830): `offtopic` owns a protest
   about something the publisher did elsewhere, `policy` keeps everything but no connection at
   all.
+- Other games' maps playable in this one ("MW2 maps in VR", five claims on 555160): `genre`'s
+  bare list or `mods`' "anything made by players", and the review never says who made them.
+- One game mode praised ("TTT in VR is amazing", 555160): `verdict` sends a named thing to that
+  thing, and no row owns a game mode; filed `gameplay`.
+- A standalone-headset port, awaited or bought through another region's store (1012790):
+  `compatibility` owns asking for a port, `vr` owns which headsets it works with.
+- Crossplay wanted "so I can play with my friends" (1203220): neither `compatibility`'s console
+  request nor `multiplayer` names it.
+- Shared face presets from other players (1203220): `mods` or the customisation system under
+  `gameplay`.
+- A player-made revival of a shut-down game (471710): `mods` never contemplates one.
+- "The most toxic relationship I've ever been in" (381210, three claims): a love-hate joke that
+  implies compulsion without stating it, between `atmosphere` and `verdict`.
+- Seated play (450540): `vr` owns it, `accessibility` owns a setting so somebody can play who
+  otherwise could not; filed `vr`.
 
 ## Splitter, not taxonomy
 
@@ -582,6 +637,11 @@ in one claim, so the labeller picks one and marks it contested, and two subjects
 The sixth, on 2669320's aimed draw, found about thirty in two hundred claims ("Trash Server,
 Bugs, Toxic Players") and asked the question the sheet does not answer: which of the stacked
 points gets the one subject. They took the first or the loudest.
+
+Three more on the community draws (471710, 230410, 381210, about thirty claims in the last):
+"Crashes all the time and has a horrible community", "story, music, community, and it's free".
+The comma split below takes three short parts; these are two long ones joined by "and", or a
+list whose last part carries a clause, and the splitter leaves them whole.
 
 This looks fixable after all, and precisely: split on a comma only when the sentence is three
 or more comma-separated parts that are each *short*, measured in the same weight the splitter
