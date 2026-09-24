@@ -1503,13 +1503,13 @@
     "subset": "retrieved",
     "start": 1184,
     "end": 1357,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

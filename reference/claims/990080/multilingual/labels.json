@@ -2098,13 +2098,13 @@
     "subset": "multilingual",
     "start": 23,
     "end": 129,
-    "taxonomy": "core-6",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": true
   },
   {

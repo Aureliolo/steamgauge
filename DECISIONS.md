@@ -2235,6 +2235,36 @@ five `compatibility` to `performance` (a settings recipe for a frame rate): a cl
 the last revision was, rather than a correction. The labellers found the new rules' own edge
 at once, and `reference/GAPS.md` has it: a bare "motion sickness" in a review that never says
 whether it was played in a headset.
+
+### Four more, from the vr and community draws (2026-09-24)
+
+The eight labellers of the `vr` and `community` draws stopped at four places, each reported by
+two or more who could not see each other's work, and the user decided a round: rules written,
+revisit labelled.
+
+- **How a game enforces its rules is `policy`**: bans, reports, an anti-cheat verdict and its
+  appeal, and the moderators who apply them. What the players do to one another stays
+  `community`. All four community labellers.
+- **"Immersive" with nothing named is `atmosphere`**, in a headset as out of one; `vr` takes it
+  only when the headset is the reason. Three of four vr labellers, twelve claims in one set.
+- **A headset's tracked controllers are `vr`**; `controls` owns whether a gamepad is supported.
+- **How many players there are is `multiplayer`** whatever word names them.
+
+Drawn as one revisit by the words each rule turns on (ban, moderator, appeal, anti-cheat;
+immersive, immersion; the named VR controllers and tracking; player base, population, "the
+community is dead" and its kind), under the subjects either side: **347 claims over 41 games,
+72 moved, 21%**, three Fable labellers, 386k tokens, ingested by the core crate's
+`ingest-revisit` example built from the new sheet while a fold held the card.
+
+Most of the moves are the rules doing what they were written for: **24 into `policy`** (11 from
+`updates`, 7 `multiplayer`, 4 `community`, 2 `bugs`), 4 `controls` to `vr`, and 6 into
+`atmosphere` from `graphics` and `verdict`. The headcount rule moved nothing: the claims it
+reaches were already filed `multiplayer`, which is what the labellers had done under the old
+wording, flagged, and the rule now says outright. The other 38 are spread one to four a pair,
+`verdict` to `gameplay` and `atmosphere` to `licensing` the largest, which is what a second
+reading of any 347 claims does. The new rules' own edges are in `reference/GAPS.md`: an
+anti-cheat that fails to stop cheaters, "ban" in a card game's ban list or a player-run lobby,
+and immersion with more than one thing named.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

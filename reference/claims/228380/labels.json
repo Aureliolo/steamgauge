@@ -7742,13 +7742,13 @@
     "subset": "random",
     "start": 1924,
     "end": 2029,
-    "taxonomy": "core-5",
+    "taxonomy": "604974ace095",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false
   },
   {
