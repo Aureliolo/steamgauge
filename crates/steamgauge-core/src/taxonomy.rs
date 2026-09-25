@@ -353,9 +353,11 @@ pub const SHEET: &[Category] = &[
              button you would otherwise hold, is accessibility; one that is a matter of taste, \
              aim assist, aim acceleration, a deadzone, the sensitivity, is here; and an option \
              that is there and does not work, a remap that does not remap, is bugs. The \
-             settings menu itself, how many \
-             options it holds and display modes such as fullscreen and windowed, belongs here; \
-             which graphics settings give a playable frame rate is performance.",
+             settings menu itself, how many options it holds and display modes such as \
+             fullscreen and windowed, belongs here, and so does praise for its breadth that \
+             lists accessibility among the rest, \"plenty of options, from accessibility to \
+             graphics\"; a claim about the accommodations themselves is accessibility. Which \
+             graphics settings give a playable frame rate is performance.",
         ),
         alone: false,
     },
