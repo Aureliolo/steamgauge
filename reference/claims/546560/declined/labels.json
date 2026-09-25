@@ -568,13 +568,13 @@
     "subset": "declined",
     "start": 1541,
     "end": 1713,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "vr",
+    "taxonomy": "82b663c6977f",
+    "produced_by": "claude-fable-5-1",
+    "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false
   },
   {

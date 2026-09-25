@@ -4274,13 +4274,13 @@
     "subset": "random",
     "start": 905,
     "end": 1119,
-    "taxonomy": "core-6",
+    "taxonomy": "82b663c6977f",
     "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

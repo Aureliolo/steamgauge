@@ -3895,6 +3895,57 @@ itself. At `--embed-batch 64` it ran in thirteen minutes. And the four accessibi
 refused by Steam from their first request and gave up after half a minute of backoff, inside a
 window that lifted minutes later, which #117 fixed by waiting a refusal out.
 
+### Need or taste, and what a headset owns: the revisit (2026-09-25)
+
+The user chose a sheet round with its revisit for the `controls`/`accessibility` defect above,
+the VR edges included, and then all 777 claims the revised rules could move over trimming them.
+
+**The rules (#119, #123, #125).** Whether the controls can be remapped is `accessibility`,
+whatever the reviewer wants it for, a remapping that falls short included; every other setting
+turns on need, so one somebody needs in order to play at all is `accessibility`, one that is a
+matter of taste (aim assist, a deadzone, the sensitivity) is `controls`, and one that is there
+and does nothing is `bugs`. A settings menu praised for its breadth is the menu. A difficulty
+mode is `difficulty` unless the claim names a player who could not otherwise finish. The word
+"accessible" on its own decides nothing. On `vr`: whether a headset's controllers are detected
+and supported is `vr`; the scheme a game binds to them and where it puts your hands are
+`controls`; a headset that stopped working after an update is `bugs`, one whose support was
+withdrawn is `policy`.
+
+**The draw asked four questions at once**, which is what `draw-revisit` was written for (#120):
+the remapping, preference and "accessibility" words under `controls` and `accessibility` on
+every game; both rows whole on the four accessibility games; the controller, hand and update
+words under `vr`, `controls`, `bugs` and `policy` on the eight headset games; and the headset
+names under the last three there. 777 claims in 60 sets, seven shares of 111, one Fable labeller
+at a time. It also found that the command's global draw had never reached a game labelled only
+to teach, which those four games are.
+
+**What it moved: 140 of 777, 18%, counting the re-ask below.** 33 from `vr` to `controls`,
+control schemes judged on a headset's own controllers; 26 from `controls` to `accessibility`,
+remapping; 16 the other way, taste settings and menus praised for their breadth; 26 into `bugs`,
+options that do nothing and headsets that stopped after an update; 18 from `accessibility` to
+`difficulty`, easier modes nobody said a player needed. On the four accessibility games
+`accessibility` went from 169 claims to 141, `controls` from 206 to 202 and `difficulty` from
+41 to 54: once taste, menus and easier modes left it, fewer of those claims were accommodations
+than the first labels said, and the row is thinner than #118 reported, not thicker. On the
+headset games `vr` went from 615 to 581, all of the difference schemes and breakages that were
+never about the headset.
+
+**The sheet was wrong twice mid-round, and the round paid for it.** The first two shares found
+the new test's own example stating no need ("I wish I could remap the keys"), so a reviewer who
+wanted remapping "for personal preference" landed on both sides; #123 made remapping
+`accessibility` outright before the fourth share. The fourth and fifth found "names somebody"
+read loosely ("a wider audience") and a limited remap split, and #125 fixed both before a last
+share re-asked every claim an earlier wording had left in question (136, of which 26 moved).
+Each label carries the sheet its labeller read. The user approved that share when the round ran
+over: 1.18M tokens against the 800k quoted, because shares averaged 142k rather than the last
+round's 115k on the four new games' long reviews, and the re-ask took 184k.
+
+**One stamp was wrong for an hour.** Every worktree builds into the same `target/`, and a
+`cargo test` in the worktree drafting #123 rebuilt the ingest example under the draft sheet
+between two shares, so 111 labels were stamped with a sheet nobody labelled against. They were
+ingested again with an ingest built at the right sheet; a round's ingest is now a copy pinned by
+its sheet, and every ingest checks the stamps it wrote.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
