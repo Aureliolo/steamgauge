@@ -460,35 +460,73 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
         .collect())
 }
 
-/// Draws the claims of a labelled set that a revision of the sheet puts back in question.
+/// One thing a revision of the sheet puts back in question.
 ///
 /// A taxonomy revision does not invalidate a set: the subjects that survive it mean what they
 /// meant, and re-asking about all of them costs what the set cost. What it does is move
-/// boundaries, and only claims near a moved one can change. This finds them by what they say,
-/// because a claim about a subject the sheet has just learned to name almost always says its
-/// name: eight games' worth of "modding" sat under `content` and `updates` without a single
+/// boundaries, and only claims near a moved one can change. A question finds them by what they
+/// say, because a claim about a subject the sheet has just learned to name almost always says
+/// its name: eight games' worth of "modding" sat under `content` and `updates` without a single
 /// one of them failing to use the word.
 ///
-/// Matched by the same word cut that counts the terms a report shows, so "mod" finds "mod"
-/// and "mods" and not "modern", and a caller need not know how a word is bounded in a script
-/// that writes without spaces.
+/// Words are matched by the same word cut that counts the terms a report shows, so "mod" finds
+/// "mod" and "mods" and not "modern", and a caller need not know how a word is bounded in a
+/// script that writes without spaces.
 ///
-/// Narrowed further by which subjects a claim is currently filed under, where the caller
+/// Narrowed further by which subjects a claim is currently filed under, where the question
 /// names any: a rule moves a boundary between two rows, and a claim on neither side of it
 /// cannot cross. "Worth" appears in claims about eleven subjects and the rule about what a
-/// thing is worth paying touches two of them.
+/// thing is worth paying touches two of them. With subjects and no words, every claim under
+/// them is asked about. A revision that narrows a row rather than teaching the sheet a new name
+/// puts the whole row back in question, and there are no words for that: `accessibility` was
+/// redefined from a purpose to a test, and what has to be re-asked is each of its claims, not
+/// the ones that happen to say "subtitle".
 ///
-/// With subjects and no words, every claim under them is asked about. A revision that narrows
-/// a row rather than teaching the sheet a new name puts the whole row back in question, and
-/// there are no words for that: `accessibility` was redefined from a purpose to a test, and
-/// what has to be re-asked is each of its claims, not the ones that happen to say "subtitle".
+/// And narrowed by game, where it names any. A rule about a headset's controllers is a
+/// question about headset games; asked everywhere, "controller" finds every gamepad claim in
+/// the reference set, none of which the rule moved.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Question {
+    #[serde(default)]
+    pub words: Vec<String>,
+    #[serde(default)]
+    pub subjects: Vec<String>,
+    #[serde(default)]
+    pub apps: Vec<u32>,
+}
+
+impl Question {
+    fn asks(&self, app_id: u32, subject: &str, text: &str) -> bool {
+        if !self.apps.is_empty() && !self.apps.contains(&app_id) {
+            return false;
+        }
+        if !self.subjects.is_empty() && !self.subjects.iter().any(|named| named == subject) {
+            return false;
+        }
+        // The page's term cut drops filler words and never forms a phrase of three, so "if you
+        // like" can never be one of its terms; a word or phrase is also looked for as written.
+        // Asked for eight such phrases on 2026-09-22, the cut alone found 24 of the 186 claims
+        // a plain search finds.
+        let plain = text.to_lowercase().replace('\u{2019}', "'");
+        self.words.is_empty()
+            || self.words.iter().any(|word| {
+                crate::said::mentions(text, word)
+                    || crate::mine::contains_term(
+                        &plain,
+                        &word.to_lowercase().replace('\u{2019}', "'"),
+                    )
+            })
+    }
+}
+
+/// Draws the claims of a labelled set that any of the questions puts back in question.
 ///
 /// Returns the claims that matched, as a set the labeller reads exactly like a fresh one.
 ///
 /// # Errors
 ///
 /// Fails if the set has no drawn sample or labels, or they cannot be read.
-pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result<Vec<DrawnReview>> {
+pub fn draw_revisit(dir: &Path, questions: &[Question]) -> Result<Vec<DrawnReview>> {
     let drawn: Vec<DrawnReview> =
         serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
             crate::Error::NoReferenceSet {
@@ -501,10 +539,14 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
                 path: dir.join("labels.json"),
             }
         })?)?;
-    let labelled: std::collections::HashSet<(&str, u16)> = labels
+    let filed: std::collections::HashMap<(&str, u16), &str> = labels
         .iter()
-        .filter(|label| subjects.is_empty() || subjects.contains(&label.subject))
-        .map(|label| (label.review_id.as_str(), label.index))
+        .map(|label| {
+            (
+                (label.review_id.as_str(), label.index),
+                label.subject.as_str(),
+            )
+        })
         .collect();
 
     Ok(drawn
@@ -517,20 +559,13 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
             let asked: Vec<u16> = review
                 .claims
                 .iter()
-                .filter(|claim| labelled.contains(&(review.id.as_str(), claim.index)))
                 .filter(|claim| {
-                    // The page's term cut drops filler words and never forms a phrase of three,
-                    // so "if you like" can never be one of its terms; a word or phrase is also
-                    // looked for as written. Asked for eight such phrases on 2026-09-22, the
-                    // cut alone found 24 of the 186 claims a plain search finds.
-                    let plain = claim.text.to_lowercase().replace('\u{2019}', "'");
-                    words.is_empty()
-                        || words.iter().any(|word| {
-                            crate::said::mentions(&claim.text, word)
-                                || crate::mine::contains_term(
-                                    &plain,
-                                    &word.to_lowercase().replace('\u{2019}', "'"),
-                                )
+                    filed
+                        .get(&(review.id.as_str(), claim.index))
+                        .is_some_and(|subject| {
+                            questions
+                                .iter()
+                                .any(|question| question.asks(review.app_id, subject, &claim.text))
                         })
                 })
                 .map(|claim| claim.index)
@@ -541,6 +576,132 @@ pub fn draw_revisit(dir: &Path, words: &[String], subjects: &[String]) -> Result
             })
         })
         .collect())
+}
+
+/// Every game under a reference root with a labelled set of any kind, in order.
+///
+/// A game drawn only to teach a thin row has no random draw, and its teaching sets are labelled
+/// against the same sheet as any other: four games drawn for `accessibility` held 375 of that
+/// row's and `controls`' claims with no random draw between them.
+///
+/// # Errors
+///
+/// Fails if the reference root cannot be listed.
+pub fn labelled_games(reference: &Path) -> Result<Vec<u32>> {
+    let mut found: Vec<u32> = std::fs::read_dir(reference)?
+        .filter_map(std::result::Result::ok)
+        .filter(|entry| {
+            let game = entry.path();
+            game.join("labels.json").is_file()
+                || TEACHING_SETS
+                    .iter()
+                    .any(|set| game.join(set).join("labels.json").is_file())
+        })
+        .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
+        .collect();
+    found.sort_unstable();
+    Ok(found)
+}
+
+/// One set a revisit drew from.
+#[derive(Debug)]
+pub struct RevisitSet {
+    pub app_id: u32,
+    /// Empty for the random draw, otherwise the teaching set's name.
+    pub set: String,
+    pub report: DrawReport,
+}
+
+/// What a revisit drew, and how many handouts from an earlier one it removed.
+#[derive(Debug, Default)]
+pub struct RevisitDraw {
+    pub sets: Vec<RevisitSet>,
+    pub cleared: usize,
+}
+
+/// Draws every claim the questions put back in question, as a `revisit` set beside each set
+/// that has any, over every labelled game.
+///
+/// Every set of a game is asked, not only its random draw. A teaching set is labelled against
+/// the same sheet and trained on like any other row, so a revision that reaches only the random
+/// draw leaves most of a row under the wording it just replaced: 261 of the 369
+/// `accessibility` labels were in teaching sets.
+///
+/// Where any question is asked of every game, the draw owns every set's handout, and one left
+/// by an earlier draw that this one does not replace is removed: those files look exactly like
+/// work to hand out, and nothing about them says they answer a question nobody is asking any
+/// more. A draw whose questions all name their games leaves the other games alone.
+///
+/// # Errors
+///
+/// Refuses a question with neither words nor subjects, which asks the whole reference set again
+/// and is never what a revision needs. Fails if a set cannot be read or its handout written.
+pub fn draw_revisits(
+    reference: &Path,
+    questions: &[Question],
+    reviews_per_batch: usize,
+) -> Result<RevisitDraw> {
+    if questions.is_empty()
+        || questions
+            .iter()
+            .any(|question| question.words.is_empty() && question.subjects.is_empty())
+    {
+        return Err(crate::Error::Refused(
+            "every question needs words, subjects or both: one with neither asks the whole \
+             reference set again"
+                .to_owned(),
+        ));
+    }
+    let sets_of = |app_id: u32| {
+        let game = reference.join(app_id.to_string());
+        std::iter::once((String::new(), game.clone())).chain(
+            TEACHING_SETS
+                .iter()
+                .map(move |set| ((*set).to_owned(), game.join(set))),
+        )
+    };
+
+    let mut draw = RevisitDraw::default();
+    let mut drew_for = Vec::new();
+    for app_id in labelled_games(reference)? {
+        let asking: Vec<Question> = questions
+            .iter()
+            .filter(|question| question.apps.is_empty() || question.apps.contains(&app_id))
+            .cloned()
+            .collect();
+        if asking.is_empty() {
+            continue;
+        }
+        for (set, dir) in sets_of(app_id) {
+            if !dir.join("labels.json").is_file() {
+                continue;
+            }
+            let drawn = draw_revisit(&dir, &asking)?;
+            if drawn.is_empty() {
+                continue;
+            }
+            let report = write_set(&dir.join("revisit"), &drawn, reviews_per_batch)?;
+            drew_for.push(dir.join("revisit"));
+            draw.sets.push(RevisitSet {
+                app_id,
+                set,
+                report,
+            });
+        }
+    }
+
+    if questions.iter().any(|question| question.apps.is_empty()) {
+        for app_id in labelled_games(reference)? {
+            for (_, dir) in sets_of(app_id) {
+                let stale = dir.join("revisit");
+                if stale.is_dir() && !drew_for.contains(&stale) {
+                    std::fs::remove_dir_all(&stale)?;
+                    draw.cleared += 1;
+                }
+            }
+        }
+    }
+    Ok(draw)
 }
 
 /// Sets beside a game's random draw that add claims to train on rather than answers to
@@ -1718,19 +1879,98 @@ mod tests {
         )
         .unwrap();
 
-        let by_word = draw_revisit(&dir, &["subtitle".to_owned()], &[]).unwrap();
+        let words = |words: &[&str]| Question {
+            words: words.iter().map(|word| (*word).to_owned()).collect(),
+            ..Question::default()
+        };
+        let by_word = draw_revisit(&dir, &[words(&["subtitle"])]).unwrap();
         assert_eq!(by_word[0].asked, Some(vec![0]));
 
         // A phrase made of filler words is still a phrase somebody wrote.
-        let by_phrase = draw_revisit(&dir, &["it runs at".to_owned()], &[]).unwrap();
+        let by_phrase = draw_revisit(&dir, &[words(&["it runs at"])]).unwrap();
         assert_eq!(by_phrase[0].asked, Some(vec![2]));
 
         // A row redefined rather than renamed puts every claim under it back in question, and
         // the claim that says nothing about the new wording is exactly the one to re-ask.
-        let whole_row = draw_revisit(&dir, &[], &["accessibility".to_owned()]).unwrap();
+        let row = Question {
+            subjects: vec!["accessibility".to_owned()],
+            ..Question::default()
+        };
+        let whole_row = draw_revisit(&dir, std::slice::from_ref(&row)).unwrap();
         assert_eq!(whole_row[0].asked, Some(vec![0, 1]));
 
+        // Two rules revised at once ask a claim if either does, and a question about other
+        // games asks nothing here.
+        let both = draw_revisit(&dir, &[words(&["subtitle"]), words(&["it runs at"])]).unwrap();
+        assert_eq!(both[0].asked, Some(vec![0, 2]));
+        let elsewhere = Question {
+            apps: vec![2],
+            ..row
+        };
+        assert!(draw_revisit(&dir, &[elsewhere]).unwrap().is_empty());
+
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_revisit_reaches_games_labelled_only_to_teach_and_clears_what_it_replaced() {
+        let root = std::env::temp_dir().join(format!("steamgauge-revisits-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let set = |app_id: u32, dir: &Path, subject: &str| {
+            std::fs::create_dir_all(dir).unwrap();
+            let drawn = DrawnReview {
+                app_id,
+                ..review("r1", &["You cannot remap the keys."])
+            };
+            std::fs::write(
+                dir.join("sample.json"),
+                serde_json::to_vec(&[drawn]).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                dir.join("labels.json"),
+                serde_json::to_vec(&[a_label(app_id, "r1", 0, "random", subject)]).unwrap(),
+            )
+            .unwrap();
+        };
+        // One game with a random draw, and one drawn only to teach a thin row.
+        set(1, &root.join("1"), "controls");
+        set(2, &root.join("2").join("retrieved"), "controls");
+        let stale = root.join("1").join("mined").join("revisit");
+        std::fs::create_dir_all(&stale).unwrap();
+
+        let remap = Question {
+            words: vec!["remap".to_owned()],
+            subjects: vec!["controls".to_owned()],
+            apps: Vec::new(),
+        };
+        let drawn = draw_revisits(&root, std::slice::from_ref(&remap), 40).unwrap();
+        let drew: Vec<(u32, &str)> = drawn
+            .sets
+            .iter()
+            .map(|set| (set.app_id, set.set.as_str()))
+            .collect();
+        assert_eq!(drew, vec![(1, ""), (2, "retrieved")]);
+        assert!(root.join("2").join("retrieved").join("revisit").is_dir());
+        assert_eq!(
+            drawn.cleared, 1,
+            "a handout nobody is asking for any more is removed"
+        );
+        assert!(!stale.exists());
+
+        // Questions that name their games leave every other game's handout where it is.
+        std::fs::create_dir_all(&stale).unwrap();
+        let named = Question {
+            apps: vec![2],
+            ..remap
+        };
+        let drawn = draw_revisits(&root, &[named], 40).unwrap();
+        assert_eq!(drawn.sets.len(), 1);
+        assert_eq!(drawn.cleared, 0);
+        assert!(stale.is_dir());
+
+        assert!(draw_revisits(&root, &[Question::default()], 40).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
