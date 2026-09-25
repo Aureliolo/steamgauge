@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -47,24 +48,52 @@ TOLERANCE = 2e-3
 HALF_TOLERANCE = 2.5e-1
 
 
+class LengthFree(torch.nn.Module):
+    """A decoder trunk handed its mask and positions ready-made, from tensors alone.
+
+    Left to itself a decoder works out its causal mask and its positions from the sequence
+    length as a Python number, and the tracer writes a Python number into the graph as a
+    constant: the 4B's graph answered at exactly the length it was traced at and refused every
+    other one. Built here from a running count over the attention mask instead, both stay
+    questions the graph asks of its input. The library takes a four-dimensional mask as given,
+    so its own mask builder, which also leans on `torch.vmap` the tracer cannot follow, never
+    runs.
+    """
+
+    def __init__(self, trunk):
+        super().__init__()
+        self.trunk = trunk
+
+    def forward(self, input_ids, attention_mask):
+        steps = torch.cumsum(torch.ones_like(attention_mask), dim=1)
+        positions = steps - 1
+        # Right-padded, so every query row still sees its own real tokens and none is empty.
+        causal = steps[:, None, :] <= steps[:, :, None]
+        allowed = (causal & attention_mask[:, None, :].bool())[:, None, :, :]
+        return self.trunk(
+            input_ids=input_ids,
+            attention_mask=allowed,
+            position_ids=positions,
+            cache_position=positions[0],
+        )
+
+
 def trace_graph(model, input_ids, attention_mask, path, opset: int):
     """Writes a reader's graph, whatever its trunk.
 
-    A decoder trunk needs two things changed for the tracer, and an encoder needs neither. Current
-    transformers builds a decoder's causal mask with `torch.vmap`, which the tracing exporter
-    cannot follow: the 4B died in it with "invalid unordered_map<K, T> key". The same library
-    keeps a builder of plain tensor operations for older torch, and it is swapped in for the
-    trace alone; the parity check after the export is what says the two masks agree. A decoder
-    also keeps a cache of past keys for generating text, which a reader that answers once has no
-    use for and a traced graph should not carry as outputs.
+    A decoder trunk is traced through `LengthFree`, and an encoder as it is. A decoder also keeps
+    a cache of past keys for generating text, which a reader that answers once has no use for
+    and a traced graph should not carry as outputs.
     """
-    from transformers.masking_utils import ALL_MASK_ATTENTION_FUNCTIONS, sdpa_mask_older_torch
-
-    for module in model.modules():
-        config = getattr(module, "config", None)
-        if config is not None and hasattr(config, "use_cache"):
-            config.use_cache = False
-    ALL_MASK_ATTENTION_FUNCTIONS["sdpa"] = sdpa_mask_older_torch
+    readers = [
+        module
+        for module in model.modules()
+        if isinstance(getattr(module, "trunk", None), torch.nn.Module)
+        and hasattr(getattr(module.trunk, "config", None), "use_cache")
+    ]
+    for reader in readers:
+        reader.trunk.config.use_cache = False
+        reader.trunk = LengthFree(reader.trunk)
     try:
         torch.onnx.export(
             model,
@@ -91,7 +120,8 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
             dynamo=False,
         )
     finally:
-        del ALL_MASK_ATTENTION_FUNCTIONS["sdpa"]
+        for reader in readers:
+            reader.trunk = reader.trunk.trunk
 
 
 class InFullPrecisionOut(torch.nn.Module):
@@ -457,11 +487,17 @@ def main():
     # crashes the exporter outright rather than reporting anything.
     TRACE = 8
     graph = run / "model.onnx"
+    # Traced into a directory of its own: over 2 GB the tracer writes every weight as a file
+    # beside the graph, 252 of them for the 4B, and they are the export's scratch, not the
+    # reader.
+    traced = run / "traced"
+    shutil.rmtree(traced, ignore_errors=True)
+    traced.mkdir()
     trace_graph(
         exported,
         encoded["input_ids"][:TRACE],
         encoded["attention_mask"][:TRACE],
-        graph,
+        traced / "model.onnx",
         args.opset,
     )
 
@@ -470,7 +506,8 @@ def main():
     # reader too large for one protobuf is two files (--external-data), and then both are its.
     import onnx
 
-    inlined = onnx.load(str(graph), load_external_data=True)
+    inlined = onnx.load(str(traced / "model.onnx"), load_external_data=True)
+    shutil.rmtree(traced)
     for stray in graph.parent.glob("model.onnx.data*"):
         stray.unlink()
     onnx.save(
@@ -503,17 +540,26 @@ def main():
         )
     # In batches, for the same reason the trace is: the check is over hundreds of sequences and
     # a bigger model has to fit them all on the card at once to answer in one go.
+    # Each batch cut to its own longest claim, so the graph is asked at lengths other than the
+    # one it was traced at: a graph with the traced length written into it passed this check
+    # at that length and refused every other.
     ids = encoded["input_ids"].numpy()
     mask = encoded["attention_mask"].numpy()
-    got = np.concatenate(
-        [
+    batches = []
+    for at in range(0, len(ids), 32):
+        width = int(mask[at : at + 32].sum(axis=1).max())
+        batches.append(
             session.run(
                 ["subject_logits"],
-                {"input_ids": ids[at : at + 32], "attention_mask": mask[at : at + 32]},
+                {
+                    "input_ids": ids[at : at + 32, :width],
+                    "attention_mask": mask[at : at + 32, :width],
+                },
             )[0]
-            for at in range(0, len(ids), 32)
-        ]
-    )
+        )
+    got = np.concatenate(batches)
+    widths = {int(mask[at : at + 32].sum(axis=1).max()) for at in range(0, len(ids), 32)}
+    print(f"parity asked at {len(widths)} lengths, traced at {ids.shape[1]}")
 
     got = got.astype(np.float32)
     drift = float(np.abs(wanted - got).max())
