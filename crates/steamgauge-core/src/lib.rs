@@ -5,6 +5,7 @@
 pub mod api;
 mod bounded;
 pub mod capture;
+pub mod card;
 pub mod claims;
 pub mod claimset;
 pub mod crawl;
