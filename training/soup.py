@@ -199,6 +199,7 @@ def main(args) -> dict:
                 first["context"],
                 mark=first["mark"],
                 prefix=first["prefix"],
+                headset_marker=first.get("headset_marker", False),
             ),
             batch_size=args.batch_size,
             shuffle=False,

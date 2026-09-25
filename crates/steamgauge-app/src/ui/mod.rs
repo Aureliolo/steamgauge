@@ -316,6 +316,20 @@ async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Res
         .map_err(text)?;
     }
 
+    // The one fact about the game the reader is told, asked of the store once and kept.
+    let game_dir = out_dir.join(format!("appid={app_id}"));
+    if steamgauge_core::facts::Facts::load(&game_dir).is_none() {
+        let headset_only = waiting_client(&app, app_id)?
+            .headset_only(app_id)
+            .await
+            .ok_or_else(|| {
+                "the store would not say whether this game is played in a VR headset".to_owned()
+            })?;
+        steamgauge_core::facts::Facts { headset_only }
+            .save(&game_dir)
+            .map_err(text)?;
+    }
+
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let mut model = steamgauge_core::reader::ClaimReader::load(&model_dir).map_err(text)?;
         let report = steamgauge_core::read::read_corpus(&mut model, app_id, &options, |progress| {

@@ -453,8 +453,30 @@ pub fn read_corpus(
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
 
     let context = model.provenance().context;
-    let (counted, forward_passes) =
-        read_and_count(model, app_id, &snapshot, options, context, &mut on_progress)?;
+    // A reader told whether a game is played in a headset has to be told for every game: read
+    // without the fact, a headset game's claims are asked as a screen game's, and every answer
+    // still looks like one.
+    let headset_only = if model.provenance().headset_marker {
+        crate::facts::Facts::load(&options.out_dir.join(format!("appid={app_id}")))
+            .ok_or_else(|| {
+                crate::Error::Refused(format!(
+                    "app {app_id}: this reader is told whether a game is played only in a \
+                     headset, and nobody has asked the store about this one; \
+                     `steamgauge store-facts {app_id}` does"
+                ))
+            })?
+            .headset_only
+    } else {
+        false
+    };
+    let (counted, forward_passes) = read_and_count(
+        model,
+        app_id,
+        &snapshot,
+        options,
+        (context, headset_only),
+        &mut on_progress,
+    )?;
     let captured = crate::report::crawl_facts(&options.out_dir, app_id)?;
 
     Ok(ReadReport {
@@ -716,6 +738,7 @@ struct Queued {
     review: Arc<str>,
     at: usize,
     language: Arc<str>,
+    headset_only: bool,
 }
 
 impl Queued {
@@ -725,6 +748,7 @@ impl Queued {
             review: &self.review,
             at: self.at,
             language: &self.language,
+            headset_only: self.headset_only,
         }
     }
 }
@@ -771,7 +795,7 @@ fn read_and_count(
     app_id: u32,
     snapshot: &Path,
     options: &ReadOptions,
-    context: bool,
+    (context, headset_only): (bool, bool),
     on_progress: &mut impl FnMut(ReadProgress),
 ) -> Result<(ReadReport, u64)> {
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
@@ -840,6 +864,7 @@ fn read_and_count(
                 review: Arc::clone(&review),
                 at: starts,
                 language: Arc::clone(&language),
+                headset_only,
             });
             if window.len() >= LENGTH_WINDOW {
                 drain(model, options.batch_size, &mut window, &mut answers)?;

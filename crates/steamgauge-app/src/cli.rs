@@ -685,6 +685,23 @@ enum Command {
         to: PathBuf,
     },
 
+    /// Ask the store whether each game is played only in a VR headset, and keep the answer
+    /// beside its capture and its reference sets.
+    ///
+    /// The one thing about a game the labeller and the reader are both told. `read` asks for a
+    /// game that has no answer yet; this fills in every game at once.
+    StoreFacts {
+        /// Steam app IDs. Every captured and every labelled game when none are named.
+        #[arg(num_args = 0..)]
+        app_ids: Vec<u32>,
+        /// Directory holding the captures.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
+        /// Where the claim reference sets live.
+        #[arg(long, default_value = "reference/claims")]
+        reference: PathBuf,
+    },
+
     /// Read every claim in a corpus with the trained model.
     Read {
         /// Steam app IDs whose most recent captures should be read.
@@ -796,6 +813,11 @@ pub async fn run() -> Result<()> {
             pace_ms,
         } => run_sweep(app_id, &out, Duration::from_millis(pace_ms)).await,
         Command::Claims { app_id, out } => run_claims(app_id, &out),
+        Command::StoreFacts {
+            app_ids,
+            out,
+            reference,
+        } => run_store_facts(&app_ids, &out, &reference).await,
         Command::Read {
             app_ids,
             out,
@@ -807,6 +829,7 @@ pub async fn run() -> Result<()> {
         } => {
             let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
             fetch_reader(&model_dir).await?;
+            ask_the_store_where_unknown(&app_ids, &out).await?;
             let options = steamgauge_core::read::ReadOptions {
                 out_dir: out,
                 top_helpful,
@@ -920,6 +943,7 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::Sweep { .. }
         | Command::Claims { .. }
         | Command::Read { .. }
+        | Command::StoreFacts { .. }
         | Command::Recount { .. }
         | Command::ExportTraining { .. }
         | Command::ExportPool { .. }
@@ -3216,6 +3240,95 @@ async fn run_embed(
 
 /// A client that says when Valve refuses it and how long it will wait. The wait can run to
 /// minutes, and a crawl that stops printing for minutes reads as a hang.
+/// Every game with a capture under `out`.
+fn captured_games(out: &std::path::Path) -> Vec<u32> {
+    let Ok(entries) = std::fs::read_dir(out) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(std::result::Result::ok)
+        .filter_map(|entry| {
+            entry
+                .file_name()
+                .to_str()?
+                .strip_prefix("appid=")?
+                .parse()
+                .ok()
+        })
+        .collect()
+}
+
+/// Asks the store about the games about to be read that nobody has asked about yet.
+async fn ask_the_store_where_unknown(app_ids: &[u32], out: &std::path::Path) -> Result<()> {
+    let unknown: Vec<u32> = app_ids
+        .iter()
+        .copied()
+        .filter(|app_id| {
+            steamgauge_core::facts::Facts::load(&out.join(format!("appid={app_id}"))).is_none()
+        })
+        .collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    run_store_facts(&unknown, out, std::path::Path::new("reference/claims")).await
+}
+
+/// Asks the store whether each game is played only in a headset, and keeps the answer beside
+/// the game's capture and its reference sets, wherever either exists. Every captured and every
+/// labelled game when none are named.
+///
+/// A game the store gives no answer for is said and left without one: reading it as a game
+/// played on a screen would be a guess recorded as a fact.
+async fn run_store_facts(
+    app_ids: &[u32],
+    out: &std::path::Path,
+    reference: &std::path::Path,
+) -> Result<()> {
+    let wanted: Vec<u32> = if app_ids.is_empty() {
+        let mut every: std::collections::BTreeSet<u32> =
+            steamgauge_core::claimset::labelled_games(reference)?
+                .into_iter()
+                .collect();
+        every.extend(captured_games(out));
+        every.into_iter().collect()
+    } else {
+        app_ids.to_vec()
+    };
+    let client = steam_client(steamgauge_core::api::DEFAULT_PACE)?;
+    let mut unanswered = Vec::new();
+    for &app_id in &wanted {
+        let Some(headset_only) = client.headset_only(app_id).await else {
+            unanswered.push(app_id);
+            continue;
+        };
+        let facts = steamgauge_core::facts::Facts { headset_only };
+        for home in [
+            out.join(format!("appid={app_id}")),
+            reference.join(app_id.to_string()),
+        ] {
+            if home.is_dir() {
+                facts.save(&home)?;
+            }
+        }
+        println!(
+            "{app_id:<10} {}",
+            if headset_only {
+                "played only in a headset"
+            } else {
+                "not headset-only"
+            }
+        );
+    }
+    if !unanswered.is_empty() {
+        let named: Vec<String> = unanswered.iter().map(u32::to_string).collect();
+        anyhow::bail!(
+            "the store gave no answer for {}; nothing is recorded for them",
+            named.join(", ")
+        );
+    }
+    Ok(())
+}
+
 fn steam_client(pace: Duration) -> Result<SteamClient> {
     Ok(SteamClient::new(pace)?.with_notice(|wait, status| {
         eprintln!(

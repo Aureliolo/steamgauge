@@ -171,6 +171,20 @@ impl SteamClient {
         (!name.is_empty()).then(|| name.to_owned())
     }
 
+    /// Whether the store lists an app as played only in a VR headset, the one fact the reader
+    /// and the labeller are told about a game.
+    ///
+    /// `None` when the store gives no answer, which is not the same as "no": a caller that
+    /// cannot find out has to say so rather than read the game as played on a screen.
+    pub async fn headset_only(&self, app_id: u32) -> Option<bool> {
+        self.wait_turn().await;
+        let url = format!(
+            "https://store.steampowered.com/api/appdetails?appids={app_id}&filters=categories"
+        );
+        let body: serde_json::Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
+        crate::facts::headset_only_in(&body, app_id)
+    }
+
     /// Fetches one page, retrying on throttling and transient server errors.
     ///
     /// # Errors

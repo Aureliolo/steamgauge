@@ -158,15 +158,19 @@ pub fn draw(
     Ok(drawn)
 }
 
-/// What a labeller is shown: one review, its claims numbered, and nothing else.
+/// What a labeller is shown: one review, its claims numbered, and whether the game is played
+/// only in a headset.
 ///
-/// No app id, no rating, no language name, no prediction. The model reads the claim and the
-/// review around it, so a label made from more than that measures what the labeller was told
-/// rather than how well the text reads.
+/// No app id, no rating, no language name, no prediction. The model reads the claim, the
+/// review around it and that one fact, so a label made from more than that measures what the
+/// labeller was told rather than how well the text reads. The fact is left out where nobody
+/// has asked the store, rather than written as "no".
 #[derive(Debug, Clone, Serialize)]
 struct Handout<'a> {
     review_id: &'a str,
     review: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headset_only: Option<bool>,
     claims: Vec<HandoutClaim<'a>>,
 }
 
@@ -234,6 +238,7 @@ pub fn write_set_handing_out<S: std::hash::BuildHasher>(
         }
     }
 
+    let headset_only = crate::facts::Facts::around(dir).map(|facts| facts.headset_only);
     let mut written = 0;
     if reviews_per_batch > 0 {
         for (index, chunk) in to_hand_out.chunks(reviews_per_batch).enumerate() {
@@ -242,6 +247,7 @@ pub fn write_set_handing_out<S: std::hash::BuildHasher>(
                 .map(|&review| Handout {
                     review_id: &review.id,
                     review: rejoined(review),
+                    headset_only,
                     claims: review
                         .claims
                         .iter()
@@ -1488,6 +1494,7 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
         .into_iter()
         .filter_map(|(app_id, ids)| Some((app_id, spans_cut_now(captures, app_id, &ids).ok()?)))
         .collect();
+    let mut facts: std::collections::HashMap<u32, Option<bool>> = std::collections::HashMap::new();
 
     for claim in found {
         // Most of the set was cut before the rules that recognise these, so it still holds
@@ -1518,10 +1525,19 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
             report.recut += 1;
             continue;
         }
+        let headset_only = *facts.entry(label.app_id).or_insert_with(|| {
+            crate::facts::of_game(
+                captures,
+                &reference_root.join(label.app_id.to_string()),
+                label.app_id,
+            )
+            .map(|facts| facts.headset_only)
+        });
         let row = serde_json::json!({
             "text": claim.text,
             "review": claim.review,
             "review_offset": claim.review_offset,
+            "headset_only": headset_only,
             "subject": label.subject,
             "polarity": label.polarity,
             "confidence": label.confidence,
@@ -1607,6 +1623,8 @@ pub fn export_pool(
     out: &mut impl std::io::Write,
 ) -> Result<PoolReport> {
     let labelled = reviews_in_sets(game_sets)?;
+    let headset_only =
+        crate::facts::of_game(out_dir, game_sets, app_id).map(|facts| facts.headset_only);
     let drawn = draw(out_dir, app_id, wanted, english_share, seed, "pool")?;
     let mut report = PoolReport::default();
     for review in drawn {
@@ -1627,6 +1645,7 @@ pub fn export_pool(
                 "text": claim.text,
                 "review": around,
                 "review_offset": offset,
+                "headset_only": headset_only,
                 "language": review.language,
                 "app_id": review.app_id,
                 "review_id": review.id,
@@ -1971,6 +1990,28 @@ mod tests {
 
         assert!(draw_revisits(&root, &[Question::default()], 40).is_err());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_handout_says_whether_the_game_is_played_in_a_headset_only_where_the_store_was_asked() {
+        let game = std::env::temp_dir().join(format!("steamgauge-handout-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&game);
+        let set = game.join("retrieved");
+        let handed = |set: &Path| -> serde_json::Value {
+            write_set(set, &[review("r1", &["It made me sick."])], 40).unwrap();
+            serde_json::from_slice(&std::fs::read(set.join("batches/batch-000.json")).unwrap())
+                .unwrap()
+        };
+
+        assert!(
+            handed(&set)[0].get("headset_only").is_none(),
+            "nobody asked the store, so nothing is said, not \"no\""
+        );
+        crate::facts::Facts { headset_only: true }
+            .save(&game)
+            .unwrap();
+        assert_eq!(handed(&set)[0]["headset_only"], serde_json::json!(true));
+        let _ = std::fs::remove_dir_all(&game);
     }
 
     #[test]

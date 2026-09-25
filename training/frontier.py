@@ -209,6 +209,7 @@ def score_reader(model_dir: Path, key: Path, data: str):
         # worse measurement. The same goes for the pair's prefixes.
         mark=provenance.get("mark", False),
         prefix=provenance.get("prefix", False),
+        headset_marker=provenance.get("headset_marker", False),
     )
 
     session = onnxruntime.InferenceSession(

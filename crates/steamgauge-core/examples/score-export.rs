@@ -27,6 +27,8 @@ struct Row {
     subject: String,
     app_id: u32,
     language: String,
+    #[serde(default)]
+    headset_only: Option<bool>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,6 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 review: row.review.as_deref().unwrap_or(&row.text),
                 at: row.review_offset.unwrap_or(0),
                 language: &row.language,
+                headset_only: row.headset_only.unwrap_or(false),
             };
             let windows = reader.windows_for(std::slice::from_ref(&asked));
             println!("CLAIM {:?}", row.text);
@@ -78,6 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 review: row.review.as_deref().unwrap_or(&row.text),
                 at: row.review_offset.unwrap_or(0),
                 language: &row.language,
+                headset_only: row.headset_only.unwrap_or(false),
             })
             .collect();
         for (row, reading) in chunk.iter().zip(reader.read(&asked)?) {

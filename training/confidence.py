@@ -65,6 +65,7 @@ def logits_of(model_dir: Path, claims, provenance):
         provenance.get("context", False),
         mark=provenance.get("mark", False),
         prefix=provenance.get("prefix", False),
+        headset_marker=provenance.get("headset_marker", False),
     )
 
     session = onnxruntime.InferenceSession(
