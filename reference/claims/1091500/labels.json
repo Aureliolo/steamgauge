@@ -4291,14 +4291,14 @@
     "subset": "random",
     "start": 3234,
     "end": 3294,
-    "taxonomy": "core-5",
+    "taxonomy": "82b663c6977f",
     "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false
   },
   {
     "review_id": "81987248",

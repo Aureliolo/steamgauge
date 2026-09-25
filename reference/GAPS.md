@@ -95,6 +95,23 @@ row takes a named disability or condition. And a remapping that exists and falls
 reserved for a second player or a control that cannot be unbound, split between the remap rule
 and `controls`' layout: it is still the remapping, and `accessibility`.
 
+What the round left open, each for the next sheet round. **A remap named as the workaround**:
+"you will need to remap the controls on keyboard" complains about the default layout and names
+remapping as the fix; the labeller filed `controls`, which the claim is about, against the
+letter of "whatever it is wanted for". **A settings menu that itemises its accommodations**
+while praising its breadth takes both halves of the menu rule at once (four claims over three
+shares). **An option wanted with no reason given**, a field-of-view slider or a motion-blur
+toggle, sits between `graphics`' own toggles, the taste settings of `controls` and
+`accessibility`. **A controller that half works on one pad** (a stick in four directions only,
+triggers dead on a handheld) is `controls`' "whether they respond", `bugs` and
+`compatibility`'s device at once. And a fan-made mode praised as "accessibility for people with
+certain body disability" is `mods` by who made it and `accessibility` by what it is for. The
+re-ask added two: "a lot of people are unable to pass certain levels" sits between a named
+player and a wider audience, and a reviewer who could not finish without a story mode but whose
+claim is that the game is too hard went to `difficulty` both times it came up; and a headset
+game's comfort and locomotion options praised with the rest of its menu split between `vr`'s
+comfort options and the menu.
+
 ### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
 
 No labeller named this one, which is why it took measuring to find. `accessibility` holds 299
@@ -688,7 +705,14 @@ name. Filed `content`.
   out") fit neither `story` nor `gameplay`.
 - A reviewer's own hardware ("using an RTX 3070") sits between `compatibility` and
   `performance`. Reported again on 2399830 as a bare spec sheet ("Sound card: HyperX"),
-  which says nothing about the game and went to `offtopic`, flagged.
+  which says nothing about the game and went to `offtopic`, flagged. And twice in the headset
+  revisit as a disclaimer ("I'm using Oculus Rift w/ Touch Controllers", "Quest 3
+  controllers"), which went to `vr`, neutral, low: in a headset game the setup says which
+  headset it was tried on, which the row owns. Four reports now, two answers.
+- "Fix the accessibility", "fix support for Quest 2 controllers please": `updates` owns telling
+  the developers to fix something, and the thing named owns a claim that names one. Both went
+  to the thing named.
+- A real injury from room-scale play ("broke my irl hand slapping an npc"): `vr`, low.
 - Neutral narrative lines inside a long bug report have nowhere to go but `bugs`.
 - Wishing a licence away ("pray FIFA gives the licensing to another studio", 2669320) fits
   `licensing`, `policy` and `updates` at once.

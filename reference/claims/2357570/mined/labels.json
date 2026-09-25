@@ -3339,13 +3339,13 @@
     "subset": "mined",
     "start": 717,
     "end": 775,
-    "taxonomy": "core-6",
+    "taxonomy": "82b663c6977f",
     "produced_by": "claude-fable-5-1",
-    "subject": "controls",
+    "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false
   },
   {
