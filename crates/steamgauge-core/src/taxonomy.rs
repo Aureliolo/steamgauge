@@ -149,7 +149,8 @@ pub const SHEET: &[Category] = &[
         description: "The game is broken and buggy. It crashes to desktop, freezes, corrupts \
                       or loses save files, and is full of glitches that block progress.",
         boundary: Some(
-            "Something that worked and now does not belongs here. Being unable to log in is \
+            "Something that worked and now does not belongs here, a headset included, and so \
+             does an option that is there and does nothing. Being unable to log in is \
              here when the login itself is broken and policy when needing an account at all \
              is the complaint. A game that never starts, with no reason given, is \
              compatibility.",
@@ -334,19 +335,24 @@ pub const SHEET: &[Category] = &[
         id: "controls",
         label: "Controls and interface",
         description: "The controls and the user interface. Clunky or responsive controls, \
-                      keybindings, controller support, menus, the HUD, the inventory screens, \
-                      and how many clicks it takes to do anything.",
+                      controller support, menus, the HUD, the inventory screens, and how many \
+                      clicks it takes to do anything.",
         boundary: Some(
             "Whether a gamepad is supported belongs here, and so does anything the game makes \
              you sit through or click past: a cutscene that cannot be skipped is a question of \
-             how many clicks it takes to do anything. The tracked controllers of a headset \
-             belong to VR, with the headset they come with. Whether the game runs on a given \
-             device belongs to compatibility. How the keys are laid out and whether \
-             they respond is here; whether the game lets you change them, \"I wish I could \
-             remap the keys\", is accessibility, which owns the settings players need in order \
-             to play at all. The settings menu itself, how many options it holds and display \
-             modes such as fullscreen and windowed, belongs here; which graphics settings give \
-             a playable frame rate is performance.",
+             how many clicks it takes to do anything. Whether a headset's tracked controllers \
+             are detected and supported belongs to VR, with the headset they come with; what \
+             the game binds to them, how its scheme feels in the hand and where it puts your \
+             hands and body are here, in a headset or out of one. Whether the game runs on a \
+             given device belongs to compatibility. How the keys are laid out and whether \
+             they respond is here. Whether the game lets you change a setting turns on need: \
+             an option somebody needs in order to play at all, \"I wish I could remap the \
+             keys\", subtitles, a toggle for a button you would otherwise hold, is \
+             accessibility; an option that is a matter of taste, aim assist, aim acceleration, \
+             a deadzone, the sensitivity, is here; and an option that is there and does not \
+             work, a remap that does not remap, is bugs. The settings menu itself, how many \
+             options it holds and display modes such as fullscreen and windowed, belongs here; \
+             which graphics settings give a playable frame rate is performance.",
         ),
         alone: false,
     },
@@ -521,10 +527,10 @@ pub const SHEET: &[Category] = &[
         id: "accessibility",
         label: "Accessibility and options",
         description: "A setting or feature put there so somebody can play who otherwise could \
-                      not. Subtitles and their size, colourblind modes, one-handed and \
-                      remappable control schemes, screen reader support, turning off screen \
-                      shake or flashing, and a difficulty or assist option offered for the \
-                      same reason.",
+                      not. Subtitles and their size, colourblind modes, remapping the controls \
+                      and one-handed schemes, screen reader support, turning off screen shake \
+                      or flashing, and a difficulty or assist option offered for the same \
+                      reason.",
         boundary: Some(
             "This is the accommodation, never the thing it accommodates. Text being too small \
              to read is graphics, a game being too hard is difficulty, a control scheme that \
@@ -532,7 +538,14 @@ pub const SHEET: &[Category] = &[
              language; an option offered so that somebody can read it, beat it or play it \
              one-handed is here. The test is whether the claim is about something the game \
              provides on purpose for that reason: \"no subtitle size setting\" and \"the \
-             colourblind mode is excellent\" are here, \"the subtitles are tiny\" is graphics.",
+             colourblind mode is excellent\" are here, \"the subtitles are tiny\" is graphics. \
+             An option a player needs is here; one that is a matter of taste, aim assist, a \
+             deadzone, the sensitivity, is controls; one that is there and does not work is \
+             bugs. A mode offered to players who want less challenge is difficulty; one that \
+             lets somebody finish who otherwise could not, skipping a puzzle or slowing the \
+             game down, is here. The word on its own decides nothing: a game called accessible \
+             because it is easy to pick up is tutorial, and one accessible in a country is \
+             policy.",
         ),
         alone: false,
     },
@@ -606,7 +619,11 @@ pub const SHEET: &[Category] = &[
         boundary: Some(
             "Anything about being in a headset belongs here, including whether a given headset \
              is supported, and the tracked controllers that come with it, whether they are \
-             detected and which ones work. A game called immersive is not this, in a headset \
+             detected and which ones work. What the game does with those controllers, the \
+             scheme it binds to them and where it puts your hands, is controls. A headset that \
+             worked and stopped after an update is bugs, and one whose support the publisher \
+             withdrew is policy; this row keeps which headsets work, with nothing said about a \
+             change. A game called immersive is not this, in a headset \
              or out of one: immersion with nothing named behind it is atmosphere, and \
              immersion a review explains belongs to what it names, so it is this only when \
              the headset itself is the reason, as in leaning over the table to look. How the \
