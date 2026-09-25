@@ -231,13 +231,15 @@ is a score for a classifier nobody is running.
 | the commonest subject | never reaches the promise | 4.1% | 0.003 |
 | TF-IDF bag of words | 40% | 75.1% | 0.474 |
 | nearest subject centroid over an untuned encoder | 6% | 78.6% | 0.465 |
-| **this reader, 560M parameters** (`e5-29006`, the one that ships) | **84%** | **78.4%** | **0.691** |
+| **this reader, 560M parameters** (`e5inst-pool-qwen4b-licensed-s1`, the one that ships) | **91%** | **80.5%** | **0.751** |
 | Claude Opus 5, given the same sheet | 99.4% | 87.6% | 0.875 |
 
+The reader it replaced, `e5-29006`, answered 84% of the same claims at 78.4% (macro F1 0.691).
 On the previous draw of this sample the earlier 278M reader answered 61% at 74.8% (macro F1
 0.525) and the previous 560M export 79% at 77.2% (0.652); those rows are not repeated here
 because they were measured on other claims. On the whole frozen set the reader that ships
-answers 79.9% at 82.2%: a stratified sample is the harder question, and the one above.
+answers 89.6% at 81.6%, where `e5-29006` answered 79.9% at 81.9%: a stratified sample is the
+harder question, and the one above.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
 quarter of which is `verdict`, the commonest-subject baseline scores 27.2% rather than 4.1% and
@@ -252,14 +254,17 @@ happened: cosine distance to a prototype cannot say "this is about nothing", so 
 it promises it can answer one claim in sixteen.
 
 What separates the reader from the bag of words is reading each claim inside its review, a
-pretrained encoder of 560M parameters, and twenty-nine thousand labels, many of them drawn at
-the subjects the reader was worst at: forty-four points of coverage at the same promise and
-twenty-two hundredths of macro F1. A sweep of everything else, some fifty configurations
-measured the same way, moved nothing outside its own noise: `DECISIONS.md` has the tables and
-what each change was worth on its own.
+pretrained encoder of 560M parameters, forty-two thousand labels, many of them drawn at the
+subjects the reader was worst at, and a teacher: a 4B-parameter reader trained on the same
+labels, whose answers on a quarter of a million unlabelled claims the small one learns from
+as well. Together that is fifty-one points of coverage over the bag of words and twenty-eight
+hundredths of macro F1. The teacher alone is worth four points of coverage, measured against
+the same recipe taught by the small reader's own seeds instead; a sweep of everything else,
+some fifty configurations measured the same way, moved nothing outside its own noise.
+`DECISIONS.md` has the tables and what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by nine points of agreement and sixteen of coverage.** What it is not is
+than this, by seven points of agreement and nine of coverage.** What it is not is
 affordable: that comparison cost 389,000 tokens for 487 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
@@ -310,10 +315,11 @@ frozen games. Against the blind answers the labels the whole silver standard is 
 the same subject **65.1%** of the time (somewhere in 58% to 72% with 95% confidence), the
 second labeller 63.9%, and where the two labellers had agreed with each other, which is 149 of
 the 169, they agree with the person 68.5%. Polarity holds at 85.8%. The reader that ships
-answers 81.1% of those claims and names the person's subject on **70.1%** of them (62% to
-77%), against 82% when it is scored on the labels. Two models agree with each other a good
-deal more than either agrees with a person, and "both labellers said so" is right about two
-times in three. Most of the difference is the boundaries the gap list already names: content
+answers 93.5% of those claims and names the person's subject on **67.9%** of them (60% to
+75%); the reader before it answered 81.1% at 70.1%, a difference 169 claims cannot tell from
+none, and both agree with the labels on about 82% of the frozen set. Two models agree with
+each other a good deal more than either agrees with a person, and "both labellers said so" is
+right about two times in three. Most of the difference is the boundaries the gap list already names: content
 against gameplay, genre against verdict, story against gameplay and content.
 
 Those are the cold figures. The person then read every answer that differed from the labels
@@ -321,8 +327,8 @@ again, 77 of the 200, with both labellers' answers and the sheet's own rule for 
 on the card, and moved 49 of them, 44 of the 59 blind ones: mostly rules the sheet already had
 and the person had not applied, or misses. The set as filed carries the second answer, so
 against it the labels name the same subject **89.3%** of the time on the blind claims and the
-reader that ships **76.8%** of what it answers (138 of 167 claims; the previous reader on the
-previous cut scored 79.6%, four answers apart). Those are not blind figures and are not quoted as
+reader that ships **79.9%** of what it answers (159 of 170 claims; the reader before it 76.8% of
+138). Those are not blind figures and are not quoted as
 accuracy; they say how far the labels and a person agree once the person is applying the same
 sheet. One rule did not carry either way: the sheet files "the best roguelike out there" under
 verdict, and with that sentence in view the person still read "Best Metroidvania I played" as
@@ -392,7 +398,7 @@ rather than about somebody's afternoon:
   drives the splitting rules. Three rounds of them came from labellers reporting it.
 - **Every game the model is measured on is read again by a different labeller, blind, in full,
   and a share of every other set is too.** That is 21,449 of the 33,615 claims the random draws
-  hold, nearly two thirds, and all 4,060 of the ones the frozen games answer. `steamgauge second-opinion` draws the same reviews as fresh
+  hold, nearly two thirds, and every one of the 5,579 the frozen games hold. `steamgauge second-opinion` draws the same reviews as fresh
   batches with no labels in them, and `steamgauge compare-labels` reads the two labellings
   together. It reports each field apart from the others, because they fail
   differently: subject is a judgement about the claim, and `ambiguous` is a judgement about the
