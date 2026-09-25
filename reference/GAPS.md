@@ -98,7 +98,8 @@ and `controls`' layout: it is still the remapping, and `accessibility`.
 What the round left open, each for the next sheet round. **A remap named as the workaround**:
 "you will need to remap the controls on keyboard" complains about the default layout and names
 remapping as the fix; the labeller filed `controls`, which the claim is about, against the
-letter of "whatever it is wanted for". **A settings menu that itemises its accommodations**
+letter of "whatever it is wanted for" (**written into the sheet 2026-09-25**: a remap named only
+as the cure for the layout is the layout). **A settings menu that itemises its accommodations**
 while praising its breadth takes both halves of the menu rule at once (four claims over three
 shares). **An option wanted with no reason given**, a field-of-view slider or a motion-blur
 toggle, sits between `graphics`' own toggles, the taste settings of `controls` and
@@ -663,7 +664,9 @@ give the claim to whatever the review blames (the camera, the controls, "motion 
 grain"), which a labeller also reported. The first is a rule a labeller can follow every time.
 Two more reports from the VR neighbour draw ("好晕哦" on 555160, "very little motion sickness"
 on 450540), where the game is a headset game and both went to `vr`: the default should be the
-platform the game is played on, which the store page says and the claim does not.
+platform the game is played on, which the store page says and the claim does not. **Written into
+the sheet 2026-09-25**, on `graphics`, in the form a labeller can use without the store page:
+the review around the claim decides, and one that never mentions a headset is about a screen.
 
 Beside it, once each: settings nobody explains ("don't know what 3-4 of the settings do")
 between `controls` and `tutorial`; VR comfort options between `vr` and `accessibility`, a
@@ -688,7 +691,11 @@ it says which headsets work without saying anything changed. **Written into the 
 VR players" (1012790). `verdict`'s rule gives every recommendation to `verdict`; the reason the
 reader wants is the headset. The labellers split between `verdict` and `vr`. The same shape
 as a recommendation with a reason anywhere on the sheet, and it wants the same answer: the
-reason, when one is named, is the subject.
+reason, when one is named, is the subject. Three more in the accessibility draws ("if you
+struggle with motor skills, do not get this game"). **Written into the sheet 2026-09-25**, on
+`verdict`: a condition about the reader's taste keeps the recommendation a verdict, and one
+about their hardware or body sends it to that fact's row, since it says whether the game will
+work for them.
 
 ### "An actual game, not a tech demo": one report, four claims
 
@@ -708,10 +715,12 @@ name. Filed `content`.
   which says nothing about the game and went to `offtopic`, flagged. And twice in the headset
   revisit as a disclaimer ("I'm using Oculus Rift w/ Touch Controllers", "Quest 3
   controllers"), which went to `vr`, neutral, low: in a headset game the setup says which
-  headset it was tried on, which the row owns. Four reports now, two answers.
+  headset it was tried on, which the row owns. Four reports now, two answers. **Written into
+  the sheet 2026-09-25**, on `compatibility`: the machine named with no judgement is there and
+  neutral, a headset `vr`.
 - "Fix the accessibility", "fix support for Quest 2 controllers please": `updates` owns telling
   the developers to fix something, and the thing named owns a claim that names one. Both went
-  to the thing named.
+  to the thing named. **Written into the sheet 2026-09-25**, on `updates`.
 - A real injury from room-scale play ("broke my irl hand slapping an npc"): `vr`, low.
 - Neutral narrative lines inside a long bug report have nowhere to go but `bugs`.
 - Wishing a licence away ("pray FIFA gives the licensing to another studio", 2669320) fits
