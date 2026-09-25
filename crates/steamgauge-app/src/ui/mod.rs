@@ -296,13 +296,20 @@ async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Res
     // A standard user has the binary and nothing else. The model is fetched by checksum the
     // first time it is needed, and the window is told how far the download has got, because
     // half a gigabyte with no progress shown is indistinguishable from a hang.
-    let model_dir = steamgauge_core::reader::default_dir();
+    let size = steamgauge_core::reader::fits(
+        steamgauge_core::card::largest(),
+        steamgauge_core::model::REACHES_A_CARD,
+    );
+    let model_dir = size.home();
     if !model_dir.join("model.onnx").is_file() {
-        if !steamgauge_core::reader::PUBLISHED.is_pinned() {
-            return Err("no claim reader is installed and none has been published yet".to_owned());
+        if !size.published.is_pinned() {
+            return Err(format!(
+                "no {} claim reader is installed and none has been published yet",
+                size.name
+            ));
         }
         let fetching = app.clone();
-        steamgauge_core::reader::ensure(&model_dir, |progress| {
+        steamgauge_core::reader::ensure(size, &model_dir, |progress| {
             let _ = fetching.emit(
                 "fetch",
                 Fetch {

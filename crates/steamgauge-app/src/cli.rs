@@ -710,8 +710,12 @@ enum Command {
         /// Directory holding the capture.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Directory holding model.onnx, tokenizer.json and reader.json. Defaults to
-        /// models/game-review-reader in the working tree if there is one, else the platform cache.
+        /// Which size of reader, `small` or `standard`. Defaults to the largest this machine's
+        /// card has room for, and to `small` where the build reaches no card.
+        #[arg(long)]
+        reader: Option<String>,
+        /// Directory holding model.onnx, tokenizer.json and reader.json, in place of the size's
+        /// own: models/<size> in the working tree if there is one, else the platform cache.
         #[arg(long)]
         model: Option<PathBuf>,
         /// Claims per forward pass. The default reads about a tenth faster than half of it and
@@ -745,8 +749,12 @@ enum Command {
         /// Directory holding the captures and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Directory holding the reader.json of the reader that answered. Defaults to
-        /// models/game-review-reader in the working tree if there is one, else the platform cache.
+        /// Which size of reader answered, `small` or `standard`. Defaults to the one `read`
+        /// would choose on this machine.
+        #[arg(long)]
+        reader: Option<String>,
+        /// Directory holding the reader.json of the reader that answered, in place of the
+        /// size's own.
         #[arg(long)]
         model: Option<PathBuf>,
         /// How many of the most-helpful reviews count as the top of the pile.
@@ -821,14 +829,16 @@ pub async fn run() -> Result<()> {
         Command::Read {
             app_ids,
             out,
+            reader,
             model,
             batch_size,
             language,
             top_helpful,
             depth,
         } => {
-            let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
-            fetch_reader(&model_dir).await?;
+            let size = reader_size(reader.as_deref())?;
+            let model_dir = model.unwrap_or_else(|| size.home());
+            fetch_reader(size, &model_dir).await?;
             ask_the_store_where_unknown(&app_ids, &out).await?;
             let options = steamgauge_core::read::ReadOptions {
                 out_dir: out,
@@ -842,10 +852,14 @@ pub async fn run() -> Result<()> {
         Command::Recount {
             app_ids,
             out,
+            reader,
             model,
             top_helpful,
         } => {
-            let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
+            let model_dir = match model {
+                Some(dir) => dir,
+                None => reader_size(reader.as_deref())?.home(),
+            };
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
         Command::ExportTraining { from, out, to } => run_export_training(&from, &out, &to),
@@ -1541,29 +1555,69 @@ fn run_mine(
     Ok(())
 }
 
+/// The size of reader asked for, or else the largest this machine's card has room for, said
+/// out loud: a different size gives different answers, and a reading should never be done
+/// with one somebody did not know they were getting.
+fn reader_size(asked: Option<&str>) -> Result<&'static steamgauge_core::reader::Size> {
+    use steamgauge_core::reader::{SIZES, Size, fits};
+
+    if let Some(name) = asked {
+        return Size::named(name).ok_or_else(|| {
+            let known: Vec<&str> = SIZES.iter().map(|size| size.name).collect();
+            anyhow::anyhow!("no reader size `{name}`; there is {}", known.join(" and "))
+        });
+    }
+    let card = steamgauge_core::card::largest();
+    let size = fits(card, steamgauge_core::model::REACHES_A_CARD);
+    let why = match card {
+        _ if !steamgauge_core::model::REACHES_A_CARD => {
+            "this build reads on the processor".to_owned()
+        }
+        Some(card) => format!(
+            "a {} GB card{}",
+            card.bytes / 1_000_000_000,
+            if card.shared {
+                ", shared with the processor"
+            } else {
+                ""
+            }
+        ),
+        None => "no card reported".to_owned(),
+    };
+    eprintln!(
+        "reader       {} ({why}; --reader chooses another)",
+        size.name
+    );
+    Ok(size)
+}
+
 /// Fetches the published reader when the directory holds none.
 ///
 /// A directory that already holds a model is left alone whatever the pins say, because that
 /// is how a freshly trained model is tried before it is published. Only an empty one is
 /// filled, and only from the pinned release.
-async fn fetch_reader(model_dir: &std::path::Path) -> Result<()> {
+async fn fetch_reader(
+    size: &steamgauge_core::reader::Size,
+    model_dir: &std::path::Path,
+) -> Result<()> {
     if model_dir.join("model.onnx").is_file() {
         return Ok(());
     }
-    if !steamgauge_core::reader::PUBLISHED.is_pinned() {
+    if !size.published.is_pinned() {
         anyhow::bail!(
-            "no claim reader at {} and none has been published yet; train one with \
+            "no {} claim reader at {} and none has been published yet; train one with \
              training/train.py and export it there, or pass --model",
+            size.name,
             model_dir.display()
         );
     }
     eprintln!(
-        "fetching the claim reader from {}",
-        steamgauge_core::reader::PUBLISHED.repository
+        "fetching the {} claim reader from {}",
+        size.name, size.published.repository
     );
     // One line every ten megabytes rather than one per chunk, which would be thousands.
     let mut shown = (String::new(), 0_u64);
-    steamgauge_core::reader::ensure(model_dir, |progress| {
+    steamgauge_core::reader::ensure(size, model_dir, |progress| {
         let step = progress.downloaded / 10_000_000;
         if (progress.file, step) == (shown.0.as_str(), shown.1) {
             return;
