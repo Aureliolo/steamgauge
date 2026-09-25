@@ -35,31 +35,33 @@ def backbone(tmp_path):
 
 
 def test_a_decoder_reader_traces_and_answers_what_the_model_answers(backbone, tmp_path):
-    # Right-padded to different lengths, which is what the last-token pooling reads by, and a
-    # batch of another size than the trace's, which is what the dynamic axes are for.
+    # Right-padded to different lengths, which is what the last-token pooling reads by, and
+    # batches of another size and another length than the trace's, which is what the dynamic
+    # axes are for. A graph checked only at the length it was traced at passed here and then
+    # refused every other length the 4B was asked about.
     model = ClaimReader(backbone, 3, pooling="last").eval()
-    lengths = [6, 3, 5, 1]
-    ids = torch.randint(0, 64, (len(lengths), 6))
-    mask = torch.tensor([[1] * n + [0] * (6 - n) for n in lengths])
+    traced = torch.randint(0, 64, (2, 6))
     graph = tmp_path / "model.onnx"
-    trace_graph(model, ids[:2], mask[:2], graph, 17)
-
-    with torch.no_grad():
-        wanted = model(ids, mask)[0].numpy()
+    trace_graph(model, traced, torch.ones_like(traced), graph, 17)
     session = onnxruntime.InferenceSession(str(graph), providers=["CPUExecutionProvider"])
-    got = session.run(
-        ["subject_logits"], {"input_ids": ids.numpy(), "attention_mask": mask.numpy()}
-    )[0]
-    assert np.allclose(wanted, got, atol=1e-4)
+
+    for width, lengths in ((6, [6, 3, 5, 1]), (11, [11, 2, 7]), (3, [3, 1])):
+        ids = torch.randint(0, 64, (len(lengths), width))
+        mask = torch.tensor([[1] * n + [0] * (width - n) for n in lengths])
+        with torch.no_grad():
+            wanted = model(ids, mask)[0].numpy()
+        got = session.run(
+            ["subject_logits"], {"input_ids": ids.numpy(), "attention_mask": mask.numpy()}
+        )[0]
+        assert np.allclose(wanted, got, atol=1e-4), f"{width} tokens"
 
 
-def test_the_trace_leaves_the_library_as_it_found_it(backbone, tmp_path):
-    from transformers.masking_utils import ALL_MASK_ATTENTION_FUNCTIONS, sdpa_mask
-
+def test_the_trace_leaves_the_model_as_it_found_it(backbone, tmp_path):
     model = ClaimReader(backbone, 3, pooling="last").eval()
+    trunk = model.trunk
     ids = torch.randint(0, 64, (2, 4))
     trace_graph(model, ids, torch.ones_like(ids), tmp_path / "model.onnx", 17)
-    assert ALL_MASK_ATTENTION_FUNCTIONS["sdpa"] is sdpa_mask
+    assert model.trunk is trunk
 
 
 def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, tmp_path):
