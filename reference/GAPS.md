@@ -71,7 +71,11 @@ description, and put the need-or-preference test in its rule. Two more edges fro
 draw: "accessibility" meaning approachable or available in a region (four claims, which the row
 should warn off), and a missing difficulty or assist option (about ten claims on one game), for
 which `accessibility`'s "offered for the same reason" gives no test against an ordinary
-difficulty selector.
+difficulty selector. **Written into the sheet 2026-09-25**: "keybindings" is gone from
+`controls`' description, the need-or-preference test and the broken option are on both rows,
+a mode for less challenge is `difficulty` and one that lets somebody finish is `accessibility`,
+and the word alone is `tutorial` when it means easy to pick up and `policy` when it means sold
+in a country.
 
 ### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
 
@@ -447,7 +451,8 @@ body model misplacing the tracked hands (hand offset, a body that turns with the
 slots that grab the wrong thing; five claims on 1012790). The labeller of 450540 drew exactly
 the line above without having seen it, and the others split. Five reports are enough to write
 it into the `vr` rule, with the body model on the `controls` side: the headset tracks the hands
-correctly and the game places them wrong.
+correctly and the game places them wrong. **Written into the sheet 2026-09-25**, on `vr` and
+`controls`.
 
 ### "Community" meaning how many: two reports
 
@@ -638,7 +643,8 @@ now only through the Oculus store (916840). `bugs` owns what "worked and now doe
 owns whether a given headset is supported, and a removal by decision is `policy`. Both
 labellers filed `vr`, flagged. The line the other rows already draw would give it to `bugs`
 when the text calls it broken and to `policy` when it calls it withdrawn, and to `vr` only when
-it says which headsets work without saying anything changed.
+it says which headsets work without saying anything changed. **Written into the sheet
+2026-09-25**, on `vr` and `bugs`.
 
 ### A recommendation conditioned on a headset: four reports
 
