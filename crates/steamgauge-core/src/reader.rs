@@ -234,53 +234,128 @@ pub struct Frozen {
     pub macro_f1: f64,
 }
 
-/// Where the claim reader lives when nobody has said.
+/// One size of the reader.
 ///
-/// Beside the encoder in the platform cache, for the same reason: an application opened from
-/// a menu has no working directory, and a model found only relative to a checkout is a model
-/// only a developer can use. A directory in the working tree wins when there is one, which is
-/// how a freshly trained model is tried before it is published.
-#[must_use]
-pub fn default_dir() -> std::path::PathBuf {
-    let local = std::path::PathBuf::from("models").join("game-review-reader");
-    if local.join("model.onnx").is_file() {
-        return local;
-    }
-    crate::model::default_cache_dir().join("game-review-reader")
+/// Every size reads the same claims into the same subjects under the same sheet. A larger one
+/// answers more of them and agrees with the labels more often, and needs more of the card to
+/// do it; which one a machine should run is a question about its card, and [`fits`] answers it.
+#[derive(Debug, Clone, Copy)]
+pub struct Size {
+    /// How it is asked for, as in `--reader small`.
+    pub name: &'static str,
+    /// Its directory, under `models/` in a working tree and under the cache otherwise.
+    pub dir: &'static str,
+    /// The card memory it takes to read, in bytes: the peak over the largest held-out game,
+    /// above what the card held before the read began.
+    pub needs: u64,
+    pub published: Published,
 }
 
-/// The published model, pinned file by file.
+impl Size {
+    /// Where this size lives when nobody has said.
+    ///
+    /// Beside the encoder in the platform cache, for the same reason: an application opened
+    /// from a menu has no working directory, and a model found only relative to a checkout is
+    /// a model only a developer can use. A directory in the working tree wins when there is
+    /// one, which is how a freshly trained model is tried before it is published.
+    #[must_use]
+    pub fn home(&self) -> std::path::PathBuf {
+        let local = std::path::PathBuf::from("models").join(self.dir);
+        if local.join("model.onnx").is_file() {
+            return local;
+        }
+        crate::model::default_cache_dir().join(self.dir)
+    }
+
+    /// The size asked for by name.
+    #[must_use]
+    pub fn named(name: &str) -> Option<&'static Self> {
+        SIZES.iter().find(|size| size.name == name)
+    }
+}
+
+const GIB: u64 = 1024 * 1024 * 1024;
+
+/// The files every reader is: its graph, its tokenizer, and the lines it answers above.
+const THREE_FILES: [crate::model::Asset; 3] = [
+    crate::model::Asset {
+        remote: "model.onnx",
+        local: "model.onnx",
+        sha256: "",
+    },
+    crate::model::Asset {
+        remote: "tokenizer.json",
+        local: "tokenizer.json",
+        sha256: "",
+    },
+    crate::model::Asset {
+        remote: "reader.json",
+        local: "reader.json",
+        sha256: "",
+    },
+];
+
+/// The sizes, smallest first.
+///
+/// `needs` is measured with `steamgauge read 920210`, 117,664 claims, on `DirectML` at the
+/// default batch.
+pub const SIZES: &[Size] = &[
+    Size {
+        name: "small",
+        dir: "game-review-reader-small",
+        needs: 1_219 * 1024 * 1024,
+        published: Published {
+            repository: "",
+            files: &THREE_FILES,
+        },
+    },
+    Size {
+        name: "standard",
+        dir: "game-review-reader",
+        needs: 2_560 * 1024 * 1024,
+        published: Published {
+            repository: "",
+            files: &THREE_FILES,
+        },
+    },
+];
+
+/// The size to read with on this machine, from the card the platform reports.
+///
+/// The largest that fits, with room left for what else holds the card: two gigabytes of a card
+/// of its own, where the desktop and a browser live, and half of memory the card shares with
+/// the processor, where everything else on the machine lives too. The smallest where no card
+/// is reached: every size then runs on the processor, where the largest is several times the
+/// smallest's time for the same claims, and where a card is reported that the build cannot
+/// use, or none is reported at all, nothing says a larger size would run.
+#[must_use]
+pub fn fits(card: Option<crate::card::Card>, reaches_a_card: bool) -> &'static Size {
+    let smallest = &SIZES[0];
+    let Some(card) = card.filter(|_| reaches_a_card) else {
+        return smallest;
+    };
+    let room = if card.shared {
+        card.bytes / 2
+    } else {
+        card.bytes.saturating_sub(2 * GIB)
+    };
+    SIZES
+        .iter()
+        .rev()
+        .find(|size| size.needs <= room)
+        .unwrap_or(smallest)
+}
+
+/// A claim reader as published: which repository, and which files at which hashes.
 ///
 /// Empty hashes mean nothing has been published yet, and [`ensure`] refuses rather than
 /// fetching something unverified: a model file that does not match a pin would change every
 /// number the tool reports without anything appearing to go wrong, and "no pin" is not a
 /// weaker version of that guarantee, it is its absence.
-pub const PUBLISHED: Published = Published {
-    repository: "",
-    files: [
-        crate::model::Asset {
-            remote: "model.onnx",
-            local: "model.onnx",
-            sha256: "",
-        },
-        crate::model::Asset {
-            remote: "tokenizer.json",
-            local: "tokenizer.json",
-            sha256: "",
-        },
-        crate::model::Asset {
-            remote: "reader.json",
-            local: "reader.json",
-            sha256: "",
-        },
-    ],
-};
-
-/// A claim reader as published: which repository, and which three files at which hashes.
 #[derive(Debug, Clone, Copy)]
 pub struct Published {
     pub repository: &'static str,
-    files: [crate::model::Asset; 3],
+    files: &'static [crate::model::Asset],
 }
 
 impl Published {
@@ -291,26 +366,33 @@ impl Published {
     }
 }
 
-/// Fetches the published reader into `dir` unless the copy there already matches its pins.
+/// Fetches a published size into `dir` unless the copy there already matches its pins.
 ///
 /// # Errors
 ///
-/// Fails if no reader has been published, if a downloaded file does not match its pin, or on
-/// transport and filesystem failures.
+/// Fails if that size has not been published, if a downloaded file does not match its pin, or
+/// on transport and filesystem failures.
 pub async fn ensure(
+    size: &Size,
     dir: &Path,
     mut on_progress: impl FnMut(crate::model::DownloadProgress),
 ) -> Result<()> {
-    if !PUBLISHED.is_pinned() {
+    if !size.published.is_pinned() {
         return Err(Error::NoAnchors {
             path: dir.to_path_buf(),
         });
     }
     std::fs::create_dir_all(dir)?;
     let http = crate::model::client()?;
-    for file in PUBLISHED.files {
-        crate::model::ensure_asset(&http, PUBLISHED.repository, file, dir, &mut on_progress)
-            .await?;
+    for file in size.published.files {
+        crate::model::ensure_asset(
+            &http,
+            size.published.repository,
+            *file,
+            dir,
+            &mut on_progress,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -1023,16 +1105,56 @@ mod tests {
 
     #[test]
     fn a_pin_with_any_hash_missing_is_no_pin_at_all() {
-        let mut half = PUBLISHED;
-        half.repository = "someone/game-review-reader";
-        half.files[0].sha256 = "0".repeat(64).leak();
-        half.files[1].sha256 = "0".repeat(64).leak();
+        let pinned = |hashes: [&'static str; 3]| {
+            let files: Vec<crate::model::Asset> = THREE_FILES
+                .iter()
+                .zip(hashes)
+                .map(|(file, sha256)| crate::model::Asset { sha256, ..*file })
+                .collect();
+            Published {
+                repository: "someone/game-review-reader",
+                files: files.leak(),
+            }
+        };
+        let hash: &'static str = "0".repeat(64).leak();
         assert!(
-            !half.is_pinned(),
+            !pinned([hash, hash, ""]).is_pinned(),
             "two of three files pinned would fetch the third unverified"
         );
-        half.files[2].sha256 = "0".repeat(64).leak();
-        assert!(half.is_pinned());
+        assert!(pinned([hash, hash, hash]).is_pinned());
+    }
+
+    #[test]
+    fn a_machine_reads_with_the_largest_size_its_card_has_room_for() {
+        let card = |gib: u64, shared: bool| {
+            Some(crate::card::Card {
+                bytes: gib * GIB,
+                shared,
+            })
+        };
+        let largest = SIZES.last().unwrap().name;
+        assert_eq!(fits(card(24, false), true).name, largest);
+        assert_eq!(fits(card(16, true), true).name, largest);
+        assert_eq!(
+            fits(card(4, false), true).name,
+            "small",
+            "two gigabytes of a four-gigabyte card are the desktop's"
+        );
+        assert_eq!(
+            fits(card(24, false), false).name,
+            "small",
+            "a card the build cannot reach reads nothing faster"
+        );
+        assert_eq!(fits(None, true).name, "small");
+    }
+
+    #[test]
+    fn the_sizes_run_smallest_first_and_the_standard_one_is_where_it_always_was() {
+        assert!(SIZES.windows(2).all(|pair| pair[0].needs < pair[1].needs));
+        // Every reader installed before there were sizes is in this directory, and a
+        // standard reader that moved would be one every existing install fetches again.
+        assert_eq!(Size::named("standard").unwrap().dir, "game-review-reader");
+        assert!(Size::named("enormous").is_none());
     }
 
     /// One token a word, which is close enough to make the arithmetic readable.
@@ -1136,11 +1258,11 @@ mod tests {
     async fn nothing_is_fetched_until_something_is_published() {
         // The empty pin must refuse rather than reach for the network. A refusal that names
         // the directory is what the CLI turns into "train one, or pass --model".
-        if PUBLISHED.is_pinned() {
+        let Some(unpublished) = SIZES.iter().find(|size| !size.published.is_pinned()) else {
             return;
-        }
+        };
         let dir = std::env::temp_dir().join(format!("steamgauge-unpinned-{}", std::process::id()));
-        let refused = ensure(&dir, |_| {}).await;
+        let refused = ensure(unpublished, &dir, |_| {}).await;
         assert!(matches!(refused, Err(Error::NoAnchors { .. })));
         assert!(!dir.exists(), "a refused fetch must leave nothing behind");
     }

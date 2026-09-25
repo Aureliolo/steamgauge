@@ -399,6 +399,14 @@ pub fn tokenizer_path(cache_dir: &Path, encoder: Encoder) -> PathBuf {
     encoder_dir(cache_dir, encoder).join("tokenizer.json")
 }
 
+/// Whether this build carries a backend that can put a model on a graphics card at all. Where
+/// it does not, a card's memory says nothing about which reader will run well.
+pub const REACHES_A_CARD: bool = cfg!(any(
+    feature = "cuda",
+    feature = "directml",
+    feature = "coreml"
+));
+
 /// Builds a session on the fastest backend this build supports and the machine provides.
 ///
 /// GPU backends are opt-in at build time so the default binary needs no vendor runtime to
