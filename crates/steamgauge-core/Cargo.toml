@@ -24,6 +24,9 @@ thiserror = "2.0.20"
 tokenizers = { version = "0.23.2", default-features = false, features = ["onig"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55.0"
+
 # GPU backends are opt-in at build time so the default binary needs no vendor runtime to
 # start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
 # tens of megabytes rather than the ~750 MB a bundled CUDA runtime would cost.
