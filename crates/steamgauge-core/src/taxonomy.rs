@@ -228,7 +228,12 @@ pub const SHEET: &[Category] = &[
              whatever condition it carries: \"if you like horror this is perfect for you\" \
              recommends the game to a group of people, and who should buy it is a judgement. \
              It stays a verdict when the condition names what the reader likes, \"if you like \
-             good graphics and a real story\", because that says who the game is for; saying \
+             good graphics and a real story\", because that says who the game is for. It \
+             leaves when the condition is a fact about the reader's hardware or body rather \
+             than their taste, and belongs to that fact's row: \"skip it if you own a Quest\" \
+             is VR and \"not for anyone who struggles with motor skills\" is accessibility, \
+             because the reader is told whether the game will work for them, not whether they \
+             will like it. Saying \
              it plays like another game, \"if you like Marvel vs Capcom 2, this is very \
              similar\", conveys the resemblance and is genre. \
              A community's own catchphrase used as a salute, \"Rock and Stone\", is a verdict \
@@ -319,7 +324,9 @@ pub const SHEET: &[Category] = &[
              performance. Motion sickness in a game played on a screen, from the camera, head \
              bob or field of view, belongs here, and so does flashing that can bring on a \
              seizure; the option to turn either down is accessibility, and sickness in a \
-             headset is VR.",
+             headset is VR. Sickness with neither a screen nor a headset named in the claim is \
+             settled by the review around it: one about playing in a headset makes it VR, and \
+             one that never mentions a headset is about a screen, and here.",
         ),
         alone: false,
     },
@@ -350,7 +357,9 @@ pub const SHEET: &[Category] = &[
              button can be rebound to taste\" alike: some players cannot play on the default \
              layout at all, and the option exists for them. That includes a remapping that \
              exists and falls short, keys it will not free or a control it will not unbind; one \
-             that does nothing when it is used is bugs. Every other setting turns on the \
+             that does nothing when it is used is bugs. A complaint about the default layout \
+             that names remapping only as its cure, \"you will have to remap everything\", is \
+             about the layout, and here. Every other setting turns on the \
              same need: one somebody needs in order to play at all, subtitles, a toggle for a \
              button you would otherwise hold, is accessibility; one that is a matter of taste, \
              aim assist, aim acceleration, a deadzone, the sensitivity, is here; and an option \
@@ -476,7 +485,10 @@ pub const SHEET: &[Category] = &[
                       whether the game is abandoned.",
         boundary: Some(
             "What the developers do to the game belongs here, and so does praise or blame \
-             aimed at the studio itself, including thanking them and telling them to fix it. \
+             aimed at the studio itself, including thanking them and telling them to fix \
+             things. A demand to fix one thing it names belongs to that thing, as a complaint \
+             about it would: \"fix the accessibility\" is accessibility and \"fix the servers\" \
+             multiplayer. \
              A complaint about what a patch changed is about the change: balance to \
              difficulty, a mechanic to gameplay, content removed to content. This is for the \
              patching itself, its pace, and whether they listen. A judgement about how the game \
@@ -526,7 +538,10 @@ pub const SHEET: &[Category] = &[
              crashes is bugs. Asking for a sequel belongs to verdict, and anything about \
              playing it in a headset belongs to VR. This row is about the machine: a \
              requirement the publisher chose, a second account, a launcher, a permanent \
-             connection, is policy however completely it stops the game from running.",
+             connection, is policy however completely it stops the game from running. A \
+             reviewer naming the machine they played on and judging nothing, \"played on a \
+             3070\", \"Steam Deck, forty hours\", is here and neutral: it tells a reader what \
+             the review was tried on. A headset named that way is VR.",
         ),
         alone: false,
     },
