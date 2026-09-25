@@ -699,7 +699,18 @@ work for them. Its revisit moved 24 verdicts to `vr`, and a labeller pointed at 
 should not have moved: "if you have a VR headset, this is one of the first games you need" is
 said of a game played only in one, so the condition divides no readers and the claim is a plain
 recommendation. A condition every player of the game meets is no condition; written the same
-day, and those claims asked again.
+day, and those claims asked again, which left 4 in `vr`. What that rule cannot see: a one-line
+"must have if you own a VR headset" does not say whether the game is played only in one, and the
+labeller may not look it up (labelled `verdict`, ambiguous). The same blindness as the sickness
+rule's: "if you have a weak stomach this may not be for you" in a review that reads like a headset
+game but never says so went to `graphics`, as the rule requires. Both would be settled by telling
+the labeller whether a game is played in a headset, which the sheet has so far kept from them.
+
+Smaller, from the same round: settings advice for one headset ("if you have a Quest 2, turn on
+streamlined mode") between `controls` and `vr`; "fix this" where "this" points back into the
+review, labelled by what it points at; several fixes demanded in one claim ("fix the lobbies,
+get cross play working, add missions"); a binding feature missing and supplied by mods;
+importing a layout from the last game.
 
 ### "An actual game, not a tech demo": one report, four claims
 

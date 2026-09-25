@@ -2812,13 +2812,13 @@
     "subset": "mined",
     "start": 0,
     "end": 27,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "8ff217ef19b0",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
+    "confidence": "medium",
+    "ambiguous": true,
     "split_wrong": false
   },
   {

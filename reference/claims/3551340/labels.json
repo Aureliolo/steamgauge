@@ -3220,14 +3220,14 @@
     "subset": "random",
     "start": 211,
     "end": 354,
-    "taxonomy": "core-5",
+    "taxonomy": "1ecc68b0b8d5",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": true
   },
   {
     "review_id": "208662429",

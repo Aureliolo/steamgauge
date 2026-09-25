@@ -1979,13 +1979,13 @@
     "subset": "retrieved",
     "start": 94,
     "end": 254,
-    "taxonomy": "core-6",
+    "taxonomy": "1ecc68b0b8d5",
     "produced_by": "claude-fable-5-1",
-    "subject": "offtopic",
+    "subject": "compatibility",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false
   },
   {

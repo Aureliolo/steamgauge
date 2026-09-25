@@ -670,13 +670,13 @@
     "subset": "declined",
     "start": 160,
     "end": 228,
-    "taxonomy": "core-6",
+    "taxonomy": "8ff217ef19b0",
     "produced_by": "claude-fable-5-1",
-    "subject": "vr",
-    "polarity": "neutral",
+    "subject": "graphics",
+    "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false
   },
   {

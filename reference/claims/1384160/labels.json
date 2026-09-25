@@ -4903,14 +4903,14 @@
     "subset": "random",
     "start": 3019,
     "end": 3174,
-    "taxonomy": "core-5",
+    "taxonomy": "1ecc68b0b8d5",
     "produced_by": "claude-fable-5-1",
-    "subject": "updates",
-    "polarity": "neutral",
+    "subject": "multiplayer",
+    "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": true
   },
   {
     "review_id": "93880408",
