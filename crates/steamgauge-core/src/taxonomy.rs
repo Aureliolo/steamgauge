@@ -233,7 +233,9 @@ pub const SHEET: &[Category] = &[
              than their taste, and belongs to that fact's row: \"skip it if you own a Quest\" \
              is VR and \"not for anyone who struggles with motor skills\" is accessibility, \
              because the reader is told whether the game will work for them, not whether they \
-             will like it. Saying \
+             will like it. A condition every player of the game meets is no condition: \"if \
+             you have a VR headset, get this\" about a game played only in one is a verdict. \
+             Saying \
              it plays like another game, \"if you like Marvel vs Capcom 2, this is very \
              similar\", conveys the resemblance and is genre. \
              A community's own catchphrase used as a salute, \"Rock and Stone\", is a verdict \
