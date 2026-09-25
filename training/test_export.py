@@ -71,3 +71,23 @@ def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, 
     monkeypatch.setattr(torch.onnx, "export", lambda model, args, f, **kwargs: handed.append(f))
     trace_graph(torch.nn.Identity(), None, None, tmp_path / "model.onnx", 17)
     assert handed == [str(tmp_path / "model.onnx")]
+
+
+def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk():
+    from export import crossed_the_line
+
+    # Forty claims whose best subject sits exactly on its line; in the other graph a rounding
+    # takes it just under. One doing so is excused, all of them together are not.
+    wanted = np.tile(np.array([[1.0, 0.0, 0.0]]), (40, 1))
+    on_the_line = float(np.exp(1.0) / (np.exp(1.0) + 2.0))
+    lines = [on_the_line, 0.5, 0.5]
+    one = wanted.copy()
+    one[0, 0] -= 1e-3
+    crossed_the_line(wanted, one, lines, 0.25)
+    every = wanted.copy()
+    every[:, 0] -= 1e-3
+    with pytest.raises(SystemExit, match="unsteady"):
+        crossed_the_line(wanted, every, lines, 0.25)
+    # One from well off its line is refused on its own.
+    with pytest.raises(SystemExit, match="further than"):
+        crossed_the_line(np.array([[4.0, 0.0]]), np.array([[0.1, 0.0]]), [0.6, 0.6], 0.01)
