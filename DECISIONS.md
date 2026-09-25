@@ -3527,6 +3527,27 @@ The row is starved again and the frozen games cannot measure it, which is the sa
 `licensing` was in before its draw; its lines will likely leave it silent, which is the honest
 answer until it has labels.
 
+**Installed 2026-09-25, with lines fitted on five folds of the same recipe** (`cv-licensed-0`
+to `-4`, their held-out logits in `data/oof-licensed`), and the ten frozen games read again.
+The old reader is kept beside it as `models/game-review-reader-e5-29006`. What the rule that
+ships does, lines and all, against what it replaced:
+
+| measured on | `e5-29006` | `e5inst-pool-qwen4b-licensed-s1` |
+|---|---|---|
+| the whole frozen set, 5,083 claims | 79.9% at 81.9%, F1 0.667 | **89.6% at 81.6%, F1 0.720** |
+| the benchmark draw, 487 claims | 83.6% at 78.4%, F1 0.691 | **90.6% at 80.5%, F1 0.751** |
+| the person, cold (169 blind) | 81.1% at 70.1% (62% to 77%) | 93.5% at 67.9% (60% to 75%) |
+| the person, rule in view | 76.8% where it answers | 79.9% where it answers |
+| frozen `licensing` F1, the two games that hold any | 0.32 and 0.20 | 0.67 and 0.55 |
+
+Ten points more of the frozen set answered at the same agreement is the finding, and it holds
+on the benchmark draw too, where agreement also rises two points. Against the person the new
+reader answers twenty-two more of the blind claims and names the person's subject on 2.2
+points fewer of what it answers, inside intervals fifteen points wide: a difference 169
+claims cannot tell from none, either way. The cold figure is scored against the answers as first filed (`4c07445`), before
+the re-judge replaced them. The whole-set figures are the queue's `measure-claims` before and after the
+re-read, from the release binary, on the same labels.
+
 ### The seeds are averaged rather than chosen between
 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
