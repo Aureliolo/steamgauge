@@ -1756,102 +1756,40 @@ fn run_revisit(
     reference: &std::path::Path,
     batch_size: usize,
 ) -> Result<()> {
-    // Neither narrowing given, every claim in the reference set is re-asked, which costs what
-    // the set cost and is never what a revision needs.
-    if words.is_empty() && subjects.is_empty() {
-        anyhow::bail!(
-            "--words, --subjects or both: a revisit with neither asks the whole reference set \
-             again"
-        );
-    }
-    let wanted = if app_ids.is_empty() {
-        labelled_sets(reference)?
-    } else {
-        app_ids.to_vec()
+    let question = steamgauge_core::claimset::Question {
+        words: words.to_vec(),
+        subjects: subjects.to_vec(),
+        apps: app_ids.to_vec(),
     };
-    if wanted.is_empty() {
-        anyhow::bail!("no labelled sets under {}", reference.display());
-    }
-
-    let (mut reviews, mut claims, mut games) = (0, 0, 0);
-    let mut drew_for = Vec::new();
-    for app_id in wanted {
-        let game = reference.join(app_id.to_string());
-        // Every set of the game, not only its random draw. A teaching set is labelled against
-        // the same sheet and trained on like any other row, so a revision that reaches only
-        // the random draw leaves most of a row under the wording it just replaced: 261 of the
-        // 369 `accessibility` labels are in teaching sets.
-        let sets = std::iter::once(String::new()).chain(
-            steamgauge_core::claimset::TEACHING_SETS
-                .iter()
-                .map(|name| (*name).to_owned()),
-        );
-        let mut for_this_game = 0;
-        for set in sets {
-            let dir = if set.is_empty() {
-                game.clone()
-            } else {
-                game.join(&set)
-            };
-            if !dir.join("labels.json").is_file() {
-                continue;
-            }
-            let drawn = steamgauge_core::claimset::draw_revisit(&dir, words, subjects)?;
-            if drawn.is_empty() {
-                continue;
-            }
-            let report =
-                steamgauge_core::claimset::write_set(&dir.join("revisit"), &drawn, batch_size)?;
-            drew_for.push(dir.join("revisit"));
-            let named = if set.is_empty() {
-                app_id.to_string()
-            } else {
-                format!("{app_id}/{set}")
-            };
-            println!(
-                "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
-                named, report.reviews, report.claims, report.batches
-            );
-            reviews += report.reviews;
-            claims += report.claims;
-            for_this_game += 1;
-        }
-        if for_this_game > 0 {
-            games += 1;
-        }
-    }
-
-    if games == 0 {
+    let drawn = steamgauge_core::claimset::draw_revisits(reference, &[question], batch_size)?;
+    if drawn.sets.is_empty() {
         anyhow::bail!("no labelled claim uses any of those words; nothing to revisit");
     }
-    // A draw over every set owns every set's handout, and a narrower word list than last time
-    // leaves whole games behind. Those files look exactly like work to hand out, and nothing
-    // about them says they answer a question nobody is asking any more.
-    let mut cleared = 0;
-    if app_ids.is_empty() {
-        for app_id in labelled_sets(reference)? {
-            let game = reference.join(app_id.to_string());
-            for set in std::iter::once(String::new()).chain(
-                steamgauge_core::claimset::TEACHING_SETS
-                    .iter()
-                    .map(|name| (*name).to_owned()),
-            ) {
-                let stale = if set.is_empty() {
-                    game.join("revisit")
-                } else {
-                    game.join(&set).join("revisit")
-                };
-                if stale.is_dir() && !drew_for.contains(&stale) {
-                    std::fs::remove_dir_all(&stale)?;
-                    cleared += 1;
-                }
-            }
-        }
+    let (mut reviews, mut claims, mut games) = (0, 0, std::collections::BTreeSet::new());
+    for set in &drawn.sets {
+        let named = if set.set.is_empty() {
+            set.app_id.to_string()
+        } else {
+            format!("{}/{}", set.app_id, set.set)
+        };
+        println!(
+            "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
+            named, set.report.reviews, set.report.claims, set.report.batches
+        );
+        reviews += set.report.reviews;
+        claims += set.report.claims;
+        games.insert(set.app_id);
     }
 
-    println!("\ndrawn      {reviews:>4} reviews {claims:>5} claims over {games} games");
-    if cleared > 0 {
-        println!("cleared    {cleared} sets this draw no longer asks about");
+    println!(
+        "\ndrawn      {reviews:>4} reviews {claims:>5} claims over {} games",
+        games.len()
+    );
+    if drawn.cleared > 0 {
+        println!(
+            "cleared    {} sets this draw no longer asks about",
+            drawn.cleared
+        );
     }
     println!(
         "\nHand these to a labeller with the current sheet, exactly as a fresh set. Ingest\n\
