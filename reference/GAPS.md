@@ -695,7 +695,11 @@ reason, when one is named, is the subject. Three more in the accessibility draws
 struggle with motor skills, do not get this game"). **Written into the sheet 2026-09-25**, on
 `verdict`: a condition about the reader's taste keeps the recommendation a verdict, and one
 about their hardware or body sends it to that fact's row, since it says whether the game will
-work for them.
+work for them. Its revisit moved 24 verdicts to `vr`, and a labeller pointed at why several
+should not have moved: "if you have a VR headset, this is one of the first games you need" is
+said of a game played only in one, so the condition divides no readers and the claim is a plain
+recommendation. A condition every player of the game meets is no condition; written the same
+day, and those claims asked again.
 
 ### "An actual game, not a tech demo": one report, four claims
 
