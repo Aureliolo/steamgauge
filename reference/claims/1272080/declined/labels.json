@@ -1027,7 +1027,7 @@
     "subset": "declined",
     "start": 0,
     "end": 42,
-    "taxonomy": "core-6",
+    "taxonomy": "1ecc68b0b8d5",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",

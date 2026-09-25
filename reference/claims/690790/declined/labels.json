@@ -1486,14 +1486,14 @@
     "subset": "declined",
     "start": 303,
     "end": 312,
-    "taxonomy": "core-6",
+    "taxonomy": "1ecc68b0b8d5",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": true
   },
   {
     "review_id": "78248296",

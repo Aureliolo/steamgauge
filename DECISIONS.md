@@ -3946,7 +3946,34 @@ between two shares, so 111 labels were stamped with a sheet nobody labelled agai
 ingested again with an ingest built at the right sheet; a round's ingest is now a copy pinned by
 its sheet, and every ingest checks the stamps it wrote.
 
-### The bake-off goes before the folds, because a backbone change makes the folds moot
+### The reason is the subject, and four more: the revisit (2026-09-25)
+
+The user chose the next round straight after, for five edges GAPS had collected more than once
+(#129): a recommendation whose condition is a fact about the reader's hardware or body goes to
+that fact's row; sickness with neither screen nor headset named is settled by the review around
+it; the machine a reviewer played on, named with no judgement, is `compatibility` (a headset
+`vr`); a remap named only as the cure for a layout is the layout; a demand to fix one named thing
+belongs to that thing.
+
+**Drawn narrow on purpose.** Asked by their words alone the five rules reached 540 claims, most
+of which no rule could move: "best VR game" verdicts, "runs well on my 3070", sickness in a
+named headset. Each question was cut to the claims its rule can move (conditional phrasing
+under `verdict`; sickness under `vr` only on games not played in a headset; hardware only under
+`offtopic`; and so on), which left 198 in 67 sets, two labellers.
+
+**What it moved: 24 of 198, 12%, counting the re-ask below.** 8 into `compatibility`, six of
+them bare hardware lines that had been `offtopic`; 4 recommendations from `verdict` to `vr`,
+conditioned on which headset the reader owns; 3 from `accessibility` to `controls`, remaps named
+as the cure for a layout; 5 out of `updates` to the thing they asked to be fixed. The sickness
+rule moved nothing: every unnamed sickness claim drawn was already where the review around it
+put it. 333k tokens over three labellers, a little over the 150k to 300k quoted.
+
+**The rule overreached once, and a labeller caught it.** "If you have a VR headset, this is one
+of the first games you need" is said of a game played only in a headset: the condition divides
+no readers, and the claim is a plain recommendation. #129 as written sent seven such claims to
+`vr`. #130 added that a condition every player of the game meets is no condition, and the 37
+conditional `vr` claims on the headset games were asked again on that sheet.
+, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
 card, at the fifteen minutes an epoch this machine does with the user's other work on it:
