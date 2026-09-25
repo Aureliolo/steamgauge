@@ -610,13 +610,16 @@ These rules keep those figures honest:
   reported over the contested claims as a floor on how hard the taxonomy is rather than as a
   property of the corpus.
 
-- **A labeller is not told which game it is, but is given one game at a time.** Withholding the
-  game keeps the label answerable from the same text the model reads. Handing over a whole
-  game's batches undermines that where a corpus has a strong accent: a hundred claims about
-  tracking and room scale identify a headset game whatever the sheet says. The effect runs one
-  way, towards labels the model cannot reproduce, so it understates the model rather than
-  flattering it. Shuffling reviews from several games into each batch would remove it, at the
-  cost of routing the labels back per game before they can be ingested.
+- **A labeller is told one thing about the game, and the model is told the same thing.**
+  Withholding the game keeps the label answerable from what the model reads. The one exception
+  is whether the store lists the game as played only in a VR headset: two of the sheet's rules
+  turn on it ("if you have a headset, get this" divides no readers of a headset-only game; motion
+  sickness with nothing named means a headset in one), the text rarely says it, and so the
+  handout carries `headset_only` and the model's window opens with "Played in a VR headset." on
+  those games. `steamgauge store-facts` asks the store and keeps the answer beside each game.
+  A labeller is still given one game at a time, and a corpus with a strong accent can still give
+  its game away beyond that one fact; the effect runs one way, towards labels the model cannot
+  reproduce, so it understates the model rather than flattering it.
 
 - **A claim is split mechanically, and the splitting is sometimes wrong.** Across the fifty-one
   randomly drawn sets it is **14.5%** of claims, between 6.8% and 40.4% depending on the game,
