@@ -88,6 +88,13 @@ breadth, "a lot of graphical and accessibility settings", was split in two share
 menu (`controls`) and the accommodation: it is the menu, unless the claim is about the
 accommodations themselves. All three written in 2026-09-25, the same day.
 
+Two more from the shares after it. "Names somebody" was read loosely: nine wishes for a
+difficulty setting on one game said "most normal players" or "a wider audience", and the
+labeller sent those to `accessibility`. A wider audience wanting it easier is `difficulty`; the
+row takes a named disability or condition. And a remapping that exists and falls short, keys
+reserved for a second player or a control that cannot be unbound, split between the remap rule
+and `controls`' layout: it is still the remapping, and `accessibility`.
+
 ### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
 
 No labeller named this one, which is why it took measuring to find. `accessibility` holds 299

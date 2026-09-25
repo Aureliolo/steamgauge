@@ -348,7 +348,9 @@ pub const SHEET: &[Category] = &[
              they respond is here. Whether the controls can be remapped is accessibility, \
              whatever the reviewer wants it for, \"I wish I could remap the keys\" and \"every \
              button can be rebound to taste\" alike: some players cannot play on the default \
-             layout at all, and the option exists for them. Every other setting turns on the \
+             layout at all, and the option exists for them. That includes a remapping that \
+             exists and falls short, keys it will not free or a control it will not unbind; one \
+             that does nothing when it is used is bugs. Every other setting turns on the \
              same need: one somebody needs in order to play at all, subtitles, a toggle for a \
              button you would otherwise hold, is accessibility; one that is a matter of taste, \
              aim assist, aim acceleration, a deadzone, the sensitivity, is here; and an option \
@@ -547,9 +549,11 @@ pub const SHEET: &[Category] = &[
              Remapping the controls is here whatever it is wanted for. Any other option a \
              player needs is here; one that is a matter of taste, aim assist, a deadzone, the \
              sensitivity, is controls; one that is there and does not work is bugs. A \
-             difficulty mode, a story mode included, is difficulty unless the claim names \
-             somebody who could not otherwise finish, and then it is here, as are skipping a \
-             puzzle and slowing the game down. The word on its own decides nothing: a game \
+             difficulty mode, a story mode included, is difficulty unless the claim names a \
+             player who could not otherwise finish, a disability or a condition, and then it \
+             is here, as are skipping a puzzle and slowing the game down; \"a wider audience\" \
+             or \"most normal players\" wanting it easier is difficulty. The word on its own \
+             decides nothing: a game \
              called accessible \
              because it is easy to pick up is tutorial, and one accessible in a country is \
              policy.",
