@@ -240,6 +240,7 @@ def sample_claims(path: Path, count: int, record: dict, tokenizer) -> list:
         record.get("context", False),
         mark=record.get("mark", False),
         prefix=record.get("prefix", False),
+        headset_marker=record.get("headset_marker", False),
     )
     pairs = [cut.pair(at) for at in range(len(drawn))]
     return [one[0] if len(one) == 1 else one for one in pairs]
@@ -680,6 +681,7 @@ def main():
                 "context": record.get("context", False),
                 "mark": record.get("mark", False),
                 "prefix": record.get("prefix", False),
+                "headset_marker": record.get("headset_marker", False),
                 "trained_from": record["backbone"],
                 "data_fingerprint": record["data_fingerprint"],
                 # The weights and the rule are separate identities. Redrawing the lines without

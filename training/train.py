@@ -40,6 +40,12 @@ POLARITIES = claimdata.POLARITIES
 # to mean something after four thousand training claims, not four hundred thousand.
 MARK = "**"
 
+# What opens the review's window when the game is played only in a headset, matching the Rust
+# reader: the one fact about the game the labeller is told, told to the model in the words it
+# would read anywhere else. A game played on a screen gets nothing, so its claims read exactly
+# as they did before any model was told anything.
+HEADSET = "Played in a VR headset."
+
 
 class ShippedTokenizer:
     """Enough of the transformers tokenizer for `Claims` to run on the exported one.
@@ -72,6 +78,7 @@ class Claims(Dataset):
         prefix=False,
         language_balance=0.0,
         second_weight=0.0,
+        headset_marker=False,
     ):
         self.claims = claims
         self.ambiguous_weight = ambiguous_weight
@@ -83,6 +90,7 @@ class Claims(Dataset):
         # above already discounts it.
         self.second_weight = second_weight
         self.mark = mark
+        self.headset_marker = headset_marker
         # What a claim about a rare subject is worth against one about a common subject. The
         # loss treats a `verdict` claim and a `licensing` claim as equally informative when
         # one is a quarter of the set and the other is two in a thousand, and macro F1 is the
@@ -132,6 +140,13 @@ class Claims(Dataset):
         return len(self.claims)
 
     def window(self, claim):
+        """The window the model reads, opened by the headset fact where it was trained on one."""
+        cut = self.cut(claim)
+        if self.headset_marker and claim.headset_only:
+            return f"{HEADSET} {cut}"
+        return cut
+
+    def cut(self, claim):
         """The part of the review the budget can afford, centred on the claim.
 
         Truncating a pair from the end spends the whole budget on the opening of the review,
@@ -246,9 +261,27 @@ class Pool(Claims):
     """
 
     def __init__(
-        self, claims, tokenizer, subjects, max_length, context, mark, prefix, targets=None
+        self,
+        claims,
+        tokenizer,
+        subjects,
+        max_length,
+        context,
+        mark,
+        prefix,
+        targets=None,
+        headset_marker=False,
     ):
-        super().__init__(claims, tokenizer, subjects, max_length, context, mark=mark, prefix=prefix)
+        super().__init__(
+            claims,
+            tokenizer,
+            subjects,
+            max_length,
+            context,
+            mark=mark,
+            prefix=prefix,
+            headset_marker=headset_marker,
+        )
         self.targets = targets
 
     def __getitem__(self, at):
@@ -685,6 +718,7 @@ def run(args) -> dict:
     np.random.seed(args.seed)
 
     claims = claimdata.load(args.data)
+    headset_marker = claimdata.headset_told(claims)
     newer = claimdata.labels_newer_than(args.data, HERE.parent / "reference" / "claims")
     if newer:
         print(
@@ -766,6 +800,7 @@ def run(args) -> dict:
                 args.prefix,
                 args.language_balance if name == "train" else 0.0,
                 args.second_weight if name == "train" else 0.0,
+                headset_marker,
             ),
             batch_size=micro if name == "train" else args.batch_size,
             shuffle=name == "train",
@@ -782,6 +817,11 @@ def run(args) -> dict:
                 "--pool needs --pool-targets: a teacher's answers on it, from teach.py"
             )
         unlabelled = claimdata.load_pool(args.pool)
+        if headset_marker and claimdata.headset_told(unlabelled) is not True:
+            raise SystemExit(
+                f"{args.pool} does not say which games are played in a headset and the labels "
+                f"do; `steamgauge export-pool` again after `steamgauge store-facts`"
+            )
         targets = load_targets(args.pool_targets, unlabelled, subjects)
         # The pool was drawn over games the model trains on, but a fold's validation games are
         # training games in every other fold, so which games are safe is this run's to decide,
@@ -806,6 +846,7 @@ def run(args) -> dict:
                 args.mark,
                 args.prefix,
                 (targets[0][safe], targets[1][safe]),
+                headset_marker,
             ),
             batch_size=args.pool_batch_size or micro,
             shuffle=True,
@@ -1043,6 +1084,7 @@ def run(args) -> dict:
         "seed": args.seed,
         "mark": args.mark,
         "prefix": args.prefix,
+        "headset_marker": headset_marker,
         "balance": args.balance,
         "language_balance": args.language_balance,
         "only_language": args.only_language,

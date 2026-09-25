@@ -3973,7 +3973,39 @@ of the first games you need" is said of a game played only in a headset: the con
 no readers, and the claim is a plain recommendation. #129 as written sent seven such claims to
 `vr`. #130 added that a condition every player of the game meets is no condition, and the 37
 conditional `vr` claims on the headset games were asked again on that sheet.
-, because a backbone change makes the folds moot
+
+### The reader and the labeller are told one thing about a game (2026-09-25)
+
+Both rules the reasons round could not settle turn on one fact the text rarely states: whether
+the game is played only in a headset. A labeller cannot look it up, and "must have if you own a
+VR headset" or "if you have a weak stomach this is not for you" means one thing about Beat Saber
+and another about a flat game. Asked, the user first chose to tell the labeller. The handout
+principle in `claimset.rs` was then put in front of them, that a labeller sees what the model
+sees because a label made from more measures what the labeller was told, and they chose to tell
+both.
+
+**One fact, from the store.** Steam lists a game played only in a headset as category 54, "VR
+Only", matched by id because the store answers in the asker's language. `steamgauge
+store-facts` asks for every captured and labelled game and keeps the answer as `game.json`
+beside the capture and the reference sets; `read` asks for a game that has none, and the window
+asks before it reads. A game the store will not answer for gets nothing recorded, not "no".
+
+**Told to both in the same words.** Handouts carry `"headset_only"`, and the sheet says what it
+is and that the model is told it too; the verdict and sickness rules now read it. The model's
+window opens with "Played in a VR headset." on those games alone, written by `train.py` and by
+the Rust reader alike and checked as a literal on both sides. A screen game's claims read
+exactly as before. The reader records `headset_marker` in `reader.json`, so every reader
+trained before this reads every game alike, and one trained with it refuses a game whose fact
+nobody has fetched rather than reading it as a screen game. Training is told when the export
+carries the fact, and refuses an export that carries it for some games and not others.
+
+**What it costs.** Every reader has to be trained again to be told, the standard size and the
+two smaller ones, which is why the sizes queue was stopped a third of the way through with the
+user's word. The 4B teacher's answers on the pool were read without the fact and are kept: a
+teacher's soft answers are a best guess from text either way, and a teacher retrained for a
+handful of headset claims would cost a day of the card.
+
+### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
 card, at the fifteen minutes an epoch this machine does with the user's other work on it:

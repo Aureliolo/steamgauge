@@ -47,6 +47,10 @@ class Claim:
     # most claims; where present and different, the claim is one the sheet did not settle.
     second_subject: str | None = None
     second_polarity: str | None = None
+    # Whether the store lists the game as played only in a VR headset: the one fact about a
+    # game the labeller is told, and so the one the model is told. None in an export written
+    # before it was recorded, or for a game nobody has asked the store about.
+    headset_only: bool | None = None
 
     @property
     def weight(self) -> float:
@@ -99,11 +103,30 @@ def load(path: str | Path) -> list[Claim]:
                     subset=row.get("subset", "stratified"),
                     second_subject=row.get("second_subject"),
                     second_polarity=row.get("second_polarity"),
+                    headset_only=row.get("headset_only"),
                 )
             )
     if not claims:
         raise SystemExit(f"{path} holds no labels; run `steamgauge export-training` first")
     return claims
+
+
+def headset_told(claims: list[Claim]) -> bool:
+    """Whether the model is to be told which games are played only in a headset.
+
+    Told when the export carries the fact, and then for every game: a game missing it would be
+    read as played on a screen, which is a guess the label never made. An export written
+    before the fact was recorded carries it for none, and trains a reader that is told nothing.
+    """
+    missing = sorted({claim.app_id for claim in claims if claim.headset_only is None})
+    if len(missing) == len({claim.app_id for claim in claims}):
+        return False
+    if missing:
+        raise SystemExit(
+            f"the export says whether a game is played in a headset for some games and not for "
+            f"{', '.join(map(str, missing))}; `steamgauge store-facts` and export again"
+        )
+    return True
 
 
 def labels_newer_than(export: str | Path, reference: str | Path) -> list[Path]:
@@ -152,6 +175,7 @@ def load_pool(path: str | Path) -> list[Claim]:
                     review_id=str(row["review_id"]),
                     claim_index=int(row["claim_index"]),
                     subset=row.get("subset", "pool"),
+                    headset_only=row.get("headset_only"),
                 )
             )
     if not claims:

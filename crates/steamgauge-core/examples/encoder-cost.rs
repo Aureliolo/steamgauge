@@ -43,6 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let reader = ClaimReader::load(std::path::Path::new(&model))?;
     let encoder = reader.encoder();
+    let headset_only = steamgauge_core::facts::Facts::load(
+        &std::path::Path::new(&out).join(format!("appid={app_id}")),
+    )
+    .is_some_and(|facts| facts.headset_only);
     let snapshot = steamgauge_core::embed::latest_snapshot(std::path::Path::new(&out), app_id)?;
 
     // The same window the reading pass fills, taken from the front of the corpus, and sorted
@@ -78,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             review: &one.review,
             at: one.at,
             language: &one.language,
+            headset_only,
         })
         .collect();
 

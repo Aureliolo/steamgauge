@@ -234,7 +234,7 @@ pub const SHEET: &[Category] = &[
              is VR and \"not for anyone who struggles with motor skills\" is accessibility, \
              because the reader is told whether the game will work for them, not whether they \
              will like it. A condition every player of the game meets is no condition: \"if \
-             you have a VR headset, get this\" about a game played only in one is a verdict. \
+             you have a VR headset, get this\" in a review marked headset_only is a verdict. \
              Saying \
              it plays like another game, \"if you like Marvel vs Capcom 2, this is very \
              similar\", conveys the resemblance and is genre. \
@@ -327,8 +327,8 @@ pub const SHEET: &[Category] = &[
              bob or field of view, belongs here, and so does flashing that can bring on a \
              seizure; the option to turn either down is accessibility, and sickness in a \
              headset is VR. Sickness with neither a screen nor a headset named in the claim is \
-             settled by the review around it: one about playing in a headset makes it VR, and \
-             one that never mentions a headset is about a screen, and here.",
+             VR in a review marked headset_only; anywhere else the review around it settles \
+             it, and one that never mentions a headset is about a screen, and here.",
         ),
         alone: false,
     },
@@ -712,8 +712,10 @@ pub fn labelling_brief(unit: Unit) -> String {
              average a long review into a single vector and then file a two-word review under \
              four subjects.\n\n\
              You are not told which game it is, whether the reviewer recommended it, or what \
-             the model guessed. The model reads the text alone, so a label made from more \
-             than that measures what you were told rather than how well it reads.\n\n\
+             the model guessed, with one exception: a review from a game played only in a VR \
+             headset carries \"headset_only\": true, and one from any other game false. The \
+             model is told that and otherwise reads the text alone, so a label made from more \
+             than those measures what you were told rather than how well it reads.\n\n\
              Most claims name no aspect at all. \"Great game\", \"10/10\", \"gfg\", a row of \
              emoji: these are not graphics, not gameplay and not story, and filing them as \
              any of those is the exact failure this set exists to fix. They are `verdict` \

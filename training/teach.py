@@ -51,6 +51,7 @@ def answers_of(run: Path, pool, device, batch_size):
             record["context"],
             record.get("mark", False),
             record.get("prefix", False),
+            headset_marker=record.get("headset_marker", False),
         ),
         batch_size=batch_size,
         shuffle=False,

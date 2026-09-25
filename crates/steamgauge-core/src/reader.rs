@@ -72,6 +72,11 @@ pub struct Reading {
 
 /// What was trained, recorded beside the graph so a reader cannot be used blind.
 #[derive(Debug, Clone, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is a separate fact reader.json records about how the model was asked in \
+              training, not states of one thing"
+)]
 pub struct Provenance {
     /// Which categories the model was trained against, so it cannot be read as
     /// answering a question it was never asked. Accepts the name the sheet used to
@@ -125,6 +130,11 @@ pub struct Provenance {
     /// "query: " and "passage: ". Travels with the graph for the same reason the other two do.
     #[serde(default)]
     pub prefix: bool,
+    /// Whether the window of a claim from a game played only in a headset opens by saying so.
+    /// Travels with the graph for the same reason the others do; absent on every reader
+    /// trained before it existed, which then reads every game alike.
+    #[serde(default)]
+    pub headset_marker: bool,
     #[serde(default)]
     pub trained_from: String,
     #[serde(default)]
@@ -639,6 +649,15 @@ impl Encoder {
     /// near. The budget is the same either way; where it is spent is not, and it is worth
     /// the most immediately around the claim.
     fn window(&self, asked: &Asked<'_>, offsets: &[(usize, usize)]) -> String {
+        let cut = self.cut(asked, offsets);
+        if self.provenance.headset_marker && asked.headset_only {
+            format!("{HEADSET} {cut}")
+        } else {
+            cut
+        }
+    }
+
+    fn cut(&self, asked: &Asked<'_>, offsets: &[(usize, usize)]) -> String {
         if offsets.is_empty() {
             return asked.review.to_owned();
         }
@@ -710,6 +729,12 @@ fn as_passage(prefix: bool, window: &str) -> String {
 /// training claims rather than four hundred thousand.
 const MARK: &str = "**";
 
+/// What opens the review's window when the game is played only in a headset, matching
+/// `training/train.py`: the one fact about the game the labeller is told, told to the model in
+/// the same words it would read anywhere else. A game played on a screen gets nothing, so its
+/// claims read exactly as they did before any reader was told anything.
+const HEADSET: &str = "Played in a VR headset.";
+
 /// The bytes of a review to keep, given where its tokens fall and where the claim sits.
 fn centred(offsets: &[(usize, usize)], at: usize, length: usize, budget: usize) -> (usize, usize) {
     let ends = at + length;
@@ -742,6 +767,9 @@ pub struct Asked<'a> {
     pub review: &'a str,
     /// Where `claim` starts in `review`.
     pub at: usize,
+    /// The game is played only in a headset, as the store says. Read only by a reader trained
+    /// to be told it.
+    pub headset_only: bool,
 }
 
 /// The best class and its probability, from logits.
@@ -944,18 +972,21 @@ mod tests {
                 review: &first,
                 at: 0,
                 language: "english",
+                headset_only: false,
             },
             Asked {
                 claim: "Worth the money.",
                 review: &second,
                 at: 0,
                 language: "english",
+                headset_only: false,
             },
             Asked {
                 claim: "Worth the money.",
                 review: &first,
                 at: 15,
                 language: "english",
+                headset_only: false,
             },
         ];
 
@@ -1048,6 +1079,24 @@ mod tests {
             !kept.contains("w0 ") && !kept.contains("w39"),
             "the window must not run to the ends of the review, got {kept:?}"
         );
+    }
+
+    #[test]
+    fn the_headset_is_said_in_the_words_the_trainer_writes() {
+        // Written out rather than shared: `HEADSET` in training/train.py holds the same string,
+        // and training/test_headset.py checks it the same way from the other side.
+        assert_eq!(HEADSET, "Played in a VR headset.");
+    }
+
+    #[test]
+    fn a_reader_trained_before_the_fact_existed_is_told_nothing() {
+        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": ["verdict"],
+            "threshold": 0.5,
+            "max_tokens": 128,
+        }))
+        .unwrap();
+        assert!(!provenance.headset_marker);
     }
 
     #[test]
