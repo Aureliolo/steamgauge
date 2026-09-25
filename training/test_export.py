@@ -60,3 +60,12 @@ def test_the_trace_leaves_the_library_as_it_found_it(backbone, tmp_path):
     ids = torch.randint(0, 64, (2, 4))
     trace_graph(model, ids, torch.ones_like(ids), tmp_path / "model.onnx", 17)
     assert ALL_MASK_ATTENTION_FUNCTIONS["sdpa"] is sdpa_mask
+
+
+def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, tmp_path):
+    # Only a graph over 2 GB fails on a Path, and no model that size builds in a test, so what
+    # is checked is what the exporter is given: anything but a string it treats as a stream.
+    handed = []
+    monkeypatch.setattr(torch.onnx, "export", lambda model, args, f, **kwargs: handed.append(f))
+    trace_graph(torch.nn.Identity(), None, None, tmp_path / "model.onnx", 17)
+    assert handed == [str(tmp_path / "model.onnx")]

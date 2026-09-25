@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -68,7 +69,10 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
         torch.onnx.export(
             model,
             (input_ids, attention_mask),
-            path,
+            # A string, never a Path: the tracing exporter takes anything else for a stream, and
+            # a graph over the 2 GB a protobuf holds can only be written with its weights beside
+            # it, in the directory a string names. The 4B traced for eleven minutes and died there.
+            os.fspath(path),
             input_names=["input_ids", "attention_mask"],
             output_names=["subject_logits", "polarity_logits", "pooled"],
             dynamic_axes={
