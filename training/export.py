@@ -35,8 +35,9 @@ READER_NAME = "Game Review Reader"
 # that a changed argmax cannot hide inside it on anything but a genuine tie.
 TOLERANCE = 2e-3
 
-# Half precision keeps about three decimal digits, so logits of this size drift by tens of
-# thousandths. The argmax check below is what actually guards the answers.
+# Half precision keeps about three decimal digits of each number, so a logit drifts in
+# proportion to its size, and the canary is a share of the largest logit rather than a
+# distance. The argmax check below is what actually guards the answers.
 #
 # This was 8e-2 while the check ran on CPU kernels, and on the kernels that ship it is not
 # enough: the same two graphs drift 1.05e-01 and 6.30e-02 through DirectML with no answer
@@ -44,8 +45,14 @@ TOLERANCE = 2e-3
 # hardware the graph never runs on refuses models that are fine, which is a check that has
 # stopped measuring anything. What guards the answers is the argmax, the tie count and the
 # lines; this is the canary for an export that has broken outright, and it is set from what the
-# provider actually does with room above it.
-HALF_TOLERANCE = 2.5e-1
+# provider actually does with room above it. As a distance it was 0.25 on the 560M's logits of
+# about 11, and it stopped the 4B, whose logits run to 16.6, at a drift of 2.0% of them with no
+# answer changed.
+HALF_TOLERANCE = 2.3e-2
+
+# How far from its abstention line, in probability, a claim may sit and still be excused for
+# changing side under half precision: the room the lines were first held to.
+HALF_LINE_ROOM = 2.5e-1
 
 
 class LengthFree(torch.nn.Module):
@@ -278,8 +285,16 @@ def crossed_the_line(wanted, got, lines, allowed: float) -> None:
     if decided:
         raise SystemExit(
             f"{decided} claims are answered by one graph and declined by the other, each from "
-            f"further than {allowed:.0e} off its line. The lines were drawn against the model "
+            f"further than {allowed:.2e} off its line. The lines were drawn against the model "
             f"and are shipped against the graph. Not shipping this."
+        )
+    # Held to the same bulk rule as the ties: one claim on its line may fall either way, and a
+    # twentieth of them falling means the graph is not answering where the model would.
+    if near > int(agreed.sum()) // 20:
+        raise SystemExit(
+            f"{near} of {int(agreed.sum())} claims change side, every one within {allowed:.2e} "
+            f"of its line, but a graph this unsteady about when to speak is not the model. Not "
+            f"shipping this."
         )
 
 
@@ -563,7 +578,7 @@ def main():
 
     got = got.astype(np.float32)
     drift = float(np.abs(wanted - got).max())
-    allowed = HALF_TOLERANCE if args.fp16 else TOLERANCE
+    allowed = HALF_TOLERANCE * float(np.abs(wanted).max()) if args.fp16 else TOLERANCE
 
     # A changed answer is only a disagreement when the model had an answer to change. Where the
     # best two subjects sit within the drift of each other, the two graphs are not disagreeing
@@ -583,7 +598,7 @@ def main():
     if drift > allowed or decided:
         raise SystemExit(
             f"the exported graph disagrees with the model it came from "
-            f"({drift:.2e} > {allowed:.0e}, {decided} answers changed on a margin wider than "
+            f"({drift:.2e} > {allowed:.2e}, {decided} answers changed on a margin wider than "
             f"the drift). Not shipping this."
         )
     # Ties that reorder are tolerable one at a time and not in bulk: a graph that cannot agree
@@ -648,7 +663,7 @@ def main():
         print(f"languages  {spoke} of {len(by_language)} have one")
         if quiet:
             print(f"           silent: {', '.join(quiet)}")
-        crossed_the_line(wanted, got, lines, allowed)
+        crossed_the_line(wanted, got, lines, HALF_LINE_ROOM if args.fp16 else TOLERANCE)
 
     (run / "reader.json").write_text(
         json.dumps(
