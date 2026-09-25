@@ -345,12 +345,15 @@ pub const SHEET: &[Category] = &[
              the game binds to them, how its scheme feels in the hand and where it puts your \
              hands and body are here, in a headset or out of one. Whether the game runs on a \
              given device belongs to compatibility. How the keys are laid out and whether \
-             they respond is here. Whether the game lets you change a setting turns on need: \
-             an option somebody needs in order to play at all, \"I wish I could remap the \
-             keys\", subtitles, a toggle for a button you would otherwise hold, is \
-             accessibility; an option that is a matter of taste, aim assist, aim acceleration, \
-             a deadzone, the sensitivity, is here; and an option that is there and does not \
-             work, a remap that does not remap, is bugs. The settings menu itself, how many \
+             they respond is here. Whether the controls can be remapped is accessibility, \
+             whatever the reviewer wants it for, \"I wish I could remap the keys\" and \"every \
+             button can be rebound to taste\" alike: some players cannot play on the default \
+             layout at all, and the option exists for them. Every other setting turns on the \
+             same need: one somebody needs in order to play at all, subtitles, a toggle for a \
+             button you would otherwise hold, is accessibility; one that is a matter of taste, \
+             aim assist, aim acceleration, a deadzone, the sensitivity, is here; and an option \
+             that is there and does not work, a remap that does not remap, is bugs. The \
+             settings menu itself, how many \
              options it holds and display modes such as fullscreen and windowed, belongs here; \
              which graphics settings give a playable frame rate is performance.",
         ),
@@ -539,11 +542,13 @@ pub const SHEET: &[Category] = &[
              one-handed is here. The test is whether the claim is about something the game \
              provides on purpose for that reason: \"no subtitle size setting\" and \"the \
              colourblind mode is excellent\" are here, \"the subtitles are tiny\" is graphics. \
-             An option a player needs is here; one that is a matter of taste, aim assist, a \
-             deadzone, the sensitivity, is controls; one that is there and does not work is \
-             bugs. A mode offered to players who want less challenge is difficulty; one that \
-             lets somebody finish who otherwise could not, skipping a puzzle or slowing the \
-             game down, is here. The word on its own decides nothing: a game called accessible \
+             Remapping the controls is here whatever it is wanted for. Any other option a \
+             player needs is here; one that is a matter of taste, aim assist, a deadzone, the \
+             sensitivity, is controls; one that is there and does not work is bugs. A \
+             difficulty mode, a story mode included, is difficulty unless the claim names \
+             somebody who could not otherwise finish, and then it is here, as are skipping a \
+             puzzle and slowing the game down. The word on its own decides nothing: a game \
+             called accessible \
              because it is easy to pick up is tutorial, and one accessible in a country is \
              policy.",
         ),

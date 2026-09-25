@@ -77,6 +77,14 @@ a mode for less challenge is `difficulty` and one that lets somebody finish is `
 and the word alone is `tutorial` when it means easy to pick up and `policy` when it means sold
 in a country.
 
+**The revisit found the new test's own example wrong within two shares.** "I wish I could remap
+the keys" was the example of a need, and states none; "every control can be re-mapped for
+personal preference" then sat on both sides, and two labellers split five such claims. Need is
+the reason the option exists, not the reason one reviewer wants it, so remapping is
+`accessibility` outright now and the test is for every other setting. A story mode split the
+same way, since the text never says who it was offered for: it is `difficulty` unless the
+claim names somebody who could not otherwise finish. Both written in 2026-09-25, the same day.
+
 ### `accessibility` is the worst-defined row on the sheet: found by measuring, not reported
 
 No labeller named this one, which is why it took measuring to find. `accessibility` holds 299
