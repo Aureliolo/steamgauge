@@ -69,6 +69,10 @@ training/runs/*/tokenizer.json
 training/.venv/
 
 # Build and dependency artefacts
+# tauri-build writes its capability schemas beside the manifest on every build, and a different
+# set on each platform: tracked, a release build on Linux or macOS would find the tree it was
+# built from changed underneath it.
+crates/steamgauge-app/gen/schemas/
 target/
 target-*/
 dist/

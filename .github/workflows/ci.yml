@@ -18,6 +18,7 @@ env:
 
 jobs:
   lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -31,14 +32,67 @@ jobs:
       - run: cargo fmt --all -- --check
       # Deliberately not --all-features: the cuda and metal backends need vendor toolchains
       # the runners do not have, and the default set is what actually ships.
-      - run: cargo clippy --all-targets -- -D warnings
+      # --locked everywhere here, as the release build has it: a pull request that leaves
+      # Cargo.lock behind its manifests fails now, not at a tag that cannot be taken back.
+      - run: cargo clippy --locked --all-targets -- -D warnings
       # The training scripts are Python; `training/ruff.toml` holds their width.
       - run: pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+      # The release tools pick a version that can never be reused and write what each release
+      # says it changed, and otherwise run only when a release is cut.
+      - run: node --test tools/release/release.test.mjs
+
+  # The THIRD-PARTY-NOTICES.txt each release archive carries, written for all three the way the
+  # release writes them, so that a crate under a licence third-party/about.toml does not accept,
+  # or one with no licence text of its own, is refused on its pull request rather than at a tag
+  # that cannot be taken back. Nothing is compiled.
+  notices:
+    name: notices
+    runs-on: ubuntu-latest
+    env:
+      # release-build.yml's targets, each with its GPU feature after the colon.
+      ARCHIVES: >-
+        x86_64-unknown-linux-gnu:
+        x86_64-pc-windows-msvc:directml
+        aarch64-apple-darwin:coreml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # As release-build.yml installs it, which says why the digest is the checksum file's.
+      - name: Install cargo-about
+        env:
+          # renovate: datasource=github-release-attachments depName=EmbarkStudios/cargo-about versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_ABOUT_TAG: 0.8.4
+          CARGO_ABOUT_SHA256: d579efd42d93e71d731facd7ddb38a6354e8e0eb9cfba7f9877afdb6e8df92cb
+        run: |
+          set -euo pipefail
+          archive="cargo-about-${CARGO_ABOUT_TAG}-x86_64-unknown-linux-musl.tar.gz"
+          url="https://github.com/EmbarkStudios/cargo-about/releases/download/${CARGO_ABOUT_TAG}/${archive}"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${archive}.sha256" "${url}.sha256"
+          echo "${CARGO_ABOUT_SHA256}  ${RUNNER_TEMP}/${archive}.sha256" | sha256sum --check --strict
+          digest="$(cat "${RUNNER_TEMP}/${archive}.sha256")"
+          if [[ ! "${digest}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "${archive}.sha256 does not hold a SHA-256." >&2
+            exit 1
+          fi
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${archive}" "${url}"
+          echo "${digest}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" --strip-components=1 "${archive%.tar.gz}/cargo-about"
+          "${RUNNER_TEMP}/cargo-about" --version
+      - name: Write the notices
+        run: |
+          set -euo pipefail
+          for archive in ${ARCHIVES}; do
+            target="${archive%%:*}"
+            node tools/release/notices.mjs write "${RUNNER_TEMP}/cargo-about" "${target}" "${archive#*:}" \
+              "${RUNNER_TEMP}/notices/${target}/THIRD-PARTY-NOTICES.txt"
+          done
 
   # What ships on Windows and macOS is built with a GPU backend, and the code behind each is
   # behind its feature, so the default lint above never compiles it. Without this the first
   # compile of the provider code a release actually runs is the release build.
   backends:
+    name: backends (${{ matrix.os }}, ${{ matrix.feature }})
     strategy:
       fail-fast: false
       matrix:
@@ -53,9 +107,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: cargo clippy --workspace --all-targets --features steamgauge-core/${{ matrix.feature }} -- -D warnings
+      - shell: bash
+        env:
+          FEATURE: ${{ matrix.feature }}
+        run: cargo clippy --locked --workspace --all-targets --features "steamgauge-core/${FEATURE}" -- -D warnings
 
   test:
+    name: test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -68,13 +126,14 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: cargo test --workspace
+      - run: cargo test --locked --workspace
 
   # The training scripts decide every figure the reader is quoted with, and their tests need
   # no card and no labels. The lock is resolved for Windows (onnxruntime-directml has no other
   # wheel), and its torch is the CUDA build: the same version from the CPU index runs the same
   # code without a multi-gigabyte download of libraries a runner cannot use.
   python:
+    name: python
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -100,6 +159,7 @@ jobs:
   # this tool no Rust test can reach. The runner's own Chrome drives a page rendered from a
   # fixture, on screen and again under print media, needing no corpus and no model.
   report:
+    name: report
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -108,21 +168,21 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       # No system webview needed here: the example lives in the core crate, which is the
       # half of the workspace that knows nothing about a window.
-      - run: cargo run -p steamgauge-core --example sample-report -- report.html
+      - run: cargo run --locked -p steamgauge-core --example sample-report -- report.html
       - run: node tools/report-check/check.mjs report.html
       # A report of one game has no cross-game matrix and no contents to come back to, so it
       # is a different page and gets driven too.
-      - run: cargo run -p steamgauge-core --example sample-report -- one.html --one-game
+      - run: cargo run --locked -p steamgauge-core --example sample-report -- one.html --one-game
       - run: node tools/report-check/check.mjs one.html
       # A census of a genre is dozens of games, and that is where the cross-game table stops
       # fitting on a screen at all. Four games never exercise it.
-      - run: cargo run -p steamgauge-core --example sample-report -- many.html --games 36
+      - run: cargo run --locked -p steamgauge-core --example sample-report -- many.html --games 36
       - run: node tools/report-check/check.mjs many.html
       # The adjudication page is the only place a person's judgement enters the project, and
       # every figure that can be called accuracy rather than agreement will rest on it. A
       # shortcut that does nothing or an answer that does not survive a reload would be found
       # after somebody had read a thousand claims, which is exactly too late.
-      - run: cargo run -p steamgauge-core --example sample-gold -- gold.html
+      - run: cargo run --locked -p steamgauge-core --example sample-gold -- gold.html
       - run: node tools/gold-check/check.mjs gold.html
       # And again as it is actually run. A POST that silently does nothing looks exactly like
       # one that worked, so the promise that every answer is on disk before the next question

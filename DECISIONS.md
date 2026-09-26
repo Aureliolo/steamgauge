@@ -64,8 +64,10 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Decided | State |
 |---|---|
 | Apache-2.0 | done |
-| Signed releases with cosign, plus build provenance attestation | done |
+| Signed releases with provenance and an SBOM per archive | done, dry run passed, not yet run on a tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds the three archives with no cache, writes an SPDX SBOM of each that is checked against the archive and the crates its build resolved, and attests build provenance over every file and each SBOM against its archive. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
+| Releases cut by a button rather than a hand-made tag | done: prepare release raises the version in a signed pull request, merging it tags, and the tag starts the release. The changelog is split by whether a pull request touched what ships |
 | Immutable release artefacts with checksums | done |
+| Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
 

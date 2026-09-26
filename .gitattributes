@@ -7,3 +7,8 @@
 *.icns binary
 *.onnx binary
 *.parquet binary
+
+# Licence texts kept byte for byte as their publisher ships them, so each one's SHA-256 in
+# third-party/README.md is the publisher's file and not a copy with its line endings changed.
+third-party/onnxruntime/** -text
+third-party/directml/** -text
