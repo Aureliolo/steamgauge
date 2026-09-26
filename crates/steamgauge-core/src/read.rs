@@ -1311,6 +1311,24 @@ pub fn for_each_reading(
     })
 }
 
+/// What a stored reading says about one subject: the polarity it takes on it where it names it,
+/// first or beside another, and None where it does not name it at all.
+#[must_use]
+pub fn polarity_on(
+    subject: &str,
+    first: Option<&str>,
+    polarity: &str,
+    also: crate::reader::Also,
+) -> Option<&'static str> {
+    if first == Some(subject) {
+        return Some(Polarity::from_name(polarity).as_str());
+    }
+    let at = SHEET.iter().position(|row| row.id == subject)?;
+    also.iter()
+        .find(|(other, _)| *other == at)
+        .map(|(_, said)| said.as_str())
+}
+
 /// [`for_each_reading`], with every other subject the claim covers as a stored reading wrote
 /// it, for the passes that count them.
 ///
@@ -1475,6 +1493,28 @@ impl ReadingRows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_claim_is_under_every_subject_it_names_with_the_polarity_it_takes_on_each() {
+        let at = |id: &str| SHEET.iter().position(|row| row.id == id).unwrap();
+        let mut also = crate::reader::Also::default();
+        also.insert(at("controls"), Polarity::Complaint);
+        assert_eq!(
+            polarity_on("audio", Some("audio"), "praise", also),
+            Some("praise")
+        );
+        assert_eq!(
+            polarity_on("controls", Some("audio"), "praise", also),
+            Some("complaint"),
+            "beside the first subject, with its own polarity"
+        );
+        assert_eq!(polarity_on("story", Some("audio"), "praise", also), None);
+        assert_eq!(
+            polarity_on("controls", None, "neutral", also),
+            Some("complaint"),
+            "named beside a first subject the reader declined"
+        );
+    }
 
     #[test]
     fn every_claim_sits_where_the_reader_says_it_sits_in_the_rejoined_review() {

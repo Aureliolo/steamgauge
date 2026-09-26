@@ -143,6 +143,35 @@ pub struct ClaimAgreement {
     pub contested_answered: u64,
     pub contested_agreed: u64,
     pub subjects: Vec<SubjectAgreement>,
+    /// The subjects beyond each claim's first, over the claims whose labels say what else they
+    /// cover: how many the labels give, how many the reader names, and how many of those agree.
+    /// All zero for a reader that names one subject per claim, which names none.
+    #[serde(default)]
+    pub beyond_the_first: Beyond,
+}
+
+/// Other subjects of a claim, the labels' against the reader's.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, serde::Deserialize)]
+pub struct Beyond {
+    pub labelled: u64,
+    pub read: u64,
+    pub agreed: u64,
+}
+
+impl Beyond {
+    /// How many of the reader's other subjects the labels also give.
+    #[must_use]
+    #[expect(clippy::cast_precision_loss, reason = "label counts are small")]
+    pub fn precision(&self) -> Option<f64> {
+        (self.read > 0).then(|| self.agreed as f64 / self.read as f64)
+    }
+
+    /// How many of the labels' other subjects the reader also names.
+    #[must_use]
+    #[expect(clippy::cast_precision_loss, reason = "label counts are small")]
+    pub fn recall(&self) -> Option<f64> {
+        (self.labelled > 0).then(|| self.agreed as f64 / self.labelled as f64)
+    }
 }
 
 impl ClaimAgreement {
@@ -250,9 +279,13 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
                 mistaken_for: None,
             })
             .collect(),
+        beyond_the_first: Beyond::default(),
     };
 
     for game in games {
+        total.beyond_the_first.labelled += game.beyond_the_first.labelled;
+        total.beyond_the_first.read += game.beyond_the_first.read;
+        total.beyond_the_first.agreed += game.beyond_the_first.agreed;
         total.matched += game.matched;
         total.unjoined += game.unjoined;
         total.answered += game.answered;
@@ -315,8 +348,9 @@ fn join_by_span<'a>(
         .collect())
 }
 
-/// What the model said of one claim: its subject, or none where it declined, and its polarity.
-type Said = (Option<String>, String);
+/// What the model said of one claim: its subject, or none where it declined, its polarity, and
+/// every other subject it named.
+type Said = (Option<String>, String, crate::reader::Also);
 
 /// The stored reading of each wanted claim.
 fn readings_at(
@@ -324,18 +358,53 @@ fn readings_at(
     wanted: &std::collections::HashSet<(&str, crate::claims::Span)>,
 ) -> Result<HashMap<(String, crate::claims::Span), Said>> {
     let mut read = HashMap::new();
-    crate::read::for_each_reading(
+    crate::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
-        |id, at, subject, _, polarity| {
+        |id, at, subject, _, polarity, also| {
             if wanted.contains(&(id, at)) {
                 read.insert(
                     (id.to_owned(), at),
-                    (subject.map(ToOwned::to_owned), polarity.to_owned()),
+                    (subject.map(ToOwned::to_owned), polarity.to_owned(), also),
                 );
             }
         },
     )?;
     Ok(read)
+}
+
+/// One claim's subjects beyond the label's first, the label's against the reader's; None where
+/// the label does not say what else it covers, which is one flagged mis-split under a sheet
+/// that asked for a single subject.
+///
+/// The reader's first subject counts here when it is one of the label's others, as its others do
+/// when one is the label's first, so a claim both call "audio and controls" in the opposite
+/// order agrees.
+fn beyond_the_first(
+    label: &ClaimLabel,
+    truth: usize,
+    subject: Option<&str>,
+    also: crate::reader::Also,
+) -> Option<Beyond> {
+    let position = |id: &str| SHEET.iter().position(|category| category.id == id);
+    let labelled: Vec<usize> = match &label.also {
+        Some(others) => others
+            .iter()
+            .filter_map(|other| position(&other.subject))
+            .collect(),
+        None if label.split_wrong => return None,
+        None => Vec::new(),
+    };
+    let named: Vec<usize> = subject
+        .and_then(position)
+        .into_iter()
+        .chain(also.iter().map(|(at, _)| at))
+        .filter(|&at| at != truth)
+        .collect();
+    Some(Beyond {
+        labelled: labelled.len() as u64,
+        read: named.len() as u64,
+        agreed: named.iter().filter(|at| labelled.contains(at)).count() as u64,
+    })
 }
 
 /// Scores one game's stored readings against its claim labels.
@@ -382,6 +451,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
         contested_answered: 0,
         contested_agreed: 0,
         subjects: Vec::new(),
+        beyond_the_first: Beyond::default(),
     };
 
     for label in &labels {
@@ -392,7 +462,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
         // No row covering those bytes is the same finding as a span that cannot be tidied: the
         // claim the label was written about is not one this build cuts, so nothing read it.
         // Counted rather than skipped, because a score over an unknown denominator is not one.
-        let Some((subject, polarity)) = read.get(&(label.review_id.clone(), now)) else {
+        let Some((subject, polarity, also)) = read.get(&(label.review_id.clone(), now)) else {
             found.unjoined += 1;
             continue;
         };
@@ -401,6 +471,12 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
             continue;
         };
         labelled[truth] += 1;
+
+        if let Some(beyond) = beyond_the_first(label, truth, subject.as_deref(), *also) {
+            found.beyond_the_first.labelled += beyond.labelled;
+            found.beyond_the_first.read += beyond.read;
+            found.beyond_the_first.agreed += beyond.agreed;
+        }
 
         let Some(guessed) = subject.as_deref().and_then(position) else {
             found.declined += 1;
@@ -646,7 +722,7 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
         };
         // Only what the model answered: a declined claim is not a wrong answer, and counting
         // it as one would make abstention look like error, which is the whole point of it.
-        let Some((Some(said), _)) = read.get(&(label.review_id.clone(), now)) else {
+        let Some((Some(said), _, _)) = read.get(&(label.review_id.clone(), now)) else {
             continue;
         };
         found.compared += 1;
@@ -786,6 +862,7 @@ mod tests {
             contested_answered: 10,
             contested_agreed: 5,
             subjects: Vec::new(),
+            beyond_the_first: Beyond::default(),
         };
         assert!((found.rate().unwrap() - 0.75).abs() < 1e-9);
         assert!(
@@ -836,6 +913,11 @@ mod tests {
             contested_answered: 0,
             contested_agreed: 0,
             subjects: vec![subject(10, 10, 10)],
+            beyond_the_first: Beyond {
+                labelled: 4,
+                read: 2,
+                agreed: 2,
+            },
         };
         let large = ClaimAgreement {
             app_id: 2,
@@ -851,6 +933,11 @@ mod tests {
             contested_answered: 0,
             contested_agreed: 0,
             subjects: vec![subject(990, 990, 495)],
+            beyond_the_first: Beyond {
+                labelled: 6,
+                read: 8,
+                agreed: 4,
+            },
         };
 
         let both = pooled(&[small, large]);
@@ -860,6 +947,15 @@ mod tests {
             "pooling gave {rate}; averaging the two games' rates would have given 0.75, which \
              is a game of ten claims outvoting one of nine hundred and ninety"
         );
+        assert_eq!(
+            both.beyond_the_first,
+            Beyond {
+                labelled: 10,
+                read: 10,
+                agreed: 6,
+            }
+        );
+        assert!((both.beyond_the_first.recall().unwrap() - 0.6).abs() < 1e-9);
     }
 
     #[test]
@@ -894,6 +990,7 @@ mod tests {
                 seen: 4,
                 mistaken_for: None,
             }],
+            beyond_the_first: Beyond::default(),
         };
 
         let both = pooled(&[odd]);

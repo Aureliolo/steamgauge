@@ -2850,6 +2850,18 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
         "  training reports the same thing for the same games; more than a point apart means\n  \
          the two are not asking the model the same question."
     );
+    let beyond = found.beyond_the_first;
+    if beyond.labelled + beyond.read > 0 {
+        println!(
+            "beyond each claim's first subject: labels give {}, the reader names {}, {} agree \
+             (precision {}, recall {})",
+            thousands(beyond.labelled),
+            thousands(beyond.read),
+            thousands(beyond.agreed),
+            pct(beyond.precision()),
+            pct(beyond.recall())
+        );
+    }
 }
 
 /// The one paragraph that decides whether a reader may call these numbers accuracy.
