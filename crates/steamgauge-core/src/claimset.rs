@@ -455,10 +455,11 @@ pub struct ClaimLabel {
     pub split_wrong: bool,
     /// Every other subject the claim covers, each with its own polarity; `subject` is the one
     /// it is chiefly about. An empty list for a claim about one thing, which is most of them.
-    /// None on a label from a sheet that did not ask: those labellers were told a claim takes
-    /// exactly one subject and flagged `split_wrong` where two fitted, so what else such a
-    /// claim covers is unknown where it is flagged and nothing where it is not, and training
-    /// has to be able to tell that from an answer.
+    /// None on a label from a sheet that did not ask. Those labellers were told a claim takes
+    /// exactly one subject and flagged `split_wrong` where two fitted, but not flagging it was
+    /// no answer either: of 239 unflagged claims asked again, 33 named another subject. So
+    /// what else such a claim covers is unknown, and training and measurement leave it out
+    /// rather than read it as nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub also: Option<Vec<Also>>,
 }
@@ -570,6 +571,10 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
 /// There are thousands of them, so it can also keep one claim in `one_in`, chosen by a hash of
 /// the claim rather than by chance so that the same draw is drawn again: a rule is measured on
 /// the sample before it is paid for across the rest.
+///
+/// `answered_also` asks by whether a label already says every subject its claim covers, which
+/// is how a sheet that learned to ask a new field reaches only the labels written before it:
+/// asking the others again would pay for answers the set already has.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Question {
     #[serde(default)]
@@ -583,6 +588,8 @@ pub struct Question {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ambiguous: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answered_also: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub one_in: Option<u32>,
 }
 
@@ -592,6 +599,7 @@ impl Question {
             || !self.subjects.is_empty()
             || self.split_wrong.is_some()
             || self.ambiguous.is_some()
+            || self.answered_also.is_some()
     }
 
     fn asks(&self, app_id: u32, label: &ClaimLabel, text: &str) -> bool {
@@ -607,6 +615,9 @@ impl Question {
             || self
                 .ambiguous
                 .is_some_and(|wanted| wanted != label.ambiguous)
+            || self
+                .answered_also
+                .is_some_and(|wanted| wanted != label.also.is_some())
         {
             return false;
         }
@@ -2032,6 +2043,7 @@ mod tests {
             .map(|index| ClaimLabel {
                 split_wrong: index % 2 == 0,
                 ambiguous: index % 4 == 0,
+                also: (index % 3 == 0).then(Vec::new),
                 ..a_label(1, "r1", index, "random", "verdict")
             })
             .collect();
@@ -2055,6 +2067,19 @@ mod tests {
         let every = asked(&flagged);
         assert_eq!(every.len(), 100);
         assert!(every.iter().all(|index| index % 4 == 0));
+
+        // A label that already answers every subject its claim covers is not asked again.
+        let unanswered = asked(&Question {
+            split_wrong: Some(false),
+            answered_also: Some(false),
+            ..Question::default()
+        });
+        assert!(
+            unanswered
+                .iter()
+                .all(|index| index % 2 == 1 && index % 3 != 0)
+        );
+        assert_eq!(unanswered.len(), 133);
 
         let sampled = Question {
             one_in: Some(5),
