@@ -1,4 +1,4 @@
-"""A decoder reader has to trace to a graph that answers what the model answers.
+"""A reader has to trace to a graph that answers what the model answers.
 
 python -m pytest test_export.py
 """
@@ -10,7 +10,12 @@ import pytest
 import torch
 
 onnxruntime = pytest.importorskip("onnxruntime")
-from transformers import Qwen3Config, Qwen3Model  # noqa: E402
+from transformers import (  # noqa: E402
+    Qwen3Config,
+    Qwen3Model,
+    XLMRobertaConfig,
+    XLMRobertaModel,
+)
 
 from export import trace_graph  # noqa: E402
 from train import ClaimReader  # noqa: E402
@@ -34,12 +39,31 @@ def backbone(tmp_path):
     return str(tmp_path / "trunk")
 
 
-def test_a_decoder_reader_traces_and_answers_what_the_model_answers(backbone, tmp_path):
+@pytest.fixture
+def encoder(tmp_path):
+    """An encoder of the e5 family, small enough to build without a download."""
+    config = XLMRobertaConfig(
+        vocab_size=64,
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        max_position_embeddings=64,
+    )
+    torch.manual_seed(0)
+    XLMRobertaModel(config).save_pretrained(tmp_path / "encoder")
+    return str(tmp_path / "encoder")
+
+
+# Every trunk a reader ships on, each pooled the way it is trained. A decoder-only test let a
+# change for the 4B through that every e5 reader then refused to export.
+@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
+def test_a_reader_traces_and_answers_what_the_model_answers(trunk, pooling, request, tmp_path):
     # Right-padded to different lengths, which is what the last-token pooling reads by, and
     # batches of another size and another length than the trace's, which is what the dynamic
     # axes are for. A graph checked only at the length it was traced at passed here and then
     # refused every other length the 4B was asked about.
-    model = ClaimReader(backbone, 3, pooling="last").eval()
+    model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
     traced = torch.randint(0, 64, (2, 6))
     graph = tmp_path / "model.onnx"
     trace_graph(model, traced, torch.ones_like(traced), graph, 17)
@@ -56,8 +80,9 @@ def test_a_decoder_reader_traces_and_answers_what_the_model_answers(backbone, tm
         assert np.allclose(wanted, got, atol=1e-4), f"{width} tokens"
 
 
-def test_the_trace_leaves_the_model_as_it_found_it(backbone, tmp_path):
-    model = ClaimReader(backbone, 3, pooling="last").eval()
+@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
+def test_the_trace_leaves_the_model_as_it_found_it(trunk, pooling, request, tmp_path):
+    model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
     trunk = model.trunk
     ids = torch.randint(0, 64, (2, 4))
     trace_graph(model, ids, torch.ones_like(ids), tmp_path / "model.onnx", 17)
