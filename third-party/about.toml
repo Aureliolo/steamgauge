@@ -1,0 +1,199 @@
+# What cargo-about accepts when it lists the crates a release archive carries. The release runs
+# it through tools/release/notices.mjs, once per target and features, from Cargo.lock, and CI
+# does the same on every pull request so that a crate the list cannot take is refused there
+# rather than at a tag.
+#
+# In priority order: a crate offering a choice is listed under the first licence here that
+# satisfies its expression, which for the usual "MIT OR Apache-2.0" is Apache-2.0. A crate whose
+# expression nothing here satisfies fails the build of the notices. So does one whose licence
+# names a copyright holder when the text found for it is SPDX's template rather than the
+# crate's own (notices.mjs checks that; cargo-about substitutes the template without saying
+# so). Adding a licence here is a decision about what the binary may contain, and belongs in
+# the pull request that brings the crate in.
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    # File-level copyleft: section 3.2 asks that whoever receives an executable is told where
+    # the source is, which the notices do for every crate.
+    "MPL-2.0",
+    # webpki-root-certs: the Mozilla root store, as data.
+    "CDLA-Permissive-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+]
+
+# What `cargo tree -e normal,build` lists for an archive, which is what the release checks the
+# notices against. Dev-dependencies reach no archive.
+ignore-build-dependencies = false
+ignore-dev-dependencies = true
+
+# The workspace's own crates are this repository's code, under the LICENSE beside the binary.
+private = { ignore = true }
+
+# ClearlyDefined is a web service whose answers can change under a fixed Cargo.lock. The texts
+# come from the files each crate was published with, or, where it was published without them,
+# from its repository at the commit it was published from.
+no-clearly-defined = true
+
+# Each clarification names the file its text is taken from and that file's SHA-256. A file that
+# no longer matches is ignored with a warning, which notices.mjs turns into a failure, so a
+# licence that changes under a version bump is read again by a person rather than carried over.
+
+# Offered under either licence; the crate ships only the BSD text, so that is the one taken.
+[brotli-decompressor.clarify]
+license = "BSD-3-Clause"
+[[brotli-decompressor.clarify.files]]
+path = "LICENSE"
+checksum = "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+
+[alloc-stdlib.clarify]
+license = "BSD-3-Clause"
+[[alloc-stdlib.clarify.git]]
+path = "LICENSE"
+checksum = "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+
+# The MIT file opens with a sentence of its own, which keeps it from being recognised.
+[dpi.clarify]
+license = "Apache-2.0 AND MIT"
+[[dpi.clarify.files]]
+path = "LICENSE"
+license = "Apache-2.0"
+checksum = "6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a"
+[[dpi.clarify.files]]
+path = "LICENSE-LIBM-MIT"
+license = "MIT"
+checksum = "9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997"
+
+# One file: the MIT grant, the copyrights of the code it was ported from, and the Apache text
+# contributors agree to.
+[libm.clarify]
+license = "MIT"
+[[libm.clarify.files]]
+path = "LICENSE.txt"
+checksum = "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
+
+# The zlib terms twice, under the Rust port's copyright and the original C code's.
+[adler32.clarify]
+license = "Zlib"
+[[adler32.clarify.files]]
+path = "LICENSE"
+checksum = "f5af8beef8f5f88f1b78494703bbfa019c4f3630ac111344390d6f9975ab22ed"
+
+# AWS-LC, compiled from source into the binary: one file naming every copyright and carrying
+# the full text of each licence, plus fiat-crypto's own. The file is named once per licence
+# because a file's text is used for a licence only when that licence alone satisfies what the
+# file is labelled with.
+[aws-lc-rs.clarify]
+license = "ISC AND (Apache-2.0 OR ISC)"
+[[aws-lc-rs.clarify.files]]
+path = "LICENSE"
+checksum = "b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7"
+
+[aws-lc-sys.clarify]
+license = "ISC AND (Apache-2.0 OR ISC) AND Apache-2.0 AND MIT AND BSD-3-Clause AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR ISC OR MIT-0)"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "ISC"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "Apache-2.0"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "BSD-3-Clause"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "MIT"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "aws-lc/third_party/fiat/LICENSE"
+license = "MIT"
+checksum = "43e358d7b6eb109d0f51f7b3a090fd82607965767c25fadee39e922475de2061"
+
+# Oniguruma is compiled from the copy inside the crate, under its own BSD licence, which the
+# crate's MIT expression does not mention.
+[onig_sys.clarify]
+license = "MIT AND BSD-2-Clause"
+[[onig_sys.clarify.files]]
+path = "LICENSE.md"
+license = "MIT"
+checksum = "71f321038b088358004bee991635ac09e4c703bec467d3c30c06992c0595f189"
+[[onig_sys.clarify.files]]
+path = "oniguruma/COPYING"
+license = "BSD-2-Clause"
+checksum = "70ba5469ea0bab6e18a32d7009068f996503168d27be57747e08da34337ff26f"
+
+# Published without a licence file, which each repository keeps at its root.
+[jieba-rs.clarify]
+license = "MIT"
+[[jieba-rs.clarify.git]]
+path = "LICENSE"
+checksum = "92257c8d1c7a059fa02720b34fce017574a990bed14cee8f565597f4fbfb1f13"
+
+[jieba-macros.clarify]
+license = "MIT"
+[[jieba-macros.clarify.git]]
+path = "LICENSE"
+checksum = "92257c8d1c7a059fa02720b34fce017574a990bed14cee8f565597f4fbfb1f13"
+
+[webview2-com.clarify]
+license = "MIT"
+[[webview2-com.clarify.git]]
+path = "LICENSE"
+checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+
+[webview2-com-macros.clarify]
+license = "MIT"
+[[webview2-com-macros.clarify.git]]
+path = "LICENSE"
+checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+
+[webview2-com-sys.clarify]
+license = "MIT"
+[[webview2-com-sys.clarify.git]]
+path = "LICENSE"
+checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
+
+[dlopen2.clarify]
+license = "MIT"
+[[dlopen2.clarify.git]]
+path = "LICENSE"
+checksum = "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+
+[dlopen2_derive.clarify]
+license = "MIT"
+[[dlopen2_derive.clarify.git]]
+path = "LICENSE"
+checksum = "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
+
+# These four declare MIT, and neither they nor their repository publish an MIT text: the
+# repository's LICENSE.md, which says so and links the licence, is everything there is.
+[objc2.clarify]
+license = "MIT"
+[[objc2.clarify.git]]
+path = "LICENSE.md"
+checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+
+[objc2-encode.clarify]
+license = "MIT"
+[[objc2-encode.clarify.git]]
+path = "LICENSE.md"
+checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+
+[objc2-foundation.clarify]
+license = "MIT"
+[[objc2-foundation.clarify.git]]
+path = "LICENSE.md"
+checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
+
+[block2.clarify]
+license = "MIT"
+[[block2.clarify.git]]
+path = "LICENSE.md"
+checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"

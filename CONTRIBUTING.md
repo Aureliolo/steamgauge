@@ -13,11 +13,23 @@ Run the same gates CI runs before pushing:
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test --workspace
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --workspace
 pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
 bash -c "cd training && python -m pytest -q"
+node --test tools/release/release.test.mjs
 ```
+
+`--locked` fails when `Cargo.lock` no longer matches the manifests. The release build refuses
+that too, but only once the tag is made, and a tag cannot be taken back. The last line tests the scripts that raise the
+version and write each release's changelog; `.github/release-process.md` says how a release is
+cut.
+
+A new dependency brings its licence into every release archive. CI's notices job writes each
+archive's `THIRD-PARTY-NOTICES.txt` on every pull request and fails on a crate whose licence
+`third-party/about.toml` does not accept, or whose licence text cargo-about cannot find; the
+message says which, and `third-party/README.md` says what to do. Accepting another licence is a
+decision about what the binary may contain, so make it in the pull request that needs it.
 
 Not `--all-features`: the cuda and metal backends need vendor toolchains, and the default set
 is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,

@@ -1,0 +1,604 @@
+name: release build
+
+# Everything that makes a release's bytes, and the signature over them, in one reusable
+# workflow. That is what SLSA Build Level 3 asks of GitHub Actions: the certificate Sigstore
+# issues names this file as the builder, so a verifier that insists on it (`--signer-workflow`)
+# is insisting on these build steps, which no caller can change. release.yml only decides when
+# a release happens and publishes what comes out.
+#
+# The build and the signing are separate jobs. A job granted `id-token: write` exposes the token
+# to every step it runs, and building runs the build script of every crate in Cargo.lock; only
+# the attest job, which downloads the finished bytes and signs them, can ever mint one.
+#
+# Node here is the runner image's own, as bash, jq, git and rustup are: part of the machine the
+# build runs on rather than something fetched into it, so there is nothing to pin beyond the
+# image label.
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: The version the release carries, checked against the tag and every crate
+        value: ${{ jobs.gate.outputs.version }}
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Nothing is built for release until the commit has shown it is the one that should be. A dry
+  # run (release.yml dispatched on a branch) is held to everything a release is except the two
+  # things only a tag has: its name, and being on main, which a branch under test is not yet.
+  gate:
+    name: gate
+    if: github.repository == 'Aureliolo/steamgauge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read # Reads the tagged source, and the releases the changelog is measured from.
+      # Being public does not grant this: the job token is gated on what is declared here whatever
+      # the repository's visibility, and without it the release fails writing its changelog after
+      # everything expensive has already run.
+      pull-requests: read # Reads each pull request's title and labels, to write the changelog.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # The changelog reads every commit since the previous release.
+          persist-credentials: false
+
+      - name: Verify the release commit is on main
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          git fetch --no-tags "https://github.com/${GITHUB_REPOSITORY}.git" main:refs/remotes/origin/main
+          release_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          if ! git merge-base --is-ancestor "${release_commit}" origin/main; then
+            echo "Release commit ${release_commit} is not reachable from origin/main." >&2
+            exit 1
+          fi
+
+      # Every branch requires signed commits, so this only fails if that ruleset was bypassed or
+      # removed. That is exactly when you want to hear about it.
+      - name: Verify the release commit is signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          verification="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.commit.verification | "\(.verified) \(.reason)"')"
+          if [[ "${verification%% *}" != "true" ]]; then
+            echo "Release commit ${GITHUB_SHA} carries no valid signature: ${verification#* }" >&2
+            exit 1
+          fi
+
+      - name: Verify the tag and every crate name one version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(node tools/release/version.mjs check)"
+          if [[ "${GITHUB_REF_TYPE}" == tag && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match the workspace version ${version}." >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      # The desktop shell is Tauri, which links against WebKitGTK on Linux; without it the
+      # workspace does not build at all.
+      - name: Install the webview Tauri links against
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+
+      # The version script reads the manifests as text. Cargo reads them as Cargo does, and
+      # --locked refuses a lock file that would have to change, which a bump that missed an entry
+      # would be.
+      - name: Verify Cargo resolves the same version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cargo metadata --locked --format-version 1 \
+            | jq -r '.workspace_members as $members | .packages[] | select(.id as $id | $members | index($id)) | "\(.name) \(.version)"' \
+            > "${RUNNER_TEMP}/members.txt"
+          test -s "${RUNNER_TEMP}/members.txt"
+          while read -r name version; do
+            if [[ "${version}" != "${VERSION}" ]]; then
+              echo "Cargo resolves ${name} at ${version}, not ${VERSION}." >&2
+              exit 1
+            fi
+          done < "${RUNNER_TEMP}/members.txt"
+
+      # The gates CI runs, with --locked, and no cache: see the build job.
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Test the release tools
+        run: node --test tools/release/release.test.mjs
+
+      - name: Verify the tests left the source as it was
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "Tests or build steps modified the checked-out release source." >&2
+            git status --short >&2
+            exit 1
+          fi
+
+      # Written here rather than where the release is created, because this job has the checkout
+      # and the history and that one deliberately has neither: it holds `contents: write` and runs
+      # no code from the repository.
+      - name: Write the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/notes"
+          node tools/release/notes.mjs "v${VERSION}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/notes/changelog.md"
+          test -s "${RUNNER_TEMP}/notes/changelog.md"
+
+      - name: Upload the changelog
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-changelog
+          path: ${{ runner.temp }}/notes/changelog.md
+          if-no-files-found: error
+          retention-days: 1
+
+  # THIRD-PARTY-NOTICES.txt for each archive. Written in a job of its own rather than in the
+  # build, so the job that makes the binary runs no tool the binary does not need: cargo-about
+  # reads Cargo.lock and the crates' sources, compiles nothing, and hands the build one text file
+  # per target. tools/release/notices.mjs refuses a licence about.toml does not accept, a crate
+  # with no licence text of its own, and an ONNX Runtime other than the one whose licence
+  # third-party/ holds.
+  notices:
+    name: notices
+    if: github.repository == 'Aureliolo/steamgauge'
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads Cargo.lock, third-party/ and the notices script at the tag.
+    env:
+      # The build matrix's targets, each with its GPU feature after the colon.
+      ARCHIVES: >-
+        x86_64-unknown-linux-gnu:
+        x86_64-pc-windows-msvc:directml
+        aarch64-apple-darwin:coreml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The release archive, refused unless it matches the checksum file the release publishes
+      # beside it, which is itself refused unless it matches the digest written here. That file
+      # holds the archive's digest and no file name, and Renovate cannot tell such a file from a
+      # digest of itself, so it would pin the wrong digest for the archive at the next version; a
+      # digest of the checksum file it moves correctly, and the chain proves the same bytes.
+      - name: Install cargo-about
+        env:
+          # renovate: datasource=github-release-attachments depName=EmbarkStudios/cargo-about versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_ABOUT_TAG: 0.8.4
+          CARGO_ABOUT_SHA256: d579efd42d93e71d731facd7ddb38a6354e8e0eb9cfba7f9877afdb6e8df92cb
+        run: |
+          set -euo pipefail
+          archive="cargo-about-${CARGO_ABOUT_TAG}-x86_64-unknown-linux-musl.tar.gz"
+          url="https://github.com/EmbarkStudios/cargo-about/releases/download/${CARGO_ABOUT_TAG}/${archive}"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${archive}.sha256" "${url}.sha256"
+          echo "${CARGO_ABOUT_SHA256}  ${RUNNER_TEMP}/${archive}.sha256" | sha256sum --check --strict
+          digest="$(cat "${RUNNER_TEMP}/${archive}.sha256")"
+          if [[ ! "${digest}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "${archive}.sha256 does not hold a SHA-256." >&2
+            exit 1
+          fi
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${archive}" "${url}"
+          echo "${digest}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" --strip-components=1 "${archive%.tar.gz}/cargo-about"
+          "${RUNNER_TEMP}/cargo-about" --version
+
+      - name: Write the notices
+        run: |
+          set -euo pipefail
+          for archive in ${ARCHIVES}; do
+            target="${archive%%:*}"
+            node tools/release/notices.mjs write "${RUNNER_TEMP}/cargo-about" "${target}" "${archive#*:}" \
+              "${RUNNER_TEMP}/notices/${target}/THIRD-PARTY-NOTICES.txt"
+          done
+
+      - name: Verify the notices left the source as it was
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "Writing the notices modified the checked-out release source." >&2
+            git status --short >&2
+            exit 1
+          fi
+
+      - name: Upload the notices
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notices
+          path: ${{ runner.temp }}/notices/
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: build (${{ matrix.target }})
+    if: github.repository == 'Aureliolo/steamgauge'
+    needs: [gate, notices]
+    strategy:
+      fail-fast: false
+      matrix:
+        # Renovate reads a runner out of `runs-on:` but not out of a matrix, so each of these
+        # carries its own line for it. The notices job lists the same three targets with their
+        # features, and the sbom job the targets, failing on an archive it does not expect; a
+        # target added here is added to both, and to the notices job in ci.yml.
+        include:
+          # DirectML reaches NVIDIA, AMD and Intel through DX12 for ~18 MB, so Windows gets
+          # GPU support for every vendor. macOS gets CoreML. Linux ships CPU-only: its GPU
+          # option is CUDA, which is NVIDIA-only and would add roughly 750 MB.
+          - target: x86_64-unknown-linux-gnu
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+            binary: steamgauge
+            feature: ""
+          - target: x86_64-pc-windows-msvc
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
+            binary: steamgauge.exe
+            feature: directml
+          # Apple Silicon only: ONNX Runtime publishes no prebuilt binary for Intel macOS,
+          # and building it from source in CI is not worth it for a platform Apple has
+          # stopped shipping.
+          - target: aarch64-apple-darwin
+            # renovate: datasource=github-runners depName=macos
+            runner: macos-26
+            binary: steamgauge
+            feature: coreml
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read # Reads the tagged source it builds.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the webview Tauri links against
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+
+      # No build cache. A cache entry can be written by any job on any branch, including a pull
+      # request from a fork, and a signed, attested binary built on top of one inherits whatever
+      # that run left in it. The saving is minutes; the exposure is the file everybody downloads.
+      - name: Build
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURE: ${{ matrix.feature }}
+        run: |
+          set -euo pipefail
+          rustup target add "${TARGET}"
+          features=()
+          if [[ -n "${FEATURE}" ]]; then
+            features=(--features "${FEATURE}")
+          fi
+          # The odd expansion is for the bash 3.2 macOS still ships, where an empty array under
+          # `set -u` is an unbound variable.
+          cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge ${features[@]+"${features[@]}"}
+
+          # The crates this build compiled, for the SBOM: what `cargo tree` resolves for this
+          # target and these features, rather than every crate any platform could want.
+          cargo tree --locked --target "${TARGET}" -p steamgauge-app ${features[@]+"${features[@]}"} \
+            -e normal,build --prefix none --format '{p}' \
+            | awk '{ print $1, substr($2, 2) }' | LC_ALL=C sort -u > "${RUNNER_TEMP}/crates.txt"
+
+      # tauri-build writes its schemas beside the manifest on every build, which is why they are
+      # ignored rather than tracked. Anything else a build writes into the tree would mean the
+      # archive is not the tagged commit.
+      - name: Verify the build left the source as it was
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "The build modified the checked-out release source." >&2
+            git status --short >&2
+            exit 1
+          fi
+
+      - name: Download the notices
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-notices
+          path: ${{ runner.temp }}/notices
+
+      # Archived rather than shipped bare: the GPU backends need runtime libraries beside the
+      # binary (DirectML.dll on Windows), and a lone executable would not start. The licence, the
+      # README and the third-party notices travel with it.
+      #
+      # Windows binaries gain a SignPath Foundation signature once the project is enrolled.
+      # macOS has no free certificate authority, so those assets carry provenance only and
+      # Gatekeeper will require an explicit override. SECURITY.md explains the difference.
+      - name: Stage the archive
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          BINARY: ${{ matrix.binary }}
+          VERSION: ${{ needs.gate.outputs.version }}
+          # macOS tar otherwise adds an AppleDouble `._` file for every file carrying extended
+          # attributes, which a build output on that runner does.
+          COPYFILE_DISABLE: '1'
+        run: |
+          set -euo pipefail
+          name="steamgauge-${VERSION}-${TARGET}"
+          rm -rf dist
+          mkdir -p "dist/${name}"
+          cp "target/${TARGET}/release/${BINARY}" README.md LICENSE "${RUNNER_TEMP}/notices/${TARGET}/THIRD-PARTY-NOTICES.txt" "dist/${name}/"
+          find "target/${TARGET}/release" -maxdepth 1 \
+            \( -name '*.dll' -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) \
+            -exec cp {} "dist/${name}/" \;
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          rm -rf "dist/${name}"
+          cp "${RUNNER_TEMP}/crates.txt" "dist/${name}.crates"
+          # BSD's sha256sum on macOS takes none of the GNU options, and shasum writes the same
+          # two-space format GNU's --check reads.
+          if [[ "${RUNNER_OS}" == macOS ]]; then
+            (cd dist && shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256")
+          else
+            (cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256")
+          fi
+          ls -la dist
+
+      - name: Upload the archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # A Rust binary names nothing about the crates compiled into it, so scanning the archive alone
+  # lists only its files. What each one was built from is Cargo.lock, cut to the crates its
+  # build resolved; syft reads that beside the unpacked archive, and each SBOM carries every
+  # shipped file with its digest and every crate that went into it. Then the job checks each
+  # SBOM says so, because an SBOM that lists nothing looks exactly like a passing step. The same
+  # crate list is what each archive's notices are checked against first.
+  sbom:
+    name: sbom
+    if: github.repository == 'Aureliolo/steamgauge'
+    needs: [gate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads Cargo.lock, the syft configuration and the notices script at the tag.
+    env:
+      TARGETS: x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin
+      VERSION: ${{ needs.gate.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: build-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify the downloaded archives
+        run: |
+          set -euo pipefail
+          expected="$(for target in ${TARGETS}; do
+            for suffix in .crates .tar.gz .tar.gz.sha256; do
+              echo "dist/steamgauge-${VERSION}-${target}${suffix}"
+            done
+          done | LC_ALL=C sort)"
+          actual="$(find dist -maxdepth 1 -type f -print | LC_ALL=C sort)"
+          if [[ "${actual}" != "${expected}" ]]; then
+            echo "The build artifacts are not the three archives this job expects." >&2
+            printf '%s\n' "${actual}" >&2
+            exit 1
+          fi
+          (cd dist && for sum in *.sha256; do sha256sum --check --strict "${sum}"; done)
+
+      # Read back from the archive as it ships: its THIRD-PARTY-NOTICES.txt names every crate
+      # the build resolved that is not this repository's own, carries ONNX Runtime's licence, and
+      # DirectML's exactly where DirectML.dll is, and nothing is in the archive whose licence is
+      # not in the notices or LICENSE.
+      - name: Check the notices in each archive
+        run: |
+          set -euo pipefail
+          failed=0
+          for target in ${TARGETS}; do
+            name="steamgauge-${VERSION}-${target}"
+            unpacked="${RUNNER_TEMP}/notices/${target}"
+            mkdir -p "${unpacked}"
+            tar -xzf "dist/${name}.tar.gz" -C "${unpacked}"
+            if ! node tools/release/notices.mjs check "${target}" "${unpacked}/${name}/THIRD-PARTY-NOTICES.txt" \
+              "dist/${name}.crates" Cargo.lock "${unpacked}/${name}"; then
+              echo "The notices in ${name}.tar.gz do not cover what it carries." >&2
+              failed=1
+            fi
+          done
+          exit "${failed}"
+
+      # The release archive, refused unless it matches the digest written here, rather than the
+      # project's installer script, which verifies nothing.
+      - name: Install syft
+        env:
+          # renovate: datasource=github-release-attachments depName=anchore/syft versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          SYFT_TAG: v1.52.0
+          SYFT_SHA256: caeedb81fb0491615f1ebd1761e4145d41ee86dd2cc7bf80669f9f5ad9d6133d
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/syft_${SYFT_TAG#v}_linux_amd64.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/anchore/syft/releases/download/${SYFT_TAG}/syft_${SYFT_TAG#v}_linux_amd64.tar.gz"
+          echo "${SYFT_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" syft
+          "${RUNNER_TEMP}/syft" version
+
+      - name: Generate and check the SBOMs
+        run: |
+          set -euo pipefail
+          failed=0
+          for target in ${TARGETS}; do
+            name="steamgauge-${VERSION}-${target}"
+            archive="dist/${name}.tar.gz"
+            sbom="dist/${name}.spdx.json"
+            input="${RUNNER_TEMP}/sbom/${target}"
+            work="${RUNNER_TEMP}/check/${target}"
+            mkdir -p "${input}" "${work}"
+
+            tar -xzf "${archive}" -C "${input}"
+            LC_ALL=C sort -u "dist/${name}.crates" > "${work}/crates.txt"
+            node tools/release/lock-subset.mjs Cargo.lock "${work}/crates.txt" > "${input}/Cargo.lock"
+            (cd "${input}" && SYFT_SOURCE_NAME=steamgauge SYFT_SOURCE_VERSION="${VERSION}" \
+              "${RUNNER_TEMP}/syft" scan dir:. --config "${GITHUB_WORKSPACE}/.github/syft.yaml" \
+              --output "spdx-json=${GITHUB_WORKSPACE}/${sbom}" --quiet)
+
+            # Every member of the archive, with the SHA-256 it actually has; and nothing with a
+            # SHA-256 that is not a member, bar the lock file the crates were read from.
+            tar -tzf "${archive}" | sed '/\/$/d' | LC_ALL=C sort > "${work}/members.txt"
+            (cd "${input}" && find "${name}" -type f -exec sha256sum {} + | LC_ALL=C sort -k 2) > "${work}/shipped.txt"
+            jq -r '(.files // [])[] | select(.fileName != "Cargo.lock")
+              | (.checksums[] | select(.algorithm == "SHA256") | .checksumValue) + "  " + .fileName' "${sbom}" \
+              | LC_ALL=C sort -k 2 > "${work}/listed.txt"
+            if ! diff -u "${work}/members.txt" <(cut -d ' ' -f 3- "${work}/listed.txt") \
+              || ! diff -u "${work}/shipped.txt" "${work}/listed.txt"; then
+              echo "The SBOM's files are not the members of ${archive}." >&2
+              failed=1
+            fi
+
+            # Exactly the crates the build resolved, and never an empty list passing for one:
+            # the program's own two crates have to be among them at this version.
+            jq -r '(.packages // [])[] | select(.SPDXID | startswith("SPDXRef-Package-rust-crate-")) | "\(.name) \(.versionInfo)"' "${sbom}" \
+              | LC_ALL=C sort -u > "${work}/listed-crates.txt"
+            if ! diff -u "${work}/crates.txt" "${work}/listed-crates.txt"; then
+              echo "The SBOM's crates are not the ones ${archive} was built from." >&2
+              failed=1
+            fi
+            for crate in steamgauge-app steamgauge-core; do
+              if ! grep -qxF "${crate} ${VERSION}" "${work}/listed-crates.txt"; then
+                echo "The SBOM for ${archive} does not list ${crate} ${VERSION}." >&2
+                failed=1
+              fi
+            done
+            echo "${sbom}: $(wc -l < "${work}/members.txt") files, $(wc -l < "${work}/listed-crates.txt") crates."
+          done
+          exit "${failed}"
+
+      # Written once every other file exists, so it covers the SBOMs too.
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          rm dist/*.crates dist/*.sha256
+          (cd dist && sha256sum steamgauge-*.tar.gz steamgauge-*.spdx.json > SHA256SUMS)
+          if [[ "$(wc -l < dist/SHA256SUMS)" -ne 6 ]]; then
+            echo "Expected three archives and three SBOMs, found:" >&2
+            cat dist/SHA256SUMS >&2
+            exit 1
+          fi
+          cat dist/SHA256SUMS
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-bundle
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  attest:
+    name: attest
+    if: github.repository == 'Aureliolo/steamgauge'
+    needs: [gate, sbom]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      id-token: write # Sigstore signs against this token.
+      attestations: write # Writes the attestations onto the repository.
+
+    steps:
+      - name: Download the bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-bundle
+          path: dist
+
+      # Signed only if the bytes that arrived are the bytes the checksums were written over.
+      - name: Verify the checksums
+        run: (cd dist && sha256sum --check --strict SHA256SUMS)
+
+      # One attestation over every file that ships, the checksums included, so each verifies on
+      # its own; SHA256SUMS keeps no signature of its own beside it, since this is that.
+      - name: Attest build provenance
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/steamgauge-*.tar.gz
+            dist/steamgauge-*.spdx.json
+            dist/SHA256SUMS
+
+      - name: Attest the Linux SBOM
+        id: sbom-linux
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-unknown-linux-gnu.spdx.json
+
+      - name: Attest the Windows SBOM
+        id: sbom-windows
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-pc-windows-msvc.tar.gz
+          sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-pc-windows-msvc.spdx.json
+
+      - name: Attest the macOS SBOM
+        id: sbom-macos
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/steamgauge-${{ needs.gate.outputs.version }}-aarch64-apple-darwin.tar.gz
+          sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-aarch64-apple-darwin.spdx.json
+
+      # The attestations are stored on the repository too, but only a verifier with GitHub's API
+      # reaches them there. A copy beside the archives verifies from the file alone
+      # (`gh attestation verify --bundle`), and it is the only form OpenSSF Scorecard counts as a
+      # signed release.
+      - name: Gather the signed attestations into one file
+        env:
+          PROVENANCE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_LINUX: ${{ steps.sbom-linux.outputs.bundle-path }}
+          SBOM_WINDOWS: ${{ steps.sbom-windows.outputs.bundle-path }}
+          SBOM_MACOS: ${{ steps.sbom-macos.outputs.bundle-path }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p attestations
+          bundle="attestations/steamgauge-${VERSION}.intoto.jsonl"
+          cat "${PROVENANCE}" "${SBOM_LINUX}" "${SBOM_WINDOWS}" "${SBOM_MACOS}" > "${bundle}"
+          lines="$(wc -l < "${bundle}")"
+          if [[ "${lines}" -ne 4 ]]; then
+            echo "Expected one provenance and three SBOM attestations, found ${lines} lines." >&2
+            exit 1
+          fi
+
+      - name: Upload the signed attestations
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: attestations
+          path: attestations/steamgauge-${{ needs.gate.outputs.version }}.intoto.jsonl
+          if-no-files-found: error
+          retention-days: 1

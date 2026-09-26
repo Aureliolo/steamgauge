@@ -1,0 +1,139 @@
+name: prepare release
+
+# Cutting a tag by hand is the one release step nobody can check afterwards, and it is the step
+# most often done at the wrong time, from the wrong branch, against the wrong version. This puts
+# it behind a button: pick the bump, and out comes a branch with the signed version commit and a
+# pull request for it. Merge that and the tagging and publishing follow, with nobody typing a
+# version again.
+#
+# The checks on that pull request are created in an approval-required state and wait for a
+# click. That is GitHub's rule for anything a workflow opens with the job token: the runs exist,
+# they are held, and a banner in the merge box offers "Approve workflows to run". Getting them to
+# start by themselves would mean a GitHub App or a personal access token, which is a standing
+# credential bought to save one click.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to raise
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: An exact version instead, such as 1.0.0. Overrides the bump above.
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: prepare
+    if: github.repository == 'Aureliolo/steamgauge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # Creates the release branch and the signed version commit on it.
+      pull-requests: write # Opens the release pull request for that branch.
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      # Every crate takes the workspace's version, and Cargo.lock carries a copy for each, so a
+      # bump is two files and the script writes both. Cargo then has to agree: --locked refuses a
+      # lock file that would change, which is a bump that missed an entry, found here rather than
+      # by the release build after the tag it cannot take back.
+      - name: Raise the version
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          bumped="$(node tools/release/version.mjs bump "${VERSION:-$BUMP}")"
+          files="$(sed -n 's/^Updated: //p' <<<"${bumped}")"
+          test -n "${files}"
+          next="$(node tools/release/version.mjs check)"
+          cargo metadata --locked --format-version 1 > /dev/null
+          {
+            echo "version=${next}"
+            echo "branch=release/v${next}"
+            echo "files=${files}"
+          } >> "${GITHUB_OUTPUT}"
+
+      # A tag rather than a release: a version can be tagged with no release attached, and the
+      # tag ruleset lets nothing move or delete one, so that number is spent either way.
+      - name: Refuse a version whose tag is taken
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Absent only on a 404: a failed request read as "free" would prepare a version whose
+          # tag is taken.
+          state="$(node tools/release/github-ref.mjs state "tags/v${VERSION}")"
+          if [[ "${state}" == present ]]; then
+            echo "v${VERSION} is already tagged. Pick a version whose tag is free." >&2
+            exit 1
+          fi
+
+      - name: Open the branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+        run: node tools/release/github-ref.mjs create "heads/${BRANCH}" "${GITHUB_SHA}"
+
+      - name: Commit the bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EXPECTED_HEAD_OID: ${{ github.sha }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          FILES: ${{ steps.bump.outputs.files }}
+        run: |
+          set -euo pipefail
+          # Word-split on purpose: the report is a comma-separated list of paths without spaces.
+          # shellcheck disable=SC2086
+          node tools/release/commit-signed.mjs "${BRANCH}" "Release v${VERSION}" ${FILES//,/ }
+
+      - name: Open the release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          body="Raises the version to ${VERSION} in Cargo.toml, for every crate, and in Cargo.lock."
+          body="${body} Merging this tags v${VERSION}, which builds, signs and publishes the release."
+
+          # The label is what keeps this pull request out of the next release's changelog, which
+          # tools/release/notes.mjs excludes by. It has to exist in the repository: gh fails the
+          # whole command on a label it cannot find, so deleting it stops a release being
+          # prepared rather than quietly putting the line back.
+          url="$(gh pr create --base main --head "${BRANCH}" --label release \
+            --title "Release v${VERSION}" --body "${body}")"
+
+          {
+            echo "## Release v${VERSION}"
+            echo
+            echo "${url}"
+            echo
+            echo 'Its checks are waiting on **Approve workflows to run** in the merge box.'
+            echo 'Approve them, and merge once they are green: that tags and publishes.'
+          } >> "${GITHUB_STEP_SUMMARY}"
