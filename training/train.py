@@ -1125,6 +1125,12 @@ def run(args) -> dict:
             f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
             f"calibration {metrics['calibration_error']:.3f}"
         )
+        if metrics["aspects"]:
+            beyond = metrics["aspects"]["beyond_the_first"]
+            print(
+                f"  aspects: F1 {metrics['aspects']['all']['f1']:.3f}, beyond the first subject "
+                f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']} covered"
+            )
         answers = (
             "answers nothing at that accuracy"
             if not metrics["threshold_met"]
