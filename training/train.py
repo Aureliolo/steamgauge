@@ -697,8 +697,8 @@ def aspect_scores(logits, claims, subjects) -> dict:
     """How well the aspect head says which subjects each claim covers, and what it says of them.
 
     Scored only where the label answers: every subject of a claim whose label says what it
-    covers, and the first subject alone of one flagged mis-split under a sheet that asked for
-    one. `beyond_the_first` is the part the subject head could never answer, the other
+    covers, and the first subject alone of one from a sheet that asked for a single subject.
+    `beyond_the_first` is the part the subject head could never answer, the other
     subjects a claim covers, which is the reason the head exists.
     """
     index_of = {name: index for index, name in enumerate(subjects)}

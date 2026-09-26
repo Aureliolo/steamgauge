@@ -32,13 +32,11 @@ def test_every_subject_a_claim_covers_is_charged_with_its_own_polarity():
 
 def test_a_claim_about_one_thing_is_known_to_cover_nothing_else():
     assert answered(also=()) == ([1, 0, 0, 0], [True] * 4)
-    # A label from before the sheet asked, not flagged mis-split: one subject, and that was the
-    # labeller's whole answer.
-    assert answered(also=None) == ([1, 0, 0, 0], [True] * 4)
 
 
-def test_a_flagged_label_from_before_the_sheet_asked_answers_its_first_subject_alone():
-    answer, known = answered(also=None, split_wrong=True)
+@pytest.mark.parametrize("split_wrong", [False, True])
+def test_a_label_from_before_the_sheet_asked_answers_its_first_subject_alone(split_wrong):
+    answer, known = answered(also=None, split_wrong=split_wrong)
     assert answer[0] == 1
     assert known == [True, False, False, False], "never charged as absent where nobody said so"
 

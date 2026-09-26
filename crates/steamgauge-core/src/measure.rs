@@ -373,8 +373,8 @@ fn readings_at(
 }
 
 /// One claim's subjects beyond the label's first, the label's against the reader's; None where
-/// the label does not say what else it covers, which is one flagged mis-split under a sheet
-/// that asked for a single subject.
+/// the label comes from a sheet that asked for a single subject, whose silence on the others is
+/// not an answer that there are none.
 ///
 /// The reader's first subject counts here when it is one of the label's others, as its others do
 /// when one is the label's first, so a claim both call "audio and controls" in the opposite
@@ -386,14 +386,12 @@ fn beyond_the_first(
     also: crate::reader::Also,
 ) -> Option<Beyond> {
     let position = |id: &str| SHEET.iter().position(|category| category.id == id);
-    let labelled: Vec<usize> = match &label.also {
-        Some(others) => others
-            .iter()
-            .filter_map(|other| position(&other.subject))
-            .collect(),
-        None if label.split_wrong => return None,
-        None => Vec::new(),
-    };
+    let labelled: Vec<usize> = label
+        .also
+        .as_ref()?
+        .iter()
+        .filter_map(|other| position(&other.subject))
+        .collect();
     let named: Vec<usize> = subject
         .and_then(position)
         .into_iter()
