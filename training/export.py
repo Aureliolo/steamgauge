@@ -106,6 +106,9 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
     for reader in readers:
         reader.trunk.config.use_cache = False
         reader.trunk = LengthFree(reader.trunk)
+    outputs = ["subject_logits", "polarity_logits", "pooled"]
+    if any(getattr(module, "aspects", None) is not None for module in model.modules()):
+        outputs.append("aspect_logits")
     try:
         torch.onnx.export(
             model,
@@ -115,13 +118,11 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
             # it, in the directory a string names. The 4B traced for eleven minutes and died there.
             os.fspath(path),
             input_names=["input_ids", "attention_mask"],
-            output_names=["subject_logits", "polarity_logits", "pooled"],
+            output_names=outputs,
             dynamic_axes={
                 "input_ids": {0: "batch", 1: "tokens"},
                 "attention_mask": {0: "batch", 1: "tokens"},
-                "subject_logits": {0: "batch"},
-                "polarity_logits": {0: "batch"},
-                "pooled": {0: "batch"},
+                **{name: {0: "batch"} for name in outputs},
             },
             opset_version=opset,
             # The tracing exporter rather than the dynamo one. Dynamo produces a graph full of
@@ -139,9 +140,9 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
 class InFullPrecisionOut(torch.nn.Module):
     """Runs the model in half precision and hands back full-precision numbers.
 
-    The arithmetic is where the saving is; the three small vectors that come out are not. A
-    graph whose outputs are half precision forces every reader of it to know that, and the
-    tool that runs this graph should not have to care which precision it was exported at.
+    The arithmetic is where the saving is; the small tensors that come out are not. A graph
+    whose outputs are half precision forces every reader of it to know that, and the tool that
+    runs this graph should not have to care which precision it was exported at.
     """
 
     def __init__(self, inner: torch.nn.Module):
@@ -149,8 +150,7 @@ class InFullPrecisionOut(torch.nn.Module):
         self.inner = inner
 
     def forward(self, input_ids, attention_mask):
-        subject, polarity, pooled = self.inner(input_ids, attention_mask)
-        return subject.float(), polarity.float(), pooled.float()
+        return tuple(read.float() for read in self.inner(input_ids, attention_mask))
 
 
 def rule_fingerprint(threshold: float, subjects, lines, by_language) -> str:
@@ -302,6 +302,36 @@ def crossed_the_line(wanted, got, lines, allowed: float) -> None:
             f"of its line, but a graph this unsteady about when to speak is not the model. Not "
             f"shipping this."
         )
+
+
+def aspect_lines(oof: str, subjects: list[str], min_precision: float) -> list | None:
+    """For each subject, how sure the aspect head must be before it says a claim covers it.
+
+    The lowest line at which the subject is called with at least `min_precision` among the
+    held-out claims whose labels answer it, drawn from every fold at once as the subject lines
+    are. None where no line reaches it: the reader then never names that subject beside
+    another, and the subject head still names it first. None as a whole when the folds were
+    trained without the head.
+    """
+    parts = [np.load(path, allow_pickle=False) for path in sorted(Path(oof).glob("cv-*.npz"))]
+    if not parts or any("aspect_logits" not in part for part in parts):
+        return None
+    logits = np.concatenate([part["aspect_logits"] for part in parts])
+    truth = np.concatenate([part["aspect_truth"] for part in parts]) > 0
+    known = np.concatenate([part["aspect_known"] for part in parts])
+    shifted = np.exp(logits - logits.max(axis=-1, keepdims=True))
+    covered = 1.0 - shifted[..., 0] / shifted.sum(axis=-1)
+    lines = []
+    for at, _ in enumerate(subjects):
+        sure, said = covered[known[:, at], at], truth[known[:, at], at]
+        order = np.argsort(-sure)
+        hits = np.cumsum(said[order])
+        precision = hits / np.arange(1, len(order) + 1)
+        # The longest prefix of the ranking that keeps the promise, so the line is the lowest
+        # confidence that still does, and a subject nobody labels beside another gets none.
+        keeps = np.nonzero((precision >= min_precision) & said[order])[0]
+        lines.append(float(sure[order][keeps[-1]]) if len(keeps) else None)
+    return lines
 
 
 def abstention_lines(
@@ -478,7 +508,9 @@ def main():
     # one that was measured. The parity check cannot see it either, because it compares the
     # export against the same wrongly built model.
     pooling = record.get("pooling", "mean")
-    model = ClaimReader(record["backbone"], len(subjects), pooling=pooling)
+    model = ClaimReader(
+        record["backbone"], len(subjects), pooling=pooling, aspects=bool(record.get("aspects"))
+    )
     model.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
     model.eval()
 
@@ -657,6 +689,18 @@ def main():
             "measured_on": "frozen games",
         }
     usual_declined = 1.0 - carried["coverage"] if carried else None
+    aspects_at = None
+    if record.get("aspects"):
+        aspects_at = (
+            aspect_lines(args.lines_from, subjects, args.min_accuracy) if args.lines_from else None
+        )
+        if aspects_at is None:
+            # Without folds there is nothing to draw a line from, and the head is taken at its
+            # word: it names a subject it thinks more likely covered than not.
+            aspects_at = [0.5] * len(subjects)
+        print(
+            f"aspects    {sum(line is not None for line in aspects_at)} of {len(subjects)} subjects can be named beside another"
+        )
 
     if lines is not None and by_language is not None:
         silent = [name for name, line in zip(subjects, lines) if line is None]
@@ -687,6 +731,10 @@ def main():
                 "mark": record.get("mark", False),
                 "prefix": record.get("prefix", False),
                 "headset_marker": record.get("headset_marker", False),
+                # How sure the aspect head must be that a claim covers each subject before the
+                # reader names it beside the first. Absent on a reader without the head, which
+                # names one subject per claim.
+                **({"aspect_thresholds": aspects_at} if record.get("aspects") else {}),
                 "trained_from": record["backbone"],
                 "data_fingerprint": record["data_fingerprint"],
                 # The weights and the rule are separate identities. Redrawing the lines without

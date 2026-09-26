@@ -51,6 +51,17 @@ class Claim:
     # game the labeller is told, and so the one the model is told. None in an export written
     # before it was recorded, or for a game nobody has asked the store about.
     headset_only: bool | None = None
+    # Every other subject the claim covers, as (subject, polarity) pairs. None on a label from
+    # a sheet that did not ask, which is not the same answer as none: what else such a claim
+    # covers is unknown where the labeller flagged it mis-split, and nothing where they did not.
+    also: tuple[tuple[str, str], ...] | None = None
+
+    def covers(self) -> dict[str, str] | None:
+        """Every subject the claim is known to cover, with its polarity; None where only the
+        first is known."""
+        if self.also is None and self.split_wrong:
+            return None
+        return {self.subject: self.polarity, **dict(self.also or ())}
 
     @property
     def weight(self) -> float:
@@ -104,6 +115,11 @@ def load(path: str | Path) -> list[Claim]:
                     second_subject=row.get("second_subject"),
                     second_polarity=row.get("second_polarity"),
                     headset_only=row.get("headset_only"),
+                    also=(
+                        None
+                        if row.get("also") is None
+                        else tuple((other["subject"], other["polarity"]) for other in row["also"])
+                    ),
                 )
             )
     if not claims:
