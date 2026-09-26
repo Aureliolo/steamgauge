@@ -589,9 +589,9 @@
     "subset": "declined",
     "start": 0,
     "end": 193,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "genre",
+    "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
@@ -601,6 +601,10 @@
       {
         "subject": "community",
         "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       },
       {
         "subject": "multiplayer",

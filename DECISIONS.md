@@ -4186,8 +4186,12 @@ when it is about paying to skip it.
 **The verdicts already lost.** Every claim filed under an aspect whose words judge or recommend
 the whole game ("recommend", "10/10", "great game", "don't buy", "overall", "still fun", and
 under `price` only the explicit recommendations, since "worth it" there judges the price) is
-asked again on the new sheet: 1,591 claims in 153 sets, about 1.1M Fable tokens, which the
-user approved.
+asked again on the new sheet: 1,591 claims in 153 sets, 18 shares, five labellers two at a
+time, about 1.19M Fable tokens, which the user approved. **1,184 of them, 74%, carry the verdict
+they had lost**; 1,310 name at least one other subject, and 171 (10.7%) changed their first
+subject. The words picked the right claims three times in four, so the recommendations still
+lost are the ones worded some other way, and a revisit by the reader's own `verdict` score in
+`also` is the way to find them once a reader with the aspect head exists.
 
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
