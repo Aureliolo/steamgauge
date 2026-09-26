@@ -771,10 +771,14 @@ fn claims_under(
 ) -> steamgauge_core::Result<(u64, Vec<Wanted>)> {
     let mut total: u64 = 0;
     let mut wanted: Vec<Wanted> = Vec::new();
-    steamgauge_core::read::for_each_reading(
+    steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
-        |id, at, found, confidence, polarity| {
-            if found != Some(subject) || side.is_some_and(|side| side != polarity) {
+        |id, at, found, confidence, polarity, also| {
+            let Some(polarity) = steamgauge_core::read::polarity_on(subject, found, polarity, also)
+            else {
+                return;
+            };
+            if side.is_some_and(|side| side != polarity) {
                 return;
             }
             total += 1;
@@ -802,10 +806,14 @@ fn claims_using(
     count: usize,
 ) -> steamgauge_core::Result<(u64, Vec<Wanted>)> {
     let mut filed: std::collections::HashMap<String, Vec<Filed>> = std::collections::HashMap::new();
-    steamgauge_core::read::for_each_reading(
+    steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
-        |id, at, found, confidence, polarity| {
-            if found != Some(subject) || side.is_some_and(|side| side != polarity) {
+        |id, at, found, confidence, polarity, also| {
+            let Some(polarity) = steamgauge_core::read::polarity_on(subject, found, polarity, also)
+            else {
+                return;
+            };
+            if side.is_some_and(|side| side != polarity) {
                 return;
             }
             filed

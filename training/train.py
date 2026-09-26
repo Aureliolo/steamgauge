@@ -35,6 +35,10 @@ import claimdata
 HERE = Path(__file__).resolve().parent
 POLARITIES = claimdata.POLARITIES
 
+# What the aspect head answers for each subject: absent, or one of the polarities, in that order,
+# so an answer of 0 is absent and 1 + i is POLARITIES[i]. Matched by the Rust reader.
+ASPECT_ANSWERS = 1 + len(POLARITIES)
+
 # What marks the claim inside its window. Two characters no reviewer writes, which the
 # tokenizer already knows: a token added to the vocabulary starts from noise and this one has
 # to mean something after four thousand training claims, not four hundred thousand.
@@ -219,7 +223,27 @@ class Claims(Dataset):
                 self.polarities, claim.polarity, claim.second_polarity, len(POLARITIES)
             ),
             "weight": torch.tensor(self.weight_of(claim), dtype=torch.float),
+            **dict(zip(("aspect", "aspect_known"), self.aspect_target(claim))),
         }
+
+    def aspect_target(self, claim):
+        """For every subject, what the claim does about it, and whether that is known.
+
+        The answer per subject is absent, or the polarity the claim takes on it. A label from a
+        sheet that asked for every subject answers all of them, and so does one the labeller did
+        not flag as mis-split, which covers its one subject and nothing else. One flagged under a
+        sheet that asked for a single subject answers only that one; the rest are left out of the
+        loss rather than charged as absent, which is what the labeller never said.
+        """
+        size = len(self.subjects)
+        answer = torch.zeros(size, dtype=torch.long)
+        covers = claim.covers()
+        known = torch.full((size,), covers is not None, dtype=torch.bool)
+        for subject, polarity in (covers or {claim.subject: claim.polarity}).items():
+            if subject in self.subjects:
+                answer[self.subjects[subject]] = 1 + self.polarities.get(polarity, 2)
+                known[self.subjects[subject]] = True
+        return answer, known
 
     def target(self, index, first, second, size):
         """The distribution the loss is charged against: one labeller's answer, or two mixed."""
@@ -396,8 +420,28 @@ def soft_cross_entropy(logits, target, temperature):
     return -(target * student).sum(dim=-1) * temperature**2
 
 
+def aspect_loss(logits, answer, known):
+    """Each claim's cross-entropy over the subjects whose answer is known, averaged over them.
+
+    A claim with none known costs nothing, which is a teacher's pool row: the teacher answered
+    only the subject a claim is chiefly about.
+    """
+    per_subject = torch.nn.functional.cross_entropy(
+        logits.float().reshape(-1, logits.shape[-1]), answer.reshape(-1), reduction="none"
+    ).view(answer.shape)
+    known = known.float()
+    return (per_subject * known).sum(dim=-1) / known.sum(dim=-1).clamp(min=1.0)
+
+
 class ClaimReader(torch.nn.Module):
-    """The trunk, plus the two heads, plus the pooled vector everything else wants."""
+    """The trunk, plus the heads, plus the pooled vector everything else wants.
+
+    The subject head names the one subject a claim is chiefly about and the polarity head what
+    it does about it. The aspect head, on a reader trained with one, answers for every subject
+    whether the claim covers it and with what polarity; it sits beside the other two rather than
+    replacing them, so the subject a claim is chiefly about, the abstention drawn on it and every
+    figure scored on it mean what they meant.
+    """
 
     def __init__(
         self,
@@ -406,6 +450,7 @@ class ClaimReader(torch.nn.Module):
         dropout: float = 0.1,
         pooling: str = "mean",
         dtype: torch.dtype | None = None,
+        aspects: bool = False,
     ):
         super().__init__()
         config = AutoConfig.from_pretrained(backbone, trust_remote_code=True)
@@ -415,6 +460,7 @@ class ClaimReader(torch.nn.Module):
         self.drop = torch.nn.Dropout(dropout)
         self.subject = torch.nn.Linear(width, subjects)
         self.polarity = torch.nn.Linear(width, len(POLARITIES))
+        self.aspects = torch.nn.Linear(width, subjects * ASPECT_ANSWERS) if aspects else None
 
     def forward(self, input_ids, attention_mask):
         hidden = self.trunk(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
@@ -434,7 +480,13 @@ class ClaimReader(torch.nn.Module):
         # the two do not multiply.
         pooled = pooled.to(self.subject.weight.dtype)
         dropped = self.drop(pooled)
-        return self.subject(dropped), self.polarity(dropped), pooled
+        read = self.subject(dropped), self.polarity(dropped), pooled
+        if self.aspects is None:
+            return read
+        return (
+            *read,
+            self.aspects(dropped).view(-1, self.subject.out_features, ASPECT_ANSWERS),
+        )
 
 
 def adapt(model: ClaimReader, rank: int) -> None:
@@ -575,8 +627,19 @@ def logits_of(model, loader, device):
     model.eval()
     logits = []
     for batch in loader:
-        subject, _, _ = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
+        subject, *_ = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
         logits.append(subject.float().cpu())
+    return torch.cat(logits).numpy()
+
+
+@torch.no_grad()
+def aspect_logits_of(model, loader, device):
+    """Every claim's aspect logits, subjects by answers, in the order the loader gives them."""
+    model.eval()
+    logits = []
+    for batch in loader:
+        read = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
+        logits.append(read[3].float().cpu())
     return torch.cat(logits).numpy()
 
 
@@ -630,16 +693,75 @@ def scored_twice(predicted, truth, claims, index_of) -> dict:
     }
 
 
+def aspect_scores(logits, claims, subjects) -> dict:
+    """How well the aspect head says which subjects each claim covers, and what it says of them.
+
+    Scored only where the label answers: every subject of a claim whose label says what it
+    covers, and the first subject alone of one from a sheet that asked for a single subject.
+    `beyond_the_first` is the part the subject head could never answer, the other
+    subjects a claim covers, which is the reason the head exists.
+    """
+    index_of = {name: index for index, name in enumerate(subjects)}
+    predicted = logits.argmax(dim=-1).numpy()
+    rows = []
+    for at, claim in enumerate(claims):
+        covers = claim.covers()
+        for subject, index in index_of.items():
+            if covers is None and subject != claim.subject:
+                continue
+            said = (covers or {claim.subject: claim.polarity}).get(subject)
+            truth = 0 if said is None else 1 + POLARITIES.index(said)
+            rows.append((index, subject == claim.subject, truth, int(predicted[at, index])))
+    if not rows:
+        return {}
+    index, first, truth, guess = (np.array(column) for column in zip(*rows))
+    present, called = truth > 0, guess > 0
+
+    def f1(where) -> dict:
+        hits = int((present & called & where).sum())
+        wanted, given = int((present & where).sum()), int((called & where).sum())
+        precision = hits / given if given else None
+        recall = hits / wanted if wanted else None
+        return {
+            "covered": wanted,
+            "called": given,
+            "precision": precision,
+            "recall": recall,
+            "f1": (
+                2 * precision * recall / (precision + recall)
+                if precision and recall
+                else 0.0
+                if wanted
+                else None
+            ),
+        }
+
+    per_subject = {name: f1(index == at) for name, at in index_of.items()}
+    scored = [row["f1"] for row in per_subject.values() if row["covered"]]
+    both = present & called
+    return {
+        "all": f1(np.ones_like(present)),
+        "beyond_the_first": f1(~first),
+        "macro_f1": float(np.mean(scored)) if scored else None,
+        "polarity_where_both_say_covered": (
+            float((truth[both] == guess[both]).mean()) if both.any() else None
+        ),
+        "per_subject": per_subject,
+    }
+
+
 @torch.no_grad()
 def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     model.eval()
-    subject_logits, polarity_logits = [], []
+    subject_logits, polarity_logits, aspect_logits = [], [], []
     for batch in loader:
-        subject, polarity, _ = model(
+        subject, polarity, *read = model(
             batch["input_ids"].to(device), batch["attention_mask"].to(device)
         )
         subject_logits.append(subject.float().cpu())
         polarity_logits.append(polarity.float().cpu())
+        if len(read) > 1:
+            aspect_logits.append(read[1].float().cpu())
 
     subject_logits = torch.cat(subject_logits)
     polarity_logits = torch.cat(polarity_logits)
@@ -678,6 +800,9 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     return {
         "accuracy": float(correct.mean()),
         "macro_f1": macro,
+        "aspects": aspect_scores(torch.cat(aspect_logits), claims, subjects)
+        if aspect_logits
+        else None,
         "read_twice": scored_twice(predicted, truth, claims, index_of),
         "threshold": chosen["threshold"],
         "threshold_coverage": chosen["coverage"],
@@ -774,6 +899,7 @@ def run(args) -> dict:
         len(subjects),
         pooling=args.pooling,
         dtype=torch.bfloat16 if args.lora_rank else None,
+        aspects=args.aspects,
     )
     if args.lora_rank:
         adapt(model, args.lora_rank)
@@ -896,13 +1022,26 @@ def run(args) -> dict:
             with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
                 input_ids = batch["input_ids"].to(device)
                 attention = batch["attention_mask"].to(device)
-                subject, polarity, _ = model(input_ids, attention)
+                subject, polarity, *read = model(input_ids, attention)
                 trust = batch["weight"].to(device)
                 subject_target = batch["subject_target"].to(device)
                 polarity_target = batch["polarity_target"].to(device)
                 subject_loss = charged(subject, subject_target, weights)
                 polarity_loss = charged(polarity, polarity_target)
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
+                if len(read) > 1:
+                    loss = (
+                        loss
+                        + args.aspect_weight
+                        * (
+                            aspect_loss(
+                                read[1],
+                                batch["aspect"].to(device),
+                                batch["aspect_known"].to(device),
+                            )
+                            * trust
+                        ).mean()
+                    )
                 if args.error_reg > 0:
                     # Against the first labeller's answer, which is what the abstention rule
                     # is fitted and scored against; a claim read twice is still one answer to
@@ -915,7 +1054,7 @@ def run(args) -> dict:
                     # the same weights, and the two are charged for disagreeing. Dropout at
                     # training time and none at inference is a gap this closes: the model is
                     # pushed to answer the same way whichever units are dropped.
-                    again_subject, again_polarity, _ = model(input_ids, attention)
+                    again_subject, again_polarity, *_ = model(input_ids, attention)
                     disagreement = symmetric_kl(subject, again_subject) + (
                         args.polarity_weight * symmetric_kl(polarity, again_polarity)
                     )
@@ -942,7 +1081,7 @@ def run(args) -> dict:
                 # them, and weighting it again would count the correction twice.
                 pooled = next(taught_batches)
                 with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
-                    subject, polarity, _ = model(
+                    subject, polarity, *_ = model(
                         pooled["input_ids"].to(device), pooled["attention_mask"].to(device)
                     )
                     disagreement = soft_cross_entropy(
@@ -986,6 +1125,12 @@ def run(args) -> dict:
             f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
             f"calibration {metrics['calibration_error']:.3f}"
         )
+        if metrics["aspects"]:
+            beyond = metrics["aspects"]["beyond_the_first"]
+            print(
+                f"  aspects: F1 {metrics['aspects']['all']['f1']:.3f}, beyond the first subject "
+                f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']} covered"
+            )
         answers = (
             "answers nothing at that accuracy"
             if not metrics["threshold_met"]
@@ -1061,6 +1206,16 @@ def run(args) -> dict:
         # by a model that had trained on it.
         out_logits = Path(args.save_logits)
         out_logits.parent.mkdir(parents=True, exist_ok=True)
+        # A reader with an aspect head also leaves what it said for every subject and what each
+        # label answers, which is what a line per subject is drawn from.
+        aspects = {}
+        if args.aspects:
+            answered = [loaders["validation"].dataset.aspect_target(claim) for claim in validation]
+            aspects = {
+                "aspect_logits": aspect_logits_of(model, loaders["validation"], device),
+                "aspect_truth": np.stack([answer.numpy() for answer, _ in answered]),
+                "aspect_known": np.stack([known.numpy() for _, known in answered]),
+            }
         np.savez_compressed(
             out_logits,
             logits=logits_of(model, loaders["validation"], device),
@@ -1069,6 +1224,7 @@ def run(args) -> dict:
             review_id=np.array([claim.review_id for claim in validation]),
             claim_index=np.array([claim.claim_index for claim in validation]),
             subjects=np.array(subjects),
+            **aspects,
         )
         print(f"held-out logits written to {out_logits}")
 
@@ -1099,6 +1255,8 @@ def run(args) -> dict:
         "llrd": args.llrd,
         "rdrop": args.rdrop,
         "pooling": args.pooling,
+        "aspects": args.aspects,
+        "aspect_weight": args.aspect_weight if args.aspects else None,
         "lora_rank": args.lora_rank or None,
         "dtype": "bfloat16" if args.lora_rank else "float32",
         "pool": args.pool,
@@ -1159,6 +1317,13 @@ def parse():
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--polarity-weight", type=float, default=0.5)
+    parser.add_argument(
+        "--aspects",
+        action="store_true",
+        help="train an aspect head beside the subject head, answering for every subject whether "
+        "the claim covers it and with what polarity",
+    )
+    parser.add_argument("--aspect-weight", type=float, default=1.0)
     parser.add_argument(
         "--ema",
         type=float,

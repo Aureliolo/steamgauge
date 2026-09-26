@@ -2360,6 +2360,7 @@ mod tests {
             contested_answered: 0,
             contested_agreed: 0,
             subjects: Vec::new(),
+            beyond_the_first: crate::measure::Beyond::default(),
         }
     }
 

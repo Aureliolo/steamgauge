@@ -80,6 +80,25 @@ def test_a_reader_traces_and_answers_what_the_model_answers(trunk, pooling, requ
         assert np.allclose(wanted, got, atol=1e-4), f"{width} tokens"
 
 
+def test_a_reader_with_an_aspect_head_traces_it_too(encoder, tmp_path):
+    model = ClaimReader(encoder, 3, pooling="mean", aspects=True).eval()
+    traced = torch.randint(0, 64, (2, 6))
+    graph = tmp_path / "model.onnx"
+    trace_graph(model, traced, torch.ones_like(traced), graph, 17)
+    session = onnxruntime.InferenceSession(str(graph), providers=["CPUExecutionProvider"])
+    assert [output.name for output in session.get_outputs()][-1] == "aspect_logits"
+
+    ids = torch.randint(0, 64, (3, 9))
+    mask = torch.tensor([[1] * n + [0] * (9 - n) for n in (9, 4, 1)])
+    with torch.no_grad():
+        wanted = model(ids, mask)[3].numpy()
+    got = session.run(
+        ["aspect_logits"], {"input_ids": ids.numpy(), "attention_mask": mask.numpy()}
+    )[0]
+    assert got.shape == (3, 3, 4), "subjects by answers, for a batch it was not traced at"
+    assert np.allclose(wanted, got, atol=1e-4)
+
+
 @pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
 def test_the_trace_leaves_the_model_as_it_found_it(trunk, pooling, request, tmp_path):
     model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()

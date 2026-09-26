@@ -4124,6 +4124,40 @@ that names aspects may also carry a verdict is a choice about what the `verdict`
 and it is the user's. One subject praised and criticised in one claim, "best netplay, mediocre
 lobby system", cannot say both, which the sheet should call mis-split.
 
+### The reader names every subject a claim covers, beside the first rather than instead of it
+
+Once a label carries `also`, the reader has to say the same, or the subjects a claim covers past
+its first are still lost at reading time.
+
+**A second head, not a multi-label subject head.** `--aspects` adds a head that answers, for
+every subject, absent or the polarity the claim takes on it: four ways per subject, so "great
+music, awful controls" can be praise on one and complaint on the other, which one sigmoid per
+subject cannot say. The subject head, the abstention drawn on it, the teacher's distillation
+and every figure scored on the first subject stay exactly as they were, so a reader with the
+head is compared with one without it on the same figures, and the head is judged only on what
+it adds.
+
+**Charged only where a label answered.** A label that lists its other subjects, even as none,
+answers every subject; a label from a sheet that asked for one subject answers its first alone,
+flagged or not, and the rest are masked rather than charged as absent. Pool rows cost the head
+nothing: the teacher answered only the first subject. `evaluate` scores the head on the same
+mask and reports the part past the first subject on its own, because that is what the head is
+for and the first subject would otherwise swamp it.
+
+**A line per subject.** A subject is named beside the first only above its own line, the lowest
+confidence that keeps `--min-accuracy` precision on the folds, and its language's; a subject
+with no such line is never named. The lines ship in `reader.json` as `aspect_thresholds`.
+
+**Readings.** The other subjects travel as three 64-bit masks (covered, praised, criticised;
+covered and neither is neutral), so a reading
+stays a small value that copies. Readings written before the column existed read as naming one
+subject, which is what that reader said. Counting, the report's examples, the app's subject
+pages and `measure-claims` count every subject a claim names; `measure-claims` adds a precision
+and recall past the first subject, over the labels that answered.
+
+Not measured yet: the reader trained with the head waits for the relabelled set and the card,
+and is scored on the frozen games, the frontier key and a timed read before any install.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

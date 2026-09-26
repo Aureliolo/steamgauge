@@ -368,6 +368,11 @@ fn agreement(app_id: u32) -> ClaimAgreement {
                 }
             })
             .collect(),
+        beyond_the_first: steamgauge_core::measure::Beyond {
+            labelled: answered / 5,
+            read: answered / 6,
+            agreed: answered / 8,
+        },
     }
 }
 

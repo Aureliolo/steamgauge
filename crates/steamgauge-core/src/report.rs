@@ -417,6 +417,31 @@ pub fn crawl_facts(out_dir: &Path, app_id: u32) -> Result<CrawlFacts> {
     read_json(&snapshot.join("crawl.json"))
 }
 
+/// Which subjects each wanted review raises anywhere, so a claim can be shown next to the rest
+/// of its author's point rather than as though it were all they said. Every subject a claim
+/// names counts, not only the one it is chiefly about.
+fn raised_by(snapshot: &Path, wanted: &HashSet<String>) -> Result<HashMap<String, Vec<String>>> {
+    let mut raised: HashMap<String, Vec<String>> = HashMap::new();
+    crate::read::for_each_full_reading(
+        &snapshot.join("readings.parquet"),
+        |id, _, subject, _, _, also| {
+            if !wanted.contains(id) {
+                return;
+            }
+            let others = also
+                .iter()
+                .filter_map(|(at, _)| SHEET.get(at).map(|row| row.id));
+            for subject in subject.into_iter().chain(others) {
+                let all = raised.entry(id.to_owned()).or_default();
+                if !all.iter().any(|seen| seen == subject) {
+                    all.push(subject.to_owned());
+                }
+            }
+        },
+    )?;
+    Ok(raised)
+}
+
 fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
     let reading: crate::read::ReadReport = read_json(&snapshot.join("reading.json"))?;
@@ -447,21 +472,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     wanted.extend(top_ids.iter().cloned());
 
     let fetched = crate::capture::reviews_for(&snapshot, &wanted)?;
-
-    // Which subjects each quoted review raises anywhere, so a claim can be shown next to the
-    // rest of its author's point rather than as though it were all they said.
-    let mut raised: HashMap<String, Vec<String>> = HashMap::new();
-    crate::read::for_each_reading(
-        &snapshot.join("readings.parquet"),
-        |id, _, subject, _, _| {
-            if let (Some(subject), true) = (subject, wanted.contains(id)) {
-                let all = raised.entry(id.to_owned()).or_default();
-                if !all.iter().any(|seen| seen == subject) {
-                    all.push(subject.to_owned());
-                }
-            }
-        },
-    )?;
+    let raised = raised_by(&snapshot, &wanted)?;
 
     let quote = |claim: &DrawnClaim| -> Option<Example> {
         let review = fetched.get(&claim.review_id)?;
@@ -616,32 +627,35 @@ fn shortlist(snapshot: &Path, options: &ReportOptions) -> Result<HashMap<String,
         }
     }
 
-    crate::read::for_each_reading(
+    // A claim is an example of every subject it names, each with the polarity it takes on that
+    // one: "great music, awful controls" is as good a quote of the controls complaints as of
+    // the music praise.
+    crate::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
-        |id, at, subject, confidence, polarity| {
-            let Some(subject) = subject.and_then(|id| SHEET.iter().find(|c| c.id == id)) else {
-                return;
-            };
-            let Some(side) = crate::taxonomy::POLARITY
+        |id, at, subject, confidence, polarity, also| {
+            let first = subject
+                .and_then(|id| SHEET.iter().find(|c| c.id == id))
+                .map(|row| (row.id, crate::reader::Polarity::from_name(polarity)));
+            let others = also
                 .iter()
-                .find(|side| **side == polarity)
-            else {
-                return;
-            };
-            if let Some(keep) = per_side.get_mut(&(subject.id, *side)) {
-                keep.offer(
-                    crate::bounded::rank(
-                        options.seed,
-                        "report",
-                        &format!("{id}:{}:{}", at.0, at.1),
-                    ),
-                    DrawnClaim {
-                        review_id: id.to_owned(),
-                        at,
-                        polarity: polarity.to_owned(),
-                        confidence,
-                    },
-                );
+                .filter_map(|(at, said)| SHEET.get(at).map(|row| (row.id, said)));
+            for (subject, said) in first.into_iter().chain(others) {
+                let side = said.as_str();
+                if let Some(keep) = per_side.get_mut(&(subject, side)) {
+                    keep.offer(
+                        crate::bounded::rank(
+                            options.seed,
+                            "report",
+                            &format!("{id}:{}:{}:{subject}", at.0, at.1),
+                        ),
+                        DrawnClaim {
+                            review_id: id.to_owned(),
+                            at,
+                            polarity: side.to_owned(),
+                            confidence,
+                        },
+                    );
+                }
             }
         },
     )?;

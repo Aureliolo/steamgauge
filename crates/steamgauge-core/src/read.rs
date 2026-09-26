@@ -435,6 +435,10 @@ fn reading_schema() -> Arc<Schema> {
         Field::new("subject", DataType::Utf8, true),
         Field::new("confidence", DataType::Float32, false),
         Field::new("polarity", DataType::Utf8, false),
+        // Every other subject the claim covers, as "audio:praise,controls:complaint"; null for
+        // none, and absent from readings written by a reader that named one subject per claim,
+        // which read as none.
+        Field::new("also", DataType::Utf8, true),
     ]))
 }
 
@@ -548,13 +552,14 @@ pub fn recount_corpus(
 
     let position = |name: &str| SHEET.iter().position(|category| category.id == name);
     let mut stored: Stored = HashMap::new();
-    for_each_reading(
+    for_each_full_reading(
         &snapshot.join("readings.parquet"),
-        |id, at, subject, confidence, polarity| {
+        |id, at, subject, confidence, polarity, also| {
             let reading = Reading {
                 subject: subject.and_then(position),
                 confidence,
                 polarity: Polarity::from_name(polarity),
+                also,
             };
             stored.entry(id.to_owned()).or_default().push((at, reading));
         },
@@ -995,21 +1000,29 @@ fn judge(
     let mut best = f32::NEG_INFINITY;
     let mut unclassified = 0;
 
+    let mut note = |subject: usize, polarity: Polarity| {
+        seen[subject] = true;
+        match polarity {
+            Polarity::Praise => praise[subject] = true,
+            Polarity::Complaint => complaint[subject] = true,
+            Polarity::Neutral => {}
+        }
+    };
     for (index, claim) in claims.iter().enumerate() {
         let Some(reading) = answers.get(&key(context, review, index, claim, language)) else {
             unclassified += 1;
             continue;
         };
+        // A subject named beside another cleared its own line, so it counts whether or not the
+        // one the claim is chiefly about cleared its own.
+        for (subject, polarity) in reading.also.iter() {
+            note(subject, polarity);
+        }
         let Some(subject) = reading.subject else {
             unclassified += 1;
             continue;
         };
-        seen[subject] = true;
-        match reading.polarity {
-            Polarity::Praise => praise[subject] = true,
-            Polarity::Complaint => complaint[subject] = true,
-            Polarity::Neutral => {}
-        }
+        note(subject, reading.polarity);
         // The review's main subject is whichever claim the model was surest about. A review
         // is most about the thing it says most clearly, not the thing it says first.
         if reading.confidence > best {
@@ -1153,11 +1166,16 @@ impl Counting {
                 claim,
                 &row.language,
             ));
-            if let Some(reading) = reading
-                && let Some(subject) = reading.subject
-            {
-                self.tallies[subject].claims += 1;
-                self.said.note(subject, reading.polarity, claim);
+            if let Some(reading) = reading {
+                for (subject, polarity) in reading
+                    .subject
+                    .map(|subject| (subject, reading.polarity))
+                    .into_iter()
+                    .chain(reading.also.iter())
+                {
+                    self.tallies[subject].claims += 1;
+                    self.said.note(subject, polarity, claim);
+                }
             }
             self.rows.push(
                 &row.recommendationid,
@@ -1288,6 +1306,42 @@ pub fn for_each_reading(
     path: &Path,
     mut visit: impl FnMut(&str, (u32, u32), Option<&str>, f32, &str),
 ) -> Result<()> {
+    for_each_full_reading(path, |id, at, subject, confidence, polarity, _| {
+        visit(id, at, subject, confidence, polarity);
+    })
+}
+
+/// What a stored reading says about one subject: the polarity it takes on it where it names it,
+/// first or beside another, and None where it does not name it at all.
+#[must_use]
+pub fn polarity_on(
+    subject: &str,
+    first: Option<&str>,
+    polarity: &str,
+    also: crate::reader::Also,
+) -> Option<&'static str> {
+    if first == Some(subject) {
+        return Some(Polarity::from_name(polarity).as_str());
+    }
+    let at = SHEET.iter().position(|row| row.id == subject)?;
+    also.iter()
+        .find(|(other, _)| *other == at)
+        .map(|(_, said)| said.as_str())
+}
+
+/// [`for_each_reading`], with every other subject the claim covers as a stored reading wrote
+/// it, for the passes that count them.
+///
+/// Readings written by a reader that named one subject per claim carry no such column, and
+/// read as covering nothing else, which is what that reader said.
+///
+/// # Errors
+///
+/// Fails if the file is missing or was written by another build.
+pub fn for_each_full_reading(
+    path: &Path,
+    mut visit: impl FnMut(&str, (u32, u32), Option<&str>, f32, &str, crate::reader::Also),
+) -> Result<()> {
     use arrow::array::{Array, Float32Array, StringArray, UInt32Array};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
@@ -1334,6 +1388,15 @@ pub fn for_each_reading(
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| another_build("polarity"))?;
+        let also = match batch.column_by_name("also") {
+            Some(found) => Some(
+                found
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .ok_or_else(|| another_build("also"))?,
+            ),
+            None => None,
+        };
 
         for row in 0..batch.num_rows() {
             visit(
@@ -1342,6 +1405,9 @@ pub fn for_each_reading(
                 (!subjects.is_null(row)).then(|| subjects.value(row)),
                 confidences.value(row),
                 polarities.value(row),
+                also.filter(|column| !column.is_null(row))
+                    .map(|column| crate::reader::Also::from_text(column.value(row)))
+                    .unwrap_or_default(),
             );
         }
     }
@@ -1356,6 +1422,7 @@ struct ReadingRows {
     subjects: Vec<Option<&'static str>>,
     confidences: Vec<f32>,
     polarities: Vec<&'static str>,
+    also: Vec<Option<String>>,
 }
 
 impl ReadingRows {
@@ -1380,6 +1447,8 @@ impl ReadingRows {
                 .map_or(Polarity::Neutral, |reading| reading.polarity)
                 .as_str(),
         );
+        self.also
+            .push(reading.and_then(|reading| reading.also.to_text()));
     }
 
     fn take(&mut self, schema: &Arc<Schema>) -> Result<RecordBatch> {
@@ -1389,6 +1458,7 @@ impl ReadingRows {
         let mut subjects = StringBuilder::new();
         let mut confidences = Float32Builder::new();
         let mut polarities = StringBuilder::new();
+        let mut also = StringBuilder::new();
 
         for row in 0..self.len() {
             ids.append_value(&self.ids[row]);
@@ -1397,6 +1467,7 @@ impl ReadingRows {
             subjects.append_option(self.subjects[row]);
             confidences.append_value(self.confidences[row]);
             polarities.append_value(self.polarities[row]);
+            also.append_option(self.also[row].as_deref());
         }
         self.ids.clear();
         self.starts.clear();
@@ -1404,6 +1475,7 @@ impl ReadingRows {
         self.subjects.clear();
         self.confidences.clear();
         self.polarities.clear();
+        self.also.clear();
 
         let columns: Vec<ArrayRef> = vec![
             Arc::new(ids.finish()),
@@ -1412,6 +1484,7 @@ impl ReadingRows {
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
+            Arc::new(also.finish()),
         ];
         Ok(RecordBatch::try_new(Arc::clone(schema), columns)?)
     }
@@ -1420,6 +1493,28 @@ impl ReadingRows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_claim_is_under_every_subject_it_names_with_the_polarity_it_takes_on_each() {
+        let at = |id: &str| SHEET.iter().position(|row| row.id == id).unwrap();
+        let mut also = crate::reader::Also::default();
+        also.insert(at("controls"), Polarity::Complaint);
+        assert_eq!(
+            polarity_on("audio", Some("audio"), "praise", also),
+            Some("praise")
+        );
+        assert_eq!(
+            polarity_on("controls", Some("audio"), "praise", also),
+            Some("complaint"),
+            "beside the first subject, with its own polarity"
+        );
+        assert_eq!(polarity_on("story", Some("audio"), "praise", also), None);
+        assert_eq!(
+            polarity_on("controls", None, "neutral", also),
+            Some("complaint"),
+            "named beside a first subject the reader declined"
+        );
+    }
 
     #[test]
     fn every_claim_sits_where_the_reader_says_it_sits_in_the_rejoined_review() {
