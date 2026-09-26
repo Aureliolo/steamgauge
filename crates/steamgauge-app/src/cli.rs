@@ -2217,6 +2217,9 @@ fn adjudicate_one_game(
             confidence: if answer.unsure { "low" } else { "high" }.to_owned(),
             ambiguous: answer.ambiguous,
             split_wrong: answer.split_wrong,
+            // The page asks for the one subject a claim is chiefly about, so the gold set scores
+            // that and says nothing about any other.
+            also: None,
         });
     }
     if unplaced > 0 {

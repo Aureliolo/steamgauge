@@ -302,6 +302,7 @@ mod tests {
             confidence: "high".to_owned(),
             ambiguous,
             split_wrong: false,
+            also: None,
         }
     }
 

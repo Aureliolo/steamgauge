@@ -1103,6 +1103,7 @@ mod tests {
             confidence: "high".to_owned(),
             ambiguous: false,
             split_wrong: false,
+            also: None,
         };
         let cut = |had: &[(u32, u32)]| {
             std::collections::HashMap::from([(

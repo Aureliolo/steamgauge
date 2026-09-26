@@ -347,6 +347,16 @@ impl Default for Sheet {
     }
 }
 
+/// Another subject a claim covers, and what the claim does about it.
+///
+/// "Great music, awful controls" is about two things and says opposite things about them, so a
+/// second subject carries its own polarity rather than borrowing the claim's.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Also {
+    pub subject: String,
+    pub polarity: String,
+}
+
 /// One returned label, as a labeller writes it.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ReturnedClaimLabel {
@@ -359,6 +369,60 @@ pub struct ReturnedClaimLabel {
     pub ambiguous: bool,
     #[serde(default)]
     pub split_wrong: bool,
+    /// Absent from a file written to a sheet that did not ask, which is not the same answer
+    /// as an empty list.
+    #[serde(default)]
+    pub also: Option<Vec<Also>>,
+}
+
+impl ReturnedClaimLabel {
+    /// Whether every word in it is one the sheet offers, and its other subjects are subjects
+    /// this claim could have: never its own again, never one twice, and never `verdict` or
+    /// `offtopic`, which are what a claim is when it names no aspect, so a claim filed under
+    /// either has no other subject to name.
+    fn is_on_the_sheet(&self) -> bool {
+        let known = |subject: &str| {
+            crate::taxonomy::SHEET
+                .iter()
+                .any(|category| category.id == subject)
+        };
+        let alone = |subject: &str| crate::taxonomy::by_id(subject).is_some_and(|row| row.alone);
+        let also = self.also.as_deref().unwrap_or_default();
+        let mut named = std::collections::HashSet::new();
+        known(&self.subject)
+            && crate::taxonomy::POLARITY.contains(&self.polarity.as_str())
+            && crate::taxonomy::CONFIDENCE.contains(&self.confidence.as_str())
+            && (also.is_empty() || !alone(&self.subject))
+            && also.iter().all(|other| {
+                known(&other.subject)
+                    && !alone(&other.subject)
+                    && other.subject != self.subject
+                    && crate::taxonomy::POLARITY.contains(&other.polarity.as_str())
+                    && named.insert(other.subject.as_str())
+            })
+    }
+
+    fn rejected(&self) -> String {
+        let others: Vec<String> = self
+            .also
+            .iter()
+            .flatten()
+            .map(|other| format!("{} {}", other.subject, other.polarity))
+            .collect();
+        format!(
+            "{}#{} {} / {} / {}{}",
+            self.review_id,
+            self.index,
+            self.subject,
+            self.polarity,
+            self.confidence,
+            if others.is_empty() {
+                String::new()
+            } else {
+                format!(" / also {}", others.join(", "))
+            }
+        )
+    }
 }
 
 /// One label as it is stored, joined back to what was drawn.
@@ -389,6 +453,14 @@ pub struct ClaimLabel {
     pub confidence: String,
     pub ambiguous: bool,
     pub split_wrong: bool,
+    /// Every other subject the claim covers, each with its own polarity; `subject` is the one
+    /// it is chiefly about. An empty list for a claim about one thing, which is most of them.
+    /// None on a label from a sheet that did not ask: those labellers were told a claim takes
+    /// exactly one subject and flagged `split_wrong` where two fitted, so what else such a
+    /// claim covers is unknown where it is flagged and nothing where it is not, and training
+    /// has to be able to tell that from an answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub also: Option<Vec<Also>>,
 }
 
 /// What was wrong with a returned set, in the labeller's own terms.
@@ -1137,20 +1209,8 @@ pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> 
                     .push(format!("{}#{}", answer.review_id, answer.index));
                 continue;
             };
-            if !crate::taxonomy::SHEET
-                .iter()
-                .any(|category| category.id == answer.subject)
-                || !crate::taxonomy::POLARITY.contains(&answer.polarity.as_str())
-                || !crate::taxonomy::CONFIDENCE.contains(&answer.confidence.as_str())
-            {
-                report.rejected.push(format!(
-                    "{}#{} {} / {} / {}",
-                    answer.review_id,
-                    answer.index,
-                    answer.subject,
-                    answer.polarity,
-                    answer.confidence
-                ));
+            if !answer.is_on_the_sheet() {
+                report.rejected.push(answer.rejected());
                 continue;
             }
             changed += u32::from(label.subject != answer.subject);
@@ -1160,6 +1220,7 @@ pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> 
             label.confidence = answer.confidence;
             label.ambiguous = answer.ambiguous;
             label.split_wrong = answer.split_wrong;
+            label.also = answer.also;
             crate::taxonomy::sheet().clone_into(&mut label.taxonomy);
             // A revisited label is a new answer from whoever gave it, not a correction of the
             // first labeller's, so it carries the second labeller's name.
@@ -1234,16 +1295,8 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
                     .push(format!("{}#{}", label.review_id, label.index));
                 continue;
             };
-            if !crate::taxonomy::SHEET
-                .iter()
-                .any(|category| category.id == label.subject)
-                || !crate::taxonomy::POLARITY.contains(&label.polarity.as_str())
-                || !crate::taxonomy::CONFIDENCE.contains(&label.confidence.as_str())
-            {
-                report.rejected.push(format!(
-                    "{}#{} {} / {} / {}",
-                    label.review_id, label.index, label.subject, label.polarity, label.confidence
-                ));
+            if !label.is_on_the_sheet() {
+                report.rejected.push(label.rejected());
                 continue;
             }
             if !seen.insert(key) {
@@ -1265,6 +1318,7 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
                 confidence: label.confidence,
                 ambiguous: label.ambiguous,
                 split_wrong: label.split_wrong,
+                also: label.also,
             });
         }
     }
@@ -1572,6 +1626,7 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
             "ambiguous": label.ambiguous,
             "ironic": label.ironic,
             "split_wrong": label.split_wrong,
+            "also": label.also,
             "produced_by": label.produced_by,
             "language": label.language,
             "app_id": label.app_id,
@@ -1715,6 +1770,7 @@ mod tests {
             confidence: "high".to_owned(),
             ambiguous: false,
             split_wrong: false,
+            also: None,
         }
     }
 
@@ -1758,6 +1814,7 @@ mod tests {
             confidence: "high".to_owned(),
             ambiguous: false,
             split_wrong: false,
+            also: None,
         };
         for (reading, labels) in [
             ("second", vec![label("a", "gameplay")]),
@@ -2199,6 +2256,7 @@ mod tests {
             confidence: "high".to_owned(),
             ambiguous: false,
             split_wrong: false,
+            also: None,
         };
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
@@ -2291,6 +2349,90 @@ mod tests {
         assert!(
             report.missing.is_empty(),
             "a claim shown for context is not a claim that came back unlabelled"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_claim_keeps_every_subject_it_covers_and_a_malformed_list_is_refused() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-also-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let claims = [
+            "Great music, awful controls.",
+            "Great game.",
+            "Great music.",
+            "Great music and story.",
+            "Great music and more music.",
+            "It crashes.",
+        ];
+        write_set(&dir, &[review("a", &claims)], 8).unwrap();
+        let returned = dir.join("returned");
+        std::fs::create_dir_all(&returned).unwrap();
+        let label = |index: u16, subject: &str, also: serde_json::Value| {
+            let mut label = serde_json::json!({
+                "review_id": "a", "index": index, "subject": subject, "polarity": "praise",
+                "ironic": false, "confidence": "high", "ambiguous": false, "split_wrong": false,
+            });
+            if !also.is_null() {
+                label["also"] = also;
+            }
+            label
+        };
+        std::fs::write(
+            returned.join("batch-000.json"),
+            serde_json::to_vec(&serde_json::json!([
+                label(
+                    0,
+                    "audio",
+                    serde_json::json!([{"subject": "controls", "polarity": "complaint"}])
+                ),
+                // A verdict names no aspect, so it has no other subject to name.
+                label(
+                    1,
+                    "verdict",
+                    serde_json::json!([{"subject": "audio", "polarity": "praise"}])
+                ),
+                label(
+                    2,
+                    "audio",
+                    serde_json::json!([{"subject": "audio", "polarity": "praise"}])
+                ),
+                label(
+                    3,
+                    "audio",
+                    serde_json::json!([{"subject": "verdict", "polarity": "praise"}])
+                ),
+                label(
+                    4,
+                    "story",
+                    serde_json::json!([
+                        {"subject": "audio", "polarity": "praise"},
+                        {"subject": "audio", "polarity": "praise"},
+                    ])
+                ),
+                label(5, "bugs", serde_json::Value::Null),
+            ]))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let (labels, report) = ingest(&dir, &returned, &Sheet::default()).unwrap();
+
+        assert_eq!(report.rejected.len(), 4, "{:?}", report.rejected);
+        let kept: Vec<(u16, Option<Vec<Also>>)> = labels
+            .into_iter()
+            .map(|label| (label.index, label.also))
+            .collect();
+        assert!(kept.contains(&(
+            0,
+            Some(vec![Also {
+                subject: "controls".to_owned(),
+                polarity: "complaint".to_owned(),
+            }])
+        )));
+        assert!(
+            kept.contains(&(5, None)),
+            "a file written to a sheet that did not ask says nothing, not \"nothing else\""
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -321,8 +321,8 @@ pub const SHEET: &[Category] = &[
              gameplay, faithfulness to the film or book it adapts is licensing, and so is \
              feeling as if you are inside that film, and immersion broken by a crash is bugs. \
              A feeling credited to several things at once, \"the environments, the soundtrack \
-             and the threats make it so immersive\", stays here: the feeling is the point, and \
-             no one of them is.",
+             and the threats make it so immersive\", is here first, with each thing it names \
+             as another subject: the feeling is the point.",
         ),
         alone: false,
     },
@@ -522,7 +522,8 @@ pub const SHEET: &[Category] = &[
              not learning from the last release. A demand to fix one thing it names belongs to that \
              thing, as a complaint about it would: \"fix the accessibility\" is accessibility \
              and \"fix the servers\" multiplayer; a list of demands, \"fix the lobbies, get \
-             cross play working, add missions\", is here, because no one of them is the point. \
+             cross play working, add missions\", is here first, with each thing it names as \
+             another subject. \
              A complaint about what a patch changed is about the change: balance to \
              difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. \
              Something altered or cut for what it showed or said, censored, an outfit, a \
@@ -761,7 +762,8 @@ pub fn labelling_brief(unit: Unit) -> String {
         ),
         Unit::Claim => String::from(
             "Categories. You are labelling CLAIMS: the separate \
-             points a review makes. Each claim gets exactly one subject.\n\n\
+             points a review makes. Each claim gets the one subject it is chiefly about, and \
+             every other subject it also covers.\n\n\
              A review arrives split into numbered claims, and you label every one of them. \
              The review is there so a claim like \"it doesn't\" or \"same here\" can be read \
              in context; the label is about the claim, not about the review around it. A \
@@ -880,46 +882,56 @@ const CONFIDENCE_SLOT: &str = "{confidence}";
 ///
 /// Three rather than two, because a claim can state a fact about the game without judging it,
 /// and forcing "it is a roguelike deckbuilder" to be praise or complaint would put a verdict
-/// in a reviewer's mouth. Mixed is deliberately absent: a claim that both praises and
-/// complains is two claims the splitter failed to separate, and `split_wrong` records that
-/// instead of hiding it in a fourth value.
+/// in a reviewer's mouth. Mixed is deliberately absent: a claim that praises one thing and
+/// complains about another names both, each with its own polarity, and one that praises and
+/// complains about the same thing is two claims the splitter failed to separate.
 pub const POLARITY: [&str; 3] = ["praise", "complaint", "neutral"];
 
 const POLARITY_SLOT: &str = "{polarity}";
 
 /// What every claim label carries.
 ///
-/// The review-level sheet asks for a primary and a secondary category. A claim takes exactly
-/// one subject, and that is the point of the unit: where two genuinely fit, the split was
-/// wrong, and saying so is worth more than a second category. `split_wrong` is how the
-/// splitter gets measured by the people best placed to see it fail.
+/// The review-level sheet asks for a primary and a secondary category. A claim names the
+/// subject it is chiefly about and every other it covers, each with its polarity: "10/10
+/// gameplay, music and story" is about three things, and filing it under any one of them, or
+/// under a verdict, throws away the rest of what it says. `split_wrong` is left for a claim cut
+/// in the wrong place, which is how the splitter gets measured by the people best placed to see
+/// it fail.
 const CLAIM_FIELDS: &str = "\
-Every claim label is six fields.
+Every claim label is seven fields.
 
 subject
-  The one category this claim is about. Exactly one, always. Most claims name no aspect at
-  all: those are `verdict` if they judge the game and `offtopic` if they do not. A claim that
-  makes several points still takes one, and two labellers must take the same one: where one
-  point is what the rest lead to, it takes that one, so \"great graphics, but it crashes every
-  hour\" is bugs, the part after the \"but\", and \"I love it, the major complaint is the
-  progression\" is the one the reviewer calls major. A concession that only softens what came
-  before, \"no story and worse graphics, but at least it is entertaining\", is not what the
-  rest lead to, and the claim takes the first of the points it softens. Where the points stand
-  side by side as equals, \"trash servers, bugs, toxic players\", it takes the first. A verdict
-  given over a list of its reasons is verdict wherever it stands, before the list or after it:
-  \"my favourite VR game: the play styles, the mechanics, the physics\" and \"the music and the
-  characters are perfect, 10/10\" alike, since with one thing named the verdict goes to that
-  thing, and with several the judgement is the point. A judgement of the price over such a
-  list, \"80 euro and you get nothing but bugs\", is price by the same reasoning. A row whose
-  rule names such a list keeps it too: a list of demands
-  to the developers is updates, and a feeling credited to several things is atmosphere.
-  `polarity` is then the polarity of the point it took, and `split_wrong` says the rest was
-  lost.
+  The category this claim is chiefly about. Most claims name no aspect at all: those are
+  `verdict` if they judge the game and `offtopic` if they do not. A claim that makes several
+  points names every one of them, this one first and the rest in `also`, and two labellers must
+  put the same one first: where one point is what the rest lead to, that one, so \"great
+  graphics, but it crashes every hour\" is bugs, the part after the \"but\", and \"I love it,
+  the major complaint is the progression\" is the one the reviewer calls major. A concession
+  that only softens what came before, \"no story and worse graphics, but at least it is
+  entertaining\", is not what the rest lead to. Where the points stand side by side as equals,
+  \"trash servers, bugs, toxic players\", the first. A verdict given over a list of its
+  reasons, before the list or after it, \"10/10 gameplay, music and story\" or \"the music and
+  the characters are perfect, 10/10\", puts the first reason first, and the verdict is what
+  the polarities say; a judgement of the price over a list, \"80 euro and you get nothing but
+  bugs\", puts price first. A list of demands to the developers puts updates first, and a
+  feeling credited to several things puts atmosphere first, each with the things it names in
+  `also`.
 
 polarity
   What the claim does about its subject, in one of these words: {polarity}. Praise and
   complaint are about the game, not about the reviewer's mood. Neutral is for a claim that
-  states something without judging it, which is common and is not a failure to decide.
+  states something without judging it, which is common and is not a failure to decide. Each
+  subject in `also` carries its own.
+
+also
+  Every other subject this claim covers, as a list of {\"subject\": ..., \"polarity\": ...},
+  each with what the claim does about that one: \"great music, awful controls\" is audio,
+  praise, with also [{\"subject\": \"controls\", \"polarity\": \"complaint\"}]. Most claims are
+  about one thing and give []. Only what this claim itself says: a subject the review raises
+  in another sentence belongs to that sentence's claim. The rows' rules decide each subject
+  here as they decide the first, so \"fix the servers\" in a list of demands is multiplayer.
+  Never `verdict` or `offtopic` here, never the subject again and never one twice; a claim
+  whose subject is `verdict` or `offtopic` names no aspect and gives [].
 
 ironic
   The text says the opposite of what it appears to say. \"0/10, I have not slept in three
@@ -933,18 +945,21 @@ confidence
   flattened guess, so a truthful \"low\" is worth more than a confident wrong answer.
 
 ambiguous
-  Whether the call is genuinely contested: two subjects fit and the rules above do not settle
-  which. This is about the claim and the taxonomy rather than about you, and it is read back.
-  Agreement is reported separately over the claims marked here.
+  Whether the call is genuinely contested: the rules above do not settle which subject the
+  claim is about, or which of its subjects comes first. This is about the claim and the
+  taxonomy rather than about you, and it is read back. Agreement is reported separately over
+  the claims marked here.
 
 split_wrong
-  Whether this claim is really two points stuck together, or half of one that was cut in the
-  wrong place. The splitting is mechanical and it will be wrong sometimes; this is the only
-  signal that it was, and it is what improves it. Leave it false unless the text in front of
-  you is genuinely mis-cut.
+  Whether this claim was cut in the wrong place: half of one point, or two sentences that
+  should have been two claims. One sentence that makes several points is not mis-cut; that is
+  what `also` is for. The splitting is mechanical and it will be wrong sometimes; this is the
+  only signal that it was, and it is what improves it. Leave it false unless the text in front
+  of you is genuinely mis-cut.
 
-Return every one of these for every claim, in the order the claims are given. A judgement left
-out is not a judgement, and a label missing one is refused rather than filled in with a guess.
+Return every one of these for every claim, `also` included when it is [], in the order the
+claims are given. A judgement left out is not a judgement, and a label missing one is refused
+rather than filled in with a guess.
 ";
 
 /// What every label carries besides its categories.
@@ -1080,14 +1095,16 @@ mod tests {
         }
     }
 
-    /// The claim sheet asks for one subject and a polarity, and the failure it exists to stop
-    /// is a labeller hunting for a topic in "Great game".
+    /// The claim sheet asks for the subject a claim is chiefly about, every other it covers, and
+    /// a polarity for each, and the failure it exists to stop is a labeller hunting for a topic
+    /// in "Great game".
     #[test]
-    fn the_claim_brief_asks_for_one_subject_and_a_polarity() {
+    fn the_claim_brief_asks_for_its_subjects_and_a_polarity_for_each() {
         let brief = labelling_brief(Unit::Claim);
         for field in [
             "subject",
             "polarity",
+            "also",
             "ironic",
             "confidence",
             "ambiguous",

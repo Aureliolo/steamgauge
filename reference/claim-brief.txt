@@ -1,4 +1,4 @@
-Categories. You are labelling CLAIMS: the separate points a review makes. Each claim gets exactly one subject.
+Categories. You are labelling CLAIMS: the separate points a review makes. Each claim gets the one subject it is chiefly about, and every other subject it also covers.
 
 A review arrives split into numbered claims, and you label every one of them. The review is there so a claim like "it doesn't" or "same here" can be read in context; the label is about the claim, not about the review around it. A review that makes one point has one claim, and a review that makes twelve has twelve, which is the whole reason for labelling this way: the tool used to average a long review into a single vector and then file a two-word review under four subjects.
 
@@ -36,7 +36,7 @@ Story and writing (story)
 
 Atmosphere and feel (atmosphere)
   What the game makes you feel while you are playing it. Genuinely terrifying, the tension never lets up, put headphones on and turn the lights off, it pulls you in and you lose whole evenings, the mood is oppressive and lonely, it has lost the soul the first one had, the people are just numbers to you now, you never really feel it.
-  RULE: This is the feeling itself, for reviews that name nothing that produces it. Being unable to stop playing, losing whole evenings and calling it addictive are here, and so is a reaction with nothing named behind it: it made me cry, the feels, I was terrified. Where a review says what creates the mood, that part belongs to what creates it: a frightening creature design is graphics, a soundtrack that unsettles is audio, a mechanic that keeps you on edge is gameplay, faithfulness to the film or book it adapts is licensing, and so is feeling as if you are inside that film, and immersion broken by a crash is bugs. A feeling credited to several things at once, "the environments, the soundtrack and the threats make it so immersive", stays here: the feeling is the point, and no one of them is.
+  RULE: This is the feeling itself, for reviews that name nothing that produces it. Being unable to stop playing, losing whole evenings and calling it addictive are here, and so is a reaction with nothing named behind it: it made me cry, the feels, I was terrified. Where a review says what creates the mood, that part belongs to what creates it: a frightening creature design is graphics, a soundtrack that unsettles is audio, a mechanic that keeps you on edge is gameplay, faithfulness to the film or book it adapts is licensing, and so is feeling as if you are inside that film, and immersion broken by a crash is bugs. A feeling credited to several things at once, "the environments, the soundtrack and the threats make it so immersive", is here first, with each thing it names as another subject: the feeling is the point.
 
 Graphics and art (graphics)
   How the game looks. The visuals, the art style, the animation and how quickly it plays out, the environments and character models, whether it is beautiful or ugly or charming.
@@ -80,7 +80,7 @@ Community and players (community)
 
 Updates and developer support (updates)
   What the developers do after release. Patches, roadmaps, early access progress, communication with players, whether promises were kept, and whether the game is abandoned.
-  RULE: What the developers do to the game belongs here, and so does praise or blame aimed at the people who make it, developer or publisher, including thanking them, insulting them and telling them to fix things. Blame goes where what they are blamed for belongs, named in the claim or in the review around it: "greed machine" in a review about a $100 edition or items sold against a timer is monetisation, in a review about an account requirement it protests the decision and is policy, and with nothing named anywhere it is here. So are broken promises and marketing the game did not live up to, "not what the trailers showed", and not learning from the last release. A demand to fix one thing it names belongs to that thing, as a complaint about it would: "fix the accessibility" is accessibility and "fix the servers" multiplayer; a list of demands, "fix the lobbies, get cross play working, add missions", is here, because no one of them is the point. A complaint about what a patch changed is about the change: balance to difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. Something altered or cut for what it showed or said, censored, an outfit, a voice, a scene, is policy, a change to what people had bought, and never the row of the thing taken out: the complaint is the removal, not how it looked or sounded. This is for the patching itself, its pace, and whether they listen. A judgement about how the game has changed since it came out is here even when no patch and no studio is named, so "it is getting better" and "release was bad but it is fine now" are updates, where the same judgement with no before and after is a verdict: "it is fine now" alone, and the launch judged on its own, "one of the worst launches in years". "The game is dead" is here when nobody is developing it and multiplayer when nobody is playing it. What the publisher or the platform requires of the player belongs to policy.
+  RULE: What the developers do to the game belongs here, and so does praise or blame aimed at the people who make it, developer or publisher, including thanking them, insulting them and telling them to fix things. Blame goes where what they are blamed for belongs, named in the claim or in the review around it: "greed machine" in a review about a $100 edition or items sold against a timer is monetisation, in a review about an account requirement it protests the decision and is policy, and with nothing named anywhere it is here. So are broken promises and marketing the game did not live up to, "not what the trailers showed", and not learning from the last release. A demand to fix one thing it names belongs to that thing, as a complaint about it would: "fix the accessibility" is accessibility and "fix the servers" multiplayer; a list of demands, "fix the lobbies, get cross play working, add missions", is here first, with each thing it names as another subject. A complaint about what a patch changed is about the change: balance to difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. Something altered or cut for what it showed or said, censored, an outfit, a voice, a scene, is policy, a change to what people had bought, and never the row of the thing taken out: the complaint is the removal, not how it looked or sounded. This is for the patching itself, its pace, and whether they listen. A judgement about how the game has changed since it came out is here even when no patch and no studio is named, so "it is getting better" and "release was bad but it is fine now" are updates, where the same judgement with no before and after is a verdict: "it is fine now" alone, and the launch judged on its own, "one of the worst launches in years". "The game is dead" is here when nobody is developing it and multiplayer when nobody is playing it. What the publisher or the platform requires of the player belongs to policy.
 
 Publisher and platform policy (policy)
   Decisions taken by the publisher or the platform rather than by the game. Needing a second account to play, region locks and delistings, DRM and kernel-level anti-cheat, launcher requirements, price rises, which platform gets which version, and what was changed or cut from the game after people had bought it.
@@ -110,32 +110,40 @@ VR and headsets (vr)
   Playing it in a headset. Room scale and seated play, motion sickness and comfort options, tracking and the controllers in your hands, whether it was built for a headset or is a flat game bolted into one, and which headsets it works with.
   RULE: Anything about being in a headset belongs here, including whether a given headset is supported, and the tracked controllers that come with it, whether they are detected and which ones work. What the game does with those controllers, the scheme it binds to them and where it puts your hands, is controls. A headset that worked and stopped after an update is bugs, and one whose support the publisher withdrew is policy; this row keeps which headsets work, with nothing said about a change. A game called immersive is not this, in a headset or out of one: immersion with nothing named behind it is atmosphere, and immersion a review explains belongs to what it names, so it is this only when the headset itself is the reason, as in leaning over the table to look. How the game looks on a monitor belongs to graphics. How you move in a headset, teleport, smooth or arm-swing locomotion, and the comfort options that go with it, snap turning and a vignette, are here, not gameplay or accessibility; the same movement on a screen is gameplay. How the game runs over the headset's own link, wireless streaming or the choice of runtime, is here, and so is how it runs on a headset the claim names, "on an original Vive, wireless, it is very smooth"; frame rate with no headset and nothing about its path to it is performance.
 
-Every claim label is six fields.
+Every claim label is seven fields.
 
 subject
-  The one category this claim is about. Exactly one, always. Most claims name no aspect at
-  all: those are `verdict` if they judge the game and `offtopic` if they do not. A claim that
-  makes several points still takes one, and two labellers must take the same one: where one
-  point is what the rest lead to, it takes that one, so "great graphics, but it crashes every
-  hour" is bugs, the part after the "but", and "I love it, the major complaint is the
-  progression" is the one the reviewer calls major. A concession that only softens what came
-  before, "no story and worse graphics, but at least it is entertaining", is not what the
-  rest lead to, and the claim takes the first of the points it softens. Where the points stand
-  side by side as equals, "trash servers, bugs, toxic players", it takes the first. A verdict
-  given over a list of its reasons is verdict wherever it stands, before the list or after it:
-  "my favourite VR game: the play styles, the mechanics, the physics" and "the music and the
-  characters are perfect, 10/10" alike, since with one thing named the verdict goes to that
-  thing, and with several the judgement is the point. A judgement of the price over such a
-  list, "80 euro and you get nothing but bugs", is price by the same reasoning. A row whose
-  rule names such a list keeps it too: a list of demands
-  to the developers is updates, and a feeling credited to several things is atmosphere.
-  `polarity` is then the polarity of the point it took, and `split_wrong` says the rest was
-  lost.
+  The category this claim is chiefly about. Most claims name no aspect at all: those are
+  `verdict` if they judge the game and `offtopic` if they do not. A claim that makes several
+  points names every one of them, this one first and the rest in `also`, and two labellers must
+  put the same one first: where one point is what the rest lead to, that one, so "great
+  graphics, but it crashes every hour" is bugs, the part after the "but", and "I love it,
+  the major complaint is the progression" is the one the reviewer calls major. A concession
+  that only softens what came before, "no story and worse graphics, but at least it is
+  entertaining", is not what the rest lead to. Where the points stand side by side as equals,
+  "trash servers, bugs, toxic players", the first. A verdict given over a list of its
+  reasons, before the list or after it, "10/10 gameplay, music and story" or "the music and
+  the characters are perfect, 10/10", puts the first reason first, and the verdict is what
+  the polarities say; a judgement of the price over a list, "80 euro and you get nothing but
+  bugs", puts price first. A list of demands to the developers puts updates first, and a
+  feeling credited to several things puts atmosphere first, each with the things it names in
+  `also`.
 
 polarity
   What the claim does about its subject, in one of these words: praise, complaint, neutral. Praise and
   complaint are about the game, not about the reviewer's mood. Neutral is for a claim that
-  states something without judging it, which is common and is not a failure to decide.
+  states something without judging it, which is common and is not a failure to decide. Each
+  subject in `also` carries its own.
+
+also
+  Every other subject this claim covers, as a list of {"subject": ..., "polarity": ...},
+  each with what the claim does about that one: "great music, awful controls" is audio,
+  praise, with also [{"subject": "controls", "polarity": "complaint"}]. Most claims are
+  about one thing and give []. Only what this claim itself says: a subject the review raises
+  in another sentence belongs to that sentence's claim. The rows' rules decide each subject
+  here as they decide the first, so "fix the servers" in a list of demands is multiplayer.
+  Never `verdict` or `offtopic` here, never the subject again and never one twice; a claim
+  whose subject is `verdict` or `offtopic` names no aspect and gives [].
 
 ironic
   The text says the opposite of what it appears to say. "0/10, I have not slept in three
@@ -149,15 +157,18 @@ confidence
   flattened guess, so a truthful "low" is worth more than a confident wrong answer.
 
 ambiguous
-  Whether the call is genuinely contested: two subjects fit and the rules above do not settle
-  which. This is about the claim and the taxonomy rather than about you, and it is read back.
-  Agreement is reported separately over the claims marked here.
+  Whether the call is genuinely contested: the rules above do not settle which subject the
+  claim is about, or which of its subjects comes first. This is about the claim and the
+  taxonomy rather than about you, and it is read back. Agreement is reported separately over
+  the claims marked here.
 
 split_wrong
-  Whether this claim is really two points stuck together, or half of one that was cut in the
-  wrong place. The splitting is mechanical and it will be wrong sometimes; this is the only
-  signal that it was, and it is what improves it. Leave it false unless the text in front of
-  you is genuinely mis-cut.
+  Whether this claim was cut in the wrong place: half of one point, or two sentences that
+  should have been two claims. One sentence that makes several points is not mis-cut; that is
+  what `also` is for. The splitting is mechanical and it will be wrong sometimes; this is the
+  only signal that it was, and it is what improves it. Leave it false unless the text in front
+  of you is genuinely mis-cut.
 
-Return every one of these for every claim, in the order the claims are given. A judgement left
-out is not a judgement, and a label missing one is refused rather than filled in with a guess.
+Return every one of these for every claim, `also` included when it is [], in the order the
+claims are given. A judgement left out is not a judgement, and a label missing one is refused
+rather than filled in with a guess.
