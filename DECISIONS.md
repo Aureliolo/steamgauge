@@ -4124,6 +4124,37 @@ that names aspects may also carry a verdict is a choice about what the `verdict`
 and it is the user's. One subject praised and criticised in one claim, "best netplay, mediocre
 lobby system", cannot say both, which the sheet should call mis-split.
 
+### A verdict stands beside the aspect a claim names (2026-09-26)
+
+**The user chose to keep both.** Labellers reported in five shares, unprompted, that a claim
+conceding an aspect and then judging the game, "a few bugs, but I still find it fun", "I hope
+they patch it out but I can recommend it", "play it, so long as you can handle the difficulty",
+had to be filed under the aspect with the recommendation thrown away. Put to the user as a
+choice of what the `verdict` row counts, they chose that it counts every claim that judges or
+recommends the whole game, over keeping it to claims that do nothing else.
+
+**How the sheet says it.** `verdict` as the subject still means no aspect is named at all, so
+the subject head and every figure scored on the first subject keep their meaning. A claim that
+names an aspect and judges the whole game puts the aspect first and `verdict` in `also`, even
+where the verdict is what the rest leads to. A judgement of the thing named is not a verdict:
+"10/10 gameplay" scores the gameplay. Only `offtopic` can never stand beside another subject,
+which each row now says as `beside`, apart from `alone`, which says a row as the subject carries
+nothing else. The row is relabelled "Overall verdict", and the report's note that a row which
+names no aspect has a mention rate equal to its main-subject share is gone: under claims it was
+false for both rows, since a review's main subject is the claim the reader was surest of.
+
+**Three recurring calls written in with it.** A claim that praises and complains about the same
+subject is two points cut as one, and is marked `split_wrong` with the polarity of the one the
+rest lead to; one line of a specification or settings list is half a point; a reward the game
+hands out for playing is difficulty when the claim is about how slowly it comes and monetisation
+when it is about paying to skip it.
+
+**The verdicts already lost.** Every claim filed under an aspect whose words judge or recommend
+the whole game ("recommend", "10/10", "great game", "don't buy", "overall", "still fun", and
+under `price` only the explicit recommendations, since "worth it" there judges the price) is
+asked again on the new sheet: 1,591 claims in 153 sets, about 1.1M Fable tokens, which the
+user approved.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

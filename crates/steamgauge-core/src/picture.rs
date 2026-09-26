@@ -248,7 +248,7 @@ mod tests {
     fn the_paragraph_names_the_subjects_raised_most_and_which_way_they_lean() {
         let found = reading(
             vec![
-                subject("verdict", "Overall verdict only", 900, 0, 0),
+                subject("verdict", "Overall verdict", 900, 0, 0),
                 subject("gameplay", "Gameplay and mechanics", 410, 300, 50),
                 subject("performance", "Performance", 180, 20, 120),
                 subject("story", "Story and writing", 250, 100, 90),
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn a_verdict_is_not_a_subject_a_game_is_about() {
         let found = reading(
-            vec![subject("verdict", "Overall verdict only", 900, 0, 0)],
+            vec![subject("verdict", "Overall verdict", 900, 0, 0)],
             Vec::new(),
         );
         assert_eq!(
