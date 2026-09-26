@@ -854,21 +854,6 @@ fn legend(out: &mut String, app: &AppReport) {
         );
     }
     out.push_str("</dl>\n");
-
-    // Otherwise the two identical columns on those rows look like a mistake.
-    let alone: Vec<&str> = SHEET
-        .iter()
-        .filter(|category| category.alone)
-        .map(|category| category.label)
-        .collect();
-    if !alone.is_empty() {
-        let _ = writeln!(
-            out,
-            "<p>{} are claims that no aspect was named, so nothing else can be true of the \
-             same review and their mention rate is their main-subject share.</p>",
-            escape(&alone.join(" and "))
-        );
-    }
     out.push_str(
         "<p>The reviews behind a row are a couple from the top of the pile where the category \
          reaches it, and the rest drawn at random from everything filed there, so they are \

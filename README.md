@@ -116,7 +116,9 @@ rather than quietly lowered to whatever it can manage.
 
 Some categories are defined by what a claim does *not* say. A bare verdict and a claim that
 says nothing about the game are both statements that no aspect was named, and on a corpus of
-real reviews they are the commonest labels there are.
+real reviews they are the commonest labels there are. A verdict can also stand beside an aspect,
+"a few bugs, but I still find it fun", so the verdict row counts every claim that judges the
+whole game, not only the ones that do nothing else.
 
 Where two categories genuinely overlap, the taxonomy settles it with a written rule rather
 than leaving each labeller to decide: replayability and repetitiveness are amount-of-content,

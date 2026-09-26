@@ -377,25 +377,25 @@ pub struct ReturnedClaimLabel {
 
 impl ReturnedClaimLabel {
     /// Whether every word in it is one the sheet offers, and its other subjects are subjects
-    /// this claim could have: never its own again, never one twice, and never `verdict` or
-    /// `offtopic`, which are what a claim is when it names no aspect, so a claim filed under
-    /// either has no other subject to name.
+    /// this claim could have: never its own again, never one twice, never one that cannot
+    /// stand beside another (`offtopic`), and none at all under `verdict` or `offtopic`, which
+    /// are what a claim is when it names no aspect.
     fn is_on_the_sheet(&self) -> bool {
         let known = |subject: &str| {
             crate::taxonomy::SHEET
                 .iter()
                 .any(|category| category.id == subject)
         };
-        let alone = |subject: &str| crate::taxonomy::by_id(subject).is_some_and(|row| row.alone);
+        let row = crate::taxonomy::by_id;
         let also = self.also.as_deref().unwrap_or_default();
         let mut named = std::collections::HashSet::new();
         known(&self.subject)
             && crate::taxonomy::POLARITY.contains(&self.polarity.as_str())
             && crate::taxonomy::CONFIDENCE.contains(&self.confidence.as_str())
-            && (also.is_empty() || !alone(&self.subject))
+            && (also.is_empty() || !row(&self.subject).is_some_and(|first| first.alone))
             && also.iter().all(|other| {
                 known(&other.subject)
-                    && !alone(&other.subject)
+                    && row(&other.subject).is_some_and(|beside| beside.beside)
                     && other.subject != self.subject
                     && crate::taxonomy::POLARITY.contains(&other.polarity.as_str())
                     && named.insert(other.subject.as_str())
@@ -2386,9 +2386,10 @@ mod tests {
             "Great music, awful controls.",
             "Great game.",
             "Great music.",
-            "Great music and story.",
+            "Great music, a must buy.",
             "Great music and more music.",
             "It crashes.",
+            "Great music, see you all tonight.",
         ];
         write_set(&dir, &[review("a", &claims)], 8).unwrap();
         let returned = dir.join("returned");
@@ -2422,10 +2423,17 @@ mod tests {
                     "audio",
                     serde_json::json!([{"subject": "audio", "polarity": "praise"}])
                 ),
+                // A recommendation beside an aspect is kept; saying nothing about the game
+                // cannot be beside anything.
                 label(
                     3,
                     "audio",
                     serde_json::json!([{"subject": "verdict", "polarity": "praise"}])
+                ),
+                label(
+                    6,
+                    "audio",
+                    serde_json::json!([{"subject": "offtopic", "polarity": "neutral"}])
                 ),
                 label(
                     4,
@@ -2455,6 +2463,21 @@ mod tests {
                 polarity: "complaint".to_owned(),
             }])
         )));
+        assert!(kept.contains(&(
+            3,
+            Some(vec![Also {
+                subject: "verdict".to_owned(),
+                polarity: "praise".to_owned(),
+            }])
+        )));
+        assert!(
+            report
+                .rejected
+                .iter()
+                .any(|refused| refused.contains("offtopic")),
+            "{:?}",
+            report.rejected
+        );
         assert!(
             kept.contains(&(5, None)),
             "a file written to a sheet that did not ask says nothing, not \"nothing else\""
