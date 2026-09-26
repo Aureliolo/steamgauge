@@ -74,9 +74,10 @@ review is their average: a point that belongs to none of them. So every review i
 into the separate points it makes, and a subject belongs to a point rather than to a review.
 
 That is what keeps the arithmetic honest at both ends. A review that makes twelve points
-contributes to twelve subjects instead of being flattened into one. A review that makes one
-point can carry exactly one subject, which is the part that matters more than it sounds: a
-two-word review cannot be filed under four topics, because it does not contain four.
+contributes to twelve subjects instead of being flattened into one. A point carries the subjects
+it names and no others, which is the part that matters more than it sounds: a two-word review
+cannot be filed under four topics, because it does not contain four, and "great music, awful
+controls" is one point about two things, each with what it says of it.
 
 A review's subjects are the union of its claims' subjects, and it still counts once towards
 each of them. The headline is a mention rate, a share of reviews, and it stays that way
@@ -399,9 +400,10 @@ rather than about somebody's afternoon:
   mid-run: half a set labelled against a revised sheet is half a set nobody can compare.
 - **Labelling runs in parallel, one labeller per game**, each working batch by batch and writing
   each batch out before opening the next.
-- **Every label carries six fields**: one subject, whether the claim is praise, a complaint or
-  neither, whether the text is ironic, how sure the labeller was, whether the call was genuinely
-  contested, and whether the claim was cut in the wrong place. The last two are read back:
+- **Every label carries seven fields**: the subject the claim is chiefly about, whether it is
+  praise, a complaint or neither, every other subject it covers with a polarity for each, whether
+  the text is ironic, how sure the labeller was, whether the call was genuinely contested, and
+  whether the claim was cut in the wrong place. The last two are read back:
   agreement is reported separately over the contested claims, and the mis-split rate is what
   drives the splitting rules. Three rounds of them came from labellers reporting it.
 - **Every game the model is measured on is read again by a different labeller, blind, in full,

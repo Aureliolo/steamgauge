@@ -4064,6 +4064,66 @@ again. 2,657 labels carry both flags; one in thirteen of them, about 200, measur
 the rest are paid for. 887 claims in all, about 1.3M Fable tokens over nine labellers, which the
 user approved over the 0.3M to 1M first quoted.
 
+**What it moved: 241 of 887, 27%, for 1.16M tokens.** 31 from `updates` to `policy`, most of
+them one game's censorship patch; 15 from `gameplay` to `difficulty`, the opponent's combo and
+computer players; 18 into `verdict`, the state a game was released in with nothing named; 11
+into `vr`, locomotion and the headset's link. The sample for the several-points rule moved 64 of
+238, 27%, and left only 76 of them still flagged both mis-split and contested, so the rule
+settled two thirds of the calls it was written for. The labellers then found four places where
+the new wording split them, each reported two to four times, and the sheet took a second pass
+(`6f8a3415126b`): blame goes where what it is for belongs, a launch judged alone is a verdict,
+a named headset with how the game runs on it is `vr`. The user then chose to ask every label
+still carrying both flags, 3,047 claims once the frozen games are counted, which the first
+quote of 2,420 had left out.
+
+### A claim names every subject it covers (2026-09-26)
+
+**One subject per claim was a design choice, and it failed on the claims that make several
+points.** "10/10 gameplay, music and story" is about three things. Filed under the first, it
+loses two; filed under `verdict`, which the second pass tried, it loses all three, and 31 of one
+labeller's 41 moves emptied aspect rows that way. The user asked why a claim could not simply
+carry several labels, and chose the full answer over recording the rest beside a single-label
+reader.
+
+**The label.** `subject` stays the one a claim is chiefly about, by the several-points rule, and
+`also` lists every other subject it covers, each with its own polarity: "great music, awful
+controls" is `audio`, praise, with `controls`, complaint. Never `verdict` or `offtopic`, never the
+subject again, never one twice, and a `verdict` or `offtopic` claim names none, because a verdict
+is a claim that names no aspect. `split_wrong` narrows back to a claim cut in the wrong place.
+`also` is absent, not empty, on a label written to a sheet that did not ask, and such a label
+says nothing about what else its claim covers, flagged or not: training and measurement charge
+it with its first subject alone (sheet `05cc9b670ad4`, `b3ba4a2aae20` before it only to settle a
+verdict over a list; both are in this PR's history).
+
+**Silence was not an answer.** Reading an unflagged old label as "covers nothing else" was the
+first plan, and it would have taught the aspect head that a subject is absent wherever a
+labeller had not been asked. 239 unflagged claims drawn at random and asked again, about 286k
+tokens: 33 named another subject, **13.8% (95% interval 10.0-18.8%)**. One in seven is too many
+to call nothing, so the user chose to mask them and to relabel a hashed one in ten of the
+unflagged, which gives the head its absent examples from labels that were asked.
+
+**The relabelling.** Every label carrying both flags, 3,047 claims in 163 sets, 31 shares, asked
+again with `also`. 2,350 of them name another subject, 3,950 others in all, mostly one or two
+(1,241 and 767) and up to seven; 1,133 changed their first subject, 189 of those out of
+`verdict`. About 2.98M Fable tokens, a pair or three shares to a labeller once it was clear a
+labeller reading the sheet once is cheaper.
+
+**The unflagged tenth.** One unflagged label in ten, kept by a hash of the claim (`one_in`) among
+those that never answered `also` (`answered_also`), so the same tenth is drawn again: 3,901
+claims in 168 sets, 42 shares, eleven labellers of three or four shares each, about 2.72M
+tokens. **355 name another subject, 9.1% (95% interval 8.2-10.0%)**, 390 others in all, nearly
+always one; the sample's 13.8% was the high end of its own interval. 531 (13.6%) changed their
+first subject under this sheet. The other nine tenths stay masked: about one in eleven of them
+covers something it does not say, and nothing says which. The whole round, five stages, about
+7.8M tokens.
+
+**What the labellers still could not settle, recurring.** A claim that concedes an aspect and
+then gives its overall verdict, "a slight menu bug, but it feels pretty damn good", keeps the bug
+as its subject and loses its overall praise, since `also` never takes `verdict`; whether a claim
+that names aspects may also carry a verdict is a choice about what the `verdict` row counts,
+and it is the user's. One subject praised and criticised in one claim, "best netplay, mediocre
+lobby system", cannot say both, which the sheet should call mis-split.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
