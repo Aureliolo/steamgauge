@@ -657,14 +657,24 @@
     "subset": "declined",
     "start": 466,
     "end": 545,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "audio",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "22700351",
@@ -1397,14 +1407,15 @@
     "subset": "declined",
     "start": 131,
     "end": 283,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "78339299",

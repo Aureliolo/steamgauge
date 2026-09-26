@@ -406,14 +406,20 @@
     "subset": "mined",
     "start": 0,
     "end": 183,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "123173211",
@@ -561,14 +567,24 @@
     "subset": "mined",
     "start": 149,
     "end": 283,
-    "taxonomy": "365d62a97201",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "134488333",
@@ -731,14 +747,20 @@
     "subset": "mined",
     "start": 242,
     "end": 323,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "146674269",
@@ -1127,15 +1149,20 @@
     "subset": "mined",
     "start": 0,
     "end": 96,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
+    "confidence": "medium",
+    "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "180947781",
@@ -1345,12 +1372,12 @@
     "subset": "mined",
     "start": 0,
     "end": 274,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
@@ -1360,6 +1387,10 @@
       },
       {
         "subject": "content",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -1372,7 +1403,7 @@
     "subset": "mined",
     "start": 802,
     "end": 1090,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "praise",
@@ -1383,6 +1414,10 @@
     "also": [
       {
         "subject": "performance",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       },
       {
@@ -2835,14 +2870,24 @@
     "subset": "mined",
     "start": 1183,
     "end": 1309,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "64432634",
@@ -2852,7 +2897,7 @@
     "subset": "mined",
     "start": 50,
     "end": 293,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
@@ -2863,6 +2908,10 @@
     "also": [
       {
         "subject": "updates",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -3400,14 +3449,20 @@
     "subset": "mined",
     "start": 342,
     "end": 535,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "controls",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "90122516",

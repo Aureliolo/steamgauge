@@ -383,14 +383,28 @@
     "subset": "mined",
     "start": 1231,
     "end": 1373,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "c93bb64b1f20",
+    "produced_by": "claude-fable-5-1",
     "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "story",
+        "polarity": "praise"
+      },
+      {
+        "subject": "audio",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "153262613",

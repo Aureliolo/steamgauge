@@ -41,7 +41,7 @@
     "subset": "mined",
     "start": 435,
     "end": 582,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "praise",
@@ -52,6 +52,10 @@
     "also": [
       {
         "subject": "language",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -554,14 +558,20 @@
     "subset": "mined",
     "start": 1147,
     "end": 1405,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "story",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "content",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "157689849",
@@ -760,14 +770,15 @@
     "subset": "mined",
     "start": 5594,
     "end": 5721,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "community",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "159172686",
@@ -961,14 +972,20 @@
     "subset": "mined",
     "start": 0,
     "end": 72,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "162321457",
@@ -1070,14 +1087,20 @@
     "subset": "mined",
     "start": 1332,
     "end": 1441,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "162613230",
@@ -1651,14 +1674,24 @@
     "subset": "mined",
     "start": 406,
     "end": 674,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "story",
+        "polarity": "praise"
+      },
+      {
+        "subject": "gameplay",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "172135332",
@@ -1668,15 +1701,24 @@
     "subset": "mined",
     "start": 1357,
     "end": 1749,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "tutorial",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "172254587",
@@ -2153,14 +2195,20 @@
     "subset": "mined",
     "start": 102,
     "end": 459,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "181681886",

@@ -282,14 +282,24 @@
     "subset": "mined",
     "start": 195,
     "end": 378,
-    "taxonomy": "1ecc68b0b8d5",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "160670190",

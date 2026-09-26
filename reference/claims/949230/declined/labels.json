@@ -178,14 +178,24 @@
     "subset": "declined",
     "start": 357,
     "end": 443,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "performance",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "performance",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "148825424",
@@ -1395,14 +1405,14 @@
     "subset": "declined",
     "start": 0,
     "end": 293,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false,
+    "split_wrong": true,
     "also": [
       {
         "subject": "graphics",
@@ -1417,7 +1427,11 @@
         "polarity": "praise"
       },
       {
-        "subject": "content",
+        "subject": "monetisation",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]

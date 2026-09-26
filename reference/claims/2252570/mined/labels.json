@@ -443,14 +443,20 @@
     "subset": "mined",
     "start": 0,
     "end": 87,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "150053079",
@@ -798,14 +804,20 @@
     "subset": "mined",
     "start": 257,
     "end": 375,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "licensing",
+    "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "181939170",
@@ -832,14 +844,24 @@
     "subset": "mined",
     "start": 0,
     "end": 113,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "mods",
-    "polarity": "praise",
+    "subject": "licensing",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "182179010",
@@ -849,14 +871,20 @@
     "subset": "mined",
     "start": 0,
     "end": 102,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "183416606",

@@ -1042,14 +1042,15 @@
     "subset": "mined",
     "start": 1277,
     "end": 1428,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "178907416",
@@ -1305,7 +1306,7 @@
     "subset": "mined",
     "start": 0,
     "end": 153,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "story",
     "polarity": "praise",
@@ -1320,6 +1321,10 @@
       },
       {
         "subject": "monetisation",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -1984,14 +1989,20 @@
     "subset": "mined",
     "start": 537,
     "end": 621,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "62979639",
@@ -2671,7 +2682,7 @@
     "subset": "mined",
     "start": 0,
     "end": 110,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "complaint",
@@ -2683,6 +2694,10 @@
       {
         "subject": "price",
         "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -3070,17 +3085,21 @@
     "subset": "mined",
     "start": 2207,
     "end": 2379,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "tutorial",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
         "subject": "price",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -3253,14 +3272,20 @@
     "subset": "mined",
     "start": 373,
     "end": 474,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "graphics",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "90981740",

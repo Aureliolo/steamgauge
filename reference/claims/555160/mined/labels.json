@@ -212,14 +212,24 @@
     "subset": "mined",
     "start": 1816,
     "end": 2047,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
-    "polarity": "praise",
+    "subject": "updates",
+    "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "108543219",
@@ -280,14 +290,20 @@
     "subset": "mined",
     "start": 0,
     "end": 91,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "111004273",
@@ -1001,14 +1017,15 @@
     "subset": "mined",
     "start": 1341,
     "end": 1397,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "subject": "multiplayer",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "181976383",
@@ -1138,14 +1155,20 @@
     "subset": "mined",
     "start": 0,
     "end": 94,
-    "taxonomy": "365d62a97201",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": true,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "222044310",
@@ -1617,14 +1640,20 @@
     "subset": "mined",
     "start": 353,
     "end": 478,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "46984424",
@@ -2935,14 +2964,24 @@
     "subset": "mined",
     "start": 0,
     "end": 108,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "multiplayer",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "75717004",
@@ -3362,7 +3401,7 @@
     "subset": "mined",
     "start": 0,
     "end": 415,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "community",
     "polarity": "praise",
@@ -3381,6 +3420,10 @@
       },
       {
         "subject": "multiplayer",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -3496,18 +3539,18 @@
     "subset": "mined",
     "start": 810,
     "end": 1534,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false,
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": true,
     "also": [
       {
         "subject": "content",
-        "polarity": "neutral"
+        "polarity": "complaint"
       },
       {
         "subject": "community",
@@ -3515,6 +3558,10 @@
       },
       {
         "subject": "updates",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]

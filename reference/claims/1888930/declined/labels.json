@@ -392,7 +392,7 @@
     "subset": "declined",
     "start": 714,
     "end": 1002,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
@@ -402,12 +402,16 @@
     "split_wrong": true,
     "also": [
       {
+        "subject": "performance",
+        "polarity": "complaint"
+      },
+      {
         "subject": "updates",
         "polarity": "complaint"
       },
       {
-        "subject": "performance",
-        "polarity": "complaint"
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -539,14 +543,15 @@
     "subset": "declined",
     "start": 85,
     "end": 195,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "c93bb64b1f20",
+    "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "154426371",

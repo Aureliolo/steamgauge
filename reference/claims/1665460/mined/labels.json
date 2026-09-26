@@ -1098,7 +1098,7 @@
     "subset": "mined",
     "start": 0,
     "end": 139,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "praise",
@@ -1113,6 +1113,10 @@
       },
       {
         "subject": "tutorial",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]

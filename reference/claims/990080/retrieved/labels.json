@@ -877,14 +877,15 @@
     "subset": "retrieved",
     "start": 1000,
     "end": 1302,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "132842904",
@@ -3267,14 +3268,15 @@
     "subset": "retrieved",
     "start": 68,
     "end": 162,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "222105800",

@@ -1151,12 +1151,12 @@
     "subset": "mined",
     "start": 15,
     "end": 155,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
@@ -1225,14 +1225,56 @@
     "subset": "mined",
     "start": 1759,
     "end": 3326,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "difficulty",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "licensing",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "controls",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "content",
+        "polarity": "praise"
+      },
+      {
+        "subject": "audio",
+        "polarity": "neutral"
+      },
+      {
+        "subject": "performance",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "monetisation",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "price",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "177143101",
@@ -1687,14 +1729,24 @@
     "subset": "mined",
     "start": 290,
     "end": 638,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "policy",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "179774480",
@@ -1704,14 +1756,24 @@
     "subset": "mined",
     "start": 0,
     "end": 47,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "licensing",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "179916431",
@@ -1897,14 +1959,24 @@
     "subset": "mined",
     "start": 0,
     "end": 86,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "182248526",
@@ -1931,14 +2003,20 @@
     "subset": "mined",
     "start": 0,
     "end": 76,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "182601667",

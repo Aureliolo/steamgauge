@@ -525,14 +525,20 @@
     "subset": "mined",
     "start": 1435,
     "end": 1648,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "updates",
+    "taxonomy": "c93bb64b1f20",
+    "produced_by": "claude-fable-5-1",
+    "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "106820022",
@@ -873,14 +879,20 @@
     "subset": "mined",
     "start": 0,
     "end": 348,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "policy",
+    "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "policy",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "130797730",
@@ -1466,14 +1478,20 @@
     "subset": "mined",
     "start": 0,
     "end": 121,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "c93bb64b1f20",
+    "produced_by": "claude-fable-5-1",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "197589185",

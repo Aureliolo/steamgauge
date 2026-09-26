@@ -43,6 +43,15 @@ pub struct Category {
     /// Kept for the reason it was added rather than for the score: a classifier that can
     /// report a review as naming an aspect and naming none is wrong whatever it scores.
     pub alone: bool,
+    /// Whether a claim chiefly about another subject can name this one beside it.
+    ///
+    /// Only `offtopic` cannot: saying nothing about the game is not something a claim that says
+    /// something can also do. A verdict can: "a few bugs, but I still find it fun" is about the
+    /// bugs and recommends the game, and filing it under either alone loses the other.
+    /// Labellers reported that loss unprompted in five shares of one round, and the user chose
+    /// to keep both (2026-09-26), so the verdict row counts every claim that judges the whole game,
+    /// not only the ones that do nothing else.
+    pub beside: bool,
 }
 
 /// What the categories are, as a hash of their ids in order.
@@ -142,6 +151,7 @@ pub const SHEET: &[Category] = &[
              fast it plays out, belong to graphics.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "bugs",
@@ -157,6 +167,7 @@ pub const SHEET: &[Category] = &[
              driver, is compatibility.",
         ),
         alone: false,
+        beside: true,
     },
     // Narrow on purpose. Phrased as "how the game plays and whether it is fun" this became
     // the nearest match for any general discussion and took 47.7% of primaries, which is a
@@ -180,6 +191,7 @@ pub const SHEET: &[Category] = &[
              however good the system itself is.",
         ),
         alone: false,
+        beside: true,
     },
     // 35% of reviews in the first corpus measured named a genre or compared the game to
     // another one. With nowhere to put that, all of it landed in gameplay, which is most of
@@ -216,20 +228,25 @@ pub const SHEET: &[Category] = &[
              this is and nothing else.",
         ),
         alone: false,
+        beside: true,
     },
     // Reviews that give a verdict and name no aspect are common, and without a home they
     // contaminate whichever category happens to sit nearest in the embedding space.
     Category {
         id: "verdict",
-        label: "Overall verdict only",
+        label: "Overall verdict",
         description: "A verdict with no specific reason given. Great game, terrible game, \
                       ten out of ten, would recommend, do not buy, best game ever, an \
                       excellent city builder, I find this game childish, please make a \
                       sequel.",
         boundary: Some(
-            "Only when no aspect is named at all. A review that gives a verdict and then \
-             names one specific thing belongs to that thing: \"super fun, and the story is \
-             great\" is story. A judgement with only the kind of game attached, \"excellent \
+            "The subject only when no aspect is named at all. A claim that judges or \
+             recommends the whole game and names a specific thing is about that thing, with \
+             the verdict beside it in also: \"super fun, and the story is great\" is story, \
+             and \"a few bugs, but I still find it fun\" is bugs, a complaint, with verdict, \
+             praise, even though the verdict is what the rest leads to. A judgement of the \
+             thing named is not a verdict: \"10/10 gameplay\" judges the gameplay and names no \
+             verdict. A judgement with only the kind of game attached, \"excellent \
              city builder\", is a verdict; genre is for when what kind of game it is, or \
              which game it resembles, is the point being made. A recommendation is a verdict \
              whatever condition it carries: \"if you like horror this is perfect for you\" \
@@ -240,7 +257,10 @@ pub const SHEET: &[Category] = &[
              than their taste, and belongs to that fact's row: \"skip it if you own a Quest\" \
              is VR and \"not for anyone who struggles with motor skills\" is accessibility, \
              because the reader is told whether the game will work for them, not whether they \
-             will like it. A condition every player of the game meets is no condition: \"if \
+             will like it; the recommendation, for or against, goes beside it as a verdict. So \
+             does one whose \
+             condition is a fact about the game rather than the reader, \"play it, so long as \
+             you can handle the difficulty\", which is difficulty with verdict, praise. A condition every player of the game meets is no condition: \"if \
              you have a VR headset, get this\" in a review marked headset_only is a verdict. \
              Saying \
              it plays like another game, \"if you like Marvel vs Capcom 2, this is very \
@@ -251,6 +271,7 @@ pub const SHEET: &[Category] = &[
              with it, judges nothing and is offtopic.",
         ),
         alone: true,
+        beside: true,
     },
     // Joke and meme reviews were being counted as verdicts, which inflates the one category
     // whose whole purpose is to be the honest home of reviews that say nothing specific.
@@ -279,6 +300,7 @@ pub const SHEET: &[Category] = &[
              either way.",
         ),
         alone: true,
+        beside: false,
     },
     Category {
         id: "story",
@@ -295,6 +317,7 @@ pub const SHEET: &[Category] = &[
              following.",
         ),
         alone: false,
+        beside: true,
     },
     // Asked for by nine labellers across two eras and two genres, which is more independent
     // evidence than any other category in this sheet had. Every labeller of Alien: Isolation
@@ -325,6 +348,7 @@ pub const SHEET: &[Category] = &[
              as another subject: the feeling is the point.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "graphics",
@@ -342,6 +366,7 @@ pub const SHEET: &[Category] = &[
              it, and one that never mentions a headset is about a screen, and here.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "audio",
@@ -353,6 +378,7 @@ pub const SHEET: &[Category] = &[
              commentator or a dub in a given language, belongs to language.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "controls",
@@ -387,6 +413,7 @@ pub const SHEET: &[Category] = &[
              graphics settings give a playable frame rate is performance.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "difficulty",
@@ -399,7 +426,9 @@ pub const SHEET: &[Category] = &[
              a specific mechanic as overpowered or useless. How hard an enemy is to beat is \
              here; how it is designed and what it does is gameplay. A complaint about what a \
              patch changed is about the change and belongs here where the change was to \
-             balance, with updates for the patching itself. Being lost because nothing was \
+             balance, with updates for the patching itself. How slowly rewards, currency or \
+             unlocks come from playing is grinding and belongs here; paying to skip it is \
+             monetisation. Being lost because nothing was \
              explained belongs to tutorial. What a purchase gives you is monetisation, and \
              how it plays once you have it is here. What an opponent is allowed to do, a \
              combo you watch for ten minutes, going first wins, is here when the complaint is \
@@ -409,6 +438,7 @@ pub const SHEET: &[Category] = &[
              random system works, described without either, is gameplay.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "content",
@@ -428,6 +458,7 @@ pub const SHEET: &[Category] = &[
              a joke of a state\", \"one of the worst launches in years\".",
         ),
         alone: false,
+        beside: true,
     },
     // The most-reported gap in this taxonomy's history: five games at review level, three more
     // at claim level, and one labeller calling modding a game's dominant theme while filing it
@@ -449,6 +480,7 @@ pub const SHEET: &[Category] = &[
              people who make them are like is community.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "price",
@@ -462,6 +494,7 @@ pub const SHEET: &[Category] = &[
              What is sold on top of it belongs to monetisation.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "monetisation",
@@ -471,11 +504,16 @@ pub const SHEET: &[Category] = &[
         boundary: Some(
             "What is sold on top of the game, and how, belongs here, including what a purchase \
              gives you: a pack whose contents are decided by chance is sold here, and whether \
-             luck then decides the match is difficulty. Wanting more of the game belongs to \
+             luck then decides the match is difficulty. A currency or reward the game hands \
+             out for playing is difficulty when the claim is about how slowly it comes, the \
+             grind, and here when it is about paying to skip it or what money buys instead: \
+             \"the rewards slow to a trickle\" is difficulty, \"too much VC needed unless you \
+             pay\" is here. Wanting more of the game belongs to \
              content even when the review asks for it as DLC: that is a review saying it ran \
              out, not one about how the game is sold.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "multiplayer",
@@ -490,6 +528,7 @@ pub const SHEET: &[Category] = &[
              when nobody is playing it and updates when nobody is developing it.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "community",
@@ -503,6 +542,7 @@ pub const SHEET: &[Category] = &[
              How the game disciplines them, bans, reports and moderators, belongs to policy.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "updates",
@@ -540,6 +580,7 @@ pub const SHEET: &[Category] = &[
              publisher or the platform requires of the player belongs to policy.",
         ),
         alone: false,
+        beside: true,
     },
     // Review bombs over publisher decisions are the reviews Steam's own default filter hides,
     // and this tool exists partly to count them. On one corpus measured they are 16% of
@@ -577,6 +618,7 @@ pub const SHEET: &[Category] = &[
              people who make it belongs to offtopic.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "compatibility",
@@ -597,6 +639,7 @@ pub const SHEET: &[Category] = &[
              the review was tried on. A headset named that way is VR.",
         ),
         alone: false,
+        beside: true,
     },
     Category {
         id: "accessibility",
@@ -627,6 +670,7 @@ pub const SHEET: &[Category] = &[
              policy.",
         ),
         alone: false,
+        beside: true,
     },
     // Bundled into accessibility until it was measured: language complaints were most of
     // that category's mass while having nothing to do with accommodation, and they are the
@@ -645,6 +689,7 @@ pub const SHEET: &[Category] = &[
              accommodation, in a language that is already supported, belong to accessibility.",
         ),
         alone: false,
+        beside: true,
     },
     // Asked for by three labellers independently across the earliest reference sets, which is the
     // strongest signal any reference set has produced. It was being split between gameplay
@@ -662,6 +707,7 @@ pub const SHEET: &[Category] = &[
              good belongs to gameplay.",
         ),
         alone: false,
+        beside: true,
     },
     // A licence is most visible when it lapses: a team, a driver or a song that was in last
     // year's release and is not in this one. That had been landing in content, which is about
@@ -686,6 +732,7 @@ pub const SHEET: &[Category] = &[
              licence or what they agreed, \"let somebody else have the NFL licence\".",
         ),
         alone: false,
+        beside: true,
     },
     // Kept out of compatibility, which is about whether a game runs at all. A review of a
     // headset game is about comfort, tracking and standing inside the thing, and none of that
@@ -717,6 +764,7 @@ pub const SHEET: &[Category] = &[
              frame rate with no headset and nothing about its path to it is performance.",
         ),
         alone: false,
+        beside: true,
     },
 ];
 
@@ -909,19 +957,24 @@ subject
   the major complaint is the progression\" is the one the reviewer calls major. A concession
   that only softens what came before, \"no story and worse graphics, but at least it is
   entertaining\", is not what the rest lead to. Where the points stand side by side as equals,
-  \"trash servers, bugs, toxic players\", the first. A verdict given over a list of its
-  reasons, before the list or after it, \"10/10 gameplay, music and story\" or \"the music and
-  the characters are perfect, 10/10\", puts the first reason first, and the verdict is what
-  the polarities say; a judgement of the price over a list, \"80 euro and you get nothing but
-  bugs\", puts price first. A list of demands to the developers puts updates first, and a
-  feeling credited to several things puts atmosphere first, each with the things it names in
-  `also`.
+  \"trash servers, bugs, toxic players\", the first. A verdict is never first beside an aspect,
+  even where it is what the rest lead to: the aspect is, and the verdict goes in `also`, so
+  \"I love it, the major complaint is the progression\" is gameplay, a complaint, with verdict,
+  praise. A verdict given over a list of its reasons, before the list or after it,
+  \"the music and the characters are perfect, 10/10\", puts the first reason first and the
+  verdict in `also`; \"10/10 gameplay, music and story\" scores the three things it names and
+  has no verdict beside them. A judgement of the price over a list, \"80 euro and you get
+  nothing but bugs\", puts price first. A list of demands to the developers puts updates
+  first, and a feeling credited to several things puts atmosphere first, each with the things
+  it names in `also`.
 
 polarity
   What the claim does about its subject, in one of these words: {polarity}. Praise and
   complaint are about the game, not about the reviewer's mood. Neutral is for a claim that
   states something without judging it, which is common and is not a failure to decide. Each
-  subject in `also` carries its own.
+  subject in `also` carries its own. A claim that praises and complains about the same
+  subject, \"best netplay, mediocre lobby system\", is two points cut as one: give the polarity
+  of the one the rest lead to, or of the first among equals, and mark `split_wrong`.
 
 also
   Every other subject this claim covers, as a list of {\"subject\": ..., \"polarity\": ...},
@@ -930,8 +983,9 @@ also
   about one thing and give []. Only what this claim itself says: a subject the review raises
   in another sentence belongs to that sentence's claim. The rows' rules decide each subject
   here as they decide the first, so \"fix the servers\" in a list of demands is multiplayer.
-  Never `verdict` or `offtopic` here, never the subject again and never one twice; a claim
-  whose subject is `verdict` or `offtopic` names no aspect and gives [].
+  `verdict` belongs here when the claim also judges or recommends the whole game, by the
+  verdict row's rule. Never `offtopic` here, never the subject again and never one twice; a
+  claim whose subject is `verdict` or `offtopic` names no aspect and gives [].
 
 ironic
   The text says the opposite of what it appears to say. \"0/10, I have not slept in three
@@ -953,7 +1007,10 @@ ambiguous
 split_wrong
   Whether this claim was cut in the wrong place: half of one point, or two sentences that
   should have been two claims. One sentence that makes several points is not mis-cut; that is
-  what `also` is for. The splitting is mechanical and it will be wrong sometimes; this is the
+  what `also` is for, except where it praises and complains about the same subject, which
+  `also` cannot hold. One line of a list the reviewer wrote as a single point, their machine's
+  specification or their settings one per line (\"32GB DDR4-3200 RAM\", \"Terrain Shadows:
+  off\"), is half of one point. The splitting is mechanical and it will be wrong sometimes; this is the
   only signal that it was, and it is what improves it. Leave it false unless the text in front
   of you is genuinely mis-cut.
 

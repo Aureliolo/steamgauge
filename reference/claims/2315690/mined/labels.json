@@ -42,18 +42,22 @@
     "subset": "mined",
     "start": 60,
     "end": 140,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true,
     "also": [
       {
         "subject": "policy",
         "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
       }
     ]
   },
@@ -133,14 +137,15 @@
     "subset": "mined",
     "start": 1700,
     "end": 1940,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "subject": "difficulty",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "160477014",
@@ -486,13 +491,14 @@
     "subset": "mined",
     "start": 2262,
     "end": 2414,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "story",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   }
 ]

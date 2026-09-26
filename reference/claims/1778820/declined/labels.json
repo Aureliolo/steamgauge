@@ -621,14 +621,20 @@
     "subset": "declined",
     "start": 1819,
     "end": 1967,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "genre",
+    "subject": "difficulty",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "community",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "162072004",

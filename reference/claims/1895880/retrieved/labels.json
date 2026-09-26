@@ -2478,14 +2478,20 @@
     "subset": "retrieved",
     "start": 1320,
     "end": 1485,
-    "taxonomy": "641e1bb2c309",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "accessibility",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "184789410",
@@ -3430,14 +3436,15 @@
     "subset": "retrieved",
     "start": 860,
     "end": 985,
-    "taxonomy": "365d62a97201",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "controls",
+    "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "235140525",

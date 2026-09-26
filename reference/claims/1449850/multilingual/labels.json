@@ -1674,7 +1674,7 @@
     "subset": "multilingual",
     "start": 374,
     "end": 401,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "content",
     "polarity": "complaint",
@@ -2364,7 +2364,7 @@
     "subset": "multilingual",
     "start": 0,
     "end": 406,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "difficulty",
     "polarity": "complaint",
@@ -2373,6 +2373,10 @@
     "ambiguous": true,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      },
       {
         "subject": "compatibility",
         "polarity": "neutral"

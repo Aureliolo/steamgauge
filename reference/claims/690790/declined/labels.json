@@ -133,18 +133,22 @@
     "subset": "declined",
     "start": 0,
     "end": 82,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "content",
+    "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": true,
     "also": [
       {
         "subject": "multiplayer",
         "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -510,18 +514,22 @@
     "subset": "declined",
     "start": 1644,
     "end": 1800,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
-    "subject": "content",
+    "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
         "subject": "multiplayer",
         "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
       }
     ]
   },
@@ -567,14 +575,15 @@
     "subset": "declined",
     "start": 131,
     "end": 206,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "188570938",
@@ -1340,13 +1349,13 @@
     "subset": "declined",
     "start": 916,
     "end": 1089,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
@@ -1355,6 +1364,10 @@
       },
       {
         "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -1691,12 +1704,12 @@
     "subset": "declined",
     "start": 210,
     "end": 272,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": []

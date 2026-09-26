@@ -41,14 +41,15 @@
     "subset": "mined",
     "start": 3368,
     "end": 3503,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "compatibility",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "145737982",
@@ -508,20 +509,15 @@
     "subset": "mined",
     "start": 84,
     "end": 243,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "content",
-        "polarity": "complaint"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "145771370",
@@ -1640,7 +1636,7 @@
     "subset": "mined",
     "start": 0,
     "end": 271,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "bugs",
     "polarity": "complaint",
@@ -1652,6 +1648,10 @@
       {
         "subject": "gameplay",
         "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -2677,14 +2677,24 @@
     "subset": "mined",
     "start": 392,
     "end": 473,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "154759172",
@@ -2912,7 +2922,7 @@
     "subset": "mined",
     "start": 56,
     "end": 767,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "mods",
     "polarity": "praise",
@@ -2936,6 +2946,14 @@
       {
         "subject": "graphics",
         "polarity": "complaint"
+      },
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -3361,14 +3379,20 @@
     "subset": "mined",
     "start": 137,
     "end": 531,
-    "taxonomy": "core-6",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "vr",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "203446045",
@@ -3549,15 +3573,19 @@
     "subset": "mined",
     "start": 0,
     "end": 143,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "c93bb64b1f20",
     "produced_by": "claude-fable-5-1",
     "subject": "compatibility",
-    "polarity": "neutral",
+    "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      },
       {
         "subject": "content",
         "polarity": "praise"
