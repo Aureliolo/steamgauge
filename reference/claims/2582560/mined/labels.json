@@ -7,14 +7,24 @@
     "subset": "mined",
     "start": 601,
     "end": 767,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "05cc9b670ad4",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "licensing",
+        "polarity": "neutral"
+      },
+      {
+        "subject": "genre",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "172268800",
@@ -58,14 +68,15 @@
     "subset": "mined",
     "start": 0,
     "end": 69,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "05cc9b670ad4",
     "produced_by": "claude-fable-5-1",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "175270265",
@@ -160,14 +171,28 @@
     "subset": "mined",
     "start": 5290,
     "end": 5520,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "05cc9b670ad4",
     "produced_by": "claude-fable-5-1",
-    "subject": "graphics",
+    "subject": "atmosphere",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": true
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "graphics",
+        "polarity": "praise"
+      },
+      {
+        "subject": "audio",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "199980050",

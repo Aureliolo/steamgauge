@@ -466,14 +466,15 @@
     "subset": "mined",
     "start": 0,
     "end": 102,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "05cc9b670ad4",
+    "produced_by": "claude-fable-5-1",
     "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "72321207",
@@ -500,14 +501,20 @@
     "subset": "mined",
     "start": 641,
     "end": 709,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "audio",
-    "polarity": "neutral",
+    "taxonomy": "05cc9b670ad4",
+    "produced_by": "claude-fable-5-1",
+    "subject": "controls",
+    "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "audio",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "72870215",
@@ -551,14 +558,15 @@
     "subset": "mined",
     "start": 1850,
     "end": 1904,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "05cc9b670ad4",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "74275293",
@@ -704,14 +712,20 @@
     "subset": "mined",
     "start": 75,
     "end": 389,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "05cc9b670ad4",
     "produced_by": "claude-fable-5-1",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "accessibility",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "92965665",
