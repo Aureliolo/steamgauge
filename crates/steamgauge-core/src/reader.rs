@@ -56,6 +56,79 @@ impl Polarity {
     }
 }
 
+/// Every subject a claim covers besides the one it is chiefly about, with the polarity it
+/// takes on each, by position in [`crate::taxonomy::SHEET`].
+///
+/// Kept as three masks so a reading stays a small copyable value: a subject is covered, and
+/// then praised, criticised or neither. The sheet has fewer rows than the masks have bits, which
+/// `the_masks_hold_every_row_of_the_sheet` checks.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Also {
+    covered: u64,
+    praised: u64,
+    criticised: u64,
+}
+
+impl Also {
+    pub fn insert(&mut self, subject: usize, polarity: Polarity) {
+        let bit = 1u64 << subject;
+        self.covered |= bit;
+        match polarity {
+            Polarity::Praise => self.praised |= bit,
+            Polarity::Complaint => self.criticised |= bit,
+            Polarity::Neutral => {}
+        }
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.covered == 0
+    }
+
+    /// Each subject covered, in sheet order, with what the claim does about it.
+    pub fn iter(&self) -> impl Iterator<Item = (usize, Polarity)> + '_ {
+        (0..64).filter(|at| self.covered >> at & 1 == 1).map(|at| {
+            let bit = 1u64 << at;
+            let polarity = if self.praised & bit != 0 {
+                Polarity::Praise
+            } else if self.criticised & bit != 0 {
+                Polarity::Complaint
+            } else {
+                Polarity::Neutral
+            };
+            (at, polarity)
+        })
+    }
+
+    /// As a stored reading writes it: "audio:praise,controls:complaint", or None for nothing.
+    #[must_use]
+    pub fn to_text(&self) -> Option<String> {
+        (!self.is_empty()).then(|| {
+            self.iter()
+                .filter_map(|(at, polarity)| {
+                    crate::taxonomy::SHEET
+                        .get(at)
+                        .map(|row| format!("{}:{}", row.id, polarity.as_str()))
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+    }
+
+    /// What [`Self::to_text`] wrote. A subject this build's sheet lacks is dropped rather than
+    /// guessed at, the way a stored primary subject the sheet lacks is.
+    #[must_use]
+    pub fn from_text(text: &str) -> Self {
+        let mut also = Self::default();
+        for (name, polarity) in text.split(',').filter_map(|pair| pair.split_once(':')) {
+            if let Some(at) = crate::taxonomy::SHEET.iter().position(|row| row.id == name) {
+                also.insert(at, Polarity::from_name(polarity));
+            }
+        }
+        also
+    }
+}
+
 /// What the model said about one claim.
 ///
 /// The default is "no subject, no confidence", which is what an unfilled slot honestly means
@@ -68,6 +141,9 @@ pub struct Reading {
     /// How sure the model was of its best guess, whether or not it cleared the threshold.
     pub confidence: f32,
     pub polarity: Polarity,
+    /// Every other subject the claim covers that cleared its own line, on a reader trained to
+    /// say so; empty on one that names a single subject per claim.
+    pub also: Also,
 }
 
 /// What was trained, recorded beside the graph so a reader cannot be used blind.
@@ -114,6 +190,12 @@ pub struct Provenance {
     /// reader exported before this existed, and then the subject lines govern alone.
     #[serde(default)]
     pub language_thresholds: Option<std::collections::HashMap<String, Option<f32>>>,
+    /// On a reader with an aspect head, how sure it must be that a claim covers each subject,
+    /// in `subjects` order, before it names that subject beside the one the claim is chiefly
+    /// about. `None` for a subject no line keeps the promise for, which is then never named
+    /// beside another. Absent on a reader that names one subject per claim.
+    #[serde(default)]
+    pub aspect_thresholds: Option<Vec<Option<f32>>>,
     pub max_tokens: usize,
     /// Whether the model was trained on the claim with its review around it. A model trained
     /// one way and read the other is answering a question in a form it has never seen, and
@@ -219,6 +301,22 @@ impl Provenance {
     #[must_use]
     pub fn bar(&self, class: usize, language: &str) -> f32 {
         self.line_for(class).max(self.line_for_language(language))
+    }
+
+    /// The bar the aspect head has to clear to name this subject beside another, in this
+    /// language: its own line and the language's, since a language the subject lines cannot
+    /// promise anything for is one the aspect lines cannot either. Infinity where either has
+    /// none, or where the reader has no aspect lines at all.
+    #[must_use]
+    pub fn aspect_bar(&self, class: usize, language: &str) -> f32 {
+        match self
+            .aspect_thresholds
+            .as_ref()
+            .and_then(|lines| lines.get(class))
+        {
+            Some(Some(line)) => line.max(self.line_for_language(language)),
+            _ => f32::INFINITY,
+        }
     }
 }
 
@@ -542,19 +640,51 @@ impl ClaimReader {
         let polarity = outputs["polarity_logits"]
             .try_extract_array::<f32>()?
             .into_dimensionality::<ndarray::Ix2>()?;
+        // Subjects by answers, where answer 0 is absent and 1 + i is polarity i, as the trainer
+        // writes it. Only on a graph with the head.
+        let aspects = match outputs.get("aspect_logits") {
+            Some(found) => Some(
+                found
+                    .try_extract_array::<f32>()?
+                    .into_dimensionality::<ndarray::Ix3>()?,
+            ),
+            None => None,
+        };
 
         Ok((0..rows)
             .map(|row| {
+                let language = languages.get(row).map_or("", String::as_str);
                 let (best, confidence) = softmax_best(subject.row(row).as_slice().unwrap_or(&[]));
                 let (polar, _) = softmax_best(polarity.row(row).as_slice().unwrap_or(&[]));
+                let mut also = Also::default();
+                if let Some(aspects) = &aspects {
+                    for (class, answers) in aspects
+                        .index_axis(ndarray::Axis(0), row)
+                        .outer_iter()
+                        .enumerate()
+                    {
+                        if class == best {
+                            continue;
+                        }
+                        let answers: Vec<f32> = answers.to_vec();
+                        // Covered is every answer but absent, which is the line's measure; the
+                        // polarity is the likeliest of the three, however absent compares.
+                        let covered = 1.0 - softmax_at(&answers, 0);
+                        if covered >= self.provenance.aspect_bar(class, language) {
+                            let (said, _) = softmax_best(answers.get(1..).unwrap_or(&[]));
+                            also.insert(
+                                self.order.get(class).copied().unwrap_or(class),
+                                Polarity::from_index(said),
+                            );
+                        }
+                    }
+                }
                 Reading {
-                    subject: (confidence
-                        >= self
-                            .provenance
-                            .bar(best, languages.get(row).map_or("", String::as_str)))
-                    .then(|| self.order.get(best).copied().unwrap_or(best)),
+                    subject: (confidence >= self.provenance.bar(best, language))
+                        .then(|| self.order.get(best).copied().unwrap_or(best)),
                     confidence,
                     polarity: Polarity::from_index(polar),
+                    also,
                 }
             })
             .collect())
@@ -770,6 +900,15 @@ pub struct Asked<'a> {
     /// The game is played only in a headset, as the store says. Read only by a reader trained
     /// to be told it.
     pub headset_only: bool,
+}
+
+/// One class's probability, from logits, stable the way [`softmax_best`] is.
+fn softmax_at(logits: &[f32], class: usize) -> f32 {
+    let highest = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let total: f32 = logits.iter().map(|value| (value - highest).exp()).sum();
+    logits
+        .get(class)
+        .map_or(0.0, |value| (value - highest).exp() / total)
 }
 
 /// The best class and its probability, from logits.
@@ -1019,6 +1158,69 @@ mod tests {
         let (best, confidence) = softmax_best(&[90.0, 10.0]);
         assert_eq!(best, 0);
         assert!(confidence.is_finite() && confidence > 0.99);
+        assert!((softmax_at(&[90.0, 10.0], 1)).is_finite());
+    }
+
+    #[test]
+    fn the_masks_hold_every_row_of_the_sheet() {
+        assert!(crate::taxonomy::SHEET.len() <= 64);
+        let mut also = Also::default();
+        let last = crate::taxonomy::SHEET.len() - 1;
+        also.insert(last, Polarity::Complaint);
+        assert_eq!(
+            also.iter().collect::<Vec<_>>(),
+            vec![(last, Polarity::Complaint)]
+        );
+    }
+
+    #[test]
+    fn every_other_subject_is_stored_and_read_back_with_its_polarity() {
+        let at = |id: &str| {
+            crate::taxonomy::SHEET
+                .iter()
+                .position(|row| row.id == id)
+                .unwrap()
+        };
+        let mut also = Also::default();
+        also.insert(at("controls"), Polarity::Complaint);
+        also.insert(at("audio"), Polarity::Praise);
+        also.insert(at("story"), Polarity::Neutral);
+        let text = also.to_text().unwrap();
+        assert!(text.contains("controls:complaint") && text.contains("audio:praise"));
+        assert_eq!(Also::from_text(&text), also);
+        assert_eq!(
+            Also::default().to_text(),
+            None,
+            "nothing else is stored as nothing"
+        );
+        assert!(
+            Also::from_text("no-such-row:praise").is_empty(),
+            "a row this build lacks is dropped, not guessed at"
+        );
+    }
+
+    #[test]
+    fn a_subject_is_named_beside_another_only_above_its_own_line() {
+        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": ["audio", "controls"],
+            "threshold": 0.5,
+            "aspect_thresholds": [0.7, null],
+            "max_tokens": 64,
+        }))
+        .unwrap();
+        assert!((provenance.aspect_bar(0, "english") - 0.7).abs() < 1e-6);
+        assert!(
+            provenance.aspect_bar(1, "english").is_infinite(),
+            "a subject with no line is never named beside another"
+        );
+        let older: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": ["audio"], "threshold": 0.5, "max_tokens": 64,
+        }))
+        .unwrap();
+        assert!(
+            older.aspect_bar(0, "english").is_infinite(),
+            "a reader without the head names one subject per claim"
+        );
     }
 
     #[test]
