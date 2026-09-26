@@ -126,9 +126,19 @@ def wilson(hits: int, total: int, z: float = 1.96):
     return ((middle - spread) / divisor, (middle + spread) / divisor)
 
 
-def score(answers: Path, key: Path, subjects: set[str] | None = None):
+def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[str] | None = None):
+    """The answers against the key, over every claim in it or only the ones in `over`.
+
+    `over` is how a reader is scored on the claims it can be handed: a key drawn before the
+    splitter last changed names spans this build no longer cuts, and counting those against a
+    reader that was never asked them would charge it for the splitter.
+    """
     given = {row["id"]: row for row in json.loads(answers.read_text(encoding="utf-8"))}
-    wanted = json.loads(key.read_text(encoding="utf-8"))
+    wanted = [
+        row
+        for row in json.loads(key.read_text(encoding="utf-8"))
+        if over is None or row["id"] in over
+    ]
 
     answered = subject_right = polarity_right = 0
     missing = 0
@@ -190,9 +200,15 @@ def score_reader(model_dir: Path, key: Path, data: str):
 
     provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
     subjects = provenance["subjects"]
-    wanted = json.loads(key.read_text(encoding="utf-8"))
-
     held = {(c.app_id, c.review_id, c.claim_index): c for c in claimdata.load(data)}
+    # A key row the export no longer holds is a span this build cuts no claim at, 29 of the
+    # 487 when it was last counted. It cannot be handed to the reader, so it is left out and
+    # counted, as DECISIONS scores the key: over the claims that survive, saying how many.
+    wanted = [
+        row
+        for row in json.loads(key.read_text(encoding="utf-8"))
+        if (row["app_id"], row["review_id"], row["claim_index"]) in held
+    ]
     claims = [held[(row["app_id"], row["review_id"], row["claim_index"])] for row in wanted]
 
     tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
@@ -343,7 +359,14 @@ def main():
         said = score_reader(model_dir, key, args.data)
         written = Path(args.answers) if args.answers else key.parent / "reader-answers.json"
         written.write_text(json.dumps(said, indent=2), encoding="utf-8")
-        found = score(written, key, {row["subject"] for row in json.loads(key.read_text("utf-8"))})
+        keyed = json.loads(key.read_text("utf-8"))
+        found = score(
+            written,
+            key,
+            {row["subject"] for row in keyed},
+            over={row["id"] for row in said},
+        )
+        found["unreadable"] = len(keyed) - len(said)
         # What model, not where it sat on one machine. A path names a directory on the laptop
         # that ran this, which means nothing to anyone reading the published figure and puts a
         # home directory in a file that ships.
