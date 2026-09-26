@@ -491,6 +491,13 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
 /// And narrowed by game, where it names any. A rule about a headset's controllers is a
 /// question about headset games; asked everywhere, "controller" finds every gamepad claim in
 /// the reference set, none of which the rule moved.
+///
+/// Some rules are about the shape of a claim rather than what it says, and have no words: which
+/// of several points a claim takes its one subject from. The labeller said which claims those
+/// are, through `split_wrong` and `ambiguous`, so a question can ask by those flags instead.
+/// There are thousands of them, so it can also keep one claim in `one_in`, chosen by a hash of
+/// the claim rather than by chance so that the same draw is drawn again: a rule is measured on
+/// the sample before it is paid for across the rest.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Question {
     #[serde(default)]
@@ -499,15 +506,45 @@ pub struct Question {
     pub subjects: Vec<String>,
     #[serde(default)]
     pub apps: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split_wrong: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ambiguous: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub one_in: Option<u32>,
 }
 
 impl Question {
-    fn asks(&self, app_id: u32, subject: &str, text: &str) -> bool {
+    fn names_claims(&self) -> bool {
+        !self.words.is_empty()
+            || !self.subjects.is_empty()
+            || self.split_wrong.is_some()
+            || self.ambiguous.is_some()
+    }
+
+    fn asks(&self, app_id: u32, label: &ClaimLabel, text: &str) -> bool {
         if !self.apps.is_empty() && !self.apps.contains(&app_id) {
             return false;
         }
-        if !self.subjects.is_empty() && !self.subjects.iter().any(|named| named == subject) {
+        if !self.subjects.is_empty() && !self.subjects.contains(&label.subject) {
             return false;
+        }
+        if self
+            .split_wrong
+            .is_some_and(|wanted| wanted != label.split_wrong)
+            || self
+                .ambiguous
+                .is_some_and(|wanted| wanted != label.ambiguous)
+        {
+            return false;
+        }
+        if let Some(one_in) = self.one_in.filter(|&n| n > 1) {
+            use sha2::Digest as _;
+            let digest = sha2::Sha256::digest(format!("{}/{}", label.review_id, label.index));
+            let drawn = u32::from_le_bytes([digest[0], digest[1], digest[2], digest[3]]);
+            if drawn % one_in != 0 {
+                return false;
+            }
         }
         // The page's term cut drops filler words and never forms a phrase of three, so "if you
         // like" can never be one of its terms; a word or phrase is also looked for as written.
@@ -545,14 +582,9 @@ pub fn draw_revisit(dir: &Path, questions: &[Question]) -> Result<Vec<DrawnRevie
                 path: dir.join("labels.json"),
             }
         })?)?;
-    let filed: std::collections::HashMap<(&str, u16), &str> = labels
+    let filed: std::collections::HashMap<(&str, u16), &ClaimLabel> = labels
         .iter()
-        .map(|label| {
-            (
-                (label.review_id.as_str(), label.index),
-                label.subject.as_str(),
-            )
-        })
+        .map(|label| ((label.review_id.as_str(), label.index), label))
         .collect();
 
     Ok(drawn
@@ -568,10 +600,10 @@ pub fn draw_revisit(dir: &Path, questions: &[Question]) -> Result<Vec<DrawnRevie
                 .filter(|claim| {
                     filed
                         .get(&(review.id.as_str(), claim.index))
-                        .is_some_and(|subject| {
+                        .is_some_and(|label| {
                             questions
                                 .iter()
-                                .any(|question| question.asks(review.app_id, subject, &claim.text))
+                                .any(|question| question.asks(review.app_id, label, &claim.text))
                         })
                 })
                 .map(|claim| claim.index)
@@ -640,21 +672,17 @@ pub struct RevisitDraw {
 ///
 /// # Errors
 ///
-/// Refuses a question with neither words nor subjects, which asks the whole reference set again
+/// Refuses a question with no words, subjects or flags, which asks the whole reference set again
 /// and is never what a revision needs. Fails if a set cannot be read or its handout written.
 pub fn draw_revisits(
     reference: &Path,
     questions: &[Question],
     reviews_per_batch: usize,
 ) -> Result<RevisitDraw> {
-    if questions.is_empty()
-        || questions
-            .iter()
-            .any(|question| question.words.is_empty() && question.subjects.is_empty())
-    {
+    if questions.is_empty() || !questions.iter().all(Question::names_claims) {
         return Err(crate::Error::Refused(
-            "every question needs words, subjects or both: one with neither asks the whole \
-             reference set again"
+            "every question needs words, subjects or a flag: one with none of them asks the \
+             whole reference set again"
                 .to_owned(),
         ));
     }
@@ -1932,6 +1960,66 @@ mod tests {
     }
 
     #[test]
+    fn a_revisit_asked_by_the_labellers_flags_draws_those_claims_and_the_same_share_every_time() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-flags-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let texts: Vec<String> = (0..400).map(|n| format!("Point {n}.")).collect();
+        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+        std::fs::write(
+            dir.join("sample.json"),
+            serde_json::to_vec(&[review("r1", &texts)]).unwrap(),
+        )
+        .unwrap();
+        let labels: Vec<ClaimLabel> = (0..400)
+            .map(|index| ClaimLabel {
+                split_wrong: index % 2 == 0,
+                ambiguous: index % 4 == 0,
+                ..a_label(1, "r1", index, "random", "verdict")
+            })
+            .collect();
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+
+        let flagged = Question {
+            split_wrong: Some(true),
+            ambiguous: Some(true),
+            ..Question::default()
+        };
+        let asked = |question: &Question| {
+            draw_revisit(&dir, std::slice::from_ref(question)).unwrap()[0]
+                .asked
+                .clone()
+                .unwrap()
+        };
+        let every = asked(&flagged);
+        assert_eq!(every.len(), 100);
+        assert!(every.iter().all(|index| index % 4 == 0));
+
+        let sampled = Question {
+            one_in: Some(5),
+            ..flagged
+        };
+        let share = asked(&sampled);
+        assert!(share.iter().all(|index| every.contains(index)));
+        assert!(
+            (10..=30).contains(&share.len()),
+            "about one in five of 100, drew {}",
+            share.len()
+        );
+        assert_eq!(
+            asked(&sampled),
+            share,
+            "the same claims every time it is drawn"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn a_revisit_reaches_games_labelled_only_to_teach_and_clears_what_it_replaced() {
         let root = std::env::temp_dir().join(format!("steamgauge-revisits-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -1961,7 +2049,7 @@ mod tests {
         let remap = Question {
             words: vec!["remap".to_owned()],
             subjects: vec!["controls".to_owned()],
-            apps: Vec::new(),
+            ..Question::default()
         };
         let drawn = draw_revisits(&root, std::slice::from_ref(&remap), 40).unwrap();
         let drew: Vec<(u32, &str)> = drawn

@@ -150,10 +150,11 @@ pub const SHEET: &[Category] = &[
                       or loses save files, and is full of glitches that block progress.",
         boundary: Some(
             "Something that worked and now does not belongs here, a headset included, and so \
-             does an option that is there and does nothing. Being unable to log in is \
-             here when the login itself is broken and policy when needing an account at all \
-             is the complaint. A game that never starts, with no reason given, is \
-             compatibility.",
+             does an option that is there and does nothing. A sign-in that fails is here \
+             whatever it signs you in to, a launcher or a platform's account included; being \
+             made to have the account or the launcher at all is policy. A game that never \
+             starts, with no reason given or a reason in the player's own setup, a locale or a \
+             driver, is compatibility.",
         ),
         alone: false,
     },
@@ -171,7 +172,10 @@ pub const SHEET: &[Category] = &[
              claim is only a judgement with the genre attached, which is verdict. Whether \
              options are balanced against each other belongs to difficulty, and so does how \
              hard an enemy is to beat; how that enemy behaves and what it does is a mechanic \
-             and belongs here. How much game there is belongs to content, and anything \
+             and belongs here. The same holds for any computer player: judged by how much \
+             challenge it gives it is difficulty, one that visibly fails at its job, a helper \
+             stuck on a wall, is bugs, and how it decides what to do, described without \
+             either, is here. How much game there is belongs to content, and anything \
              user-made belongs to mods. A system the game never explains belongs to tutorial, \
              however good the system itself is.",
         ),
@@ -200,7 +204,10 @@ pub const SHEET: &[Category] = &[
              Darkest Dungeon\", \"a deckbuilder with no deck\", \"not really a soulslike at \
              all\", \"I normally hate management sims\". That holds for any comparison and not \
              only with this game's own predecessor: better or worse is a verdict, how it \
-             differs is genre. A recommendation is a verdict whether or not it names a \
+             differs is genre. A yearly release set against last year's is that comparison \
+             whatever the words, so \"the same game as last year\", \"a copy-paste\" and \"a \
+             reskin\" say how little it differs and are genre, and so is a remaster or remake \
+             set against the original, \"faithful to the originals\" included. A recommendation is a verdict whether or not it names a \
              condition or another game: \"if you like horror and survival this is perfect for \
              you\", \"for fans of MetroidVanias this might be worth trying\" and \"if you \
              liked Slay the Spire you will like this\" all say who should buy it, which is a \
@@ -253,11 +260,12 @@ pub const SHEET: &[Category] = &[
         description: "The review is not about the game. A joke, a meme, a copypasta, a story \
                       about the reviewer's day, an argument with another reviewer, a \
                       complaint about Steam or the shop page, or a protest about something \
-                      the publisher did elsewhere.",
+                      that has nothing to do with this game or the people who make it.",
         boundary: Some(
             "A joke that still makes a point about the game belongs to whatever it is joking \
              about, most often gameplay or difficulty, and a protest about anything this \
-             game's publisher or platform did belongs to policy. This is only for reviews from \
+             game's makers or platform did, in this game or anywhere else, belongs to policy. \
+             This is only for reviews from \
              which a reader would learn nothing at all, and that includes a review with \
              nothing in it: a full stop, a row of emoji, a keyboard mash. A single word that \
              does pass judgement, good or terrible or 10/10, is a verdict, and so is one that \
@@ -311,7 +319,10 @@ pub const SHEET: &[Category] = &[
              belongs to what creates it: a frightening creature design is graphics, a \
              soundtrack that unsettles is audio, a mechanic that keeps you on edge is \
              gameplay, faithfulness to the film or book it adapts is licensing, and so is \
-             feeling as if you are inside that film, and immersion broken by a crash is bugs.",
+             feeling as if you are inside that film, and immersion broken by a crash is bugs. \
+             A feeling credited to several things at once, \"the environments, the soundtrack \
+             and the threats make it so immersive\", stays here: the feeling is the point, and \
+             no one of them is.",
         ),
         alone: false,
     },
@@ -337,7 +348,10 @@ pub const SHEET: &[Category] = &[
         label: "Audio and music",
         description: "How the game sounds. The soundtrack, the music, the sound effects, the \
                       voice acting and the audio mixing.",
-        boundary: None,
+        boundary: Some(
+            "How the voices are performed belongs here. Which languages they speak, a \
+             commentator or a dub in a given language, belongs to language.",
+        ),
         alone: false,
     },
     Category {
@@ -387,7 +401,12 @@ pub const SHEET: &[Category] = &[
              patch changed is about the change and belongs here where the change was to \
              balance, with updates for the patching itself. Being lost because nothing was \
              explained belongs to tutorial. What a purchase gives you is monetisation, and \
-             how it plays once you have it is here.",
+             how it plays once you have it is here. What an opponent is allowed to do, a \
+             combo you watch for ten minutes, going first wins, is here when the complaint is \
+             who wins, and multiplayer when it is what playing against people is like. Luck \
+             deciding who wins is here, and so is a match called rigged or scripted, the game \
+             deciding the result: that is a complaint about fairness, never a bug. How a \
+             random system works, described without either, is gameplay.",
         ),
         alone: false,
     },
@@ -396,11 +415,16 @@ pub const SHEET: &[Category] = &[
         label: "Amount of content",
         description: "How much game there is. Length, how many hours it lasts, replay value, \
                       whether runs differ from one another, whether it gets repetitive, and \
-                      whether it feels finished or thin and runs out of things to do.",
+                      whether it is whole or thin and runs out of things to do.",
         boundary: Some(
             "Replayability and repetitiveness are two ends of one axis and both belong here, \
              never to gameplay. What the players made rather than the developers belongs to \
-             mods, however much of the game it accounts for.",
+             mods, however much of the game it accounts for. Whether it is a whole game or a \
+             showcase, \"an actual game, not a tech demo\", is here. A game called unfinished \
+             or not ready goes three ways: with a missing thing named it is here; addressed to \
+             the developers or waiting on their work, \"wait until they fix it\", it is \
+             updates; and the state it was released in with nothing named, \"alpha state\", \
+             \"should never have left early access\", is a verdict.",
         ),
         alone: false,
     },
@@ -487,13 +511,21 @@ pub const SHEET: &[Category] = &[
                       whether the game is abandoned.",
         boundary: Some(
             "What the developers do to the game belongs here, and so does praise or blame \
-             aimed at the studio itself, including thanking them and telling them to fix \
-             things. A demand to fix one thing it names belongs to that thing, as a complaint \
-             about it would: \"fix the accessibility\" is accessibility and \"fix the servers\" \
-             multiplayer. \
+             aimed at the people who make it, developer or publisher, including thanking them, \
+             insulting them and telling them to fix things, where neither the claim nor the \
+             review around it names a decision of theirs: \"greed machine\" and \"shame on \
+             you\" alone are here, and the same words in a review about an account requirement \
+             protest it and are policy. A demand to fix one thing it names belongs to that \
+             thing, as a complaint about it would: \"fix the accessibility\" is accessibility \
+             and \"fix the servers\" multiplayer; a list of demands, \"fix the lobbies, get \
+             cross play working, add missions\", is here, because no one of them is the point. \
              A complaint about what a patch changed is about the change: balance to \
-             difficulty, a mechanic to gameplay, content removed to content. This is for the \
-             patching itself, its pace, and whether they listen. A judgement about how the game \
+             difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. \
+             Something altered or cut for what it showed or said, censored, an outfit, a \
+             voice, a scene, is policy, a change to what people had bought, and never the \
+             row of the thing taken out: the complaint is the removal, not how it looked or \
+             sounded. This is for the patching itself, its pace, and whether they listen. A \
+             judgement about how the game \
              has changed since it came out is here even when no patch and no studio is named, \
              so \"it is getting better\", \"release was bad but it is fine now\" and \"one of \
              the worst launches in years\" are updates, where the same judgement with no before \
@@ -513,18 +545,29 @@ pub const SHEET: &[Category] = &[
         description: "Decisions taken by the publisher or the platform rather than by the \
                       game. Needing a second account to play, region locks and delistings, \
                       DRM and kernel-level anti-cheat, launcher requirements, price rises, \
-                      and terms that changed after people had bought it.",
+                      which platform gets which version, and what was changed or cut from the \
+                      game after people had bought it.",
         boundary: Some(
             "Anything the publisher or the platform decided belongs here, including a protest \
-             that is angry and brief and names no particular term, and including celebrating \
-             one that was reversed: \"we won\" about a withdrawn account requirement is this, \
-             and it is praise. What a decision is belongs here; what it does while playing \
-             belongs where it happens, so a launcher that will not sign you in is here and an \
-             anti-cheat that keeps you out of a match is multiplayer. How the game enforces its \
-             rules on its players belongs here too: bans, reports, an anti-cheat verdict and \
-             its appeal, and the moderators who apply them, including one who abuses the role. \
-             What the players do to one another belongs to community. Only a protest about \
-             something with no connection to this game at all belongs to offtopic.",
+             that is angry and brief and names no particular term where the claim or the \
+             review around it shows which decision it protests, and including celebrating one \
+             that was reversed: \"we won\" about a withdrawn account requirement is this, and \
+             it is praise. Blame or praise for the makers with no decision named anywhere in \
+             the review belongs to updates. What a decision is belongs here; what it does \
+             while playing belongs where it happens, so needing a launcher is here, a sign-in \
+             that fails is bugs, and an anti-cheat that keeps you out of a match is \
+             multiplayer. Which platform gets which version, \"PC only gets the last-gen \
+             version\", is a decision and here; how that version runs on this machine is \
+             compatibility. How the game enforces its rules on its players belongs here too: \
+             bans, reports, an anti-cheat verdict and its appeal, and the moderators who \
+             apply them, including one who abuses the role. A ban here is an action against a \
+             player: a card game's ban list is balance and difficulty, and players barring \
+             things in their own lobbies is community. What an anti-cheat is and what it does \
+             to an innocent player is here; how many cheaters get past it is multiplayer. \
+             What the players do to one another belongs to community. A protest about \
+             something the makers did outside this game, another game, a show, a statement, \
+             is still here; only one about something with no connection to this game or the \
+             people who make it belongs to offtopic.",
         ),
         alone: false,
     },
@@ -536,7 +579,8 @@ pub const SHEET: &[Category] = &[
                       hardware, and asking for it on a console or handheld.",
         boundary: Some(
             "Asking for a port to another platform belongs here, and so does a game that \
-             will not start at all when no reason is given. A game that starts and then \
+             will not start at all when no reason is given or the reason is in the player's \
+             own setup, a locale or a driver. A game that starts and then \
              crashes is bugs. Asking for a sequel belongs to verdict, and anything about \
              playing it in a headset belongs to VR. This row is about the machine: a \
              requirement the publisher chose, a second account, a launcher, a permanent \
@@ -588,7 +632,9 @@ pub const SHEET: &[Category] = &[
                       update, subtitles only in some languages, playing anyway with a \
                       dictionary.",
         boundary: Some(
-            "Whether a language exists and how well it reads belongs here. Subtitles as an \
+            "Whether a language exists and how well it reads belongs here, and so does whether \
+             it is spoken: a commentator, a dub or characters in a given language, \"no Turkish \
+             commentary\". How well the voices are performed is audio. Subtitles as an \
              accommodation, in a language that is already supported, belong to accessibility.",
         ),
         alone: false,
@@ -655,7 +701,12 @@ pub const SHEET: &[Category] = &[
              or out of one: immersion with nothing named behind it is atmosphere, and \
              immersion a review explains belongs to what it names, so it is this only when \
              the headset itself is the reason, as in leaning over the table to look. How the \
-             game looks on a monitor belongs to graphics.",
+             game looks on a monitor belongs to graphics. How you move in a headset, teleport, \
+             smooth or arm-swing locomotion, and the comfort options that go with it, snap \
+             turning and a vignette, are here, not gameplay or accessibility; the same \
+             movement on a screen is gameplay. How the game runs over the headset's own link, \
+             wireless streaming or the choice of runtime, is here; frame rate with nothing \
+             about the headset's path to it is performance.",
         ),
         alone: false,
     },
@@ -840,7 +891,14 @@ Every claim label is six fields.
 
 subject
   The one category this claim is about. Exactly one, always. Most claims name no aspect at
-  all: those are `verdict` if they judge the game and `offtopic` if they do not.
+  all: those are `verdict` if they judge the game and `offtopic` if they do not. A claim that
+  makes several points still takes one, and two labellers must take the same one: where one
+  point is what the rest lead to, it takes that one, so \"great graphics, but it crashes every
+  hour\" is bugs, the part after the \"but\"; where the points stand side by side as equals,
+  \"trash servers, bugs, toxic players\", it takes the first. A row whose rule names such a
+  list keeps it: a list of demands to the developers is updates, and a feeling credited to
+  several things is atmosphere. `polarity` is then the polarity of the point it took, and
+  `split_wrong` says the rest was lost.
 
 polarity
   What the claim does about its subject, in one of these words: {polarity}. Praise and

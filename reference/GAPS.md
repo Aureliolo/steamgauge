@@ -150,7 +150,8 @@ reach:
   headset, and nothing owns the nausea itself. All three filed `graphics`, low, flagged, which
   is a consistent guess and not a rule. The same holds for flashing that triggers epilepsy.
 - **VR comfort options** (teleport, snap turning) are claimed by `vr` ("comfort options") and
-  by the test (an option so somebody can play). Filed `vr`.
+  by the test (an option so somebody can play). Filed `vr`. **Written into the sheet
+  2026-09-26**, on `vr`, with locomotion: both are `vr`, not `gameplay` or `accessibility`.
 - **A difficulty or assist mode with no motive stated.** The test needs the option to be
   there so somebody can play who otherwise could not, and "a ton of difficulty levels" does not
   say. Filed `difficulty` unless the claim names who it is for.
@@ -218,6 +219,10 @@ another studio's game between `genre` and `verdict` and flagged it. The rule sho
 "another game" rather than "its predecessor": the difference named is `genre`, better or worse
 alone is `verdict`.
 
+**Written into the sheet 2026-09-26**, the last two: a yearly release set against last year's
+is the comparison whatever the words, "a copy-paste" and "a reskin" included, and so is a
+remaster set against the original; which platform gets which version is `policy`.
+
 ### Praise or blame for the studio that is not about patches: five reports
 
 "Applaud the devs for taking a risk", "hope Bandai sells the IP", "director replacement is
@@ -235,6 +240,10 @@ that a protest that is angry, brief and names no term is `policy`, and a bare in
 publisher is both. The two labellers split, one to each row, and each flagged it. Whichever
 row keeps it, the other's sentence has to say it does not.
 
+**Written into the sheet 2026-09-26**, on both rows: the decision decides. Blame or praise for
+the makers with no decision of theirs named in the claim or the review around it is `updates`;
+the same words in a review about a decision protest it and are `policy`.
+
 ### A patch that removed content: one report, and it was most of that game
 
 Skullgirls' 2023 censorship patch (245170) is the bulk of its set: "not what I paid for",
@@ -250,11 +259,19 @@ labeller filed it under the thing removed, `graphics` or `audio`, and generic re
 or sound itself, so a named removal is `updates` or `policy` by the same test and never the
 row of the thing that was taken out.
 
+**Written into the sheet 2026-09-26**, where `updates` had said "content removed to content"
+and `policy` owned terms changed after purchase: modes, maps and levels taken out are
+`content`, and something altered or cut for what it showed or said is `policy`, never the row
+of the thing removed.
+
 ### Cannot log in: one report
 
 "Can't log in", "needs a phone number to play", on 2357570. `bugs` when the login is broken,
 `policy` when the requirement is the complaint, and the labeller could not always tell which
 the reviewer meant. Related to the "will not start" gap below and settled by the same rule.
+`policy` then said a launcher that will not sign you in was policy, the opposite answer for a
+broken PSN sign-in (2215430). **Written into the sheet 2026-09-26**: a sign-in that fails is
+`bugs` whatever it signs you in to; being made to have the account or launcher is `policy`.
 
 ### Unfinished, not ready, should not have been released: two reports
 
@@ -265,7 +282,8 @@ by whether the sentence addressed the developers (`updates`) or described the ga
 (`verdict`); the other by whether it was about work still owed (`updates`) or about how thin
 the game is (`content`). The rule that settles it: the state of the game as released, with no
 missing thing named, is `verdict`; a named missing thing is `content`; anything addressed to
-the developers or waiting on their work is `updates`.
+the developers or waiting on their work is `updates`. **Written into the sheet 2026-09-26**, on
+`content`.
 
 ### A premise list: one report
 
@@ -283,7 +301,8 @@ that path-find badly or get stuck on 1248130. `difficulty` ("how hard it is to b
 labellers filed by effect: too easy or too hard is `difficulty`, a stuck helper is `bugs`. That
 is the right cut and the sheet should say it: AI judged by how much challenge it gives is
 `difficulty`, AI that visibly fails at what it is meant to do is `bugs`, and how it decides
-what to do, described without either, is `gameplay`.
+what to do, described without either, is `gameplay`. **Written into the sheet 2026-09-26**, on
+`gameplay`.
 
 ### A publisher's decision reversed, celebrated in memes: one report, a tenth of that game
 
@@ -308,7 +327,8 @@ it plays once you have it is whatever it is about.
 The same game's aimed draw brought "matches are scripted" back to a second labeller, who could
 not see the first, and who split it between `difficulty` and `gameplay` rather than `bugs`.
 Three rows for one accusation. The sheet never names a rigged outcome; `difficulty`'s fairness
-clause is the nearest, and saying so settles it.
+clause is the nearest, and saying so settles it. **Written into the sheet 2026-09-26**: a match
+called rigged or scripted is `difficulty`'s fairness, never a bug.
 
 ### A balance change blamed on a patch: one report, and it dominated that game
 
@@ -388,6 +408,10 @@ and `gameplay`, and neither RULE settles which owns a hand interaction. The line
 anything that exists only because the player's body is tracked is `vr`; the same complaint
 about a gamepad or a mouse is `controls`.
 
+**Written into the sheet 2026-09-26**, the performance half: how the game runs over the
+headset's own link, wireless streaming or the choice of runtime, is `vr`; frame rate with
+nothing about the headset's path to it is `performance`.
+
 ### A claim that carries two subjects because it was cut wrong
 
 Not a taxonomy gap but a splitter one, reported by the frontier reader as the largest single
@@ -396,6 +420,12 @@ source of its own low-confidence answers: checkbox-template rows, pros-and-cons 
 except where a "but" clause carried the conclusion. The `split_wrong` flag exists for exactly
 this and is set on a sixth of the set; what is missing is a rule saying which half to label
 when it happens, so that two labellers make the same choice.
+
+**Written into the sheet 2026-09-26**, under `subject`: the point the rest lead to, which in
+"great X, but Y" is the part after the "but"; among equals, the first. A list of demands to the
+developers is `updates` and a feeling credited to several things `atmosphere`, where the list
+is the point. Polarity follows the point taken. Measured on one in thirteen of the 2,657 labels
+flagged both `split_wrong` and `ambiguous` before the rest are asked again.
 
 ### Cutscenes that cannot be skipped: one report
 
@@ -411,6 +441,7 @@ The sheet has since settled the no-reason case (`compatibility`), and 1592190 fo
 beside it: a game that will not launch on a Turkish-locale Windows. A reason is given, and it
 is the machine's setup, which reads as `compatibility`; the labeller filed all three `bugs`,
 flagged. "No reason given" should become "no reason, or a reason in the player's own setup".
+**Written into the sheet 2026-09-26**, on `bugs` and `compatibility`.
 
 ### A voice in a given language: two reports, on the first aimed draw
 
@@ -420,6 +451,8 @@ owns the voice acting and `language` owns whether a language exists, and a voice
 language is both. The first labeller flagged every one; the second, with no row that fit,
 filed them under `story` as a writing choice. A RULE on `language`: whether a language is
 spoken, in commentary or dubbing, is `language`; how well the voice is performed is `audio`.
+**Written into the sheet 2026-09-26**, on `language`, and `audio` has its first rule, saying
+the same from its side.
 
 ### Bans and moderation: four reports, from every community draw but one
 
@@ -442,7 +475,9 @@ through is `multiplayer`. **"Ban" that is not discipline**: a card game's ban li
 a balance change, and lobbies whose players ban certain cars (228380) are players, not the
 publisher. The rule should say it means an action against a player. **An anti-cheat that stops
 the game launching** (1361210, 553850) went to `policy` by the launcher rule, flagged, which
-that rule already settles.
+that rule already settles. **Both edges written into the sheet 2026-09-26**: a ban is an action
+against a player, so a ban list is balance and players barring things in their lobbies are
+`community`; how many cheaters get past an anti-cheat is `multiplayer`.
 
 ### A headset game called immersive, with nothing named: three reports, a dozen claims in one set
 
@@ -460,7 +495,8 @@ Its edge, reported by two revisit labellers: **immersion with more than one thin
 the soundtrack and the threats together (548430, 916440, 68267013, 163864741). `atmosphere`
 sends immersion to what creates it, and when several things are named no single one is left
 to take it. The same shape as the comma list: the claim carries several subjects, and one is
-picked. And **"an immersive dive into the wizarding world"** (990080, four claims) sits between
+picked. **Written into the sheet 2026-09-26**, on `atmosphere`: a feeling credited to several
+things at once stays `atmosphere`, because the feeling is the point and no one of them is. And **"an immersive dive into the wizarding world"** (990080, four claims) sits between
 this rule and `licensing`'s "feeling as if you are inside the film, show or book the game
 adapts"; the labeller took `licensing`, which the licensing rule settles.
 
@@ -642,6 +678,9 @@ to skill) and `gameplay` (the mechanic that produces it). The balance rule alrea
 "unfair" to `difficulty`; it should say in as many words that a complaint that luck decides
 who wins is `difficulty`, and a description of how the random system works is `gameplay`.
 
+**Both written into the sheet 2026-09-26**, on `difficulty`, as proposed: what an opponent is
+allowed to do by who wins or what the match is like, and luck by who wins or how it works.
+
 ### Addictive, could not stop playing: one report, a dozen claims
 
 Filed under `atmosphere` by its "pulls you in, lose whole evenings" example, but it reads as a
@@ -710,13 +749,14 @@ Smaller, from the same round: settings advice for one headset ("if you have a Qu
 streamlined mode") between `controls` and `vr`; "fix this" where "this" points back into the
 review, labelled by what it points at; several fixes demanded in one claim ("fix the lobbies,
 get cross play working, add missions"); a binding feature missing and supplied by mods;
-importing a layout from the last game.
+importing a layout from the last game. The list of fixes is **written into the sheet
+2026-09-26**, on `updates`: a list of demands is `updates`, since no one of them is the point.
 
 ### "An actual game, not a tech demo": one report, four claims
 
 On 1012790 (104282741, 127689974, 173865089, 161828427). Whether a headset title is a real game
 or a showcase is an axis `content`'s "finished or thin" comes close to and `verdict` does not
-name. Filed `content`.
+name. Filed `content`. **Written into the sheet 2026-09-26**, on `content`, as filed.
 
 ## Smaller, one report each
 
@@ -758,7 +798,8 @@ name. Filed `content`.
   guidance; the labeller used `neutral` throughout.
 - A studio's television show that streamers rejected (2399830): `offtopic` owns a protest
   about something the publisher did elsewhere, `policy` keeps everything but no connection at
-  all.
+  all. **Written into the sheet 2026-09-26**: `policy`, as anything the makers did outside the
+  game; `offtopic` no longer claims it.
 - Other games' maps playable in this one ("MW2 maps in VR", five claims on 555160): `genre`'s
   bare list or `mods`' "anything made by players", and the review never says who made them.
 - One game mode praised ("TTT in VR is amazing", 555160): `verdict` sends a named thing to that
@@ -776,8 +817,9 @@ name. Filed `content`.
   otherwise could not; filed `vr`.
 - Launching through the Oculus runtime rather than SteamVR for smoothness (1012790, five
   claims): `performance` or `vr` for a choice of runtime; split by what the sentence leads with.
+  **Written into the sheet 2026-09-26**: `vr`.
 - Teleport and arm-swing locomotion (450540, six claims): `gameplay`'s movement or `vr`; filed
-  `gameplay`.
+  `gameplay`. **Written into the sheet 2026-09-26**: `vr` in a headset, `gameplay` on a screen.
 - A bare "crouching" in a headset game (916840): `vr` only when the player crouches physically.
 - Pride flags and a missing UN flag in the scenery (1817070, four claims): no row owns
   depicted political content; filed `graphics`, low.
@@ -786,7 +828,8 @@ name. Filed `content`.
 - Subtitles that vanish in some cutscenes (2215430, five claims): `bugs`, `language` or the
   subtitles under `accessibility`; filed `bugs`.
 - A PSN sign-in fixed or broken (2215430): `bugs`' broken login and `policy`'s launcher that
-  will not sign you in point opposite ways for one event.
+  will not sign you in point opposite ways for one event. **Written into the sheet
+  2026-09-26**: a sign-in that fails is `bugs`.
 
 
 ## Splitter, not taxonomy

@@ -1784,6 +1784,7 @@ fn run_revisit(
         words: words.to_vec(),
         subjects: subjects.to_vec(),
         apps: app_ids.to_vec(),
+        ..steamgauge_core::claimset::Question::default()
     };
     let drawn = steamgauge_core::claimset::draw_revisits(reference, &[question], batch_size)?;
     if drawn.sets.is_empty() {

@@ -4007,6 +4007,63 @@ user's word. The 4B teacher's answers on the pool were read without the fact and
 teacher's soft answers are a best guess from text either way, and a teacher retrained for a
 handful of headset claims would cost a day of the card.
 
+### The sheet stops contradicting itself, and a claim with several points takes one (2026-09-26)
+
+Every entry in `reference/GAPS.md` was checked against the sheet as it stands: 26 of 53 were
+settled, 19 partly, 4 open and 4 decided against, and 21 of the 32 one-report bullets were still
+open. Worse than any gap, the sheet gave two answers in four places, so two labellers following
+it faithfully could file one claim under two rows:
+
+- **A protest about the publisher.** `offtopic` claimed "a protest about something the publisher
+  did elsewhere" while its own rule and `policy` sent every protest about this game's publisher
+  to `policy`. `policy` keeps it now, including what the makers did outside this game, another
+  game, a show, a statement; `offtopic` keeps only a protest with no connection to the game or
+  the people who make it. A review bomb over a publisher's conduct is what the row counts.
+- **A bare insult at the studio.** `updates` owned blame aimed at the studio and `policy` owned a
+  protest that was angry, brief and named no term, so "greed machine" was both, and two
+  labellers split one to each. The line is the decision: blame or praise with no decision of
+  theirs named in the claim or the review around it is `updates`, and the same words in a
+  review about an account requirement protest it and are `policy`.
+- **A broken sign-in.** `bugs` said a broken login was a bug and `policy` said a launcher that
+  will not sign you in was policy. A sign-in that fails is `bugs` whatever it signs you in to;
+  being made to have the account or the launcher at all is `policy`.
+- **Content a patch removed.** `updates` sent it to `content` and `policy` owned terms changed
+  after purchase. Modes, maps and levels taken out are how much game there is, `content`;
+  something altered or cut for what it showed or said, an outfit, a voice, a scene, is `policy`,
+  and never the row of the thing removed, because the complaint is the removal.
+
+**Which point a claim takes.** A claim that makes several points takes one subject, and nothing
+said which, so the frontier reader's largest source of low confidence was also where two
+labellers could each be right. The rule: the point the rest lead to, which in "great X, but Y" is
+the part after the "but"; among equals, the first. Two rows keep a list whole where the list is
+the point: a list of demands to the developers is `updates`, and a feeling credited to several
+things is `atmosphere`. Polarity is the polarity of the point taken.
+
+**The rules GAPS had collected most often**, each written as its entry proposed unless noted:
+what an opponent is allowed to do is `difficulty` when the complaint is who wins and
+`multiplayer` when it is what playing people is like; luck deciding the winner, and a match
+called rigged or scripted, are `difficulty`'s fairness and never a bug, and a random system
+described is `gameplay`; a yearly release against last year's, and a remaster against the
+original, are the predecessor comparison and `genre`; which platform gets which version is
+`policy`; a game called unfinished goes to `content` with a missing thing named, to `updates`
+when addressed to the developers, and is a verdict otherwise, and "an actual game, not a tech
+demo" is `content`; a language spoken, commentary and dubs, is `language`, and `audio`, which had
+no rule, keeps how the voices are performed; a ban is an action against a player, so a card
+game's ban list is balance and players barring things in their own lobbies are `community`, and
+an anti-cheat that lets cheaters through is `multiplayer`; a computer player judged by its
+challenge is `difficulty`, one that fails at its job `bugs`, how it decides `gameplay`; a game
+that will not start because of the player's own setup is `compatibility`; in a headset,
+locomotion and its comfort options, and running over the headset's own link or runtime, are `vr`.
+
+**The revisit, drawn narrow and measured before it grows.** Asked by their words the rules drew
+1,464 claims, most of them patch claims that say "devs" and kernel anti-cheat complaints that
+stay where they are; cut to the claims each rule can move, 680. The rule about several points
+has no words, so `revisit` questions can now ask by the labeller's own flags, `split_wrong` and
+`ambiguous`, and keep one claim in `one_in` by a hash of the claim, so the same sample is drawn
+again. 2,657 labels carry both flags; one in thirteen of them, about 200, measure the rule before
+the rest are paid for. 887 claims in all, about 1.3M Fable tokens over nine labellers, which the
+user approved over the 0.3M to 1M first quoted.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the
