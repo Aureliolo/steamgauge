@@ -88,15 +88,20 @@ class LengthFree(torch.nn.Module):
 def trace_graph(model, input_ids, attention_mask, path, opset: int):
     """Writes a reader's graph, whatever its trunk.
 
-    A decoder trunk is traced through `LengthFree`, and an encoder as it is. A decoder also keeps
-    a cache of past keys for generating text, which a reader that answers once has no use for
-    and a traced graph should not carry as outputs.
+    A decoder trunk is traced through `LengthFree`, and an encoder as it is: an encoder takes
+    only a two-dimensional mask and refuses the one `LengthFree` builds. A decoder also keeps a
+    cache of past keys for generating text, which a reader that answers once has no use for and
+    a traced graph should not carry as outputs.
+
+    A decoder is told apart by its attention layers declaring themselves causal. Its config says
+    nothing reliable: an encoder's carries `use_cache` too, for the rare use of it as a decoder,
+    and a decoder's own `is_decoder` is left false.
     """
     readers = [
         module
         for module in model.modules()
         if isinstance(getattr(module, "trunk", None), torch.nn.Module)
-        and hasattr(getattr(module.trunk, "config", None), "use_cache")
+        and any(getattr(layer, "is_causal", False) is True for layer in module.trunk.modules())
     ]
     for reader in readers:
         reader.trunk.config.use_cache = False
