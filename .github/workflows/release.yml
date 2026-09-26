@@ -1,158 +1,261 @@
 name: release
 
-# Dispatching this builds, checksums, attests and signs exactly as a real release does, but
-# publishes nothing: the release step is gated on a tag push. That keeps the pipeline
+# The tag is created by release-tag.yml with the job token, and an event caused by that token
+# starts no workflow, so a push trigger alone would never fire; the tag workflow dispatches this
+# one on the tag instead. The push trigger stays for a tag pushed by hand.
+#
+# Dispatched on a branch rather than a tag, this is a dry run: it builds, tests, writes the SBOMs,
+# signs and verifies exactly as a release does, and publishes nothing. That keeps the pipeline
 # testable without spending a version number on finding out whether it works.
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
-env:
-  CARGO_TERM_COLOR: always
+# Keyed on the ref rather than the workflow, and never cancelled: two tags are two releases and
+# must both run, while the same tag twice is a re-run that should not race itself.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Building, testing, the SBOMs and the signing all happen in release-build.yml, so the
+  # identity Sigstore certifies is those build steps rather than this file's; see there.
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # DirectML reaches NVIDIA, AMD and Intel through DX12 for ~18 MB, so Windows gets
-          # GPU support for every vendor. macOS gets CoreML. Linux ships CPU-only: its GPU
-          # option is CUDA, which is NVIDIA-only and would add roughly 750 MB.
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary: steamgauge
-            asset: steamgauge-x86_64-unknown-linux-gnu
-            features: ""
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary: steamgauge.exe
-            asset: steamgauge-x86_64-pc-windows-msvc
-            features: "--features directml"
-          # Apple Silicon only: ONNX Runtime publishes no prebuilt binary for Intel macOS,
-          # and building it from source in CI is not worth it for a platform Apple has
-          # stopped shipping.
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            binary: steamgauge
-            asset: steamgauge-aarch64-apple-darwin
-            features: "--features coreml"
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      # No build cache. The cache is written by every CI run, pull requests included, and a
-      # signed, attested binary built on top of one inherits whatever a run left in it.
-      - run: rustup target add ${{ matrix.target }}
-      - run: cargo build --release --locked --target ${{ matrix.target }} --bin steamgauge ${{ matrix.features }}
-
-      # Windows binaries gain a SignPath Foundation signature once the project is enrolled.
-      # macOS has no free certificate authority, so those assets carry provenance only and
-      # Gatekeeper will require an explicit override. SECURITY.md explains the difference.
-
-      # Archived rather than shipped bare: the GPU backends need runtime libraries beside
-      # the binary (DirectML.dll on Windows), and a lone executable would not start.
-      - name: Stage asset
-        shell: bash
-        run: |
-          mkdir -p "staging/${{ matrix.asset }}"
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "staging/${{ matrix.asset }}/"
-          find "target/${{ matrix.target }}/release" -maxdepth 1 \
-            \( -name '*.dll' -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) \
-            -exec cp {} "staging/${{ matrix.asset }}/" \;
-          tar -C staging -czf "staging/${{ matrix.asset }}.tar.gz" "${{ matrix.asset }}"
-          rm -rf "staging/${{ matrix.asset }}"
-          ls -la staging/
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: build-${{ matrix.target }}
-          path: staging/*
-          if-no-files-found: error
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
+    name: build
+    if: github.repository == 'Aureliolo/steamgauge'
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: read # The build reads the tagged source.
+      id-token: write # Only release-build.yml's attest job uses it, to sign.
+      attestations: write # Only release-build.yml's attest job uses it, to store the attestations.
+      # A called workflow cannot ask for more than its caller was given, and a job inside it that
+      # does stops the whole run before a single step executes: `startup_failure`, no logs, and a
+      # tag left standing with no release behind it.
+      pull-requests: read # Only release-build.yml's gate job uses it, to write the changelog.
+    # zizmor wants `$/...` here. actionlint 1.7.12 rejects that spelling as neither of the two
+    # forms GitHub documents, and this path only runs on a tag, where a syntax error is a failed
+    # release rather than a failed check. The two linters disagree; the one that can be verified
+    # against a real parser wins. Worth revisiting when actionlint knows the shorthand.
+    uses: ./.github/workflows/release-build.yml # zizmor: ignore[self-repository]
+
+  # The files that will ship have to verify the way a user will verify them, from the files
+  # alone, naming release-build.yml at this ref as the builder; otherwise they only look like
+  # proof. Its own job, holding nothing that can write, so a dry run proves the whole chain
+  # without ever being handed a token that could publish.
+  verify:
+    name: verify
+    if: github.repository == 'Aureliolo/steamgauge'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # gh needs a token to run at all; this one reads nothing that is not public.
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download the bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          persist-credentials: false
+          name: release-bundle
+          path: dist
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - name: Download the signed attestations
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: staging
-          pattern: build-*
-          merge-multiple: true
+          name: attestations
+          path: dist
 
-      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - name: Download the changelog
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          format: cyclonedx-json
-          output-file: staging/sbom.cyclonedx.json
-          artifact-name: sbom.cyclonedx.json
+          name: release-changelog
+          path: notes
 
-      # Checksums are generated after every other asset exists, so they cover the SBOM too.
-      - name: Generate checksums
-        working-directory: staging
-        run: |
-          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\n' \
-            | sort | xargs sha256sum > SHA256SUMS
-          cat SHA256SUMS
+      - name: Verify the checksums
+        run: (cd dist && sha256sum --check --strict SHA256SUMS)
 
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
-        with:
-          subject-path: staging/steamgauge-*.tar.gz
-
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-      - name: Sign checksums with cosign
-        working-directory: staging
-        run: cosign sign-blob --yes SHA256SUMS --bundle SHA256SUMS.cosign.bundle
-
-      # Proves the chain actually verifies, rather than only that the signing step exited 0.
-      - name: Verify provenance and signature
+      - name: Verify the attestations that will ship
         env:
           GH_TOKEN: ${{ github.token }}
-        working-directory: staging
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          for asset in steamgauge-*.tar.gz; do
-            gh attestation verify "$asset" --repo "${{ github.repository }}"
+          set -euo pipefail
+          bundle="dist/steamgauge-${VERSION}.intoto.jsonl"
+          signer="${GITHUB_REPOSITORY}/.github/workflows/release-build.yml"
+          # Given no stdin, since it is called inside a loop reading the checksum file.
+          verify() {
+            gh attestation verify "$@" --bundle "${bundle}" \
+              --repo "${GITHUB_REPOSITORY}" --signer-workflow "${signer}" \
+              --source-ref "${GITHUB_REF}" --deny-self-hosted-runners < /dev/null
+          }
+          verify dist/SHA256SUMS
+          while read -r _ subject; do
+            verify "dist/${subject#\*}"
+          done < dist/SHA256SUMS
+          for archive in dist/steamgauge-*.tar.gz; do
+            verify "${archive}" --predicate-type https://spdx.dev/Document/v2.3
           done
-          cosign verify-blob SHA256SUMS \
-            --bundle SHA256SUMS.cosign.bundle \
-            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com
-          sha256sum --check SHA256SUMS
 
       - name: Summarise
-        working-directory: staging
+        env:
+          REF_TYPE: ${{ github.ref_type }}
         run: |
+          set -euo pipefail
           {
-            echo "### Release assets"
+            echo '### Release files'
             echo
             echo '```'
-            cat SHA256SUMS
+            cat dist/SHA256SUMS
             echo '```'
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo
+            if [[ "${REF_TYPE}" != tag ]]; then
+              echo 'Dry run: nothing was published. These are the notes a release from here would carry.'
               echo
-              echo "Dry run: nothing was published. Push a \`v*\` tag to release."
+              cat notes/changelog.md
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
-      # Assets are attached in the same call that creates the release: an immutable release
-      # locks its assets, so nothing can be added afterwards.
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+  publish:
+    name: publish
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag'
+    needs: [build, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # Creates the release and uploads the files onto it.
+
+    steps:
+      - name: Download the bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-bundle
+          path: dist
+
+      - name: Download the signed attestations
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: attestations
+          path: dist
+
+      - name: Download the changelog
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-changelog
+          path: notes
+
+      # The bytes have moved between jobs again since they were verified, and they are the bytes
+      # the attestations were made over, so the last thing before publishing is to check they
+      # still hash right.
+      - name: Verify the checksums once more
+        run: (cd dist && sha256sum --check --strict SHA256SUMS)
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          # Through the environment, not expanded into the script: a tag name may hold
-          # characters the shell would run.
-          TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" staging/* --generate-notes --verify-tag
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          assets=(dist/SHA256SUMS "dist/steamgauge-${VERSION}.intoto.jsonl")
+          while read -r _ subject; do
+            assets+=("dist/${subject#\*}")
+          done < dist/SHA256SUMS
+          if [[ "${#assets[@]}" -ne 8 ]]; then
+            echo "Expected eight files to publish, found ${#assets[@]}: ${assets[*]}" >&2
+            exit 1
+          fi
+
+          # A draft is a release `gh release create` began and did not finish: it makes the
+          # release as a draft, uploads, then publishes. gdharness saw GitHub answer the create
+          # with a 500 after making the draft, which stood empty and read as a published release
+          # carrying the wrong files. A draft was never public, so it is removed and the release
+          # made again.
+          drop_unfinished_draft() {
+            if [[ "$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft 2> /dev/null)" == true ]]; then
+              echo "${GITHUB_REF_NAME} has a draft left by an unfinished create; removing it."
+              gh release delete "${GITHUB_REF_NAME}" --yes
+            fi
+          }
+
+          # A release the tag already carries is taken as done, so the whole run can be re-run
+          # after a later job fails. A published release is immutable and never rewritten here,
+          # so the way to be idempotent about it is to confirm it is already right, and "already
+          # right" means these eight files and no others. Half a release is a third answer, and
+          # it says which files are there.
+          already_released() {
+            if ! gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+              return 1
+            fi
+            have="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | LC_ALL=C sort)"
+            want="$(printf '%s\n' "${assets[@]##*/}" | LC_ALL=C sort)"
+            if [[ "${have}" == "${want}" ]]; then
+              echo "${GITHUB_REF_NAME} is released with all eight files."
+              return 0
+            fi
+            echo "${GITHUB_REF_NAME} already has a release, and it carries:" >&2
+            printf '%s\n' "${have}" >&2
+            echo "rather than the eight files this job publishes. A published release is not" >&2
+            echo "rewritten here, so this needs a person." >&2
+            exit 1
+          }
+
+          drop_unfinished_draft
+          if already_released; then
+            exit 0
+          fi
+
+          # printf rather than a heredoc: an unquoted heredoc runs the backticks in the code
+          # fences as commands, and a quoted one cannot see VERSION. Single quotes keep the
+          # fences literal, double quotes take the version.
+          printf '%s\n' \
+            '## Download' \
+            '' \
+            "Take the archive for your machine, unpack it, and run \`steamgauge\` for the desktop app or" \
+            "\`steamgauge --help\` for the command line." \
+            '' \
+            '| Machine | Archive |' \
+            '| --- | --- |' \
+            "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.tar.gz\` |" \
+            "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
+            "| Linux, x86-64: CPU only, needs WebKitGTK 4.1 | \`steamgauge-${VERSION}-x86_64-unknown-linux-gnu.tar.gz\` |" \
+            '' \
+            'Windows and macOS warn on first launch, because no build carries an operating-system' \
+            'certificate. [SECURITY.md](https://github.com/Aureliolo/steamgauge/blob/main/SECURITY.md)' \
+            'says why, and what to check instead:' \
+            '' \
+            '```bash' \
+            "gh release download v${VERSION} --repo Aureliolo/steamgauge" \
+            'sha256sum --check SHA256SUMS' \
+            "gh attestation verify steamgauge-${VERSION}-<target>.tar.gz --repo Aureliolo/steamgauge \\" \
+            "  --bundle steamgauge-${VERSION}.intoto.jsonl \\" \
+            "  --signer-workflow Aureliolo/steamgauge/.github/workflows/release-build.yml \\" \
+            "  --source-ref refs/tags/v${VERSION} --deny-self-hosted-runners" \
+            '```' \
+            '' \
+            > notes.md
+          # Written by the gate job from the files each pull request touched, rather than by
+          # --generate-notes, which lists every title together and leaves a reader to guess which
+          # of them reach the program they download.
+          cat notes/changelog.md >> notes.md
+
+          # Asked again after a failure, because the failure gdharness saw was GitHub's own 500.
+          # What the failed attempt left is looked at first: a draft is removed, and a release
+          # that went through despite the error is taken as done by the same check as a re-run.
+          for attempt in 1 2 3; do
+            if gh release create "${GITHUB_REF_NAME}" "${assets[@]}" \
+              --verify-tag \
+              --notes-file notes.md \
+              --title "SteamGauge ${VERSION}"; then
+              exit 0
+            fi
+            drop_unfinished_draft
+            if already_released; then
+              exit 0
+            fi
+            echo "Creating the release failed on attempt ${attempt}." >&2
+            sleep 15
+          done
+          echo "The release could not be created in three attempts." >&2
+          exit 1

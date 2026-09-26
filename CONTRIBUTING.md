@@ -13,11 +13,17 @@ Run the same gates CI runs before pushing:
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test --workspace
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --workspace
 pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
 bash -c "cd training && python -m pytest -q"
+node --test tools/release/release.test.mjs
 ```
+
+`--locked` fails when `Cargo.lock` no longer matches the manifests. The release build refuses
+that too, but only once the tag is made, and a tag cannot be taken back. The last line tests the scripts that raise the
+version and write each release's changelog; `.github/release-process.md` says how a release is
+cut.
 
 Not `--all-features`: the cuda and metal backends need vendor toolchains, and the default set
 is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,

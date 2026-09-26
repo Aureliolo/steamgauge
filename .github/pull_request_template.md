@@ -15,6 +15,6 @@
 ## Checks
 
 - [ ] `cargo fmt --all -- --check`
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings`
-- [ ] `cargo test --workspace --all-features`
+- [ ] `cargo clippy --locked --all-targets -- -D warnings`
+- [ ] `cargo test --locked --workspace`
 - [ ] Claims added to the README are reproducible, with the command or query that produces them

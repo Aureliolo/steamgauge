@@ -2,23 +2,30 @@ name: scorecard
 
 # OpenSSF Scorecard: branch protection, pinned dependencies, token permissions and the rest,
 # checked from outside and published so the README's badge is the same answer anyone can fetch.
+# A change to a ruleset changes the score, so it runs then too.
 on:
+  branch_protection_rule:
   push:
     branches: [main]
   schedule:
     - cron: "17 4 * * 1"
   workflow_dispatch:
 
-permissions: read-all
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analysis:
+    name: analysis
     runs-on: ubuntu-latest
     permissions:
-      # Upload the results to code scanning, and sign the published result so the badge cannot
-      # be forged by anything but this workflow.
-      security-events: write
-      id-token: write
+      security-events: write # Uploads the result to code scanning.
+      actions: read # Scorecard scores the CI checks from the workflow run history.
+      contents: read # Reads the repository it is scoring.
+      id-token: write # Signs the published result, so the badge cannot be forged by anything but this workflow.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

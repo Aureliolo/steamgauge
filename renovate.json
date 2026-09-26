@@ -32,6 +32,12 @@
       "rangeStrategy": "bump"
     },
     {
+      "description": "A runner image this datasource knows about is not the same as a label GitHub will schedule a job on: gdharness was offered ubuntu-26.04 while the labels stopped at ubuntu-24.04, and the raise failed actionlint on every workflow. Moving to a new image is a decision to make once the label exists, not one to take again every week, and for the release build it changes the machine every binary is made on.",
+      "matchDatasources": ["github-runners"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "description": "A digest update is aged at lookup against the release its tag resolves to, but the branch's stability check reads a timestamp field digest updates never carry, and a lock file refresh has no release to age at all. Left at the default, every pinned action held the one combined PR at pending for good. Optional still ages whatever does carry a timestamp.",
       "matchUpdateTypes": ["pinDigest", "digest", "lockFileMaintenance"],
       "minimumReleaseAgeBehaviour": "timestamp-optional"
@@ -59,5 +65,23 @@
   "pip-compile": {
     "description": "requirements.lock is `uv pip compile` over requirements.txt, and the command that made it is in the file's header. Every update is a re-run of that command with the one package raised, and lock file maintenance is a re-run with everything raised, so a pin is never moved past what another pin allows. The header carries only the source and the output file: Renovate refuses any option it does not know, and the index, platform and Python version the lock is resolved for live in the root uv.toml, which uv reads from the directory the command runs in.",
     "managerFilePatterns": ["/^training/requirements\\.lock$/"]
-  }
+  },
+  "customManagers": [
+    {
+      "description": "A tool the workflows download with the SHA-256 of the file they fetch on the next line: actionlint and syft. The tag and the digest move together, and the datasource finds the new digest in the checksum file the release publishes.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>github-release-attachments) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\n\\s*[A-Z0-9_]+_TAG: (?<currentValue>\\S+)\\n\\s*[A-Z0-9_]+_SHA256: (?<currentDigest>[0-9a-f]{64})"
+      ]
+    },
+    {
+      "description": "The runner images inside the release build's matrix, which the github-actions manager reads from runs-on: but not from a matrix.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>github-runners) depName=(?<depName>ubuntu|windows|macos)\\n\\s*runner: (?:ubuntu|windows|macos)-(?<currentValue>[0-9.]+(?:-[a-z0-9]+)?)"
+      ]
+    }
+  ]
 }

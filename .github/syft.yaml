@@ -1,0 +1,15 @@
+# How each release SBOM is made. A Rust binary names nothing about the crates compiled into it,
+# so what it was built from comes from Cargo.lock, cut down to the crates `cargo tree` resolves
+# for that archive's target and features, which syft is given beside the unpacked archive. The
+# lock file cataloger is the one that reads it; it is named so that a change to syft's defaults
+# cannot quietly leave it out.
+select-catalogers:
+  - '+rust-cargo-lock-cataloger'
+
+# Every file that ships, with its digest, so a consumer can check the archive against the SBOM
+# member by member rather than only as a whole.
+file:
+  metadata:
+    selection: all
+    digests:
+      - sha256
