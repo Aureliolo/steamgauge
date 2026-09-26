@@ -422,9 +422,10 @@ pub const SHEET: &[Category] = &[
              mods, however much of the game it accounts for. Whether it is a whole game or a \
              showcase, \"an actual game, not a tech demo\", is here. A game called unfinished \
              or not ready goes three ways: with a missing thing named it is here; addressed to \
-             the developers or waiting on their work, \"wait until they fix it\", it is \
-             updates; and the state it was released in with nothing named, \"alpha state\", \
-             \"should never have left early access\", is a verdict.",
+             the developers or waiting on work still owed, \"wait until they fix it\", it is \
+             updates; and the state it was released in with nothing named is a verdict however \
+             it is put, \"alpha state\", \"should never have left early access\", \"released in \
+             a joke of a state\", \"one of the worst launches in years\".",
         ),
         alone: false,
     },
@@ -512,10 +513,13 @@ pub const SHEET: &[Category] = &[
         boundary: Some(
             "What the developers do to the game belongs here, and so does praise or blame \
              aimed at the people who make it, developer or publisher, including thanking them, \
-             insulting them and telling them to fix things, where neither the claim nor the \
-             review around it names a decision of theirs: \"greed machine\" and \"shame on \
-             you\" alone are here, and the same words in a review about an account requirement \
-             protest it and are policy. A demand to fix one thing it names belongs to that \
+             insulting them and telling them to fix things. Blame goes where what they are \
+             blamed for belongs, named in the claim or in the review around it: \"greed \
+             machine\" in a review about a $100 edition or items sold against a timer is \
+             monetisation, in a review about an account requirement it protests the decision \
+             and is policy, and with nothing named anywhere it is here. So are broken promises \
+             and marketing the game did not live up to, \"not what the trailers showed\", and \
+             not learning from the last release. A demand to fix one thing it names belongs to that \
              thing, as a complaint about it would: \"fix the accessibility\" is accessibility \
              and \"fix the servers\" multiplayer; a list of demands, \"fix the lobbies, get \
              cross play working, add missions\", is here, because no one of them is the point. \
@@ -527,9 +531,10 @@ pub const SHEET: &[Category] = &[
              sounded. This is for the patching itself, its pace, and whether they listen. A \
              judgement about how the game \
              has changed since it came out is here even when no patch and no studio is named, \
-             so \"it is getting better\", \"release was bad but it is fine now\" and \"one of \
-             the worst launches in years\" are updates, where the same judgement with no before \
-             and after, \"it is fine now\" alone, is a verdict. \"The game is dead\" is here \
+             so \"it is getting better\" and \"release was bad but it is fine now\" are \
+             updates, where the same judgement with no before and after is a verdict: \"it is \
+             fine now\" alone, and the launch judged on its own, \"one of the worst launches in \
+             years\". \"The game is dead\" is here \
              when nobody is developing it and multiplayer when nobody is playing it. What the \
              publisher or the platform requires of the player belongs to policy.",
         ),
@@ -552,8 +557,9 @@ pub const SHEET: &[Category] = &[
              that is angry and brief and names no particular term where the claim or the \
              review around it shows which decision it protests, and including celebrating one \
              that was reversed: \"we won\" about a withdrawn account requirement is this, and \
-             it is praise. Blame or praise for the makers with no decision named anywhere in \
-             the review belongs to updates. What a decision is belongs here; what it does \
+             it is praise. Blame or praise for the makers goes where what they are blamed for \
+             belongs: here for a decision of this row, monetisation for what is sold and how, \
+             and updates when the review names nothing. What a decision is belongs here; what it does \
              while playing belongs where it happens, so needing a launcher is here, a sign-in \
              that fails is bugs, and an anti-cheat that keeps you out of a match is \
              multiplayer. Which platform gets which version, \"PC only gets the last-gen \
@@ -705,8 +711,9 @@ pub const SHEET: &[Category] = &[
              smooth or arm-swing locomotion, and the comfort options that go with it, snap \
              turning and a vignette, are here, not gameplay or accessibility; the same \
              movement on a screen is gameplay. How the game runs over the headset's own link, \
-             wireless streaming or the choice of runtime, is here; frame rate with nothing \
-             about the headset's path to it is performance.",
+             wireless streaming or the choice of runtime, is here, and so is how it runs on a \
+             headset the claim names, \"on an original Vive, wireless, it is very smooth\"; \
+             frame rate with no headset and nothing about its path to it is performance.",
         ),
         alone: false,
     },
@@ -894,11 +901,15 @@ subject
   all: those are `verdict` if they judge the game and `offtopic` if they do not. A claim that
   makes several points still takes one, and two labellers must take the same one: where one
   point is what the rest lead to, it takes that one, so \"great graphics, but it crashes every
-  hour\" is bugs, the part after the \"but\"; where the points stand side by side as equals,
-  \"trash servers, bugs, toxic players\", it takes the first. A row whose rule names such a
-  list keeps it: a list of demands to the developers is updates, and a feeling credited to
-  several things is atmosphere. `polarity` is then the polarity of the point it took, and
-  `split_wrong` says the rest was lost.
+  hour\" is bugs, the part after the \"but\", and \"I love it, the major complaint is the
+  progression\" is the one the reviewer calls major; where the points stand side by side as
+  equals, \"trash servers, bugs, toxic players\", it takes the first. A verdict given over a
+  list of its reasons, \"my favourite VR game: the play styles, the mechanics, the physics\",
+  is verdict: with one thing named the verdict goes to that thing, and with several the
+  judgement is the point. A row whose rule names such a list keeps it too: a list of demands
+  to the developers is updates, and a feeling credited to several things is atmosphere.
+  `polarity` is then the polarity of the point it took, and `split_wrong` says the rest was
+  lost.
 
 polarity
   What the claim does about its subject, in one of these words: {polarity}. Praise and
