@@ -902,11 +902,16 @@ subject
   makes several points still takes one, and two labellers must take the same one: where one
   point is what the rest lead to, it takes that one, so \"great graphics, but it crashes every
   hour\" is bugs, the part after the \"but\", and \"I love it, the major complaint is the
-  progression\" is the one the reviewer calls major; where the points stand side by side as
-  equals, \"trash servers, bugs, toxic players\", it takes the first. A verdict given over a
-  list of its reasons, \"my favourite VR game: the play styles, the mechanics, the physics\",
-  is verdict: with one thing named the verdict goes to that thing, and with several the
-  judgement is the point. A row whose rule names such a list keeps it too: a list of demands
+  progression\" is the one the reviewer calls major. A concession that only softens what came
+  before, \"no story and worse graphics, but at least it is entertaining\", is not what the
+  rest lead to, and the claim takes the first of the points it softens. Where the points stand
+  side by side as equals, \"trash servers, bugs, toxic players\", it takes the first. A verdict
+  given over a list of its reasons is verdict wherever it stands, before the list or after it:
+  \"my favourite VR game: the play styles, the mechanics, the physics\" and \"the music and the
+  characters are perfect, 10/10\" alike, since with one thing named the verdict goes to that
+  thing, and with several the judgement is the point. A judgement of the price over such a
+  list, \"80 euro and you get nothing but bugs\", is price by the same reasoning. A row whose
+  rule names such a list keeps it too: a list of demands
   to the developers is updates, and a feeling credited to several things is atmosphere.
   `polarity` is then the polarity of the point it took, and `split_wrong` says the rest was
   lost.
