@@ -726,9 +726,9 @@
     "subset": "declined",
     "start": 1277,
     "end": 1915,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "e326339f5be3",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
@@ -736,11 +736,11 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "graphics",
-        "polarity": "praise"
+        "subject": "difficulty",
+        "polarity": "complaint"
       },
       {
-        "subject": "content",
+        "subject": "graphics",
         "polarity": "complaint"
       }
     ]

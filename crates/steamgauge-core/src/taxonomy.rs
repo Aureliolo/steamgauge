@@ -164,9 +164,14 @@ pub const SHEET: &[Category] = &[
             "Something that worked and now does not belongs here, a headset included, and so \
              does an option that is there and does nothing. A sign-in that fails is here \
              whatever it signs you in to, a launcher or a platform's account included; being \
-             made to have the account or the launcher at all is policy. A game that never \
-             starts, with no reason given or a reason in the player's own setup, a locale or a \
-             driver, is compatibility.",
+             made to have the account or the launcher at all is policy. Something paid for, or \
+             given with a purchase, that never reached the player's account or was lost from \
+             it, a DLC missing from the library, a bonus never credited, unlocks gone after a \
+             move between accounts, is here when it failed to arrive and policy when it was \
+             withheld by a decision, a pass no longer honoured after the game changed hands; \
+             a DLC or feature promised for later and never made is updates. A \
+             game that never starts, with no reason given or a reason in the player's own \
+             setup, a locale or a driver, is compatibility.",
         ),
         alone: false,
         beside: true,

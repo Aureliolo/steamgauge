@@ -317,14 +317,15 @@
     "subset": "retrieved",
     "start": 460,
     "end": 641,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "genre",
+    "taxonomy": "e326339f5be3",
+    "produced_by": "claude-opus-5-5",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "17862621",

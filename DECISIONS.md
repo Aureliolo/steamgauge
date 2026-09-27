@@ -4317,6 +4317,30 @@ subject on 85% of the blind claims, against 65% for the labels of 2026-09-21. So
 since were written from disagreements in this very set, so that is evidence the sheet improved,
 not an accuracy anybody may quote.
 
+### What was bought and never arrived (2026-09-27)
+
+**Reported twice, settled the same way twice.** Two labellers of the wording revisit, in separate
+shares, met a purchase that never reached the player: a bought DLC never credited to the
+account, and an all-DLC pass no longer honoured after the game changed hands. Neither found a row
+that said where it goes. The `bugs` row now takes something paid for, or given with a purchase,
+that never reached the player's account or was lost from it, a DLC missing from the library, a
+bonus never credited, unlocks gone after a move between accounts; `policy` takes one withheld by
+a decision, the pass nobody honours any more. How it is sold stays monetisation, and a DLC or
+feature promised for later and never made stays a broken promise under updates: the first
+wording said "bought or promised", which would have pulled every unkept roadmap out of updates.
+
+**The draw.** The words of the two reports ("never received", "not credited", "not in my
+library", "pre-order bonus", "not honoured") find 8 labelled claims, none about something that
+failed to arrive; the claims the rule is for say "paid for", "already bought", "content I
+unlocked", "customer service", "lost all games in my library". Drawn by those across every
+subject: 71 claims in 43 sets, asked again on this sheet (`e326339f5be3`) by two Opus 5.5
+labellers, about 202k tokens. 18 (25%) changed their first subject and 13 gained another
+subject. Seven moved from updates to policy, and most of those are not this rule's: content cut
+from a game people paid for, blamed on its censorship, is policy by the rule on altered content,
+and those labels came from sheets older than it. The rule's own cases are few: a library lost
+by another store (bugs), unlocks on a linked account support will not restore (policy, bugs
+beside it).
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

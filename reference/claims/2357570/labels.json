@@ -3093,8 +3093,8 @@
     "subset": "random",
     "start": 422,
     "end": 591,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "e326339f5be3",
+    "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
@@ -3103,7 +3103,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "policy",
+        "subject": "genre",
         "polarity": "complaint"
       }
     ]
