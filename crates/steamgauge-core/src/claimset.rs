@@ -649,10 +649,22 @@ impl Question {
 ///
 /// Returns the claims that matched, as a set the labeller reads exactly like a fresh one.
 ///
+/// Only claims the reader could be handed are asked, by the same two tests the training export
+/// applies: text that is a claim at all, and a span this build still cuts a claim at, where
+/// `cut` holds this build's cut of the set's reviews. The set's sample was cut when it was
+/// drawn, often by older rules, and a revisit that asks about a blank ballot option or a
+/// fragment the splitter has since folded into a larger claim pays a labeller for a label the
+/// export then throws away. With no `cut`, a game with no capture on this machine, only the
+/// first test holds anything back, as in the export.
+///
 /// # Errors
 ///
 /// Fails if the set has no drawn sample or labels, or they cannot be read.
-pub fn draw_revisit(dir: &Path, questions: &[Question]) -> Result<Vec<DrawnReview>> {
+pub fn draw_revisit(
+    dir: &Path,
+    questions: &[Question],
+    cut: Option<&CutSpans>,
+) -> Result<Vec<DrawnReview>> {
     let drawn: Vec<DrawnReview> =
         serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
             crate::Error::NoReferenceSet {
@@ -681,13 +693,15 @@ pub fn draw_revisit(dir: &Path, questions: &[Question]) -> Result<Vec<DrawnRevie
                 .claims
                 .iter()
                 .filter(|claim| {
-                    filed
-                        .get(&(review.id.as_str(), claim.index))
-                        .is_some_and(|label| {
-                            questions
-                                .iter()
-                                .any(|question| question.asks(review.app_id, label, &claim.text))
-                        })
+                    !crate::claims::is_not_a_claim(&claim.text)
+                        && filed
+                            .get(&(review.id.as_str(), claim.index))
+                            .is_some_and(|label| {
+                                cut.is_none_or(|cut| cut_at(cut, label).is_some())
+                                    && questions.iter().any(|question| {
+                                        question.asks(review.app_id, label, &claim.text)
+                                    })
+                            })
                 })
                 .map(|claim| claim.index)
                 .collect();
@@ -753,12 +767,16 @@ pub struct RevisitDraw {
 /// work to hand out, and nothing about them says they answer a question nobody is asking any
 /// more. A draw whose questions all name their games leaves the other games alone.
 ///
+/// Each game's reviews are cut from its capture under `captures`, so that only claims this build
+/// still cuts are asked; see [`draw_revisit`].
+///
 /// # Errors
 ///
 /// Refuses a question with no words, subjects or flags, which asks the whole reference set again
 /// and is never what a revision needs. Fails if a set cannot be read or its handout written.
 pub fn draw_revisits(
     reference: &Path,
+    captures: &Path,
     questions: &[Question],
     reviews_per_batch: usize,
 ) -> Result<RevisitDraw> {
@@ -789,11 +807,19 @@ pub fn draw_revisits(
         if asking.is_empty() {
             continue;
         }
+        let mut reviews = std::collections::HashSet::new();
+        for (_, dir) in sets_of(app_id) {
+            if let Ok(bytes) = std::fs::read(dir.join("labels.json")) {
+                let labels: Vec<ClaimLabel> = serde_json::from_slice(&bytes)?;
+                reviews.extend(labels.into_iter().map(|label| label.review_id));
+            }
+        }
+        let cut = spans_cut_now(captures, app_id, &reviews).ok();
         for (set, dir) in sets_of(app_id) {
             if !dir.join("labels.json").is_file() {
                 continue;
             }
-            let drawn = draw_revisit(&dir, &asking)?;
+            let drawn = draw_revisit(&dir, &asking, cut.as_ref())?;
             if drawn.is_empty() {
                 continue;
             }
@@ -1998,11 +2024,11 @@ mod tests {
             words: words.iter().map(|word| (*word).to_owned()).collect(),
             ..Question::default()
         };
-        let by_word = draw_revisit(&dir, &[words(&["subtitle"])]).unwrap();
+        let by_word = draw_revisit(&dir, &[words(&["subtitle"])], None).unwrap();
         assert_eq!(by_word[0].asked, Some(vec![0]));
 
         // A phrase made of filler words is still a phrase somebody wrote.
-        let by_phrase = draw_revisit(&dir, &[words(&["it runs at"])]).unwrap();
+        let by_phrase = draw_revisit(&dir, &[words(&["it runs at"])], None).unwrap();
         assert_eq!(by_phrase[0].asked, Some(vec![2]));
 
         // A row redefined rather than renamed puts every claim under it back in question, and
@@ -2011,18 +2037,81 @@ mod tests {
             subjects: vec!["accessibility".to_owned()],
             ..Question::default()
         };
-        let whole_row = draw_revisit(&dir, std::slice::from_ref(&row)).unwrap();
+        let whole_row = draw_revisit(&dir, std::slice::from_ref(&row), None).unwrap();
         assert_eq!(whole_row[0].asked, Some(vec![0, 1]));
 
         // Two rules revised at once ask a claim if either does, and a question about other
         // games asks nothing here.
-        let both = draw_revisit(&dir, &[words(&["subtitle"]), words(&["it runs at"])]).unwrap();
+        let both =
+            draw_revisit(&dir, &[words(&["subtitle"]), words(&["it runs at"])], None).unwrap();
         assert_eq!(both[0].asked, Some(vec![0, 2]));
         let elsewhere = Question {
             apps: vec![2],
             ..row
         };
-        assert!(draw_revisit(&dir, &[elsewhere]).unwrap().is_empty());
+        assert!(draw_revisit(&dir, &[elsewhere], None).unwrap().is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_revisit_asks_only_claims_the_reader_is_handed() {
+        // Cut by an older splitter, the set still holds a blank ballot option and a sentence the
+        // splitter now reads inside a larger claim. Labelling either again pays for a label the
+        // training export throws away.
+        let dir = std::env::temp_dir().join(format!("steamgauge-handed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let text = "The combat is superb. It runs at nine frames.";
+        std::fs::write(
+            dir.join("sample.json"),
+            serde_json::to_vec(&[review(
+                "r1",
+                &[
+                    "\u{2610} Worth the price",
+                    "The combat is superb.",
+                    "It runs at nine frames.",
+                ],
+            )])
+            .unwrap(),
+        )
+        .unwrap();
+        let at = |index: u16, start: u32, end: u32| ClaimLabel {
+            start,
+            end,
+            ..a_label(1, "r1", index, "random", "performance")
+        };
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&[at(0, 0, 0), at(1, 0, 21), at(2, 22, 45)]).unwrap(),
+        )
+        .unwrap();
+        let row = Question {
+            subjects: vec!["performance".to_owned()],
+            ..Question::default()
+        };
+
+        let without_a_capture = draw_revisit(&dir, std::slice::from_ref(&row), None).unwrap();
+        assert_eq!(
+            without_a_capture[0].asked,
+            Some(vec![1, 2]),
+            "a blank option is never asked, capture or none"
+        );
+
+        let cut: CutSpans = std::iter::once((
+            "r1".to_owned(),
+            Cut {
+                text: text.to_owned(),
+                spans: crate::claims::words_at(text, 22, 45).into_iter().collect(),
+            },
+        ))
+        .collect();
+        let handed = draw_revisit(&dir, std::slice::from_ref(&row), Some(&cut)).unwrap();
+        assert_eq!(
+            handed[0].asked,
+            Some(vec![2]),
+            "a span this build cuts no claim at is not asked"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2059,7 +2148,7 @@ mod tests {
             ..Question::default()
         };
         let asked = |question: &Question| {
-            draw_revisit(&dir, std::slice::from_ref(question)).unwrap()[0]
+            draw_revisit(&dir, std::slice::from_ref(question), None).unwrap()[0]
                 .asked
                 .clone()
                 .unwrap()
@@ -2133,7 +2222,9 @@ mod tests {
             subjects: vec!["controls".to_owned()],
             ..Question::default()
         };
-        let drawn = draw_revisits(&root, std::slice::from_ref(&remap), 40).unwrap();
+        // No capture under this root, so nothing is held back for being cut differently now.
+        let captures = root.join("data");
+        let drawn = draw_revisits(&root, &captures, std::slice::from_ref(&remap), 40).unwrap();
         let drew: Vec<(u32, &str)> = drawn
             .sets
             .iter()
@@ -2153,12 +2244,12 @@ mod tests {
             apps: vec![2],
             ..remap
         };
-        let drawn = draw_revisits(&root, &[named], 40).unwrap();
+        let drawn = draw_revisits(&root, &captures, &[named], 40).unwrap();
         assert_eq!(drawn.sets.len(), 1);
         assert_eq!(drawn.cleared, 0);
         assert!(stale.is_dir());
 
-        assert!(draw_revisits(&root, &[Question::default()], 40).is_err());
+        assert!(draw_revisits(&root, &captures, &[Question::default()], 40).is_err());
         let _ = std::fs::remove_dir_all(&root);
     }
 
