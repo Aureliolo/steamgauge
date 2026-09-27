@@ -596,6 +596,11 @@ fn says_something_about_a_thing(part: &str) -> bool {
 /// Reviews are written with `BBCode` and the tags are not what anybody said. Left in, `[h3]`
 /// and `[/list]` are tokens the model sees in every category and learns nothing from, and a
 /// labeller was handed a heading tag and its closing tag as though they were a claim.
+///
+/// A tag is written on one line. A bracket opened on a template's heading and closed at the
+/// end of an answer two lines down is two brackets somebody typed; read as one tag, it would
+/// swallow the answers in between and cut the later claim back to before the earlier one
+/// ends, which is two claims out of order and one inside the other.
 fn markup_at(text: &str, at: usize) -> Option<(usize, Markup)> {
     const LONGEST_TAG: usize = 200;
 
@@ -603,6 +608,7 @@ fn markup_at(text: &str, at: usize) -> Option<(usize, Markup)> {
     let end = rest
         .char_indices()
         .take(LONGEST_TAG)
+        .take_while(|&(_, ch)| ch != '\n')
         .find_map(|(offset, ch)| (ch == ']').then_some(offset))?;
     let inside = &rest[..end];
     if inside.is_empty() {
@@ -726,19 +732,13 @@ pub fn tidied(text: &str, from: usize, to: usize) -> Option<std::ops::Range<usiz
         start = next;
     };
 
+    // "1." and "2)" in front of a point are numbering, not what somebody said, and so is every
+    // one after it. Taken off once, "1. 2. The point" still wears its "2.", and brought to its
+    // words a second time the span would name other bytes than the claim it was cut as: a label
+    // made on that claim would join no claim at all.
     let mut start = front(from, to);
-
-    // "1." and "2)" in front of a point are numbering, not what somebody said.
-    let piece = &text[start..to];
-    let digits = piece
-        .char_indices()
-        .take_while(|(_, ch)| ch.is_ascii_digit())
-        .count();
-    if digits > 0 && digits <= 3 {
-        let after = &piece[digits..];
-        if after.starts_with(['.', ')', ':']) && !after[1..].trim_start().is_empty() {
-            start = front(start + digits + 1, to);
-        }
+    while let Some(marker) = numbering(&text[start..to]) {
+        start = front(start + marker, to);
     }
 
     let mut end = to;
@@ -763,6 +763,20 @@ pub fn tidied(text: &str, from: usize, to: usize) -> Option<std::ops::Range<usiz
     }
 
     (start < end).then_some(start..end)
+}
+
+/// How many bytes the list number opening a piece takes, its mark included: "1.", "2)", "3:".
+///
+/// Not where a digit follows the mark, because that is a number carrying on rather than a
+/// list: "9.5/10 for the soundtrack" and "1:30 is the whole campaign" lose their first digit
+/// if it is taken for one, and a score that changes is the worst thing a claim can lose.
+fn numbering(piece: &str) -> Option<usize> {
+    let digits = piece.bytes().take_while(u8::is_ascii_digit).count();
+    let rest = piece[digits..].strip_prefix(['.', ')', ':'])?;
+    ((1..=3).contains(&digits)
+        && !rest.starts_with(|ch: char| ch.is_ascii_digit())
+        && !rest.trim_start().is_empty())
+    .then_some(digits + 1)
 }
 
 /// The same, as the span a label or a reading carries.
@@ -1943,6 +1957,74 @@ mod tests {
         let claims =
             split("The soundtrack is superb.\u{a0}The mixing is not. It sits far too low.");
         assert!(claims.len() >= 2, "got {claims:?}");
+    }
+
+    /// A span is the one name a claim has, and every stored span is brought to its words before
+    /// it is compared with the cut. Numbering taken off only once leaves "2." on the front of
+    /// these, a second pass takes that off too, and a label made on the claim joins nothing.
+    #[test]
+    fn a_span_brought_to_its_words_again_names_the_same_bytes() {
+        for review in [
+            "1. 2. The interface is unusable.",
+            "1) 2) 3) The tutorial explains nothing at all.",
+            "[b]1.[/b] 2. The sound design is superb.",
+        ] {
+            let cut = spans(review);
+            assert!(!cut.is_empty(), "{review:?} made no claims");
+            for span in cut {
+                let start = u32::try_from(span.start).unwrap();
+                let end = u32::try_from(span.end).unwrap();
+                assert_eq!(
+                    words_at(review, start, end),
+                    Some((start, end)),
+                    "{review:?} was cut at {:?}, and brought to its words again it moved",
+                    &review[span]
+                );
+            }
+        }
+        assert_eq!(
+            split("1. 2. The interface is unusable."),
+            vec!["The interface is unusable."]
+        );
+    }
+
+    /// A digit straight after the mark is a number carrying on rather than a list. Taken for
+    /// one, "9.5/10" comes back as "5/10" and "1:30" as "30".
+    #[test]
+    fn a_score_or_a_time_opening_a_point_keeps_its_first_digit() {
+        assert_eq!(
+            split("9.5/10 for the soundtrack alone."),
+            vec!["9.5/10 for the soundtrack alone."]
+        );
+        assert_eq!(
+            split("1:30 is all the campaign lasts, sadly."),
+            vec!["1:30 is all the campaign lasts, sadly."]
+        );
+        assert_eq!(
+            split("1. 5 reasons to play this every weekend."),
+            vec!["5 reasons to play this every weekend."],
+            "a list number followed by a space is still a list number"
+        );
+    }
+
+    /// A bracket opened on a template's heading and closed at the end of an answer further down
+    /// is not a tag. Read as one, it cuts the second answer back to the heading alone: a claim
+    /// that ends before the one ahead of it does, inside it.
+    #[test]
+    fn a_bracket_closed_on_another_line_is_not_a_tag() {
+        let review =
+            "Graphics [b=x\n\u{2610} Ugly\n\u{2611} Fine\n\u{2611} Superb]\n\u{2610} Awful\n";
+        let cut = spans(review);
+        assert_eq!(cut.len(), 2, "got {cut:?}");
+        assert!(
+            cut[0].end < cut[1].end,
+            "the second answer ends before the first: {cut:?}"
+        );
+        assert!(
+            review[cut[1].clone()].contains("Superb"),
+            "the second answer lost its answer: {:?}",
+            &review[cut[1].clone()]
+        );
     }
 
     #[test]

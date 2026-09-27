@@ -1,0 +1,18 @@
+[h1]The Good[/h1]
+[list]
+[*]Mission variety keeps every run fresh.
+[*]The sound design is superb.
+[*][b]Co-op[/b] works without a hitch.
+[/list]
+[h2] The Bad [/h2]
+[olist]
+[*]The interface is unusable[*]The tutorial explains nothing
+[/olist]
+[b][u]Verdict[/u][/b]:
+[spoiler]The ending is worth it.[/spoiler] [i]Mostly.[/i]
+[hr][/hr]
+[table][tr][th]Mode[/th][th]Score[/th][/tr][tr][td]Campaign[/td][td]8/10[/td][/tr][/table]
+[quote=a friend]Best thing I bought this year.[/quote]
+Read more at [url=https://example.com/review?id=1&lang=en]my blog[/url] if you like.
+[10/10] would freeze to death again in this city builder.
+The combat, [h3]which is great,[/h3] carries the rest.

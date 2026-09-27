@@ -1,0 +1,28 @@
+---{ Graphics }---
+☐ You forget what reality is
+☑ Beautiful
+☐ Good
+□ Decent
+☐ MS-DOS
+---{ Gameplay }---
+✓ Very good
+☐ Good
+☐ Mehh
+---{ Audience }---
+☐ Kids
+✔ Teens
+✅ Adults
+☒ Grandma
+---{ Difficulty }---
+🔲 Easy
+☑️ Normal
+🔳 Hard
+⬜ Dark Souls
+---{ Price }---
+x Worth the price
+☐ Wait for a sale
+☐ Free
+---{ Bugs }---
+☐ Never heard of
+X Minor bugs
+☐ Game itself is one big bug

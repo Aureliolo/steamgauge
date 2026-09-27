@@ -1,0 +1,47 @@
+[package]
+name = "steamgauge-fuzz"
+description = "Fuzz targets for the SteamGauge code that reads text a stranger wrote."
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+steamgauge-core = { path = "../crates/steamgauge-core" }
+
+# A workspace of its own. The product's workspace never builds, tests, lints or ships this
+# crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "splitter"
+path = "fuzz_targets/splitter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stored_span"
+path = "fuzz_targets/stored_span.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reader_window"
+path = "fuzz_targets/reader_window.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "terms"
+path = "fuzz_targets/terms.rs"
+test = false
+doc = false
+bench = false

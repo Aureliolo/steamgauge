@@ -779,38 +779,50 @@ impl Encoder {
     /// near. The budget is the same either way; where it is spent is not, and it is worth
     /// the most immediately around the claim.
     fn window(&self, asked: &Asked<'_>, offsets: &[(usize, usize)]) -> String {
-        let cut = self.cut(asked, offsets);
+        let cut = window_around(
+            asked,
+            offsets,
+            self.provenance.max_tokens,
+            self.provenance.mark,
+        );
         if self.provenance.headset_marker && asked.headset_only {
             format!("{HEADSET} {cut}")
         } else {
             cut
         }
     }
+}
 
-    fn cut(&self, asked: &Asked<'_>, offsets: &[(usize, usize)]) -> String {
-        if offsets.is_empty() {
-            return asked.review.to_owned();
-        }
-        let (opens, closes) = centred(
-            offsets,
-            asked.at,
-            asked.claim.len(),
-            self.provenance.max_tokens,
-        );
-        let kept = asked.review.get(opens..closes).unwrap_or(asked.review);
-        if !self.provenance.mark {
-            return kept.to_owned();
-        }
-        let ends = asked.at + asked.claim.len();
-        let (Some(before), Some(claim), Some(after)) = (
-            asked.review.get(opens..asked.at),
-            asked.review.get(asked.at..ends),
-            asked.review.get(ends..closes),
-        ) else {
-            return kept.to_owned();
-        };
-        format!("{before}{MARK} {claim} {MARK}{after}")
+/// The part of a claim's review that `budget` tokens can afford, centred on the claim, given
+/// where the review's tokens fall, and with the claim marked inside it where `mark` says so.
+/// A review with no offsets is kept whole.
+///
+/// Apart from the tokenizer so that it can be handed offsets of any shape. The review is a
+/// stranger's text, and a panic here ends the reading of a whole library, so nothing a
+/// tokenizer or a review can hand it may make it index out of bounds or off a character.
+#[must_use]
+pub fn window_around(
+    asked: &Asked<'_>,
+    offsets: &[(usize, usize)],
+    budget: usize,
+    mark: bool,
+) -> String {
+    let Some((opens, closes)) = centred(offsets, asked.at, asked.claim.len(), budget) else {
+        return asked.review.to_owned();
+    };
+    let kept = asked.review.get(opens..closes).unwrap_or(asked.review);
+    if !mark {
+        return kept.to_owned();
     }
+    let ends = asked.at.saturating_add(asked.claim.len());
+    let (Some(before), Some(claim), Some(after)) = (
+        asked.review.get(opens..asked.at),
+        asked.review.get(asked.at..ends),
+        asked.review.get(ends..closes),
+    ) else {
+        return kept.to_owned();
+    };
+    format!("{before}{MARK} {claim} {MARK}{after}")
 }
 
 /// For each claim, where the first claim of the same review sits in the batch.
@@ -857,7 +869,7 @@ fn as_passage(prefix: bool, window: &str) -> String {
 /// Two characters no reviewer writes and the tokenizer already knows: a token added to the
 /// vocabulary starts from noise, and this one has to mean something after four thousand
 /// training claims rather than four hundred thousand.
-const MARK: &str = "**";
+pub const MARK: &str = "**";
 
 /// What opens the review's window when the game is played only in a headset, matching
 /// `training/train.py`: the one fact about the game the labeller is told, told to the model in
@@ -865,9 +877,19 @@ const MARK: &str = "**";
 /// claims read exactly as they did before any reader was told anything.
 const HEADSET: &str = "Played in a VR headset.";
 
-/// The bytes of a review to keep, given where its tokens fall and where the claim sits.
-fn centred(offsets: &[(usize, usize)], at: usize, length: usize, budget: usize) -> (usize, usize) {
-    let ends = at + length;
+/// The bytes of a review to keep, given where its tokens fall and where the claim sits, or
+/// nothing where the review has no tokens to keep.
+#[must_use]
+pub fn centred(
+    offsets: &[(usize, usize)],
+    at: usize,
+    length: usize,
+    budget: usize,
+) -> Option<(usize, usize)> {
+    if offsets.is_empty() {
+        return None;
+    }
+    let ends = at.saturating_add(length);
     let first = offsets.iter().position(|&(_, end)| end > at).unwrap_or(0);
     let last = offsets
         .iter()
@@ -876,10 +898,10 @@ fn centred(offsets: &[(usize, usize)], at: usize, length: usize, budget: usize) 
     // Four special tokens on a pair, and the claim is spent twice: once as the first
     // sequence, and again where it sits inside the window.
     let spare = budget.saturating_sub(2 * last.saturating_sub(first) + 4) / 2;
-    (
+    Some((
         offsets[first.saturating_sub(spare)].0,
-        offsets[(last + spare).clamp(1, offsets.len()) - 1].1,
-    )
+        offsets[last.saturating_add(spare).clamp(1, offsets.len()) - 1].1,
+    ))
 }
 
 /// A claim and the review around it, as the labeller saw the pair.
@@ -1088,17 +1110,55 @@ mod tests {
 
         assert_eq!(
             centred(&padded, 0, 20, 128),
-            (0, 0),
+            Some((0, 0)),
             "padding at the end closes the window onto nothing"
         );
         assert_eq!(
             centred(&real, 0, 20, 128),
-            (0, 49),
+            Some((0, 49)),
             "the same claim, through offsets that are the review's"
         );
         // A claim past the offsets given is read from the start of the review instead, which is
         // the shape the same mistake takes when the tokenizer truncates rather than pads.
-        assert_eq!(centred(&real, 500, 10, 128), (0, 49));
+        assert_eq!(centred(&real, 500, 10, 128), Some((0, 49)));
+        assert_eq!(
+            centred(&[], 0, 20, 128),
+            None,
+            "a review with no tokens has nothing to centre on"
+        );
+    }
+
+    /// Offsets are whatever a tokenizer hands back for a stranger's text, and the reading of a
+    /// whole library stops at the first panic. None of these describe the review they are
+    /// given with, and each has to come back as a string rather than an index out of bounds.
+    #[test]
+    fn offsets_of_any_shape_give_a_window_rather_than_a_panic() {
+        let review = "Ça tourne mal. 画面が綺麗です。";
+        let claim = "画面が綺麗です。";
+        let at = review.find(claim).unwrap();
+        let asked = Asked {
+            claim,
+            language: "japanese",
+            review,
+            at,
+            headset_only: false,
+        };
+        for offsets in [
+            vec![(1, 2)],
+            vec![(0, usize::MAX), (usize::MAX, 0)],
+            vec![(20, 3), (2, 1), (0, 0)],
+            vec![(review.len() + 7, review.len() + 9)],
+        ] {
+            for budget in [0, 1, 4, 128, usize::MAX] {
+                for mark in [false, true] {
+                    let window = window_around(&asked, &offsets, budget, mark);
+                    assert!(
+                        mark || review.contains(&window),
+                        "an unmarked window is a piece of the review, got {window:?}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -1267,7 +1327,7 @@ mod tests {
         let offsets = words(&review);
         let (at, length) = (offsets[30].0, offsets[30].1 - offsets[30].0);
 
-        let (opens, closes) = centred(&offsets, at, length, 12);
+        let (opens, closes) = centred(&offsets, at, length, 12).unwrap();
         let kept = &review[opens..closes];
         assert!(
             kept.contains("w30"),
@@ -1307,21 +1367,26 @@ mod tests {
         // string built by `training/train.py`, and a test that computes it the same way the
         // code does would agree with a mistake.
         let review = "before it. the claim itself. after it.";
-        let at = review.find("the claim").unwrap();
         let claim = "the claim itself.";
-        let marked = format!(
-            "{}{MARK} {claim} {MARK}{}",
-            &review[..at],
-            &review[at + claim.len()..]
+        let asked = Asked {
+            claim,
+            language: "english",
+            review,
+            at: review.find(claim).unwrap(),
+            headset_only: false,
+        };
+        assert_eq!(
+            window_around(&asked, &words(review), 512, true),
+            "before it. ** the claim itself. ** after it."
         );
-        assert_eq!(marked, "before it. ** the claim itself. ** after it.");
+        assert_eq!(window_around(&asked, &words(review), 512, false), review);
     }
 
     #[test]
     fn a_budget_that_fits_the_whole_review_keeps_all_of_it() {
         let review = "one two three four five";
         let offsets = words(review);
-        let (opens, closes) = centred(&offsets, offsets[2].0, 5, 512);
+        let (opens, closes) = centred(&offsets, offsets[2].0, 5, 512).unwrap();
         assert_eq!(&review[opens..closes], review);
     }
 
@@ -1330,7 +1395,7 @@ mod tests {
         // The spare is zero here and the arithmetic must not run off either end.
         let review = "one two three four five";
         let offsets = words(review);
-        let (opens, closes) = centred(&offsets, 0, review.len(), 4);
+        let (opens, closes) = centred(&offsets, 0, review.len(), 4).unwrap();
         assert!(opens < closes && closes <= review.len());
     }
 

@@ -1,0 +1,112 @@
+# What the splitter, the window and the term cut read specially, handed to libFuzzer so that
+# a mutation reaches for these rather than waiting to stumble on their bytes. Non-ASCII is
+# written as its UTF-8 bytes.
+
+# The marks a review template offers as options, ticked or blank, and the cross that is neither.
+ballot_box="\xE2\x98\x90"
+ballot_box_checked="\xE2\x98\x91"
+ballot_box_x="\xE2\x98\x92"
+white_square="\xE2\x96\xA1"
+check="\xE2\x9C\x93"
+heavy_check="\xE2\x9C\x94"
+green_check="\xE2\x9C\x85"
+black_square_button="\xF0\x9F\x94\xB2"
+white_square_button="\xF0\x9F\x94\xB3"
+large_white_square="\xE2\xAC\x9C"
+cross_mark="\xE2\x9D\x8C"
+variation_selector="\xEF\xB8\x8F"
+ticked_with_an_x="x "
+
+# Steam's censorship.
+heart="\xE2\x99\xA5"
+
+# Where a sentence ends, in every script the splitter knows.
+full_stop="."
+question="?"
+bang="!"
+ellipsis="\xE2\x80\xA6"
+ideographic_stop="\xE3\x80\x82"
+fullwidth_bang="\xEF\xBC\x81"
+fullwidth_question="\xEF\xBC\x9F"
+arabic_stop="\xDB\x94"
+danda="\xE0\xA5\xA4"
+
+# Commas, colons, brackets and quotation marks that hold a sentence open.
+comma=","
+fullwidth_comma="\xEF\xBC\x8C"
+ideographic_comma="\xE3\x80\x81"
+colon=":"
+fullwidth_colon="\xEF\xBC\x9A"
+semicolon=";"
+fullwidth_open="\xEF\xBC\x88"
+fullwidth_close="\xEF\xBC\x89"
+straight_quote="\""
+left_quote="\xE2\x80\x9C"
+right_quote="\xE2\x80\x9D"
+guillemet_open="\xC2\xAB"
+guillemet_close="\xC2\xBB"
+corner_open="\xE3\x80\x8C"
+corner_close="\xE3\x80\x8D"
+white_corner_open="\xE3\x80\x8E"
+white_corner_close="\xE3\x80\x8F"
+
+# List marks and numbering.
+bullet="\xE2\x80\xA2"
+middle_dot="\xC2\xB7"
+en_dash="\xE2\x80\x93"
+em_dash="\xE2\x80\x94"
+numbered="1. "
+numbered_bracket="2) "
+numbered_colon="3: "
+decimal="9.5/10"
+time="1:30"
+
+# Steam's markup.
+heading_open="[h1]"
+heading_close="[/h1]"
+heading_three="[h3]"
+list_open="[list]"
+list_close="[/list]"
+ordered_list="[olist]"
+item="[*]"
+bold_open="[b]"
+bold_close="[/b]"
+spoiler="[spoiler]"
+rule="[hr][/hr]"
+table_cell="[td]"
+quote_open="[quote=someone]"
+link_open="[url=https://example.com/a?b=1]"
+link_close="[/url]"
+score_in_brackets="[10/10]"
+
+# Addresses, abbreviations and emoticons.
+scheme="://"
+www="www."
+abbreviation="i.e."
+german_abbreviation="z.B."
+initials="U.S.A."
+smile=":)"
+laugh="xD"
+heart_emoticon="<3"
+
+# Whitespace a byte-at-a-time walk would land inside, and characters that are not whitespace.
+nbsp="\xC2\xA0"
+ideographic_space="\xE3\x80\x80"
+line_separator="\xE2\x80\xA8"
+crlf="\x0D\x0A"
+zero_width_joiner="\xE2\x80\x8D"
+zero_width_space="\xE2\x80\x8B"
+rtl_mark="\xE2\x80\x8F"
+bom="\xEF\xBB\xBF"
+right_apostrophe="\xE2\x80\x99"
+
+# What the term cut handles by script: modifiers, dictionary words, particles and endings.
+han_not="\xE4\xB8\x8D"
+han_good="\xE5\xA5\xBD"
+han_frame_drop="\xE6\x8E\x89\xE5\xB8\xA7"
+hangul_particle="\xEC\x97\x90\xEC\x84\x9C\xEB\x8A\x94"
+hangul_ending="\xED\x96\x88\xEC\x8A\xB5\xEB\x8B\x88\xEB\x8B\xA4"
+katakana="\xE3\x83\x84"
+dotted_capital_i="\xC4\xB0"
+negation="not worth "
+no_micro="no micro transactions"
