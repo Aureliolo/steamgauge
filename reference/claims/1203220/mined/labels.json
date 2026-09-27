@@ -3584,14 +3584,15 @@
     "subset": "mined",
     "start": 4424,
     "end": 4496,
-    "taxonomy": "a05d00cf2f39",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "a0e7ff81b45f",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "98746816",

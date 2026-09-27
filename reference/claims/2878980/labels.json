@@ -1661,14 +1661,20 @@
     "subset": "random",
     "start": 64,
     "end": 202,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "a0e7ff81b45f",
+    "produced_by": "claude-opus-5-5",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "175470783",

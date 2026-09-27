@@ -4341,6 +4341,22 @@ and those labels came from sheets older than it. The rule's own cases are few: a
 by another store (bugs), unlocks on a linked account support will not restore (policy, bugs
 beside it).
 
+### How the makers answer a player who asks for help (2026-09-27)
+
+Both labellers of the round above met customer service and found no row naming it; one filed
+it under policy, the other under updates. The `updates` row now takes it as communication with
+players: customer service, a support ticket, an answer that never came. A decision the answer
+delivers, a ban upheld or a refund refused, is policy, and the fault the player wrote in about
+stays where it is when the claim is about the fault.
+
+Drawn by its words ("customer service", "support ticket", "contacted support", "never
+responded" and a dozen more; "support is" alone draws mod, controller and headset support and
+was left out): 12 claims in 11 sets, asked again on this sheet (`a0e7ff81b45f`) by one Opus
+5.5 labeller, about 72k tokens. One moved, from policy to updates, and four gained another
+subject. The labels had mostly done this already, 7 of the 13 claims under updates before the
+rule. Left open: a platform's support, not the game's makers, failing a player; filed where the
+fault is.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

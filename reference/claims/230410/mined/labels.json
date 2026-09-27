@@ -3279,12 +3279,12 @@
     "subset": "mined",
     "start": 273,
     "end": 448,
-    "taxonomy": "e326339f5be3",
+    "taxonomy": "a0e7ff81b45f",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
@@ -3306,6 +3306,10 @@
       },
       {
         "subject": "community",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "updates",
         "polarity": "complaint"
       }
     ]
