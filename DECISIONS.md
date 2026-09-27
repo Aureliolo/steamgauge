@@ -687,6 +687,22 @@ So the prerequisite is not a day on packaging. It is a dynamo graph DirectML wil
 somebody else's bug to fix, and the pins in `requirements.txt` and the rules in `renovate.json`
 hold the offer until it is. It also needs `onnxscript` back, which left with `optimum`'s tail.
 
+**What the hold leaves open.** Triaged 2026-09-27 against the lock: 4.57.6 carries five
+advisories that only 5 fixes. Two cannot be reached here and are in `osv-scanner.toml` with the
+evidence: the X-CLIP conversion script (PYSEC-2025-217), which the wheel does not ship, and
+`Trainer`'s unguarded `torch.load` (GHSA-69w3-r845-3855), which needs torch below 2.6 and a
+`Trainer` nothing here imports. Three can, and are listed nowhere as ignored:
+GHSA-29pf-2h5f-8g72 (a `config.json` naming a Hub kernel, fixed in 5.3), GHSA-fgcw-684q-jj6r
+(LightGlue's config passing `trust_remote_code` on, fixed in 5.5) and GHSA-xrqw-3rrv-vx5w
+(chat template names written as paths by `save_pretrained`, fixed in 5.10). All three need a
+backbone repository that is itself hostile, and `train.py` already loads every backbone with
+`trust_remote_code=True` at an unpinned revision, which hands such a repository code execution
+on any version. The first also needs the `kernels` package, which the lock does not install. So
+the hold costs nothing the backbone list does not already trust away, and moving off it closes
+the three rather than any ignore. Every floor in `requirements.txt` sits at the first release
+free of every advisory its range can escape (4.57.2 for transformers, the rest free of all),
+because OSV-Scanner and Scorecard read a floor as the version in use.
+
 What came out of the same audit: `optimum`, `datasets` and `pyarrow` were in the requirements
 and imported nowhere. The lock is thirty entries shorter without them, and `optimum`'s own
 major upgrade left the weekly PR with them.

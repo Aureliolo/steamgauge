@@ -1,0 +1,58 @@
+# Advisories against a locked dependency that no compatible release fixes, each with the evidence
+# that this project cannot reach the flaw. Every entry expires so it is looked at again; an
+# advisory whose flaw this project can reach is never listed here, however it scores.
+#
+# A recursive scan reads training/requirements.txt, whose floors it takes for versions, and not
+# the lock, whose name it does not recognise. The transformers entries match only when the lock
+# is named, and a named lock looks for this file beside itself unless told where it is:
+# osv-scanner scan source --no-resolve --config osv-scanner.toml -L Cargo.lock -L requirements.txt:training/requirements.lock
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+ignoreUntil = 2027-03-27
+reason = "glib 0.18.5: VariantStrIter's Iterator and DoubleEndedIterator impls are unsound. glib is compiled only for Linux, pulled in by Tauri 2's GTK3 stack (gtk 0.18 under tauri, wry, tao and muda); it is absent from the Windows and macOS graphs. The fix is glib 0.20, and gtk 0.19 is the first GTK3 binding on it, but the newest tauri 2.12.0, wry 0.57.0, tao 0.37.1 and muda 0.20.0 all still require gtk ^0.18. Unreachable: VariantStrIter is only constructed by Variant::array_iter_str, and no crate in Cargo.lock other than glib itself names either (grep of every locked crate's source for VariantStrIter, array_iter_str and str_iter), nor does this workspace use glib at all."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+ignoreUntil = 2027-03-27
+reason = "proc-macro-error 1.0.4 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of glib-macros 0.18.5 and gtk3-macros 0.18.2, so it runs only inside the compiler on a Linux build and none of its code is in the binary. glib-macros 0.20 and later drop it, which arrives with glib 0.20 when Tauri leaves gtk 0.18 (see RUSTSEC-2024-0429)."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+ignoreUntil = 2027-03-27
+reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0075"
+ignoreUntil = 2026-10-13
+reason = "unic-char-range 0.9.0 is unmaintained; no vulnerability is reported. It reaches the build only through urlpattern 0.3.0 under tauri-utils 2.9.3. tauri-utils 2.10.0 (with tauri 2.12.0) moves to urlpattern 0.6, which uses icu_properties and drops all five unic crates, but it was published on 2026-09-26 and renovate.json holds every release for three days; the weekly update takes it. Short expiry so the entry goes when it does."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0080"
+ignoreUntil = 2026-10-13
+reason = "unic-common 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0081"
+ignoreUntil = 2026-10-13
+reason = "unic-char-property 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0098"
+ignoreUntil = 2026-10-13
+reason = "unic-ucd-version 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0100"
+ignoreUntil = 2026-10-13
+reason = "unic-ucd-ident 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
+
+[[IgnoredVulns]]
+id = "PYSEC-2025-217"
+ignoreUntil = 2027-03-27
+reason = "transformers 4.57.6, held below 5 (DECISIONS, 'transformers 5 is held'). The flaw is in the X-CLIP checkpoint conversion script, which the published wheel does not ship: transformers/models/x_clip in 4.57.6 holds only the configuration, modelling and processing modules. Nothing in training/ uses X-CLIP."
+
+[[IgnoredVulns]]
+id = "GHSA-69w3-r845-3855"
+ignoreUntil = 2027-03-27
+reason = "transformers 4.57.6, held below 5. Trainer._load_rng_state calls torch.load without weights_only, which the advisory says matters only under torch below 2.6; the floor is torch 2.13 and the lock resolves 2.14, where torch.load defaults to weights_only=True. training/ never imports Trainer either. Covers its alias PYSEC-2026-2288."
