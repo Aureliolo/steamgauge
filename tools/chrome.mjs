@@ -140,8 +140,13 @@ export async function connect(url) {
     if (message.method === "Network.requestWillBeSent") {
       asked.push(message.params.request.url);
     }
+    // Only a reply to a command this side sent: an id it numbered, answered once. Anything
+    // else on the socket, events included, settles nothing.
+    if (!Number.isInteger(message.id)) {
+      return;
+    }
     const settle = waiting.get(message.id);
-    if (settle) {
+    if (typeof settle === "function") {
       waiting.delete(message.id);
       settle(message);
     }
