@@ -4220,6 +4220,26 @@ about 215k Fable tokens and which cost about 340k: 86 small sets mean each label
 more than it labels. 62 (20.1%) changed their first subject, 146 name another subject, and 87
 carry a verdict beside it.
 
+### A revisit asks only claims the reader is handed (2026-09-27)
+
+**Found by a labeller.** Three labellers of the rounds above reported a blank ballot option,
+"Complete waste of money" with its box unticked, as a claim they could not settle. The splitter
+has dropped blank options for weeks, and this build cuts that review into its ten ticked
+answers and nothing else. The fragment came from the set's own sample, cut by older rules:
+`draw_revisit` asked about any labelled claim a question matched, by the text stored when the
+set was drawn, and never applied the two tests the training export does, that the text is a
+claim at all (`is_not_a_claim`) and that this build still cuts a claim at the label's span.
+
+**What it cost.** Drawn again with both tests, the verdict revisit asks 1,460 of its 1,591
+claims and the wording revisit 238 of its 308: 131 and 70 claims, 8% and 23%, were fragments
+the export throws away, about 180k Fable tokens of labelling nothing will train on. The labels
+themselves do no harm, since the export holds them back. The one-in-ten revisit cannot be drawn
+again the same way, because its filter was the answers it changed.
+
+**The fix** is the export's own two tests in the draw, reading each game's capture once; a
+game with no capture on this machine holds back only what is not a claim, as in the export.
+`steamgauge revisit` takes the captures directory as `--out`, like `export-training`.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

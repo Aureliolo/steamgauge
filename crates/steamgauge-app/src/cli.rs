@@ -498,6 +498,11 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
+        /// Directory holding the captures, which say whether this build still cuts a claim
+        /// where a label names one: a claim it no longer cuts is not asked again, as the
+        /// training export does not keep it. A game with no capture here holds nothing back.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
         /// Reviews per batch file.
         #[arg(long, default_value_t = 40)]
         batch_size: usize,
@@ -1003,8 +1008,9 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             subjects,
             app_ids,
             reference,
+            out,
             batch_size,
-        } => run_revisit(words, subjects, app_ids, reference, *batch_size),
+        } => run_revisit(words, subjects, app_ids, reference, out, *batch_size),
         Command::Gold {
             reference,
             out,
@@ -1778,6 +1784,7 @@ fn run_revisit(
     subjects: &[String],
     app_ids: &[u32],
     reference: &std::path::Path,
+    captures: &std::path::Path,
     batch_size: usize,
 ) -> Result<()> {
     let question = steamgauge_core::claimset::Question {
@@ -1786,7 +1793,8 @@ fn run_revisit(
         apps: app_ids.to_vec(),
         ..steamgauge_core::claimset::Question::default()
     };
-    let drawn = steamgauge_core::claimset::draw_revisits(reference, &[question], batch_size)?;
+    let drawn =
+        steamgauge_core::claimset::draw_revisits(reference, captures, &[question], batch_size)?;
     if drawn.sets.is_empty() {
         anyhow::bail!("no labelled claim uses any of those words; nothing to revisit");
     }

@@ -22,8 +22,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let questions: Vec<steamgauge_core::claimset::Question> =
         serde_json::from_slice(&std::fs::read(questions)?)?;
 
+    // The captures say where this build cuts each review, so a claim it no longer cuts is not
+    // asked again. `OUT_DIR_DATA`, as the other examples read it.
+    let captures = std::env::var("OUT_DIR_DATA").unwrap_or_else(|_| "data".to_owned());
     let drawn = steamgauge_core::claimset::draw_revisits(
         std::path::Path::new(reference),
+        std::path::Path::new(&captures),
         &questions,
         per_batch,
     )?;
