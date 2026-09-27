@@ -4,7 +4,7 @@ You are shown the text of a review and nothing else: not which game it is, not w
 
 Performance (performance)
   The game runs badly. Low frame rate, stuttering, frame drops, poor optimisation, long loading times, and it struggles even on good hardware.
-  RULE: Frame rate and stuttering belong here. How the animation itself looks, and how fast it plays out, belong to graphics.
+  RULE: Frame rate and stuttering belong here. How the animation itself looks, and how fast it plays out, belong to graphics. "Lag" with nothing else named is here, unless the claim or the review around it is about playing online, servers or other players, where it is multiplayer.
 
 Bugs and crashes (bugs)
   The game is broken and buggy. It crashes to desktop, freezes, corrupts or loses save files, and is full of glitches that block progress.
@@ -62,11 +62,11 @@ Mods and user content (mods)
 
 Price and value (price)
   What it costs and whether it is worth the money. Worth every penny, a waste of money, I refunded it, full price versus sale, value for money, and whether to wait for a discount.
-  RULE: What the base game costs belongs here, and so does judging its value in money: worth every penny and waste of money are both about what it was worth paying. What is sold on top of it belongs to monetisation.
+  RULE: What the base game costs belongs here, and so does judging its value in money: worth every penny and waste of money are both about what it was worth paying. "Don't waste your money" judges the price; told not to buy it as well, "do not buy, it is a waste of money", the claim is price with verdict, complaint, beside it. What is sold on top of it belongs to monetisation.
 
 Monetisation and DLC (monetisation)
   Paid extras and how they are sold. Microtransactions, battle passes, loot boxes, paywalls, season passes and content cut out to sell as DLC.
-  RULE: What is sold on top of the game, and how, belongs here, including what a purchase gives you: a pack whose contents are decided by chance is sold here, and whether luck then decides the match is difficulty. A currency or reward the game hands out for playing is difficulty when the claim is about how slowly it comes, the grind, and here when it is about paying to skip it or what money buys instead: "the rewards slow to a trickle" is difficulty, "too much VC needed unless you pay" is here. Wanting more of the game belongs to content even when the review asks for it as DLC: that is a review saying it ran out, not one about how the game is sold.
+  RULE: What is sold on top of the game, and how, belongs here, including what a purchase gives you: a pack whose contents are decided by chance is sold here, and whether luck then decides the match is difficulty. A currency or reward the game hands out for playing is difficulty when the claim is about how slowly it comes, the grind, and here when it is about paying to skip it or what money buys instead: "the rewards slow to a trickle" is difficulty, "too much VC needed unless you pay" is here. Wanting more of the game belongs to content even when the review asks for it as DLC: that is a review saying it ran out, not one about how the game is sold. An expansion judged as more game, "the DLC is a masterpiece", belongs to what it is judged on, content where nothing more is named and story, gameplay or the rest where they are; its price and how it is sold stay here.
 
 Multiplayer and online (multiplayer)
   Playing with or against other people. Matchmaking, servers, lag and ping, co-op, player counts, whether lobbies are dead and whether cheaters ruin it.
