@@ -3279,9 +3279,9 @@
     "subset": "mined",
     "start": 273,
     "end": 448,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "community",
+    "taxonomy": "e326339f5be3",
+    "produced_by": "claude-opus-5-5",
+    "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
@@ -3305,7 +3305,7 @@
         "polarity": "complaint"
       },
       {
-        "subject": "updates",
+        "subject": "community",
         "polarity": "complaint"
       }
     ]

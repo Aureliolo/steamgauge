@@ -2513,14 +2513,15 @@
     "subset": "mined",
     "start": 98,
     "end": 253,
-    "taxonomy": "a05d00cf2f39",
-    "produced_by": "claude-fable-5-1",
-    "subject": "offtopic",
+    "taxonomy": "e326339f5be3",
+    "produced_by": "claude-opus-5-5",
+    "subject": "policy",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "223879335",
