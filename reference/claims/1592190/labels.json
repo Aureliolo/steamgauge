@@ -2289,12 +2289,12 @@
     "subset": "random",
     "start": 310,
     "end": 341,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
     "also": []
@@ -5548,22 +5548,22 @@
     "subset": "random",
     "start": 0,
     "end": 72,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "vr",
-        "polarity": "neutral"
-      },
-      {
         "subject": "verdict",
         "polarity": "praise"
+      },
+      {
+        "subject": "vr",
+        "polarity": "neutral"
       }
     ]
   },

@@ -4193,6 +4193,33 @@ subject. The words picked the right claims three times in four, so the recommend
 lost are the ones worded some other way, and a revisit by the reader's own `verdict` score in
 `also` is the way to find them once a reader with the aspect head exists.
 
+### Five calls the labellers kept asking about (2026-09-27)
+
+Written into the sheet from the notes of the last two rounds, each reported by at least two
+labellers who did not see each other's reports, one of them a rule this project wrote a day
+earlier and got wrong:
+
+- **A concession is one point.** The rule that a claim praising and criticising the same subject
+  is mis-split read, to one labeller, as covering "the updates have been solid but they took
+  months" too. It never meant to: a concession takes the polarity of what it leads to, and only
+  two separate points about one subject are mis-cut.
+- **A verdict that praises and still advises against** ("a great game ruined by the servers, do
+  not buy") takes the polarity of the advice.
+- **A bare "lag"** is performance, and multiplayer when the claim or its review is about playing
+  online, servers or other players.
+- **An expansion judged as more game** belongs to what it is judged on, content where nothing
+  more is named; its price and how it is sold stay monetisation.
+- **"Don't waste your money"** judges the price; told not to buy as well, it is price with the
+  verdict beside it.
+
+By their words they reach 308 labelled claims in 86 sets: 68 with "lag" under performance,
+multiplayer or bugs, 150 under monetisation naming a DLC or expansion, 31 wasting money under
+price or verdict, 59 verdicts that praise and reject. A concession has no word to draw it by.
+All 308 are asked again on this sheet, two labellers at a time, which the user approved at
+about 215k Fable tokens and which cost about 340k: 86 small sets mean each labeller reads far
+more than it labels. 62 (20.1%) changed their first subject, 146 name another subject, and 87
+carry a verdict beside it.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

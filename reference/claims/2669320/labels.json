@@ -2562,9 +2562,9 @@
     "subset": "random",
     "start": 0,
     "end": 88,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "price",
+    "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
@@ -2572,7 +2572,11 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "updates",
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "price",
         "polarity": "complaint"
       }
     ]

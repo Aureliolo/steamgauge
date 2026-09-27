@@ -10305,14 +10305,15 @@
     "subset": "random",
     "start": 162,
     "end": 212,
-    "taxonomy": "1022adc2bdd1",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "219768757",

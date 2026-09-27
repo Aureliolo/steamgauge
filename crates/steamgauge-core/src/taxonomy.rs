@@ -148,7 +148,9 @@ pub const SHEET: &[Category] = &[
                       optimisation, long loading times, and it struggles even on good hardware.",
         boundary: Some(
             "Frame rate and stuttering belong here. How the animation itself looks, and how \
-             fast it plays out, belong to graphics.",
+             fast it plays out, belong to graphics. \"Lag\" with nothing else named is here, \
+             unless the claim or the review around it is about playing online, servers or \
+             other players, where it is multiplayer.",
         ),
         alone: false,
         beside: true,
@@ -491,7 +493,9 @@ pub const SHEET: &[Category] = &[
         boundary: Some(
             "What the base game costs belongs here, and so does judging its value in money: \
              worth every penny and waste of money are both about what it was worth paying. \
-             What is sold on top of it belongs to monetisation.",
+             \"Don't waste your money\" judges the price; told not to buy it as well, \"do not \
+             buy, it is a waste of money\", the claim is price with verdict, complaint, beside \
+             it. What is sold on top of it belongs to monetisation.",
         ),
         alone: false,
         beside: true,
@@ -510,7 +514,10 @@ pub const SHEET: &[Category] = &[
              \"the rewards slow to a trickle\" is difficulty, \"too much VC needed unless you \
              pay\" is here. Wanting more of the game belongs to \
              content even when the review asks for it as DLC: that is a review saying it ran \
-             out, not one about how the game is sold.",
+             out, not one about how the game is sold. An expansion judged as more game, \"the \
+             DLC is a masterpiece\", belongs to what it is judged on, content where nothing \
+             more is named and story, gameplay or the rest where they are; its price and how \
+             it is sold stay here.",
         ),
         alone: false,
         beside: true,
@@ -972,9 +979,13 @@ polarity
   What the claim does about its subject, in one of these words: {polarity}. Praise and
   complaint are about the game, not about the reviewer's mood. Neutral is for a claim that
   states something without judging it, which is common and is not a failure to decide. Each
-  subject in `also` carries its own. A claim that praises and complains about the same
-  subject, \"best netplay, mediocre lobby system\", is two points cut as one: give the polarity
-  of the one the rest lead to, or of the first among equals, and mark `split_wrong`.
+  subject in `also` carries its own. A concession inside one point, \"the updates have been
+  solid but they took months\", takes the polarity of what it leads to and is one point. Two
+  separate points about the same subject, one praised and one criticised, \"best netplay,
+  mediocre lobby system\", are two points cut as one: give the polarity of the one the rest
+  lead to, or of the first among equals, and mark `split_wrong`. A verdict that praises the
+  game and still advises against it, \"a great game ruined by the servers, do not buy\", takes
+  the polarity of the advice.
 
 also
   Every other subject this claim covers, as a list of {\"subject\": ..., \"polarity\": ...},
@@ -1007,8 +1018,9 @@ ambiguous
 split_wrong
   Whether this claim was cut in the wrong place: half of one point, or two sentences that
   should have been two claims. One sentence that makes several points is not mis-cut; that is
-  what `also` is for, except where it praises and complains about the same subject, which
-  `also` cannot hold. One line of a list the reviewer wrote as a single point, their machine's
+  what `also` is for, except where it makes two separate points about the same subject, one
+  praised and one criticised, which `also` cannot hold; a concession inside one point is not
+  that. One line of a list the reviewer wrote as a single point, their machine's
   specification or their settings one per line (\"32GB DDR4-3200 RAM\", \"Terrain Shadows:
   off\"), is half of one point. The splitting is mechanical and it will be wrong sometimes; this is the
   only signal that it was, and it is what improves it. Leave it false unless the text in front
