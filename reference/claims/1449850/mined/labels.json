@@ -1579,14 +1579,20 @@
     "subset": "mined",
     "start": 146,
     "end": 245,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "policy",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "111810993",

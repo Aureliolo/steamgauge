@@ -780,12 +780,12 @@
     "subset": "declined",
     "start": 0,
     "end": 106,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
@@ -794,7 +794,7 @@
         "polarity": "praise"
       },
       {
-        "subject": "genre",
+        "subject": "story",
         "polarity": "praise"
       }
     ]
@@ -1068,14 +1068,24 @@
     "subset": "declined",
     "start": 0,
     "end": 66,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "231139898",

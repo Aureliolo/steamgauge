@@ -1593,14 +1593,15 @@
     "subset": "declined",
     "start": 2002,
     "end": 2055,
-    "taxonomy": "core-6",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "214532476",

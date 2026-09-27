@@ -4884,14 +4884,15 @@
     "subset": "random",
     "start": 92,
     "end": 115,
-    "taxonomy": "core-6",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "200248738",

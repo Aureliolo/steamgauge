@@ -2871,14 +2871,15 @@
     "subset": "random",
     "start": 214,
     "end": 254,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "140216594",
@@ -2976,14 +2977,20 @@
     "subset": "random",
     "start": 948,
     "end": 1098,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "140855930",
@@ -3783,14 +3790,15 @@
     "subset": "random",
     "start": 836,
     "end": 872,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "153386736",
@@ -4798,14 +4806,15 @@
     "subset": "random",
     "start": 714,
     "end": 793,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "155105193",
@@ -9804,14 +9813,20 @@
     "subset": "random",
     "start": 3790,
     "end": 3987,
-    "taxonomy": "core-5",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "233835919",

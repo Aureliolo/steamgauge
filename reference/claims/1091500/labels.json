@@ -852,23 +852,15 @@
     "subset": "random",
     "start": 0,
     "end": 130,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "story",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "story",
-        "polarity": "praise"
-      },
-      {
-        "subject": "audio",
-        "polarity": "praise"
-      },
       {
         "subject": "verdict",
         "polarity": "praise"
@@ -985,9 +977,9 @@
     "subset": "random",
     "start": 1034,
     "end": 1279,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "story",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
@@ -995,7 +987,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "story",
+        "subject": "gameplay",
         "polarity": "praise"
       }
     ]
@@ -2918,20 +2910,15 @@
     "subset": "random",
     "start": 2516,
     "end": 2594,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "content",
-        "polarity": "praise"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "190163756",
@@ -3249,13 +3236,13 @@
     "subset": "random",
     "start": 303,
     "end": 350,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },

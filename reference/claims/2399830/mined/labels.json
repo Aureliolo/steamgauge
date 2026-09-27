@@ -2197,7 +2197,7 @@
     "subset": "mined",
     "start": 0,
     "end": 713,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
@@ -2206,6 +2206,10 @@
     "ambiguous": false,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
       {
         "subject": "multiplayer",
         "polarity": "complaint"
@@ -2220,10 +2224,6 @@
       },
       {
         "subject": "policy",
-        "polarity": "complaint"
-      },
-      {
-        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -2778,21 +2778,21 @@
     "subset": "mined",
     "start": 0,
     "end": 583,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "bugs",
+        "subject": "price",
         "polarity": "complaint"
       },
       {
-        "subject": "language",
+        "subject": "bugs",
         "polarity": "complaint"
       },
       {
@@ -2800,11 +2800,15 @@
         "polarity": "complaint"
       },
       {
+        "subject": "language",
+        "polarity": "complaint"
+      },
+      {
         "subject": "performance",
         "polarity": "complaint"
       },
       {
-        "subject": "price",
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]

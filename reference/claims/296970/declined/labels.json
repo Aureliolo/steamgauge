@@ -805,14 +805,15 @@
     "subset": "declined",
     "start": 2513,
     "end": 2617,
-    "taxonomy": "core-6",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "monetisation",
+    "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "24349317",

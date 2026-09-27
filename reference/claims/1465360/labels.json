@@ -2994,15 +2994,20 @@
     "subset": "random",
     "start": 435,
     "end": 556,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true,
-    "also": []
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "162571155",

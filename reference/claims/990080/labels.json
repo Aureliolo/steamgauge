@@ -3888,14 +3888,15 @@
     "subset": "random",
     "start": 741,
     "end": 971,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "132665252",
@@ -15063,14 +15064,20 @@
     "subset": "random",
     "start": 111,
     "end": 256,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "160361401",
@@ -15762,14 +15769,15 @@
     "subset": "random",
     "start": 0,
     "end": 15,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "171391294",
@@ -17856,14 +17864,20 @@
     "subset": "random",
     "start": 19,
     "end": 68,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "verdict",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
+    "subject": "compatibility",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "188876398",

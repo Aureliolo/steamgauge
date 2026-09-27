@@ -1238,14 +1238,15 @@
     "subset": "random",
     "start": 533,
     "end": 556,
-    "taxonomy": "core-6",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": false,
-    "split_wrong": true
+    "ambiguous": true,
+    "split_wrong": true,
+    "also": []
   },
   {
     "review_id": "112637318",
@@ -8015,14 +8016,15 @@
     "subset": "random",
     "start": 0,
     "end": 59,
-    "taxonomy": "core-6",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "205780809",
@@ -13598,14 +13600,15 @@
     "subset": "random",
     "start": 708,
     "end": 715,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "performance",
+    "subject": "vr",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": []
   },
   {
     "review_id": "65816390",
@@ -16265,14 +16268,15 @@
     "subset": "random",
     "start": 16,
     "end": 37,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "4ed2560939f2",
+    "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "66285029",
@@ -19551,14 +19555,15 @@
     "subset": "random",
     "start": 0,
     "end": 48,
-    "taxonomy": "dc064c24a9bb",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "75206080",

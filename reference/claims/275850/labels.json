@@ -3742,14 +3742,20 @@
     "subset": "random",
     "start": 26,
     "end": 111,
-    "taxonomy": "core-5",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "196977322",
@@ -6402,15 +6408,20 @@
     "subset": "random",
     "start": 102,
     "end": 157,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "26174698",

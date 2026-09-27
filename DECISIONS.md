@@ -4215,7 +4215,10 @@ earlier and got wrong:
 By their words they reach 308 labelled claims in 86 sets: 68 with "lag" under performance,
 multiplayer or bugs, 150 under monetisation naming a DLC or expansion, 31 wasting money under
 price or verdict, 59 verdicts that praise and reject. A concession has no word to draw it by.
-All 308 are asked again on this sheet, about 215k Fable tokens, which the user approved.
+All 308 are asked again on this sheet, two labellers at a time, which the user approved at
+about 215k Fable tokens and which cost about 340k: 86 small sets mean each labeller reads far
+more than it labels. 62 (20.1%) changed their first subject, 146 name another subject, and 87
+carry a verdict beside it.
 
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 

@@ -1585,14 +1585,20 @@
     "subset": "retrieved",
     "start": 29,
     "end": 75,
-    "taxonomy": "604974ace095",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "verdict",
+    "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "33254031",

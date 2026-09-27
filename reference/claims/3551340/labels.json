@@ -1535,14 +1535,20 @@
     "subset": "random",
     "start": 0,
     "end": 154,
-    "taxonomy": "core-5",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "208458554",
@@ -6372,7 +6378,7 @@
     "subset": "random",
     "start": 0,
     "end": 126,
-    "taxonomy": "05cc9b670ad4",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
@@ -7101,14 +7107,20 @@
     "subset": "random",
     "start": 33,
     "end": 65,
-    "taxonomy": "core-5",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
-    "subject": "verdict",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": true,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "226050595",

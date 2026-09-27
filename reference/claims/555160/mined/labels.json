@@ -1195,14 +1195,20 @@
     "subset": "mined",
     "start": 0,
     "end": 48,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "30260963",

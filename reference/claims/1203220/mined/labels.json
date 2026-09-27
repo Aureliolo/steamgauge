@@ -497,14 +497,28 @@
     "subset": "mined",
     "start": 6202,
     "end": 7584,
-    "taxonomy": "417a6ff54399",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "community",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "performance",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "110103161",

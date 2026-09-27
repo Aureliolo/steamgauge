@@ -463,14 +463,15 @@
     "subset": "mined",
     "start": 1134,
     "end": 1238,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "124861835",

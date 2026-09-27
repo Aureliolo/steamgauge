@@ -408,14 +408,15 @@
     "subset": "mined",
     "start": 94,
     "end": 296,
-    "taxonomy": "a05d00cf2f39",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "performance",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "134602081",

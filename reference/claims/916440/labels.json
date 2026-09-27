@@ -24,15 +24,19 @@
     "subset": "random",
     "start": 0,
     "end": 343,
-    "taxonomy": "c93bb64b1f20",
+    "taxonomy": "4ed2560939f2",
     "produced_by": "claude-fable-5-1",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": true,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      },
       {
         "subject": "graphics",
         "polarity": "praise"
@@ -42,7 +46,7 @@
         "polarity": "praise"
       },
       {
-        "subject": "verdict",
+        "subject": "content",
         "polarity": "praise"
       }
     ]
