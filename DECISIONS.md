@@ -4296,6 +4296,27 @@ again the same way, because its filter was the answers it changed.
 game with no capture on this machine holds back only what is not a claim, as in the export.
 `steamgauge revisit` takes the captures directory as `--out`, like `export-training`.
 
+### Opus 5.5 writes the labels from here, because it ties with Fable 5.1 (2026-09-27)
+
+**Measured before switching, on the one ground truth there is.** The 200 gold claims were cut
+from the captures by the spans the person answered and handed, blind and fresh, to Fable 5.1
+and Opus 5.5 under the same sheet (`4ed2560939f2`) and the same prompt. Against the person's
+first subject: Fable 73.0% (66% to 79%), Opus 71.5% (65% to 77%); on the 153 claims the stored
+readings agree on, 85.6% and 84.3%; on the 47 they dispute, 31.9% and 29.8%. Three claims in two
+hundred, inside every interval. The two name the same first subject on 183 of 200, each used
+about 135k tokens, and Opus took six minutes to Fable's ten. A tie on quality, so the user chose
+the faster and cheaper one.
+
+**What changes.** New labels carry `claude-opus-5-5` in `produced_by`; nothing is relabelled for
+the model alone, so the set is two readable halves, never pooled without saying so. The frontier
+comparison's model has to be one that wrote none of the labels: its answers so far are Opus 5's,
+and a new frontier draw uses a model outside the labelling from here, not Opus 5.5.
+
+**One figure that is not what it looks like.** Fresh labels on this sheet name the person's
+subject on 85% of the blind claims, against 65% for the labels of 2026-09-21. Some of the rules
+since were written from disagreements in this very set, so that is evidence the sheet improved,
+not an accuracy anybody may quote.
+
 ### The bake-off goes before the folds, because a backbone change makes the folds moot
 
 Decided 2026-09-22, when the queue was costed rather than assumed. What is waiting for the

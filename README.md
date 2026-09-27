@@ -283,9 +283,10 @@ is that it gets most of the way there at four orders of magnitude less cost, and
 tell you exactly how far short it falls.
 
 The two models in that table are deliberately different ones. The labels this reader was
-trained from were written by **Claude Fable 5.1**, and the model it is measured against is
-**Claude Opus 5**, which wrote none of them. A teacher scoring its own student would make the
-gap meaningless, and the gap is the point.
+trained from were written by **Claude Fable 5.1**, and from 27 September 2026 by **Claude Opus
+5.5**, which tied with it against the person; the model it is measured against is **Claude
+Opus 5**, which wrote none of them. A teacher scoring its own student would make the gap
+meaningless, and the gap is the point.
 
 Every figure in that table is agreement with those labels, and the labels are a model's. The
 one person who has adjudicated 200 of them agrees with the labels on 65% of subjects and with
@@ -354,9 +355,10 @@ on and to measure against, and never good enough to quote as truth. Every manife
 `human_verified: false`, and until that changes the tool reports **agreement** and refuses the
 word accuracy.
 
-Which model wrote them is recorded per set, in `produced_by`, and printed with every result.
-A set labelled by one model and a set labelled by another are not the same evidence and must
-not be pooled without saying so; the sets shipped here were written by Claude Fable 5.1.
+Which model wrote them is recorded on every label, in `produced_by`, and printed with every
+result. A set labelled by one model and a set labelled by another are not the same evidence and
+must not be pooled without saying so; the sets shipped here were written by Claude Fable 5.1,
+and every label written from 27 September 2026 by Claude Opus 5.5.
 
 What the set spends its size on is games rather than depth. A hundred reviews of one title
 would say nothing about whether a category survives contact with a corpus it was not built
