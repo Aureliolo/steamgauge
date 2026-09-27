@@ -403,7 +403,7 @@ const THREE_FILES: [crate::model::Asset; 3] = [
 /// The sizes, smallest first.
 ///
 /// `needs` is measured with `steamgauge read 920210`, 117,664 claims, on `DirectML` at the
-/// default batch.
+/// default batch: the card's peak during the read less what it held before.
 pub const SIZES: &[Size] = &[
     Size {
         name: "small",
@@ -417,7 +417,7 @@ pub const SIZES: &[Size] = &[
     Size {
         name: "standard",
         dir: "game-review-reader",
-        needs: 2_560 * 1024 * 1024,
+        needs: 2_756 * 1024 * 1024,
         published: Published {
             repository: "",
             files: &THREE_FILES,
