@@ -4,20 +4,25 @@
 # Torch resolves to a CUDA build on Windows and Linux with an NVIDIA card; which CUDA index
 # that is, and which Python, is in the root uv.toml. If pip gives you a CPU build, install it
 # from that index first.
-torch>=2.4
+#
+# A floor sits at the first release clear of every published advisory its range can escape,
+# because a floor promises that every version above it will do, and OSV-Scanner and Scorecard
+# read it as the version in use.
+torch>=2.13
 # Held below 5 and 1 deliberately. Training is fine on transformers 5, and measured a shade
 # better on one epoch, but `.half()` then the TorchScript ONNX exporter leaves
 # LayerNormalization with one float input and one half one, and onnxruntime refuses the graph.
 # The exporter torch now defaults to writes a graph that loads, keeps its weights in one file
 # and answers identically, and then dies on a Reshape node inside the DirectML provider four
 # seconds into a read the traced graph does at 909 claims a second. Until that graph runs on
-# this card, these three stay where they are. DECISIONS has the measurements.
-transformers>=4.44,<5
+# this card, these three stay where they are. DECISIONS has the measurements, and what the
+# hold leaves open: advisories fixed only in 5.3, 5.5 and 5.10.
+transformers>=4.57.2,<5
 tokenizers>=0.19,<0.23
 huggingface_hub>=0.25,<1
 scikit-learn>=1.5
 numpy>=1.26
-onnx>=1.16
+onnx>=1.22
 # DirectML rather than the CUDA build, because the only thing here that asks for a card is the
 # export's parity check, and the graph it is checking ships to a reader that opens DirectML.
 # The CUDA build also wants a CUDA runtime newer than the one torch is built against, so it
@@ -26,12 +31,12 @@ onnx>=1.16
 onnxruntime-directml>=1.19
 # The DeBERTa candidates in the bake-off ship a SentencePiece model rather than a tokenizer
 # JSON, and converting it to a fast tokenizer needs both of these.
-sentencepiece>=0.2
-protobuf>=4
+sentencepiece>=0.2.1
+protobuf>=6.33.5
 # The mixture-of-experts candidate carries its own modelling code, and that code imports this.
 einops>=0.8
 # Low-rank adapters, for a teacher too large to fine-tune whole on the card (--lora-rank).
 peft>=0.17
-pytest>=8
+pytest>=9.0.3
 # The one pin CI's Python lint reads, so the version the lock resolves is the one that checks.
 ruff>=0.15
