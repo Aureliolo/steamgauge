@@ -184,6 +184,23 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
     }
 
 
+def readable(key: Path, data: str) -> tuple[list[dict], list]:
+    """The key rows a reader can be handed, with their claims, out of the export in `data`.
+
+    A key row the export no longer holds is a span this build cuts no claim at, 29 of the 487
+    when it was last counted. Every row of the benchmark is scored over the same survivors, the
+    frontier model's as much as the reader's: a frontier model answered all 487 when it was
+    asked, and scored over all of them it sits on a different denominator from every reader.
+    """
+    held = {(c.app_id, c.review_id, c.claim_index): c for c in claimdata.load(data)}
+    rows = [
+        row
+        for row in json.loads(key.read_text(encoding="utf-8"))
+        if (row["app_id"], row["review_id"], row["claim_index"]) in held
+    ]
+    return rows, [held[(row["app_id"], row["review_id"], row["claim_index"])] for row in rows]
+
+
 def score_reader(model_dir: Path, key: Path, data: str):
     """The shipped reader, over exactly the claims the frontier model was given.
 
@@ -200,16 +217,7 @@ def score_reader(model_dir: Path, key: Path, data: str):
 
     provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
     subjects = provenance["subjects"]
-    held = {(c.app_id, c.review_id, c.claim_index): c for c in claimdata.load(data)}
-    # A key row the export no longer holds is a span this build cuts no claim at, 29 of the
-    # 487 when it was last counted. It cannot be handed to the reader, so it is left out and
-    # counted, as DECISIONS scores the key: over the claims that survive, saying how many.
-    wanted = [
-        row
-        for row in json.loads(key.read_text(encoding="utf-8"))
-        if (row["app_id"], row["review_id"], row["claim_index"]) in held
-    ]
-    claims = [held[(row["app_id"], row["review_id"], row["claim_index"])] for row in wanted]
+    wanted, claims = readable(key, data)
 
     tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
     tokenizer.no_padding()
@@ -385,7 +393,14 @@ def main():
 
     answers = Path(args.answers)
     key = Path(args.key) if args.key else answers.parent / "key.json"
-    found = score(answers, key, {claim.subject for claim in claimdata.load(args.data)})
+    rows, _ = readable(key, args.data)
+    found = score(
+        answers,
+        key,
+        {claim.subject for claim in claimdata.load(args.data)},
+        over={row["id"] for row in rows},
+    )
+    found["unreadable"] = len(json.loads(key.read_text("utf-8"))) - len(rows)
     found["answered_by"] = args.by
     print(json.dumps(found, indent=2))
     if args.out:
