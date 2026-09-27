@@ -74,6 +74,10 @@ training/.venv/
 # built from changed underneath it.
 crates/steamgauge-app/gen/schemas/
 target/
+# What a local fuzzing run finds; the corpus it grows is fuzz/corpus/, which corpus/ above already
+# keeps out. The seeds the corpus starts from are fuzz/seeds/, and those are committed.
+fuzz/artifacts/
+fuzz/coverage/
 target-*/
 dist/
 build/

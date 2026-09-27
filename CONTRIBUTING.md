@@ -79,6 +79,37 @@ a font would pass any amount of reading the markup for URLs. And every piece of 
 measured against whatever is composited behind it, in both themes, because a palette is a set
 of tokens until a browser draws it.
 
+### Fuzzing
+
+Everything that reads text a stranger wrote is fuzzed, because a panic in any of it stops the
+reading of a whole library: the splitter over a review (`splitter`), a stored span brought to
+its words (`stored_span`), the window the reader reads a claim in (`reader_window`) and the
+terms a claim is counted under (`terms`). Not crashing is the least of it. `fuzz/src/lib.rs`
+says what each target asserts, and most of it is what the join between labels, readings and
+claims relies on: a span brought to its words again stays where it is, claims come in order and
+never share a span, and a claim holds nothing its span does not.
+
+CI runs them with ClusterFuzzLite (`.clusterfuzzlite/`, `.github/workflows/fuzz.yml`): ten
+minutes on every pull request, an hour every Monday on `main`. A crash fails the check,
+attaches the input that caused it to the run as an artifact, and shows in code scanning.
+
+`fuzz/` is a workspace of its own, so none of the gates above builds it, and none of it ships.
+Running a target needs a nightly toolchain and cargo-fuzz, and it builds the core crate with a
+sanitiser, which is not a build to start beside a training run:
+
+```sh
+cargo install cargo-fuzz
+cargo +nightly fuzz run splitter fuzz/corpus/splitter fuzz/seeds -- -dict=fuzz/review.dict -max_len=16384
+cargo +nightly fuzz run splitter path/to/crash-input        # replays one input, as from a CI artifact
+cargo +nightly fuzz tmin splitter path/to/crash-input       # cuts it to the least that still fails
+cargo +nightly fuzz list                                    # the other targets
+```
+
+New inputs go to `fuzz/corpus/<target>/` and crashes to `fuzz/artifacts/<target>/`, both kept
+out of git. `fuzz/seeds/` is the committed start, and it is synthetic: never a review from
+`data/`, which is other people's writing. A crash is fixed where it happens, with a test beside
+the code that reproduces it; the fuzz target is not where it is made to pass.
+
 ## What is held to a higher bar
 
 This tool exists to make a percentage mean what it appears to mean, so anything affecting a

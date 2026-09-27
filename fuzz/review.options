@@ -1,0 +1,5 @@
+[libfuzzer]
+# Steam takes 8,000 characters in a review, which is up to 32,000 bytes in the scripts that write
+# three or four bytes a character. Half of that keeps every shape of review within reach without
+# spending the run on inputs that only repeat themselves at length.
+max_len = 16384

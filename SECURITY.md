@@ -9,6 +9,9 @@ not open a public issue for a vulnerability.
 There is no release yet, so there is nothing deployed to attack and no supported version to
 patch. Reports about the build and release pipeline are in scope and welcome.
 
+The code that reads review text is fuzzed on every pull request and every week, and a crash is
+reported to code scanning; `CONTRIBUTING.md` says how to run the fuzzers yourself.
+
 ## Releases
 
 Every release is built by GitHub Actions on GitHub-hosted runners, from a signed commit on

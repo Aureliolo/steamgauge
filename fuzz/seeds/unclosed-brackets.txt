@@ -1,0 +1,8 @@
+[b The combat is fine [ but the menus
+are slow ] and [[nested]] brackets [] and [ ] and [/] and [*
+Graphics [b=x
+☐ Ugly
+☑ Fine
+☑ Superb]
+☐ Awful
+[url=https://example.com/a very long attribute that runs on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on] after the tag.

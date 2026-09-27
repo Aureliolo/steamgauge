@@ -4451,6 +4451,47 @@ computed, not reported, and the ceiling already uses it. Whether the reader's `o
 figure tracks the flag or the disagreement better is a scored question, and the queue owns the
 card until it drains.
 
+### What reads a stranger's text is fuzzed, and what it asserts moved the cut three ways (2026-09-27)
+
+Four functions take review text nobody vetted, and a panic in any of them stops a library read:
+the splitter, `words_at` on a stored span, the reader's window around a claim, and the term cut
+behind "what stands out". Each is a cargo-fuzz target under `fuzz/`, run by ClusterFuzzLite for
+ten minutes on every pull request and an hour every Monday, the corpus pruned after, a crash
+failing the check and landing in code scanning. The fuzzers are built by the compiler
+`rust-toolchain.toml` names, not the nightly in OSS-Fuzz's image, which is pinned by hand and
+older than the crates' `rust-version`.
+
+Not crashing is the floor. What each target asserts is what the join between labels, readings
+and claims relies on, since a claim is its span and nothing else: every span the splitter cuts
+comes back unchanged through `words_at`, which is the door every stored span passes; claims are
+in order, and two overlap only where a template's heading stands in front of each answer under
+it; a claim is trimmed, is never something `is_not_a_claim` refuses, and holds nothing its span
+does not. The window holds its claim, is exactly the piece of the review its offsets name, marks
+the claim and nothing else, and fits the budget; offsets that describe nothing still give a
+string. A term is two characters or more, at most three words, and `mentions` finds it in the
+claim it was counted from.
+
+Writing those down against the code found three things the splitter did, fixed at the cause
+with a test each:
+
+- **Numbering came off once.** "1. 2. The point" was cut as "2. The point", and brought to its
+  words again that span moved, so a label made on the claim joined nothing. It now comes off to
+  the last number.
+- **A score or a time lost its first digit.** "9.5/10 for the soundtrack" was cut as "5/10 ...",
+  and "1:30 is the whole campaign" as "30 ...", because a digit and a mark read as a list number
+  whatever followed. A digit straight after the mark is now a number carrying on.
+- **A tag could run across lines.** A bracket opened on a template's heading and closed at the
+  end of a later answer was one tag, which cut that answer back to the heading alone: a claim
+  ending before the one ahead of it, inside it. A tag is now on one line.
+
+Each is a splitter change, so each moves spans, only in reviews with those shapes. Counted by
+`recut-labels` built from both splitters over the same 48,923 labels: 29 more (0.06%) name a
+span this cut no longer makes, 3,063 against 3,034, and the rise is all of one kind: labels
+inside a claim it now cuts whole, 1,022 against 992, the score and the time no longer split in
+two. The export holds those back as it holds
+back every label at a span nothing cuts. The library's readings describe the old cut until the
+next full re-read, as after any splitter change.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
