@@ -61,3 +61,37 @@ def test_a_claim_the_reader_was_never_handed_is_not_charged_against_it(tmp_path)
     assert readable["unanswered_rows"] == 0
     assert readable["coverage"] == 0.5, "declined one of the two it was handed"
     assert readable["accuracy_where_answered"] == 1.0
+
+
+def test_every_row_of_the_benchmark_counts_the_claims_a_reader_can_be_handed(tmp_path):
+    # A frontier model answered every key row when it was asked; a reader is handed only the
+    # rows the export still holds. Scored over different rows, the two figures are not a
+    # comparison, so the key is cut to the survivors for both.
+    key = tmp_path / "key.json"
+    key.write_text(
+        json.dumps(
+            [
+                {"id": "a", "app_id": 1, "review_id": "r", "claim_index": 0, "subject": "vr"},
+                {"id": "gone", "app_id": 1, "review_id": "r", "claim_index": 7, "subject": "vr"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    data = tmp_path / "claims.jsonl"
+    data.write_text(
+        json.dumps(
+            {
+                "text": "It runs well in the headset.",
+                "subject": "vr",
+                "app_id": 1,
+                "review_id": "r",
+                "claim_index": 0,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows, claims = frontier.readable(key, str(data))
+    assert [row["id"] for row in rows] == ["a"]
+    assert [claim.text for claim in claims] == ["It runs well in the headset."]
