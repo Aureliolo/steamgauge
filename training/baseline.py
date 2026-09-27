@@ -29,6 +29,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import FeatureUnion
 from transformers import AutoModel, AutoTokenizer
 
+import backbones
 import claimdata
 from train import area_under_risk_coverage, risk_coverage
 
@@ -106,8 +107,8 @@ def bag_of_words(train, held, subjects):
 def centroids(train, held, subjects, backbone, batch_size=64):
     """Nearest subject centroid over the untuned encoder: the prototype this replaced."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(backbone)
-    encoder = AutoModel.from_pretrained(backbone, trust_remote_code=True).to(device).eval()
+    tokenizer = backbones.load(AutoTokenizer, backbone)
+    encoder = backbones.load(AutoModel, backbone).to(device).eval()
 
     def embed(claims):
         out = []

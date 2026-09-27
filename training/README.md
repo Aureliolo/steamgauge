@@ -88,6 +88,14 @@ tool fetches exactly what went up and refuses anything else. Rebuild and commit 
 Until something is published the pin is empty, and an empty pin refuses to fetch rather than
 fetching unverified.
 
+What training fetches is pinned the same way. Every backbone is named in `backbones.py` with the
+commit it is read at and whether its own code may run, every script loads through it, and a
+name missing from it is refused rather than fetched; a directory (a run's tokenizer, a `tapt.py`
+backbone) loads from disk. To try a new backbone, add its line first: the full commit
+(`huggingface_hub.HfApi().model_info(name).sha`), and `remote_code=True` only if `config.json`
+at that commit has an `auto_map`, with the commit of the repository that code lives in when it
+is not the model's own.
+
 ## What is recorded
 
 `runs/README.md` is the index: every run there has ever been, what encoder it used, how many

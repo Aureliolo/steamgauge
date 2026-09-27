@@ -22,6 +22,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
+import backbones
 import claimdata
 from train import HERE, ClaimReader, Pool
 
@@ -30,7 +31,7 @@ from train import HERE, ClaimReader, Pool
 def answers_of(run: Path, pool, device, batch_size):
     """One saved run's distributions over the pool, in the pool's order."""
     record = json.loads((run / "run.json").read_text(encoding="utf-8"))
-    tokenizer = AutoTokenizer.from_pretrained(run / "tokenizer")
+    tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
     tokenizer.padding_side = "right"
     model = ClaimReader(
         record["backbone"],

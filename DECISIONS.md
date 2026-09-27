@@ -695,11 +695,11 @@ evidence: the X-CLIP conversion script (PYSEC-2025-217), which the wheel does no
 GHSA-29pf-2h5f-8g72 (a `config.json` naming a Hub kernel, fixed in 5.3), GHSA-fgcw-684q-jj6r
 (LightGlue's config passing `trust_remote_code` on, fixed in 5.5) and GHSA-xrqw-3rrv-vx5w
 (chat template names written as paths by `save_pretrained`, fixed in 5.10). All three need a
-backbone repository that is itself hostile, and `train.py` already loads every backbone with
-`trust_remote_code=True` at an unpinned revision, which hands such a repository code execution
-on any version. The first also needs the `kernels` package, which the lock does not install. So
-the hold costs nothing the backbone list does not already trust away, and moving off it closes
-the three rather than any ignore. Every floor in `requirements.txt` sits at the first release
+backbone repository that serves hostile files, and every backbone is read at a commit this
+machine already trained on, pinned in `training/backbones.py` (below), so a repository that
+turns hostile later reaches none of them. The first also needs the `kernels` package, which the
+lock does not install. So the hold leaves nothing reachable, and moving off it closes the three
+rather than any ignore. Every floor in `requirements.txt` sits at the first release
 free of every advisory its range can escape (4.57.2 for transformers, the rest free of all),
 because OSV-Scanner and Scorecard read a floor as the version in use.
 
@@ -740,6 +740,46 @@ CUDA 13.4 and PyTorch serves torch 2.14 for this Python as cu126, cu130 and cu13
 is resolved for 3.14 and cu132 now, which moves one pin, torch's build tag. Checked the way a
 lock change is checked here: installed into a throwaway venv, torch finds the card and runs a
 half-precision matmul on it, and the training tests pass.
+
+### Every backbone is read at a commit, and three run their own code (2026-09-27)
+
+Until this date every backbone was loaded by name: with `trust_remote_code=True` in `train.py`'s
+reader and tokenizer, `bakeoff.py`, `baseline.py` and `soup.py`, and without it but just as
+unpinned in `tapt.py`. A name on the Hub is whatever its owner last pushed, so the first launch
+after a repository changed would have trained on other weights without saying so, and after one
+was compromised would have run its Python on this machine, on any version of transformers. A
+hostile backbone repository is also what each of the three advisories the hold above leaves
+open needs, so this closes them as well.
+
+`training/backbones.py` is the one table of what the training code may fetch: the eighteen
+backbones it has used or measured, the 4B teacher among them, each at the full commit this
+machine trained on, taken from the snapshot in its Hugging Face cache. The Hub's main was
+checked against every one the same day and none has moved, so nothing trained changes: the
+shipped reader, the teacher and every student read the same bytes at the pin as they did by
+name. Every loader goes through `backbones.load`, which takes the commit and whether remote
+code may run from the table, refuses a name not in it with how to add one, and refuses a
+caller's own `revision` or `trust_remote_code`: there is no flag to load unpinned. A directory
+on disk (a run's tokenizer, a `tapt.py` backbone, a test's fixture) loads from disk with remote
+code off, since a configuration saved from a remote-code model names its code by repository.
+`test_backbones.py` reads every script's syntax tree for a `from_pretrained` outside the table.
+
+Remote code stays on for the three whose `config.json` has an `auto_map` at the pinned commit:
+`Alibaba-NLP/gte-multilingual-base`, `nomic-ai/nomic-embed-text-v2-moe` and
+`EuroBERT/EuroBERT-610m`. The other fifteen never needed it; it was on for all of them because
+the first candidate did. Two of the three keep their code in another repository
+(`Alibaba-NLP/new-impl`, `nomic-ai/nomic-bert-2048`), and transformers fetches such code at that
+repository's main whatever commit the model is read at, so pinning the model alone would have
+left its code floating; the table pins the code's commit as well.
+
+Four repositories hold only a pickled `pytorch_model.bin` on main (`BAAI/bge-m3`,
+`jhu-clsp/mmBERT-base`, `jhu-clsp/mmBERT-small`, `microsoft/mdeberta-v3-base`), and transformers
+read their weights from the safetensors conversion the Hub's bot opened as a pull request, which
+it does only when asked for main. Pinned to main's commit they would load the pickle instead, so
+they are pinned to the conversion's commit, which is main plus `model.safetensors`: what loads
+is what trained, in a format that cannot carry code.
+
+The tool's own downloads were never exposed this way: `crates/steamgauge-core/src/model.rs`
+checks every file it fetches against a SHA-256.
 
 ### What is there to run when something looks wrong
 

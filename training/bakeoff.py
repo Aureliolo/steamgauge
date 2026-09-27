@@ -22,12 +22,14 @@ from pathlib import Path
 import torch
 from transformers import AutoModel, AutoTokenizer
 
+import backbones
 import train as trainer
 
 HERE = Path(__file__).resolve().parent
 
 # Multilingual, small enough to run over a corpus, and permissively licensed. Anything added
-# here has to be exportable to ONNX, because the tool runs the graph and not PyTorch.
+# here has to be exportable to ONNX, because the tool runs the graph and not PyTorch, and pinned
+# in backbones.py, because nothing is fetched by name alone.
 #
 # The pooling is part of the candidate: a decoder reads under a causal mask, so only its last
 # token has seen the whole claim, and asking it for a mean would measure the wrong thing.
@@ -55,8 +57,8 @@ LATER: dict[str, str] = {
 def throughput(backbone: str, batch: int = 64, length: int = 128, rounds: int = 12) -> float:
     """Claims per second on this machine, which is half of what decides the winner."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(backbone, trust_remote_code=True)
-    model = AutoModel.from_pretrained(backbone, trust_remote_code=True).to(device).eval()
+    tokenizer = backbones.load(AutoTokenizer, backbone)
+    model = backbones.load(AutoModel, backbone).to(device).eval()
     text = ["The driving physics feel floaty and the handling in the rain is broken."] * batch
     encoded = tokenizer(
         text, truncation=True, max_length=length, padding="max_length", return_tensors="pt"
@@ -102,7 +104,8 @@ def main():
         "--only",
         nargs="*",
         default=None,
-        help="candidates to run, by name. A name in neither list is run at mean pooling",
+        help="candidates to run, by name, each pinned in backbones.py. A name in neither list "
+        "is run at mean pooling",
     )
     parser.add_argument(
         "--later",
