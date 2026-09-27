@@ -4525,6 +4525,17 @@ times (1 - share) / share, measured after a synchronise since kernels run behind
 queued them. Every loader of the run is paced, evaluation included. At 0.5 a run takes twice
 as long and nothing it learns changes.
 
+**Half means memory too.** Measured on the first fold run this way: 14.0 GB reserved rather than
+16.0, half the card's time, and the card still 6.4 GB short of the 8 GB free that another of
+the user's programs needs beside it. The user chose to leave that fold running and cut the
+rest. Two more settings take the run down to little more than its weights and optimiser:
+`--recompute-activations` keeps no activations between the forward pass and the backward,
+recomputing them without reentry so the second pass draws the same dropout and the gradient is
+the one the run would have had, for about a third more compute; `--average-on-host` keeps the
+averaged weights in the machine's memory, the same average, carried over the bus at every
+step. A cap on the process's share of the card would not have done it: torch fails at a cap
+rather than fitting under it, and 11 GB of the run is state no batch size moves.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

@@ -369,6 +369,32 @@ def forever(loader):
         yield from loader
 
 
+def recompute_activations(model: "ClaimReader") -> None:
+    """Keeps no activations between the forward pass and the backward, computing them again as
+    the backward needs them. Not reentrant, so the second forward draws the same dropout as the
+    first and the gradient is the one the run would have had; the card holds little beyond the
+    weights and the optimiser, for about a third more compute."""
+    model.trunk.gradient_checkpointing_enable(
+        gradient_checkpointing_kwargs={"use_reentrant": False}
+    )
+
+
+def average_of(model: torch.nn.Module, decay: float, on_host: bool):
+    """An exponential average of the model's weights, kept on the card beside them or in the
+    machine's memory. On the host it is the same average, a copy of every weight off the card,
+    with the weights carried over the bus at every step to update it."""
+    averaged = torch.optim.swa_utils.AveragedModel(
+        model,
+        device=torch.device("cpu") if on_host else None,
+        multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(decay),
+    )
+    if on_host and torch.cuda.is_available():
+        # The copy is taken where the model is and only then moved, and the allocator keeps
+        # what it freed reserved; handed back, it is room the card's other users can have.
+        torch.cuda.empty_cache()
+    return averaged
+
+
 def rest_after(busy: float, share: float) -> float:
     """How long to leave the card idle after keeping it busy this long, for the run to take this
     share of its time."""
@@ -943,6 +969,8 @@ def run(args) -> dict:
     )
     if args.lora_rank:
         adapt(model, args.lora_rank)
+    elif args.recompute_activations:
+        recompute_activations(model)
     model = model.to(device)
     if args.pooling == "last" and tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -1040,13 +1068,7 @@ def run(args) -> dict:
     # An exponential average of the weights along the run, evaluated and saved in place of the
     # last step's. The last step of a run that has memorised its labels is the most
     # over-confident checkpoint it has; the average sits in the flatter part of the basin.
-    averaged = (
-        torch.optim.swa_utils.AveragedModel(
-            model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
-        )
-        if args.ema > 0
-        else None
-    )
+    averaged = average_of(model, args.ema, args.average_on_host) if args.ema > 0 else None
 
     # Rare subjects would otherwise be drowned by `verdict`, which is most of any corpus.
     counts = claimdata.distribution(train)
@@ -1468,6 +1490,18 @@ def parse():
         help="the share of the card's time the run may take, for a card other work is using: "
         "0.5 rests after each batch as long as the batch kept the card busy. Changes nothing "
         "the run learns, only how long it takes",
+    )
+    parser.add_argument(
+        "--recompute-activations",
+        action="store_true",
+        help="keep no activations on the card between the forward pass and the backward, "
+        "computing them again instead: the same gradient for about a third more compute",
+    )
+    parser.add_argument(
+        "--average-on-host",
+        action="store_true",
+        help="keep the averaged weights (--ema) in the machine's memory rather than on the "
+        "card: the same average, a copy of every weight off the card",
     )
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument(
