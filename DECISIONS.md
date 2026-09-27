@@ -4508,6 +4508,23 @@ two. The export holds those back as it holds
 back every label at a span nothing cuts. The library's readings describe the old cut until the
 next full re-read, as after any splitter change.
 
+### Training takes part of the card when the user is at the machine (2026-09-27)
+
+**The user chose** to run the remaining folds on part of the card rather than wait for the
+night with all of it. Two separate things take the card, and each has its own answer.
+
+**Memory.** A 560M reader holds about 11 GB on the card whatever the batch: weights, gradients,
+Adam's moments and the average. What the batch adds is its activations, so the same batch of 32
+taken as four passes of 8 rather than two of 16 learns from the same gradient and holds about
+half of them. The teacher's pass reads the micro-batch's size unless told otherwise, so a run
+split finer is given `--pool-batch-size 16` to keep the teacher's share of each step.
+
+**Time.** Windows gives a CUDA process no lower priority to yield by, so `--card-share` makes
+the run yield by resting: after each batch, as long again as the batch kept the card busy,
+times (1 - share) / share, measured after a synchronise since kernels run behind the Python that
+queued them. Every loader of the run is paced, evaluation included. At 0.5 a run takes twice
+as long and nothing it learns changes.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

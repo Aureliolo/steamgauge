@@ -369,6 +369,44 @@ def forever(loader):
         yield from loader
 
 
+def rest_after(busy: float, share: float) -> float:
+    """How long to leave the card idle after keeping it busy this long, for the run to take this
+    share of its time."""
+    return busy * (1 - share) / share
+
+
+class Paced:
+    """A loader that leaves the card idle for part of the time its batches keep it busy.
+
+    The card is shared with whatever else the machine is doing, and Windows gives a CUDA process
+    no lower priority to yield by, so the run yields by resting between batches. The clock is
+    read after a synchronise: kernels run behind the Python that queued them, and the time until
+    the next batch is asked for says nothing about the card."""
+
+    def __init__(self, loader: DataLoader, share: float, device: str):
+        self.loader = loader
+        self.share = share
+        self.device = device
+
+    @property
+    def dataset(self):
+        return self.loader.dataset
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+    def __iter__(self):
+        if self.share >= 1:
+            yield from self.loader
+            return
+        for batch in self.loader:
+            started = time.perf_counter()
+            yield batch
+            if self.device == "cuda":
+                torch.cuda.synchronize()
+            time.sleep(rest_after(time.perf_counter() - started, self.share))
+
+
 def charged(logits, target, class_weight=None):
     """Cross-entropy against a distribution, each class weighted as the hard form weights it.
 
@@ -887,6 +925,8 @@ def run(args) -> dict:
             f"--batch-size {args.batch_size} does not divide into {args.accumulate} passes"
         )
     micro = args.batch_size // args.accumulate
+    if not 0 < args.card_share <= 1:
+        raise SystemExit(f"--card-share {args.card_share} is not a share of the card's time")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = backbones.load(AutoTokenizer, args.backbone)
@@ -910,27 +950,31 @@ def run(args) -> dict:
     tokenizer.padding_side = "right"
 
     loaders = {
-        name: DataLoader(
-            Claims(
-                part,
-                tokenizer,
-                subjects,
-                args.max_length,
-                args.context,
-                # Only the training split is reweighted. Scoring a contested claim at less
-                # than a whole claim would be marking the model's own exam generously.
-                args.ambiguous_weight if name == "train" else 1.0,
-                args.split_wrong_weight if name == "train" else 1.0,
-                args.mark,
-                args.balance if name == "train" else 0.0,
-                args.prefix,
-                args.language_balance if name == "train" else 0.0,
-                args.second_weight if name == "train" else 0.0,
-                headset_marker,
+        name: Paced(
+            DataLoader(
+                Claims(
+                    part,
+                    tokenizer,
+                    subjects,
+                    args.max_length,
+                    args.context,
+                    # Only the training split is reweighted. Scoring a contested claim at less
+                    # than a whole claim would be marking the model's own exam generously.
+                    args.ambiguous_weight if name == "train" else 1.0,
+                    args.split_wrong_weight if name == "train" else 1.0,
+                    args.mark,
+                    args.balance if name == "train" else 0.0,
+                    args.prefix,
+                    args.language_balance if name == "train" else 0.0,
+                    args.second_weight if name == "train" else 0.0,
+                    headset_marker,
+                ),
+                batch_size=micro if name == "train" else args.batch_size,
+                shuffle=name == "train",
+                num_workers=0,
             ),
-            batch_size=micro if name == "train" else args.batch_size,
-            shuffle=name == "train",
-            num_workers=0,
+            args.card_share,
+            device,
         )
         for name, part in (("train", train), ("validation", validation), ("test", test))
     }
@@ -1416,6 +1460,14 @@ def parse():
         type=int,
         default=None,
         help="pool claims read per optimiser step; the labelled micro-batch's size unless set",
+    )
+    parser.add_argument(
+        "--card-share",
+        type=float,
+        default=1.0,
+        help="the share of the card's time the run may take, for a card other work is using: "
+        "0.5 rests after each batch as long as the batch kept the card busy. Changes nothing "
+        "the run learns, only how long it takes",
     )
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument(
