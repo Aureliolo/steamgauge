@@ -4484,10 +4484,13 @@ with a test each:
   end of a later answer was one tag, which cut that answer back to the heading alone: a claim
   ending before the one ahead of it, inside it. A tag is now on one line.
 
-Each is a splitter change, so each moves spans, only in reviews with those shapes. How many was
-not measured: nothing could be built beside the training run holding the machine when this
-landed. `check-draws` and `recut-labels` count it, and the library's readings describe the old
-cut until the next full re-read, as after any splitter change.
+Each is a splitter change, so each moves spans, only in reviews with those shapes. Counted by
+`recut-labels` built from both splitters over the same 48,923 labels: 29 more (0.06%) name a
+span this cut no longer makes, 3,063 against 3,034, and the rise is all of one kind: labels
+inside a claim it now cuts whole, 1,022 against 992, the score and the time no longer split in
+two. The export holds those back as it holds
+back every label at a span nothing cuts. The library's readings describe the old cut until the
+next full re-read, as after any splitter change.
 
 ## Nothing here is identified by a number somebody incremented
 
