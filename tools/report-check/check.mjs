@@ -523,10 +523,13 @@ const scratch = await mkdtemp(join(tmpdir(), "steamgauge-report-page-"));
 // The same page with the script cut out, which is exactly what a reader with scripting off
 // is served. Driven as a page of its own rather than by turning scripting off in the
 // browser, because a debugger that cannot run script cannot ask the page anything either.
+// Every spelling of the element is cut, whatever its case, attributes or the space before a
+// closing bracket, because a script this missed would run in the copy that claims to have
+// none and the check would pass on a page that needs scripting.
 const mute = join(scratch, "without-scripting.html");
 await writeFile(
   mute,
-  (await readFile(file, "utf8")).replace(/<script>[\s\S]*?<\/script>/g, ""),
+  (await readFile(file, "utf8")).replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, ""),
 );
 const chrome = await open(page, { prefix: "steamgauge-report-check-" });
 
