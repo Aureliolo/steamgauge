@@ -12,6 +12,14 @@ rustup toolchain install "${toolchain}" --profile minimal
 export RUSTUP_TOOLCHAIN="${toolchain}"
 export RUSTC_BOOTSTRAP=1
 
+# The sanitiser and coverage flags OSS-Fuzz puts in CFLAGS reach the C in every build script and
+# proc macro as well, because here the host and the target are one triple, and the compiler
+# cannot load a proc macro linked against AddressSanitizer: jieba compresses its dictionary at
+# compile time with zstd, through one. The code under test is Rust, instrumented by the
+# RUSTFLAGS cargo applies to the target alone, so the C it links is built plainly.
+export CFLAGS="-O1 -fno-omit-frame-pointer -gline-tables-only"
+export CXXFLAGS="${CFLAGS}"
+
 # Debug assertions on, so that an overflow in the offset arithmetic panics here rather than
 # wrapping silently as it would in the release binary.
 cargo fuzz build --release --debug-assertions
