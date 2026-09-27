@@ -28,8 +28,9 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
-from transformers import AutoConfig, AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
 
+import backbones
 import claimdata
 
 HERE = Path(__file__).resolve().parent
@@ -453,9 +454,8 @@ class ClaimReader(torch.nn.Module):
         aspects: bool = False,
     ):
         super().__init__()
-        config = AutoConfig.from_pretrained(backbone, trust_remote_code=True)
-        self.trunk = AutoModel.from_pretrained(backbone, trust_remote_code=True, torch_dtype=dtype)
-        width = getattr(config, "hidden_size", 768)
+        self.trunk = backbones.load(AutoModel, backbone, torch_dtype=dtype)
+        width = getattr(self.trunk.config, "hidden_size", 768)
         self.pooling = pooling
         self.drop = torch.nn.Dropout(dropout)
         self.subject = torch.nn.Linear(width, subjects)
@@ -889,7 +889,7 @@ def run(args) -> dict:
     micro = args.batch_size // args.accumulate
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(args.backbone, trust_remote_code=True)
+    tokenizer = backbones.load(AutoTokenizer, args.backbone)
     if args.lora_rank and args.ema > 0:
         # The average is a second copy of every weight, frozen base included, and the base is
         # the part that does not fit twice.
@@ -1302,7 +1302,11 @@ def run(args) -> dict:
 def parse():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
-    parser.add_argument("--backbone", default="xlm-roberta-base")
+    parser.add_argument(
+        "--backbone",
+        default="xlm-roberta-base",
+        help="a model pinned in backbones.py, or a directory such as the one tapt.py writes",
+    )
     parser.add_argument("--epochs", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument(

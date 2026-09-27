@@ -27,6 +27,8 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
+import backbones
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -85,10 +87,10 @@ def main():
     texts = reviews_in(Path(args.pool))
     print(f"{len(texts)} reviews from {args.pool}")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.backbone)
+    tokenizer = backbones.load(AutoTokenizer, args.backbone)
     # The encoder's checkpoint carries no language-model head, so the head starts from noise
     # and learns in the first few hundred steps; the encoder underneath is what is kept.
-    model = AutoModelForMaskedLM.from_pretrained(args.backbone).to(device)
+    model = backbones.load(AutoModelForMaskedLM, args.backbone).to(device)
     collate = DataCollatorForLanguageModeling(tokenizer, mlm_probability=args.mask)
     loader = DataLoader(
         Reviews(texts, tokenizer, args.max_length),

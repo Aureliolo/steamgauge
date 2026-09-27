@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from transformers import AutoTokenizer
 
+import backbones
 import claimdata
 from train import ClaimReader
 
@@ -502,7 +503,7 @@ def main():
     record = json.loads((run / "run.json").read_text(encoding="utf-8"))
     subjects = record["subjects"]
 
-    tokenizer = AutoTokenizer.from_pretrained(run / "tokenizer")
+    tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
     # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
     # model without complaint and exports a graph that reads its claims differently from the
     # one that was measured. The parity check cannot see it either, because it compares the

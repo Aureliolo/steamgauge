@@ -30,6 +30,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
+import backbones
 import claimdata
 from train import Claims, ClaimReader, confidence_of, evaluate, git_sha, selective
 
@@ -183,7 +184,7 @@ def main(args) -> dict:
     print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (frozen)")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(first["backbone"], trust_remote_code=True)
+    tokenizer = backbones.load(AutoTokenizer, first["backbone"])
     if first["pooling"] == "last" and tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
