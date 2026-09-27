@@ -1451,7 +1451,7 @@
     "subset": "retrieved",
     "start": 0,
     "end": 128,
-    "taxonomy": "e326339f5be3",
+    "taxonomy": "a0e7ff81b45f",
     "produced_by": "claude-opus-5-5",
     "subject": "bugs",
     "polarity": "complaint",
@@ -1459,7 +1459,12 @@
     "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "199864122",

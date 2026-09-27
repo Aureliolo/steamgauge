@@ -1908,13 +1908,13 @@
     "subset": "mined",
     "start": 0,
     "end": 227,
-    "taxonomy": "e326339f5be3",
+    "taxonomy": "a0e7ff81b45f",
     "produced_by": "claude-opus-5-5",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {

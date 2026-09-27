@@ -581,7 +581,12 @@ pub const SHEET: &[Category] = &[
              Something altered or cut for what it showed or said, censored, an outfit, a \
              voice, a scene, is policy, a change to what people had bought, and never the \
              row of the thing taken out: the complaint is the removal, not how it looked or \
-             sounded. This is for the patching itself, its pace, and whether they listen. A \
+             sounded. This is for the patching itself, its pace, and whether they listen. \
+             How the makers answer a player who asks them for help, customer service, a \
+             support ticket, an answer that never came, is here as communication with \
+             players; a decision the answer delivers, a ban upheld or a refund refused, is \
+             policy, and the fault the player wrote in about stays where it is when the claim \
+             is about the fault. A \
              judgement about how the game \
              has changed since it came out is here even when no patch and no studio is named, \
              so \"it is getting better\" and \"release was bad but it is fine now\" are \
