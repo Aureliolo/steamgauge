@@ -521,13 +521,22 @@ class ClaimReader(torch.nn.Module):
         self.trunk = backbones.load(AutoModel, backbone, torch_dtype=dtype)
         width = getattr(self.trunk.config, "hidden_size", 768)
         self.pooling = pooling
+        # Whether the trunk is handed its mask as [batch, query, key]. Handed [batch, key],
+        # transformers asks the card whether the mask is all ones before it builds one, and a
+        # CUDA graph cannot answer a question; the square mask is built directly, the same mask.
+        self.square_mask = False
         self.drop = torch.nn.Dropout(dropout)
         self.subject = torch.nn.Linear(width, subjects)
         self.polarity = torch.nn.Linear(width, len(POLARITIES))
         self.aspects = torch.nn.Linear(width, subjects * ASPECT_ANSWERS) if aspects else None
 
     def forward(self, input_ids, attention_mask):
-        hidden = self.trunk(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+        trunk_mask = (
+            attention_mask[:, None, :].expand(-1, attention_mask.shape[1], -1)
+            if self.square_mask
+            else attention_mask
+        )
+        hidden = self.trunk(input_ids=input_ids, attention_mask=trunk_mask).last_hidden_state
         if self.pooling == "last":
             # A decoder reads under a causal mask, so only the last token has seen the whole
             # claim; averaging the rest averages prefixes. Right padding puts that token at
@@ -551,6 +560,70 @@ class ClaimReader(torch.nn.Module):
             *read,
             self.aspects(dropped).view(-1, self.subject.out_features, ASPECT_ANSWERS),
         )
+
+
+class Passes(torch.nn.Module):
+    """The reader as one pass of training reads it, returning only what the loss uses.
+
+    A CUDA graph replays into the same output buffers every time, so the two R-drop passes are
+    one callable rather than two calls, the second of which would overwrite the first's answers.
+    Returns the subject and polarity logits, the aspect logits on a reader with an aspect head,
+    and then the second pass's subject and polarity logits when `twice`.
+    """
+
+    def __init__(self, model: ClaimReader, twice: bool, aspects: bool):
+        super().__init__()
+        self.model = model
+        self.twice = twice
+        self.aspects = aspects
+
+    def parameters(self, recurse: bool = True):
+        # A graph differentiates every parameter its callable owns and refuses one the pass
+        # never reads; a pass that returns no aspects reads nothing of the aspect head.
+        head = self.model.aspects
+        unread = set() if self.aspects or head is None else {id(p) for p in head.parameters()}
+        return (p for p in super().parameters(recurse) if id(p) not in unread)
+
+    def forward(self, input_ids, attention_mask):
+        subject, polarity, _, *aspects = self.model(input_ids, attention_mask)
+        out = (subject, polarity, *(aspects if self.aspects else ()))
+        if self.twice:
+            again_subject, again_polarity, *_ = self.model(input_ids, attention_mask)
+            out = (*out, again_subject, again_polarity)
+        return out
+
+
+def graphed(model: ClaimReader, shapes: dict, rdrop: bool, aspects: bool, device: str) -> dict:
+    """The labelled pass, and the teacher's pass where there is one, recorded as CUDA graphs.
+
+    Each training pass is thousands of small kernels, and eager PyTorch launches them one at a
+    time from Python: on a processor other work holds, the card waits on the launches rather
+    than the arithmetic. Replayed as a graph, a pass is one launch, forward and backward, and the
+    card runs at its own pace. The loss and the optimiser stay eager; they are a few kernels.
+    Every batch must have the shape it was recorded at, which the fixed-length padding gives
+    and dropping each epoch's short last batch completes.
+    """
+    model.square_mask = True
+    pooler = getattr(model.trunk, "pooler", None)
+    if pooler is not None:
+        # Never read, since the reader pools for itself, so it never had a gradient; a graph
+        # insists every parameter it differentiates takes part.
+        pooler.requires_grad_(False)
+    names = list(shapes)
+    callables = tuple(
+        Passes(model, rdrop, aspects) if name == "labelled" else Passes(model, False, False)
+        for name in names
+    )
+    samples = tuple(
+        (
+            torch.zeros(shapes[name], dtype=torch.long, device=device),
+            torch.ones(shapes[name], dtype=torch.long, device=device),
+        )
+        for name in names
+    )
+    with torch.amp.autocast(device, dtype=torch.bfloat16, cache_enabled=False):
+        recorded = torch.cuda.make_graphed_callables(callables, samples, num_warmup_iters=3)
+    return dict(zip(names, recorded, strict=True))
 
 
 def adapt(model: ClaimReader, rank: int) -> None:
@@ -955,6 +1028,12 @@ def run(args) -> dict:
         raise SystemExit(f"--card-share {args.card_share} is not a share of the card's time")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    if args.cuda_graphs and device != "cuda":
+        raise SystemExit("--cuda-graphs records passes on a card, and there is none")
+    if args.cuda_graphs and (args.lora_rank or args.pooling == "last"):
+        # A decoder's causal mask is built through the same question the square mask avoids for
+        # an encoder, and no decoder has been recorded to show it replays.
+        raise SystemExit("--cuda-graphs is for an encoder read by mean pooling")
     tokenizer = backbones.load(AutoTokenizer, args.backbone)
     if args.lora_rank and args.ema > 0:
         # The average is a second copy of every weight, frozen base included, and the base is
@@ -999,6 +1078,9 @@ def run(args) -> dict:
                 ),
                 batch_size=micro if name == "train" else args.batch_size,
                 shuffle=name == "train",
+                # A recorded pass takes only the shape it was recorded at; the short batch an
+                # epoch ends on is fewer claims than one pass, a different few each epoch.
+                drop_last=name == "train" and args.cuda_graphs,
                 num_workers=0,
             ),
             args.card_share,
@@ -1048,6 +1130,7 @@ def run(args) -> dict:
             ),
             batch_size=args.pool_batch_size or micro,
             shuffle=True,
+            drop_last=args.cuda_graphs,
             num_workers=0,
         )
         taught_batches = forever(taught)
@@ -1078,30 +1161,67 @@ def run(args) -> dict:
         device=device,
     )
 
+    model.train()
+    passes = {"labelled": Passes(model, args.rdrop > 0, args.aspects)}
+    if taught_batches is not None:
+        passes["taught"] = Passes(model, False, False)
+    if args.cuda_graphs:
+        passes = graphed(
+            model,
+            {
+                "labelled": (micro, args.max_length),
+                **(
+                    {"taught": (args.pool_batch_size or micro, args.max_length)}
+                    if taught_batches is not None
+                    else {}
+                ),
+            },
+            args.rdrop > 0,
+            args.aspects,
+            device,
+        )
+        # A replay hands back its gradients in the graph's own buffers, and a parameter with no
+        # gradient yet keeps the buffer itself as its gradient: the next replay then overwrites
+        # the passes before it rather than adding to them, measured at a third of the batch's
+        # gradient lost. Gradients held from the start and zeroed in place are only ever added to.
+        for parameter in model.parameters():
+            if parameter.requires_grad:
+                parameter.grad = torch.zeros_like(parameter)
+    # A graph replays under an autocast that caches no casts, since a cast cached at recording
+    # would be a buffer the replay never refills.
+    cast = {
+        "enabled": device == "cuda",
+        "dtype": torch.bfloat16,
+        "cache_enabled": not args.cuda_graphs,
+    }
+
     started = time.time()
     for epoch in range(args.epochs):
         model.train()
-        running = 0.0
+        # Summed on the card: read back after every pass, the loss would make the processor
+        # wait for the card before it could queue the next pass.
+        running = torch.zeros((), device=device)
         taken = 0
-        optimiser.zero_grad(set_to_none=True)
+        optimiser.zero_grad(set_to_none=not args.cuda_graphs)
         for step, batch in enumerate(loaders["train"]):
-            with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
+            with torch.amp.autocast(device, **cast):
                 input_ids = batch["input_ids"].to(device)
                 attention = batch["attention_mask"].to(device)
-                subject, polarity, *read = model(input_ids, attention)
+                subject, polarity, *read = passes["labelled"](input_ids, attention)
+                aspects = read.pop(0) if args.aspects else None
                 trust = batch["weight"].to(device)
                 subject_target = batch["subject_target"].to(device)
                 polarity_target = batch["polarity_target"].to(device)
                 subject_loss = charged(subject, subject_target, weights)
                 polarity_loss = charged(polarity, polarity_target)
                 loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
-                if len(read) > 1:
+                if aspects is not None:
                     loss = (
                         loss
                         + args.aspect_weight
                         * (
                             aspect_loss(
-                                read[1],
+                                aspects,
                                 batch["aspect"].to(device),
                                 batch["aspect_known"].to(device),
                             )
@@ -1120,7 +1240,7 @@ def run(args) -> dict:
                     # the same weights, and the two are charged for disagreeing. Dropout at
                     # training time and none at inference is a gap this closes: the model is
                     # pushed to answer the same way whichever units are dropped.
-                    again_subject, again_polarity, *_ = model(input_ids, attention)
+                    again_subject, again_polarity = read
                     disagreement = symmetric_kl(subject, again_subject) + (
                         args.polarity_weight * symmetric_kl(polarity, again_polarity)
                     )
@@ -1133,7 +1253,7 @@ def run(args) -> dict:
                     ).mean()
                     loss = (loss + again_loss) / 2 + args.rdrop * disagreement.mean()
             scaler.scale(loss / args.accumulate).backward()
-            running += float(loss.detach())
+            running += loss.detach()
 
             # The gradient is only whole once every pass of the batch has contributed, and
             # clipping a partial one would clip a different quantity than the batch's own norm.
@@ -1146,8 +1266,8 @@ def run(args) -> dict:
                 # teacher's distribution is already the reading of a model trained under
                 # them, and weighting it again would count the correction twice.
                 pooled = next(taught_batches)
-                with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
-                    subject, polarity, *_ = model(
+                with torch.amp.autocast(device, **cast):
+                    subject, polarity = passes["taught"](
                         pooled["input_ids"].to(device), pooled["attention_mask"].to(device)
                     )
                     disagreement = soft_cross_entropy(
@@ -1161,7 +1281,7 @@ def run(args) -> dict:
             scaler.step(optimiser)
             scaler.update()
             schedule.step()
-            optimiser.zero_grad(set_to_none=True)
+            optimiser.zero_grad(set_to_none=not args.cuda_graphs)
             if averaged is not None:
                 averaged.update_parameters(model)
             taken += 1
@@ -1179,7 +1299,7 @@ def run(args) -> dict:
                 )
                 print(
                     f"  epoch {epoch + 1} step {taken}/{per_epoch} "
-                    f"loss {running / (step + 1):.4f}{held}",
+                    f"loss {running.item() / (step + 1):.4f}{held}",
                     flush=True,
                 )
 
@@ -1502,6 +1622,13 @@ def parse():
         action="store_true",
         help="keep the averaged weights (--ema) in the machine's memory rather than on the "
         "card: the same average, a copy of every weight off the card",
+    )
+    parser.add_argument(
+        "--cuda-graphs",
+        action="store_true",
+        help="record each training pass, forward and backward, as a CUDA graph and replay it: "
+        "one launch a pass rather than thousands from Python, so the card runs at its own pace "
+        "whatever holds the processor. Drops each epoch's short last batch",
     )
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument(

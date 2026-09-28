@@ -4536,6 +4536,47 @@ averaged weights in the machine's memory, the same average, carried over the bus
 step. A cap on the process's share of the card would not have done it: torch fails at a cap
 rather than fitting under it, and 11 GB of the run is state no batch size moves.
 
+**What the first lighter fold measured.** Both settings: 11.7 GB on the card, recomputing saving
+only 0.8 GB of it, since at passes of 8 the activations were already small. The averaged weights
+on the host made every step wait on the processor, which 28 simulations of another project held
+at 100%: 30 s a step, a fold in days. With the average back on the card, 13.8 GB and 6 s a step;
+with the simulations lowered to idle priority, 5.3 s, the card still 2% to 39% busy.
+
+### Training replays its passes as CUDA graphs (2026-09-28)
+
+**The card was waiting on Python.** The training process ran one core flat out while the card
+idled: every pass is thousands of small kernels, launched one at a time from Python, and passes
+of 8, R-drop's second forward and recomputed activations each multiply the launches. The user's
+question was what the card is for if it waits, and the answer is to stop launching from Python.
+
+**`--cuda-graphs`** records the labelled pass, both R-drop forwards in one callable so neither's
+outputs are overwritten by the other's replay, and the teacher's pass, each forward and backward,
+with `torch.cuda.make_graphed_callables`; the loss and the optimiser stay eager, being a few
+kernels. Three things a graph needed:
+
+- **A mask it can build.** Handed a flat mask, transformers asks the card whether it is all ones
+  before building the attention mask, which a graph cannot answer; handed the same mask square,
+  [batch, query, key], it builds it directly. The two read every claim alike, padded or not.
+- **Fixed shapes.** Every claim is padded to the same length already; each epoch's short last
+  batch, fewer claims than one pass, is dropped, a different few each epoch.
+- **Gradients held in place.** A replay returns its gradients in the graph's own buffers, and a
+  parameter with no gradient yet keeps that buffer as its gradient, so the next replay overwrote
+  the passes before it. Measured with dropout off over three accumulated passes: the subject
+  head's gradient at 0.66 of the eager one, the worst parameter 194% off. With every gradient
+  allocated from the start and zeroed in place: 1.0000, and the worst 0.35%, bf16's rounding.
+  The trainer never reported it; a short run only came out a little worse, which is exactly the
+  failure a measurement has to be built to catch.
+
+**Measured** on the small reader, one epoch of four games, the real loop with the teacher's pass,
+on a processor at 100%: 100 steps in 84.9 s eager and 19.5 s replayed, 4.4 times faster; loss at
+step 101 3.2970 against 3.2967, accuracy 0.337 against 0.330, macro F1 0.080 against 0.075, the
+difference of two dropout draws. Recorded alone, a pass pair took 172.7 ms eager and 29.8 ms
+replayed, and recomputing activations inside the graph costs 16% rather than the 85% it costs
+eager. The graphs' own memory pool costs the small reader 0.8 GB more.
+
+Evaluation stays eager: it runs under `no_grad` a few hundred batches an epoch. A decoder, the
+teacher, is refused: its causal mask goes through the same question, and none has been recorded.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
