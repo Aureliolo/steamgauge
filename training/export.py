@@ -300,6 +300,37 @@ def build_graph(
     return wanted
 
 
+def most_claims_at_once(graph: Path) -> int | None:
+    """The most claims the graph can be handed at once on DirectML, or None for no limit.
+
+    DirectML multiplies a batch by each weight as one tensor of batch by rows by columns, and
+    refuses one of 2^32 elements or more. Measured on the 4B, whose MLP weights are 2560 by
+    9728: 172 claims read and 173 failed, at 8 tokens as at 128, so the limit is the weight's
+    and the batch's alone.
+    """
+    import onnx
+
+    model = onnx.load(str(graph), load_external_data=False)
+    sizes = {
+        tensor.name: int(np.prod(tensor.dims))
+        for tensor in model.graph.initializer
+        if len(tensor.dims) == 2
+    }
+    # A weight may reach its product through a transpose rather than stored transposed.
+    for node in model.graph.node:
+        if node.op_type == "Transpose" and node.input[0] in sizes:
+            sizes[node.output[0]] = sizes[node.input[0]]
+    largest = max(
+        (
+            sizes.get(node.input[1], 0)
+            for node in model.graph.node
+            if node.op_type == "MatMul" and len(node.input) > 1
+        ),
+        default=0,
+    )
+    return (2**32 - 1) // largest if largest else None
+
+
 # Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the
 # file only when it starts on the system's allocation granularity, which on Windows is 64 KiB,
 # and otherwise reads a copy of it into memory, so a reader laid out any tighter holds its
@@ -911,6 +942,7 @@ def main():
                 # language axis existed, and then only the subject lines govern.
                 "language_thresholds": by_language,
                 "max_tokens": record["max_length"],
+                "max_batch": most_claims_at_once(graph),
                 "context": record.get("context", False),
                 "mark": record.get("mark", False),
                 "prefix": record.get("prefix", False),
