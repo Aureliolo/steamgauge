@@ -734,6 +734,11 @@ enum Command {
         /// who wrote more than a sentence. Neither drops a review.
         #[arg(long, default_value = "deep")]
         depth: Reading,
+        /// The share of the card's time the read may take, for a card other work is using:
+        /// 0.5 rests after each batch as long as the batch kept the card busy. The readings
+        /// are the same; only how long they take changes.
+        #[arg(long, default_value_t = 1.0, value_parser = card_share)]
+        card_share: f64,
     },
 
     /// Count a corpus again from the readings already on disk, without the model.
@@ -831,6 +836,7 @@ pub async fn run() -> Result<()> {
             language,
             top_helpful,
             depth,
+            card_share,
         } => {
             let model_dir = model.unwrap_or_else(steamgauge_core::reader::default_dir);
             fetch_reader(&model_dir).await?;
@@ -841,6 +847,7 @@ pub async fn run() -> Result<()> {
                 batch_size,
                 language,
                 depth: depth.into(),
+                card_share,
             };
             run_read(&app_ids, &model_dir, &options)
         }
@@ -1859,6 +1866,20 @@ struct Asking<'a> {
     reading: &'a str,
     rejudge: bool,
     boundaries: &'a [(String, String)],
+}
+
+/// A share of the card's time, refusing what is none: at zero a read would rest forever.
+fn card_share(written: &str) -> std::result::Result<f64, String> {
+    let share: f64 = written
+        .parse()
+        .map_err(|_| format!("{written} is not a number"))?;
+    if share > 0.0 && share <= 1.0 {
+        Ok(share)
+    } else {
+        Err(format!(
+            "{written} is not a share of the card's time, above 0 and at most 1"
+        ))
+    }
 }
 
 /// Reads `difficulty/gameplay` as the two subjects it names, refusing a subject the sheet

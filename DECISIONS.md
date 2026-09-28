@@ -4229,6 +4229,30 @@ moves from 0.56 to 0.98. The reader also no longer names beside another any subj
 marks as never beside one, whatever a line says. The fold files' subject order is now remapped
 onto the export's, as the subject lines' was, rather than assumed to match.
 
+**Still not a promise kept on a real corpus, so not installed (the user's call, 2026-09-28).**
+Re-exported with those lines, the reader named a second subject on 29.6% of 920210's claims. Two
+Opus 5.5 labellers, blind to the reader, labelled 200 of them, one per review drawn at random:
+94 of the 210 second subjects named were theirs, 44.8% (38.2% to 51.5%), against the 70% the
+user set for an install; where they agreed on the subject, the polarity agreed 91 times in 94.
+
+The folds had overstated it because of which claims answer the question at all. A label says
+what else a claim covers only where a sheet asked, and most of those are revisits drawn by words
+likely to carry a second subject: 30% of those claims have one, against about one in ten drawn
+at random. Weighted back to a random draw, by the rounds that asked at random (every flagged
+claim of the random sets, weight 1, and a tenth of the unflagged, weight 10: 3,396 claims in
+the folds), the folds predict what the corpus showed: those lines at a precision of 0.338. Lines
+fitted on that draw keep 0.79 there, but on only 3% of claims and six subjects, and on 920210,
+a licensed game, they named licensing beside 2,340 claims, right on 2 of the 11 checked; without
+licensing, 13 of 15 were right.
+
+So the head names a second subject rarely when it names one honestly, and a line fitted across
+games does not hold on a game unlike them. The installed reader stays, naming one subject a
+claim. Doing better needs second subjects labelled at random in quantity, not revisits: what
+would move the figure is another random tenth asked with `also`. And the weighting above rests
+on which round asked each claim, which lives in the labellers' returns rather than beside the
+labels: until a label records how it was drawn, no line fitted from the repository alone can be
+representative.
+
 ### A verdict stands beside the aspect a claim names (2026-09-26)
 
 **The user chose to keep both.** Labellers reported in five shares, unprompted, that a claim
@@ -4591,6 +4615,15 @@ eager. The graphs' own memory pool costs the small reader 0.8 GB more.
 
 Evaluation stays eager: it runs under `no_grad` a few hundred batches an epoch. A decoder, the
 teacher, is refused: its causal mask goes through the same question, and none has been recorded.
+
+### A read takes part of the card too (2026-09-28)
+
+The library's re-read after the splitter's fixes is five hours on the card, and the user asked
+that nothing take all of it. `steamgauge read --card-share 0.5` rests after each batch as long
+again as the batch took: a run of the reader returns once the card has answered, so its time is
+the card's time. The readings are the same; a share outside (0, 1] is refused where it is typed,
+since at zero a read would rest forever. The window's reads keep the whole card, as a person
+reading one game is waiting on it.
 
 ## Nothing here is identified by a number somebody incremented
 
