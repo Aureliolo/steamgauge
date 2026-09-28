@@ -197,6 +197,13 @@ pub struct Provenance {
     #[serde(default)]
     pub aspect_thresholds: Option<Vec<Option<f32>>>,
     pub max_tokens: usize,
+    /// The most claims the graph can be handed at once. `DirectML` multiplies a batch by each
+    /// weight as one tensor of batch by rows by columns and refuses one of 2^32 elements or
+    /// more: the 4B's MLP weights are 2560 by 9728, so 173 claims fail where 172 read. Absent
+    /// on a reader exported before this existed, whose weights are small enough that no batch
+    /// the tool asks for comes near it.
+    #[serde(default)]
+    pub max_batch: Option<usize>,
     /// Whether the model was trained on the claim with its review around it. A model trained
     /// one way and read the other is answering a question in a form it has never seen, and
     /// nothing about the output would look wrong, so the graph carries the answer.
@@ -625,6 +632,32 @@ impl ClaimReader {
             mask,
             languages,
         } = prepared;
+        let parts = pieces(rows, self.provenance.max_batch);
+        if parts.len() <= 1 {
+            return self.run_rows(rows, cols, ids, mask, &languages);
+        }
+        let mut readings = Vec::with_capacity(rows);
+        for part in parts {
+            readings.extend(self.run_rows(
+                part.len(),
+                cols,
+                ids[part.start * cols..part.end * cols].to_vec(),
+                mask[part.start * cols..part.end * cols].to_vec(),
+                languages.get(part.clone()).unwrap_or(&[]),
+            )?);
+        }
+        Ok(readings)
+    }
+
+    /// One pass of the graph over `rows` claims laid out `cols` tokens wide.
+    fn run_rows(
+        &mut self,
+        rows: usize,
+        cols: usize,
+        ids: Vec<i64>,
+        mask: Vec<i64>,
+        languages: &[String],
+    ) -> Result<Vec<Reading>> {
         if rows == 0 {
             return Ok(Vec::new());
         }
@@ -973,9 +1006,30 @@ fn softmax_best(logits: &[f32]) -> (usize, f32) {
     (best, if total > 0.0 { 1.0 / total } else { 0.0 })
 }
 
+/// The runs of rows a batch of `rows` goes through the graph in, at most `most` at a time.
+fn pieces(rows: usize, most: Option<usize>) -> Vec<std::ops::Range<usize>> {
+    let most = most.unwrap_or(rows).max(1);
+    (0..rows)
+        .step_by(most)
+        .map(|start| start..(start + most).min(rows))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_batch_goes_through_in_pieces_no_larger_than_the_graph_takes() {
+        // 256 claims through the 4B, which takes 172 at once, and every row exactly once.
+        assert_eq!(pieces(256, Some(172)), vec![0..172, 172..256]);
+        assert_eq!(pieces(172, Some(172)), vec![0..172]);
+        assert_eq!(pieces(5, Some(2)), vec![0..2, 2..4, 4..5]);
+        // A reader that names no limit, and one naming zero, which is no answer to divide by.
+        assert_eq!(pieces(256, None), vec![0..256]);
+        assert_eq!(pieces(3, Some(0)), vec![0..1, 1..2, 2..3]);
+        assert!(pieces(0, Some(172)).is_empty());
+    }
 
     #[test]
     fn a_reader_is_checked_against_the_categories_it_names_rather_than_a_word_for_them() {

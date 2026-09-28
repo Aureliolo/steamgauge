@@ -22,6 +22,7 @@ from export import (  # noqa: E402
     full_precision_answers,
     gather_weights,
     load_reader,
+    most_claims_at_once,
     trace_graph,
 )
 from train import ClaimReader  # noqa: E402
@@ -200,6 +201,38 @@ def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_pa
     assert np.array_equal(
         wanted.run(["subject_logits"], feed)[0], got.run(["subject_logits"], feed)[0]
     )
+
+
+@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
+def test_a_graph_says_how_many_claims_it_can_be_handed_at_once(trunk, pooling, request, tmp_path):
+    # The fixtures' widest weights are their MLP's, 32 by 64; the 4B's are 2560 by 9728, which
+    # gives the 172 it was measured to read where 173 failed.
+    model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
+    ids = torch.randint(0, 64, (2, 6))
+    trace_graph(model, ids, torch.ones_like(ids), tmp_path / "model.onnx", 17)
+
+    assert most_claims_at_once(tmp_path / "model.onnx") == (2**32 - 1) // (32 * 64)
+    assert (2**32 - 1) // (2560 * 9728) == 172
+
+
+def test_a_weight_reaching_its_product_through_a_transpose_still_counts(tmp_path):
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    weight = numpy_helper.from_array(np.zeros((6, 4), dtype=np.float32), "weight")
+    graph = helper.make_graph(
+        [
+            helper.make_node("Transpose", ["weight"], ["turned"], perm=[1, 0]),
+            helper.make_node("MatMul", ["x", "turned"], ["y"]),
+        ],
+        "g",
+        [helper.make_tensor_value_info("x", TensorProto.FLOAT, [None, None, 4])],
+        [helper.make_tensor_value_info("y", TensorProto.FLOAT, [None, None, 6])],
+        [weight],
+    )
+    onnx.save(helper.make_model(graph), str(tmp_path / "model.onnx"))
+
+    assert most_claims_at_once(tmp_path / "model.onnx") == (2**32 - 1) // 24
 
 
 def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk():
