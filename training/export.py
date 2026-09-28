@@ -158,10 +158,10 @@ class InFullPrecisionOut(torch.nn.Module):
 def load_reader(run: Path, record: dict) -> ClaimReader:
     """The trained reader of `run`, its weights at the precision they were stored at.
 
-    The constructor's pretrained weights are placeholders for the trained ones, so they are built
-    at half precision and handed over rather than filled: built at full precision, the
-    placeholders and the trained weights were two copies of the 4B in memory at once, and then a
-    third while the whole model was converted to full precision for the reference answers.
+    Built as a shape and handed the trained weights, never filled: built from the pretrained
+    weights at full precision, the placeholders and the trained weights were two copies of the 4B
+    in memory at once, and then a third while the whole model was converted to full precision for
+    the reference answers.
     """
     # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
     # model without complaint and exports a graph that reads its claims differently from the
@@ -172,11 +172,14 @@ def load_reader(run: Path, record: dict) -> ClaimReader:
         len(record["subjects"]),
         pooling=record.get("pooling", "mean"),
         aspects=bool(record.get("aspects")),
-        dtype=torch.float16,
+        pretrained=False,
     )
     trained = torch.load(run / "model.bin", map_location="cpu", weights_only=True)
     model.load_state_dict(trained, assign=True)
     del trained
+    empty = [name for name, weight in model.named_parameters() if weight.is_meta]
+    if empty:
+        raise SystemExit(f"{run} holds no weights for {', '.join(empty[:5])}. Not exporting it.")
     return model.eval()
 
 
@@ -191,6 +194,13 @@ def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) ->
     whole-model conversion's and the weights come back bit for bit.
     """
     stored: dict[torch.nn.Parameter, torch.dtype] = {}
+    # A decoder keeps every layer's keys and values for the text it might go on to write, and
+    # this writes none: for the 4B over 256 claims that cache was ten gigabytes.
+    configs = [module.config for module in model.modules() if hasattr(module, "config")]
+    caching = [getattr(config, "use_cache", None) for config in configs]
+    for config in configs:
+        if hasattr(config, "use_cache"):
+            config.use_cache = False
 
     def widen(module, _inputs=None):
         for weight in module.parameters(recurse=False):
@@ -228,6 +238,9 @@ def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) ->
             hook.remove()
         for module in whole:
             narrow(module)
+        for config, cached in zip(configs, caching):
+            if cached is not None:
+                config.use_cache = cached
 
 
 # Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the

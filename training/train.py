@@ -516,9 +516,15 @@ class ClaimReader(torch.nn.Module):
         pooling: str = "mean",
         dtype: torch.dtype | None = None,
         aspects: bool = False,
+        pretrained: bool = True,
     ):
         super().__init__()
-        self.trunk = backbones.load(AutoModel, backbone, torch_dtype=dtype)
+        # Without its pretrained weights for a caller about to hand it trained ones.
+        self.trunk = (
+            backbones.load(AutoModel, backbone, torch_dtype=dtype)
+            if pretrained
+            else backbones.shape(backbone, torch_dtype=dtype)
+        )
         width = getattr(self.trunk.config, "hidden_size", 768)
         self.pooling = pooling
         # Whether the trunk is handed its mask as [batch, query, key]. Handed [batch, key],
