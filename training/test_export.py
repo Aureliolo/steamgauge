@@ -17,7 +17,13 @@ from transformers import (  # noqa: E402
     XLMRobertaModel,
 )
 
-from export import WEIGHT_ALIGNMENT, gather_weights, load_reader, trace_graph  # noqa: E402
+from export import (  # noqa: E402
+    WEIGHT_ALIGNMENT,
+    full_precision_answers,
+    gather_weights,
+    load_reader,
+    trace_graph,
+)
 from train import ClaimReader  # noqa: E402
 
 
@@ -117,28 +123,36 @@ def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, 
     assert handed == [str(tmp_path / "model.onnx")]
 
 
+@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
 @pytest.mark.parametrize("stored", [torch.float32, torch.bfloat16])
-def test_a_reader_loads_as_the_weights_it_was_trained_to(stored, backbone, tmp_path):
-    # Stored in bfloat16 is how the 4B's weights sit on disk; the reference answers must still
-    # be what the old load gave, the trained weights in full precision, and never the pretrained
-    # placeholders the constructor builds.
-    trained = ClaimReader(backbone, 3, pooling="last")
+def test_the_reference_answers_are_the_whole_model_in_full_precision(
+    stored, trunk, pooling, request, tmp_path
+):
+    # Stored in bfloat16 is how the 4B's weights sit on disk. The reference answers must be what
+    # converting the whole trained model to full precision gave, never the pretrained
+    # placeholders the constructor builds, and the stored weights must come back untouched.
+    backbone = request.getfixturevalue(trunk)
+    trained = ClaimReader(backbone, 3, pooling=pooling)
     with torch.no_grad():
         for weight in trained.parameters():
             weight.add_(torch.randn_like(weight))
     torch.save({k: v.to(stored) for k, v in trained.state_dict().items()}, tmp_path / "model.bin")
-    record = {"backbone": backbone, "subjects": ["a", "b", "c"], "pooling": "last"}
-
-    loaded = load_reader(tmp_path, record)
-    before = ClaimReader(backbone, 3, pooling="last")
-    before.load_state_dict(torch.load(tmp_path / "model.bin", map_location="cpu"))
-    before.eval()
-
-    assert {weight.dtype for weight in loaded.parameters()} == {torch.float32}
+    record = {"backbone": backbone, "subjects": ["a", "b", "c"], "pooling": pooling}
+    whole = ClaimReader(backbone, 3, pooling=pooling)
+    whole.load_state_dict(torch.load(tmp_path / "model.bin", map_location="cpu"))
+    whole.eval()
     ids = torch.randint(0, 64, (3, 7))
     mask = torch.tensor([[1] * n + [0] * (7 - n) for n in (7, 4, 1)])
+
+    loaded = load_reader(tmp_path, record)
+    kept = {name: weight.clone() for name, weight in loaded.state_dict().items()}
+    got = full_precision_answers(loaded, ids, mask)
+
     with torch.no_grad():
-        assert torch.equal(loaded(ids, mask)[0], before(ids, mask)[0])
+        assert np.array_equal(got, whole(ids, mask)[0].numpy())
+    assert {weight.dtype for weight in loaded.parameters()} == {stored}
+    for name, weight in loaded.state_dict().items():
+        assert torch.equal(weight, kept[name]), name
 
 
 def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_path):

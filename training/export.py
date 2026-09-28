@@ -156,14 +156,12 @@ class InFullPrecisionOut(torch.nn.Module):
 
 
 def load_reader(run: Path, record: dict) -> ClaimReader:
-    """The trained reader of `run`, in full precision, holding one copy of its weights.
+    """The trained reader of `run`, its weights at the precision they were stored at.
 
     The constructor's pretrained weights are placeholders for the trained ones, so they are built
-    small and handed over rather than filled: at full precision the placeholders and the trained
-    weights were two copies of the 4B in memory at once. Mapped rather than read, the trained
-    weights are pages of the file, which the system can drop and read again rather than memory it
-    has to find. Full precision is the one copy the parity check genuinely needs, whatever
-    precision the weights were stored at.
+    at half precision and handed over rather than filled: built at full precision, the
+    placeholders and the trained weights were two copies of the 4B in memory at once, and then a
+    third while the whole model was converted to full precision for the reference answers.
     """
     # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
     # model without complaint and exports a graph that reads its claims differently from the
@@ -176,10 +174,60 @@ def load_reader(run: Path, record: dict) -> ClaimReader:
         aspects=bool(record.get("aspects")),
         dtype=torch.float16,
     )
-    trained = torch.load(run / "model.bin", map_location="cpu", mmap=True, weights_only=True)
+    trained = torch.load(run / "model.bin", map_location="cpu", weights_only=True)
     model.load_state_dict(trained, assign=True)
     del trained
-    return model.float().eval()
+    return model.eval()
+
+
+@torch.no_grad()
+def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) -> np.ndarray:
+    """The subject logits the model gives in full precision, whatever precision it is stored at.
+
+    A layer at a time rather than the whole model at once: each module's own weights are widened
+    just before it runs and put back just after, so the arithmetic is full precision throughout
+    while memory holds the stored weights and one layer's widening, not a second model twice the
+    size. Widening a stored number is exact and so is putting it back, so the answers are the
+    whole-model conversion's and the weights come back bit for bit.
+    """
+    stored: dict[torch.nn.Parameter, torch.dtype] = {}
+
+    def widen(module, _inputs=None):
+        for weight in module.parameters(recurse=False):
+            if weight.is_floating_point() and weight.dtype != torch.float32:
+                stored[weight] = weight.dtype
+                weight.data = weight.data.float()
+
+    def narrow(module, _inputs=None, _output=None):
+        for weight in module.parameters(recurse=False):
+            if weight in stored:
+                weight.data = weight.data.to(stored.pop(weight))
+
+    # Only the trunk goes a layer at a time. The reader casts its pooled vector to its heads'
+    # precision before calling them, so a head widened only while it runs is read as narrow
+    # first and hands back narrow answers; the heads are a few thousand weights and are widened
+    # for the whole call.
+    trunk = getattr(model, "trunk", None)
+    layered = set(trunk.modules()) if isinstance(trunk, torch.nn.Module) else set()
+    whole = [module for module in model.modules() if module not in layered]
+    hooks = [
+        hook
+        for module in layered
+        if any(True for _ in module.parameters(recurse=False))
+        for hook in (
+            module.register_forward_pre_hook(widen),
+            module.register_forward_hook(narrow),
+        )
+    ]
+    for module in whole:
+        widen(module)
+    try:
+        return model(input_ids, attention_mask)[0].float().numpy()
+    finally:
+        for hook in hooks:
+            hook.remove()
+        for module in whole:
+            narrow(module)
 
 
 # Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the
@@ -624,13 +672,11 @@ def main():
     # The reference answers come from the full-precision model whatever is exported, so a
     # half-precision graph is checked against the thing it is meant to approximate rather
     # than against itself.
-    with torch.no_grad():
-        wanted = model(encoded["input_ids"], encoded["attention_mask"])[0].numpy()
+    wanted = full_precision_answers(model, encoded["input_ids"], encoded["attention_mask"])
 
-    # Halved in place: the reference answers are already taken, and building a second copy to
-    # halve puts two full-precision models in memory at once. For a reader of a few billion
-    # parameters that is forty gigabytes, more than the machine has spare.
-    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model
+    # Converted in place, a weight at a time: the reference answers are already taken, and
+    # building a second copy to convert puts two models in memory at once.
+    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model.float()
 
     # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
     # the graph is the same either way, and tracing a 560M model on 256 sequences at once
