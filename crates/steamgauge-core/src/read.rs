@@ -60,6 +60,10 @@ pub struct ReadOptions {
     /// figure can say which reviews it is about.
     pub language: Option<String>,
     pub depth: Depth,
+    /// The share of the card's time the read may take, for a card other work is using: after
+    /// each batch it rests as long again as the batch kept the card busy, times
+    /// (1 - share) / share. What it reads is the same; only how long it takes changes.
+    pub card_share: f64,
 }
 
 /// How closely each review is read.
@@ -135,6 +139,7 @@ impl Default for ReadOptions {
             batch_size: DEFAULT_READ_BATCH,
             language: None,
             depth: Depth::Deep,
+            card_share: 1.0,
         }
     }
 }
@@ -547,6 +552,7 @@ pub fn recount_corpus(
         batch_size: earlier.batch_size.unwrap_or_default(),
         language: earlier.language.clone(),
         depth: earlier.depth,
+        card_share: 1.0,
     };
     let context = earlier.context;
 
@@ -872,7 +878,7 @@ fn read_and_count(
                 headset_only,
             });
             if window.len() >= LENGTH_WINDOW {
-                drain(model, options.batch_size, &mut window, &mut answers)?;
+                drain(model, options, &mut window, &mut answers)?;
                 // Every review already waiting had all of its claims queued before that
                 // drain, so every answer it needs is final. This one does not: its remaining
                 // claims are queued after this, and it waits for the next drain.
@@ -887,13 +893,13 @@ fn read_and_count(
             fingerprint,
         });
         if pending.len() >= PENDING_CAP {
-            drain(model, options.batch_size, &mut window, &mut answers)?;
+            drain(model, options, &mut window, &mut answers)?;
             settle(&mut pending, &mut counting, context, &answers, on_progress)?;
         }
         Ok(())
     })?;
 
-    drain(model, options.batch_size, &mut window, &mut answers)?;
+    drain(model, options, &mut window, &mut answers)?;
     settle(&mut pending, &mut counting, context, &answers, on_progress)?;
     let forward_passes = answers.len() as u64;
     Ok((
@@ -936,7 +942,7 @@ const LENGTH_WINDOW: usize = 16_384;
 /// about half duty; the batches, their order and their answers are the same either way.
 fn drain(
     model: &mut ClaimReader,
-    batch_size: usize,
+    options: &ReadOptions,
     window: &mut Vec<Queued>,
     answers: &mut HashMap<[u8; 32], Reading>,
 ) -> Result<()> {
@@ -944,7 +950,7 @@ fn drain(
         return Ok(());
     }
     window.sort_unstable_by_key(|queued| queued.claim.len() + queued.review.len());
-    let size = batch_size.max(1);
+    let size = options.batch_size.max(1);
     let encoder = model.encoder();
     let queued: &[Queued] = window;
 
@@ -965,7 +971,11 @@ fn drain(
             let prepared = receive
                 .recv()
                 .map_err(|_| Error::Tokenizer("the batch being tokenised was lost".to_owned()))??;
-            for (queued, reading) in chunk.iter().zip(model.run(prepared)?) {
+            // A run returns once the card has answered, so its time is the card's time.
+            let started = std::time::Instant::now();
+            let readings = model.run(prepared)?;
+            std::thread::sleep(rest_for(started.elapsed(), options.card_share));
+            for (queued, reading) in chunk.iter().zip(readings) {
                 answers.insert(queued.key, reading);
             }
         }
@@ -974,6 +984,16 @@ fn drain(
 
     window.clear();
     Ok(())
+}
+
+/// How long to leave the card idle after keeping it busy this long, for a read to take this
+/// share of its time. The card cannot be asked to favour anyone else, so a read that shares it
+/// does so by resting.
+fn rest_for(busy: std::time::Duration, share: f64) -> std::time::Duration {
+    if share >= 1.0 || share <= 0.0 {
+        return std::time::Duration::ZERO;
+    }
+    busy.mul_f64((1.0 - share) / share)
 }
 
 /// What one review turned out to be about.
@@ -1493,6 +1513,23 @@ impl ReadingRows {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_read_given_part_of_the_card_rests_in_proportion_to_its_work() {
+        let busy = std::time::Duration::from_millis(400);
+        assert_eq!(
+            rest_for(busy, 0.5),
+            busy,
+            "half the card rests as long as it worked"
+        );
+        assert_eq!(rest_for(busy, 0.25), busy * 3);
+        assert_eq!(rest_for(busy, 1.0), std::time::Duration::ZERO);
+        assert_eq!(
+            rest_for(busy, 0.0),
+            std::time::Duration::ZERO,
+            "a share of nothing is refused where it is given, never slept on forever"
+        );
+    }
 
     #[test]
     fn a_claim_is_under_every_subject_it_names_with_the_polarity_it_takes_on_each() {
