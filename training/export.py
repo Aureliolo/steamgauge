@@ -11,11 +11,12 @@ real claims, and a disagreement fails the run rather than printing a warning.
 from __future__ import annotations
 
 import argparse
-import gc
 import hashlib
 import json
+import multiprocessing
 import os
 import shutil
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -232,7 +233,14 @@ def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) ->
     for module in whole:
         widen(module)
     try:
-        return model(input_ids, attention_mask)[0].float().numpy()
+        # In the parity check's batches: all 256 claims at once held the 4B's widest
+        # activations for every one of them together.
+        return np.concatenate(
+            [
+                model(input_ids[at : at + 32], attention_mask[at : at + 32])[0].float().numpy()
+                for at in range(0, len(input_ids), 32)
+            ]
+        )
     finally:
         for hook in hooks:
             hook.remove()
@@ -241,6 +249,55 @@ def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) ->
         for config, cached in zip(configs, caching):
             if cached is not None:
                 config.use_cache = cached
+
+
+def build_graph(
+    run: Path,
+    record: dict,
+    input_ids,
+    attention_mask,
+    fp16: bool,
+    external_data: bool,
+    opset: int,
+) -> np.ndarray:
+    """Writes `run`'s graph as `model.onnx` and returns the answers it has to agree with."""
+    model = load_reader(run, record)
+    # The reference answers come from the full-precision model whatever is exported, so a
+    # half-precision graph is checked against the thing it is meant to approximate rather
+    # than against itself.
+    wanted = full_precision_answers(model, input_ids, attention_mask)
+
+    # Converted in place, a weight at a time: the reference answers are already taken, and
+    # building a second copy to convert puts two models in memory at once.
+    exported = InFullPrecisionOut(model.half()).eval() if fp16 else model.float()
+
+    # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
+    # the graph is the same either way, and tracing a 560M model on 256 sequences at once
+    # crashes the exporter outright rather than reporting anything.
+    TRACE = 8
+    graph = run / "model.onnx"
+    # Traced into a directory of its own: over 2 GB the tracer writes every weight as a file
+    # beside the graph, 252 of them for the 4B, and they are the export's scratch, not the
+    # reader.
+    traced = run / "traced"
+    shutil.rmtree(traced, ignore_errors=True)
+    traced.mkdir()
+    trace_graph(exported, input_ids[:TRACE], attention_mask[:TRACE], traced / "model.onnx", opset)
+    del exported, model
+
+    # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
+    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
+    # reader too large for one protobuf is two files (--external-data), and then both are its.
+    import onnx
+
+    for stray in graph.parent.glob("model.onnx.data*"):
+        stray.unlink()
+    if external_data:
+        gather_weights(traced, graph)
+    else:
+        onnx.save(onnx.load(str(traced / "model.onnx"), load_external_data=True), str(graph))
+    shutil.rmtree(traced)
+    return wanted
 
 
 # Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the
@@ -670,7 +727,6 @@ def main():
     subjects = record["subjects"]
 
     tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
-    model = load_reader(run, record)
 
     texts = sample_claims(Path(args.data), args.check, record, tokenizer)
     encoded = tokenizer(
@@ -682,50 +738,22 @@ def main():
         return_tensors="pt",
     )
 
-    # The reference answers come from the full-precision model whatever is exported, so a
-    # half-precision graph is checked against the thing it is meant to approximate rather
-    # than against itself.
-    wanted = full_precision_answers(model, encoded["input_ids"], encoded["attention_mask"])
-
-    # Converted in place, a weight at a time: the reference answers are already taken, and
-    # building a second copy to convert puts two models in memory at once.
-    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model.float()
-
-    # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
-    # the graph is the same either way, and tracing a 560M model on 256 sequences at once
-    # crashes the exporter outright rather than reporting anything.
-    TRACE = 8
     graph = run / "model.onnx"
-    # Traced into a directory of its own: over 2 GB the tracer writes every weight as a file
-    # beside the graph, 252 of them for the 4B, and they are the export's scratch, not the
-    # reader.
-    traced = run / "traced"
-    shutil.rmtree(traced, ignore_errors=True)
-    traced.mkdir()
-    trace_graph(
-        exported,
-        encoded["input_ids"][:TRACE],
-        encoded["attention_mask"][:TRACE],
-        traced / "model.onnx",
-        args.opset,
-    )
-
-    # The graph holds its own copy of every weight now, and nothing below reads the model again.
-    del exported, model
-    gc.collect()
-
-    # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
-    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
-    # reader too large for one protobuf is two files (--external-data), and then both are its.
-    import onnx
-
-    for stray in graph.parent.glob("model.onnx.data*"):
-        stray.unlink()
-    if args.external_data:
-        gather_weights(traced, graph)
-    else:
-        onnx.save(onnx.load(str(traced / "model.onnx"), load_external_data=True), str(graph))
-    shutil.rmtree(traced)
+    # Built in a process of its own, which hands back the reference answers and exits. The
+    # tracer keeps hold of what it traced: measured on the 4B, the process sat at 24 GB after
+    # the model was deleted, and the parity session below, whose weights on the card are charged
+    # to the same commit, could not open beside it. A process that has ended holds nothing.
+    with ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn")) as apart:
+        wanted = apart.submit(
+            build_graph,
+            run,
+            record,
+            encoded["input_ids"],
+            encoded["attention_mask"],
+            args.fp16,
+            args.external_data,
+            args.opset,
+        ).result()
 
     import onnxruntime
 
