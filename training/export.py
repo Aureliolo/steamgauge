@@ -11,6 +11,7 @@ real claims, and a disagreement fails the run rather than printing a warning.
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import os
@@ -152,6 +153,91 @@ class InFullPrecisionOut(torch.nn.Module):
 
     def forward(self, input_ids, attention_mask):
         return tuple(read.float() for read in self.inner(input_ids, attention_mask))
+
+
+def load_reader(run: Path, record: dict) -> ClaimReader:
+    """The trained reader of `run`, in full precision, holding one copy of its weights.
+
+    The constructor's pretrained weights are placeholders for the trained ones, so they are built
+    small and handed over rather than filled: at full precision the placeholders and the trained
+    weights were two copies of the 4B in memory at once. Mapped rather than read, the trained
+    weights are pages of the file, which the system can drop and read again rather than memory it
+    has to find. Full precision is the one copy the parity check genuinely needs, whatever
+    precision the weights were stored at.
+    """
+    # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
+    # model without complaint and exports a graph that reads its claims differently from the
+    # one that was measured. The parity check cannot see it either, because it compares the
+    # export against the same wrongly built model.
+    model = ClaimReader(
+        record["backbone"],
+        len(record["subjects"]),
+        pooling=record.get("pooling", "mean"),
+        aspects=bool(record.get("aspects")),
+        dtype=torch.float16,
+    )
+    trained = torch.load(run / "model.bin", map_location="cpu", mmap=True, weights_only=True)
+    model.load_state_dict(trained, assign=True)
+    del trained
+    return model.float().eval()
+
+
+# Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the
+# file only when it starts on the system's allocation granularity, which on Windows is 64 KiB,
+# and otherwise reads a copy of it into memory, so a reader laid out any tighter holds its
+# weights twice while a session opens.
+WEIGHT_ALIGNMENT = 64 * 1024
+
+
+def _tensors(graph):
+    yield from graph.initializer
+    for node in graph.node:
+        for attribute in node.attribute:
+            if attribute.HasField("t"):
+                yield attribute.t
+            yield from attribute.tensors
+            if attribute.HasField("g"):
+                yield from _tensors(attribute.g)
+            for inner in attribute.graphs:
+                yield from _tensors(inner)
+
+
+def gather_weights(traced: Path, graph: Path) -> None:
+    """Writes a traced graph as `graph` and one `model.onnx.data` beside it, a weight at a time.
+
+    Over 2 GB the tracer leaves every weight in a file of its own. Loading them all to save them
+    again as one held the 4B's eight gigabytes in memory a second time, beside the model; copied
+    across one by one, the weights never need to be in memory at all.
+    """
+    import onnx
+    from onnx.external_data_helper import ExternalDataInfo
+
+    model = onnx.load(str(traced / "model.onnx"), load_external_data=False)
+    at = 0
+    with open(graph.parent / "model.onnx.data", "wb") as out:
+        for tensor in _tensors(model.graph):
+            if tensor.data_location != onnx.TensorProto.EXTERNAL:
+                continue
+            info = ExternalDataInfo(tensor)
+            at += -at % WEIGHT_ALIGNMENT
+            out.seek(at)
+            with open(traced / info.location, "rb") as source:
+                source.seek(info.offset or 0)
+                length = info.length or os.fstat(source.fileno()).st_size - (info.offset or 0)
+                left = length
+                while left:
+                    chunk = source.read(min(left, 64 * 1024 * 1024))
+                    if not chunk:
+                        raise SystemExit(f"{info.location} ends {left} bytes short")
+                    out.write(chunk)
+                    left -= len(chunk)
+            # By hand: onnx's own setter wants the weight in memory, which is what this avoids.
+            del tensor.external_data[:]
+            for key, value in (("location", "model.onnx.data"), ("offset", at), ("length", length)):
+                entry = tensor.external_data.add()
+                entry.key, entry.value = key, str(value)
+            at += length
+    onnx.save(model, str(graph))
 
 
 def rule_fingerprint(threshold: float, subjects, lines, by_language) -> str:
@@ -523,16 +609,7 @@ def main():
     subjects = record["subjects"]
 
     tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
-    # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
-    # model without complaint and exports a graph that reads its claims differently from the
-    # one that was measured. The parity check cannot see it either, because it compares the
-    # export against the same wrongly built model.
-    pooling = record.get("pooling", "mean")
-    model = ClaimReader(
-        record["backbone"], len(subjects), pooling=pooling, aspects=bool(record.get("aspects"))
-    )
-    model.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
-    model.eval()
+    model = load_reader(run, record)
 
     texts = sample_claims(Path(args.data), args.check, record, tokenizer)
     encoded = tokenizer(
@@ -574,22 +651,22 @@ def main():
         args.opset,
     )
 
+    # The graph holds its own copy of every weight now, and nothing below reads the model again.
+    del exported, model
+    gc.collect()
+
     # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
     # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
     # reader too large for one protobuf is two files (--external-data), and then both are its.
     import onnx
 
-    inlined = onnx.load(str(traced / "model.onnx"), load_external_data=True)
-    shutil.rmtree(traced)
     for stray in graph.parent.glob("model.onnx.data*"):
         stray.unlink()
-    onnx.save(
-        inlined,
-        str(graph),
-        save_as_external_data=args.external_data,
-        all_tensors_to_one_file=True,
-        location="model.onnx.data",
-    )
+    if args.external_data:
+        gather_weights(traced, graph)
+    else:
+        onnx.save(onnx.load(str(traced / "model.onnx"), load_external_data=True), str(graph))
+    shutil.rmtree(traced)
 
     import onnxruntime
 
