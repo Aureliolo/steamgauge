@@ -313,18 +313,37 @@ def aspect_lines(oof: str, subjects: list[str], min_precision: float) -> list | 
     are. None where no line reaches it: the reader then never names that subject beside
     another, and the subject head still names it first. None as a whole when the folds were
     trained without the head.
+
+    Fitted only where the reader applies it: beside the subject the subject head names first,
+    which the reader never names again. Fitted over every claim, a subject's line was held up by
+    the claims chiefly about it, which the head calls covered almost without fail, and promised
+    three in four of its calls beside another subject while keeping fewer than one in two:
+    measured on the folds of the first reader with the head, 0.475 where 0.75 was promised, and
+    a second subject named on three claims in four of a real corpus.
+
+    The folds carry a class order of their own, remapped onto this export's as the subject
+    lines are.
     """
     parts = [np.load(path, allow_pickle=False) for path in sorted(Path(oof).glob("cv-*.npz"))]
     if not parts or any("aspect_logits" not in part for part in parts):
         return None
+    theirs = [str(name) for name in parts[0]["subjects"]]
+    if any([str(name) for name in part["subjects"]] != theirs for part in parts):
+        raise SystemExit("the folds do not list their subjects in one order")
+    if sorted(theirs) != sorted(subjects):
+        raise SystemExit("the folds and this run do not know the same subjects")
     logits = np.concatenate([part["aspect_logits"] for part in parts])
     truth = np.concatenate([part["aspect_truth"] for part in parts]) > 0
     known = np.concatenate([part["aspect_known"] for part in parts])
+    first = np.concatenate([part["logits"] for part in parts]).argmax(axis=1)
+    beside = known.copy()
+    beside[np.arange(len(first)), first] = False
     shifted = np.exp(logits - logits.max(axis=-1, keepdims=True))
     covered = 1.0 - shifted[..., 0] / shifted.sum(axis=-1)
     lines = []
-    for at, _ in enumerate(subjects):
-        sure, said = covered[known[:, at], at], truth[known[:, at], at]
+    for name in subjects:
+        at = theirs.index(name)
+        sure, said = covered[beside[:, at], at], truth[beside[:, at], at]
         order = np.argsort(-sure)
         hits = np.cumsum(said[order])
         precision = hits / np.arange(1, len(order) + 1)

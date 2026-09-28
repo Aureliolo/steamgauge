@@ -656,29 +656,15 @@ impl ClaimReader {
                 let language = languages.get(row).map_or("", String::as_str);
                 let (best, confidence) = softmax_best(subject.row(row).as_slice().unwrap_or(&[]));
                 let (polar, _) = softmax_best(polarity.row(row).as_slice().unwrap_or(&[]));
-                let mut also = Also::default();
-                if let Some(aspects) = &aspects {
-                    for (class, answers) in aspects
-                        .index_axis(ndarray::Axis(0), row)
-                        .outer_iter()
-                        .enumerate()
-                    {
-                        if class == best {
-                            continue;
-                        }
-                        let answers: Vec<f32> = answers.to_vec();
-                        // Covered is every answer but absent, which is the line's measure; the
-                        // polarity is the likeliest of the three, however absent compares.
-                        let covered = 1.0 - softmax_at(&answers, 0);
-                        if covered >= self.provenance.aspect_bar(class, language) {
-                            let (said, _) = softmax_best(answers.get(1..).unwrap_or(&[]));
-                            also.insert(
-                                self.order.get(class).copied().unwrap_or(class),
-                                Polarity::from_index(said),
-                            );
-                        }
-                    }
-                }
+                let also = aspects.as_ref().map_or_else(Also::default, |aspects| {
+                    also_named(
+                        &aspects.index_axis(ndarray::Axis(0), row),
+                        best,
+                        language,
+                        &self.provenance,
+                        &self.order,
+                    )
+                });
                 Reading {
                     subject: (confidence >= self.provenance.bar(best, language))
                         .then(|| self.order.get(best).copied().unwrap_or(best)),
@@ -922,6 +908,40 @@ pub struct Asked<'a> {
     /// The game is played only in a headset, as the store says. Read only by a reader trained
     /// to be told it.
     pub headset_only: bool,
+}
+
+/// Every subject one claim covers beside `best`, the one it is chiefly about, from the aspect
+/// head's answers for it: `[subjects, answers]`, where answer 0 is absent and 1 + i polarity i.
+///
+/// A subject is named above its own line and its language's. A subject the sheet never lets
+/// stand beside another is never named beside one, however sure the head is: that is a rule of
+/// the sheet rather than a guess, and a line fitted on the folds only ever approximates it.
+fn also_named(
+    answers: &ndarray::ArrayView2<'_, f32>,
+    best: usize,
+    language: &str,
+    provenance: &Provenance,
+    order: &[usize],
+) -> Also {
+    let mut also = Also::default();
+    for (class, answers) in answers.outer_iter().enumerate() {
+        let row_of_sheet = order.get(class).copied().unwrap_or(class);
+        let may_stand_beside = crate::taxonomy::SHEET
+            .get(row_of_sheet)
+            .is_some_and(|row| row.beside);
+        if class == best || !may_stand_beside {
+            continue;
+        }
+        let answers: Vec<f32> = answers.to_vec();
+        // Covered is every answer but absent, which is the line's measure; the polarity is the
+        // likeliest of the three, however absent compares.
+        let covered = 1.0 - softmax_at(&answers, 0);
+        if covered >= provenance.aspect_bar(class, language) {
+            let (said, _) = softmax_best(answers.get(1..).unwrap_or(&[]));
+            also.insert(row_of_sheet, Polarity::from_index(said));
+        }
+    }
+    also
 }
 
 /// One class's probability, from logits, stable the way [`softmax_best`] is.
@@ -1257,6 +1277,60 @@ mod tests {
             Also::from_text("no-such-row:praise").is_empty(),
             "a row this build lacks is dropped, not guessed at"
         );
+    }
+
+    #[test]
+    fn a_subject_the_sheet_keeps_alone_is_never_named_beside_another() {
+        let at = |id: &str| {
+            crate::taxonomy::SHEET
+                .iter()
+                .position(|row| row.id == id)
+                .unwrap()
+        };
+        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": ["audio", "offtopic", "controls"],
+            "threshold": 0.5,
+            "aspect_thresholds": [0.5, 0.5, 0.5],
+            "max_tokens": 64,
+        }))
+        .unwrap();
+        let order = [at("audio"), at("offtopic"), at("controls")];
+        // Every subject called covered and praised with near certainty.
+        let sure = ndarray::Array2::from_shape_fn(
+            (3, 4),
+            |(_, answer)| {
+                if answer == 1 { 10.0 } else { -10.0 }
+            },
+        );
+        let also = also_named(&sure.view(), 0, "english", &provenance, &order);
+        let named = also.to_text().unwrap();
+        assert_eq!(
+            named, "controls:praise",
+            "the first subject is not repeated and offtopic never stands beside another"
+        );
+    }
+
+    #[test]
+    fn a_subject_below_its_line_is_not_named_beside_another() {
+        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": ["audio", "controls"],
+            "threshold": 0.5,
+            "aspect_thresholds": [0.5, 0.99],
+            "max_tokens": 64,
+        }))
+        .unwrap();
+        let order: Vec<usize> = ["audio", "controls"]
+            .iter()
+            .map(|id| {
+                crate::taxonomy::SHEET
+                    .iter()
+                    .position(|row| row.id == *id)
+                    .unwrap()
+            })
+            .collect();
+        // Covered at about 0.95: absent at 0 against praise at 3.
+        let answers = ndarray::array![[0.0, 3.0, -9.0, -9.0], [0.0, 3.0, -9.0, -9.0]];
+        assert!(also_named(&answers.view(), 0, "english", &provenance, &order).is_empty());
     }
 
     #[test]
