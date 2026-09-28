@@ -4211,8 +4211,23 @@ subject, which is what that reader said. Counting, the report's examples, the ap
 pages and `measure-claims` count every subject a claim names; `measure-claims` adds a precision
 and recall past the first subject, over the labels that answered.
 
-Not measured yet: the reader trained with the head waits for the relabelled set and the card,
-and is scored on the frozen games, the frontier key and a timed read before any install.
+**Measured, 2026-09-28** (`e5inst-pool-qwen4b-aspects-s1`, the told recipe plus the head, five
+folds). On the frontier key, the first subject: 90.2% answered at 81.1% (77.1% to 84.6%), macro
+F1 0.758, against the installed told reader's 92.6% at 78.8% and 0.748, inside each other's
+intervals. Beyond the first subject on validation, F1 0.278: the head names a second subject
+poorly.
+
+**The lines it shipped with broke their promise.** Read over a real corpus (920210, 104,799
+claims answered) the reader named a second subject on 76.2% of them, and `offtopic` beside
+another 13,883 times, which the sheet forbids. `aspect_lines` fitted each subject's line over
+every held-out claim, the ones chiefly about that subject included, where the head calls it
+covered almost without fail; the reader applies the line only beside the first subject, where
+it is weak. On the folds, those lines named a second subject on 33.7% of claims at precision
+0.475 against the 0.75 promised. Fitted where they are applied, beside the first subject the
+subject head names, they name one on 15.9% at 0.753, recall 0.353, and `offtopic`'s line
+moves from 0.56 to 0.98. The reader also no longer names beside another any subject the sheet
+marks as never beside one, whatever a line says. The fold files' subject order is now remapped
+onto the export's, as the subject lines' was, rather than assumed to match.
 
 ### A verdict stands beside the aspect a claim names (2026-09-26)
 
