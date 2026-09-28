@@ -133,3 +133,29 @@ def load(loader, name: str | Path, **options):
     if isinstance(getattr(loaded, "init_kwargs", None), dict):
         loaded.init_kwargs.pop("code_revision", None)
     return loaded
+
+
+def shape(name: str | Path, **options):
+    """The model `AutoModel` loads for this name, at the pinned commit, without its weights.
+
+    For a caller about to hand it trained weights with `load_state_dict(..., assign=True)`: read
+    in full, the pretrained weights were eight gigabytes for the 4B loaded only to be
+    overwritten. The weights are left empty and the buffers are built for real, because a module
+    computes some for itself and a checkpoint does not carry those.
+    """
+    from accelerate import init_empty_weights
+    from transformers import AutoConfig, AutoModel
+
+    overridden = DECIDED & options.keys()
+    if overridden:
+        raise UnpinnedBackbone(
+            f"{', '.join(sorted(overridden))} for {name!r} comes from training/backbones.py, "
+            "not from the caller"
+        )
+    # A backbone that runs its own code is built by `load`, weights and all: building it from a
+    # config fetches its code by the name the config gives, and not at the commit pinned here.
+    if pinning(name)["trust_remote_code"]:
+        return load(AutoModel, name, **options)
+    config = load(AutoConfig, name)
+    with init_empty_weights(include_buffers=False):
+        return AutoModel.from_config(config, **options)

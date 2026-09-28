@@ -17,7 +17,13 @@ from transformers import (  # noqa: E402
     XLMRobertaModel,
 )
 
-from export import trace_graph  # noqa: E402
+from export import (  # noqa: E402
+    WEIGHT_ALIGNMENT,
+    full_precision_answers,
+    gather_weights,
+    load_reader,
+    trace_graph,
+)
 from train import ClaimReader  # noqa: E402
 
 
@@ -115,6 +121,85 @@ def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, 
     monkeypatch.setattr(torch.onnx, "export", lambda model, args, f, **kwargs: handed.append(f))
     trace_graph(torch.nn.Identity(), None, None, tmp_path / "model.onnx", 17)
     assert handed == [str(tmp_path / "model.onnx")]
+
+
+@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
+@pytest.mark.parametrize("stored", [torch.float32, torch.bfloat16])
+def test_the_reference_answers_are_the_whole_model_in_full_precision(
+    stored, trunk, pooling, request, tmp_path
+):
+    # Stored in bfloat16 is how the 4B's weights sit on disk. The reference answers must be what
+    # converting the whole trained model to full precision gave, never the pretrained
+    # placeholders the constructor builds, and the stored weights must come back untouched.
+    backbone = request.getfixturevalue(trunk)
+    trained = ClaimReader(backbone, 3, pooling=pooling)
+    with torch.no_grad():
+        for weight in trained.parameters():
+            weight.add_(torch.randn_like(weight))
+    torch.save({k: v.to(stored) for k, v in trained.state_dict().items()}, tmp_path / "model.bin")
+    record = {"backbone": backbone, "subjects": ["a", "b", "c"], "pooling": pooling}
+    whole = ClaimReader(backbone, 3, pooling=pooling)
+    whole.load_state_dict(torch.load(tmp_path / "model.bin", map_location="cpu"))
+    whole.eval()
+    ids = torch.randint(0, 64, (3, 7))
+    mask = torch.tensor([[1] * n + [0] * (7 - n) for n in (7, 4, 1)])
+
+    loaded = load_reader(tmp_path, record)
+    kept = {name: weight.clone() for name, weight in loaded.state_dict().items()}
+    got = full_precision_answers(loaded, ids, mask)
+
+    with torch.no_grad():
+        assert np.array_equal(got, whole(ids, mask)[0].numpy())
+    assert {weight.dtype for weight in loaded.parameters()} == {stored}
+    for name, weight in loaded.state_dict().items():
+        assert torch.equal(weight, kept[name]), name
+
+
+def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_path):
+    # The tracer leaves a weight per file only past 2 GB, so a small graph is split the same
+    # way by hand. The traced directory is gone before the session opens, so the answer can only
+    # come from the one weights file.
+    import shutil
+
+    import onnx
+
+    model = ClaimReader(backbone, 3, pooling="last").eval()
+    ids = torch.randint(0, 64, (2, 6))
+    whole = tmp_path / "whole.onnx"
+    trace_graph(model, ids, torch.ones_like(ids), whole, 17)
+    traced = tmp_path / "traced"
+    traced.mkdir()
+    onnx.save(
+        onnx.load(str(whole)),
+        str(traced / "model.onnx"),
+        save_as_external_data=True,
+        all_tensors_to_one_file=False,
+        size_threshold=0,
+    )
+    shipped = tmp_path / "shipped"
+    shipped.mkdir()
+
+    gather_weights(traced, shipped / "model.onnx")
+    shutil.rmtree(traced)
+
+    assert sorted(path.name for path in shipped.iterdir()) == ["model.onnx", "model.onnx.data"]
+    starts = [
+        int(entry.value)
+        for tensor in onnx.load(
+            str(shipped / "model.onnx"), load_external_data=False
+        ).graph.initializer
+        for entry in tensor.external_data
+        if entry.key == "offset"
+    ]
+    assert starts and all(start % WEIGHT_ALIGNMENT == 0 for start in starts)
+    feed = {"input_ids": ids.numpy(), "attention_mask": np.ones_like(ids.numpy())}
+    wanted = onnxruntime.InferenceSession(str(whole), providers=["CPUExecutionProvider"])
+    got = onnxruntime.InferenceSession(
+        str(shipped / "model.onnx"), providers=["CPUExecutionProvider"]
+    )
+    assert np.array_equal(
+        wanted.run(["subject_logits"], feed)[0], got.run(["subject_logits"], feed)[0]
+    )
 
 
 def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk():

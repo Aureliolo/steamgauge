@@ -13,8 +13,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing
 import os
 import shutil
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -152,6 +154,208 @@ class InFullPrecisionOut(torch.nn.Module):
 
     def forward(self, input_ids, attention_mask):
         return tuple(read.float() for read in self.inner(input_ids, attention_mask))
+
+
+def load_reader(run: Path, record: dict) -> ClaimReader:
+    """The trained reader of `run`, its weights at the precision they were stored at.
+
+    Built as a shape and handed the trained weights, never filled: built from the pretrained
+    weights at full precision, the placeholders and the trained weights were two copies of the 4B
+    in memory at once, and then a third while the whole model was converted to full precision for
+    the reference answers.
+    """
+    # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
+    # model without complaint and exports a graph that reads its claims differently from the
+    # one that was measured. The parity check cannot see it either, because it compares the
+    # export against the same wrongly built model.
+    model = ClaimReader(
+        record["backbone"],
+        len(record["subjects"]),
+        pooling=record.get("pooling", "mean"),
+        aspects=bool(record.get("aspects")),
+        pretrained=False,
+    )
+    trained = torch.load(run / "model.bin", map_location="cpu", weights_only=True)
+    model.load_state_dict(trained, assign=True)
+    del trained
+    empty = [name for name, weight in model.named_parameters() if weight.is_meta]
+    if empty:
+        raise SystemExit(f"{run} holds no weights for {', '.join(empty[:5])}. Not exporting it.")
+    return model.eval()
+
+
+@torch.no_grad()
+def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) -> np.ndarray:
+    """The subject logits the model gives in full precision, whatever precision it is stored at.
+
+    A layer at a time rather than the whole model at once: each module's own weights are widened
+    just before it runs and put back just after, so the arithmetic is full precision throughout
+    while memory holds the stored weights and one layer's widening, not a second model twice the
+    size. Widening a stored number is exact and so is putting it back, so the answers are the
+    whole-model conversion's and the weights come back bit for bit.
+    """
+    stored: dict[torch.nn.Parameter, torch.dtype] = {}
+    # A decoder keeps every layer's keys and values for the text it might go on to write, and
+    # this writes none: for the 4B over 256 claims that cache was ten gigabytes.
+    configs = [module.config for module in model.modules() if hasattr(module, "config")]
+    caching = [getattr(config, "use_cache", None) for config in configs]
+    for config in configs:
+        if hasattr(config, "use_cache"):
+            config.use_cache = False
+
+    def widen(module, _inputs=None):
+        for weight in module.parameters(recurse=False):
+            if weight.is_floating_point() and weight.dtype != torch.float32:
+                stored[weight] = weight.dtype
+                weight.data = weight.data.float()
+
+    def narrow(module, _inputs=None, _output=None):
+        for weight in module.parameters(recurse=False):
+            if weight in stored:
+                weight.data = weight.data.to(stored.pop(weight))
+
+    # Only the trunk goes a layer at a time. The reader casts its pooled vector to its heads'
+    # precision before calling them, so a head widened only while it runs is read as narrow
+    # first and hands back narrow answers; the heads are a few thousand weights and are widened
+    # for the whole call.
+    trunk = getattr(model, "trunk", None)
+    layered = set(trunk.modules()) if isinstance(trunk, torch.nn.Module) else set()
+    whole = [module for module in model.modules() if module not in layered]
+    hooks = [
+        hook
+        for module in layered
+        if any(True for _ in module.parameters(recurse=False))
+        for hook in (
+            module.register_forward_pre_hook(widen),
+            module.register_forward_hook(narrow),
+        )
+    ]
+    for module in whole:
+        widen(module)
+    try:
+        # In the parity check's batches: all 256 claims at once held the 4B's widest
+        # activations for every one of them together.
+        return np.concatenate(
+            [
+                model(input_ids[at : at + 32], attention_mask[at : at + 32])[0].float().numpy()
+                for at in range(0, len(input_ids), 32)
+            ]
+        )
+    finally:
+        for hook in hooks:
+            hook.remove()
+        for module in whole:
+            narrow(module)
+        for config, cached in zip(configs, caching):
+            if cached is not None:
+                config.use_cache = cached
+
+
+def build_graph(
+    run: Path,
+    record: dict,
+    input_ids,
+    attention_mask,
+    fp16: bool,
+    external_data: bool,
+    opset: int,
+) -> np.ndarray:
+    """Writes `run`'s graph as `model.onnx` and returns the answers it has to agree with."""
+    model = load_reader(run, record)
+    # The reference answers come from the full-precision model whatever is exported, so a
+    # half-precision graph is checked against the thing it is meant to approximate rather
+    # than against itself.
+    wanted = full_precision_answers(model, input_ids, attention_mask)
+
+    # Converted in place, a weight at a time: the reference answers are already taken, and
+    # building a second copy to convert puts two models in memory at once.
+    exported = InFullPrecisionOut(model.half()).eval() if fp16 else model.float()
+
+    # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
+    # the graph is the same either way, and tracing a 560M model on 256 sequences at once
+    # crashes the exporter outright rather than reporting anything.
+    TRACE = 8
+    graph = run / "model.onnx"
+    # Traced into a directory of its own: over 2 GB the tracer writes every weight as a file
+    # beside the graph, 252 of them for the 4B, and they are the export's scratch, not the
+    # reader.
+    traced = run / "traced"
+    shutil.rmtree(traced, ignore_errors=True)
+    traced.mkdir()
+    trace_graph(exported, input_ids[:TRACE], attention_mask[:TRACE], traced / "model.onnx", opset)
+    del exported, model
+
+    # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
+    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
+    # reader too large for one protobuf is two files (--external-data), and then both are its.
+    import onnx
+
+    for stray in graph.parent.glob("model.onnx.data*"):
+        stray.unlink()
+    if external_data:
+        gather_weights(traced, graph)
+    else:
+        onnx.save(onnx.load(str(traced / "model.onnx"), load_external_data=True), str(graph))
+    shutil.rmtree(traced)
+    return wanted
+
+
+# Where each weight starts in the one weights file. ONNX Runtime maps a weight straight from the
+# file only when it starts on the system's allocation granularity, which on Windows is 64 KiB,
+# and otherwise reads a copy of it into memory, so a reader laid out any tighter holds its
+# weights twice while a session opens.
+WEIGHT_ALIGNMENT = 64 * 1024
+
+
+def _tensors(graph):
+    yield from graph.initializer
+    for node in graph.node:
+        for attribute in node.attribute:
+            if attribute.HasField("t"):
+                yield attribute.t
+            yield from attribute.tensors
+            if attribute.HasField("g"):
+                yield from _tensors(attribute.g)
+            for inner in attribute.graphs:
+                yield from _tensors(inner)
+
+
+def gather_weights(traced: Path, graph: Path) -> None:
+    """Writes a traced graph as `graph` and one `model.onnx.data` beside it, a weight at a time.
+
+    Over 2 GB the tracer leaves every weight in a file of its own. Loading them all to save them
+    again as one held the 4B's eight gigabytes in memory a second time, beside the model; copied
+    across one by one, the weights never need to be in memory at all.
+    """
+    import onnx
+    from onnx.external_data_helper import ExternalDataInfo
+
+    model = onnx.load(str(traced / "model.onnx"), load_external_data=False)
+    at = 0
+    with open(graph.parent / "model.onnx.data", "wb") as out:
+        for tensor in _tensors(model.graph):
+            if tensor.data_location != onnx.TensorProto.EXTERNAL:
+                continue
+            info = ExternalDataInfo(tensor)
+            at += -at % WEIGHT_ALIGNMENT
+            out.seek(at)
+            with open(traced / info.location, "rb") as source:
+                source.seek(info.offset or 0)
+                length = info.length or os.fstat(source.fileno()).st_size - (info.offset or 0)
+                left = length
+                while left:
+                    chunk = source.read(min(left, 64 * 1024 * 1024))
+                    if not chunk:
+                        raise SystemExit(f"{info.location} ends {left} bytes short")
+                    out.write(chunk)
+                    left -= len(chunk)
+            # By hand: onnx's own setter wants the weight in memory, which is what this avoids.
+            del tensor.external_data[:]
+            for key, value in (("location", "model.onnx.data"), ("offset", at), ("length", length)):
+                entry = tensor.external_data.add()
+                entry.key, entry.value = key, str(value)
+            at += length
+    onnx.save(model, str(graph))
 
 
 def rule_fingerprint(threshold: float, subjects, lines, by_language) -> str:
@@ -523,16 +727,6 @@ def main():
     subjects = record["subjects"]
 
     tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
-    # Pooling is not a weight, so a run trained on the last token loads into a mean-pooling
-    # model without complaint and exports a graph that reads its claims differently from the
-    # one that was measured. The parity check cannot see it either, because it compares the
-    # export against the same wrongly built model.
-    pooling = record.get("pooling", "mean")
-    model = ClaimReader(
-        record["backbone"], len(subjects), pooling=pooling, aspects=bool(record.get("aspects"))
-    )
-    model.load_state_dict(torch.load(run / "model.bin", map_location="cpu"))
-    model.eval()
 
     texts = sample_claims(Path(args.data), args.check, record, tokenizer)
     encoded = tokenizer(
@@ -544,52 +738,22 @@ def main():
         return_tensors="pt",
     )
 
-    # The reference answers come from the full-precision model whatever is exported, so a
-    # half-precision graph is checked against the thing it is meant to approximate rather
-    # than against itself.
-    with torch.no_grad():
-        wanted = model(encoded["input_ids"], encoded["attention_mask"])[0].numpy()
-
-    # Halved in place: the reference answers are already taken, and building a second copy to
-    # halve puts two full-precision models in memory at once. For a reader of a few billion
-    # parameters that is forty gigabytes, more than the machine has spare.
-    exported = InFullPrecisionOut(model.half()).eval() if args.fp16 else model
-
-    # Traced on a handful rather than on the whole check batch. The batch axis is dynamic, so
-    # the graph is the same either way, and tracing a 560M model on 256 sequences at once
-    # crashes the exporter outright rather than reporting anything.
-    TRACE = 8
     graph = run / "model.onnx"
-    # Traced into a directory of its own: over 2 GB the tracer writes every weight as a file
-    # beside the graph, 252 of them for the 4B, and they are the export's scratch, not the
-    # reader.
-    traced = run / "traced"
-    shutil.rmtree(traced, ignore_errors=True)
-    traced.mkdir()
-    trace_graph(
-        exported,
-        encoded["input_ids"][:TRACE],
-        encoded["attention_mask"][:TRACE],
-        traced / "model.onnx",
-        args.opset,
-    )
-
-    # One file, not a graph plus a weights blob beside it. What ships is verified by checksum
-    # before it is run, and a checksum over one of two files is a checksum over nothing. Only a
-    # reader too large for one protobuf is two files (--external-data), and then both are its.
-    import onnx
-
-    inlined = onnx.load(str(traced / "model.onnx"), load_external_data=True)
-    shutil.rmtree(traced)
-    for stray in graph.parent.glob("model.onnx.data*"):
-        stray.unlink()
-    onnx.save(
-        inlined,
-        str(graph),
-        save_as_external_data=args.external_data,
-        all_tensors_to_one_file=True,
-        location="model.onnx.data",
-    )
+    # Built in a process of its own, which hands back the reference answers and exits. The
+    # tracer keeps hold of what it traced: measured on the 4B, the process sat at 24 GB after
+    # the model was deleted, and the parity session below, whose weights on the card are charged
+    # to the same commit, could not open beside it. A process that has ended holds nothing.
+    with ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn")) as apart:
+        wanted = apart.submit(
+            build_graph,
+            run,
+            record,
+            encoded["input_ids"],
+            encoded["attention_mask"],
+            args.fp16,
+            args.external_data,
+            args.opset,
+        ).result()
 
     import onnxruntime
 
