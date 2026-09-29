@@ -88,7 +88,9 @@ def main():
     args = parser.parse_args()
     rendered = table(load())
     if args.readme:
-        README.write_text(in_readme(README.read_text(encoding="utf-8"), rendered), encoding="utf-8")
+        README.write_text(
+            in_readme(README.read_text(encoding="utf-8"), rendered), encoding="utf-8", newline="\n"
+        )
     else:
         print(rendered)
 
