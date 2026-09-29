@@ -172,7 +172,7 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
         recall = counts["hit"] / max(counts["wanted"], 1)
         scores.append(0.0 if not counts["hit"] else 2 * precision * recall / (precision + recall))
 
-    return {
+    found = {
         "claims": len(wanted),
         "unanswered_rows": missing,
         "coverage": answered / max(len(wanted), 1),
@@ -182,6 +182,40 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
         "macro_f1": sum(scores) / max(len(scores), 1),
         "off_sheet_subjects": dict(off_sheet),
     }
+    at_share = accuracy_at_shares(wanted, given)
+    if at_share:
+        found["accuracy_at_coverage"] = at_share
+    return found
+
+
+# The shares every reader is compared at. Each reader's own lines put it at its own coverage, so
+# two readers' accuracies where answered are figures for different amounts of work; answering
+# the same share of the same claims, most confident first, they are figures for the same work.
+SHARES = (0.8, 0.9)
+
+
+def accuracy_at_shares(wanted: list[dict], given: dict) -> dict[str, dict] | None:
+    """Accuracy answering only the most confident share of `wanted`, for each of `SHARES`.
+
+    None unless every claim was answered with a confidence and a best guess, which a frontier
+    model's answers do not have and the reader's do.
+    """
+    said = [given.get(row["id"]) for row in wanted]
+    if not wanted or any(one is None or "confidence" not in one for one in said):
+        return None
+    ranked = sorted(
+        zip(wanted, said, strict=True), key=lambda pair: pair[1]["confidence"], reverse=True
+    )
+    shares = {}
+    for share in SHARES:
+        taken = ranked[: round(share * len(ranked))]
+        right = sum(1 for row, one in taken if one["guess"] == row["subject"])
+        shares[f"{share:.0%}"] = {
+            "claims": len(taken),
+            "accuracy": right / max(len(taken), 1),
+            "interval": wilson(right, len(taken)),
+        }
+    return shares
 
 
 def readable(key: Path, data: str) -> tuple[list[dict], list]:
@@ -276,6 +310,10 @@ def score_reader(model_dir: Path, key: Path, data: str):
                 else "unsure"
             ),
             "polarity": polarity[at],
+            # What it would have said and how sure it was, whether or not its lines let it say
+            # it: readers whose lines differ are only comparable answering the same share.
+            "guess": predicted[at],
+            "confidence": confidence[at],
         }
         for at, row in enumerate(wanted)
     ]

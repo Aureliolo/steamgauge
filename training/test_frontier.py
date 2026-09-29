@@ -63,6 +63,50 @@ def test_a_claim_the_reader_was_never_handed_is_not_charged_against_it(tmp_path)
     assert readable["accuracy_where_answered"] == 1.0
 
 
+def test_readers_are_compared_answering_the_same_share_most_confident_first(tmp_path):
+    # Ten claims, the guesses right on the eight most confident and wrong on the last two. The
+    # reader's own line declines everything below 0.5, which is not what the shares look at.
+    key = tmp_path / "key.json"
+    key.write_text(
+        json.dumps([{"id": str(n), "subject": "vr", "polarity": "praise"} for n in range(10)]),
+        encoding="utf-8",
+    )
+    answers = tmp_path / "answers.json"
+    answers.write_text(
+        json.dumps(
+            [
+                {
+                    "id": str(n),
+                    "subject": "vr" if n < 5 else "unsure",
+                    "polarity": "praise",
+                    "guess": "vr" if n < 8 else "gameplay",
+                    "confidence": 1.0 - n / 10,
+                }
+                for n in range(10)
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    found = frontier.score(answers, key)
+
+    assert found["coverage"] == 0.5
+    assert found["accuracy_at_coverage"]["80%"]["claims"] == 8
+    assert found["accuracy_at_coverage"]["80%"]["accuracy"] == 1.0
+    assert found["accuracy_at_coverage"]["90%"]["claims"] == 9
+    assert found["accuracy_at_coverage"]["90%"]["accuracy"] == 8 / 9
+
+
+def test_answers_without_confidences_have_no_shares(tmp_path):
+    # A frontier model's answers carry no confidence, and a share ranked by nothing is invented.
+    key = tmp_path / "key.json"
+    key.write_text(json.dumps([{"id": "a", "subject": "vr", "polarity": "praise"}]), "utf-8")
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps([{"id": "a", "subject": "vr", "polarity": "praise"}]), "utf-8")
+
+    assert "accuracy_at_coverage" not in frontier.score(answers, key)
+
+
 def test_every_row_of_the_benchmark_counts_the_claims_a_reader_can_be_handed(tmp_path):
     # A frontier model answered every key row when it was asked; a reader is handed only the
     # rows the export still holds. Scored over different rows, the two figures are not a
