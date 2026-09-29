@@ -19,19 +19,6 @@
       "processor_seconds": 36.0
     },
     {
-      "name": "base",
-      "ships": true,
-      "run": "e5base-pool-qwen4b-headset-s1",
-      "backbone": "intfloat/multilingual-e5-base",
-      "parameters": 277475357,
-      "download_mib": 538,
-      "right_at_80": 0.7842,
-      "right_at_90": 0.7597,
-      "card_mib": null,
-      "card_seconds": null,
-      "processor_seconds": 85.5
-    },
-    {
       "name": "standard",
       "ships": true,
       "run": "e5inst-pool-qwen4b-headset-s1",

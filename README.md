@@ -304,15 +304,14 @@ the rows behind them reconcile game by game (`--example check-readings`).
 ### The reader in each size
 
 The reader comes in more than one size, and the desktop app picks the largest one the machine's
-graphics card has room for, falling back to the smallest where there is no card to use. Every
-size below learned from the same labels and the same teacher, and every figure in a column was
+graphics card has room for. Where there is no card to use it starts with the smallest and offers
+the most accurate beside it, saying how long each would take on that computer. Every size below learned from the same labels and the same teacher, and every figure in a column was
 measured the same way for every row.
 
 <!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
 | Reader | Parameters | Download | Right, answering its surest 80% | Right, answering its surest 90% | Card memory | One big game on a card | One small game on the processor |
 |---|---|---|---|---|---|---|---|
 | small | 118M | 244 MB | 76.0% | 74.0% | pending | pending | 36 s |
-| base | 277M | 564 MB | 78.4% | 76.0% | pending | pending | 86 s |
 | standard | 559M | 1.1 GB | 85.2% | 81.3% | pending | pending | 285 s |
 
 - **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
