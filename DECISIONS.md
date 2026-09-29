@@ -44,7 +44,9 @@ State means: **done** is built and in use; **partial** is built for one case and
 | `ort` with DirectML, CoreML and CPU | done |
 | Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search partial; classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
 | A hosted model does the reading when one is configured | **not built**, there is no API client in the tree |
-| The user chooses which model does the sorting, and how closely it reads | **not built** |
+| The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. A larger size waits on the 4B retrained on these sizes' own data |
+| Where no card is reached, the person chooses the size, told what each takes on their computer | done: the fast reader by default, the most accurate one beside it (the user, 2026-09-29). Every reading on the processor is timed into `reading-times.json` in the library, so the estimate is that computer's own; before anything has been read there it says how many times as long, never an invented time. On a card the card decides, whatever was chosen before |
+| The user chooses which model does the sorting, and how closely it reads | **partly built**: the size, on a machine with no card; which model and how closely it reads are not |
 
 ## Data and crawling
 
