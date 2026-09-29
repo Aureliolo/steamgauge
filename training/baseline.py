@@ -172,10 +172,14 @@ def main():
         # The key names frozen claims, so the training half is untouched by this and nothing the
         # baselines fit on has seen them.
         by_claim = {(one.app_id, one.review_id, one.claim_index): one for one in claims}
-        held = [
-            by_claim[(row["app_id"], row["review_id"], row["claim_index"])]
+        keyed = [
+            (row["app_id"], row["review_id"], row["claim_index"])
             for row in json.loads(Path(args.key).read_text(encoding="utf-8"))
         ]
+        # Only the claims this export still cuts, as `frontier.py` scores a reader: a key row
+        # naming a span the splitter no longer makes is a claim nothing can be handed.
+        held = [by_claim[at] for at in keyed if at in by_claim]
+        print(f"{len(keyed) - len(held)} key claims this export no longer cuts, left out")
     subjects = claimdata.subjects_in(claims)
     truth = [subjects.index(claim.subject) for claim in held]
 

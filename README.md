@@ -232,29 +232,33 @@ Three things are reported together, and separating them is what makes the number
 
 ### What it is worth against the alternatives
 
-Measured over one set of 487 claims drawn from the frozen games on 2026-09-22, twenty a
-subject, which chose nothing about any row. Every row abstains where it is unsure, and every
-row is scored only on what it answered, because a score that quietly drops the declined claims
-is a score for a classifier nobody is running.
+Measured over one set of claims drawn from the frozen games on 2026-09-22, twenty a subject,
+which chose nothing about any row: the 458 of the 487 drawn that the splitter still cuts, since
+a span it no longer makes is a claim no reader can be handed. Every row abstains where it is
+unsure, and every row is scored only on what it answered, because a score that quietly drops
+the declined claims is a score for a classifier nobody is running. The readers are scored on
+DirectML, where the tool runs them, and the baselines are fitted on the same labels the reader
+learned from.
 
 | | answers | agreement where it answers | macro F1 |
 |---|---|---|---|
-| the commonest subject | never reaches the promise | 4.1% | 0.003 |
-| TF-IDF bag of words | 40% | 75.1% | 0.474 |
-| nearest subject centroid over an untuned encoder | 6% | 78.6% | 0.465 |
-| **this reader, 560M parameters** (`e5inst-pool-qwen4b-licensed-s1`, the one that ships) | **91%** | **80.5%** | **0.751** |
-| Claude Opus 5, given the same sheet | 99.4% | 87.6% | 0.875 |
+| the commonest subject | never reaches the promise | 4.6% | 0.003 |
+| TF-IDF bag of words | 46% | 75.1% | 0.497 |
+| nearest subject centroid over an untuned encoder | 6% | 77.8% | 0.478 |
+| **this reader, 560M parameters** (`e5inst-pool-qwen4b-headset-s1`, the one that ships) | **92%** | **79.0%** | **0.748** |
+| Claude Opus 5, given the same sheet | 99.3% | 87.0% | 0.870 |
 
-The reader it replaced, `e5-29006`, answered 84% of the same claims at 78.4% (macro F1 0.691).
-On the previous draw of this sample the earlier 278M reader answered 61% at 74.8% (macro F1
-0.525) and the previous 560M export 79% at 77.2% (0.652); those rows are not repeated here
-because they were measured on other claims. On the whole frozen set the reader that ships
-answers 89.6% at 81.6%, where `e5-29006` answered 79.9% at 81.9%: a stratified sample is the
-harder question, and the one above.
+The reader before it, `e5inst-pool-qwen4b-licensed-s1`, answered 91% of the same claims at
+80.2% (macro F1 0.748), and the one before that, `e5-29006`, 84% at 77.8% (0.679). The reader
+that ships differs from the one before it by being told which games are played in a headset;
+answering the same most-confident share of these claims the two land within a point of each
+other, inside what one seed differs from the next. On the whole frozen set, 5,080 claims as
+they come, the reader that ships answers 90.4% at 81.6% (macro F1 0.698): a stratified sample
+is the harder question, and the one above.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
-quarter of which is `verdict`, the commonest-subject baseline scores 27.2% rather than 4.1% and
-TF-IDF answers 42% of claims at 75.2% rather than 40%. A stratified sample is the harder
+quarter of which is `verdict`, the commonest-subject baseline scores 28.3% rather than 4.6% and
+TF-IDF answers 47% of claims at 75.4% rather than 46%. A stratified sample is the harder
 question and the useful one, because the rows a reader has to get right are the rare ones.
 Both sets of figures are kept, in `reference/baselines-frontier-sample.json` and
 `reference/baselines-frozen.json`, and a row from one does not belong in a table with a row
@@ -265,17 +269,17 @@ happened: cosine distance to a prototype cannot say "this is about nothing", so 
 it promises it can answer one claim in sixteen.
 
 What separates the reader from the bag of words is reading each claim inside its review, a
-pretrained encoder of 560M parameters, forty-two thousand labels, many of them drawn at the
-subjects the reader was worst at, and a teacher: a 4B-parameter reader trained on the same
-labels, whose answers on a quarter of a million unlabelled claims the small one learns from
-as well. Together that is fifty-one points of coverage over the bag of words and twenty-eight
-hundredths of macro F1. The teacher alone is worth four points of coverage, measured against
+pretrained encoder of 560M parameters, forty-five thousand labels, many of them drawn at the
+subjects the reader was worst at, and a teacher: a 4B-parameter reader trained on the labels as
+they stood two days earlier, whose answers on a quarter of a million unlabelled claims the small
+one learns from as well. Together that is forty-six points of coverage over the bag of words
+and a quarter of macro F1. The teacher alone is worth four points of coverage, measured against
 the same recipe taught by the small reader's own seeds instead; a sweep of everything else,
 some fifty configurations measured the same way, moved nothing outside its own noise.
 `DECISIONS.md` has the tables and what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by seven points of agreement and nine of coverage.** What it is not is
+than this, by eight points of agreement and seven of coverage.** What it is not is
 affordable: that comparison cost 389,000 tokens for 487 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
