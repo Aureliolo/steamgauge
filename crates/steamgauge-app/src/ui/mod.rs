@@ -919,13 +919,12 @@ async fn search_game(
             .as_ref()
             .filter(|(held, _)| *held == key)
             .map(|(_, said)| Arc::clone(said));
-        let said = match kept {
-            Some(said) => said,
-            None => {
-                let said = Arc::new(search(&snapshot, &phrase).map_err(text)?);
-                *last.lock().map_err(text)? = Some((key, Arc::clone(&said)));
-                said
-            }
+        let said = if let Some(said) = kept {
+            said
+        } else {
+            let said = Arc::new(search(&snapshot, &phrase).map_err(text)?);
+            *last.lock().map_err(text)? = Some((key, Arc::clone(&said)));
+            said
         };
 
         let narrow = Narrow {
@@ -983,8 +982,10 @@ type SearchKey = (
     steamgauge_core::search::Phrase,
 );
 
+type KeptSearch = (SearchKey, Arc<steamgauge_core::search::Said>);
+
 #[derive(Default)]
-struct LastSearch(Arc<Mutex<Option<(SearchKey, Arc<steamgauge_core::search::Said>)>>>);
+struct LastSearch(Arc<Mutex<Option<KeptSearch>>>);
 
 /// The page of claims under a subject, and how many there are, from the readings alone.
 fn claims_under(
