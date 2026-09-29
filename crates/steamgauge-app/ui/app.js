@@ -684,6 +684,7 @@ async function openClaims(subject, from, narrowed = null) {
   show('evidence');
   set(el('evidence-name'), subject.label);
   set(el('evidence-lede'), 'Finding them...');
+  el('said-strip').hidden = true;
   drawTerms(subject, narrowed);
   el('quotes').replaceChildren();
   el('earlier').disabled = true;
@@ -703,7 +704,7 @@ async function openClaims(subject, from, narrowed = null) {
     set(el('evidence-lede'), String(failure));
     return;
   }
-  if (reading?.subject.id !== subject.id || reading.from !== from || reading.narrowed !== narrowed) {
+  if (reading?.subject?.id !== subject.id || reading.from !== from || reading.narrowed !== narrowed) {
     return;
   }
 
@@ -721,6 +722,117 @@ async function openClaims(subject, from, narrowed = null) {
   set(el('paging-note'), `${whole.format(from + 1)} to ${whole.format(upTo)}`);
   el('earlier').disabled = from === 0;
   el('later').disabled = upTo >= page.total;
+}
+
+const NARROW_NONE = { side: null, subject: null };
+
+/* What reviewers said in the words somebody typed. The counts are always of every point that
+   says it; a side or a subject narrows only the points listed, so the figures at the top never
+   change under the reader's hand. */
+async function openSearch(query, from, narrow = NARROW_NONE) {
+  reading = { query, from, narrow };
+  show('evidence');
+  set(el('evidence-name'), `“${query}”`);
+  set(el('evidence-lede'), 'Looking through every review...');
+  el('stands-out').hidden = true;
+  el('said-strip').hidden = true;
+  el('quotes').replaceChildren();
+  set(el('paging-note'), '');
+  el('earlier').disabled = true;
+  el('later').disabled = true;
+
+  let found;
+  try {
+    found = await invoke('search_game', {
+      appId: chosen,
+      query,
+      side: narrow.side,
+      subject: narrow.subject,
+      from,
+      count: PER_PAGE,
+    });
+  } catch (failure) {
+    set(el('evidence-lede'), String(failure));
+    return;
+  }
+  if (reading?.query !== query || reading.from !== from || reading.narrow !== narrow) return;
+
+  if (found.claims === 0) {
+    set(
+      el('evidence-lede'),
+      `No review counted here says “${query}”. Only the words typed are looked for, so a ` +
+        'different wording or another language may still say it.',
+    );
+    return;
+  }
+  const of = found.share === null ? '' : `, ${share.format(found.share)} of the reviews counted,`;
+  set(
+    el('evidence-lede'),
+    `${whole.format(found.reviews)} reviews${of} say it, in ${whole.format(found.claims)} ` +
+      'separate points. Each one is shown as it was written, most helpful review first.',
+  );
+  drawSaid(found, query, narrow);
+  drawClaims(found.page);
+
+  const upTo = from + found.page.length;
+  set(
+    el('paging-note'),
+    found.narrowed === 0
+      ? ''
+      : `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.narrowed)}`,
+  );
+  el('earlier').disabled = from === 0;
+  el('later').disabled = upTo >= found.narrowed;
+}
+
+function chip(text, count, chosenHere, onClick) {
+  const button = document.createElement(onClick ? 'button' : 'span');
+  if (onClick) {
+    button.type = 'button';
+    button.addEventListener('click', onClick);
+  }
+  button.className = `term${chosenHere ? ' chosen' : ''}${onClick ? '' : ' static'}`;
+  button.append(text);
+  const n = document.createElement('span');
+  n.className = 'n';
+  n.textContent = whole.format(count);
+  button.append(n);
+  return button;
+}
+
+function drawSaid(found, query, narrow) {
+  const refill = (id, chips) => {
+    const strip = el(id);
+    for (const stale of strip.querySelectorAll('.term')) stale.remove();
+    strip.append(...chips);
+    strip.hidden = chips.length === 0;
+  };
+  const narrowTo = (change) => () => openSearch(query, 0, { ...narrow, ...change });
+
+  const sides = [
+    ['praise', 'Praise', found.praise],
+    ['complaint', 'Complaints', found.complaint],
+    ['neutral', 'Neither', found.neutral],
+  ].filter(([, , count]) => count > 0);
+  refill(
+    'said-sides',
+    sides.map(([side, label, count]) => {
+      const here = narrow.side === side;
+      return chip(label, count, here, narrowTo({ side: here ? null : side }));
+    }),
+  );
+  refill(
+    'said-subjects',
+    found.subjects.map((subject) => {
+      const here = narrow.subject === subject.id;
+      return chip(subject.label, subject.claims, here, narrowTo({ subject: here ? null : subject.id }));
+    }),
+  );
+  refill(
+    'said-forms',
+    found.forms.map(([form, count]) => chip(form, count, false, null)),
+  );
+  el('said-strip').hidden = false;
 }
 
 /* The words each side of a subject uses and the other does not, each a button that narrows
@@ -1009,11 +1121,21 @@ el('read-language').addEventListener('change', () => {
 el('read-size').addEventListener('change', () => rememberReader(el('read-size').value));
 el('do-sweep').addEventListener('click', sweepGame);
 el('switch-language').addEventListener('click', () => readGame(readLanguage ? null : 'english'));
+function turnPage(from) {
+  if (!reading) return;
+  if (reading.query !== undefined) openSearch(reading.query, from, reading.narrow);
+  else openClaims(reading.subject, from, reading.narrowed);
+}
 el('earlier').addEventListener('click', () => {
-  if (reading) openClaims(reading.subject, Math.max(0, reading.from - PER_PAGE), reading.narrowed);
+  if (reading) turnPage(Math.max(0, reading.from - PER_PAGE));
 });
 el('later').addEventListener('click', () => {
-  if (reading) openClaims(reading.subject, reading.from + PER_PAGE, reading.narrowed);
+  if (reading) turnPage(reading.from + PER_PAGE);
+});
+el('search-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const query = el('search-query').value.trim();
+  if (query && chosen !== null) openSearch(query, 0);
 });
 
 refresh();

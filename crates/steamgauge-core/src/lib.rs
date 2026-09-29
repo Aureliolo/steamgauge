@@ -26,6 +26,7 @@ pub mod reading_time;
 pub mod reliability;
 pub mod report;
 pub mod said;
+pub mod search;
 pub mod serve;
 pub mod shard;
 pub mod state;

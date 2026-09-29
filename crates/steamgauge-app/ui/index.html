@@ -105,6 +105,17 @@
               <button type="button" class="link" id="switch-language"></button>
             </p>
             <p class="in-short" id="in-short" hidden></p>
+            <form class="row search" id="search-form" role="search">
+              <input
+                type="search"
+                id="search-query"
+                placeholder="What do reviewers say about… a word or a phrase"
+                aria-label="What do reviewers say about"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="submit" class="quiet-button">Look it up</button>
+            </form>
             <p class="caveat" id="swept-caveat" hidden></p>
             <p class="caveat" id="topics-caveat" hidden></p>
             <figure class="timeline" id="timeline" hidden>
@@ -161,6 +172,22 @@
             <p class="quiet" id="stands-out-note">
               The words each side uses and the other does not, with how many reviewers used
               them. Click one to read only the points that use it.
+            </p>
+          </div>
+          <div class="stands-out" id="said-strip" hidden>
+            <div class="side" id="said-sides">
+              <span class="lead">Which side</span>
+            </div>
+            <div class="side" id="said-subjects">
+              <span class="lead">Filed under</span>
+            </div>
+            <div class="side" id="said-forms">
+              <span class="lead">Found as</span>
+            </div>
+            <p class="quiet" id="said-note">
+              Counted by the words typed, not by what they mean: a review that says it another
+              way, or in another language, is not in these numbers. Click a side or a subject to
+              read only those points.
             </p>
           </div>
           <ol class="quotes" id="quotes"></ol>

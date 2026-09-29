@@ -844,9 +844,21 @@ figure.timeline figcaption {
   color: inherit;
 }
 
-#stands-out-note {
+.stands-out .term.static,
+.stands-out .term.static:hover {
+  border-color: var(--line);
+  cursor: default;
+}
+
+#stands-out-note,
+#said-note {
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
+}
+
+.search {
+  max-width: 46rem;
+  margin: 0 0 1.25rem;
 }
 
 .quotes {

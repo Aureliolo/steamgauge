@@ -5,7 +5,10 @@
 //! anything a number depends on. Where the window and the terminal disagree about a figure,
 //! one of them is calling the wrong function.
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 
 use serde::Serialize;
 use steamgauge_core::{
@@ -775,13 +778,11 @@ type Filed = (steamgauge_core::claims::Span, String, f32);
 /// Every claim filed under a subject, most helpful review first, a page at a time.
 ///
 /// Narrowed to one side when `side` is given, and to the claims using a term when `term` is,
-/// which is how a word that stands out opens onto the reviews it was counted from.
+/// which is how a word that stands out opens onto the reviews it was counted from. Off the
+/// window's thread, because a term is found by walking the whole capture, and a window that
+/// stops answering for that long is a window a person force-quits.
 #[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "tauri hands a command its arguments by value"
-)]
-fn claims_behind(
+async fn claims_behind(
     app: AppHandle,
     app_id: u32,
     subject: String,
@@ -791,24 +792,38 @@ fn claims_behind(
     count: usize,
 ) -> Result<ClaimsBehind, String> {
     let dir = library_dir(&app);
-    let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
-    let _ = read_report(&snapshot)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+        let _ = read_report(&snapshot)?;
 
-    let (total, wanted) = match term
-        .as_deref()
-        .map(str::trim)
-        .filter(|term| !term.is_empty())
-    {
-        Some(term) => claims_using(&snapshot, &subject, side.as_deref(), term, from, count),
-        None => claims_under(&snapshot, &subject, side.as_deref(), from, count),
-    }
-    .map_err(text)?;
+        let (total, wanted) = match term
+            .as_deref()
+            .map(str::trim)
+            .filter(|term| !term.is_empty())
+        {
+            Some(term) => claims_using(&snapshot, &subject, side.as_deref(), term, from, count),
+            None => claims_under(&snapshot, &subject, side.as_deref(), from, count),
+        }
+        .map_err(text)?;
 
+        Ok(ClaimsBehind {
+            subject,
+            total,
+            from,
+            claims: evidence(&snapshot, app_id, wanted)?,
+        })
+    })
+    .await
+    .map_err(text)?
+}
+
+/// The claims chosen for a page, each with the review it came from.
+fn evidence(snapshot: &Path, app_id: u32, wanted: Vec<Wanted>) -> Result<Vec<Evidence>, String> {
     let ids: std::collections::HashSet<String> =
         wanted.iter().map(|(id, _, _, _)| id.clone()).collect();
-    let mut fetched = steamgauge_core::capture::reviews_for(&snapshot, &ids).map_err(text)?;
+    let fetched = steamgauge_core::capture::reviews_for(snapshot, &ids).map_err(text)?;
 
-    let claims = wanted
+    Ok(wanted
         .into_iter()
         .filter_map(|(id, at, polarity, confidence)| {
             let review = fetched.get(&id)?;
@@ -832,17 +847,144 @@ fn claims_behind(
                 review: review.text.clone(),
             })
         })
-        .collect();
-
-    fetched.clear();
-
-    Ok(ClaimsBehind {
-        subject,
-        total,
-        from,
-        claims,
-    })
+        .collect())
 }
+
+/// One subject the claims that say a phrase were filed under.
+#[derive(Debug, Clone, Serialize)]
+struct SaidUnder {
+    /// The subject's id, or `declined` for the claims the reader put no subject on.
+    id: &'static str,
+    label: &'static str,
+    claims: u64,
+}
+
+/// What a game's reviewers said in the words searched for.
+#[derive(Debug, Clone, Serialize)]
+struct Searched {
+    query: String,
+    reviews: u64,
+    /// Of the reviews the reading counted, so the share is of the same reviews every other
+    /// rate on the page is of.
+    share: Option<f64>,
+    claims: u64,
+    praise: u64,
+    complaint: u64,
+    neutral: u64,
+    subjects: Vec<SaidUnder>,
+    forms: Vec<(String, u64)>,
+    narrowed: u64,
+    from: usize,
+    page: Vec<Evidence>,
+}
+
+/// Every claim of a read game that says what somebody typed, counted, with a page of them.
+///
+/// `side` and `subject` narrow the page and nothing else: the counts are always of every claim
+/// that says it.
+#[tauri::command]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "tauri hands a command its arguments one by one"
+)]
+async fn search_game(
+    app: AppHandle,
+    last: tauri::State<'_, LastSearch>,
+    app_id: u32,
+    query: String,
+    side: Option<String>,
+    subject: Option<String>,
+    from: usize,
+    count: usize,
+) -> Result<Searched, String> {
+    use steamgauge_core::search::{Narrow, Phrase, search};
+
+    let phrase = Phrase::new(&query).ok_or_else(|| "type a word to look for".to_owned())?;
+    let dir = library_dir(&app);
+    let last = Arc::clone(&last.0);
+    tauri::async_runtime::spawn_blocking(move || {
+        let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+        let report = read_report(&snapshot)?;
+        // The readings file's time is in the key, so a game read again since is searched again.
+        let key = (
+            snapshot.clone(),
+            std::fs::metadata(snapshot.join("readings.parquet"))
+                .and_then(|file| file.modified())
+                .ok(),
+            phrase.clone(),
+        );
+        let kept = last
+            .lock()
+            .map_err(text)?
+            .as_ref()
+            .filter(|(held, _)| *held == key)
+            .map(|(_, said)| Arc::clone(said));
+        let said = match kept {
+            Some(said) => said,
+            None => {
+                let said = Arc::new(search(&snapshot, &phrase).map_err(text)?);
+                *last.lock().map_err(text)? = Some((key, Arc::clone(&said)));
+                said
+            }
+        };
+
+        let narrow = Narrow {
+            side: side.as_deref(),
+            subject: subject.as_deref(),
+        };
+        let (narrowed, page) = said.page(narrow, from, count);
+        let wanted = page
+            .into_iter()
+            .map(|hit| {
+                (
+                    hit.review_id.to_string(),
+                    hit.at,
+                    hit.polarity.to_owned(),
+                    hit.confidence,
+                )
+            })
+            .collect();
+        Ok(Searched {
+            query,
+            reviews: said.reviews,
+            share: share_of(said.reviews, report.reviews),
+            claims: said.claims,
+            praise: said.praise,
+            complaint: said.complaint,
+            neutral: said.neutral,
+            subjects: said
+                .subjects
+                .iter()
+                .map(|&(id, claims)| SaidUnder {
+                    id,
+                    label: steamgauge_core::taxonomy::SHEET
+                        .iter()
+                        .find(|row| row.id == id)
+                        .map_or("No subject the reader would name", |row| row.label),
+                    claims,
+                })
+                .collect(),
+            forms: said.forms.clone(),
+            narrowed,
+            from,
+            page: evidence(&snapshot, app_id, wanted)?,
+        })
+    })
+    .await
+    .map_err(text)?
+}
+
+/// Which search was made last and what it found. One is kept, not a history: a search is
+/// asked again as its pages are turned and its sides chosen, and a game's every hit for a
+/// common word is tens of megabytes.
+type SearchKey = (
+    PathBuf,
+    Option<std::time::SystemTime>,
+    steamgauge_core::search::Phrase,
+);
+
+#[derive(Default)]
+struct LastSearch(Arc<Mutex<Option<(SearchKey, Arc<steamgauge_core::search::Said>)>>>);
 
 /// The page of claims under a subject, and how many there are, from the readings alone.
 fn claims_under(
@@ -941,6 +1083,7 @@ fn claims_using(
 pub fn run() -> anyhow::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(LastSearch::default())
         .invoke_handler(tauri::generate_handler![
             library,
             look_up,
@@ -950,6 +1093,7 @@ pub fn run() -> anyhow::Result<()> {
             induced,
             read_game,
             reader_choices,
+            search_game,
             sweep
         ])
         .run(tauri::generate_context!())?;
