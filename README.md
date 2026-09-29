@@ -297,8 +297,8 @@ one person who has adjudicated 200 of them agrees with the labels on 65% of subj
 the frontier model on 64%, which is the section below and the number to hold the table
 against.
 
-That is not a projection. The library this was built against is **51 games, 7.5 million
-reviews, 20.1 million claims**, all of it read by this model on one card, and the counts and
+That is not a projection. The library this was built against is **71 games, 9.9 million
+reviews, 25.8 million claims**, all of it read by this model on one card, and the counts and
 the rows behind them reconcile game by game (`--example check-readings`).
 
 ### The reader in each size
