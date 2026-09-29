@@ -6,8 +6,12 @@
 //! one of them is calling the wrong function.
 
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use serde::Serialize;
@@ -987,6 +991,286 @@ type KeptSearch = (SearchKey, Arc<steamgauge_core::search::Said>);
 #[derive(Default)]
 struct LastSearch(Arc<Mutex<Option<KeptSearch>>>);
 
+/// The encoder that searches by meaning, loaded once and kept: it is six hundred megabytes, and
+/// a search that loaded it every time would spend seconds before looking at anything. With a
+/// flag that stops a preparation, and one that says a preparation is running, since two at
+/// once would write the same parts.
+#[derive(Default)]
+struct Meaning {
+    embedder: Arc<Mutex<Option<steamgauge_core::embed::Embedder>>>,
+    stop: Arc<AtomicBool>,
+    running: Arc<AtomicBool>,
+}
+
+/// Whether this machine reads on a card, which is what decides how long preparing takes.
+fn meaning_on_card() -> bool {
+    !steamgauge_core::reader::on_the_processor(
+        steamgauge_core::card::largest(),
+        steamgauge_core::model::REACHES_A_CARD,
+    )
+}
+
+/// What preparing a game for search by meaning would cost on this machine, and what the window
+/// recommends from what it can see.
+#[derive(Debug, Clone, Serialize)]
+struct MeaningOffer {
+    status: steamgauge_core::meaning::Status,
+    on_card: bool,
+    /// About how long what is left would take here.
+    seconds: f64,
+    /// About what what is left would take on disk, at most.
+    disk_bytes: u64,
+    /// What the encoder takes to fetch, where it is not here yet; nothing once it is.
+    download_bytes: u64,
+    every_game: bool,
+    running: bool,
+    /// `prepare` on a card, where it is minutes; `wait` on a processor, where it is hours.
+    recommended: &'static str,
+}
+
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn meaning_offer(
+    app: AppHandle,
+    meaning: tauri::State<'_, Meaning>,
+    app_id: u32,
+) -> Result<MeaningOffer, String> {
+    use steamgauge_core::meaning::{
+        BYTES_PER_CLAIM, Choice, DOWNLOAD_BYTES, ENCODER, PRECISION, Times, held, status,
+    };
+
+    let dir = library_dir(&app);
+    let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+    let report = read_report(&snapshot)?;
+    let on_card = meaning_on_card();
+    let left = report.claims.saturating_sub(held(&snapshot).0);
+    let cache = steamgauge_core::model::default_cache_dir();
+    let fetched = steamgauge_core::model::model_path(&cache, ENCODER, PRECISION).is_file()
+        && steamgauge_core::model::tokenizer_path(&cache, ENCODER).is_file();
+    Ok(MeaningOffer {
+        status: status(&snapshot),
+        on_card,
+        seconds: Times::load(&dir).estimate(on_card, left),
+        disk_bytes: left.saturating_mul(BYTES_PER_CLAIM),
+        download_bytes: if fetched { 0 } else { DOWNLOAD_BYTES },
+        every_game: Choice::load(&dir).every_game,
+        running: meaning.running.load(Ordering::Relaxed),
+        recommended: if on_card { "prepare" } else { "wait" },
+    })
+}
+
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn choose_meaning(app: AppHandle, every_game: bool) -> Result<(), String> {
+    steamgauge_core::meaning::Choice { every_game }
+        .save(&library_dir(&app))
+        .map_err(text)
+}
+
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn stop_meaning(meaning: tauri::State<'_, Meaning>) {
+    meaning.stop.store(true, Ordering::Relaxed);
+}
+
+/// How far a preparation has got, as the window draws it.
+#[derive(Debug, Clone, Serialize)]
+struct MeaningStep {
+    app_id: u32,
+    walked: u64,
+    total: u64,
+}
+
+/// Loads the encoder into `slot` unless it is there already.
+fn loaded(
+    slot: &mut Option<steamgauge_core::embed::Embedder>,
+) -> Result<&mut steamgauge_core::embed::Embedder, String> {
+    use steamgauge_core::meaning::{ENCODER, PRECISION};
+    if slot.is_none() {
+        *slot = Some(
+            steamgauge_core::embed::Embedder::load(
+                &steamgauge_core::model::default_cache_dir(),
+                ENCODER,
+                PRECISION,
+            )
+            .map_err(text)?,
+        );
+    }
+    slot.as_mut()
+        .ok_or_else(|| "the encoder did not load".to_owned())
+}
+
+/// Prepares a read game for search by meaning, fetching the encoder first if it is not here.
+/// Returns whether it finished; a stopped preparation keeps what it did.
+#[tauri::command]
+async fn prepare_meaning(
+    app: AppHandle,
+    meaning: tauri::State<'_, Meaning>,
+    app_id: u32,
+) -> Result<bool, String> {
+    use steamgauge_core::meaning::{ENCODER, PRECISION, Times, prepare};
+
+    if meaning.running.swap(true, Ordering::SeqCst) {
+        return Err("a game is already being prepared".to_owned());
+    }
+    meaning.stop.store(false, Ordering::Relaxed);
+    let running = Arc::clone(&meaning.running);
+    let outcome = async {
+        let fetching = app.clone();
+        steamgauge_core::model::ensure(
+            &steamgauge_core::model::default_cache_dir(),
+            ENCODER,
+            PRECISION,
+            |progress| {
+                let _ = fetching.emit(
+                    "meaning-fetch",
+                    Fetch {
+                        file: progress.file.to_owned(),
+                        downloaded: progress.downloaded,
+                        total: progress.total,
+                    },
+                );
+            },
+        )
+        .await
+        .map_err(text)?;
+
+        let dir = library_dir(&app);
+        let embedder = Arc::clone(&meaning.embedder);
+        let stop = Arc::clone(&meaning.stop);
+        let window = app.clone();
+        tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+            let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+            let total = read_report(&snapshot)?.claims;
+            let mut slot = embedder.lock().map_err(text)?;
+            let encoder = loaded(&mut slot)?;
+            let on_card = encoder.device() != "cpu";
+            let started = std::time::Instant::now();
+            let prepared = prepare(
+                &snapshot,
+                |texts| encoder.embed(texts),
+                &stop,
+                |walked| {
+                    let _ = window.emit(
+                        "meaning",
+                        MeaningStep {
+                            app_id,
+                            walked,
+                            total,
+                        },
+                    );
+                },
+            )
+            .map_err(text)?;
+            let mut times = Times::load(&dir);
+            times.note(on_card, started.elapsed().as_secs_f64(), prepared.walked);
+            times.save(&dir).map_err(text)?;
+            Ok(prepared.finished)
+        })
+        .await
+        .map_err(text)?
+    }
+    .await;
+    running.store(false, Ordering::SeqCst);
+    outcome
+}
+
+/// One claim near in meaning to what was searched, with the review it came from.
+#[derive(Debug, Clone, Serialize)]
+struct NearClaim {
+    similarity: f32,
+    #[serde(flatten)]
+    evidence: Evidence,
+}
+
+/// The claims nearest in meaning to what was searched, leaving out those its words found.
+#[tauri::command]
+async fn search_by_meaning(
+    app: AppHandle,
+    meaning: tauri::State<'_, Meaning>,
+    last: tauri::State<'_, LastSearch>,
+    app_id: u32,
+    query: String,
+) -> Result<Vec<NearClaim>, String> {
+    use steamgauge_core::meaning::nearest;
+
+    /// Enough to read through, and past it the claims are the least near of the near.
+    const MOST: usize = 50;
+
+    let dir = library_dir(&app);
+    let embedder = Arc::clone(&meaning.embedder);
+    let last = Arc::clone(&last.0);
+    tauri::async_runtime::spawn_blocking(move || {
+        let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+        let wanted = {
+            // A preparation holds the encoder for as long as it runs, which on a processor is
+            // hours, and a search that waited for it would look like one that had hung.
+            let mut slot = embedder.try_lock().map_err(|_| {
+                "a game is being prepared; search by meaning is back when it finishes or is \
+                 stopped"
+                    .to_owned()
+            })?;
+            let vectors = loaded(&mut slot)?
+                .embed(std::slice::from_ref(&query))
+                .map_err(text)?;
+            vectors
+                .into_iter()
+                .next()
+                .ok_or_else(|| "the encoder returned nothing".to_owned())?
+        };
+        // The claims the words found are already on the page above, so they are left out here.
+        let kept = last.lock().map_err(text)?.clone();
+        let mut found: HashMap<String, Vec<steamgauge_core::claims::Span>> = HashMap::new();
+        if let Some(((held, _, phrase), said)) = kept
+            && held == snapshot
+            && steamgauge_core::search::Phrase::new(&query).is_some_and(|asked| asked == phrase)
+        {
+            for hit in &said.hits {
+                found
+                    .entry(hit.review_id.to_string())
+                    .or_default()
+                    .push(hit.at);
+            }
+        }
+        let near = nearest(&snapshot, &wanted, MOST, |review, at| {
+            found.get(review).is_some_and(|spans| spans.contains(&at))
+        })
+        .map_err(text)?;
+
+        let similarity: HashMap<(String, [u8; 32]), f32> = near
+            .iter()
+            .map(|claim| ((claim.review_id.clone(), claim.key), claim.similarity))
+            .collect();
+        let wanted = near
+            .into_iter()
+            .map(|claim| (claim.review_id, claim.at, claim.polarity, claim.confidence))
+            .collect();
+        // A review edited since its vectors were made may no longer say at those bytes what
+        // was embedded, and a claim quoted from the wrong bytes is worse than one not shown.
+        Ok(evidence(&snapshot, app_id, wanted)?
+            .into_iter()
+            .filter_map(|found| {
+                let key = steamgauge_core::meaning::key_of(&found.claim);
+                Some(NearClaim {
+                    similarity: *similarity.get(&(found.review_id.clone(), key))?,
+                    evidence: found,
+                })
+            })
+            .collect())
+    })
+    .await
+    .map_err(text)?
+}
+
 /// The page of claims under a subject, and how many there are, from the readings alone.
 fn claims_under(
     snapshot: &std::path::Path,
@@ -1085,6 +1369,7 @@ pub fn run() -> anyhow::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(LastSearch::default())
+        .manage(Meaning::default())
         .invoke_handler(tauri::generate_handler![
             library,
             look_up,
@@ -1095,6 +1380,11 @@ pub fn run() -> anyhow::Result<()> {
             read_game,
             reader_choices,
             search_game,
+            meaning_offer,
+            choose_meaning,
+            prepare_meaning,
+            stop_meaning,
+            search_by_meaning,
             sweep
         ])
         .run(tauri::generate_context!())?;

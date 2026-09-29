@@ -68,9 +68,9 @@ const PART_MOST: usize = 20_000;
 const WINDOW: usize = 1_024;
 const BATCH: usize = 64;
 
-/// Bytes on disk for each distinct claim: a byte for each of the vector's dimensions, the
-/// scale that restores it, the claim's key and where it was said.
-pub const BYTES_PER_CLAIM: u64 = 768 + 4 + 32 + 32;
+/// Bytes on disk for each distinct claim, at most: a byte for each of the vector's dimensions,
+/// the scale that restores it, the reader's confidence, the claim's key and where it was said.
+pub const BYTES_PER_CLAIM: u64 = 768 + 4 + 4 + 32 + 32;
 
 /// How far a reading's vectors have got.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -140,6 +140,7 @@ fn schema() -> Arc<Schema> {
         Field::new("end", DataType::UInt32, false),
         Field::new("subject", DataType::Utf8, false),
         Field::new("polarity", DataType::Utf8, false),
+        Field::new("confidence", DataType::Float32, false),
         Field::new("scale", DataType::Float32, false),
         Field::new(
             "vector",
@@ -176,6 +177,52 @@ fn quantise(vector: &[f32]) -> (f32, Vec<i8>) {
     (scale, bytes)
 }
 
+/// What a claim's key is: its bytes hashed. The same words anywhere in the game are one key and
+/// one vector, and a review edited since can be told apart by its bytes no longer hashing to it.
+#[must_use]
+pub fn key_of(claim: &str) -> [u8; 32] {
+    sha256_bytes(claim)
+}
+
+/// A claim as the reading filed it.
+struct Filed {
+    at: Span,
+    subject: &'static str,
+    polarity: &'static str,
+    confidence: f32,
+}
+
+/// Every claim of the reading at `snapshot`, by review.
+fn filed(snapshot: &Path) -> Result<HashMap<String, Vec<Filed>>> {
+    let mut filed: HashMap<String, Vec<Filed>> = HashMap::new();
+    crate::read::for_each_full_reading(
+        &snapshot.join("readings.parquet"),
+        |id, at, subject, confidence, polarity, _| {
+            let subject = subject
+                .and_then(|name| SHEET.iter().find(|row| row.id == name))
+                .map_or(DECLINED, |row| row.id);
+            filed.entry(id.to_owned()).or_default().push(Filed {
+                at,
+                subject,
+                polarity: Polarity::from_name(polarity).as_str(),
+                confidence,
+            });
+        },
+    )?;
+    Ok(filed)
+}
+
+/// The keys of every claim the parts already hold a vector for.
+fn embedded(snapshot: &Path) -> Result<HashSet<[u8; 32]>> {
+    let mut done: HashSet<[u8; 32]> = HashSet::new();
+    for part in parts(snapshot) {
+        each_row(&part, |row| {
+            done.insert(row.key);
+        })?;
+    }
+    Ok(done)
+}
+
 /// One distinct claim waiting for its vector.
 struct Waiting {
     key: [u8; 32],
@@ -183,6 +230,7 @@ struct Waiting {
     at: Span,
     subject: &'static str,
     polarity: &'static str,
+    confidence: f32,
     text: String,
 }
 
@@ -194,6 +242,7 @@ struct Part {
     ends: UInt32Builder,
     subjects: StringBuilder,
     polarities: StringBuilder,
+    confidences: Float32Builder,
     scales: Float32Builder,
     vectors: FixedSizeListBuilder<Int8Builder>,
     rows: usize,
@@ -210,6 +259,7 @@ impl Part {
             ends: UInt32Builder::new(),
             subjects: StringBuilder::new(),
             polarities: StringBuilder::new(),
+            confidences: Float32Builder::new(),
             scales: Float32Builder::new(),
             vectors: FixedSizeListBuilder::new(Int8Builder::new(), dimensions),
             rows: 0,
@@ -225,6 +275,7 @@ impl Part {
         self.ends.append_value(claim.at.1);
         self.subjects.append_value(claim.subject);
         self.polarities.append_value(claim.polarity);
+        self.confidences.append_value(claim.confidence);
         self.scales.append_value(scale);
         self.vectors.values().append_slice(&bytes);
         self.vectors.append(true);
@@ -248,6 +299,7 @@ impl Part {
             Arc::new(self.ends.finish()),
             Arc::new(self.subjects.finish()),
             Arc::new(self.polarities.finish()),
+            Arc::new(self.confidences.finish()),
             Arc::new(self.scales.finish()),
             Arc::new(self.vectors.finish()),
         ];
@@ -315,28 +367,8 @@ pub fn prepare(
     side.complete = false;
     write_sidecar(&dir, &side)?;
 
-    let mut done: HashSet<[u8; 32]> = HashSet::new();
-    for part in parts(snapshot) {
-        each_row(&part, |row| {
-            done.insert(row.key);
-        })?;
-    }
-
-    let mut filed: HashMap<String, Vec<(Span, &'static str, &'static str)>> = HashMap::new();
-    crate::read::for_each_full_reading(
-        &snapshot.join("readings.parquet"),
-        |id, at, subject, _, polarity, _| {
-            let subject = subject
-                .and_then(|name| SHEET.iter().find(|row| row.id == name))
-                .map_or(DECLINED, |row| row.id);
-            filed.entry(id.to_owned()).or_default().push((
-                at,
-                subject,
-                Polarity::from_name(polarity).as_str(),
-            ));
-        },
-    )?;
-
+    let mut done = embedded(snapshot)?;
+    let filed = filed(snapshot)?;
     let mut prepared = Prepared {
         embedded: 0,
         walked: 0,
@@ -368,21 +400,22 @@ pub fn prepare(
             return Ok(());
         };
         let review: Arc<str> = Arc::from(row.recommendationid.as_str());
-        for &(at, subject, polarity) in claims {
+        for filed in claims {
             prepared.walked += 1;
-            let Some(claim) = text.get(at.0 as usize..at.1 as usize) else {
+            let Some(claim) = text.get(filed.at.0 as usize..filed.at.1 as usize) else {
                 continue;
             };
-            let key = sha256_bytes(claim);
+            let key = key_of(claim);
             if !done.insert(key) {
                 continue;
             }
             waiting.push(Waiting {
                 key,
                 review: Arc::clone(&review),
-                at,
-                subject,
-                polarity,
+                at: filed.at,
+                subject: filed.subject,
+                polarity: filed.polarity,
+                confidence: filed.confidence,
                 text: claim.to_owned(),
             });
         }
@@ -424,6 +457,8 @@ pub struct Near {
     pub at: Span,
     pub subject: String,
     pub polarity: String,
+    /// How sure the reader was of the claim's subject, as the reading records it.
+    pub confidence: f32,
     /// The claim's bytes hashed, so a caller can check the review still says it there.
     pub key: [u8; 32],
 }
@@ -434,6 +469,7 @@ struct Row<'a> {
     at: Span,
     subject: &'a str,
     polarity: &'a str,
+    confidence: f32,
     scale: f32,
     vector: &'a [i8],
 }
@@ -468,6 +504,10 @@ fn each_row(part: &Path, mut visit: impl FnMut(Row<'_>)) -> Result<()> {
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or(malformed("polarity"))?;
+        let confidences = column("confidence")?
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .ok_or(malformed("confidence"))?;
         let scales = column("scale")?
             .as_any()
             .downcast_ref::<Float32Array>()
@@ -492,6 +532,7 @@ fn each_row(part: &Path, mut visit: impl FnMut(Row<'_>)) -> Result<()> {
                 at: (starts.value(row), ends.value(row)),
                 subject: subjects.value(row),
                 polarity: polarities.value(row),
+                confidence: confidences.value(row),
                 scale: scales.value(row),
                 vector: &values[from..from + width],
             });
@@ -558,6 +599,7 @@ pub fn nearest(
                 at: row.at,
                 subject: row.subject.to_owned(),
                 polarity: row.polarity.to_owned(),
+                confidence: row.confidence,
                 key: row.key,
             }));
             if kept.len() > most {
@@ -606,10 +648,14 @@ struct Taken {
 /// The file the times are kept in, in the library directory.
 pub const TIMES_FILE: &str = "meaning-times.json";
 
-/// Seconds a claim walked took on this project's machine, repeats included, before any machine
-/// has measured its own: the processor from 20,000 claims of 1272080, embedded one by one
-/// with nothing repeated, which is the slow end.
+/// Seconds a claim takes on this project's machine, for an estimate before a machine has
+/// measured its own: 20,000 claims of 1272080 with nothing repeated, which is the slow end,
+/// on the processor and on a card another job was also using.
 pub const PROCESSOR_SECONDS_PER_CLAIM: f64 = 0.071;
+pub const CARD_SECONDS_PER_CLAIM: f64 = 0.0021;
+
+/// The encoder's graph and tokenizer, fetched once for every game.
+pub const DOWNLOAD_BYTES: u64 = 627_988_827 + 17_082_734;
 
 impl Times {
     /// The times kept in `dir`, or none where there is no file or it cannot be read.
@@ -649,6 +695,22 @@ impl Times {
         }
     }
 
+    /// About how long preparing `claims` claims takes here: this machine's own pace where it
+    /// has one on that kind of device, this project's otherwise.
+    #[must_use]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "claim counts are far below 2^53"
+    )]
+    pub fn estimate(&self, on_card: bool, claims: u64) -> f64 {
+        let reference = if on_card {
+            CARD_SECONDS_PER_CLAIM
+        } else {
+            PROCESSOR_SECONDS_PER_CLAIM
+        };
+        self.per_claim(on_card).unwrap_or(reference) * claims as f64
+    }
+
     /// Seconds a claim walked takes here, where this machine has prepared anything on that
     /// kind of device.
     #[must_use]
@@ -662,6 +724,36 @@ impl Times {
             .iter()
             .find(|taken| taken.on == on)
             .map(|taken| taken.seconds / taken.walked as f64)
+    }
+}
+
+/// Whether somebody asked for every game they read to be prepared, kept in the library.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Choice {
+    pub every_game: bool,
+}
+
+/// The file the choice is kept in, in the library directory.
+pub const CHOICE_FILE: &str = "meaning-choice.json";
+
+impl Choice {
+    /// The choice kept in `dir`, or none made where there is no file or it cannot be read.
+    #[must_use]
+    pub fn load(dir: &Path) -> Self {
+        std::fs::read(dir.join(CHOICE_FILE))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default()
+    }
+
+    /// Keeps the choice in `dir`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the file cannot be written.
+    pub fn save(self, dir: &Path) -> Result<()> {
+        std::fs::write(dir.join(CHOICE_FILE), serde_json::to_vec_pretty(&self)?)?;
+        Ok(())
     }
 }
 

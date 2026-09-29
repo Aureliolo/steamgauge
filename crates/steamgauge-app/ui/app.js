@@ -264,6 +264,7 @@ async function readGame(language = undefined) {
   try {
     await invoke('read_game', { appId, language: wanted, reader });
     await refresh();
+    prepareAfterReading(appId);
   } catch (failure) {
     const note = el('game-note');
     note.classList.add('bad');
@@ -685,6 +686,8 @@ async function openClaims(subject, from, narrowed = null) {
   set(el('evidence-name'), subject.label);
   set(el('evidence-lede'), 'Finding them...');
   el('said-strip').hidden = true;
+  el('meaning').hidden = true;
+  meaningFor = null;
   drawTerms(subject, narrowed);
   el('quotes').replaceChildren();
   el('earlier').disabled = true;
@@ -726,12 +729,178 @@ async function openClaims(subject, from, narrowed = null) {
 
 const NARROW_NONE = { side: null, subject: null };
 
+/* Search by meaning. The window asks before preparing a game for it, shows what each choice
+   costs on this machine, and recommends from what it can see: minutes on a graphics card, hours
+   on a processor. */
+let meaningFor = null;
+
+const size = (bytes) =>
+  bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+
+async function drawMeaning(query) {
+  const appId = chosen;
+  meaningFor = { appId, query };
+  el('meaning').hidden = false;
+  el('meaning-offer').hidden = true;
+  el('meaning-quotes').replaceChildren();
+  set(el('meaning-note'), '');
+
+  let offer;
+  try {
+    offer = await invoke('meaning_offer', { appId });
+  } catch (failure) {
+    set(el('meaning-note'), String(failure));
+    return;
+  }
+  if (meaningFor?.appId !== appId || meaningFor.query !== query) return;
+  el('meaning-work').hidden = !offer.running;
+  if (offer.running) return;
+  if (offer.status !== 'ready') drawOffer(offer, appId);
+  if (offer.status !== 'none') await showNear(appId, query);
+}
+
+function choiceButton(label, detail, recommended, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = recommended ? 'primary' : 'quiet-button';
+  button.append(recommended ? `${label} (recommended)` : label);
+  if (detail) {
+    const more = document.createElement('span');
+    more.className = 'detail';
+    more.textContent = detail;
+    button.append(more);
+  }
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function drawOffer(offer, appId) {
+  const where = offer.on_card ? "on this computer's graphics card" : 'on this computer';
+  const download =
+    offer.download_bytes > 0 ? `, and a ${size(offer.download_bytes)} download, once` : '';
+  const cost = `about ${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
+  const prepareNow = offer.recommended === 'prepare';
+  const label = {
+    none: 'Prepare this game',
+    partial: 'Carry on preparing this game',
+    stale: 'Bring this game up to date',
+  }[offer.status];
+
+  const choices = [
+    choiceButton(label, cost, prepareNow, () => startPreparing(appId)),
+    offer.every_game
+      ? choiceButton('Stop preparing every game I read', null, false, async () => {
+          await invoke('choose_meaning', { everyGame: false });
+          drawMeaning(meaningFor.query);
+        })
+      : choiceButton(
+          'This game, and every game I read from now on',
+          'each right after it is read, at about the same cost',
+          false,
+          async () => {
+            await invoke('choose_meaning', { everyGame: true });
+            startPreparing(appId);
+          },
+        ),
+    choiceButton('Not now', null, !prepareNow, () => {
+      el('meaning-offer').hidden = true;
+      set(el('meaning-note'), 'Not prepared. Searching again will ask again.');
+    }),
+  ];
+  el('meaning-choices').replaceChildren(...choices);
+  set(
+    el('meaning-advice'),
+    prepareNow
+      ? 'Recommended here: this computer has a graphics card the app can use, so it takes minutes.'
+      : `Not recommended here: this computer has no graphics card the app can use, so it would ` +
+          `take ${duration(offer.seconds)}. It runs while you do other things, and stopping ` +
+          'keeps what is done.',
+  );
+  el('meaning-offer').hidden = false;
+}
+
+async function startPreparing(appId) {
+  el('meaning-offer').hidden = true;
+  el('meaning-work').hidden = false;
+  set(el('meaning-what'), 'Preparing');
+  set(el('meaning-count'), '');
+  el('meaning-fill').style.width = '0%';
+  set(el('meaning-note'), '');
+  let note = '';
+  try {
+    const finished = await invoke('prepare_meaning', { appId });
+    if (!finished) note = 'Stopped. What was done is kept, and preparing again carries on.';
+  } catch (failure) {
+    note = String(failure);
+  }
+  el('meaning-work').hidden = true;
+  if (meaningFor?.appId === appId && !el('meaning').hidden) {
+    await drawMeaning(meaningFor.query);
+    if (note) set(el('meaning-note'), note);
+  }
+}
+
+/* Somebody who asked for every game they read to be prepared has it done straight after the
+   read, in the background; the search view picks up its progress if they open it. */
+async function prepareAfterReading(appId) {
+  let offer;
+  try {
+    offer = await invoke('meaning_offer', { appId });
+  } catch {
+    return;
+  }
+  if (offer.every_game && !offer.running && offer.status !== 'ready') startPreparing(appId);
+}
+
+async function showNear(appId, query) {
+  set(el('meaning-note'), 'Looking for the same thing in other words...');
+  let near;
+  try {
+    near = await invoke('search_by_meaning', { appId, query });
+  } catch (failure) {
+    set(el('meaning-note'), String(failure));
+    return;
+  }
+  if (meaningFor?.appId !== appId || meaningFor.query !== query) return;
+  if (near.length === 0) {
+    set(el('meaning-note'), 'Nothing the words above missed comes close enough in meaning to show.');
+    return;
+  }
+  set(
+    el('meaning-note'),
+    `The ${whole.format(near.length)} points closest in meaning that the words above did not ` +
+      'find, closest first. Not counted: closeness in meaning has no line at which saying it ' +
+      'stops, so a number here would only say where the line was drawn.',
+  );
+  drawClaims(near, el('meaning-quotes'));
+}
+
+listen('meaning', ({ payload }) => {
+  const done = payload.total > 0 ? Math.min(1, payload.walked / payload.total) : 0;
+  set(el('meaning-what'), 'Preparing');
+  set(el('meaning-count'), `${whole.format(payload.walked)} of ${whole.format(payload.total)} points`);
+  el('meaning-fill').style.width = `${done * 100}%`;
+});
+
+listen('meaning-fetch', ({ payload }) => {
+  const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
+  set(el('meaning-what'), `Fetching the encoder, ${payload.file}`);
+  set(
+    el('meaning-count'),
+    payload.total === null ? mb(payload.downloaded) : `${mb(payload.downloaded)} of ${mb(payload.total)}`,
+  );
+  el('meaning-fill').style.width =
+    payload.total === null ? '100%' : `${(payload.downloaded / payload.total) * 100}%`;
+});
+
 /* What reviewers said in the words somebody typed. The counts are always of every point that
    says it; a side or a subject narrows only the points listed, so the figures at the top never
    change under the reader's hand. */
 async function openSearch(query, from, narrow = NARROW_NONE) {
+  const fresh = reading?.query !== query;
   reading = { query, from, narrow };
   show('evidence');
+  if (fresh) drawMeaning(query);
   set(el('evidence-name'), `“${query}”`);
   set(el('evidence-lede'), 'Looking through every review...');
   el('stands-out').hidden = true;
@@ -872,8 +1041,7 @@ function drawTerms(subject, narrowed) {
   el('stands-out').hidden = !any;
 }
 
-function drawClaims(claims) {
-  const list = el('quotes');
+function drawClaims(claims, list = el('quotes')) {
   list.replaceChildren();
   for (const found of claims) {
     const item = document.createElement('li');
@@ -1132,6 +1300,7 @@ el('earlier').addEventListener('click', () => {
 el('later').addEventListener('click', () => {
   if (reading) turnPage(reading.from + PER_PAGE);
 });
+el('meaning-stop').addEventListener('click', () => invoke('stop_meaning'));
 el('search-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const query = el('search-query').value.trim();

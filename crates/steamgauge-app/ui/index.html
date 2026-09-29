@@ -196,6 +196,28 @@
             <button type="button" class="quiet-button" id="later">Next</button>
             <span class="quiet" id="paging-note"></span>
           </div>
+          <section class="meaning" id="meaning" hidden>
+            <h3>In other words, and other languages</h3>
+            <div id="meaning-offer" hidden>
+              <p class="lede">
+                The counts above are of the words typed. The app can also find where reviewers
+                said the same thing in other words or another language, closest first. It has
+                to prepare each game once for that.
+              </p>
+              <div class="meaning-choices" id="meaning-choices"></div>
+              <p class="quiet" id="meaning-advice"></p>
+            </div>
+            <div class="work" id="meaning-work" hidden>
+              <p class="work-line">
+                <span id="meaning-what"></span><span class="num" id="meaning-count"></span>
+              </p>
+              <div class="track"><span class="fill" id="meaning-fill"></span></div>
+              <button type="button" class="quiet-button" id="meaning-stop">Stop</button>
+              <span class="quiet">Stopping keeps what is done; preparing again carries on.</span>
+            </div>
+            <p class="quiet" id="meaning-note" role="status" aria-live="polite"></p>
+            <ol class="quotes" id="meaning-quotes"></ol>
+          </section>
         </section>
       </main>
     </div>
