@@ -395,6 +395,40 @@ def average_of(model: torch.nn.Module, decay: float, on_host: bool):
     return averaged
 
 
+class BestEpoch:
+    """The trained weights as they stood after the epoch that scored best on the validation games.
+
+    Only what training moves is copied, off the card: for a LoRA run that is the adapters and the
+    heads, a few megabytes beside a frozen base of eight gigabytes. The first 4B teacher was
+    still improving at its third and last epoch, so a longer run is the cheaper test of it; a
+    longer run whose last epoch is past its best then keeps the best rather than the last.
+    """
+
+    def __init__(self):
+        self.score: float | None = None
+        self.epoch: int | None = None
+        self.weights: dict[str, torch.Tensor] = {}
+
+    def offer(self, score: float, epoch: int, model: torch.nn.Module) -> bool:
+        """Keeps the model's trained weights if `score` beats every epoch offered before."""
+        if self.score is not None and score <= self.score:
+            return False
+        self.score, self.epoch = score, epoch
+        self.weights = {
+            name: weight.detach().to("cpu", copy=True)
+            for name, weight in model.named_parameters()
+            if weight.requires_grad
+        }
+        return True
+
+    @torch.no_grad()
+    def restore(self, model: torch.nn.Module) -> None:
+        # In place, so a run that recorded CUDA graphs over these tensors still reads them.
+        for name, weight in model.named_parameters():
+            if name in self.weights:
+                weight.copy_(self.weights[name].to(weight.device))
+
+
 def rest_after(busy: float, share: float) -> float:
     """How long to leave the card idle after keeping it busy this long, for the run to take this
     share of its time."""
@@ -1045,6 +1079,11 @@ def run(args) -> dict:
         # The average is a second copy of every weight, frozen base included, and the base is
         # the part that does not fit twice.
         raise SystemExit("--ema keeps a copy of the whole model; it cannot run beside --lora-rank")
+    if args.keep_best and args.ema > 0:
+        # The average is scored only once, after the last epoch, so there is no best of it to keep.
+        raise SystemExit(
+            "--keep-best chooses among epochs; --ema replaces them all with their average"
+        )
     model = ClaimReader(
         args.backbone,
         len(subjects),
@@ -1201,6 +1240,7 @@ def run(args) -> dict:
         "cache_enabled": not args.cuda_graphs,
     }
 
+    best = BestEpoch() if args.keep_best else None
     started = time.time()
     for epoch in range(args.epochs):
         model.train()
@@ -1336,6 +1376,15 @@ def run(args) -> dict:
             f"{'' if metrics['threshold_met'] else f' (wanted {args.min_accuracy:.2f})'}",
             flush=True,
         )
+        # Macro F1 rather than accuracy: the rows a reader has to get right are the rare ones,
+        # and accuracy is a quarter `verdict`. Only the validation games choose; the frozen ones
+        # never see this.
+        if best is not None and best.offer(metrics["macro_f1"], epoch + 1, model):
+            print(f"  best so far: epoch {epoch + 1}, kept", flush=True)
+
+    if best is not None:
+        best.restore(model)
+        print(f"kept epoch {best.epoch} of {args.epochs}: validation macro F1 {best.score:.3f}")
 
     # The averaged weights are the run's weights from here on: what is scored below, what the
     # frozen games are read with, and what is saved.
@@ -1444,6 +1493,7 @@ def run(args) -> dict:
         "error_reg": args.error_reg,
         "error_reg_margin": args.error_reg_margin if args.error_reg else None,
         "ema": args.ema,
+        "kept_epoch": best.epoch if best is not None else None,
         "llrd": args.llrd,
         "rdrop": args.rdrop,
         "pooling": args.pooling,
@@ -1526,6 +1576,12 @@ def parse():
         default=0.0,
         help="keep an exponential average of the weights at this decay per step and ship that "
         "instead of the last step; 0 switches it off",
+    )
+    parser.add_argument(
+        "--keep-best",
+        action="store_true",
+        help="ship the weights of the epoch with the best validation macro F1 rather than the "
+        "last epoch's",
     )
     parser.add_argument(
         "--llrd",
