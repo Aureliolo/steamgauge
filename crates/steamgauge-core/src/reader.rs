@@ -343,7 +343,8 @@ pub struct Frozen {
 ///
 /// Every size reads the same claims into the same subjects under the same sheet. A larger one
 /// answers more of them and agrees with the labels more often, and needs more of the card to
-/// do it; which one a machine should run is a question about its card, and [`fits`] answers it.
+/// do it. On a card, which one to run is a question about the card, and [`fits`] answers it; on
+/// a processor it is a question of how long somebody will wait, which only they can answer.
 #[derive(Debug, Clone, Copy)]
 pub struct Size {
     /// How it is asked for, as in `--reader small`.
@@ -353,6 +354,11 @@ pub struct Size {
     /// The card memory it takes to read, in bytes: the peak over the largest held-out game,
     /// above what the card held before the read began.
     pub needs: u64,
+    /// Seconds one processor took over the same 1,416 claims of app 1888930 as every other
+    /// size's figure, with nothing else running. Nobody else's processor takes these seconds;
+    /// only the ratio between two sizes is used, to say what a size not yet run on a machine
+    /// would take there beside one that has been.
+    pub processor_seconds: f64,
     pub published: Published,
 }
 
@@ -409,6 +415,7 @@ pub const SIZES: &[Size] = &[
         name: "small",
         dir: "game-review-reader-small",
         needs: 1_219 * 1024 * 1024,
+        processor_seconds: 36.0,
         published: Published {
             repository: "",
             files: &THREE_FILES,
@@ -418,6 +425,7 @@ pub const SIZES: &[Size] = &[
         name: "standard",
         dir: "game-review-reader",
         needs: 2_756 * 1024 * 1024,
+        processor_seconds: 284.9,
         published: Published {
             repository: "",
             files: &THREE_FILES,
@@ -433,6 +441,8 @@ pub const SIZES: &[Size] = &[
 /// is reached: every size then runs on the processor, where the largest is several times the
 /// smallest's time for the same claims, and where a card is reported that the build cannot
 /// use, or none is reported at all, nothing says a larger size would run.
+/// The smallest is where a reading starts on a processor, not where it has to stay: see
+/// [`on_the_processor`].
 #[must_use]
 pub fn fits(card: Option<crate::card::Card>, reaches_a_card: bool) -> &'static Size {
     let smallest = &SIZES[0];
@@ -449,6 +459,14 @@ pub fn fits(card: Option<crate::card::Card>, reaches_a_card: bool) -> &'static S
         .rev()
         .find(|size| size.needs <= room)
         .unwrap_or(smallest)
+}
+
+/// Whether this machine reads on its processor, which is where the size stops being the card's
+/// decision: every size runs there, the most accurate at several times the time of the fastest,
+/// and a person who will wait for it can have it.
+#[must_use]
+pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -> bool {
+    card.is_none_or(|_| !reaches_a_card)
 }
 
 /// A claim reader as published: which repository, and which files at which hashes.
@@ -1536,6 +1554,20 @@ mod tests {
             "a card the build cannot reach reads nothing faster"
         );
         assert_eq!(fits(None, true).name, "small");
+    }
+
+    #[test]
+    fn only_a_machine_that_reaches_no_card_is_offered_a_choice_of_size() {
+        let card = Some(crate::card::Card {
+            bytes: 4 * GIB,
+            shared: false,
+        });
+        assert!(
+            !on_the_processor(card, true),
+            "a small card still reads on the card, where a larger size would not fit"
+        );
+        assert!(on_the_processor(card, false));
+        assert!(on_the_processor(None, true));
     }
 
     #[test]

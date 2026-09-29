@@ -22,6 +22,7 @@ pub mod picture;
 pub mod query;
 pub mod read;
 pub mod reader;
+pub mod reading_time;
 pub mod reliability;
 pub mod report;
 pub mod said;
