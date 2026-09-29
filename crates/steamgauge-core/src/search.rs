@@ -271,7 +271,7 @@ fn commonest<K: Ord>(counts: HashMap<K, u64>) -> Vec<(K, u64)> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use arrow::{
         array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
         datatypes::{DataType, Field, Schema},
@@ -344,7 +344,8 @@ mod tests {
         assert_eq!(Phrase::new("?!"), None);
     }
 
-    fn snapshot(dir: &Path) {
+    /// Three reviews read into five claims, three of which mention the Steam Deck.
+    pub(crate) fn snapshot(dir: &Path) {
         let reviews = [
             json!({"recommendationid": "1", "review": "Runs badly on Steam Deck. Great story.",
                    "language": "english", "timestamp_created": 1, "timestamp_updated": 1,

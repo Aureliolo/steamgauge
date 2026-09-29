@@ -54,7 +54,8 @@ State means: **done** is built and in use; **partial** is built for one case and
 |---|---|
 | Raw Parquet capture, kept, because a re-crawl cannot recover edited or deleted reviews | done |
 | SQLite for crawl state | done |
-| **DuckDB for querying the corpus** | **not built** |
+| ~~DuckDB for querying the corpus~~ | superseded 2026-09-29 by the search below: nobody who opens the app writes SQL, and anybody who does brings their own tools to Parquet, so a query engine in the binary would serve neither |
+| **A read game can be asked about anything, by the words its reviewers used** | done: a search box on every read game counts the reviews and claims that say a word or phrase, split by side and by subject, with the forms that matched and the claims quoted. Words, not meaning: a count of anything else has no line to be drawn at |
 | `author_steamid` kept for every review, as public data | done |
 | Adaptive, date-sharded crawl with capped concurrency | done |
 | Watermark top-up so a re-crawl does not re-pull old reviews | superseded by the sweep below, which finds arrivals and edits in one walk. The top-up wrote a new snapshot holding only the new reviews, and every pass read the newest snapshot, so a topped-up game counted only what had arrived since |

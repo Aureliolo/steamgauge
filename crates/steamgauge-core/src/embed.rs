@@ -132,10 +132,20 @@ impl Embedder {
     ///
     /// Fails if tokenisation or the forward pass fails.
     pub fn embed(&mut self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        self.embed_as(texts, self.encoder.prefix())
+    }
+
+    /// [`Embedder::embed`] with the instruction put in front of each text said outright:
+    /// retrieval asks e5 about a question as `query:` and about what might answer it as
+    /// `passage:`, where comparing two texts of one kind uses one prefix for both.
+    ///
+    /// # Errors
+    ///
+    /// Fails if tokenisation or the forward pass fails.
+    pub fn embed_as(&mut self, texts: &[String], prefix: &str) -> Result<Vec<Vec<f32>>> {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
-        let prefix = self.encoder.prefix();
         let prefixed: Vec<String> = texts.iter().map(|t| format!("{prefix}{t}")).collect();
         let encodings = self
             .tokenizer
