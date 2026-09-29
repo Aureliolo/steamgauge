@@ -235,7 +235,7 @@ def readable(key: Path, data: str) -> tuple[list[dict], list]:
     return rows, [held[(row["app_id"], row["review_id"], row["claim_index"])] for row in rows]
 
 
-def score_reader(model_dir: Path, key: Path, data: str):
+def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str]:
     """The shipped reader, over exactly the claims the frontier model was given.
 
     Without this the comparison is a cheat. The reader's frozen figure is over every frozen
@@ -270,9 +270,16 @@ def score_reader(model_dir: Path, key: Path, data: str):
         headset_marker=provenance.get("headset_marker", False),
     )
 
-    session = onnxruntime.InferenceSession(
-        str(model_dir / "model.onnx"), providers=["CPUExecutionProvider"]
-    )
+    # Scored where the tool reads: DirectML is what the reader opens on this machine and what the
+    # Windows release ships with, and a half-precision graph has no processor kernels worth the
+    # name, so on the processor the 4B took seventeen minutes of every core. The processor is
+    # the fallback only where DirectML is not installed, and the figure says which ran.
+    providers = [
+        provider
+        for provider in ("DmlExecutionProvider", "CPUExecutionProvider")
+        if provider in onnxruntime.get_available_providers()
+    ]
+    session = onnxruntime.InferenceSession(str(model_dir / "model.onnx"), providers=providers)
     outputs = [out.name for out in session.get_outputs()]
 
     confidence, predicted, picked, polarity = [], [], [], []
@@ -317,7 +324,7 @@ def score_reader(model_dir: Path, key: Path, data: str):
         }
         for at, row in enumerate(wanted)
     ]
-    return answers
+    return answers, session.get_providers()[0]
 
 
 def main():
@@ -402,7 +409,7 @@ def main():
             print(f"{len(frozen):,} frozen claims -> {key}")
         else:
             key = Path(args.key)
-        said = score_reader(model_dir, key, args.data)
+        said, scored_on = score_reader(model_dir, key, args.data)
         written = Path(args.answers) if args.answers else key.parent / "reader-answers.json"
         written.write_text(json.dumps(said, indent=2), encoding="utf-8")
         keyed = json.loads(key.read_text("utf-8"))
@@ -418,6 +425,7 @@ def main():
         # home directory in a file that ships.
         reader = json.loads((model_dir / "reader.json").read_text("utf-8"))
         found["model"] = reader["trained_from"]
+        found["scored_on"] = scored_on
         found["trained_on"] = reader["data_fingerprint"]
         found["threshold"] = reader["threshold"]
         # Naming one threshold for a reader that abstains per subject describes a run nobody can
