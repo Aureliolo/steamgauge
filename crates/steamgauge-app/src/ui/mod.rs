@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use steamgauge_core::{
-    CrawlOptions, DEFAULT_PACE, DEFAULT_SHARD_TARGET, ReviewQuery, SteamClient, embed, report,
+    CrawlOptions, DEFAULT_PACE, DEFAULT_SHARD_TARGET, ReviewQuery, SteamClient, embed,
+    reading_time::ReadingTimes, report,
 };
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -283,8 +284,19 @@ struct Fetch {
 ///
 /// Runs off the window's thread: it is minutes of arithmetic on a million claims, and a
 /// webview that stops answering is a webview a person force-quits.
+///
+/// `reader` names the size somebody chose, which counts only where the machine reads on its
+/// processor: on a card the card decides, and a choice remembered from before the card was
+/// fitted must not overrule it.
 #[tauri::command]
-async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Result<(), String> {
+async fn read_game(
+    app: AppHandle,
+    app_id: u32,
+    language: Option<String>,
+    reader: Option<String>,
+) -> Result<(), String> {
+    use steamgauge_core::reader::{Size, fits, on_the_processor};
+
     let out_dir = library_dir(&app);
     let options = steamgauge_core::read::ReadOptions {
         out_dir: out_dir.clone(),
@@ -296,13 +308,25 @@ async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Res
     // A standard user has the binary and nothing else. The model is fetched by checksum the
     // first time it is needed, and the window is told how far the download has got, because
     // half a gigabyte with no progress shown is indistinguishable from a hang.
-    let model_dir = steamgauge_core::reader::default_dir();
+    let card = steamgauge_core::card::largest();
+    let reaches = steamgauge_core::model::REACHES_A_CARD;
+    // A name no size answers to is a choice remembered from a release that had it, and the
+    // window offers only the sizes there are, so it falls back rather than refusing to read.
+    let size = reader
+        .as_deref()
+        .filter(|_| on_the_processor(card, reaches))
+        .and_then(Size::named)
+        .unwrap_or_else(|| fits(card, reaches));
+    let model_dir = size.home();
     if !model_dir.join("model.onnx").is_file() {
-        if !steamgauge_core::reader::PUBLISHED.is_pinned() {
-            return Err("no claim reader is installed and none has been published yet".to_owned());
+        if !size.published.is_pinned() {
+            return Err(format!(
+                "no {} claim reader is installed and none has been published yet",
+                size.name
+            ));
         }
         let fetching = app.clone();
-        steamgauge_core::reader::ensure(&model_dir, |progress| {
+        steamgauge_core::reader::ensure(size, &model_dir, |progress| {
             let _ = fetching.emit(
                 "fetch",
                 Fetch {
@@ -331,6 +355,8 @@ async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Res
     }
 
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        // From before the model loads: the estimate is of the wait, and loading is part of it.
+        let started = std::time::Instant::now();
         let mut model = steamgauge_core::reader::ClaimReader::load(&model_dir).map_err(text)?;
         let report = steamgauge_core::read::read_corpus(&mut model, app_id, &options, |progress| {
             let _ = window.emit(
@@ -344,10 +370,67 @@ async fn read_game(app: AppHandle, app_id: u32, language: Option<String>) -> Res
         })
         .map_err(text)?;
         let snapshot = embed::latest_snapshot(&options.out_dir, app_id).map_err(text)?;
-        report.save(&snapshot.join("reading.json")).map_err(text)
+        report.save(&snapshot.join("reading.json")).map_err(text)?;
+        if model.device() == "cpu" {
+            let mut times = ReadingTimes::load(&options.out_dir);
+            times.note(
+                size,
+                options.language.as_deref(),
+                started.elapsed().as_secs_f64(),
+                report.corpus_reviews,
+            );
+            times.save(&options.out_dir).map_err(text)?;
+        }
+        Ok(())
     })
     .await
     .map_err(text)?
+}
+
+/// One size somebody on a processor can choose, and about how long it would take them.
+#[derive(Debug, Clone, Serialize)]
+struct ReaderChoice {
+    name: &'static str,
+    /// About how long this game would take here, where anything has been read here in the
+    /// language asked for.
+    seconds: Option<f64>,
+    /// How many times the fastest size's time this one takes, which is known before anything
+    /// has been read here.
+    times: f64,
+}
+
+/// The sizes to offer for reading a game, smallest first; none where a card is reached,
+/// because there the card decides.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn reader_choices(
+    app: AppHandle,
+    app_id: u32,
+    language: Option<String>,
+) -> Result<Vec<ReaderChoice>, String> {
+    use steamgauge_core::reader::{SIZES, on_the_processor};
+
+    if !on_the_processor(
+        steamgauge_core::card::largest(),
+        steamgauge_core::model::REACHES_A_CARD,
+    ) {
+        return Ok(Vec::new());
+    }
+    let dir = library_dir(&app);
+    let reviews = report::crawl_facts(&dir, app_id).map_err(text)?.rows_unique;
+    let times = ReadingTimes::load(&dir);
+    let fastest = SIZES[0].processor_seconds;
+    Ok(SIZES
+        .iter()
+        .map(|size| ReaderChoice {
+            name: size.name,
+            seconds: times.seconds(size, language.as_deref(), reviews),
+            times: size.processor_seconds / fastest,
+        })
+        .collect())
 }
 
 /// One subject, as the window draws it after a corpus has been read.
@@ -866,6 +949,7 @@ pub fn run() -> anyhow::Result<()> {
             claims_behind,
             induced,
             read_game,
+            reader_choices,
             sweep
         ])
         .run(tauri::generate_context!())?;

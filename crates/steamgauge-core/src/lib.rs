@@ -5,6 +5,7 @@
 pub mod api;
 mod bounded;
 pub mod capture;
+pub mod card;
 pub mod claims;
 pub mod claimset;
 pub mod crawl;
@@ -21,6 +22,7 @@ pub mod picture;
 pub mod query;
 pub mod read;
 pub mod reader;
+pub mod reading_time;
 pub mod reliability;
 pub mod report;
 pub mod said;

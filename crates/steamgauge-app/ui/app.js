@@ -165,6 +165,7 @@ async function loadTopics(game) {
   } catch (failure) {
     panel.hidden = true;
     el('game-actions').hidden = busy;
+    offerSizes(game.app_id);
     set(
       el('game-note'),
       String(failure).includes('not been read')
@@ -172,6 +173,74 @@ async function loadTopics(game) {
         : String(failure),
     );
   }
+}
+
+/* The size somebody chose on a machine that reads on its processor, kept between sessions so
+   a re-read after a sweep uses the same one. The core ignores it wherever a card is reached. */
+const READER_KEY = 'reader';
+
+function rememberedReader() {
+  try {
+    return localStorage.getItem(READER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberReader(name) {
+  try {
+    localStorage.setItem(READER_KEY, name);
+  } catch {
+    /* Forgetting only means the next session starts from the fast reader again. */
+  }
+}
+
+function duration(seconds) {
+  if (seconds < 60) return 'under a minute';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return minutes === 1 ? 'a minute' : `${minutes} minutes`;
+  return `${Math.round(seconds / 360) / 10} hours`;
+}
+
+/* Only where the machine reads on its processor, which is the one place the choice is the
+   person's: the most accurate reader takes several times as long there, and whether that is
+   worth it is theirs to say once they know how long it is. */
+async function offerSizes(appId) {
+  const holder = el('read-size-choice');
+  let choices = [];
+  try {
+    choices = await invoke('reader_choices', {
+      appId,
+      language: el('read-language').value || null,
+    });
+  } catch {
+    choices = [];
+  }
+  if (appId !== chosen) return;
+  holder.hidden = choices.length < 2;
+  if (holder.hidden) return;
+  const wanted = rememberedReader() ?? choices[0].name;
+  el('read-size').replaceChildren(
+    ...choices.map((choice, at) => {
+      const name =
+        at === 0
+          ? 'the fast reader'
+          : at === choices.length - 1
+            ? 'the most accurate reader'
+            : `the ${choice.name} reader`;
+      const cost =
+        choice.seconds !== null
+          ? `, about ${duration(choice.seconds)} on this computer`
+          : at === 0
+            ? ''
+            : `, about ${Math.round(choice.times)} times as long`;
+      const option = document.createElement('option');
+      option.value = choice.name;
+      option.textContent = name + cost;
+      option.selected = choice.name === wanted;
+      return option;
+    }),
+  );
 }
 
 /* `language` is a Steam language name to count only, or null for every language. Left
@@ -183,6 +252,7 @@ async function readGame(language = undefined) {
   busy = true;
   const appId = chosen;
   const wanted = language === undefined ? el('read-language').value || null : language;
+  const reader = el('read-size-choice').hidden ? rememberedReader() : el('read-size').value;
   el('game-actions').hidden = true;
   el('sweep-actions').hidden = true;
   el('work').hidden = false;
@@ -192,7 +262,7 @@ async function readGame(language = undefined) {
   set(el('game-note'), '');
 
   try {
-    await invoke('read_game', { appId, language: wanted });
+    await invoke('read_game', { appId, language: wanted, reader });
     await refresh();
   } catch (failure) {
     const note = el('game-note');
@@ -933,6 +1003,10 @@ el('start').addEventListener('click', start);
 el('cancel').addEventListener('click', () => (chosen === null ? show('welcome') : choose(chosen)));
 el('back').addEventListener('click', () => choose(chosen));
 el('do-read').addEventListener('click', () => readGame());
+el('read-language').addEventListener('change', () => {
+  if (chosen !== null) offerSizes(chosen);
+});
+el('read-size').addEventListener('change', () => rememberReader(el('read-size').value));
 el('do-sweep').addEventListener('click', sweepGame);
 el('switch-language').addEventListener('click', () => readGame(readLanguage ? null : 'english'));
 el('earlier').addEventListener('click', () => {
