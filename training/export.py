@@ -25,6 +25,7 @@ from transformers import AutoTokenizer
 
 import backbones
 import claimdata
+import sizes
 from train import ClaimReader
 
 HERE = Path(__file__).resolve().parent
@@ -1058,6 +1059,18 @@ def main():
                 + ", ".join(f"`{name}` {row['f1']:.2f}" for name, row in weakest)
                 + ".",
                 "",
+                # Every size's card carries every size, so whichever one somebody lands on says
+                # what the others would cost and give; the same table as the README's.
+                *(
+                    [
+                        "## The reader in each size",
+                        "",
+                        sizes.table(sizes.load()),
+                        "",
+                    ]
+                    if sizes.SIZES.is_file()
+                    else []
+                ),
                 "## Honest limits",
                 "",
                 "The labels were produced by a language model working from a written category",

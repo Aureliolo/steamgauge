@@ -297,6 +297,25 @@ That is not a projection. The library this was built against is **51 games, 7.5 
 reviews, 20.1 million claims**, all of it read by this model on one card, and the counts and
 the rows behind them reconcile game by game (`--example check-readings`).
 
+### The reader in each size
+
+The reader comes in more than one size, and the desktop app picks the largest one the machine's
+graphics card has room for, falling back to the smallest where there is no card to use. Every
+size below learned from the same labels and the same teacher, and every figure in a column was
+measured the same way for every row.
+
+<!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
+| Reader | Parameters | Download | Right, answering its surest 80% | Right, answering its surest 90% | Card memory | One big game on a card | One small game on the processor |
+|---|---|---|---|---|---|---|---|
+| small | 118M | 244 MB | 76.0% | 74.0% | pending | pending | 36 s |
+| base | 277M | 564 MB | 78.4% | 76.0% | pending | pending | 86 s |
+| standard | 559M | 1.1 GB | 85.2% | 81.3% | pending | pending | 285 s |
+
+- **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
+- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before.
+- **One small game on the processor:** 1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work.
+<!-- end of reader sizes -->
+
 ### How a person turns silver into gold
 
 `steamgauge gold` writes one page, holding a blind random sample of claims from the games the

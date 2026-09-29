@@ -1,0 +1,48 @@
+{
+  "measured": {
+    "frontier": "the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).",
+    "card": "one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before.",
+    "processor": "1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work."
+  },
+  "sizes": [
+    {
+      "name": "small",
+      "ships": true,
+      "run": "e5small-pool-qwen4b-headset-s1",
+      "backbone": "intfloat/multilingual-e5-small",
+      "parameters": 117517085,
+      "download_mib": 233,
+      "right_at_80": 0.7596,
+      "right_at_90": 0.7403,
+      "card_mib": null,
+      "card_seconds": null,
+      "processor_seconds": 36.0
+    },
+    {
+      "name": "base",
+      "ships": true,
+      "run": "e5base-pool-qwen4b-headset-s1",
+      "backbone": "intfloat/multilingual-e5-base",
+      "parameters": 277475357,
+      "download_mib": 538,
+      "right_at_80": 0.7842,
+      "right_at_90": 0.7597,
+      "card_mib": null,
+      "card_seconds": null,
+      "processor_seconds": 85.5
+    },
+    {
+      "name": "standard",
+      "ships": true,
+      "run": "e5inst-pool-qwen4b-headset-s1",
+      "backbone": "intfloat/multilingual-e5-large-instruct",
+      "parameters": 558870557,
+      "download_mib": 1075,
+      "right_at_80": 0.8525,
+      "right_at_90": 0.8131,
+      "card_mib": null,
+      "card_seconds": null,
+      "processor_seconds": 284.9
+    }
+  ]
+}
