@@ -207,12 +207,16 @@ letters or more also finds the words it begins, so "stutter" finds "stuttering";
 finds only itself, so "art" does not find "artist".
 
 Those counts are of the words typed and nothing else. Below them the app can also find where
-reviewers said the same thing in other words or in another language: "too expensive for what
-it is" finds "以這價格而言似乎貴了些" and "Und das für den überzogenen Preis???". That is ranked by
-closeness and never counted, because closeness in meaning has no line at which saying it stops,
-and a number would only say where the line was drawn. It needs each game prepared once, with
-gte-multilingual-base: minutes on a graphics card, hours on a processor. So the app asks first,
-says what it will cost on that computer, and recommends from what it can see.
+reviewers said the same thing in other words or in another language: "boring" finds "재미없음",
+"无趣" and "pretty dull after a while". That is ranked and never counted, because meaning has
+no line at which saying it stops, and a number would only say where the line was drawn. Two
+models do it, Qwen3-Embedding-0.6B to gather the hundred points nearest the search and
+Qwen3-Reranker-0.6B to read each of them beside the search and put them in order, chosen over
+three others on 1,029 results judged by whether they were what was asked for: 77% of the pair's
+first ten were, against 64% for the encoder alone that it replaced, and it showed a fifth as many
+opposites ("fun" for "boring"). It needs each game prepared once: minutes on a graphics card,
+hours on a processor. So the app asks first, says what it will cost on that computer, and
+recommends from what it can see.
 
 ### Ratings that disagree with the text
 

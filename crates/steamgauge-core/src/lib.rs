@@ -28,6 +28,7 @@ pub mod reliability;
 pub mod report;
 pub mod said;
 pub mod search;
+pub mod search_models;
 pub mod serve;
 pub mod shard;
 pub mod state;

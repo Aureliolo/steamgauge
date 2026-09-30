@@ -755,8 +755,11 @@ async function drawMeaning(query) {
   if (meaningFor?.appId !== appId || meaningFor.query !== query) return;
   el('meaning-work').hidden = !offer.running;
   if (offer.running) return;
-  if (offer.status !== 'ready') drawOffer(offer, appId);
-  if (offer.status !== 'none') await showNear(appId, query);
+  // Something still to fetch means the search cannot run yet, even over a game whose points
+  // are all prepared.
+  const fetching = offer.download_bytes > 0;
+  if (offer.status !== 'ready' || fetching) drawOffer(offer, appId);
+  if (offer.status !== 'none' && !fetching) await showNear(appId, query);
 }
 
 function choiceButton(label, detail, recommended, onClick) {
@@ -778,12 +781,16 @@ function drawOffer(offer, appId) {
   const where = offer.on_card ? "on this computer's graphics card" : 'on this computer';
   const download =
     offer.download_bytes > 0 ? `, and a ${size(offer.download_bytes)} download, once` : '';
-  const cost = `about ${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
-  const prepareNow = offer.recommended === 'prepare';
+  const cost =
+    offer.status === 'ready'
+      ? `a ${size(offer.download_bytes)} download, once`
+      : `about ${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
+  const prepareNow = offer.recommended === 'prepare' || offer.status === 'ready';
   const label = {
     none: 'Prepare this game',
     partial: 'Carry on preparing this game',
     stale: 'Bring this game up to date',
+    ready: 'Fetch the two search models',
   }[offer.status];
 
   const choices = [
@@ -810,7 +817,11 @@ function drawOffer(offer, appId) {
   el('meaning-choices').replaceChildren(...choices);
   set(
     el('meaning-advice'),
-    prepareNow
+    offer.status === 'ready'
+      ? 'This game is prepared, but the two models that search it by meaning are not on this ' +
+          'computer: one finds the points nearest what you typed, the other reads each of them ' +
+          'beside it so that opposites like "boring" and "fun" are not shown as the same thing.'
+      : prepareNow
       ? 'Recommended here: this computer has a graphics card the app can use, so it takes minutes.'
       : `Not recommended here: this computer has no graphics card the app can use, so it would ` +
           `take ${duration(offer.seconds)}. It runs while you do other things, and stopping ` +
@@ -884,7 +895,7 @@ listen('meaning', ({ payload }) => {
 
 listen('meaning-fetch', ({ payload }) => {
   const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
-  set(el('meaning-what'), `Fetching the encoder, ${payload.file}`);
+  set(el('meaning-what'), `Fetching the search models, ${payload.file}`);
   set(
     el('meaning-count'),
     payload.total === null ? mb(payload.downloaded) : `${mb(payload.downloaded)} of ${mb(payload.total)}`,
@@ -897,8 +908,10 @@ listen('meaning-fetch', ({ payload }) => {
    says it; a side or a subject narrows only the points listed, so the figures at the top never
    change under the reader's hand. */
 async function openSearch(query, from, narrow = NARROW_NONE) {
-  const fresh = reading?.query !== query;
-  reading = { query, from, narrow };
+  const appId = chosen;
+  // The same words asked of another game are a new search, meaning and all.
+  const fresh = reading?.query !== query || reading.appId !== appId;
+  reading = { appId, query, from, narrow };
   show('evidence');
   if (fresh) drawMeaning(query);
   set(el('evidence-name'), `“${query}”`);
@@ -913,7 +926,7 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
   let found;
   try {
     found = await invoke('search_game', {
-      appId: chosen,
+      appId,
       query,
       side: narrow.side,
       subject: narrow.subject,
@@ -924,7 +937,13 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
     set(el('evidence-lede'), String(failure));
     return;
   }
-  if (reading?.query !== query || reading.from !== from || reading.narrow !== narrow) return;
+  if (
+    reading?.appId !== appId ||
+    reading.query !== query ||
+    reading.from !== from ||
+    reading.narrow !== narrow
+  )
+    return;
 
   if (found.claims === 0) {
     set(

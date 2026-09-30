@@ -2,16 +2,14 @@
 //!
 //! The word search counts what matches the words; this finds what is near them in meaning,
 //! across the languages the reviews are written in, and ranks it. It never counts: a ranking
-//! by similarity has no line at which "says this" ends, so any count of it would be a count of
-//! where the line was drawn. What it offers is the claims a word search cannot reach, closest
-//! first, above a similarity chosen by reading real claims either side of it.
+//! by meaning has no line at which "says this" ends, so any count of it would be a count of
+//! where the line was drawn. What it offers is the claims a word search cannot reach, in the
+//! order the reranker in [`crate::search_models`] puts the nearest of them.
 //!
-//! Every distinct claim of a reading is embedded once with gte-multilingual-base, the encoder
-//! of the four this project pins that separated relevant claims from the rest on real text
-//! (`--example meaning-check`), and kept beside the reading at a byte a dimension. That is
-//! minutes on a card and hours on a processor, so it is done only when somebody asks, in parts
-//! small enough that stopping loses little, and a later preparation carries on from the parts
-//! already written.
+//! Every distinct claim of a reading is embedded once with the search encoder and kept beside
+//! the reading at a byte a dimension. That is minutes on a card and hours on a processor, so it
+//! is done only when somebody asks, in parts small enough that stopping loses little, and a
+//! later preparation carries on from the parts already written.
 
 use std::{
     cmp::Ordering,
@@ -40,19 +38,11 @@ use crate::{
     Error, Result,
     claims::Span,
     embed::sha256_bytes,
-    model::{Encoder, Precision},
     reader::Polarity,
     search::DECLINED,
+    search_models::{DIMENSIONS, ENCODER},
     taxonomy::SHEET,
 };
-
-pub const ENCODER: Encoder = Encoder::GteBase;
-pub const PRECISION: Precision = Precision::Float16;
-
-/// The similarity below which a claim is not shown. Read off one game's claims
-/// (1272080, twenty thousand of them, five queries): above it the nearest claims said what was
-/// asked, in whatever language; below it they shared a word or a mood and nothing more.
-pub const FLOOR: f32 = 0.65;
 
 /// Where a reading's vectors are kept, beside it in the snapshot.
 const DIR: &str = "meaning";
@@ -70,7 +60,7 @@ const BATCH: usize = 64;
 
 /// Bytes on disk for each distinct claim, at most: a byte for each of the vector's dimensions,
 /// the scale that restores it, the reader's confidence, the claim's key and where it was said.
-pub const BYTES_PER_CLAIM: u64 = 768 + 4 + 4 + 32 + 32;
+pub const BYTES_PER_CLAIM: u64 = DIMENSIONS as u64 + 4 + 4 + 32 + 32;
 
 /// How far a reading's vectors have got.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -122,7 +112,7 @@ fn parts(snapshot: &Path) -> Vec<PathBuf> {
 /// How far the vectors of the reading at `snapshot` have got.
 #[must_use]
 pub fn status(snapshot: &Path) -> Status {
-    let side = sidecar(snapshot).filter(|side| side.encoder == ENCODER.id());
+    let side = sidecar(snapshot).filter(|side| side.encoder == ENCODER.name);
     match side {
         Some(side) if side.complete && side.readings == readings_written(snapshot) => Status::Ready,
         Some(side) if side.complete => Status::Stale,
@@ -132,7 +122,7 @@ pub fn status(snapshot: &Path) -> Status {
 }
 
 fn schema() -> Arc<Schema> {
-    let dimensions = i32::try_from(ENCODER.dimensions()).unwrap_or(0);
+    let dimensions = i32::try_from(DIMENSIONS).unwrap_or(0);
     Arc::new(Schema::new(vec![
         Field::new("key", DataType::FixedSizeBinary(32), false),
         Field::new("recommendationid", DataType::Utf8, false),
@@ -156,7 +146,7 @@ fn schema() -> Arc<Schema> {
 /// A unit vector as bytes, and what to divide them by to get it back.
 ///
 /// Scaled by the vector's own largest component rather than by one: the components of a unit
-/// vector in 768 dimensions are a few hundredths each, and at a fixed scale nearly all of them
+/// vector in a thousand dimensions are a few hundredths each, and at a fixed scale nearly all of them
 /// would round to the same handful of values.
 fn quantise(vector: &[f32]) -> (f32, Vec<i8>) {
     let largest = vector
@@ -251,7 +241,7 @@ struct Part {
 
 impl Part {
     fn new() -> Self {
-        let dimensions = i32::try_from(ENCODER.dimensions()).unwrap_or(0);
+        let dimensions = i32::try_from(DIMENSIONS).unwrap_or(0);
         Self {
             keys: FixedSizeBinaryBuilder::new(32),
             reviews: StringBuilder::new(),
@@ -358,12 +348,14 @@ pub fn prepare(
     // away: a claim is the bytes it covers, so a vector keyed by those bytes is still its
     // vector, and only what the new reading added is missing.
     let mut side = sidecar(snapshot).unwrap_or_default();
-    if side.encoder != ENCODER.id() {
+    // Vectors from another encoder live in another space, and a search asked in this one would
+    // find nothing near them that is near in meaning.
+    if side.encoder != ENCODER.name {
         for part in parts(snapshot) {
             std::fs::remove_file(part)?;
         }
     }
-    ENCODER.id().clone_into(&mut side.encoder);
+    ENCODER.name.clone_into(&mut side.encoder);
     side.complete = false;
     write_sidecar(&dir, &side)?;
 
@@ -563,8 +555,12 @@ impl Ord for Ranked {
     }
 }
 
-/// The `most` claims nearest `query`, a unit vector, above [`FLOOR`], nearest first, leaving
-/// out any `skip` says to: the claims a word search already found.
+/// The `most` claims nearest `query`, a unit vector, nearest first, leaving out any `skip` says
+/// to: the claims a word search already found.
+///
+/// No closeness is too far here. What this gathers is handed to the reranker, which reads each
+/// one against the search and is what decides whether it is shown: the judged comparison that
+/// chose the pair took the encoder's hundred nearest as they came.
 ///
 /// # Errors
 ///
@@ -585,10 +581,9 @@ pub fn nearest(
                 .map(|(&byte, &value)| f32::from(byte) * value)
                 .sum();
             let similarity = dot / row.scale;
-            if similarity < FLOOR
-                || kept
-                    .peek()
-                    .is_some_and(|least| kept.len() >= most && similarity <= least.0.similarity)
+            if kept
+                .peek()
+                .is_some_and(|least| kept.len() >= most && similarity <= least.0.similarity)
                 || skip(row.review, row.at)
             {
                 return;
@@ -640,6 +635,9 @@ pub struct Times {
 struct Taken {
     /// `card` or `processor`.
     on: String,
+    /// Which encoder took it: another's pace says nothing about this one's.
+    #[serde(default)]
+    encoder: String,
     seconds: f64,
     /// Claims walked, repeats included: what is known of a game before it is prepared.
     walked: u64,
@@ -649,13 +647,10 @@ struct Taken {
 pub const TIMES_FILE: &str = "meaning-times.json";
 
 /// Seconds a claim takes on this project's machine, for an estimate before a machine has
-/// measured its own: 20,000 claims of 1272080 with nothing repeated, which is the slow end,
-/// on the processor and on a card another job was also using.
-pub const PROCESSOR_SECONDS_PER_CLAIM: f64 = 0.071;
-pub const CARD_SECONDS_PER_CLAIM: f64 = 0.0021;
-
-/// The encoder's graph and tokenizer, fetched once for every game.
-pub const DOWNLOAD_BYTES: u64 = 627_988_827 + 17_082_734;
+/// measured its own: 3,000 claims of 1466860 through the exported encoder in the app's batches,
+/// on the processor and on a card a training run held half of.
+pub const PROCESSOR_SECONDS_PER_CLAIM: f64 = 0.118;
+pub const CARD_SECONDS_PER_CLAIM: f64 = 0.0087;
 
 impl Times {
     /// The times kept in `dir`, or none where there is no file or it cannot be read.
@@ -683,12 +678,17 @@ impl Times {
             return;
         }
         let on = if on_card { "card" } else { "processor" };
-        if let Some(taken) = self.taken.iter_mut().find(|taken| taken.on == on) {
+        if let Some(taken) = self
+            .taken
+            .iter_mut()
+            .find(|taken| taken.on == on && taken.encoder == ENCODER.name)
+        {
             taken.seconds += seconds;
             taken.walked += walked;
         } else {
             self.taken.push(Taken {
                 on: on.to_owned(),
+                encoder: ENCODER.name.to_owned(),
                 seconds,
                 walked,
             });
@@ -722,7 +722,7 @@ impl Times {
         let on = if on_card { "card" } else { "processor" };
         self.taken
             .iter()
-            .find(|taken| taken.on == on)
+            .find(|taken| taken.on == on && taken.encoder == ENCODER.name)
             .map(|taken| taken.seconds / taken.walked as f64)
     }
 }
@@ -765,7 +765,7 @@ mod tests {
 
     #[test]
     fn a_vector_survives_being_kept_at_a_byte_a_dimension() {
-        let raw: Vec<f32> = (0..768_i16)
+        let raw: Vec<f32> = (0..1024_i16)
             .map(|at| f32::from(at * 37 % 101 - 50) / 7.0)
             .collect();
         let length = raw.iter().map(|value| value * value).sum::<f32>().sqrt();
@@ -795,7 +795,7 @@ mod tests {
         Ok(texts
             .iter()
             .map(|text| {
-                let mut vector = vec![0.0_f32; ENCODER.dimensions()];
+                let mut vector = vec![0.0_f32; DIMENSIONS];
                 let lowered = text.to_lowercase();
                 let axis = if lowered.contains("deck") {
                     0
@@ -815,7 +815,7 @@ mod tests {
     }
 
     #[test]
-    fn a_prepared_reading_finds_the_claims_nearest_a_query_and_nothing_below_the_floor() {
+    fn a_prepared_reading_finds_the_claims_nearest_a_query_first() {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());
         assert_eq!(status(dir.path()), Status::None);
@@ -825,20 +825,20 @@ mod tests {
         assert_eq!(prepared.walked, 5);
         assert_eq!(status(dir.path()), Status::Ready);
 
-        let mut query = vec![0.0_f32; ENCODER.dimensions()];
+        let mut query = vec![0.0_f32; DIMENSIONS];
         query[0] = 1.0;
         let found = nearest(dir.path(), &query, 10, |_, _| false).unwrap();
-        let reviews: Vec<&str> = found.iter().map(|near| near.review_id.as_str()).collect();
         assert_eq!(
-            reviews.len(),
-            3,
-            "the three deck claims and none of the others"
+            found.len(),
+            5,
+            "every claim, the reranker being what leaves any out"
         );
-        assert!(found.iter().all(|near| near.similarity > 0.99));
+        assert!(found[..3].iter().all(|near| near.similarity > 0.99));
+        assert!(found[3..].iter().all(|near| near.similarity < 0.01));
 
-        let skipped = nearest(dir.path(), &query, 10, |review, _| review == "1").unwrap();
+        let skipped = nearest(dir.path(), &query, 3, |review, _| review == "1").unwrap();
         assert_eq!(
-            skipped.len(),
+            skipped.iter().filter(|near| near.similarity > 0.99).count(),
             2,
             "a claim the words already found is left out"
         );
@@ -877,5 +877,18 @@ mod tests {
         times.note(true, 0.0, 5);
         assert_eq!(times.per_claim(true), Some(0.0005));
         assert_eq!(times.per_claim(false), None);
+    }
+
+    #[test]
+    fn another_encoders_pace_is_not_this_ones() {
+        let kept: Times = serde_json::from_str(
+            r#"{"taken": [{"on": "card", "seconds": 361.0, "walked": 208912}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            kept.per_claim(true),
+            None,
+            "times kept before they named their encoder were another encoder's"
+        );
     }
 }

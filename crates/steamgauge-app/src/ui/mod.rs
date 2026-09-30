@@ -901,7 +901,7 @@ async fn search_game(
     from: usize,
     count: usize,
 ) -> Result<Searched, String> {
-    use steamgauge_core::search::{Narrow, Phrase, Readings, search};
+    use steamgauge_core::search::{Narrow, Phrase};
 
     let phrase = Phrase::new(&query).ok_or_else(|| "type a word to look for".to_owned())?;
     let dir = library_dir(&app);
@@ -909,40 +909,7 @@ async fn search_game(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let report = read_report(&snapshot)?;
-        let game: ReadingsKey = (
-            snapshot.clone(),
-            std::fs::metadata(snapshot.join("readings.parquet"))
-                .and_then(|file| file.modified())
-                .ok(),
-        );
-        let key: SearchKey = (game.clone(), phrase.clone());
-        let (kept, readings) = {
-            let held = last.lock().map_err(text)?;
-            (
-                held.said
-                    .as_ref()
-                    .filter(|(asked, _)| *asked == key)
-                    .map(|(_, said)| Arc::clone(said)),
-                held.readings
-                    .as_ref()
-                    .filter(|(loaded, _)| *loaded == game)
-                    .map(|(_, readings)| Arc::clone(readings)),
-            )
-        };
-        let said = if let Some(said) = kept {
-            said
-        } else {
-            let readings = if let Some(readings) = readings {
-                readings
-            } else {
-                let readings = Arc::new(Readings::load(&snapshot).map_err(text)?);
-                last.lock().map_err(text)?.readings = Some((game, Arc::clone(&readings)));
-                readings
-            };
-            let said = Arc::new(search(&snapshot, &readings, &phrase).map_err(text)?);
-            last.lock().map_err(text)?.said = Some((key, Arc::clone(&said)));
-            said
-        };
+        let said = words_found(&last, &snapshot, &phrase)?;
 
         let narrow = Narrow {
             side: side.as_deref(),
@@ -1010,13 +977,51 @@ struct Searching {
 #[derive(Default)]
 struct LastSearch(Arc<Mutex<Searching>>);
 
-/// The encoder that searches by meaning, loaded once and kept: it is six hundred megabytes, and
-/// a search that loaded it every time would spend seconds before looking at anything. With a
-/// flag that stops a preparation, and one that says a preparation is running, since two at
-/// once would write the same parts.
+/// What the words of `phrase` find in the game read at `snapshot`, kept from before or searched
+/// now. The window asks for the words and for the meaning at once, and the meaning leaves out
+/// what the words found, so the lock is held while searching: whichever comes second waits and
+/// finds the search the first one made, rather than making it again or finding nothing.
+fn words_found(
+    last: &Mutex<Searching>,
+    snapshot: &Path,
+    phrase: &steamgauge_core::search::Phrase,
+) -> Result<Arc<steamgauge_core::search::Said>, String> {
+    use steamgauge_core::search::{Readings, search};
+
+    let mut held = last.lock().map_err(text)?;
+    let game: ReadingsKey = (
+        snapshot.to_path_buf(),
+        std::fs::metadata(snapshot.join("readings.parquet"))
+            .and_then(|file| file.modified())
+            .ok(),
+    );
+    let key: SearchKey = (game.clone(), phrase.clone());
+    if let Some((asked, said)) = &held.said
+        && *asked == key
+    {
+        return Ok(Arc::clone(said));
+    }
+    let readings = match &held.readings {
+        Some((loaded, readings)) if *loaded == game => Arc::clone(readings),
+        _ => {
+            let readings = Arc::new(Readings::load(snapshot).map_err(text)?);
+            held.readings = Some((game, Arc::clone(&readings)));
+            readings
+        }
+    };
+    let said = Arc::new(search(snapshot, &readings, phrase).map_err(text)?);
+    held.said = Some((key, Arc::clone(&said)));
+    Ok(said)
+}
+
+/// The encoder that searches by meaning and the reranker that orders what it finds, each loaded
+/// once and kept: together they are well over a gigabyte, and a search that loaded them every
+/// time would spend seconds before looking at anything. With a flag that stops a preparation,
+/// and one that says a preparation is running, since two at once would write the same parts.
 #[derive(Default)]
 struct Meaning {
-    embedder: Arc<Mutex<Option<steamgauge_core::embed::Embedder>>>,
+    embedder: Arc<Mutex<Option<steamgauge_core::search_models::SearchEncoder>>>,
+    reranker: Arc<Mutex<Option<steamgauge_core::search_models::SearchReranker>>>,
     stop: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
 }
@@ -1039,7 +1044,8 @@ struct MeaningOffer {
     seconds: f64,
     /// About what what is left would take on disk, at most.
     disk_bytes: u64,
-    /// What the encoder takes to fetch, where it is not here yet; nothing once it is.
+    /// What the encoder and the reranker take to fetch, where they are not here yet; nothing
+    /// once they are.
     download_bytes: u64,
     every_game: bool,
     running: bool,
@@ -1057,8 +1063,9 @@ fn meaning_offer(
     meaning: tauri::State<'_, Meaning>,
     app_id: u32,
 ) -> Result<MeaningOffer, String> {
-    use steamgauge_core::meaning::{
-        BYTES_PER_CLAIM, Choice, DOWNLOAD_BYTES, ENCODER, PRECISION, Times, held, status,
+    use steamgauge_core::{
+        meaning::{BYTES_PER_CLAIM, Choice, Times, held, status},
+        search_models::{ENCODER, RERANKER},
     };
 
     let dir = library_dir(&app);
@@ -1067,14 +1074,17 @@ fn meaning_offer(
     let on_card = meaning_on_card();
     let left = report.claims.saturating_sub(held(&snapshot).0);
     let cache = steamgauge_core::model::default_cache_dir();
-    let fetched = steamgauge_core::model::model_path(&cache, ENCODER, PRECISION).is_file()
-        && steamgauge_core::model::tokenizer_path(&cache, ENCODER).is_file();
+    let download_bytes = [ENCODER, RERANKER]
+        .into_iter()
+        .filter(|model| !model.fetched(&cache))
+        .map(|model| model.download_bytes)
+        .sum();
     Ok(MeaningOffer {
         status: status(&snapshot),
         on_card,
         seconds: Times::load(&dir).estimate(on_card, left),
         disk_bytes: left.saturating_mul(BYTES_PER_CLAIM),
-        download_bytes: if fetched { 0 } else { DOWNLOAD_BYTES },
+        download_bytes,
         every_game: Choice::load(&dir).every_game,
         running: meaning.running.load(Ordering::Relaxed),
         recommended: if on_card { "prepare" } else { "wait" },
@@ -1109,34 +1119,30 @@ struct MeaningStep {
     total: u64,
 }
 
-/// Loads the encoder into `slot` unless it is there already.
-fn loaded(
-    slot: &mut Option<steamgauge_core::embed::Embedder>,
-) -> Result<&mut steamgauge_core::embed::Embedder, String> {
-    use steamgauge_core::meaning::{ENCODER, PRECISION};
+/// Loads a search model into `slot` unless it is there already.
+fn loaded<T>(
+    slot: &mut Option<T>,
+    load: impl FnOnce(&Path) -> steamgauge_core::Result<T>,
+) -> Result<&mut T, String> {
     if slot.is_none() {
-        *slot = Some(
-            steamgauge_core::embed::Embedder::load(
-                &steamgauge_core::model::default_cache_dir(),
-                ENCODER,
-                PRECISION,
-            )
-            .map_err(text)?,
-        );
+        *slot = Some(load(&steamgauge_core::model::default_cache_dir()).map_err(text)?);
     }
     slot.as_mut()
-        .ok_or_else(|| "the encoder did not load".to_owned())
+        .ok_or_else(|| "the search model did not load".to_owned())
 }
 
-/// Prepares a read game for search by meaning, fetching the encoder first if it is not here.
-/// Returns whether it finished; a stopped preparation keeps what it did.
+/// Prepares a read game for search by meaning, fetching the two search models first if they
+/// are not here. Returns whether it finished; a stopped preparation keeps what it did.
 #[tauri::command]
 async fn prepare_meaning(
     app: AppHandle,
     meaning: tauri::State<'_, Meaning>,
     app_id: u32,
 ) -> Result<bool, String> {
-    use steamgauge_core::meaning::{ENCODER, PRECISION, Times, prepare};
+    use steamgauge_core::{
+        meaning::{Times, prepare},
+        search_models::{ENCODER, RERANKER, SearchEncoder},
+    };
 
     if meaning.running.swap(true, Ordering::SeqCst) {
         return Err("a game is already being prepared".to_owned());
@@ -1145,23 +1151,27 @@ async fn prepare_meaning(
     let running = Arc::clone(&meaning.running);
     let outcome = async {
         let fetching = app.clone();
-        steamgauge_core::model::ensure(
-            &steamgauge_core::model::default_cache_dir(),
-            ENCODER,
-            PRECISION,
-            |progress| {
+        // Both models' files have the same names, so each is said with the model it belongs to.
+        let fetched = |model: &'static str| {
+            let fetching = fetching.clone();
+            move |progress: steamgauge_core::model::DownloadProgress| {
                 let _ = fetching.emit(
                     "meaning-fetch",
                     Fetch {
-                        file: progress.file.to_owned(),
+                        file: format!("{model}/{}", progress.file),
                         downloaded: progress.downloaded,
                         total: progress.total,
                     },
                 );
-            },
-        )
-        .await
-        .map_err(text)?;
+            }
+        };
+        let cache = steamgauge_core::model::default_cache_dir();
+        for model in [ENCODER, RERANKER] {
+            model
+                .ensure(&cache, fetched(model.name))
+                .await
+                .map_err(text)?;
+        }
 
         let dir = library_dir(&app);
         let embedder = Arc::clone(&meaning.embedder);
@@ -1171,12 +1181,12 @@ async fn prepare_meaning(
             let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
             let total = read_report(&snapshot)?.claims;
             let mut slot = embedder.lock().map_err(text)?;
-            let encoder = loaded(&mut slot)?;
+            let encoder = loaded(&mut slot, SearchEncoder::load)?;
             let on_card = encoder.device() != "cpu";
             let started = std::time::Instant::now();
             let prepared = prepare(
                 &snapshot,
-                |texts| encoder.embed(texts),
+                |texts| encoder.claims(texts),
                 &stop,
                 |walked| {
                     let _ = window.emit(
@@ -1211,7 +1221,8 @@ struct NearClaim {
     evidence: Evidence,
 }
 
-/// The claims nearest in meaning to what was searched, leaving out those its words found.
+/// The claims nearest in meaning to what was searched, leaving out those its words found, in the
+/// order the reranker puts them.
 #[tauri::command]
 async fn search_by_meaning(
     app: AppHandle,
@@ -1220,13 +1231,19 @@ async fn search_by_meaning(
     app_id: u32,
     query: String,
 ) -> Result<Vec<NearClaim>, String> {
-    use steamgauge_core::meaning::nearest;
+    use steamgauge_core::{
+        meaning::nearest,
+        search_models::{SHOWN_FROM, SearchEncoder, SearchReranker},
+    };
 
     /// Enough to read through, and past it the claims are the least near of the near.
     const MOST: usize = 50;
+    /// What the reranker is handed: the hundred nearest, as in the comparison that chose it.
+    const CANDIDATES: usize = 100;
 
     let dir = library_dir(&app);
     let embedder = Arc::clone(&meaning.embedder);
+    let reranker = Arc::clone(&meaning.reranker);
     let last = Arc::clone(&last.0);
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
@@ -1238,21 +1255,14 @@ async fn search_by_meaning(
                  stopped"
                     .to_owned()
             })?;
-            let vectors = loaded(&mut slot)?
-                .embed(std::slice::from_ref(&query))
-                .map_err(text)?;
-            vectors
-                .into_iter()
-                .next()
-                .ok_or_else(|| "the encoder returned nothing".to_owned())?
+            loaded(&mut slot, SearchEncoder::load)?
+                .search(&query)
+                .map_err(text)?
         };
         // The claims the words found are already on the page above, so they are left out here.
-        let kept = last.lock().map_err(text)?.said.clone();
         let mut found: HashMap<String, Vec<steamgauge_core::claims::Span>> = HashMap::new();
-        if let Some((((held, _), phrase), said)) = kept
-            && held == snapshot
-            && steamgauge_core::search::Phrase::new(&query).is_some_and(|asked| asked == phrase)
-        {
+        if let Some(phrase) = steamgauge_core::search::Phrase::new(&query) {
+            let said = words_found(&last, &snapshot, &phrase)?;
             for hit in &said.hits {
                 found
                     .entry(hit.review_id.to_string())
@@ -1260,7 +1270,7 @@ async fn search_by_meaning(
                     .push(hit.at);
             }
         }
-        let near = nearest(&snapshot, &wanted, MOST, |review, at| {
+        let near = nearest(&snapshot, &wanted, CANDIDATES, |review, at| {
             found.get(review).is_some_and(|spans| spans.contains(&at))
         })
         .map_err(text)?;
@@ -1275,7 +1285,7 @@ async fn search_by_meaning(
             .collect();
         // A review edited since its vectors were made may no longer say at those bytes what
         // was embedded, and a claim quoted from the wrong bytes is worse than one not shown.
-        Ok(evidence(&snapshot, app_id, wanted)?
+        let near: Vec<NearClaim> = evidence(&snapshot, app_id, wanted)?
             .into_iter()
             .filter_map(|found| {
                 let key = steamgauge_core::meaning::key_of(&found.claim);
@@ -1284,7 +1294,20 @@ async fn search_by_meaning(
                     evidence: found,
                 })
             })
-            .collect())
+            .collect();
+
+        let claims: Vec<String> = near.iter().map(|one| one.evidence.claim.clone()).collect();
+        let scores = loaded(&mut *reranker.lock().map_err(text)?, SearchReranker::load)?
+            .score(&query, &claims)
+            .map_err(text)?;
+        let mut ranked: Vec<(f32, NearClaim)> = scores
+            .into_iter()
+            .zip(near)
+            .filter(|(score, _)| *score >= SHOWN_FROM)
+            .collect();
+        // Stable, so claims it scores alike keep the embedding's order.
+        ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+        Ok(ranked.into_iter().take(MOST).map(|(_, one)| one).collect())
     })
     .await
     .map_err(text)?
