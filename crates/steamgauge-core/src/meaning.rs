@@ -765,8 +765,9 @@ mod tests {
 
     #[test]
     fn a_vector_survives_being_kept_at_a_byte_a_dimension() {
+        // Folded before it is multiplied, so a thousand dimensions stay inside an i16.
         let raw: Vec<f32> = (0..1024_i16)
-            .map(|at| f32::from(at * 37 % 101 - 50) / 7.0)
+            .map(|at| f32::from(at % 101 * 37 % 101 - 50) / 7.0)
             .collect();
         let length = raw.iter().map(|value| value * value).sum::<f32>().sqrt();
         let unit: Vec<f32> = raw.iter().map(|value| value / length).collect();

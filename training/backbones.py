@@ -80,7 +80,9 @@ BACKBONES: dict[str, Backbone] = {
     "EuroBERT/EuroBERT-610m": Backbone(
         "d9af784ed20db6c2096e335ec6a67dd4a219924c", remote_code=True
     ),
+    # Search by meaning, both exported by export_search.py at these commits.
     "Qwen/Qwen3-Embedding-0.6B": Backbone("97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"),
+    "Qwen/Qwen3-Reranker-0.6B": Backbone("e61197ed45024b0ed8a2d74b80b4d909f1255473"),
     "microsoft/harrier-oss-v1-0.6b": Backbone("f9b9dc8d367d443f2479d27aa5d8d2850c0774ee"),
 }
 

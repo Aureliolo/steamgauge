@@ -31,6 +31,7 @@ import numpy as np
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 
+import backbones
 from export import LengthFree
 
 HERE = Path(__file__).resolve().parent
@@ -210,10 +211,10 @@ def export_encoder(to: Path, claims: list[str], check: int):
     """The encoder, asked about claims as they are and about searches in their instruction."""
     out = to / "search-encoder"
     out.mkdir(parents=True, exist_ok=True)
-    tokenizer = AutoTokenizer.from_pretrained(ENCODER)
+    tokenizer = backbones.load(AutoTokenizer, ENCODER)
     texts = claims[: check - len(QUERIES)] + [query_text(q) for q in QUERIES]
     ids, mask = encoded(tokenizer, texts, ENCODE_TOKENS)
-    model = SearchEncoder(AutoModel.from_pretrained(ENCODER, dtype=torch.float32)).eval()
+    model = SearchEncoder(backbones.load(AutoModel, ENCODER, dtype=torch.float32)).eval()
     wanted = answers(model, ids, mask)
     export(model.half(), ids, mask, out, "vector")
     del model
@@ -239,11 +240,11 @@ def export_reranker(to: Path, claims: list[str]):
     """The reranker, asked about every search against claims, the pairs spread over both."""
     out = to / "search-reranker"
     out.mkdir(parents=True, exist_ok=True)
-    tokenizer = AutoTokenizer.from_pretrained(RERANKER)
+    tokenizer = backbones.load(AutoTokenizer, RERANKER)
     no, yes = tokenizer.convert_tokens_to_ids("no"), tokenizer.convert_tokens_to_ids("yes")
     pairs = [rerank_text(QUERIES[n % len(QUERIES)], claim) for n, claim in enumerate(claims)]
     ids, mask = encoded(tokenizer, pairs, RERANK_TOKENS)
-    causal = AutoModelForCausalLM.from_pretrained(RERANKER, dtype=torch.float32)
+    causal = backbones.load(AutoModelForCausalLM, RERANKER, dtype=torch.float32)
     model = SearchReranker(causal, no, yes).eval()
     del causal
     wanted = answers(model, ids, mask)
