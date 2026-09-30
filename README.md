@@ -305,17 +305,25 @@ the rows behind them reconcile game by game (`--example check-readings`).
 
 The reader comes in more than one size, and the desktop app picks the largest one the machine's
 graphics card has room for. Where there is no card to use it starts with the smallest and offers
-the most accurate beside it, saying how long each would take on that computer. Every size below learned from the same labels and the same teacher, and every figure in a column was
+the most accurate beside it, saying how long each would take on that computer. Every size below
+learned from the same labels and the same teacher, a 4B, and every figure in a column was
 measured the same way for every row.
+
+The 4B in the last row is not shipped, and is the reason there is no larger size. Trained on
+exactly the sizes' labels, it answers its surest claims less accurately than `standard`, which
+learned from the first 4B's answers across a pool of unlabelled claims as well as from the labels,
+at seven times the parameters, eight times the download and eleven times the time on a card. On the frozen
+games the two 4Bs are level: 77.7% and 77.4% of claims right.
 
 <!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
 | Reader | Parameters | Download | Right, answering its surest 80% | Right, answering its surest 90% | Card memory | One big game on a card | One small game on the processor |
 |---|---|---|---|---|---|---|---|
-| small | 118M | 244 MB | 76.0% | 74.0% | pending | pending | 36 s |
-| standard | 559M | 1.1 GB | 85.2% | 81.3% | pending | pending | 285 s |
+| small | 118M | 244 MB | 76.0% | 74.0% | 1.2 GB | 62 s | 36 s |
+| standard | 559M | 1.1 GB | 85.2% | 81.3% | 2.6 GB | 125 s | 285 s |
+| *4B* (not shipped) | 4.0B | 8.8 GB | 79.8% | 75.5% | 12.5 GB | 23 min | pending |
 
 - **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
-- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before.
+- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's are the first 4B's, which taught the sizes, and whose graph is the same shape as the one in its row.
 - **One small game on the processor:** 1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work.
 <!-- end of reader sizes -->
 
