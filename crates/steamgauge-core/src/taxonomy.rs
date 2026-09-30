@@ -195,7 +195,9 @@ pub const SHEET: &[Category] = &[
              stuck on a wall, is bugs, and how it decides what to do, described without \
              either, is here. How much game there is belongs to content, and anything \
              user-made belongs to mods. A system the game never explains belongs to tutorial, \
-             however good the system itself is.",
+             however good the system itself is. The word \"gameplay\" used as a general word \
+             for the game being good or bad to play, \"10/10 gameplay\", naming no mechanic, \
+             system, depth or feel, is a verdict.",
         ),
         alone: false,
         beside: true,
@@ -252,8 +254,15 @@ pub const SHEET: &[Category] = &[
              the verdict beside it in also: \"super fun, and the story is great\" is story, \
              and \"a few bugs, but I still find it fun\" is bugs, a complaint, with verdict, \
              praise, even though the verdict is what the rest leads to. A judgement of the \
-             thing named is not a verdict: \"10/10 gameplay\" judges the gameplay and names no \
-             verdict. A judgement with only the kind of game attached, \"excellent \
+             thing named is not a verdict: \"the combat is tight\" judges the combat. \
+             \"Gameplay\" on its own names no thing: used as a general word for the game being \
+             good or bad to play, \"10/10 gameplay\", \"always delivers gameplay that is more \
+             than enjoyable\", it is a verdict, and it is gameplay only when the claim says \
+             something about how the game plays, a mechanic, a system, its depth or its feel, \
+             \"the gameplay loop gets repetitive\". Thanks or praise for the people who made \
+             the game, with nothing else named in the claim or the review around it, \"thank \
+             you for this majestic game, keep it up\", judges the game and is a verdict. A \
+             judgement with only the kind of game attached, \"excellent \
              city builder\", is a verdict; genre is for when what kind of game it is, or \
              which game it resembles, is the point being made. A recommendation is a verdict \
              whatever condition it carries: \"if you like horror this is perfect for you\" \
@@ -563,14 +572,19 @@ pub const SHEET: &[Category] = &[
                       progress, communication with players, whether promises were kept, and \
                       whether the game is abandoned.",
         boundary: Some(
-            "What the developers do to the game belongs here, and so does praise or blame \
-             aimed at the people who make it, developer or publisher, including thanking them, \
-             insulting them and telling them to fix things. Blame goes where what they are \
-             blamed for belongs, named in the claim or in the review around it: \"greed \
-             machine\" in a review about a $100 edition or items sold against a timer is \
-             monetisation, in a review about an account requirement it protests the decision \
-             and is policy, and with nothing named anywhere it is here. So are broken promises \
-             and marketing the game did not live up to, \"not what the trailers showed\", and \
+            "What the developers do to the game after release belongs here: its patches, \
+             their pace, how they talk to players, and telling them to fix things. Praise or \
+             blame aimed at the people who make it, developer or publisher, goes where what \
+             they are praised or blamed for belongs, named in the claim or in the review \
+             around it: \"greed machine\" in a review about a $100 edition or items sold \
+             against a timer is monetisation, in a review about an account requirement it \
+             protests the decision and is policy, and for a patch or a broken promise it is \
+             here. With nothing named anywhere it is not here: thanking them for the game, \
+             \"thank you for this majestic game, keep it up\", is a verdict, praise; blaming \
+             them, insulting them or swearing off their games, \"will never buy another game \
+             from this studio\", protests the makers and is policy; a joke at their expense \
+             that makes no point about the game is offtopic. Broken promises belong here, and \
+             so do marketing the game did not live up to, \"not what the trailers showed\", and \
              not learning from the last release. A demand to fix one thing it names belongs to that \
              thing, as a complaint about it would: \"fix the accessibility\" is accessibility \
              and \"fix the servers\" multiplayer; a list of demands, \"fix the lobbies, get \
@@ -618,7 +632,10 @@ pub const SHEET: &[Category] = &[
              that was reversed: \"we won\" about a withdrawn account requirement is this, and \
              it is praise. Blame or praise for the makers goes where what they are blamed for \
              belongs: here for a decision of this row, monetisation for what is sold and how, \
-             and updates when the review names nothing. What a decision is belongs here; what it does \
+             and updates for what they do to the game after release. When the review names \
+             nothing, blaming or insulting them, or swearing off their games, \"will never buy \
+             another game from this studio\", protests the makers and is here, and thanking \
+             them is a verdict. What a decision is belongs here; what it does \
              while playing belongs where it happens, so needing a launcher is here, a sign-in \
              that fails is bugs, and an anti-cheat that keeps you out of a match is \
              multiplayer. Which platform gets which version, \"PC only gets the last-gen \
@@ -979,7 +996,7 @@ subject
   \"I love it, the major complaint is the progression\" is gameplay, a complaint, with verdict,
   praise. A verdict given over a list of its reasons, before the list or after it,
   \"the music and the characters are perfect, 10/10\", puts the first reason first and the
-  verdict in `also`; \"10/10 gameplay, music and story\" scores the three things it names and
+  verdict in `also`; \"10/10 combat, music and story\" scores the three things it names and
   has no verdict beside them. A judgement of the price over a list, \"80 euro and you get
   nothing but bugs\", puts price first. A list of demands to the developers puts updates
   first, and a feeling credited to several things puts atmosphere first, each with the things

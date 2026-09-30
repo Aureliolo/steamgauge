@@ -81,7 +81,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read 26 of the 49 games in full, 16,310 claims, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
 | **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. The sheet has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
-| **Right or acceptable is measured beside exact**: human writing has more than one fair subject, so where the reader names another subject than the person's gold label, the person is asked whether that one would also do | decided 2026-09-29. `steamgauge gold --acceptable --serve` asks the 43 gold claims the reader answered differently, `ingest-gold` files the judgements in `gold/acceptable.json` beside the labels, which never change. Exact agreement stays the quoted accuracy; right-or-acceptable is quoted beside it, never in its place. A rejection where the reader repeated its training label is a sheet rule the person does not hold, and moves the sheet, relabels the claims under it and retrains |
+| **Right or acceptable is measured beside exact**: human writing has more than one fair subject, so where the reader names another subject than the person's gold label, the person is asked whether that one would also do | decided 2026-09-29. `steamgauge gold --acceptable --serve` asks the 43 gold claims the reader answered differently, `ingest-gold` files the judgements in `gold/acceptable.json` beside the labels, which never change. Exact agreement stays the quoted accuracy; right-or-acceptable is quoted beside it, never in its place. A rejection where the reader repeated its training label is a sheet rule the person does not hold, and moves the sheet, relabels the claims under it and retrains. Answered 2026-09-30: 36 of 43 acceptable; blind **85.4% exact, 98.5% right or acceptable**; two rules moved, below |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
 | Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 frozen (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
 | Measured error **corrects the reported prevalence** | done, on the report page, per subject where the model finds it better than chance |
@@ -2326,6 +2326,39 @@ wording, flagged, and the rule now says outright. The other 38 are spread one to
 reading of any 347 claims does. The new rules' own edges are in `reference/GAPS.md`: an
 anti-cheat that fails to stop cheaters, "ban" in a card game's ban list or a player-run lobby,
 and immersion with more than one thing named.
+
+### Two rules the person's own answers moved (2026-09-30)
+
+The user judged every gold claim the shipped reader (`e5inst-pool-qwen4b-headset-s1`, as the
+library holds it) filed under another subject than theirs: 43 claims, asked whether the
+reader's subject would also do. 36 would, 7 would not.
+
+| | claims | right, exact | right or acceptable |
+|---|---|---|---|
+| blind, the random draw | 151 | **85.4%** (79-90%) | **98.5%** (95-100%) |
+| sharp, the two labellers disagreed | 46 | 42.5% (29-58%) | 87.5% (74-95%) |
+
+Both at the reader's own abstention line, which answers 91% and 87% of them. Exact stays the
+figure quoted as accuracy; the second column is what a person reading the page would call
+wrong, and on the random draw it is one claim in seventy.
+
+Three of the seven are the reader's own mistakes, on claims its labels had right. Four are the
+reader repeating what its training label said, and those are the sheet: a rule the person does
+not hold. The user moved both (AskUserQuestion, 2026-09-30):
+
+- **`updates` is for what the developers do to the game after release**: its patches, their
+  pace, how they talk to players, promises kept or broken. Praise or blame aimed at the makers
+  with nothing named anywhere left `updates`: thanks for the game, "thank you for this
+  majestic game, keep it up", is a `verdict`; swearing off the studio, "will never buy another
+  SLZ game again", protests the makers and is `policy`; a joke at their expense that makes no
+  point is `offtopic`. Three of the four rejections.
+- **"Gameplay" as a general word is a `verdict`**: "10/10 gameplay", "always delivers gameplay
+  that is more than enjoyable" name no mechanic, system, depth or feel, and say the game is
+  good to play. `gameplay` keeps the claims that say how it plays.
+
+The sheet's fingerprint moves from `a0e7ff81b45f` to `58c7296afde5`. The first rule narrows a
+row, so its revisit draws every claim filed `updates`: 2,630 claims in 1,847 reviews over 67
+games, ten shares for Opus 5.5 labellers. The second is drawn after it, by the word.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

@@ -1,0 +1,23 @@
+[
+  {
+    "review_id": "213846515",
+    "index": 1,
+    "subject": "verdict",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "65722628",
+    "index": 18,
+    "subject": "story",
+    "acceptable": false,
+    "by": "a person"
+  },
+  {
+    "review_id": "73840591",
+    "index": 0,
+    "subject": "graphics",
+    "acceptable": true,
+    "by": "a person"
+  }
+]
