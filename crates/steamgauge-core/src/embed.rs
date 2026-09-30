@@ -675,7 +675,7 @@ pub fn corpus_centroid(out_dir: &Path, app_id: u32) -> Result<Vec<f32>> {
 /// # Errors
 ///
 /// Fails if the capture or the embeddings cannot be read.
-pub fn vectors_for<S: std::hash::BuildHasher>(
+pub fn vectors_for<S: std::hash::BuildHasher + Sync>(
     out_dir: &Path,
     app_id: u32,
     ids: &HashSet<String, S>,
@@ -713,7 +713,7 @@ pub fn vectors_for<S: std::hash::BuildHasher>(
 /// # Errors
 ///
 /// Fails if the capture cannot be read or the forward pass fails.
-pub fn embed_reviews<S: std::hash::BuildHasher>(
+pub fn embed_reviews<S: std::hash::BuildHasher + Sync>(
     embedder: &mut Embedder,
     out_dir: &Path,
     app_id: u32,

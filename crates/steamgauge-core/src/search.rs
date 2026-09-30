@@ -172,48 +172,87 @@ struct Filed {
     confidence: f32,
 }
 
-/// Every claim of the game read at `snapshot` that says `phrase`, counted and kept.
+/// Every claim of a read game, ordered by the review it is in: what a search looks for words in.
 ///
-/// # Errors
-///
-/// Fails if the readings or the capture cannot be read.
-pub fn search(snapshot: &Path, phrase: &Phrase) -> Result<Said> {
-    let mut filed: HashMap<String, Vec<Filed>> = HashMap::new();
-    crate::read::for_each_full_reading(
-        &snapshot.join("readings.parquet"),
-        |id, at, subject, confidence, polarity, _| {
+/// Loading it is most of a search of a large game, a second for the largest's three million
+/// claims against a third of one to walk its capture, so a window keeps the game it is
+/// searching, at about 32 bytes a claim. One flat list rather than a map of reviews, whose
+/// million keys and lists took longer to build and to free than the capture takes to walk.
+/// Steam's review ids are numbers, so a claim is found by its number without a string held for
+/// it; an id that is not one is no review Steam served and finds nothing.
+pub struct Readings(Vec<(u64, Filed)>);
+
+impl std::fmt::Debug for Readings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Readings({} claims)", self.0.len())
+    }
+}
+
+impl Readings {
+    /// The readings of the game read at `snapshot`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the readings cannot be read.
+    pub fn load(snapshot: &Path) -> Result<Self> {
+        let mut claims = Vec::new();
+        let path = snapshot.join("readings.parquet");
+        crate::read::for_each_full_reading(&path, |id, at, subject, confidence, polarity, _| {
+            let Ok(id) = id.parse::<u64>() else {
+                return;
+            };
             let subject = subject
                 .and_then(|name| SHEET.iter().position(|row| row.id == name))
                 .and_then(|index| u16::try_from(index).ok());
-            filed.entry(id.to_owned()).or_default().push(Filed {
-                at,
-                subject,
-                polarity: Polarity::from_name(polarity),
-                confidence,
-            });
-        },
-    )?;
+            claims.push((
+                id,
+                Filed {
+                    at,
+                    subject,
+                    polarity: Polarity::from_name(polarity),
+                    confidence,
+                },
+            ));
+        })?;
+        // Stable, so a review's claims stay in the order they were read.
+        claims.sort_by_key(|(id, _)| *id);
+        Ok(Self(claims))
+    }
 
+    fn of(&self, review: &str) -> impl Iterator<Item = &Filed> {
+        let id = review.parse::<u64>().ok();
+        let from = id.map_or(self.0.len(), |id| {
+            self.0.partition_point(|(held, _)| *held < id)
+        });
+        self.0[from..]
+            .iter()
+            .take_while(move |(held, _)| Some(*held) == id)
+            .map(|(_, claim)| claim)
+    }
+}
+
+/// Every claim of the game read at `snapshot`, whose readings are `filed`, that says `phrase`,
+/// counted and kept.
+///
+/// # Errors
+///
+/// Fails if the capture cannot be read.
+pub fn search(snapshot: &Path, filed: &Readings, phrase: &Phrase) -> Result<Said> {
     let name_of = |subject: Option<u16>| {
         subject
             .and_then(|index| SHEET.get(usize::from(index)))
             .map_or(DECLINED, |row| row.id)
     };
-    let mut said = Said::default();
-    let mut subjects: HashMap<&'static str, u64> = HashMap::new();
-    let mut forms: HashMap<String, u64> = HashMap::new();
-    // With its review's helpfulness, so the hits can be the most helpful first rather than the
-    // first the capture happened to hold.
-    let mut hits: Vec<(f64, Hit)> = Vec::new();
-    crate::capture::for_each_row(snapshot, |row, text| {
-        let Some(claims) = filed.get(&row.recommendationid) else {
-            return Ok(());
-        };
+    // Each review that says it, with its helpfulness so the hits can be the most helpful first
+    // rather than the first the capture happened to hold, and each claim's first form.
+    let reviews = crate::capture::rows_kept(snapshot, |row, text| {
+        let mut claims = filed.of(&row.recommendationid).peekable();
+        claims.peek()?;
         if !phrase.found_in(text, |_| {}) {
-            return Ok(());
+            return None;
         }
         let review_id: Arc<str> = Arc::from(row.recommendationid.as_str());
-        let mut in_review = false;
+        let mut hits = Vec::new();
         for claim in claims {
             let Some(words) = text.get(claim.at.0 as usize..claim.at.1 as usize) else {
                 continue;
@@ -224,34 +263,38 @@ pub fn search(snapshot: &Path, phrase: &Phrase) -> Result<Said> {
             }) {
                 continue;
             }
-            in_review = true;
+            let hit = Hit {
+                review_id: Arc::clone(&review_id),
+                at: claim.at,
+                polarity: claim.polarity.as_str(),
+                subject: name_of(claim.subject),
+                confidence: claim.confidence,
+            };
+            hits.push((hit, claim.polarity, first_form));
+        }
+        (!hits.is_empty()).then_some((row.helpfulness, hits))
+    })?;
+
+    let mut said = Said::default();
+    let mut subjects: HashMap<&'static str, u64> = HashMap::new();
+    let mut forms: HashMap<String, u64> = HashMap::new();
+    let mut hits: Vec<(f64, Hit)> = Vec::new();
+    for (helpfulness, found) in reviews {
+        said.reviews += 1;
+        for (hit, polarity, form) in found {
             said.claims += 1;
-            match claim.polarity {
+            match polarity {
                 Polarity::Praise => said.praise += 1,
                 Polarity::Complaint => said.complaint += 1,
                 Polarity::Neutral => said.neutral += 1,
             }
-            let subject = name_of(claim.subject);
-            *subjects.entry(subject).or_default() += 1;
-            if let Some(form) = first_form {
+            *subjects.entry(hit.subject).or_default() += 1;
+            if let Some(form) = form {
                 *forms.entry(form).or_default() += 1;
             }
-            hits.push((
-                row.helpfulness,
-                Hit {
-                    review_id: Arc::clone(&review_id),
-                    at: claim.at,
-                    polarity: claim.polarity.as_str(),
-                    subject,
-                    confidence: claim.confidence,
-                },
-            ));
+            hits.push((helpfulness, hit));
         }
-        if in_review {
-            said.reviews += 1;
-        }
-        Ok(())
-    })?;
+    }
 
     // Stable, so reviews Steam scores alike keep the capture's order and a page never
     // reshuffles between two asks.
@@ -417,7 +460,7 @@ pub(crate) mod tests {
         snapshot(dir.path());
         let phrase = Phrase::new("steam deck").unwrap();
 
-        let said = search(dir.path(), &phrase).unwrap();
+        let said = search(dir.path(), &Readings::load(dir.path()).unwrap(), &phrase).unwrap();
 
         assert_eq!((said.reviews, said.claims), (3, 3));
         assert_eq!((said.praise, said.complaint, said.neutral), (1, 1, 1));
@@ -435,7 +478,8 @@ pub(crate) mod tests {
     fn a_narrowing_narrows_the_page_and_leaves_the_counts_whole() {
         let dir = crate::tempdir::Dir::new();
         snapshot(dir.path());
-        let said = search(dir.path(), &Phrase::new("steam deck").unwrap()).unwrap();
+        let readings = Readings::load(dir.path()).unwrap();
+        let said = search(dir.path(), &readings, &Phrase::new("steam deck").unwrap()).unwrap();
         let narrow = |side, subject| Narrow { side, subject };
 
         let (total, page) = said.page(narrow(Some("complaint"), None), 0, 10);

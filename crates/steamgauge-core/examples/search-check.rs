@@ -5,7 +5,7 @@
 //!
 //!     cargo run --release -p steamgauge-core --example search-check -- data 920210 "steam deck"
 
-use steamgauge_core::search::{Phrase, search};
+use steamgauge_core::search::{Phrase, Readings, search};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
@@ -16,9 +16,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let phrase = Phrase::new(&query).ok_or("nothing to look for")?;
 
     let started = std::time::Instant::now();
-    let said = search(&snapshot, &phrase)?;
-    let took = started.elapsed();
+    let readings = Readings::load(&snapshot)?;
+    let loaded = started.elapsed();
+    let searching = std::time::Instant::now();
+    let said = search(&snapshot, &readings, &phrase)?;
+    let took = searching.elapsed();
 
+    println!(
+        "readings loaded in {:.1} s, once for as long as a window searches the game",
+        loaded.as_secs_f64()
+    );
     println!(
         "{} reviews, {} claims: {} praise, {} complaint, {} neutral, in {:.1} s",
         said.reviews,

@@ -901,7 +901,7 @@ async fn search_game(
     from: usize,
     count: usize,
 ) -> Result<Searched, String> {
-    use steamgauge_core::search::{Narrow, Phrase, search};
+    use steamgauge_core::search::{Narrow, Phrase, Readings, search};
 
     let phrase = Phrase::new(&query).ok_or_else(|| "type a word to look for".to_owned())?;
     let dir = library_dir(&app);
@@ -909,25 +909,38 @@ async fn search_game(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let report = read_report(&snapshot)?;
-        // The readings file's time is in the key, so a game read again since is searched again.
-        let key = (
+        let game: ReadingsKey = (
             snapshot.clone(),
             std::fs::metadata(snapshot.join("readings.parquet"))
                 .and_then(|file| file.modified())
                 .ok(),
-            phrase.clone(),
         );
-        let kept = last
-            .lock()
-            .map_err(text)?
-            .as_ref()
-            .filter(|(held, _)| *held == key)
-            .map(|(_, said)| Arc::clone(said));
+        let key: SearchKey = (game.clone(), phrase.clone());
+        let (kept, readings) = {
+            let held = last.lock().map_err(text)?;
+            (
+                held.said
+                    .as_ref()
+                    .filter(|(asked, _)| *asked == key)
+                    .map(|(_, said)| Arc::clone(said)),
+                held.readings
+                    .as_ref()
+                    .filter(|(loaded, _)| *loaded == game)
+                    .map(|(_, readings)| Arc::clone(readings)),
+            )
+        };
         let said = if let Some(said) = kept {
             said
         } else {
-            let said = Arc::new(search(&snapshot, &phrase).map_err(text)?);
-            *last.lock().map_err(text)? = Some((key, Arc::clone(&said)));
+            let readings = if let Some(readings) = readings {
+                readings
+            } else {
+                let readings = Arc::new(Readings::load(&snapshot).map_err(text)?);
+                last.lock().map_err(text)?.readings = Some((game, Arc::clone(&readings)));
+                readings
+            };
+            let said = Arc::new(search(&snapshot, &readings, &phrase).map_err(text)?);
+            last.lock().map_err(text)?.said = Some((key, Arc::clone(&said)));
             said
         };
 
@@ -977,19 +990,25 @@ async fn search_game(
     .map_err(text)?
 }
 
-/// Which search was made last and what it found. One is kept, not a history: a search is
+/// A read game as it stands: the readings file's time is in it, so a game read again since is
+/// searched again.
+type ReadingsKey = (PathBuf, Option<std::time::SystemTime>);
+
+type SearchKey = (ReadingsKey, steamgauge_core::search::Phrase);
+
+/// What the window keeps between searches, one of each and not a history. The readings of the
+/// game searched last, since loading them is most of a search of a large game and somebody
+/// trying words asks several in a row. The last search and what it found, since a search is
 /// asked again as its pages are turned and its sides chosen, and a game's every hit for a
 /// common word is tens of megabytes.
-type SearchKey = (
-    PathBuf,
-    Option<std::time::SystemTime>,
-    steamgauge_core::search::Phrase,
-);
-
-type KeptSearch = (SearchKey, Arc<steamgauge_core::search::Said>);
+#[derive(Default)]
+struct Searching {
+    readings: Option<(ReadingsKey, Arc<steamgauge_core::search::Readings>)>,
+    said: Option<(SearchKey, Arc<steamgauge_core::search::Said>)>,
+}
 
 #[derive(Default)]
-struct LastSearch(Arc<Mutex<Option<KeptSearch>>>);
+struct LastSearch(Arc<Mutex<Searching>>);
 
 /// The encoder that searches by meaning, loaded once and kept: it is six hundred megabytes, and
 /// a search that loaded it every time would spend seconds before looking at anything. With a
@@ -1228,9 +1247,9 @@ async fn search_by_meaning(
                 .ok_or_else(|| "the encoder returned nothing".to_owned())?
         };
         // The claims the words found are already on the page above, so they are left out here.
-        let kept = last.lock().map_err(text)?.clone();
+        let kept = last.lock().map_err(text)?.said.clone();
         let mut found: HashMap<String, Vec<steamgauge_core::claims::Span>> = HashMap::new();
-        if let Some(((held, _, phrase), said)) = kept
+        if let Some((((held, _), phrase), said)) = kept
             && held == snapshot
             && steamgauge_core::search::Phrase::new(&query).is_some_and(|asked| asked == phrase)
         {
