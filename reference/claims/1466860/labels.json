@@ -93,14 +93,28 @@
     "subset": "random",
     "start": 797,
     "end": 1753,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "graphics",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "controls",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "performance",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "101777927",
@@ -144,9 +158,9 @@
     "subset": "random",
     "start": 2027,
     "end": 2097,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "performance",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
@@ -154,8 +168,8 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "updates",
-        "polarity": "neutral"
+        "subject": "performance",
+        "polarity": "complaint"
       }
     ]
   },
@@ -184,14 +198,20 @@
     "subset": "random",
     "start": 2670,
     "end": 2791,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "101777927",
@@ -201,14 +221,15 @@
     "subset": "random",
     "start": 2792,
     "end": 2913,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "genre",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "101777927",
@@ -252,14 +273,20 @@
     "subset": "random",
     "start": 3398,
     "end": 3795,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "genre",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "101777927",
@@ -304,15 +331,20 @@
     "subset": "random",
     "start": 4023,
     "end": 4300,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "verdict",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "101777927",
@@ -1298,14 +1330,15 @@
     "subset": "random",
     "start": 827,
     "end": 992,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
-    "subject": "offtopic",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "102071507",
@@ -1640,7 +1673,7 @@
     "subset": "random",
     "start": 1083,
     "end": 1193,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
@@ -2543,7 +2576,7 @@
     "subset": "random",
     "start": 3112,
     "end": 3144,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -4625,13 +4658,13 @@
     "subset": "random",
     "start": 156,
     "end": 233,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "gameplay",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },
@@ -5194,8 +5227,8 @@
     "subset": "random",
     "start": 880,
     "end": 1091,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
@@ -8031,15 +8064,20 @@
     "subset": "random",
     "start": 1278,
     "end": 1401,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "monetisation",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "165269954",
@@ -8931,7 +8969,7 @@
     "subset": "random",
     "start": 0,
     "end": 90,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -8941,12 +8979,12 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "verdict",
-        "polarity": "praise"
-      },
-      {
         "subject": "bugs",
         "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },

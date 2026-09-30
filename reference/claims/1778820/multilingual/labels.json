@@ -815,14 +815,15 @@
     "subset": "multilingual",
     "start": 0,
     "end": 11,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "176480236",

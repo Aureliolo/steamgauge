@@ -481,14 +481,24 @@
     "subset": "mined",
     "start": 548,
     "end": 789,
-    "taxonomy": "82b663c6977f",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "6c62994d71a7",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "performance",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "124969026",
@@ -1670,7 +1680,7 @@
     "subset": "mined",
     "start": 926,
     "end": 1085,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -1679,10 +1689,6 @@
     "ambiguous": false,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "vr",
-        "polarity": "praise"
-      },
       {
         "subject": "verdict",
         "polarity": "praise"
@@ -1995,7 +2001,7 @@
     "subset": "mined",
     "start": 537,
     "end": 621,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
@@ -2053,14 +2059,15 @@
     "subset": "mined",
     "start": 4026,
     "end": 4082,
-    "taxonomy": "a05d00cf2f39",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "63235653",
@@ -2956,14 +2963,15 @@
     "subset": "mined",
     "start": 118,
     "end": 331,
-    "taxonomy": "a05d00cf2f39",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "81537964",
@@ -2973,14 +2981,15 @@
     "subset": "mined",
     "start": 600,
     "end": 918,
-    "taxonomy": "a05d00cf2f39",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "story",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "81712403",

@@ -95,7 +95,7 @@
     "subset": "mined",
     "start": 196,
     "end": 353,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
@@ -896,13 +896,13 @@
     "subset": "mined",
     "start": 2433,
     "end": 2556,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": []
   },
@@ -1047,14 +1047,15 @@
     "subset": "mined",
     "start": 299,
     "end": 371,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "152677777",
@@ -1156,7 +1157,7 @@
     "subset": "mined",
     "start": 0,
     "end": 148,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -1299,14 +1300,24 @@
     "subset": "mined",
     "start": 2716,
     "end": 2873,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "6c62994d71a7",
+    "produced_by": "claude-opus-5-5",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "vr",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "155396319",
@@ -1401,7 +1412,7 @@
     "subset": "mined",
     "start": 0,
     "end": 192,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "multiplayer",
     "polarity": "complaint",
@@ -1410,6 +1421,10 @@
     "ambiguous": true,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "policy",
+        "polarity": "complaint"
+      },
       {
         "subject": "verdict",
         "polarity": "neutral"
@@ -2159,8 +2174,8 @@
     "subset": "mined",
     "start": 775,
     "end": 918,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
@@ -2199,7 +2214,7 @@
     "subset": "mined",
     "start": 1405,
     "end": 1518,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -2217,8 +2232,8 @@
     "subset": "mined",
     "start": 0,
     "end": 713,
-    "taxonomy": "4ed2560939f2",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
@@ -2226,10 +2241,6 @@
     "ambiguous": false,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "verdict",
-        "polarity": "complaint"
-      },
       {
         "subject": "multiplayer",
         "polarity": "complaint"
@@ -2245,6 +2256,10 @@
       {
         "subject": "policy",
         "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
       }
     ]
   },
@@ -2256,14 +2271,20 @@
     "subset": "mined",
     "start": 566,
     "end": 752,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "190486043",
@@ -2307,7 +2328,7 @@
     "subset": "mined",
     "start": 1138,
     "end": 1342,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -2789,7 +2810,7 @@
     "subset": "mined",
     "start": 149,
     "end": 239,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -3389,9 +3410,9 @@
     "subset": "mined",
     "start": 0,
     "end": 169,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "updates",
+    "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
@@ -3399,15 +3420,15 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "verdict",
-        "polarity": "complaint"
-      },
-      {
-        "subject": "performance",
-        "polarity": "complaint"
-      },
-      {
         "subject": "multiplayer",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -3472,7 +3493,7 @@
     "subset": "mined",
     "start": 1072,
     "end": 1195,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -3490,8 +3511,8 @@
     "subset": "mined",
     "start": 2272,
     "end": 2411,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "performance",
     "polarity": "complaint",
     "ironic": false,

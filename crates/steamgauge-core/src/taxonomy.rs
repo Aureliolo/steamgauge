@@ -590,10 +590,16 @@ pub const SHEET: &[Category] = &[
              thing it names belongs to that thing, as a complaint about it would: \"fix the \
              accessibility\" is accessibility and \"fix the servers\" multiplayer; a list of \
              demands, \"fix the lobbies, get cross play working, add missions\", is here first, \
-             with each thing it names as another subject. A fault complained of as left \
-             unfixed, how long it has waited or whether a fix will come, \"reported five weeks \
-             ago and still no fix\", \"hopefully they fix that\", is here, the pace of their \
-             patching, with the fault beside it in also. \
+             with each thing it names as another subject. A claim that names a fault is about \
+             that fault, however it hopes or waits for the fix and however long it says it has \
+             waited, with this beside it in also: \"optimisation is a massive problem, I hope \
+             they fix it soon\" is performance, \"the crashes remain just the same\" and \"bugs \
+             from seven years ago still not fixed\" bugs, \"the DLC is out and force feedback \
+             is still not fixed\" controls, \"don't buy until they fix the servers\" \
+             multiplayer. Only a claim about the wait that names no fault of its own is here, \
+             the pace of their patching: \"reported five weeks ago and still no fix\", \
+             \"hopefully they fix that\", \"it won't get fixed\", with the fault the review \
+             means in also. \"Issues\", \"things\" or \"the game\" name no fault. \
              A complaint about what a patch changed is about the change: balance to \
              difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. \
              Something altered or cut for what it showed or said, censored, an outfit, a \

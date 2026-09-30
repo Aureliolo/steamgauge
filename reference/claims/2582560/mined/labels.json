@@ -34,15 +34,19 @@
     "subset": "mined",
     "start": 4165,
     "end": 4345,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      },
       {
         "subject": "policy",
         "polarity": "complaint"
@@ -57,14 +61,20 @@
     "subset": "mined",
     "start": 66,
     "end": 176,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "173943511",
@@ -74,8 +84,8 @@
     "subset": "mined",
     "start": 0,
     "end": 69,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
@@ -126,7 +136,7 @@
     "subset": "mined",
     "start": 1819,
     "end": 1933,
-    "taxonomy": "e326339f5be3",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
@@ -161,14 +171,15 @@
     "subset": "mined",
     "start": 0,
     "end": 50,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "198606195",
@@ -209,14 +220,15 @@
     "subset": "mined",
     "start": 496,
     "end": 625,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "204190773",

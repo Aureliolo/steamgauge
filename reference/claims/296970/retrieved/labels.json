@@ -215,12 +215,12 @@
     "subset": "retrieved",
     "start": 253,
     "end": 385,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
@@ -1727,14 +1727,15 @@
     "subset": "retrieved",
     "start": 303,
     "end": 345,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "story",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": []
   },
   {
     "review_id": "23667367",
@@ -1989,15 +1990,20 @@
     "subset": "retrieved",
     "start": 723,
     "end": 1312,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "policy",
+    "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "26433487",
@@ -2145,21 +2151,17 @@
     "subset": "retrieved",
     "start": 4097,
     "end": 4292,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "price",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
-        "subject": "content",
-        "polarity": "praise"
-      },
-      {
-        "subject": "updates",
+        "subject": "price",
         "polarity": "praise"
       },
       {

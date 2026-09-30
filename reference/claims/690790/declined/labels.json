@@ -287,14 +287,15 @@
     "subset": "declined",
     "start": 666,
     "end": 746,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "146823585",
@@ -1432,8 +1433,8 @@
     "subset": "declined",
     "start": 1107,
     "end": 1399,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
@@ -1442,11 +1443,15 @@
     "split_wrong": false,
     "also": [
       {
+        "subject": "multiplayer",
+        "polarity": "praise"
+      },
+      {
         "subject": "monetisation",
         "polarity": "complaint"
       },
       {
-        "subject": "multiplayer",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]

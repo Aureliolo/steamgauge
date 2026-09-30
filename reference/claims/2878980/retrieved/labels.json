@@ -231,14 +231,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 38,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "genre",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": false,
-    "split_wrong": false
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "175142494",
@@ -436,14 +437,20 @@
     "subset": "retrieved",
     "start": 0,
     "end": 64,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
-    "polarity": "praise",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "genre",
+    "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "176038380",
@@ -453,8 +460,8 @@
     "subset": "retrieved",
     "start": 0,
     "end": 187,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
@@ -464,6 +471,10 @@
     "also": [
       {
         "subject": "difficulty",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -571,14 +582,15 @@
     "subset": "retrieved",
     "start": 2872,
     "end": 3007,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "graphics",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "177188907",
@@ -588,14 +600,24 @@
     "subset": "retrieved",
     "start": 0,
     "end": 70,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "content",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "policy",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "licensing",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "177227062",
@@ -879,7 +901,7 @@
     "subset": "retrieved",
     "start": 0,
     "end": 70,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "genre",
     "polarity": "complaint",
@@ -948,14 +970,15 @@
     "subset": "retrieved",
     "start": 137,
     "end": 167,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": false,
-    "split_wrong": false
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "181765753",
@@ -1838,7 +1861,7 @@
     "subset": "retrieved",
     "start": 323,
     "end": 379,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
@@ -2017,14 +2040,15 @@
     "subset": "retrieved",
     "start": 204,
     "end": 448,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "197956067",
@@ -2085,14 +2109,15 @@
     "subset": "retrieved",
     "start": 94,
     "end": 254,
-    "taxonomy": "1ecc68b0b8d5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "compatibility",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "198400876",
@@ -2136,14 +2161,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 35,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "199309003",
@@ -2519,7 +2545,7 @@
     "subset": "retrieved",
     "start": 1896,
     "end": 2069,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
@@ -2527,7 +2553,12 @@
     "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "209074291",
@@ -2679,13 +2710,13 @@
     "subset": "retrieved",
     "start": 0,
     "end": 108,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": []
   }

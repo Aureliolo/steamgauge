@@ -42,19 +42,15 @@
     "subset": "mined",
     "start": 60,
     "end": 140,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": true,
     "also": [
-      {
-        "subject": "policy",
-        "polarity": "neutral"
-      },
       {
         "subject": "verdict",
         "polarity": "complaint"
@@ -120,14 +116,24 @@
     "subset": "mined",
     "start": 19,
     "end": 201,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "controls",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "160425522",
@@ -331,14 +337,24 @@
     "subset": "mined",
     "start": 243,
     "end": 451,
-    "taxonomy": "1022adc2bdd1",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "audio",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "181492128",
@@ -417,13 +433,13 @@
     "subset": "mined",
     "start": 289,
     "end": 429,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "policy",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },
@@ -493,8 +509,8 @@
     "subset": "mined",
     "start": 2262,
     "end": 2414,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "story",
     "polarity": "praise",
     "ironic": false,

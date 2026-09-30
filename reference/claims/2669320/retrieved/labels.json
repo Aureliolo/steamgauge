@@ -136,12 +136,12 @@
     "subset": "retrieved",
     "start": 3091,
     "end": 3350,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
     "also": []
@@ -290,13 +290,13 @@
     "subset": "retrieved",
     "start": 718,
     "end": 934,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": []
   },
@@ -505,22 +505,18 @@
     "subset": "retrieved",
     "start": 155,
     "end": 296,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "genre",
+    "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
         "subject": "licensing",
         "polarity": "praise"
-      },
-      {
-        "subject": "gameplay",
-        "polarity": "complaint"
       }
     ]
   },
@@ -1096,14 +1092,24 @@
     "subset": "retrieved",
     "start": 0,
     "end": 111,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "licensing",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "186802672",
@@ -1176,14 +1182,20 @@
     "subset": "retrieved",
     "start": 280,
     "end": 585,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
-    "ironic": false,
-    "confidence": "high",
+    "ironic": true,
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "187475046",
@@ -1261,14 +1273,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 77,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "bugs",
     "polarity": "complaint",
     "ironic": true,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "188501985",
@@ -1615,20 +1628,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 188,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "difficulty",
     "polarity": "complaint",
     "ironic": true,
     "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "verdict",
-        "polarity": "complaint"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "194978749",
@@ -1655,14 +1663,24 @@
     "subset": "retrieved",
     "start": 0,
     "end": 165,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "195293575",
@@ -2021,14 +2039,24 @@
     "subset": "retrieved",
     "start": 0,
     "end": 265,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "praise"
+      },
+      {
+        "subject": "licensing",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "201382920",
@@ -2482,14 +2510,20 @@
     "subset": "retrieved",
     "start": 0,
     "end": 224,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "monetisation",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "218015036",
@@ -2517,14 +2551,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 144,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "219914810",

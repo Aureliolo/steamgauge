@@ -486,13 +486,13 @@
     "subset": "retrieved",
     "start": 0,
     "end": 138,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },
@@ -934,8 +934,8 @@
     "subset": "retrieved",
     "start": 106,
     "end": 245,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
@@ -943,10 +943,6 @@
     "ambiguous": true,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "vr",
-        "polarity": "complaint"
-      },
       {
         "subject": "verdict",
         "polarity": "complaint"
@@ -1097,12 +1093,12 @@
     "subset": "retrieved",
     "start": 249,
     "end": 421,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "bugs",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": []
@@ -1730,14 +1726,15 @@
     "subset": "retrieved",
     "start": 168,
     "end": 402,
-    "taxonomy": "604974ace095",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "142291876",
@@ -2011,14 +2008,15 @@
     "subset": "retrieved",
     "start": 384,
     "end": 488,
-    "taxonomy": "1ecc68b0b8d5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "156177320",
@@ -3408,14 +3406,15 @@
     "subset": "retrieved",
     "start": 714,
     "end": 888,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "93455085",
@@ -3510,13 +3509,14 @@
     "subset": "retrieved",
     "start": 36,
     "end": 73,
-    "taxonomy": "604974ace095",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   }
 ]

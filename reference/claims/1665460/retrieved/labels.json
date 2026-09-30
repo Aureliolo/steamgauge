@@ -204,20 +204,15 @@
     "subset": "retrieved",
     "start": 769,
     "end": 910,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "compatibility",
+    "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "gameplay",
-        "polarity": "complaint"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "100366867",
@@ -770,14 +765,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 209,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "129051757",
@@ -890,9 +886,9 @@
     "subset": "retrieved",
     "start": 143,
     "end": 437,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "content",
+    "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
@@ -900,7 +896,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "licensing",
+        "subject": "difficulty",
         "polarity": "praise"
       },
       {
@@ -978,14 +974,15 @@
     "subset": "retrieved",
     "start": 1353,
     "end": 1568,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "licensing",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "139445205",
@@ -1218,13 +1215,13 @@
     "subset": "retrieved",
     "start": 0,
     "end": 49,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },
@@ -1728,8 +1725,8 @@
     "subset": "retrieved",
     "start": 0,
     "end": 43,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
@@ -1834,14 +1831,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 46,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "175777193",
@@ -1919,9 +1917,9 @@
     "subset": "retrieved",
     "start": 66,
     "end": 234,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "policy",
+    "subject": "genre",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
@@ -2549,14 +2547,20 @@
     "subset": "retrieved",
     "start": 3,
     "end": 172,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "genre",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "216653622",

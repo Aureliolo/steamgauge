@@ -556,14 +556,15 @@
     "subset": "mined",
     "start": 516,
     "end": 924,
-    "taxonomy": "1ecc68b0b8d5",
-    "produced_by": "claude-fable-5-1",
-    "subject": "controls",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "103674027",
@@ -608,14 +609,20 @@
     "subset": "mined",
     "start": 0,
     "end": 65,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "14d11a13721e",
+    "produced_by": "claude-opus-5-5",
     "subject": "compatibility",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "103842846",
@@ -719,14 +726,20 @@
     "subset": "mined",
     "start": 38,
     "end": 145,
-    "taxonomy": "1ecc68b0b8d5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "accessibility",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "controls",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "104513435",
@@ -821,14 +834,60 @@
     "subset": "mined",
     "start": 1260,
     "end": 3697,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "genre",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": true
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": true,
+    "also": [
+      {
+        "subject": "graphics",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "controls",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "monetisation",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "mods",
+        "polarity": "neutral"
+      },
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "multiplayer",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "audio",
+        "polarity": "praise"
+      },
+      {
+        "subject": "performance",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "104949299",
@@ -1069,7 +1128,7 @@
     "subset": "mined",
     "start": 776,
     "end": 907,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",

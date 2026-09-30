@@ -93,14 +93,20 @@
     "subset": "random",
     "start": 52,
     "end": 120,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "103806546",
@@ -758,15 +764,20 @@
     "subset": "random",
     "start": 3076,
     "end": 3223,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "tutorial",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "multiplayer",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "106615593",
@@ -1456,14 +1467,15 @@
     "subset": "random",
     "start": 0,
     "end": 46,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "story",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "121319253",
@@ -4216,14 +4228,20 @@
     "subset": "random",
     "start": 24,
     "end": 74,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
-    "subject": "multiplayer",
+    "taxonomy": "14d11a13721e",
+    "produced_by": "claude-opus-5-5",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "multiplayer",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "93799778",
@@ -4713,14 +4731,15 @@
     "subset": "random",
     "start": 523,
     "end": 623,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "tutorial",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "93861867",
@@ -5167,10 +5186,10 @@
     "subset": "random",
     "start": 3019,
     "end": 3174,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,

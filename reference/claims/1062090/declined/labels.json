@@ -619,7 +619,7 @@
     "subset": "declined",
     "start": 0,
     "end": 358,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -1047,12 +1047,12 @@
     "subset": "declined",
     "start": 0,
     "end": 68,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
@@ -1352,14 +1352,15 @@
     "subset": "declined",
     "start": 185,
     "end": 322,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "198124380",
@@ -1553,7 +1554,7 @@
     "subset": "declined",
     "start": 346,
     "end": 622,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -1567,7 +1568,7 @@
         "polarity": "complaint"
       },
       {
-        "subject": "content",
+        "subject": "gameplay",
         "polarity": "complaint"
       }
     ]
@@ -1734,13 +1735,13 @@
     "subset": "declined",
     "start": 0,
     "end": 162,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": []
   },

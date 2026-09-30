@@ -371,14 +371,15 @@
     "subset": "mined",
     "start": 111,
     "end": 357,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
-    "subject": "offtopic",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "licensing",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "184087581",

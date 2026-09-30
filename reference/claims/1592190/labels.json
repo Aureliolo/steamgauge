@@ -98,7 +98,7 @@
     "subset": "random",
     "start": 413,
     "end": 541,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "neutral",
@@ -110,6 +110,10 @@
       {
         "subject": "tutorial",
         "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -525,15 +529,20 @@
     "subset": "random",
     "start": 602,
     "end": 646,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "123083865",
@@ -1000,15 +1009,20 @@
     "subset": "random",
     "start": 22,
     "end": 123,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "123143887",
@@ -1414,9 +1428,9 @@
     "subset": "random",
     "start": 1283,
     "end": 1366,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "content",
+    "subject": "mods",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
@@ -1424,7 +1438,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "mods",
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -1655,8 +1669,8 @@
     "subset": "random",
     "start": 406,
     "end": 493,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "controls",
     "polarity": "complaint",
     "ironic": false,
@@ -2981,7 +2995,7 @@
     "subset": "random",
     "start": 0,
     "end": 120,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -3385,7 +3399,7 @@
     "subset": "random",
     "start": 0,
     "end": 40,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
@@ -4281,14 +4295,15 @@
     "subset": "random",
     "start": 0,
     "end": 61,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "203703340",

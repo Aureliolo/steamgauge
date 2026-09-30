@@ -249,14 +249,15 @@
     "subset": "mined",
     "start": 387,
     "end": 570,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "content",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "17910573",
@@ -369,7 +370,7 @@
     "subset": "mined",
     "start": 53,
     "end": 239,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -517,7 +518,7 @@
     "subset": "mined",
     "start": 1812,
     "end": 1916,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -535,7 +536,7 @@
     "subset": "mined",
     "start": 380,
     "end": 526,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -575,12 +576,12 @@
     "subset": "mined",
     "start": 539,
     "end": 680,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
@@ -649,7 +650,7 @@
     "subset": "mined",
     "start": 80,
     "end": 224,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -667,7 +668,7 @@
     "subset": "mined",
     "start": 190,
     "end": 308,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -719,7 +720,7 @@
     "subset": "mined",
     "start": 332,
     "end": 477,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -727,12 +728,7 @@
     "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "content",
-        "polarity": "praise"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "19045088",
@@ -777,14 +773,20 @@
     "subset": "mined",
     "start": 458,
     "end": 615,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
-    "subject": "community",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "updates",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "mods",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "193337555",
@@ -868,7 +870,7 @@
     "subset": "mined",
     "start": 147,
     "end": 217,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -1343,7 +1345,7 @@
     "subset": "mined",
     "start": 1231,
     "end": 1404,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -1584,14 +1586,15 @@
     "subset": "mined",
     "start": 0,
     "end": 30,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "compatibility",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "25277919",
