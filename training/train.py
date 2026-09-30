@@ -51,6 +51,22 @@ MARK = "**"
 # as they did before any model was told anything.
 HEADSET = "Played in a VR headset."
 
+# Small capitals, which the tokenizer leaves as symbols it never learned where it folds bold and
+# fullwidth letters itself, read as the letters they are. The Rust reader folds from this same
+# file, so what the model is trained on and what it is asked are one text.
+SMALL_CAPITALS = str.maketrans(
+    json.loads(
+        (HERE.parent / "crates" / "steamgauge-core" / "src" / "small-capitals.json").read_text(
+            encoding="utf-8"
+        )
+    )
+)
+
+
+def plain(text: str) -> str:
+    """`text` with every small capital read as the letter it is."""
+    return text.translate(SMALL_CAPITALS)
+
 
 class ShippedTokenizer:
     """Enough of the transformers tokenizer for `Claims` to run on the exported one.
@@ -197,10 +213,11 @@ class Claims(Dataset):
         answer, which is how this project lost a night to a tokenizer.
         """
         claim = self.claims[at]
-        asked = f"query: {claim.text}" if self.prefix else claim.text
+        text = plain(claim.text)
+        asked = f"query: {text}" if self.prefix else text
         if not self.context:
             return (asked,)
-        window = self.windows[at]
+        window = plain(self.windows[at])
         return asked, f"passage: {window}" if self.prefix else window
 
     def __getitem__(self, at):

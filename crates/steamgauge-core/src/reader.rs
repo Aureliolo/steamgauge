@@ -968,19 +968,52 @@ fn same_review(asked: &[Asked<'_>]) -> Vec<usize> {
 /// model fine-tuned that way is answering a differently shaped question without them. Matches
 /// `Claims.pair` in `training/train.py`, which is the only other place a pair is written.
 fn as_query(prefix: bool, text: &str) -> String {
+    let text = plain(text);
     if prefix {
         format!("query: {text}")
     } else {
-        text.to_owned()
+        text.into_owned()
     }
 }
 
 fn as_passage(prefix: bool, window: &str) -> String {
+    let window = plain(window);
     if prefix {
         format!("passage: {window}")
     } else {
-        window.to_owned()
+        window.into_owned()
     }
+}
+
+/// Letters written as small capitals, and the letters they are.
+///
+/// The tokenizer folds bold and fullwidth letters into plain ones and leaves small capitals
+/// alone, so "ᴏᴄᴄᴀꜱɪᴏɴᴀʟ ʙᴜɢꜱ" reached the reader as twenty symbols it had never learned and came
+/// back as not about the game. Read from the same file `training/train.py` folds with, so what
+/// the reader is trained on and what it is asked are one text.
+static SMALL_CAPITALS: std::sync::LazyLock<std::collections::HashMap<char, char>> =
+    std::sync::LazyLock::new(|| {
+        serde_json::from_str::<std::collections::HashMap<String, String>>(include_str!(
+            "small-capitals.json"
+        ))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(from, to)| Some((from.chars().next()?, to.chars().next()?)))
+        .collect()
+    });
+
+/// `text` with every small capital read as the letter it is. Offsets into the review are taken
+/// before this, from the text as written, so nothing that points into a review moves.
+fn plain(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text
+        .chars()
+        .any(|letter| SMALL_CAPITALS.contains_key(&letter))
+    {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    text.chars()
+        .map(|letter| SMALL_CAPITALS.get(&letter).copied().unwrap_or(letter))
+        .collect()
 }
 
 /// What marks the claim inside its window, matching `training/train.py`.
@@ -1118,6 +1151,27 @@ fn pieces(rows: usize, most: Option<usize>) -> Vec<std::ops::Range<usize>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn small_capitals_are_read_as_the_letters_they_are() {
+        assert_eq!(
+            SMALL_CAPITALS.len(),
+            25,
+            "every letter but x, which has no small capital"
+        );
+        assert_eq!(
+            as_query(true, "ᴏᴄᴄᴀꜱɪᴏɴᴀʟ ʙᴜɢꜱ ᴀɴᴅ ɢʟɪᴛᴄʜᴇꜱ"),
+            "query: occasional bugs and glitches"
+        );
+        assert_eq!(as_passage(false, "ʀᴇɢᴜʟᴀʀ ᴜᴘᴅᴀᴛᴇꜱ"), "regular updates");
+        assert!(
+            matches!(
+                plain("nothing to fold, ünïcödé"),
+                std::borrow::Cow::Borrowed(_)
+            ),
+            "a claim with no small capital is not copied"
+        );
+    }
 
     #[test]
     fn a_batch_goes_through_in_pieces_no_larger_than_the_graph_takes() {
