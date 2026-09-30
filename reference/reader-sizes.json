@@ -1,0 +1,48 @@
+{
+  "measured": {
+    "frontier": "the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).",
+    "card": "one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's are the first 4B's, which taught the sizes, and whose graph is the same shape as the one in its row.",
+    "processor": "1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work."
+  },
+  "sizes": [
+    {
+      "name": "small",
+      "ships": true,
+      "run": "e5small-pool-qwen4b-headset-s1",
+      "backbone": "intfloat/multilingual-e5-small",
+      "parameters": 117517085,
+      "download_mib": 233,
+      "right_at_80": 0.7596,
+      "right_at_90": 0.7403,
+      "card_mib": 1219,
+      "card_seconds": 62,
+      "processor_seconds": 36.0
+    },
+    {
+      "name": "standard",
+      "ships": true,
+      "run": "e5inst-pool-qwen4b-headset-s1",
+      "backbone": "intfloat/multilingual-e5-large-instruct",
+      "parameters": 558870557,
+      "download_mib": 1075,
+      "right_at_80": 0.8525,
+      "right_at_90": 0.8131,
+      "card_mib": 2686,
+      "card_seconds": 125,
+      "processor_seconds": 284.9
+    },
+    {
+      "name": "4B",
+      "ships": false,
+      "run": "qwen3-4b-lora-told",
+      "backbone": "Qwen/Qwen3-Embedding-4B",
+      "parameters": 4021848605,
+      "download_mib": 8408,
+      "right_at_80": 0.7978,
+      "right_at_90": 0.7549,
+      "card_mib": 12851,
+      "card_seconds": 1399,
+      "processor_seconds": 2912.0
+    }
+  ]
+}
