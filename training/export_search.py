@@ -132,7 +132,9 @@ def export(model, ids, mask, out: Path, output: str):
     import onnx
 
     # One file, so one pin covers it: both are well under the 2 GB a protobuf holds.
-    onnx.save(onnx.load(str(traced / "model.onnx"), load_external_data=True), str(out / "model.onnx"))
+    onnx.save(
+        onnx.load(str(traced / "model.onnx"), load_external_data=True), str(out / "model.onnx")
+    )
     shutil.rmtree(traced)
 
 
@@ -147,7 +149,10 @@ def asked_on(path: Path, provider: str, ids, mask, output: str):
         got.append(
             session.run(
                 [output],
-                {"input_ids": ids[at : at + 16, :width], "attention_mask": mask[at : at + 16, :width]},
+                {
+                    "input_ids": ids[at : at + 16, :width],
+                    "attention_mask": mask[at : at + 16, :width],
+                },
             )[0]
         )
     return np.concatenate(got).astype(np.float32)
@@ -215,12 +220,19 @@ def export_encoder(to: Path, claims: list[str], check: int):
     tokenizer.save_pretrained(out / "tokenizer")
     shutil.copy(out / "tokenizer" / "tokenizer.json", out / "tokenizer.json")
     shutil.rmtree(out / "tokenizer")
-    for provider, floor in (("CPUExecutionProvider", MIN_COSINE), ("DmlExecutionProvider", MIN_COSINE_WHERE_RUN)):
+    for provider, floor in (
+        ("CPUExecutionProvider", MIN_COSINE),
+        ("DmlExecutionProvider", MIN_COSINE_WHERE_RUN),
+    ):
         got = asked_on(out / "model.onnx", provider, ids.numpy(), mask.numpy(), "vector")
         cosine = np.sum(got * wanted, axis=1)
-        print(f"encoder on {provider}: cosine to the model {cosine.mean():.5f} mean, {cosine.min():.5f} lowest")
+        print(
+            f"encoder on {provider}: cosine to the model {cosine.mean():.5f} mean, {cosine.min():.5f} lowest"
+        )
         if cosine.min() < floor:
-            raise SystemExit(f"the encoder's graph is not the model on {provider}. Not shipping it.")
+            raise SystemExit(
+                f"the encoder's graph is not the model on {provider}. Not shipping it."
+            )
 
 
 def export_reranker(to: Path, claims: list[str]):
@@ -240,12 +252,19 @@ def export_reranker(to: Path, claims: list[str]):
     tokenizer.save_pretrained(out / "tokenizer")
     shutil.copy(out / "tokenizer" / "tokenizer.json", out / "tokenizer.json")
     shutil.rmtree(out / "tokenizer")
-    for provider, limit in (("CPUExecutionProvider", MAX_SCORE_DRIFT), ("DmlExecutionProvider", MAX_SCORE_DRIFT_WHERE_RUN)):
+    for provider, limit in (
+        ("CPUExecutionProvider", MAX_SCORE_DRIFT),
+        ("DmlExecutionProvider", MAX_SCORE_DRIFT_WHERE_RUN),
+    ):
         got = asked_on(out / "model.onnx", provider, ids.numpy(), mask.numpy(), "score")
         drift = np.abs(got - wanted)
-        print(f"reranker on {provider}: score drift {drift.mean():.4f} mean, {drift.max():.4f} most")
+        print(
+            f"reranker on {provider}: score drift {drift.mean():.4f} mean, {drift.max():.4f} most"
+        )
         if drift.max() > limit:
-            raise SystemExit(f"the reranker's graph is not the model on {provider}. Not shipping it.")
+            raise SystemExit(
+                f"the reranker's graph is not the model on {provider}. Not shipping it."
+            )
 
 
 if __name__ == "__main__":
