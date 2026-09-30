@@ -42,12 +42,12 @@
     "subset": "mined",
     "start": 60,
     "end": 140,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": true,
     "also": [
@@ -435,21 +435,17 @@
     "subset": "mined",
     "start": 233,
     "end": 603,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "difficulty",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "difficulty",
-        "polarity": "neutral"
-      },
-      {
-        "subject": "multiplayer",
+        "subject": "gameplay",
         "polarity": "praise"
       }
     ]

@@ -1,0 +1,37 @@
+[
+  {
+    "review_id": "143822047",
+    "index": 0,
+    "subject": "atmosphere",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "28922918",
+    "index": 3,
+    "subject": "atmosphere",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "52963196",
+    "index": 0,
+    "subject": "verdict",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "52963196",
+    "index": 2,
+    "subject": "audio",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "52963196",
+    "index": 5,
+    "subject": "price",
+    "acceptable": true,
+    "by": "a person"
+  }
+]

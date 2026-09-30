@@ -109,8 +109,8 @@
     "subset": "mined",
     "start": 42,
     "end": 589,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
@@ -500,19 +500,15 @@
     "subset": "mined",
     "start": 2894,
     "end": 3077,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "genre",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "bugs",
-        "polarity": "complaint"
-      },
       {
         "subject": "gameplay",
         "polarity": "complaint"

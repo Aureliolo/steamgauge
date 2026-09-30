@@ -58,8 +58,8 @@
     "subset": "declined",
     "start": 117,
     "end": 160,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
@@ -360,8 +360,8 @@
     "subset": "declined",
     "start": 200,
     "end": 381,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
@@ -369,10 +369,6 @@
     "ambiguous": true,
     "split_wrong": false,
     "also": [
-      {
-        "subject": "price",
-        "polarity": "complaint"
-      },
       {
         "subject": "bugs",
         "polarity": "complaint"
@@ -422,13 +418,13 @@
     "subset": "declined",
     "start": 0,
     "end": 169,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
@@ -521,21 +517,21 @@
     "subset": "declined",
     "start": 0,
     "end": 131,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
-        "subject": "content",
+        "subject": "story",
         "polarity": "praise"
       },
       {
-        "subject": "story",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -687,13 +683,13 @@
     "subset": "declined",
     "start": 0,
     "end": 252,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
@@ -701,7 +697,7 @@
         "polarity": "complaint"
       },
       {
-        "subject": "graphics",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -1009,14 +1005,20 @@
     "subset": "declined",
     "start": 572,
     "end": 646,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "story",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "82010246",
@@ -1418,14 +1420,15 @@
     "subset": "declined",
     "start": 0,
     "end": 27,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "82576269",
@@ -1469,14 +1472,15 @@
     "subset": "declined",
     "start": 55,
     "end": 73,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": true,
+    "also": []
   },
   {
     "review_id": "82730790",
@@ -1520,14 +1524,15 @@
     "subset": "declined",
     "start": 5637,
     "end": 5725,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "82847877",
@@ -1691,21 +1696,25 @@
     "subset": "declined",
     "start": 0,
     "end": 202,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      },
       {
         "subject": "story",
         "polarity": "praise"
       },
       {
-        "subject": "verdict",
+        "subject": "content",
         "polarity": "complaint"
       }
     ]

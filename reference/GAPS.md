@@ -188,6 +188,38 @@ say that its fix is labels and games, not a rule.
 
 ## Needs a rule, not a category
 
+### Where the two rules the person moved stop, reported by the twelve labellers of their revisit
+
+Ten Opus labellers read the 2,630 `updates` claims and two read the 441 `gameplay` claims that
+use the word, against sheet `58c7296afde5` (2026-09-30).
+
+- **Blame or praise of the makers where the review names several things** (eight of ten).
+  "Goes where what they are praised or blamed for belongs, named in the claim or in the review
+  around it" has no tie-break: "Eat shit, Blizzard", "Come on Konami, you can do better",
+  "Terrible developers!" in a review listing five faults. Labellers took the first named, the
+  nearest, or the patching, and flagged them.
+- **A fault not being fixed** (four): "reported 5 weeks ago and no fix", "hopefully they fix
+  that", "3 months and they can't fix bugs". A demand to fix a named thing belongs to it, and
+  whether they listen is `updates`; mostly `updates` with the thing in `also`. "They fixed the
+  crashing" was read the same way.
+- **The game against its own past or its predecessor** (four): "the game is ruined", "Bethesda
+  never changes", Overwatch 2 replacing the first, "gameplay wise an improvement from before".
+  `updates` (how it changed), `genre` (how it differs) and `verdict` (better or worse) all fit.
+- **Thanks that mean blame, and greed with nothing named** (three): "Parabéns Konami!",
+  "Thanks Paradox" after a list of faults, "too greedy". Thanks is `verdict`, blame is `policy`,
+  greed points at `monetisation`.
+- **Looking forward to development** (three): "excited to see what comes", "looking forward to
+  more updates". The looking-forward rule covers the game, not the work on it.
+- **The developer's own store page** (two): `offtopic` lists the shop page, `updates` lists
+  marketing the game did not live up to.
+- **Designer-run live events** (two), a Helldivers 2 scripted defeat pasted ten times among
+  them: nothing covers them; `updates`, `story` and `gameplay` were all used.
+- **"Gameplay" beside named aspects** (both gameplay labellers). Once the bare word is a
+  verdict, "graphics are terrible but gameplay is good" puts graphics first, because a verdict
+  is never first beside an aspect, which reads against what the reviewer leads to.
+- **"Boring", "addictive", "innovative" or "revolutionary" gameplay** (both): the feel of play
+  (`gameplay`) or a judgement with the word attached (`verdict`)? Split and flagged.
+
 ### Comparison with the predecessor: three reports, two eras
 
 "Not as good as the first game", "FP1 was a class", "completely different from the original",

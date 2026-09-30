@@ -1101,25 +1101,25 @@
     "subset": "mined",
     "start": 66,
     "end": 127,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": true,
     "also": [
-      {
-        "subject": "graphics",
-        "polarity": "praise"
-      },
       {
         "subject": "audio",
         "polarity": "praise"
       },
       {
         "subject": "content",
+        "polarity": "praise"
+      },
+      {
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
