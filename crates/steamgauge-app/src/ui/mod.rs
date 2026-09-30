@@ -1233,13 +1233,11 @@ async fn search_by_meaning(
 ) -> Result<Vec<NearClaim>, String> {
     use steamgauge_core::{
         meaning::nearest,
-        search_models::{SHOWN_FROM, SearchEncoder, SearchReranker},
+        search_models::{SHOWN_FROM, SearchEncoder, SearchReranker, candidates},
     };
 
     /// Enough to read through, and past it the claims are the least near of the near.
     const MOST: usize = 50;
-    /// What the reranker is handed: the hundred nearest, as in the comparison that chose it.
-    const CANDIDATES: usize = 100;
 
     let dir = library_dir(&app);
     let embedder = Arc::clone(&meaning.embedder);
@@ -1247,6 +1245,8 @@ async fn search_by_meaning(
     let last = Arc::clone(&last.0);
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
+        let mut reranking = reranker.lock().map_err(text)?;
+        let reranker = loaded(&mut reranking, SearchReranker::load)?;
         let wanted = {
             // A preparation holds the encoder for as long as it runs, which on a processor is
             // hours, and a search that waited for it would look like one that had hung.
@@ -1270,9 +1270,12 @@ async fn search_by_meaning(
                     .push(hit.at);
             }
         }
-        let near = nearest(&snapshot, &wanted, CANDIDATES, |review, at| {
-            found.get(review).is_some_and(|spans| spans.contains(&at))
-        })
+        let near = nearest(
+            &snapshot,
+            &wanted,
+            candidates(reranker.device()),
+            |review, at| found.get(review).is_some_and(|spans| spans.contains(&at)),
+        )
         .map_err(text)?;
 
         let similarity: HashMap<(String, [u8; 32]), f32> = near
@@ -1297,9 +1300,7 @@ async fn search_by_meaning(
             .collect();
 
         let claims: Vec<String> = near.iter().map(|one| one.evidence.claim.clone()).collect();
-        let scores = loaded(&mut *reranker.lock().map_err(text)?, SearchReranker::load)?
-            .score(&query, &claims)
-            .map_err(text)?;
+        let scores = reranker.score(&query, &claims).map_err(text)?;
         let mut ranked: Vec<(f32, NearClaim)> = scores
             .into_iter()
             .zip(near)

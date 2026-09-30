@@ -85,6 +85,17 @@ pub const RERANKER: Model = Model {
 /// The encoder's vectors are this wide.
 pub const DIMENSIONS: usize = 1024;
 
+/// How many of the encoder's nearest claims the reranker reads, on the device it runs on.
+///
+/// The hundred the judged comparison gave it on a card, where they take a few seconds at most.
+/// On a processor a hundred took 28 s a search, and reading the nearest 30 instead found what was
+/// asked for in 76.6% of the first ten against 77.2%, inside what fourteen searches can tell
+/// apart, in 8 s.
+#[must_use]
+pub fn candidates(device: &str) -> usize {
+    if device == "cpu" { 30 } else { 100 }
+}
+
 /// A claim the reranker scores below this is not shown. On the 1,029 judged pairs, scored by the
 /// exported graph: it keeps 93% of what was asked for and 81% of what was related, and
 /// leaves out half of what was not and 62% of what said the opposite. What it keeps is ordered by

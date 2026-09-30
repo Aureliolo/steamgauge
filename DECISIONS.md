@@ -64,6 +64,59 @@ State means: **done** is built and in use; **partial** is built for one case and
 | **Periodic sweep by last-edit date**, to catch reviews edited since the crawl | done: `steamgauge sweep`, and "Bring it up to date" in the window. One walk in `updated` order, newest first, stopping a day past the watermark (the crawl, or the last sweep). Rows land in `sweep-<unix>.parquet` beside the crawl's shards, never over them, and `newest.json` records which copy of each swept id counts; every reader of the capture goes through one walker that skips the rest. The readings record when the capture last changed, and the page and the window say so when a sweep has landed since they were made |
 | Valve's default filters overridden, because they hide 17.3% of negative reviews against 9.6% of positive | done |
 
+### Searching by meaning: chosen on judged results (2026-09-30)
+
+gte-multilingual-base was the first encoder, cut at 0.65. In the window it put opposites
+together: "boring" found "有趣" ("fun") among "Very boring." at 0.737, and on a small game whose
+reviewers never called it boring its nearest fifteen were "面白い", "good" and "nice". A reranker
+was tried to fix that and made it worse where it matters most: bge-reranker-v2-m3 read "controller
+support" as a question about "support", scored "Give me mod support." 0.22 and "cant use
+controller" 0.003, and phrasing the search as a question sank even "Very boring." to 0.05.
+
+So the ways were compared on what a person searching sees. Fourteen searches, four judgements
+("boring", "fun", "waste of money", "masterpiece") and ten topics ("controller support", "steam
+deck", "desync", "servers", "matchmaking", "too expensive", "crashes", "grindy", "tutorial",
+"campaign"), over 37,724 claims of Age of Empires IV and 38,615 of Helldivers 2, and the
+judgements again over the 3,642 of a small game. Each way's first ten, leaving out what the word
+search already found as the window does, were pooled and judged blind by Opus 5.5 against a
+brief: 2 what was asked, 1 related, 0 not, -1 the opposite judgement. 1,121 pairs.
+
+| way | right in the first ten | judgements | topics | opposites shown |
+|---|---|---|---|---|
+| **Qwen3-Embedding-0.6B's 100 nearest, ordered by Qwen3-Reranker-0.6B** | **77.2%** | **80.4%** | **75.3%** | **5** |
+| the same, reranking the nearest 50 | 77.8% | 80.4% | 76.2% | 7 |
+| the same, reranking the nearest 30 | 76.6% | 77.9% | 75.8% | 7 |
+| Qwen3-Embedding-0.6B alone | 71.9% | 66.2% | 75.3% | 8 |
+| gte, ordered by Qwen3-Reranker | 70.2% | 67.5% | 71.8% | 14 |
+| gte, dropping the opposite polarity when the reader reads the search as a verdict | 66.2% | 59.6% | 70.3% | 8 |
+| gte alone, as first shipped | 64.2% | 54.2% | 70.3% | 24 |
+| gte, ordered by bge-reranker-v2-m3 | 58.1% | 63.8% | 54.7% | 4 |
+
+The Qwen pair wins every column that decides anything. The reranker takes an instruction ("Given
+a search typed over a video game's reviews, find the review points that say what the search
+describes"), which is what lets it read a two-word topic as a topic; `search-prompts.json` holds
+it and the prompts, read by the app and the export alike.
+
+**Exported here.** The embedding's only full-precision ONNX export carries a text generator's
+cache as fifty-six inputs and the reranker has none but quantised ones, so `export_search.py`
+exports both through `LengthFree`, as the reader is: the encoder's graph gives each text's unit
+vector at its last token, the reranker's the model's "yes" against its "no" at the last token,
+the two rows of its output layer all that is kept of it. Checked against the full-precision
+model: cosine at least 0.99988 on DirectML, score drift at most 0.0076. 1.31 GB each, pinned by
+hash, published with the reader, and used from the model cache until then.
+
+**Shown from 0.1.** Scored by the exported graph, the judged pairs sat at a median 0.89 for
+what was asked, 0.41 related, 0.11 not and 0.04 opposite. The line keeps 93% of the first and
+81% of the second, and leaves out half the third and 62% of the fourth; what stays is ordered by
+the same score.
+
+**Its cost.** Measured beside a training run holding half the card: 8.7 ms a claim on the card
+and 118 ms on the processor to prepare (a median game half an hour and a large one hours on a
+card; hours to days on a processor, which the window says before anyone starts), and 3.3 s on
+the card and 28 s on the processor to rerank a hundred claims for one search. Hence thirty on a
+processor, 8 s, at a cost the table cannot tell from nothing. A game prepared with gte is
+prepared again: its vectors are in another space.
+
 ## Distribution
 
 | Decided | State |
