@@ -260,7 +260,8 @@ pub const SHEET: &[Category] = &[
              than enjoyable\", it is a verdict, and it is gameplay only when the claim says \
              something about how the game plays, a mechanic, a system, its depth or its feel, \
              \"the gameplay loop gets repetitive\". Thanks or praise for the people who made \
-             the game, with nothing else named in the claim or the review around it, \"thank \
+             the game, with nothing else named in the claim, whatever the review around it \
+             praises, \"thank \
              you for this majestic game, keep it up\", judges the game and is a verdict. A \
              judgement with only the kind of game attached, \"excellent \
              city builder\", is a verdict; genre is for when what kind of game it is, or \
@@ -575,21 +576,24 @@ pub const SHEET: &[Category] = &[
             "What the developers do to the game after release belongs here: its patches, \
              their pace, how they talk to players, and telling them to fix things. Praise or \
              blame aimed at the people who make it, developer or publisher, goes where what \
-             they are praised or blamed for belongs, named in the claim or in the review \
-             around it: \"greed machine\" in a review about a $100 edition or items sold \
-             against a timer is monetisation, in a review about an account requirement it \
-             protests the decision and is policy, and for a patch or a broken promise it is \
-             here. With nothing named anywhere it is not here: thanking them for the game, \
-             \"thank you for this majestic game, keep it up\", is a verdict, praise; blaming \
-             them, insulting them or swearing off their games, \"will never buy another game \
-             from this studio\", protests the makers and is policy; a joke at their expense \
-             that makes no point about the game is offtopic. Broken promises belong here, and \
-             so do marketing the game did not live up to, \"not what the trailers showed\", and \
-             not learning from the last release. A demand to fix one thing it names belongs to that \
-             thing, as a complaint about it would: \"fix the accessibility\" is accessibility \
-             and \"fix the servers\" multiplayer; a list of demands, \"fix the lobbies, get \
-             cross play working, add missions\", is here first, with each thing it names as \
-             another subject. \
+             they are praised or blamed for belongs, named in the claim itself: \"greed \
+             machine\" and \"cash grab\" blame them for money and are monetisation, \"they \
+             break something with every patch\" is here. The claim alone decides, whatever the \
+             rest of the review lists. With nothing named in it, it is not here: thanking them \
+             for the game, \"thank you for this majestic game, keep it up\", is a verdict, \
+             praise; blaming them, insulting them or swearing off their games, \"terrible \
+             developers\", \"will never buy another game from this studio\", protests the \
+             makers and is policy, and the faults the review lists are claims of their own; a \
+             joke at their expense that makes no point about the game is offtopic. Broken \
+             promises belong here, and so do marketing the game did not live up to, \"not what \
+             the trailers showed\", and not learning from the last release. A demand to fix one \
+             thing it names belongs to that thing, as a complaint about it would: \"fix the \
+             accessibility\" is accessibility and \"fix the servers\" multiplayer; a list of \
+             demands, \"fix the lobbies, get cross play working, add missions\", is here first, \
+             with each thing it names as another subject. A fault complained of as left \
+             unfixed, how long it has waited or whether a fix will come, \"reported five weeks \
+             ago and still no fix\", \"hopefully they fix that\", is here, the pace of their \
+             patching, with the fault beside it in also. \
              A complaint about what a patch changed is about the change: balance to \
              difficulty, a mechanic to gameplay, modes, maps or levels taken out to content. \
              Something altered or cut for what it showed or said, censored, an outfit, a \
@@ -632,10 +636,11 @@ pub const SHEET: &[Category] = &[
              that was reversed: \"we won\" about a withdrawn account requirement is this, and \
              it is praise. Blame or praise for the makers goes where what they are blamed for \
              belongs: here for a decision of this row, monetisation for what is sold and how, \
-             and updates for what they do to the game after release. When the review names \
-             nothing, blaming or insulting them, or swearing off their games, \"will never buy \
-             another game from this studio\", protests the makers and is here, and thanking \
-             them is a verdict. What a decision is belongs here; what it does \
+             and updates for what they do to the game after release, named in the claim \
+             itself. When the claim names nothing, whatever the review around it lists, \
+             blaming or insulting them, or swearing off their games, \"will never buy another \
+             game from this studio\", protests the makers and is here, and thanking them is a \
+             verdict. What a decision is belongs here; what it does \
              while playing belongs where it happens, so needing a launcher is here, a sign-in \
              that fails is bugs, and an anti-cheat that keeps you out of a match is \
              multiplayer. Which platform gets which version, \"PC only gets the last-gen \

@@ -2370,6 +2370,23 @@ the library holds (gameplay, jugabilidad, геймплей, 玩法, ゲームプ
 two labellers. 190 moved, 82 to `verdict` and most of the rest to the aspect named beside it,
 since the bare word no longer counts as one. Where the twelve labellers found the new rules'
 edges is in `reference/GAPS.md`.
+
+**Two of those edges closed the same evening, before the retrain got past its first hour.**
+Eight of the ten `updates` labellers stopped at blame of the makers in a review naming several
+faults, and four at a fault left unfixed; each drew the line where they liked, which a reader
+learns as noise. The user settled both (AskUserQuestion, 2026-09-30):
+
+- **The claim alone decides where praise or blame of the makers goes.** What it names places
+  it ("greed machine" is `monetisation`); with nothing named in it, blame is `policy` and thanks
+  a `verdict`, whatever the rest of the review lists, whose faults are claims of their own.
+- **A fault left unfixed is `updates`, the pace of the patching, with the fault in `also`**:
+  "reported five weeks ago and still no fix", "hopefully they fix that". A bare demand, "fix
+  the servers", stays the thing's.
+
+Sheet `58c7296afde5` to `48c9082cb743`. Drawn by the words the two rules turn on (developer and
+its translations, studio, publisher, the publishers named in the sets, thanks, greed, fix and its
+forms) across every subject: 1,952 claims in 1,605 reviews over 69 games, eight Opus labellers.
+The teacher's training on the earlier labels was stopped an hour in and starts again on these.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
