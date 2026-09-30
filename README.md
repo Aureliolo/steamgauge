@@ -320,7 +320,7 @@ games the two 4Bs are level: 77.7% and 77.4% of claims right.
 |---|---|---|---|---|---|---|---|
 | small | 118M | 244 MB | 76.0% | 74.0% | 1.2 GB | 62 s | 36 s |
 | standard | 559M | 1.1 GB | 85.2% | 81.3% | 2.6 GB | 125 s | 285 s |
-| *4B* (not shipped) | 4.0B | 8.8 GB | 79.8% | 75.5% | 12.5 GB | 23 min | pending |
+| *4B* (not shipped) | 4.0B | 8.8 GB | 79.8% | 75.5% | 12.5 GB | 23 min | 49 min |
 
 - **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
 - **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's are the first 4B's, which taught the sizes, and whose graph is the same shape as the one in its row.
