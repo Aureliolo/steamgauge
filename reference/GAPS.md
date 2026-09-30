@@ -197,11 +197,13 @@ use the word, against sheet `58c7296afde5` (2026-09-30).
   "Goes where what they are praised or blamed for belongs, named in the claim or in the review
   around it" has no tie-break: "Eat shit, Blizzard", "Come on Konami, you can do better",
   "Terrible developers!" in a review listing five faults. Labellers took the first named, the
-  nearest, or the patching, and flagged them.
+  nearest, or the patching, and flagged them. Closed in sheet `48c9082cb743`: the claim alone
+  decides.
 - **A fault not being fixed** (four): "reported 5 weeks ago and no fix", "hopefully they fix
   that", "3 months and they can't fix bugs". A demand to fix a named thing belongs to it, and
   whether they listen is `updates`; mostly `updates` with the thing in `also`. "They fixed the
-  crashing" was read the same way.
+  crashing" was read the same way. Closed in sheets `48c9082cb743` and `6c62994d71a7`: the wait
+  is `updates`, a described fault is the fault's.
 - **The game against its own past or its predecessor** (four): "the game is ruined", "Bethesda
   never changes", Overwatch 2 replacing the first, "gameplay wise an improvement from before".
   `updates` (how it changed), `genre` (how it differs) and `verdict` (better or worse) all fit.
@@ -219,6 +221,55 @@ use the word, against sheet `58c7296afde5` (2026-09-30).
   is never first beside an aspect, which reads against what the reviewer leads to.
 - **"Boring", "addictive", "innovative" or "revolutionary" gameplay** (both): the feel of play
   (`gameplay`) or a judgement with the word attached (`verdict`)? Split and flagged.
+
+### Where the makers rule and the unfixed rule stop, reported by the eight labellers of their revisit
+
+Eight Opus labellers read the 1,952 claims using the words the two rules turn on, against sheet
+`48c9082cb743` (2026-09-30). The commonest report, a fault described beside the hope of a fix
+(four of eight), was settled at once and is not listed.
+
+- **Blame naming nothing whose target the review makes plain** (four): "do the devs play their
+  own game?" beside a balance complaint, "Devs do not give a ♥♥♥♥" beside an unfixed crash,
+  "This is unacceptable from a developer" where "this" is the save bug a sentence earlier. The
+  claim alone decides, but elsewhere "it doesn't" is read in context; `policy` by the letter.
+- **Does "the game" count as named?** (three): "they ruined this game completely", "Blizzard
+  finally ruined the project", "developers get too ambitious", "has the dev team ever played a
+  survival game?". `policy`, or a `verdict` on the game; split, mostly `policy` with `verdict` in
+  `also`.
+- **Sarcasm at the makers** (three): "Thanks Paradox." after a lost save, "THANKS EA LOL", "Bien
+  hecho Konami". Thanks is a `verdict`, so a sarcastic one stays one, ironic, even where the
+  review names the fault; others read it as a joke (`offtopic`) or as blame (`policy`).
+- **Money words that mean something else** (two): "the publisher is money grabbing" in a review
+  protesting a store exclusive; "I can't get a refund because I lost 13.6 hours". "Cash grab"
+  forces `monetisation` and a refused refund is `policy`, `price` or a complaint about Steam.
+- **A fault reported fixed** (two): "servers and crashes are fixed", "a lot better now that they
+  have done some balance patches". The wait rule covers faults still waiting; `updates` first,
+  the fault in `also`, though a patch's balance change is `difficulty`.
+- **A publisher's stance on its own servers** (two): servers shut down after three years, a
+  publisher said to tolerate cheaters. `multiplayer` owns servers and cheaters; both were read as
+  `policy`.
+- **One report each**: no row owns a save or suspend system (`gameplay`), choices without
+  consequence (`story` or `gameplay`), a claim stating only hours played or server history, the
+  format of in-client tournaments, "only has 9 teams" (`licensing` or `content`), "accessibility
+  features" meaning inventory sorting, the polarity of `updates` first in a list of demands, a
+  patch that made it easier for players to crash others, and a launcher that is both needed
+  (`policy`) and broken (`bugs`).
+
+The four labellers who then asked the `updates` claims that hope or wait for a fix again, on
+sheets `6c62994d71a7` and `14d11a13721e`, added:
+
+- **Polarity of a bare hope** (three): "hopefully they fix it", "I hope it gets better". No rule
+  gives one; all used `neutral`, so a share of `updates` complaints read as neutral.
+- **A fault already fixed** (three): "they fixed the crashing", "no longer crashes", "v1.0.5
+  fixed most of the issues". The fault-first rule speaks of hoping and waiting; read as the fault
+  by one labeller and as `updates` with the fault in `also` by the others.
+- **Two faults in one hope** (two): "if they fix the lag and remove the rng", "I hope all of the
+  bugs will be fixed and the game properly optimised". A list of demands is `updates` first; a
+  named fault is the fault's. `updates` first, flagged.
+- **Servers switched off for good** (two): whether the game is abandoned (`updates`), a delisting
+  (`policy`) or servers (`multiplayer`).
+- **A patch that fixes one thing and breaks another** (one): "they break something with every
+  patch" (`updates`) against something that worked and now does not (`bugs`).
 
 ### Comparison with the predecessor: three reports, two eras
 

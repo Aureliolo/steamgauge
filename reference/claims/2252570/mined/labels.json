@@ -109,7 +109,7 @@
     "subset": "mined",
     "start": 42,
     "end": 589,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
@@ -840,18 +840,18 @@
     "subset": "mined",
     "start": 0,
     "end": 113,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
-    "subject": "licensing",
-    "polarity": "neutral",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "mods",
+    "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "mods",
-        "polarity": "praise"
+        "subject": "licensing",
+        "polarity": "complaint"
       },
       {
         "subject": "verdict",

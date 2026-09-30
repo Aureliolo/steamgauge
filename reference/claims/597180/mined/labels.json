@@ -259,7 +259,7 @@
     "subset": "mined",
     "start": 310,
     "end": 464,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -468,14 +468,15 @@
     "subset": "mined",
     "start": 594,
     "end": 773,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "mods",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "115999030",
@@ -732,7 +733,7 @@
     "subset": "mined",
     "start": 1364,
     "end": 1547,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -742,11 +743,11 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "verdict",
+        "subject": "community",
         "polarity": "praise"
       },
       {
-        "subject": "community",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -906,14 +907,20 @@
     "subset": "mined",
     "start": 0,
     "end": 312,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "language",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "medium",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "118430661",
@@ -967,7 +974,7 @@
     "subset": "mined",
     "start": 3016,
     "end": 3118,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -975,12 +982,7 @@
     "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "tutorial",
-        "polarity": "complaint"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "118939574",
@@ -1394,8 +1396,8 @@
     "subset": "mined",
     "start": 67,
     "end": 168,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "tutorial",
     "polarity": "praise",
     "ironic": false,

@@ -1863,7 +1863,7 @@
     "subset": "random",
     "start": 429,
     "end": 515,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "verdict",
     "polarity": "praise",
@@ -1922,17 +1922,17 @@
     "subset": "random",
     "start": 56,
     "end": 232,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
-    "subject": "updates",
+    "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
-        "subject": "multiplayer",
+        "subject": "updates",
         "polarity": "complaint"
       },
       {

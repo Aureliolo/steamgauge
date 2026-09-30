@@ -395,17 +395,17 @@
     "subset": "random",
     "start": 0,
     "end": 99,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "audio",
+        "subject": "content",
         "polarity": "complaint"
       }
     ]
@@ -4711,13 +4711,13 @@
     "subset": "random",
     "start": 275,
     "end": 375,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "low",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": true,
     "also": [
       {
@@ -4787,15 +4787,20 @@
     "subset": "random",
     "start": 515,
     "end": 549,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
-    "also": []
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "77941554",
@@ -5560,14 +5565,20 @@
     "subset": "random",
     "start": 216,
     "end": 327,
-    "taxonomy": "core-5",
-    "produced_by": "claude-fable-5-1",
-    "subject": "content",
-    "polarity": "complaint",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "mods",
+    "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "content",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "96840928",

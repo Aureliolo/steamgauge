@@ -1565,17 +1565,17 @@
     "subset": "retrieved",
     "start": 636,
     "end": 680,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
-    "subject": "updates",
+    "subject": "content",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "low",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "multiplayer",
+        "subject": "updates",
         "polarity": "complaint"
       }
     ]

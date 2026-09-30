@@ -2302,9 +2302,9 @@
     "subset": "retrieved",
     "start": 2063,
     "end": 2190,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "vr",
+    "subject": "updates",
     "polarity": "praise",
     "ironic": false,
     "confidence": "high",
@@ -2312,7 +2312,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "updates",
+        "subject": "vr",
         "polarity": "praise"
       }
     ]
@@ -2359,7 +2359,7 @@
     "subset": "retrieved",
     "start": 201,
     "end": 223,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "praise",
@@ -2382,13 +2382,13 @@
     "subset": "retrieved",
     "start": 1825,
     "end": 1970,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
@@ -2696,14 +2696,20 @@
     "subset": "retrieved",
     "start": 0,
     "end": 48,
-    "taxonomy": "604974ace095",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "62352229",
@@ -2799,20 +2805,15 @@
     "subset": "retrieved",
     "start": 1795,
     "end": 1891,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "updates",
-        "polarity": "neutral"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "62414792",
@@ -3040,14 +3041,20 @@
     "subset": "retrieved",
     "start": 1160,
     "end": 1383,
-    "taxonomy": "604974ace095",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "neutral"
+      }
+    ]
   },
   {
     "review_id": "62826382",
@@ -3125,12 +3132,12 @@
     "subset": "retrieved",
     "start": 689,
     "end": 733,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "14d11a13721e",
     "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
@@ -3165,14 +3172,15 @@
     "subset": "retrieved",
     "start": 0,
     "end": 136,
-    "taxonomy": "604974ace095",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "63516769",
@@ -3274,14 +3282,24 @@
     "subset": "retrieved",
     "start": 0,
     "end": 162,
-    "taxonomy": "82b663c6977f",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": true
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "updates",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "78699999",
@@ -3428,14 +3446,15 @@
     "subset": "retrieved",
     "start": 21,
     "end": 67,
-    "taxonomy": "82b663c6977f",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "vr",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
-    "split_wrong": false
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "88607523",

@@ -230,8 +230,8 @@
     "subset": "declined",
     "start": 17,
     "end": 108,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "price",
     "polarity": "complaint",
     "ironic": false,
@@ -245,6 +245,10 @@
       },
       {
         "subject": "story",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -410,7 +414,7 @@
     "subset": "declined",
     "start": 0,
     "end": 7,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
@@ -531,7 +535,7 @@
     "subset": "declined",
     "start": 220,
     "end": 275,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
@@ -1015,12 +1019,12 @@
     "subset": "declined",
     "start": 46,
     "end": 318,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "compatibility",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
+    "subject": "bugs",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
+    "confidence": "medium",
     "ambiguous": true,
     "split_wrong": false,
     "also": [
@@ -1029,12 +1033,8 @@
         "polarity": "complaint"
       },
       {
-        "subject": "bugs",
+        "subject": "compatibility",
         "polarity": "complaint"
-      },
-      {
-        "subject": "genre",
-        "polarity": "praise"
       }
     ]
   },
@@ -1046,14 +1046,15 @@
     "subset": "declined",
     "start": 237,
     "end": 567,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "monetisation",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "202543896",

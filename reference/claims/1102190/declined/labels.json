@@ -628,8 +628,8 @@
     "subset": "declined",
     "start": 222,
     "end": 452,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
@@ -642,7 +642,7 @@
         "polarity": "praise"
       },
       {
-        "subject": "updates",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -1340,13 +1340,13 @@
     "subset": "declined",
     "start": 938,
     "end": 1035,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "updates",
+    "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "low",
-    "ambiguous": true,
+    "confidence": "medium",
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {

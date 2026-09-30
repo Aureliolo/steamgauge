@@ -2370,6 +2370,44 @@ the library holds (gameplay, jugabilidad, геймплей, 玩法, ゲームプ
 two labellers. 190 moved, 82 to `verdict` and most of the rest to the aspect named beside it,
 since the bare word no longer counts as one. Where the twelve labellers found the new rules'
 edges is in `reference/GAPS.md`.
+
+**Two of those edges closed the same evening, before the retrain got past its first hour.**
+Eight of the ten `updates` labellers stopped at blame of the makers in a review naming several
+faults, and four at a fault left unfixed; each drew the line where they liked, which a reader
+learns as noise. The user settled both (AskUserQuestion, 2026-09-30):
+
+- **The claim alone decides where praise or blame of the makers goes.** What it names places
+  it ("greed machine" is `monetisation`); with nothing named in it, blame is `policy` and thanks
+  a `verdict`, whatever the rest of the review lists, whose faults are claims of their own.
+- **A fault left unfixed is `updates`, the pace of the patching, with the fault in `also`**:
+  "reported five weeks ago and still no fix", "hopefully they fix that". A bare demand, "fix
+  the servers", stays the thing's.
+
+Sheet `58c7296afde5` to `48c9082cb743`. Drawn by the words the two rules turn on (developer and
+its translations, studio, publisher, the publishers named in the sets, thanks, greed, fix and its
+forms) across every subject: 1,952 claims in 1,605 reviews over 69 games, eight Opus labellers.
+421 changed their first subject: the largest flows were `bugs` to `updates` (38), `updates` to
+`policy` (31), `verdict` to `updates` (19) and `updates` to `verdict` (16). The teacher's
+training on the earlier labels was stopped an hour in and starts again on these.
+
+**The second rule's edge was the next thing four of those eight labellers stopped at**: a claim
+that describes its fault and hopes for the fix, "optimisation is a massive problem, I hope they
+fix it soon". The unfixed rule sent it to `updates`, the demand rule to the fault, and the
+labellers split. The user put the fault first (AskUserQuestion, 2026-09-30): `updates` leads
+only when the claim is about the wait and names no fault of its own, and otherwise sits in
+`also`. A performance complaint stays counted as one however its writer hopes. Sheet
+`48c9082cb743` to `6c62994d71a7`; the `updates` claims using fix, still, until, hope, wait and
+their translations were asked again: 405 claims over 59 games, two Opus labellers. They moved
+only 29, and a sample of what stayed showed why: the sheet said a claim that *describes* its
+fault, and "the DLC is out and force feedback is still not fixed" or "never fixed any of the
+traffic AI problems" were read as naming the fault without describing it. The row now says
+*names*, with those as its examples and "issues", "things" and "the game" as naming none (sheet
+`14d11a13721e`), and the 376 claims still under `updates` were asked a third time: 68 more went
+to their fault, 33 of them to `bugs`, and a sample of the 308 left found none naming a fault of
+its own. Against the labels #171 left, 2,086 were asked again and 414 changed their first
+subject, most of all `updates` to `policy` (34), `updates` to `bugs` (19), `verdict` to `updates`
+(18) and `updates` to `verdict` (16).
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

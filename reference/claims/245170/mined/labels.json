@@ -219,7 +219,7 @@
     "subset": "mined",
     "start": 1150,
     "end": 1399,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "neutral",
@@ -429,15 +429,19 @@
     "subset": "mined",
     "start": 5917,
     "end": 6168,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "compatibility",
+    "taxonomy": "14d11a13721e",
+    "produced_by": "claude-opus-5-5",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "compatibility",
+        "polarity": "complaint"
+      },
       {
         "subject": "controls",
         "polarity": "complaint"
@@ -527,14 +531,15 @@
     "subset": "mined",
     "start": 144,
     "end": 519,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "140789228",
@@ -616,13 +621,13 @@
     "subset": "mined",
     "start": 1175,
     "end": 1719,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": []
   },
@@ -759,8 +764,8 @@
     "subset": "mined",
     "start": 516,
     "end": 770,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "multiplayer",
     "polarity": "complaint",
     "ironic": false,
@@ -769,7 +774,7 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "updates",
+        "subject": "verdict",
         "polarity": "complaint"
       }
     ]
@@ -955,14 +960,15 @@
     "subset": "mined",
     "start": 1291,
     "end": 2369,
-    "taxonomy": "417a6ff54399",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "141275039",
@@ -1102,14 +1108,15 @@
     "subset": "mined",
     "start": 202,
     "end": 462,
-    "taxonomy": "ef412286fa09",
-    "produced_by": "claude-opus-5",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "high",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "141565609",
@@ -1153,8 +1160,8 @@
     "subset": "mined",
     "start": 0,
     "end": 2670,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "policy",
     "polarity": "complaint",
     "ironic": false,
@@ -1163,8 +1170,8 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "gameplay",
-        "polarity": "praise"
+        "subject": "verdict",
+        "polarity": "complaint"
       }
     ]
   },
@@ -1449,13 +1456,13 @@
     "subset": "mined",
     "start": 359,
     "end": 435,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "policy",
+    "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": true,
+    "confidence": "high",
+    "ambiguous": false,
     "split_wrong": false,
     "also": []
   },

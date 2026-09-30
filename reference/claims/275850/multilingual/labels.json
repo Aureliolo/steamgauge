@@ -566,13 +566,13 @@
     "subset": "multilingual",
     "start": 186,
     "end": 428,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "48c9082cb743",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": false,
+    "ambiguous": true,
     "split_wrong": true,
     "also": [
       {
@@ -580,12 +580,12 @@
         "polarity": "praise"
       },
       {
-        "subject": "bugs",
-        "polarity": "complaint"
-      },
-      {
         "subject": "updates",
         "polarity": "praise"
+      },
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
       }
     ]
   },
@@ -1138,7 +1138,7 @@
     "subset": "multilingual",
     "start": 235,
     "end": 342,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
@@ -1210,9 +1210,9 @@
     "subset": "multilingual",
     "start": 576,
     "end": 629,
-    "taxonomy": "58c7296afde5",
+    "taxonomy": "48c9082cb743",
     "produced_by": "claude-opus-5-5",
-    "subject": "updates",
+    "subject": "offtopic",
     "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
