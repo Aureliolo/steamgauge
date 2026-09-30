@@ -54,6 +54,11 @@ pub struct Question {
     /// they accept the rule, not what they think of the claim cold.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub was: Option<Answered>,
+    /// A subject a reader gave where the person gave another, on a question asking whether it
+    /// would also do. Shown beside the person's own answer and both rules; the answer is yes
+    /// or no, and it is kept apart from the gold label, which it does not change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offered: Option<String>,
 }
 
 /// One labeller's answer to a question, as it is shown on a split.
@@ -412,6 +417,7 @@ pub fn draw(
                 language: label.language.clone(),
                 shown: None,
                 was: None,
+                offered: None,
             };
 
             // The same key for both pools, so a control claim lands wherever its review lands
@@ -440,6 +446,7 @@ pub fn draw(
                     Question {
                         shown: Some(vec![answered(label), answered(other)]),
                         was: None,
+                        offered: None,
                         ..question.clone()
                     },
                 ));
@@ -557,6 +564,153 @@ pub fn rejudge(reference: &Path, reading: &str) -> Result<(Vec<Question>, GoldDr
                 language: label.language.clone(),
                 shown: Some(shown),
                 was: Some(answered(label)),
+                offered: None,
+            });
+        }
+    }
+
+    questions
+        .sort_by(|a, b| (a.app_id, &a.review_id, a.index).cmp(&(b.app_id, &b.review_id, b.index)));
+    found.split = questions.len();
+    Ok((questions, found))
+}
+
+/// A person's judgement of whether a subject other than their own would also do for a claim.
+///
+/// Human writing is not one subject a sentence: "then you meet Jar Jar and follow him to the
+/// Gungan base" is the story as much as the level. A reader scored only against the person's
+/// single answer is counted wrong every time it names the other fair one, which understates it
+/// against the one judge whose view is the truth. So the person is asked, once for each subject
+/// a reader has actually proposed, and the answer is kept beside the gold label rather than in
+/// it: the label is what they would say, this is what they would accept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Acceptable {
+    pub review_id: String,
+    pub index: u16,
+    pub subject: String,
+    pub acceptable: bool,
+    pub by: String,
+}
+
+/// The file the judgements are kept in, in a set's `gold` directory.
+pub const ACCEPTABLE: &str = "acceptable.json";
+
+/// The judgements kept for the set in `set`, or none.
+#[must_use]
+pub fn acceptable_in(set: &Path) -> Vec<Acceptable> {
+    std::fs::read(set.join("gold").join(ACCEPTABLE))
+        .ok()
+        .and_then(|raw| serde_json::from_slice(&raw).ok())
+        .unwrap_or_default()
+}
+
+/// Keeps `judged` with the set's judgements, a later one replacing an earlier one about the
+/// same claim and subject. Returns how many are kept in all.
+///
+/// # Errors
+///
+/// Fails if the file cannot be written.
+pub fn keep_acceptable(set: &Path, judged: &[Acceptable]) -> Result<usize> {
+    let mut kept = acceptable_in(set);
+    for one in judged {
+        kept.retain(|old| {
+            (&old.review_id, old.index, &old.subject) != (&one.review_id, one.index, &one.subject)
+        });
+        kept.push(one.clone());
+    }
+    kept.sort_by(|a, b| {
+        (&a.review_id, a.index, &a.subject).cmp(&(&b.review_id, b.index, &b.subject))
+    });
+    let dir = set.join("gold");
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join(ACCEPTABLE), serde_json::to_vec_pretty(&kept)?)?;
+    Ok(kept.len())
+}
+
+/// Every gold claim the library's reader answered with a subject other than the person's, and
+/// that the person has not yet judged, as a question asking whether that subject would also do.
+///
+/// The reader's answer is the one the library was read with, so what is asked about is what the
+/// tool actually says. A claim the reader declined, or answered as the person did, is not asked.
+///
+/// # Errors
+///
+/// Fails if a reference set or a reading cannot be read.
+pub fn offered(reference: &Path, library: &Path) -> Result<(Vec<Question>, GoldDraw)> {
+    let mut questions = Vec::new();
+    let mut found = GoldDraw::default();
+
+    for entry in std::fs::read_dir(reference)? {
+        let dir = entry?.path();
+        let Some(app_id) = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        let (Ok(sample), Ok(gold)) = (
+            std::fs::read(dir.join("sample.json")),
+            std::fs::read(dir.join("gold").join("labels.json")),
+        ) else {
+            continue;
+        };
+        let Ok(snapshot) = crate::embed::latest_snapshot(library, app_id) else {
+            continue;
+        };
+        let drawn: Vec<DrawnReview> = serde_json::from_slice(&sample)?;
+        let gold: Vec<ClaimLabel> = serde_json::from_slice(&gold)?;
+        let judged: std::collections::HashSet<(String, u16, String)> = acceptable_in(&dir)
+            .into_iter()
+            .map(|one| (one.review_id, one.index, one.subject))
+            .collect();
+
+        let wanted: std::collections::HashSet<&str> =
+            gold.iter().map(|label| label.review_id.as_str()).collect();
+        let mut read: std::collections::HashMap<(String, u32, u32), String> =
+            std::collections::HashMap::new();
+        crate::read::for_each_full_reading(
+            &snapshot.join("readings.parquet"),
+            |id, (start, end), subject, _, _, _| {
+                if let Some(subject) = subject.filter(|_| wanted.contains(id)) {
+                    read.insert((id.to_owned(), start, end), subject.to_owned());
+                }
+            },
+        )?;
+        found.games += 1;
+
+        let around: std::collections::HashMap<&str, Rejoined<'_>> = drawn
+            .iter()
+            .map(|review| (review.id.as_str(), Rejoined::of(review)))
+            .collect();
+        for label in &gold {
+            let Some(said) = read.get(&(label.review_id.clone(), label.start, label.end)) else {
+                continue;
+            };
+            if *said == label.subject {
+                found.agreed += 1;
+                continue;
+            }
+            if judged.contains(&(label.review_id.clone(), label.index, said.clone())) {
+                continue;
+            }
+            let Some(rejoined) = around.get(label.review_id.as_str()) else {
+                continue;
+            };
+            let Some((at, text)) = rejoined.find(label.index) else {
+                continue;
+            };
+            questions.push(Question {
+                app_id,
+                review_id: label.review_id.clone(),
+                index: label.index,
+                claim: text.to_owned(),
+                before: rejoined.text[..at].to_owned(),
+                after: rejoined.text[at + text.len()..].to_owned(),
+                language: label.language.clone(),
+                shown: None,
+                was: Some(answered(label)),
+                offered: Some(said.clone()),
             });
         }
     }
@@ -1298,6 +1452,7 @@ mod tests {
             language: "english".to_owned(),
             shown: None,
             was: None,
+            offered: None,
         }];
         let page = render(&questions, &GoldDraw::default());
         assert!(page.contains("Runs badly"));
@@ -1322,11 +1477,196 @@ mod tests {
             language: "english".to_owned(),
             shown: None,
             was: None,
+            offered: None,
         }];
         let page = render(&questions, &GoldDraw::default());
         assert!(
             page.contains("\"shown\":null"),
             "an answer on the page is an answer in the reader's head"
+        );
+    }
+
+    /// A game read by the reader: two reviews, the first cut into a claim about the Deck and one
+    /// about the story, the second into one about the Deck, all three put under a subject.
+    fn read_library(snapshot: &Path) {
+        use std::sync::Arc;
+
+        use arrow::{
+            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
+
+        let reviews = [
+            serde_json::json!({"recommendationid": "1", "review": "Runs badly on Steam Deck. Great story.",
+                "language": "english", "timestamp_created": 1, "timestamp_updated": 1,
+                "voted_up": false, "votes_up": 0}),
+            serde_json::json!({"recommendationid": "2", "review": "Perfect on my Steam Deck!",
+                "language": "english", "timestamp_created": 2, "timestamp_updated": 2,
+                "voted_up": true, "votes_up": 0}),
+        ];
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+        writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+
+        let rows = [
+            ("1", 0, 25, "performance"),
+            ("1", 26, 38, "story"),
+            ("2", 0, 25, "performance"),
+        ];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("recommendationid", DataType::Utf8, false),
+            Field::new("start", DataType::UInt32, false),
+            Field::new("end", DataType::UInt32, false),
+            Field::new("subject", DataType::Utf8, true),
+            Field::new("confidence", DataType::Float32, false),
+            Field::new("polarity", DataType::Utf8, false),
+        ]));
+        let (mut ids, mut starts, mut ends) = (
+            StringBuilder::new(),
+            UInt32Builder::new(),
+            UInt32Builder::new(),
+        );
+        let (mut subjects, mut sure, mut polarities) = (
+            StringBuilder::new(),
+            Float32Builder::new(),
+            StringBuilder::new(),
+        );
+        for (id, start, end, subject) in rows {
+            ids.append_value(id);
+            starts.append_value(start);
+            ends.append_value(end);
+            subjects.append_value(subject);
+            sure.append_value(0.9);
+            polarities.append_value("complaint");
+        }
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(ids.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
+            Arc::new(subjects.finish()),
+            Arc::new(sure.finish()),
+            Arc::new(polarities.finish()),
+        ];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
+        let file = std::fs::File::create(snapshot.join("readings.parquet")).unwrap();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+    }
+
+    fn judged(review: &str, subject: &str, acceptable: bool) -> Acceptable {
+        Acceptable {
+            review_id: review.to_owned(),
+            index: 0,
+            subject: subject.to_owned(),
+            acceptable,
+            by: "a person".to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_later_judgement_of_a_subject_replaces_the_earlier_and_leaves_the_others() {
+        let set = crate::tempdir::Dir::new();
+
+        keep_acceptable(
+            set.path(),
+            &[judged("1", "story", false), judged("1", "gameplay", true)],
+        )
+        .unwrap();
+        let kept = keep_acceptable(set.path(), &[judged("1", "story", true)]).unwrap();
+
+        assert_eq!(kept, 2);
+        let story = acceptable_in(set.path())
+            .into_iter()
+            .find(|one| one.subject == "story")
+            .unwrap();
+        assert!(story.acceptable, "the later judgement is the one kept");
+    }
+
+    #[test]
+    fn a_person_is_asked_only_where_the_reader_named_another_subject_not_yet_judged() {
+        let root = crate::tempdir::Dir::new();
+        let library = root.path().join("data");
+        let snapshot = library.join("appid=7").join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        read_library(&snapshot);
+
+        let set = root.path().join("reference").join("7");
+        std::fs::create_dir_all(set.join("gold")).unwrap();
+        let claim = |index: u16, start: u32, end: u32, text: &str| crate::claimset::DrawnClaim {
+            index,
+            start,
+            end,
+            text: text.to_owned(),
+        };
+        let drawn = vec![
+            DrawnReview {
+                id: "1".to_owned(),
+                app_id: 7,
+                language: "english".to_owned(),
+                subset: "random".to_owned(),
+                claims: vec![
+                    claim(0, 0, 25, "Runs badly on Steam Deck."),
+                    claim(1, 26, 38, "Great story."),
+                ],
+                asked: None,
+            },
+            DrawnReview {
+                id: "2".to_owned(),
+                app_id: 7,
+                language: "english".to_owned(),
+                subset: "random".to_owned(),
+                claims: vec![claim(0, 0, 25, "Perfect on my Steam Deck!")],
+                asked: None,
+            },
+        ];
+        std::fs::write(set.join("sample.json"), serde_json::to_vec(&drawn).unwrap()).unwrap();
+        let gold = |review: &str, index: u16, start: u32, end: u32, subject: &str| ClaimLabel {
+            review_id: review.to_owned(),
+            index,
+            app_id: 7,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start,
+            end,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a person".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "complaint".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+            also: None,
+        };
+        let labels = vec![
+            gold("1", 0, 0, 25, "compatibility"),
+            gold("1", 1, 26, 38, "story"),
+            gold("2", 0, 0, 25, "compatibility"),
+        ];
+        std::fs::write(
+            set.join("gold").join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+        keep_acceptable(&set, &[judged("2", "performance", true)]).unwrap();
+
+        let (questions, found) = offered(&root.path().join("reference"), &library).unwrap();
+
+        assert_eq!(questions.len(), 1, "{questions:?}");
+        let asked = &questions[0];
+        assert_eq!((asked.review_id.as_str(), asked.index), ("1", 0));
+        assert_eq!(asked.offered.as_deref(), Some("performance"));
+        assert_eq!(
+            asked.was.as_ref().map(|was| was.subject.as_str()),
+            Some("compatibility")
+        );
+        assert_eq!(asked.claim, "Runs badly on Steam Deck.");
+        assert_eq!(
+            found.agreed, 1,
+            "the story claim the reader answered as the person did"
         );
     }
 }

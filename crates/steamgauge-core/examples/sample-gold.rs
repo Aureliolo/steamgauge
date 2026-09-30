@@ -3,10 +3,12 @@
 //! The real page is drawn from reference sets, which carry review text and are not in the
 //! repository, so CI cannot make one. Everything the check drives is in the page's behaviour
 //! rather than in the claims, so invented ones exercise it exactly as well: a blind question,
-//! a split one with both labellers' answers, a multibyte one, and one whose claim appears
-//! twice in its review so that marking the wrong copy would show.
+//! a split one with both labellers' answers, a multibyte one, one whose claim appears twice in
+//! its review so that marking the wrong copy would show. With `--acceptable`, a page of the
+//! other kind: questions asking whether a reader's other answer would also do.
 //!
 //! cargo run -p steamgauge-core --example sample-gold -- gold.html
+//! cargo run -p steamgauge-core --example sample-gold -- accept.html --acceptable
 
 use steamgauge_core::gold::{Answered, GoldDraw, Question, render};
 
@@ -22,6 +24,7 @@ fn question(id: &str, claim: &str, review: &str, shown: Option<Vec<Answered>>) -
         language: "english".to_owned(),
         shown,
         was: None,
+        offered: None,
     }
 }
 
@@ -34,10 +37,56 @@ fn said(subject: &str, polarity: &str, confidence: &str, ambiguous: bool) -> Ans
     }
 }
 
+/// Whether a reader's other answer would also do: the person's own answer and the reader's ride
+/// together, and each question is yes or no rather than a subject. Three, so a check can answer
+/// one each way and still find one left.
+fn acceptability() -> Vec<Question> {
+    let asked = |id: &str, claim: &str, review: &str, was: &str, offered: &str| Question {
+        was: Some(said(was, "neutral", "high", false)),
+        offered: Some(offered.to_owned()),
+        ..question(id, claim, review, None)
+    };
+    vec![
+        asked(
+            "11",
+            "Then you meet Jar Jar and follow him to the Gungan base.",
+            "The first level is a trap. Then you meet Jar Jar and follow him to the Gungan \
+             base. It is a long walk.",
+            "gameplay",
+            "story",
+        ),
+        asked(
+            "12",
+            "Best damn horror game ever.",
+            "Played it twice. Best damn horror game ever.",
+            "genre",
+            "verdict",
+        ),
+        asked(
+            "13",
+            "No Mace Windu vs. Palpatine.",
+            "Loved it, but some fights are missing. No Mace Windu vs. Palpatine.",
+            "content",
+            "licensing",
+        ),
+    ]
+}
+
 fn main() {
-    let to = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "gold.html".into());
+    let mut args = std::env::args().skip(1);
+    let to = args.next().unwrap_or_else(|| "gold.html".into());
+    if args.next().as_deref() == Some("--acceptable") {
+        let found = GoldDraw {
+            split: 3,
+            games: 1,
+            agreed: 40,
+            ..GoldDraw::default()
+        };
+        std::fs::write(&to, render(&acceptability(), &found))
+            .expect("the page could not be written");
+        println!("{to}");
+        return;
+    }
 
     let questions = vec![
         question(

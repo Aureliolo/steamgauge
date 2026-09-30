@@ -597,9 +597,11 @@ enum Command {
         /// judgement behind a button they have to remember.
         #[arg(long)]
         serve: bool,
-        /// Where the answers are written while serving. `ingest-gold` reads this file.
-        #[arg(long, default_value = "gold-answers.json")]
-        answers: PathBuf,
+        /// Where the answers are written while serving. `ingest-gold` reads this file. Unless
+        /// named, `gold-answers.json`, or `gold-acceptable.json` with `--acceptable`, because the
+        /// page writes the whole file on every answer and one kind must not replace the other.
+        #[arg(long)]
+        answers: Option<PathBuf>,
         /// Port to serve on. 0 picks a free one.
         #[arg(long, default_value_t = 8731)]
         port: u16,
@@ -610,6 +612,12 @@ enum Command {
         /// one that has to change. The new answer replaces the old at the next ingest.
         #[arg(long)]
         rejudge: bool,
+        /// Ask, for every gold answer the library's reader gave another subject for, whether
+        /// that subject would also do. The gold answer stays what it is; the judgement is kept
+        /// beside it, and it is what lets a reader be scored as right or acceptable rather
+        /// than only as matching the one subject the person would have picked.
+        #[arg(long, conflicts_with = "rejudge")]
+        acceptable: bool,
         /// Ask only about disagreements on this boundary, written `difficulty/gameplay`, and
         /// repeated once per boundary. The blind sample is untouched: aiming that would make
         /// the accuracy figure a fact about the boundaries somebody chose. Four boundaries
@@ -1045,6 +1053,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             answers,
             port,
             rejudge,
+            acceptable,
             boundary,
         } => run_gold(
             reference,
@@ -1056,11 +1065,14 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
                 languages: language,
                 reading: labels,
                 rejudge: *rejudge,
+                acceptable: *acceptable,
                 boundaries: boundary,
             },
             if *serve {
                 Delivery::Served {
-                    answers,
+                    answers: answers
+                        .as_deref()
+                        .unwrap_or_else(|| answers_file(*acceptable)),
                     port: *port,
                 }
             } else {
@@ -1895,7 +1907,17 @@ fn run_revisit(
     Ok(())
 }
 
-/// Merges revisited labels back into a set.
+/// Where a served page writes its answers unless told. The page writes the whole file on every
+/// answer, so judgements of what else is acceptable get a file of their own and never replace
+/// a file of gold answers.
+fn answers_file(acceptable: bool) -> &'static std::path::Path {
+    std::path::Path::new(if acceptable {
+        "gold-acceptable.json"
+    } else {
+        "gold-answers.json"
+    })
+}
+
 /// How the adjudication page reaches the person answering it.
 ///
 /// An enum rather than a flag beside the paths, because the two are exclusive: a served page
@@ -1919,6 +1941,7 @@ struct Asking<'a> {
     languages: &'a [String],
     reading: &'a str,
     rejudge: bool,
+    acceptable: bool,
     boundaries: &'a [(String, String)],
 }
 
@@ -1968,8 +1991,25 @@ fn run_gold(
         languages,
         reading,
         rejudge,
+        acceptable,
         boundaries,
     } = *asking;
+    if acceptable {
+        let (questions, found) = steamgauge_core::gold::offered(reference, out)?;
+        if questions.is_empty() {
+            anyhow::bail!(
+                "the library's reader agrees with every gold answer under {}, or every other \
+                 subject it gave has been judged already; nothing to ask",
+                reference.display()
+            );
+        }
+        println!(
+            "acceptable {} gold answers the reader gave another subject for, over {} games, \
+             asked whether that subject would also do; {} it answered the same are not asked",
+            found.split, found.games, found.agreed
+        );
+        return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
+    }
     if rejudge {
         let (questions, found) = steamgauge_core::gold::rejudge(reference, reading)?;
         if questions.is_empty() {
@@ -2175,6 +2215,12 @@ struct Adjudicated {
     /// before the page recorded it.
     #[serde(default)]
     sheet: Option<String>,
+    /// On an acceptability question: the reader's subject the person was asked about, and
+    /// whether they would accept it. Such a row is a judgement beside a gold answer, not one.
+    #[serde(default)]
+    offered: Option<String>,
+    #[serde(default)]
+    acceptable: Option<bool>,
 }
 
 impl Adjudicated {
@@ -2339,6 +2385,16 @@ fn run_ingest_gold(
 ) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
 
+    let (judged, answers): (Vec<Adjudicated>, Vec<Adjudicated>) = answers
+        .into_iter()
+        .partition(|answer| answer.offered.is_some());
+    if !judged.is_empty() {
+        keep_judged(&judged, reference, by)?;
+        if answers.is_empty() {
+            return Ok(());
+        }
+    }
+
     // A subject without a polarity is a claim somebody is still on, not a label: the page
     // keeps it so they can finish it, and a gold label with half its answer would be scored
     // as truth about the half nobody gave.
@@ -2403,6 +2459,39 @@ fn run_ingest_gold(
     println!(
         "\nThat share is the first honest accuracy figure this project has: everything else is\n\
          a model agreeing with a model."
+    );
+    Ok(())
+}
+
+/// Files each judgement of whether a reader's other subject would also do beside the gold
+/// labels of its set, leaving the labels themselves as they are.
+fn keep_judged(judged: &[Adjudicated], reference: &std::path::Path, by: &str) -> Result<()> {
+    let mut by_game: std::collections::BTreeMap<u32, Vec<steamgauge_core::gold::Acceptable>> =
+        std::collections::BTreeMap::new();
+    for row in judged {
+        let (Some(subject), Some(acceptable)) = (&row.offered, row.acceptable) else {
+            continue;
+        };
+        by_game
+            .entry(row.app_id)
+            .or_default()
+            .push(steamgauge_core::gold::Acceptable {
+                review_id: row.review_id.clone(),
+                index: row.index,
+                subject: subject.clone(),
+                acceptable,
+                by: by.to_owned(),
+            });
+    }
+    let (mut yes, mut no) = (0, 0);
+    for (app_id, rows) in &by_game {
+        steamgauge_core::gold::keep_acceptable(&reference.join(app_id.to_string()), rows)?;
+        yes += rows.iter().filter(|row| row.acceptable).count();
+        no += rows.iter().filter(|row| !row.acceptable).count();
+    }
+    println!(
+        "acceptable {yes} of the reader's other subjects would also do and {no} would not, \
+         filed beside the gold labels by {by}; the labels are unchanged"
     );
     Ok(())
 }

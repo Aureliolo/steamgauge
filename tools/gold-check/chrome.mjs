@@ -13,7 +13,8 @@ export async function connect(url) {
     async ready() {
       for (let attempt = 0; attempt < 80; attempt += 1) {
         const there = await driven.evaluate(
-          "document.readyState === 'complete' && !!document.querySelector('button.pick')",
+          "document.readyState === 'complete' && " +
+            "!!document.querySelector('button.pick, button[data-acceptable]')",
         );
         if (there.result?.result?.value === true) return true;
         await sleep(250);

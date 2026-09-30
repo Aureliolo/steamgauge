@@ -27,6 +27,8 @@ gold-answers.json
 # Answers set aside to be asked again under amended wording, kept beside the file so the second
 # answer can be read against the first. Adjudications, like the page, are never committed.
 gold-reask.json
+gold-acceptable.json
+accept.html
 analysis/
 output/
 *.db
