@@ -224,7 +224,10 @@ const MARKS = `(function () {
     var was = data.questions[i].was;
     var rules = document.querySelectorAll('.rules p');
     if (was) {
-      var named = [was.subject].concat((data.questions[i].shown || []).map(function (s) { return s.subject; }));
+      // An acceptability question names the reader's subject beside the person's.
+      var named = [was.subject]
+        .concat((data.questions[i].shown || []).map(function (s) { return s.subject; }))
+        .concat(data.questions[i].offered ? [data.questions[i].offered] : []);
       var distinct = named.filter(function (id, at) { return named.indexOf(id) === at; });
       if (document.body.textContent.indexOf('You said:') === -1) wrong.push(i + ' hides the first answer');
       if (rules.length !== distinct.length) {

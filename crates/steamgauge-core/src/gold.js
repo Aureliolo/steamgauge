@@ -95,13 +95,19 @@
       // A re-judgement asks about a claim that is already answered on disk, and that answer is
       // the one being questioned: taking it as done would leave nothing to ask. Only an answer
       // marked as given with the rule in view counts.
-      wanted[keyOf(question)] = question.was ? "rejudged" : "any";
+      // An acceptability question is about one subject, and an answer about another is not its.
+      wanted[keyOf(question)] = question.offered
+        ? "offered:" + question.offered
+        : question.was
+          ? "rejudged"
+          : "any";
     });
     var taken = 0;
     rows.forEach(function (row) {
       var key = row.app_id + "#" + row.review_id + "#" + row.index;
       if (wanted[key] === undefined) return;
       if (wanted[key] === "rejudged" && !row.rejudged) return;
+      if (wanted[key].indexOf("offered:") === 0 && wanted[key] !== "offered:" + row.offered) return;
       answers[key] = row;
       taken += 1;
     });
@@ -145,6 +151,22 @@
     );
   }
 
+  function howtoOffered() {
+    return (
+      '<details class="howto"' +
+      (howtoOpen ? " open" : "") +
+      "><summary>What you are doing</summary>" +
+      "<p>You have answered each of these claims before. The reader, the model that sorts " +
+      "claims into subjects, gave a different subject from yours. <b>Is its answer also fair " +
+      "for the highlighted claim?</b> A sentence often carries two subjects, and an answer you " +
+      "would not give yourself can still be one you would accept.</p>" +
+      "<p>Your own answer stays exactly as it is whatever you say here. Press <kbd>y</kbd> " +
+      "if the reader's subject would also do and <kbd>n</kbd> if it is wrong. The rules for " +
+      "both subjects are on the page.</p>" +
+      "</details>"
+    );
+  }
+
   function keyOf(question) {
     return question.app_id + "#" + question.review_id + "#" + question.index;
   }
@@ -154,7 +176,67 @@
   // stepped past it and never came back.
   function isAnswered(question) {
     var mine = answers[keyOf(question)];
+    if (question.offered) {
+      return Boolean(mine && mine.offered === question.offered && typeof mine.acceptable === "boolean");
+    }
     return Boolean(mine && mine.subject && mine.polarity);
+  }
+
+  function labelOf(id) {
+    var found = categories.filter(function (one) {
+      return one.id === id;
+    })[0];
+    return found ? found.label : id;
+  }
+
+  // Whether a reader's other answer would also do. The person's own answer stands whatever they
+  // say here; this asks what they would accept, which is a different thing from what they would
+  // say, and human writing often fairly carries two subjects.
+  function renderOffered(question, mine, html) {
+    html.push(
+      '<div class="shown"><span class="who">You said:</span><span><b>' +
+        escape(labelOf(question.was.subject)) +
+        "</b> " +
+        escape(question.was.polarity) +
+        '</span><span class="who">The reader said:</span><span><b>' +
+        escape(labelOf(question.offered)) +
+        "</b></span></div>"
+    );
+    html.push('<div class="rules">');
+    categories.forEach(function (category) {
+      if (category.id !== question.was.subject && category.id !== question.offered) return;
+      html.push(
+        "<p><b>" +
+          escape(category.label) +
+          "</b>: " +
+          escape(category.description) +
+          (category.boundary ? " <i>" + escape(category.boundary) + "</i>" : "") +
+          "</p>"
+      );
+    });
+    html.push("</div>");
+    html.push(
+      '<div class="row last"><span class="label">Is <b>' +
+        escape(labelOf(question.offered).toLowerCase()) +
+        "</b> also an acceptable answer for this claim?</span>"
+    );
+    [
+      [true, "yes, that is fair too", "y"],
+      [false, "no, that is wrong", "n"],
+    ].forEach(function (choice) {
+      html.push(
+        '<button class="tone' +
+          (mine.acceptable === choice[0] ? " chosen" : "") +
+          '" data-acceptable="' +
+          choice[0] +
+          '">' +
+          choice[1] +
+          " <kbd>" +
+          choice[2] +
+          "</kbd></button>"
+      );
+    });
+    html.push("</div>");
   }
 
   function firstUnanswered() {
@@ -302,13 +384,29 @@
         '%"></i></div>'
     );
 
-    html.push(howto());
+    html.push(question.offered ? howtoOffered() : howto());
 
     html.push('<div class="card">');
     html.push('<p class="asking">The claim you are judging</p>');
     html.push('<p class="claim">' + escape(question.claim) + "</p>");
     html.push('<p class="asking">The review it came from, so you can tell what it refers to</p>');
     html.push('<div class="review">' + marked(question) + "</div>");
+
+    if (question.offered) {
+      renderOffered(question, mine, html);
+      html.push("</div>");
+      html.push(
+        '<p class="note"><kbd>y</kbd> or <kbd>n</kbd> answers and moves on; <kbd>&larr;</kbd> ' +
+          "and <kbd>&rarr;</kbd> move. " +
+          (SERVED
+            ? "Every answer is written to disk as you make it."
+            : "Your answers are kept in this browser as you go.") +
+          "</p>"
+      );
+      app.innerHTML = html.join("");
+      wire(question);
+      return;
+    }
 
     if (question.shown && question.shown.length) {
       html.push(
@@ -505,6 +603,15 @@
       answered_at: 0,
     };
     mine[field] = value;
+    if (question.offered) {
+      mine.offered = question.offered;
+      mine.answered_at = Math.floor(Date.now() / 1000);
+      answers[key] = mine;
+      save();
+      at = nextUnanswered(at + 1);
+      render();
+      return;
+    }
     // Given with the labellers' answers and the sheet's rule in view, which is a different
     // kind of answer from a cold one and is filed as such.
     if (question.was) mine.rejudged = true;
@@ -554,6 +661,11 @@
     Array.prototype.forEach.call(app.querySelectorAll("button.tone[data-tone]"), function (button) {
       button.onclick = function () {
         set(question, "polarity", button.getAttribute("data-tone"));
+      };
+    });
+    Array.prototype.forEach.call(app.querySelectorAll("button.tone[data-acceptable]"), function (button) {
+      button.onclick = function () {
+        set(question, "acceptable", button.getAttribute("data-acceptable") === "true");
       };
     });
     // A long review opens at its top and the claim can be anywhere in it, so without this the
@@ -640,7 +752,7 @@
       var taken = 0;
       var strangers = 0;
       rows.forEach(function (row) {
-        if (!row || !row.subject) return;
+        if (!row || (!row.subject && typeof row.acceptable !== "boolean")) return;
         var key = row.app_id + "#" + row.review_id + "#" + row.index;
         // A file from another draw would fill the store with answers to questions this page
         // never asks, and the count in the corner would climb while nothing got adjudicated.
@@ -664,7 +776,7 @@
     var rows = [];
     questions.forEach(function (question) {
       var mine = answers[keyOf(question)];
-      if (!mine || !mine.subject) return;
+      if (!mine || (!mine.subject && typeof mine.acceptable !== "boolean")) return;
       // Stamped per answer rather than once per file, because an answer outlives the file it
       // was exported in: these get merged, re-exported and ingested separately. A gold label
       // whose sheet nobody can name is the one label here that cannot be checked against
@@ -700,6 +812,10 @@
     } else if (event.key === "ArrowLeft") {
       at = Math.max(0, at - 1);
       render();
+    } else if (question.offered) {
+      // Only yes and no mean anything here: a letter that picks a subject elsewhere on the page
+      // would otherwise answer a question nobody is asking.
+      if (event.key === "y" || event.key === "n") set(question, "acceptable", event.key === "y");
     } else if (event.key === "1" || event.key === "2" || event.key === "3") {
       set(question, "polarity", ["praise", "complaint", "neutral"][Number(event.key) - 1]);
     } else if (event.key === "0") {

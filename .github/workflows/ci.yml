@@ -188,3 +188,7 @@ jobs:
       # one that worked, so the promise that every answer is on disk before the next question
       # is drawn is the one worth a browser to check.
       - run: node tools/gold-check/served.mjs gold.html
+      # The other kind of question the page asks: whether a reader's other subject would also
+      # do, answered yes or no and kept apart from the gold answer it sits beside.
+      - run: cargo run --locked -p steamgauge-core --example sample-gold -- accept.html --acceptable
+      - run: node tools/gold-check/acceptable.mjs accept.html
