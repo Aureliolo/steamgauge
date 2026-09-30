@@ -204,14 +204,20 @@
     "subset": "retrieved",
     "start": 769,
     "end": 910,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "updates",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "compatibility",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
-    "split_wrong": false
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "gameplay",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "100366867",
@@ -306,18 +312,18 @@
     "subset": "retrieved",
     "start": 0,
     "end": 264,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
-    "polarity": "praise",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "multiplayer",
+    "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "multiplayer",
-        "polarity": "complaint"
+        "subject": "gameplay",
+        "polarity": "praise"
       },
       {
         "subject": "content",
@@ -591,14 +597,24 @@
     "subset": "retrieved",
     "start": 431,
     "end": 597,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "bugs",
+        "polarity": "complaint"
+      },
+      {
+        "subject": "difficulty",
+        "polarity": "complaint"
+      }
+    ]
   },
   {
     "review_id": "117946136",
@@ -710,13 +726,13 @@
     "subset": "retrieved",
     "start": 78,
     "end": 161,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
@@ -874,21 +890,21 @@
     "subset": "retrieved",
     "start": 143,
     "end": 437,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "content",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "medium",
-    "ambiguous": false,
+    "confidence": "low",
+    "ambiguous": true,
     "split_wrong": false,
     "also": [
       {
-        "subject": "content",
+        "subject": "licensing",
         "polarity": "praise"
       },
       {
-        "subject": "monetisation",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]
@@ -1013,14 +1029,20 @@
     "subset": "retrieved",
     "start": 0,
     "end": 51,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "141894956",
@@ -1897,14 +1919,15 @@
     "subset": "retrieved",
     "start": 66,
     "end": 234,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
-    "subject": "updates",
-    "polarity": "neutral",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "policy",
+    "polarity": "praise",
     "ironic": false,
     "confidence": "low",
     "ambiguous": true,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "181924734",
@@ -1931,14 +1954,15 @@
     "subset": "retrieved",
     "start": 18,
     "end": 77,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": []
   },
   {
     "review_id": "182348455",
@@ -1948,8 +1972,8 @@
     "subset": "retrieved",
     "start": 0,
     "end": 83,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
@@ -1957,6 +1981,10 @@
     "ambiguous": true,
     "split_wrong": false,
     "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      },
       {
         "subject": "licensing",
         "polarity": "complaint"
@@ -2020,14 +2048,20 @@
     "subset": "retrieved",
     "start": 0,
     "end": 56,
-    "taxonomy": "core-6",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "gameplay",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
-    "split_wrong": false
+    "split_wrong": false,
+    "also": [
+      {
+        "subject": "verdict",
+        "polarity": "praise"
+      }
+    ]
   },
   {
     "review_id": "186945877",
@@ -2423,18 +2457,18 @@
     "subset": "retrieved",
     "start": 0,
     "end": 79,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
-    "polarity": "praise",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "licensing",
+    "polarity": "complaint",
     "ironic": false,
-    "confidence": "high",
+    "confidence": "medium",
     "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
-        "subject": "licensing",
-        "polarity": "complaint"
+        "subject": "gameplay",
+        "polarity": "praise"
       }
     ]
   },

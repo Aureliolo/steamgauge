@@ -666,21 +666,21 @@
     "subset": "mined",
     "start": 0,
     "end": 128,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "audio",
     "polarity": "praise",
     "ironic": false,
-    "confidence": "high",
-    "ambiguous": false,
-    "split_wrong": false,
+    "confidence": "low",
+    "ambiguous": true,
+    "split_wrong": true,
     "also": [
       {
-        "subject": "audio",
+        "subject": "story",
         "polarity": "praise"
       },
       {
-        "subject": "story",
+        "subject": "gameplay",
         "polarity": "praise"
       },
       {
@@ -690,6 +690,10 @@
       {
         "subject": "difficulty",
         "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },

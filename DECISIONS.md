@@ -2356,9 +2356,20 @@ not hold. The user moved both (AskUserQuestion, 2026-09-30):
   that is more than enjoyable" name no mechanic, system, depth or feel, and say the game is
   good to play. `gameplay` keeps the claims that say how it plays.
 
-The sheet's fingerprint moves from `a0e7ff81b45f` to `58c7296afde5`. The first rule narrows a
-row, so its revisit draws every claim filed `updates`: 2,630 claims in 1,847 reviews over 67
-games, ten shares for Opus 5.5 labellers. The second is drawn after it, by the word.
+The sheet's fingerprint moves from `a0e7ff81b45f` to `58c7296afde5`.
+
+**Revisited the same day.** The first rule narrows a row, so its revisit drew every claim filed
+`updates`: 2,630 in 1,847 reviews over 67 games, ten Opus 5.5 labellers of 263 claims each,
+about 2.0M tokens. **932 moved (35%)**: 316 to `policy` and 214 to `verdict`, the rule doing
+what it was written for, and the rest one to fifty a row (`gameplay`, `bugs` and
+`monetisation` 50 each, `difficulty` 47), the named fault taking its claim once the makers
+stopped being a row of their own. That is a correction, not a clarification: the old row held
+a third of its claims by a rule the person does not hold. The second rule's revisit, drawn
+after the first was ingested, took the `gameplay` claims using the word in the eleven spellings
+the library holds (gameplay, jugabilidad, геймплей, 玩法, ゲームプレイ and the rest): 441 claims,
+two labellers. 190 moved, 82 to `verdict` and most of the rest to the aspect named beside it,
+since the bare word no longer counts as one. Where the twelve labellers found the new rules'
+edges is in `reference/GAPS.md`.
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out

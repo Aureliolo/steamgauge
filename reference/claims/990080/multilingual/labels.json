@@ -1404,9 +1404,9 @@
     "subset": "multilingual",
     "start": 0,
     "end": 51,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
-    "subject": "gameplay",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
+    "subject": "graphics",
     "polarity": "praise",
     "ironic": false,
     "confidence": "medium",
@@ -1414,11 +1414,11 @@
     "split_wrong": false,
     "also": [
       {
-        "subject": "graphics",
+        "subject": "atmosphere",
         "polarity": "praise"
       },
       {
-        "subject": "atmosphere",
+        "subject": "verdict",
         "polarity": "praise"
       }
     ]

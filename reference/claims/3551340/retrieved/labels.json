@@ -2205,20 +2205,15 @@
     "subset": "retrieved",
     "start": 486,
     "end": 626,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "complaint",
     "ironic": false,
-    "confidence": "medium",
+    "confidence": "high",
     "ambiguous": false,
     "split_wrong": false,
-    "also": [
-      {
-        "subject": "content",
-        "polarity": "complaint"
-      }
-    ]
+    "also": []
   },
   {
     "review_id": "227651572",

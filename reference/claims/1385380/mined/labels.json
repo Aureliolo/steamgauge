@@ -75,8 +75,8 @@
     "subset": "mined",
     "start": 44,
     "end": 144,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
@@ -208,8 +208,8 @@
     "subset": "mined",
     "start": 465,
     "end": 685,
-    "taxonomy": "c93bb64b1f20",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
@@ -794,10 +794,10 @@
     "subset": "mined",
     "start": 0,
     "end": 108,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
     "ambiguous": false,
@@ -805,15 +805,15 @@
     "also": [
       {
         "subject": "language",
-        "polarity": "complaint"
+        "polarity": "neutral"
       },
       {
         "subject": "content",
-        "polarity": "complaint"
+        "polarity": "neutral"
       },
       {
         "subject": "mods",
-        "polarity": "complaint"
+        "polarity": "neutral"
       }
     ]
   },
@@ -1191,22 +1191,26 @@
     "subset": "mined",
     "start": 0,
     "end": 39,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
-    "polarity": "complaint",
+    "polarity": "neutral",
     "ironic": false,
     "confidence": "medium",
-    "ambiguous": true,
+    "ambiguous": false,
     "split_wrong": false,
     "also": [
       {
         "subject": "content",
-        "polarity": "complaint"
+        "polarity": "neutral"
       },
       {
         "subject": "mods",
-        "polarity": "complaint"
+        "polarity": "neutral"
+      },
+      {
+        "subject": "verdict",
+        "polarity": "praise"
       }
     ]
   },
@@ -1218,8 +1222,8 @@
     "subset": "mined",
     "start": 282,
     "end": 382,
-    "taxonomy": "05cc9b670ad4",
-    "produced_by": "claude-fable-5-1",
+    "taxonomy": "58c7296afde5",
+    "produced_by": "claude-opus-5-5",
     "subject": "updates",
     "polarity": "praise",
     "ironic": false,
