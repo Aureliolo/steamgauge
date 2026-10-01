@@ -1,4 +1,5 @@
-"""A run given part of the card rests in proportion to its work, and learns from the same batches.
+"""A run given part of the card rests in proportion to its work, keeps no more of its memory than
+it is allowed, and learns from the same batches.
 
 python -m pytest test_card_share.py
 """
@@ -11,7 +12,35 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from train import Paced, rest_after
+from train import Paced, hold_card_memory, rest_after
+
+
+class Card:
+    total_memory = 24 * 2**30
+
+
+def held(monkeypatch, gigabytes: float | None, device: str) -> list[float]:
+    asked = []
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda _: Card())
+    monkeypatch.setattr(torch.cuda, "set_per_process_memory_fraction", asked.append)
+    hold_card_memory(gigabytes, device)
+    return asked
+
+
+def test_a_run_held_to_six_gigabytes_of_twenty_four_keeps_a_quarter(monkeypatch):
+    assert held(monkeypatch, 6.0, "cuda") == [pytest.approx(0.25)]
+
+
+def test_more_than_the_card_holds_is_the_whole_card(monkeypatch):
+    assert held(monkeypatch, 40.0, "cuda") == [1.0]
+
+
+def test_a_run_given_no_figure_keeps_what_it_likes(monkeypatch):
+    assert held(monkeypatch, None, "cuda") == []
+
+
+def test_a_processor_run_has_no_card_memory_to_hold(monkeypatch):
+    assert held(monkeypatch, 6.0, "cpu") == []
 
 
 def test_half_the_card_rests_as_long_as_it_worked():

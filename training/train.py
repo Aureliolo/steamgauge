@@ -446,6 +446,21 @@ class BestEpoch:
                 weight.copy_(self.weights[name].to(weight.device))
 
 
+def hold_card_memory(gigabytes: float | None, device: str) -> None:
+    """Holds what the run keeps on the card to this many gigabytes.
+
+    Resting yields the card's time, not its memory: the standard student given half the card's
+    time kept 20.1 GB of its 24, crowding out the work it shared the card with. Held, the
+    allocator frees its own cache before asking for more, and the run fails if it needs more
+    than this. What CUDA graphs record stays reserved in their own pools, which the allocator's
+    count of live memory leaves out and the hold does not, so a figure is found by holding a
+    run to it, never read off `max_memory_allocated`."""
+    if device != "cuda" or gigabytes is None:
+        return
+    total = torch.cuda.get_device_properties(0).total_memory
+    torch.cuda.set_per_process_memory_fraction(min(1.0, gigabytes * 2**30 / total))
+
+
 def rest_after(busy: float, share: float) -> float:
     """How long to leave the card idle after keeping it busy this long, for the run to take this
     share of its time."""
@@ -1083,8 +1098,11 @@ def run(args) -> dict:
     micro = args.batch_size // args.accumulate
     if not 0 < args.card_share <= 1:
         raise SystemExit(f"--card-share {args.card_share} is not a share of the card's time")
+    if args.card_memory is not None and args.card_memory <= 0:
+        raise SystemExit(f"--card-memory {args.card_memory} GB holds nothing")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    hold_card_memory(args.card_memory, device)
     if args.cuda_graphs and device != "cuda":
         raise SystemExit("--cuda-graphs records passes on a card, and there is none")
     if args.cuda_graphs and (args.lora_rank or args.pooling == "last"):
@@ -1688,7 +1706,14 @@ def parse():
         default=1.0,
         help="the share of the card's time the run may take, for a card other work is using: "
         "0.5 rests after each batch as long as the batch kept the card busy. Changes nothing "
-        "the run learns, only how long it takes",
+        "the run learns, only how long it takes. It yields no memory: --card-memory does",
+    )
+    parser.add_argument(
+        "--card-memory",
+        type=float,
+        default=None,
+        help="the most the run may keep on the card, in GB, for a card other work is using. Above "
+        "what the run needs live it changes nothing the run learns; below it the run fails",
     )
     parser.add_argument(
         "--recompute-activations",

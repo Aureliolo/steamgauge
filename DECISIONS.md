@@ -4766,6 +4766,22 @@ the card's time. The readings are the same; a share outside (0, 1] is refused wh
 since at zero a read would rest forever. The window's reads keep the whole card, as a person
 reading one game is waiting on it.
 
+### A run's memory on a shared card is held, apart from its time (2026-10-01)
+
+`--card-share` yields time and nothing else. The standard student retrained on the moved rules,
+given half the card's time, kept 20.1 GB of the 24 and was stopped at its fourth epoch by the
+queue's watchdog, with the user's programs needing the rest. `--card-memory` holds what a run
+keeps on the card to so many gigabytes, through torch's per-process share, and is set apart from
+the time because the two answer different shortages.
+
+**The figure is found by holding a run to it.** The allocator's peak of live memory said 14.6
+GB, and runs held to 15.5, 16 and 17.5 GB failed before their first step: what CUDA graphs
+record stays reserved in their own pools (5.4 GB at passes of 16, 3.5 at passes of 8), which
+that count leaves out and the hold does not. The same batch as four passes of 8 ran held to
+18.5 GB, at 18.1, about 30% slower a step. Asked, the user kept passes of 16 held at 20.5 GB:
+the run as fast as before, the card's last 3.5 GB to the user's programs, and the watchdog left
+to stop the run if they need more.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
