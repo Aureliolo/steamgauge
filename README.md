@@ -41,13 +41,17 @@ The only way to remove the argument is to hold every review and count.
 - Show, per subject, the words the praise uses and the complaints use, counted by reviewer.
 - Build a picture of the game in a paragraph from those counts.
 - Click through from any number, anywhere, to the actual reviews behind it.
+- Ask a game about anything, "Steam Deck" or "desync": what its reviewers said in those
+  words, counted, and what they said in other words or other languages, found by meaning.
 
 Results come out as one self-contained page: every rate, the reviews behind it, and what the
 classifier is measured to get wrong, in a single file you can open from disk, send to someone,
 or print. It fetches nothing, because a corpus that never left your machine should not start
 leaving it the moment somebody looks at it.
 
-You choose which model does the sorting, and how closely it reads.
+The app reads with the largest reader your graphics card has room for. Without a card it
+starts with the fast one and offers the most accurate beside it, saying how long each takes on
+that computer.
 
 ### What a percentage means here
 
@@ -190,6 +194,29 @@ read, so a change to the adding up
 does not cost the hours of a reading again: `steamgauge recount` replays the stored readings
 through the same counting in seconds, and refuses if this build takes a review apart
 differently from the build that read it.
+
+### Asking it about anything
+
+The subjects are the questions the reader was trained to answer, and the words that stand out
+are the ones the counts surfaced on their own. Neither answers "what do they say about the
+Steam Deck", which is the first thing a developer asks. Every read game has a search box for
+that. Type a word or a phrase and it counts the reviews and the points that say it, split into
+praise and complaint and by the subject each point was filed under, with the forms it was found
+in ("steam deck 704, steam decks 7") and every point quoted in its review. A word of four
+letters or more also finds the words it begins, so "stutter" finds "stuttering"; a shorter one
+finds only itself, so "art" does not find "artist".
+
+Those counts are of the words typed and nothing else. Below them the app can also find where
+reviewers said the same thing in other words or in another language: "boring" finds "재미없음",
+"无趣" and "pretty dull after a while". That is ranked and never counted, because meaning has
+no line at which saying it stops, and a number would only say where the line was drawn. Two
+models do it, Qwen3-Embedding-0.6B to gather the hundred points nearest the search and
+Qwen3-Reranker-0.6B to read each of them beside the search and put them in order, chosen over
+three others on 1,029 results judged by whether they were what was asked for: 77% of the pair's
+first ten were, against 64% for the encoder alone that it replaced, and it showed a fifth as many
+opposites ("fun" for "boring"). It needs each game prepared once: minutes on a graphics card,
+hours on a processor. So the app asks first, says what it will cost on that computer, and
+recommends from what it can see.
 
 ### Ratings that disagree with the text
 

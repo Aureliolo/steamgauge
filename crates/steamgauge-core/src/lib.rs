@@ -15,6 +15,7 @@ pub mod facts;
 pub mod gold;
 pub mod html;
 pub mod induced;
+pub mod meaning;
 pub mod measure;
 pub mod mine;
 pub mod model;
@@ -26,6 +27,8 @@ pub mod reading_time;
 pub mod reliability;
 pub mod report;
 pub mod said;
+pub mod search;
+pub mod search_models;
 pub mod serve;
 pub mod shard;
 pub mod state;
@@ -74,6 +77,10 @@ pub enum Error {
     /// with no undo, and refusing costs only the command being run again correctly.
     #[error("{0}")]
     Refused(String),
+
+    /// Somebody asked a long job to stop, and it did. Not a failure: what it finished is kept.
+    #[error("stopped before it finished")]
+    Stopped,
 
     /// A model file that does not match its pinned hash would change every number the tool
     /// reports without anything appearing to go wrong, so it is refused rather than used.

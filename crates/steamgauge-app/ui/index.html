@@ -105,6 +105,17 @@
               <button type="button" class="link" id="switch-language"></button>
             </p>
             <p class="in-short" id="in-short" hidden></p>
+            <form class="row search" id="search-form" role="search">
+              <input
+                type="search"
+                id="search-query"
+                placeholder="What do reviewers say about… a word or a phrase"
+                aria-label="What do reviewers say about"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="submit" class="quiet-button">Look it up</button>
+            </form>
             <p class="caveat" id="swept-caveat" hidden></p>
             <p class="caveat" id="topics-caveat" hidden></p>
             <figure class="timeline" id="timeline" hidden>
@@ -163,12 +174,50 @@
               them. Click one to read only the points that use it.
             </p>
           </div>
+          <div class="stands-out" id="said-strip" hidden>
+            <div class="side" id="said-sides">
+              <span class="lead">Which side</span>
+            </div>
+            <div class="side" id="said-subjects">
+              <span class="lead">Filed under</span>
+            </div>
+            <div class="side" id="said-forms">
+              <span class="lead">Found as</span>
+            </div>
+            <p class="quiet" id="said-note">
+              Counted by the words typed, not by what they mean: a review that says it another
+              way, or in another language, is not in these numbers. Click a side or a subject to
+              read only those points.
+            </p>
+          </div>
           <ol class="quotes" id="quotes"></ol>
           <div class="row paging">
             <button type="button" class="quiet-button" id="earlier">Previous</button>
             <button type="button" class="quiet-button" id="later">Next</button>
             <span class="quiet" id="paging-note"></span>
           </div>
+          <section class="meaning" id="meaning" hidden>
+            <h3>In other words, and other languages</h3>
+            <div id="meaning-offer" hidden>
+              <p class="lede">
+                The counts above are of the words typed. The app can also find where reviewers
+                said the same thing in other words or another language, closest first. It has
+                to prepare each game once for that.
+              </p>
+              <div class="meaning-choices" id="meaning-choices"></div>
+              <p class="quiet" id="meaning-advice"></p>
+            </div>
+            <div class="work" id="meaning-work" hidden>
+              <p class="work-line">
+                <span id="meaning-what"></span><span class="num" id="meaning-count"></span>
+              </p>
+              <div class="track"><span class="fill" id="meaning-fill"></span></div>
+              <button type="button" class="quiet-button" id="meaning-stop">Stop</button>
+              <span class="quiet">Stopping keeps what is done; preparing again carries on.</span>
+            </div>
+            <p class="quiet" id="meaning-note" role="status" aria-live="polite"></p>
+            <ol class="quotes" id="meaning-quotes"></ol>
+          </section>
         </section>
       </main>
     </div>

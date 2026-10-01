@@ -42,7 +42,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | A complete census with **zero setup and no API key**; hosted models are an upgrade, never a requirement | done |
 | Embeddings run locally, on ONNX Runtime | done |
 | `ort` with DirectML, CoreML and CPU | done |
-| Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search partial; classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
+| Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search done (the rows below); classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
 | A hosted model does the reading when one is configured | **not built**, there is no API client in the tree |
 | The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and ties the first 4B on the frozen games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
 | Where no card is reached, the person chooses the size, told what each takes on their computer | done: the fast reader by default, the most accurate one beside it (the user, 2026-09-29). Every reading on the processor is timed into `reading-times.json` in the library, so the estimate is that computer's own; before anything has been read there it says how many times as long, never an invented time. On a card the card decides, whatever was chosen before |
@@ -54,12 +54,68 @@ State means: **done** is built and in use; **partial** is built for one case and
 |---|---|
 | Raw Parquet capture, kept, because a re-crawl cannot recover edited or deleted reviews | done |
 | SQLite for crawl state | done |
-| **DuckDB for querying the corpus** | **not built** |
+| ~~DuckDB for querying the corpus~~ | superseded 2026-09-29 by the search below: nobody who opens the app writes SQL, and anybody who does brings their own tools to Parquet, so a query engine in the binary would serve neither |
+| **A read game can be asked about anything, by the words its reviewers used** | done: a search box on every read game counts the reviews and claims that say a word or phrase, split by side and by subject, with the forms that matched and the claims quoted. Words, not meaning: a count of anything else has no line to be drawn at |
+| **And by meaning, in any language, ranked and never counted** | done, on request per game: the window asks, shows the time and disk each choice costs on this machine, and recommends preparing on a card and waiting on a processor (the user, 2026-09-29: "it should ask user. and give options and show it to them and recommend based on what it can see"). **Qwen3-Embedding-0.6B gathers the hundred nearest, Qwen3-Reranker-0.6B reads each beside the search and orders them**, chosen over six other ways on 1,029 judged results (below; the user, 2026-09-30: "what gives the best end user result? ... even download other models if system allows"). Both are this project's own exports, pinned by hash, published with the reader. Kept at a byte a dimension, 1,096 bytes a distinct claim, in parts a stopped preparation carries on from |
+| ~~gte-multilingual-base alone, cut at 0.65~~ | superseded 2026-09-30 by the pair above. It put "有趣" ("fun") tenth for "boring" among the true hits, and on a game whose reviewers never called it boring the nearest fifteen were "面白い", "good" and "nice": judgement words sit near each other whichever way they point, and no line separates them |
 | `author_steamid` kept for every review, as public data | done |
 | Adaptive, date-sharded crawl with capped concurrency | done |
 | Watermark top-up so a re-crawl does not re-pull old reviews | superseded by the sweep below, which finds arrivals and edits in one walk. The top-up wrote a new snapshot holding only the new reviews, and every pass read the newest snapshot, so a topped-up game counted only what had arrived since |
 | **Periodic sweep by last-edit date**, to catch reviews edited since the crawl | done: `steamgauge sweep`, and "Bring it up to date" in the window. One walk in `updated` order, newest first, stopping a day past the watermark (the crawl, or the last sweep). Rows land in `sweep-<unix>.parquet` beside the crawl's shards, never over them, and `newest.json` records which copy of each swept id counts; every reader of the capture goes through one walker that skips the rest. The readings record when the capture last changed, and the page and the window say so when a sweep has landed since they were made |
 | Valve's default filters overridden, because they hide 17.3% of negative reviews against 9.6% of positive | done |
+
+### Searching by meaning: chosen on judged results (2026-09-30)
+
+gte-multilingual-base was the first encoder, cut at 0.65. In the window it put opposites
+together: "boring" found "有趣" ("fun") among "Very boring." at 0.737, and on a small game whose
+reviewers never called it boring its nearest fifteen were "面白い", "good" and "nice". A reranker
+was tried to fix that and made it worse where it matters most: bge-reranker-v2-m3 read "controller
+support" as a question about "support", scored "Give me mod support." 0.22 and "cant use
+controller" 0.003, and phrasing the search as a question sank even "Very boring." to 0.05.
+
+So the ways were compared on what a person searching sees. Fourteen searches, four judgements
+("boring", "fun", "waste of money", "masterpiece") and ten topics ("controller support", "steam
+deck", "desync", "servers", "matchmaking", "too expensive", "crashes", "grindy", "tutorial",
+"campaign"), over 37,724 claims of Age of Empires IV and 38,615 of Helldivers 2, and the
+judgements again over the 3,642 of a small game. Each way's first ten, leaving out what the word
+search already found as the window does, were pooled and judged blind by Opus 5.5 against a
+brief: 2 what was asked, 1 related, 0 not, -1 the opposite judgement. 1,121 pairs.
+
+| way | right in the first ten | judgements | topics | opposites shown |
+|---|---|---|---|---|
+| **Qwen3-Embedding-0.6B's 100 nearest, ordered by Qwen3-Reranker-0.6B** | **77.2%** | **80.4%** | **75.3%** | **5** |
+| the same, reranking the nearest 50 | 77.8% | 80.4% | 76.2% | 7 |
+| the same, reranking the nearest 30 | 76.6% | 77.9% | 75.8% | 7 |
+| Qwen3-Embedding-0.6B alone | 71.9% | 66.2% | 75.3% | 8 |
+| gte, ordered by Qwen3-Reranker | 70.2% | 67.5% | 71.8% | 14 |
+| gte, dropping the opposite polarity when the reader reads the search as a verdict | 66.2% | 59.6% | 70.3% | 8 |
+| gte alone, as first shipped | 64.2% | 54.2% | 70.3% | 24 |
+| gte, ordered by bge-reranker-v2-m3 | 58.1% | 63.8% | 54.7% | 4 |
+
+The Qwen pair wins every column that decides anything. The reranker takes an instruction ("Given
+a search typed over a video game's reviews, find the review points that say what the search
+describes"), which is what lets it read a two-word topic as a topic; `search-prompts.json` holds
+it and the prompts, read by the app and the export alike.
+
+**Exported here.** The embedding's only full-precision ONNX export carries a text generator's
+cache as fifty-six inputs and the reranker has none but quantised ones, so `export_search.py`
+exports both through `LengthFree`, as the reader is: the encoder's graph gives each text's unit
+vector at its last token, the reranker's the model's "yes" against its "no" at the last token,
+the two rows of its output layer all that is kept of it. Checked against the full-precision
+model: cosine at least 0.99988 on DirectML, score drift at most 0.0076. 1.31 GB each, pinned by
+hash, published with the reader, and used from the model cache until then.
+
+**Shown from 0.1.** Scored by the exported graph, the judged pairs sat at a median 0.89 for
+what was asked, 0.41 related, 0.11 not and 0.04 opposite. The line keeps 93% of the first and
+81% of the second, and leaves out half the third and 62% of the fourth; what stays is ordered by
+the same score.
+
+**Its cost.** Measured beside a training run holding half the card: 8.7 ms a claim on the card
+and 118 ms on the processor to prepare (a median game half an hour and a large one hours on a
+card; hours to days on a processor, which the window says before anyone starts), and 3.3 s on
+the card and 28 s on the processor to rerank a hundred claims for one search. Hence thirty on a
+processor, 8 s, at a cost the table cannot tell from nothing. A game prepared with gte is
+prepared again: its vectors are in another space.
 
 ## Distribution
 

@@ -844,9 +844,62 @@ figure.timeline figcaption {
   color: inherit;
 }
 
-#stands-out-note {
+.stands-out .term.static,
+.stands-out .term.static:hover {
+  border-color: var(--line);
+  cursor: default;
+}
+
+#stands-out-note,
+#said-note {
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
+}
+
+.search {
+  max-width: 46rem;
+  margin: 0 0 1.25rem;
+}
+
+.meaning {
+  max-width: 46rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.meaning h3 {
+  margin: 0 0 0.6rem;
+}
+
+.meaning-choices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+
+.meaning-choices button {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.meaning-choices .detail {
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.meaning-choices button.primary .detail {
+  color: inherit;
+  opacity: 0.8;
+}
+
+#meaning-work button {
+  margin: 0.7rem 0.6rem 0 0;
 }
 
 .quotes {

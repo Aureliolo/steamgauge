@@ -1,0 +1,5 @@
+{
+  "instruction": "Given a search typed over a video game's reviews, find the review points that say what the search describes",
+  "query": "Instruct: {instruction}\nQuery: {query}",
+  "reranker": "<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\".<|im_end|>\n<|im_start|>user\n<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {claim}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+}

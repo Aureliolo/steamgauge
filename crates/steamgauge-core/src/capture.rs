@@ -21,7 +21,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use parquet::{
-    arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder},
+    arrow::{ArrowWriter, ProjectionMask, arrow_reader::ParquetRecordBatchReaderBuilder},
     basic::{Compression, ZstdLevel},
     file::properties::WriterProperties,
 };
@@ -114,36 +114,61 @@ impl Kept<'_> {
 /// Walks every batch of the capture, crawl shards first and then each sweep in order, with
 /// the rows that count marked. Every reader of the capture comes through here, so there is
 /// one place that knows what a capture is made of.
+///
+/// Only `columns` are decoded, beside the two that decide which rows count. Every row also
+/// carries its `raw_json`, as large as the review itself, and no pass that walks the capture
+/// reads it.
 fn each_batch(
     snapshot: &Path,
+    columns: &[&str],
     mut visit: impl FnMut(&RecordBatch, &Kept<'_>) -> Result<()>,
 ) -> Result<()> {
     let newest = Newest::load(snapshot)?;
     for (shard, file) in shards_of(snapshot)? {
-        let reader = ParquetRecordBatchReaderBuilder::try_new(File::open(&shard)?)?
-            .with_batch_size(8192)
-            .build()?;
-        for batch in reader {
-            let batch = batch?;
-            let ids = batch
-                .column_by_name("recommendationid")
-                .and_then(|column| column.as_any().downcast_ref::<StringArray>())
-                .ok_or(Error::MalformedPayload {
-                    field: "recommendationid",
-                })?;
-            let updated = batch
-                .column_by_name("timestamp_updated")
-                .and_then(|column| column.as_any().downcast_ref::<Int64Array>());
-            visit(
-                &batch,
-                &Kept {
-                    newest: &newest,
-                    ids,
-                    updated,
-                    file,
-                },
-            )?;
-        }
+        each_batch_of(&shard, file, &newest, columns, &mut visit)?;
+    }
+    Ok(())
+}
+
+fn each_batch_of(
+    shard: &Path,
+    file: i64,
+    newest: &Newest,
+    columns: &[&str],
+    mut visit: impl FnMut(&RecordBatch, &Kept<'_>) -> Result<()>,
+) -> Result<()> {
+    let builder = ParquetRecordBatchReaderBuilder::try_new(File::open(shard)?)?;
+    let wanted = ProjectionMask::columns(
+        builder.parquet_schema(),
+        columns
+            .iter()
+            .copied()
+            .chain(["recommendationid", "timestamp_updated"]),
+    );
+    let reader = builder
+        .with_projection(wanted)
+        .with_batch_size(8192)
+        .build()?;
+    for batch in reader {
+        let batch = batch?;
+        let ids = batch
+            .column_by_name("recommendationid")
+            .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+            .ok_or(Error::MalformedPayload {
+                field: "recommendationid",
+            })?;
+        let updated = batch
+            .column_by_name("timestamp_updated")
+            .and_then(|column| column.as_any().downcast_ref::<Int64Array>());
+        visit(
+            &batch,
+            &Kept {
+                newest,
+                ids,
+                updated,
+                file,
+            },
+        )?;
     }
     Ok(())
 }
@@ -399,12 +424,11 @@ impl RowBuilders {
 /// # Errors
 ///
 /// Fails if a shard cannot be read.
-pub fn texts_for<S: std::hash::BuildHasher>(
+pub fn texts_for<S: std::hash::BuildHasher + Sync>(
     snapshot: &Path,
     ids: &std::collections::HashSet<String, S>,
 ) -> Result<HashMap<String, String>> {
-    let mut found = HashMap::new();
-    each_batch(snapshot, |batch, kept| {
+    let found = side_by_side(snapshot, &["review"], |batch, kept, into| {
         let column = |name: &'static str| -> Result<&StringArray> {
             batch
                 .column_by_name(name)
@@ -419,12 +443,12 @@ pub fn texts_for<S: std::hash::BuildHasher>(
             }
             let id = review_ids.value(row);
             if ids.contains(id) {
-                found.insert(id.to_owned(), bodies.value(row).to_owned());
+                into.push((id.to_owned(), bodies.value(row).to_owned()));
             }
         }
         Ok(())
     })?;
-    Ok(found)
+    Ok(found.into_iter().collect())
 }
 
 /// Reviews taken as "the top of the pile" when measuring helpfulness bias. Steam's own
@@ -453,80 +477,171 @@ pub struct Row {
 ///
 /// Fails if a shard cannot be read, or if the visitor does.
 pub fn for_each_row(snapshot: &Path, mut visit: impl FnMut(Row, &str) -> Result<()>) -> Result<()> {
+    each_batch(snapshot, &ROW_COLUMNS, |batch, kept| {
+        rows_of(batch, kept, &mut visit)
+    })
+}
+
+/// What `keep` keeps of each review, in capture order, with the shards walked side by side.
+///
+/// For a pass somebody is waiting on: the largest game's million reviews take seconds one
+/// shard after another and a fraction of that on every core. `keep` sees every row
+/// [`for_each_row`] would, from several threads and in no particular order.
+///
+/// # Errors
+///
+/// Fails if a shard cannot be read.
+pub fn rows_kept<T: Send>(
+    snapshot: &Path,
+    keep: impl Fn(Row, &str) -> Option<T> + Sync,
+) -> Result<Vec<T>> {
+    side_by_side(snapshot, &ROW_COLUMNS, |batch, kept, into| {
+        rows_of(batch, kept, &mut |row, text| {
+            into.extend(keep(row, text));
+            Ok(())
+        })
+    })
+}
+
+/// What `take` takes from every batch, in capture order, with the shards read side by side:
+/// [`each_batch`] for a pass somebody is waiting on.
+fn side_by_side<T: Send>(
+    snapshot: &Path,
+    columns: &[&str],
+    take: impl Fn(&RecordBatch, &Kept<'_>, &mut Vec<T>) -> Result<()> + Sync,
+) -> Result<Vec<T>> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let newest = Newest::load(snapshot)?;
+    let shards = shards_of(snapshot)?;
+    let next = AtomicUsize::new(0);
+    let workers = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(shards.len())
+        .max(1);
+    let mut walked: Vec<(usize, Result<Vec<T>>)> = std::thread::scope(|scope| {
+        let running: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut mine = Vec::new();
+                    loop {
+                        let order = next.fetch_add(1, Ordering::Relaxed);
+                        let Some((shard, file)) = shards.get(order) else {
+                            return mine;
+                        };
+                        let mut taken = Vec::new();
+                        let read = each_batch_of(shard, *file, &newest, columns, |batch, kept| {
+                            take(batch, kept, &mut taken)
+                        });
+                        mine.push((order, read.map(|()| taken)));
+                    }
+                })
+            })
+            .collect();
+        running
+            .into_iter()
+            .flat_map(|worker| {
+                worker
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+            .collect()
+    });
+    walked.sort_by_key(|(order, _)| *order);
+    let mut kept = Vec::new();
+    for (_, shard) in walked {
+        kept.extend(shard?);
+    }
+    Ok(kept)
+}
+
+/// The columns a [`Row`] and its text are made from.
+const ROW_COLUMNS: [&str; 6] = [
+    "review",
+    "language",
+    "weighted_vote_score",
+    "votes_up",
+    "voted_up",
+    "timestamp_created",
+];
+
+fn rows_of(
+    batch: &RecordBatch,
+    kept: &Kept<'_>,
+    visit: &mut impl FnMut(Row, &str) -> Result<()>,
+) -> Result<()> {
     use arrow::array::{BooleanArray, Float64Array, UInt32Array};
 
-    each_batch(snapshot, |batch, kept| {
-        let field = |name: &'static str| -> Result<&dyn Array> {
-            batch
-                .column_by_name(name)
-                .map(AsRef::as_ref)
-                .ok_or(Error::MalformedPayload { field: name })
-        };
-        let cast = |name: &'static str| -> Result<&StringArray> {
-            field(name)?
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .ok_or(Error::MalformedPayload { field: name })
-        };
-        let ids = cast("recommendationid")?;
-        let texts = cast("review")?;
-        let languages = cast("language")?;
-        let helpful = field("weighted_vote_score")?
+    let field = |name: &'static str| -> Result<&dyn Array> {
+        batch
+            .column_by_name(name)
+            .map(AsRef::as_ref)
+            .ok_or(Error::MalformedPayload { field: name })
+    };
+    let cast = |name: &'static str| -> Result<&StringArray> {
+        field(name)?
             .as_any()
-            .downcast_ref::<Float64Array>()
-            .ok_or(Error::MalformedPayload {
-                field: "weighted_vote_score",
-            })?;
-        let votes = field("votes_up")?
-            .as_any()
-            .downcast_ref::<UInt32Array>()
-            .ok_or(Error::MalformedPayload { field: "votes_up" })?;
-        let recommended = field("voted_up")?
-            .as_any()
-            .downcast_ref::<BooleanArray>()
-            .ok_or(Error::MalformedPayload { field: "voted_up" })?;
-        let created = field("timestamp_created")?
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .ok_or(Error::MalformedPayload {
-                field: "timestamp_created",
-            })?;
+            .downcast_ref::<StringArray>()
+            .ok_or(Error::MalformedPayload { field: name })
+    };
+    let ids = cast("recommendationid")?;
+    let texts = cast("review")?;
+    let languages = cast("language")?;
+    let helpful = field("weighted_vote_score")?
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .ok_or(Error::MalformedPayload {
+            field: "weighted_vote_score",
+        })?;
+    let votes = field("votes_up")?
+        .as_any()
+        .downcast_ref::<UInt32Array>()
+        .ok_or(Error::MalformedPayload { field: "votes_up" })?;
+    let recommended = field("voted_up")?
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .ok_or(Error::MalformedPayload { field: "voted_up" })?;
+    let created = field("timestamp_created")?
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .ok_or(Error::MalformedPayload {
+            field: "timestamp_created",
+        })?;
 
-        for row in 0..batch.num_rows() {
-            if texts.is_null(row) || texts.value(row).trim().is_empty() || !kept.row(row) {
-                continue;
-            }
-            let body = texts.value(row);
-            visit(
-                Row {
-                    recommendationid: ids.value(row).to_owned(),
-                    helpfulness: if helpful.is_null(row) {
-                        0.0
-                    } else {
-                        helpful.value(row)
-                    },
-                    votes_up: if votes.is_null(row) {
-                        0
-                    } else {
-                        votes.value(row)
-                    },
-                    voted_up: !recommended.is_null(row) && recommended.value(row),
-                    language: if languages.is_null(row) {
-                        String::new()
-                    } else {
-                        languages.value(row).to_owned()
-                    },
-                    created: if created.is_null(row) {
-                        0
-                    } else {
-                        created.value(row)
-                    },
-                },
-                body,
-            )?;
+    for row in 0..batch.num_rows() {
+        if texts.is_null(row) || texts.value(row).trim().is_empty() || !kept.row(row) {
+            continue;
         }
-        Ok(())
-    })
+        let body = texts.value(row);
+        visit(
+            Row {
+                recommendationid: ids.value(row).to_owned(),
+                helpfulness: if helpful.is_null(row) {
+                    0.0
+                } else {
+                    helpful.value(row)
+                },
+                votes_up: if votes.is_null(row) {
+                    0
+                } else {
+                    votes.value(row)
+                },
+                voted_up: !recommended.is_null(row) && recommended.value(row),
+                language: if languages.is_null(row) {
+                    String::new()
+                } else {
+                    languages.value(row).to_owned()
+                },
+                created: if created.is_null(row) {
+                    0
+                } else {
+                    created.value(row)
+                },
+            },
+            body,
+        )?;
+    }
+    Ok(())
 }
 
 /// Streams every review's id, language and text, in capture order.
@@ -542,7 +657,7 @@ pub fn for_each_body(
     snapshot: &Path,
     mut visit: impl FnMut(&str, &str, &str) -> Result<()>,
 ) -> Result<()> {
-    each_batch(snapshot, |batch, kept| {
+    each_batch(snapshot, &["language", "review"], |batch, kept| {
         let column = |name: &'static str| -> Result<&StringArray> {
             batch
                 .column_by_name(name)
@@ -591,14 +706,23 @@ pub struct CapturedReview {
 /// # Errors
 ///
 /// Fails if a shard cannot be read.
-pub fn reviews_for<S: std::hash::BuildHasher>(
+pub fn reviews_for<S: std::hash::BuildHasher + Sync>(
     snapshot: &Path,
     ids: &std::collections::HashSet<String, S>,
 ) -> Result<HashMap<String, CapturedReview>> {
     use arrow::array::{BooleanArray, UInt32Array};
 
-    let mut found = HashMap::new();
-    each_batch(snapshot, |batch, kept| {
+    let columns = [
+        "review",
+        "language",
+        "author_steamid",
+        "votes_up",
+        "votes_funny",
+        "author_playtime_at_review",
+        "voted_up",
+        "timestamp_created",
+    ];
+    let found = side_by_side(snapshot, &columns, |batch, kept, into| {
         let strings = |name: &'static str| -> Result<&StringArray> {
             batch
                 .column_by_name(name)
@@ -651,7 +775,7 @@ pub fn reviews_for<S: std::hash::BuildHasher>(
                     array.value(row)
                 }
             };
-            found.insert(
+            into.push((
                 id.to_owned(),
                 CapturedReview {
                     id: id.to_owned(),
@@ -668,11 +792,11 @@ pub fn reviews_for<S: std::hash::BuildHasher>(
                         created.value(row)
                     },
                 },
-            );
+            ));
         }
         Ok(())
     })?;
-    Ok(found)
+    Ok(found.into_iter().collect())
 }
 
 /// The name of the file a sweep writes, from when it started.
@@ -880,6 +1004,43 @@ mod tests {
         let fetched = reviews_for(dir, &wanted).unwrap();
         assert_eq!(fetched["1"].text, "fixed now, runs fine");
         assert_eq!(texts_for(dir, &wanted).unwrap()["3"], "arrived later");
+
+        let kept = rows_kept(dir, |row, text| {
+            Some((row.recommendationid, text.to_owned()))
+        })
+        .unwrap();
+        assert_eq!(
+            kept,
+            [
+                ("2".to_owned(), "great game".to_owned()),
+                ("1".to_owned(), "fixed now, runs fine".to_owned()),
+                ("3".to_owned(), "arrived later".to_owned()),
+            ],
+            "the rows that count, in the order the capture holds them"
+        );
+    }
+
+    #[test]
+    fn shards_read_side_by_side_come_back_in_capture_order() {
+        let scratch = Scratch::new("side-by-side");
+        let mut wanted = Vec::new();
+        for shard in 0..24 {
+            let reviews: Vec<Value> = (0..5)
+                .map(|row| {
+                    let id = (shard * 5 + row).to_string();
+                    wanted.push(id.clone());
+                    review(&id, "said", 1, 1)
+                })
+                .collect();
+            write(
+                &scratch.0.join(format!("shard-{shard:04}.parquet")),
+                &reviews,
+            );
+        }
+
+        let kept = rows_kept(&scratch.0, |row, _| Some(row.recommendationid)).unwrap();
+
+        assert_eq!(kept, wanted);
     }
 
     #[test]
