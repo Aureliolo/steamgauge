@@ -4778,9 +4778,11 @@ the time because the two answer different shortages.
 GB, and runs held to 15.5, 16 and 17.5 GB failed before their first step: what CUDA graphs
 record stays reserved in their own pools (5.4 GB at passes of 16, 3.5 at passes of 8), which
 that count leaves out and the hold does not. The same batch as four passes of 8 ran held to
-18.5 GB, at 18.1, about 30% slower a step. Asked, the user kept passes of 16 held at 20.5 GB:
-the run as fast as before, the card's last 3.5 GB to the user's programs, and the watchdog left
-to stop the run if they need more.
+18.5 GB, at 18.1, about 30% slower a step. The user first kept passes of 16 held at 20.5 GB,
+and that run could not start either: 19.4 GB allocated when it failed, the rest of the 20.5 in
+what the failure's own report does not itemise. Asked again, the user took the passes of 8 held
+at 18.5 GB for the standard student and its folds (2026-10-02): the only held shape that had
+run, the same gradient, about 6 GB of the card left to the user's programs.
 
 ## Nothing here is identified by a number somebody incremented
 
