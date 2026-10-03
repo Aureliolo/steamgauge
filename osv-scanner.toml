@@ -37,3 +37,8 @@ reason = "transformers 4.57.6, held below 5 (DECISIONS, 'transformers 5 is held'
 id = "GHSA-69w3-r845-3855"
 ignoreUntil = 2027-03-27
 reason = "transformers 4.57.6, held below 5. Trainer._load_rng_state calls torch.load without weights_only, which the advisory says matters only under torch below 2.6; the floor is torch 2.13 and the lock resolves 2.14, where torch.load defaults to weights_only=True. training/ never imports Trainer either. Covers its alias PYSEC-2026-2288."
+
+[[IgnoredVulns]]
+id = "GHSA-x9r9-c232-4q39"
+ignoreUntil = 2027-03-27
+reason = "transformers 4.57.6, held below 5; the fix is after 5.8.1. GenerativePreTrainedModel.load_custom_generate writes a repository's custom_generate/generate.py to the module cache before the trust check. It is reached only through generation with a custom_generate repository, and training/ never generates: the readers are encoders scored by a classification head, and no file in training/ or tools/ calls generate or names custom_generate. Covers its aliases PYSEC-2026-4174 and CVE-2026-80047."

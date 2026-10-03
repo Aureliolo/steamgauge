@@ -759,7 +759,10 @@ backbone repository that serves hostile files, and every backbone is read at a c
 machine already trained on, pinned in `training/backbones.py` (below), so a repository that
 turns hostile later reaches none of them. The first also needs the `kernels` package, which the
 lock does not install. So the hold leaves nothing reachable, and moving off it closes the three
-rather than any ignore. Every floor in `requirements.txt` sits at the first release
+rather than any ignore. A sixth, GHSA-x9r9-c232-4q39 (2026-10-03: `load_custom_generate` writes
+a repository's generation code to the module cache before the trust check, fixed after 5.8.1),
+is in `osv-scanner.toml`: it is reached only by generating with a `custom_generate` repository,
+and nothing here generates. Every floor in `requirements.txt` sits at the first release
 free of every advisory its range can escape (4.57.2 for transformers, the rest free of all),
 because OSV-Scanner and Scorecard read a floor as the version in use.
 
