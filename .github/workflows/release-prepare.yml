@@ -74,10 +74,11 @@ jobs:
           ref: main
           persist-credentials: false
 
-      # Every crate takes the workspace's version, and Cargo.lock carries a copy for each, so a
-      # bump is two files and the script writes both. Cargo then has to agree: --locked refuses a
-      # lock file that would change, which is a bump that missed an entry, found here rather than
-      # by the release build after the tag it cannot take back.
+      # Every crate takes the workspace's version, Cargo.lock carries a copy for each, and the fuzz
+      # harness's own lock one for the crate it builds on, so the script writes all three. Cargo
+      # then has to agree in both workspaces: --locked refuses a lock file that would change, which
+      # is a bump that missed an entry, found here rather than by a check on the release pull
+      # request or the release build after the tag it cannot take back.
       - name: Raise the version
         id: bump
         env:
@@ -90,6 +91,7 @@ jobs:
           test -n "${files}"
           next="$(node tools/release/version.mjs check)"
           cargo metadata --locked --format-version 1 > /dev/null
+          cargo metadata --locked --format-version 1 --manifest-path fuzz/Cargo.toml > /dev/null
           {
             echo "version=${next}"
             echo "branch=release/v${next}"
