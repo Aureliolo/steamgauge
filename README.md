@@ -177,16 +177,14 @@ outrank one three hundred used against ten, and a side with a handful of reviews
 rather than promoting whatever those few happened to write. Counts are by reviewer, once per
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
-The comparison is also made within each language and then pooled, because a library written
-in thirty languages is a library whose speakers do not praise and complain in the same
-proportions: against the whole other side, "historia" stood out in the praise of a story
+The comparison is also made within each language and then pooled, because reviews written in
+thirty languages come from speakers who do not praise and complain in the same proportions: against the whole other side, "historia" stood out in the praise of a story
 that Spanish speakers happened to like, and said nothing but "story". Each language's praise
 is compared with its own complaints, and a word a language uses either way contributes
 nothing. What a subject is called in each language stays off its rows as the English label
 does, read from the corpus rather than translated: "сюжет" under story says what the row said.
 
-A term is a word or a pair of adjacent words. Chinese, which a sixth of the library is
-written in, is cut into words by a dictionary (jieba, with the words of the trade added, since a
+A term is a word or a pair of adjacent words. Chinese is cut into words by a dictionary (jieba, with the words of the trade added, since a
 general dictionary reads 掉帧 as "drop" and "frame"); Korean is spaced words with the particle
 taken off; Japanese, which has no dictionary here, is cut into pairs of adjacent characters,
 the best that can be done without one. Everything the page shows is added up when a game is
@@ -322,10 +320,6 @@ Every figure in that table is agreement with those labels, and the labels are a 
 one person who has adjudicated 200 of them agrees with the labels on 65% of subjects and with
 the frontier model on 64%, which is the section below and the number to hold the table
 against.
-
-That is not a projection. The library this was built against is **71 games, 9.9 million
-reviews, 25.8 million claims**, all of it read by this model on one card, and the counts and
-the rows behind them reconcile game by game (`--example check-readings`).
 
 ### The reader in each size
 
@@ -539,11 +533,9 @@ These rules keep those figures honest:
   reason for the default is that evidence nobody can read is evidence nobody can check, and
   being able to open a rate and read what is behind it is the whole design.
 
-- **The reader is measurably worse in seven of the languages it reads, and the library is only
-  half English.** The library is **52.5% English** over 7.5 million reviews, with Simplified
-  Chinese at 15.5%, Russian at 6.6% and a long tail after that. The reference set drawn to
-  stand for it is 71% English: a fifth more English than the corpus it speaks about, which was
-  a readability choice made when the library was smaller and never re-examined.
+- **The reader is measurably worse in seven of the languages it reads, and the reference set
+  is 71% English.** Steam reviews of many games are far less English than that, so the
+  languages the reader sees most outside English are the ones it learned from least.
 
   Measured over 32,339 claims held out by cross-validation, each answered by a model that never
   trained on the game it came from (`training/language.py`):
@@ -563,15 +555,12 @@ These rules keep those figures honest:
   | **koreana** | **365** | **59.5%** | **[54.3, 64.4]** |
 
   German, French and Turkish match English or beat it. **Simplified Chinese is 6.5 points below
-  it on intervals that do not overlap, and Korean is eleven points below.** Chinese is one
-  review in six of the library, so this is not a tail case: it is the second-largest language
-  in the corpus, read worse than the first, and nothing on a report page currently says so.
-  Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
+  it on intervals that do not overlap, and Korean is eleven points below.** Nothing on a
+  report page says so. Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
   the same picture.
 
   Twelve of the twenty-nine languages have fewer than a hundred held-out claims and are not
-  quotable at all. Of the 52 games read, three have a commonest language that is not English,
-  and one of them is 63% Japanese.
+  quotable at all.
 
   Two separate things were wrong here, and they wanted different fixes.
 
@@ -629,20 +618,12 @@ These rules keep those figures honest:
   fitted on, so a corpus that declines far above it can be reported as a finding rather than a
   footnote. It now carries **25.0%**, where the subject-only rule carried 19.6%.
 
-  Read across the whole library under that rule, 52 games and 20.2 million claims, the average
-  game declines **22.6%** against the 25.0% it carries, the spread runs 16.6% to 31.0%, and
-  exactly one game reaches the 1.2 times that trips the warning. Under the subject-only rule the
-  same was true of a different one, a card game at 25.1% against a 19.6% expectation. The figure
-  travels, and it is still pitched high enough to stay quiet on ordinary games.
-
-  **The one it fires on is a different game than before, and why is the interesting part.**
-  1449850 declines 31.0%, and almost none of that is the twelve languages declined outright,
-  which are 1.1% of its reviews. It is that the corpus is 12% Simplified Chinese and 8% Korean,
-  the two languages whose lines are highest, 0.839 and 0.929 against English's 0.660. So the
-  warning now has two causes where it had one: a corpus about something the taxonomy lacks, and a
-  corpus written in the languages the reference set covers worst. Those want opposite responses,
-  the first a category and the second more labels, and **nothing on the page yet tells a reader
-  which of the two they are looking at**.
+  A game that declines 1.2 times that or more is flagged, and the flag has two causes: a corpus
+  about something the taxonomy lacks, and a corpus written largely in the languages the
+  reference set covers worst, whose lines are highest (Simplified Chinese 0.839 and Korean 0.929
+  against English's 0.660). Those want opposite responses, the first a category and the second
+  more labels, and **nothing on the page yet tells a reader which of the two they are looking
+  at**.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
   an accuracy, and that promise is measured on the games that chose it. On eleven games the
