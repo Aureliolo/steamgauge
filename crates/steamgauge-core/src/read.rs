@@ -1711,6 +1711,21 @@ pub(crate) mod tests {
     /// everywhere." three times, a review that is only punctuation, one in Chinese, and one
     /// that both damns and praises the bugs.
     pub(crate) fn corpus(out: &Path) -> PathBuf {
+        corpus_of(out, 1)
+    }
+
+    /// [`corpus`] read by the table at the default options, with its reading saved beside it.
+    pub(crate) fn read_corpus_of(out: &Path, app_id: u32) -> PathBuf {
+        let snapshot = corpus_of(out, app_id);
+        let options = options(out);
+        read_with(&mut Table::new(false), app_id, &options, |_| {})
+            .unwrap()
+            .save(&snapshot.join("reading.json"))
+            .unwrap();
+        snapshot
+    }
+
+    pub(crate) fn corpus_of(out: &Path, app_id: u32) -> PathBuf {
         // (id, review, language, recommends, day of 2024 written, helpfulness)
         let reviews = [
             (
@@ -1749,7 +1764,9 @@ pub(crate) mod tests {
                 0.4,
             ),
         ];
-        let snapshot = out.join("appid=1").join(format!("snapshot={CRAWLED}"));
+        let snapshot = out
+            .join(format!("appid={app_id}"))
+            .join(format!("snapshot={CRAWLED}"));
         let rows: Vec<serde_json::Value> = reviews
             .iter()
             .map(|(id, text, language, recommends, day, helpful)| {
@@ -1759,19 +1776,23 @@ pub(crate) mod tests {
                 serde_json::json!({
                     "recommendationid": id, "review": text, "language": language,
                     "voted_up": recommends, "weighted_vote_score": helpful.to_string(),
+                    // The two most helpful drew as many votes as each other.
+                    "votes_up": match *id { "1" | "2" => 50, "4" => 20, "6" => 30, "7" => 40,
+                                            _ => 10 },
                     "timestamp_created": 1_709_294_400 + days * 86_400,
                     "author": {"steamid": format!("7656{id}")},
                 })
             })
             .collect();
         let mut writer =
-            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), app_id)
+                .unwrap();
         writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
         writer.close().unwrap();
         std::fs::write(
             snapshot.join("crawl.json"),
             serde_json::json!({
-                "app_id": 1, "name": "Test Game", "review_score_desc": "Mixed",
+                "app_id": app_id, "name": "Test Game", "review_score_desc": "Mixed",
                 "rows_unique": 7, "valve_total_reviews": 7, "valve_total_positive": 5,
                 "valve_total_negative": 2, "coverage": 1.0, "snapshot_unix": CRAWLED,
                 "shards": 1, "swept_unix": SWEPT,
@@ -1818,7 +1839,7 @@ pub(crate) mod tests {
     #[test]
     fn a_corpus_is_read_once_per_distinct_claim_and_every_review_counted() {
         let out = crate::tempdir::Dir::new();
-        let snapshot = corpus(out.path());
+        corpus(out.path());
         let mut model = Table::new(false);
         let mut told = Vec::new();
         let report = read_with(&mut model, 1, &options(out.path()), |progress| {
@@ -1879,8 +1900,14 @@ pub(crate) mod tests {
             ),
             (2, 1, 2)
         );
+    }
 
-        // What the model was, carried into the reading.
+    #[test]
+    fn a_reading_carries_what_read_it_and_a_row_for_every_claim() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let report = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+
         assert_eq!(report.device, "table");
         assert_eq!(
             (
