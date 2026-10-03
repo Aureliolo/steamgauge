@@ -1,0 +1,53 @@
+name: codeql
+
+# CodeQL over every language the repository is written in: the Rust of both crates, the Python
+# that trains the reader, the JavaScript of the report and the app's window, and the workflows
+# themselves. The security-and-quality suite rather than the default one, and as a check on every
+# pull request rather than a scan nobody waits for. Nothing needs building: each language is read
+# from source.
+on:
+  push:
+    branches:
+      - main
+  # Every pull request, whatever it targets, so that one stacked on another is checked too.
+  pull_request:
+  # A query pack that learns a new pattern finds it in code that has not changed since.
+  schedule:
+    - cron: "29 3 * * 3"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    name: codeql (${{ matrix.language }})
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, rust, python, javascript-typescript]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read # Reads the source it analyses.
+      security-events: write # Uploads the findings to code scanning.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialise
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-and-quality
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: /language:${{ matrix.language }}

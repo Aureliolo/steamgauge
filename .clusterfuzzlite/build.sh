@@ -2,6 +2,7 @@
 # Builds every fuzz target for the sanitiser ClusterFuzzLite asks for, and lays each one in $OUT
 # with the seed corpus, the dictionary and the options it runs with.
 set -o pipefail
+: "${OUT:?the build environment of OSS-Fuzz names the folder the targets are laid in}"
 
 # The compiler the product is built with, as rust-toolchain.toml names it and Renovate moves it,
 # rather than the nightly the image carries: OSS-Fuzz pins that by hand, it lags the rust-version

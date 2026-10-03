@@ -1,0 +1,29 @@
+{
+  "config": {
+    // Prose wraps at 100, like the code. Tables and code blocks are as wide as their content, and
+    // a heading is a name other text quotes, so it is not broken across lines either.
+    "MD013": { "line_length": 100, "tables": false, "code_blocks": false, "headings": false },
+    // Tables here are written with a bare delimiter row, `|---|---|`, which renders the same as a
+    // padded one and keeps a row's diff to the cells that changed.
+    "MD060": false
+  },
+  // Every Markdown file, so a run on a developer's machine lints what CI lints.
+  "globs": ["**/*.md"],
+  "ignores": [
+    "target/**",
+    "fuzz/target/**",
+    "**/node_modules/**",
+    // The model cards export.py writes for the Hugging Face hub, kept beside each run as it wrote
+    // them.
+    "training/runs/*/**"
+  ],
+  "overrides": [
+    {
+      // The body of a pull request, under the title GitHub draws above it, so it opens at the
+      // second level.
+      "filter": [".github/pull_request_template.md"],
+      "config": { "MD041": false },
+      "combine": "merge"
+    }
+  ]
+}

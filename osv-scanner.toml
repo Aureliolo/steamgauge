@@ -1,6 +1,12 @@
 # Advisories against a locked dependency that no compatible release fixes, each with the evidence
 # that this project cannot reach the flaw. Every entry expires so it is looked at again; an
-# advisory whose flaw this project can reach is never listed here, however it scores.
+# advisory whose flaw this project can reach is never listed here, however it scores. deny.toml
+# and fuzz/deny.toml ignore the RUSTSEC ones among these for cargo-deny, which has no expiry, and
+# CI's deny job holds them to the dates here.
+#
+# osv-scanner reads the osv-scanner.toml beside each lock file it finds and nothing above it, and
+# Scorecard scans that way, recursively and with no --config. fuzz/Cargo.lock therefore has its own
+# file, which carries the entries from here that reach the fuzz harness's graph, word for word.
 #
 # A recursive scan reads training/requirements.txt, whose floors it takes for versions, and not
 # the lock, whose name it does not recognise. The transformers entries match only when the lock
@@ -21,31 +27,6 @@ reason = "proc-macro-error 1.0.4 is unmaintained; no vulnerability is reported. 
 id = "RUSTSEC-2024-0436"
 ignoreUntil = 2027-03-27
 reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0075"
-ignoreUntil = 2026-10-13
-reason = "unic-char-range 0.9.0 is unmaintained; no vulnerability is reported. It reaches the build only through urlpattern 0.3.0 under tauri-utils 2.9.3. tauri-utils 2.10.0 (with tauri 2.12.0) moves to urlpattern 0.6, which uses icu_properties and drops all five unic crates, but it was published on 2026-09-26 and renovate.json holds every release for three days; the weekly update takes it. Short expiry so the entry goes when it does."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0080"
-ignoreUntil = 2026-10-13
-reason = "unic-common 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0081"
-ignoreUntil = 2026-10-13
-reason = "unic-char-property 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0098"
-ignoreUntil = 2026-10-13
-reason = "unic-ucd-version 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0100"
-ignoreUntil = 2026-10-13
-reason = "unic-ucd-ident 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
 
 [[IgnoredVulns]]
 id = "PYSEC-2025-217"

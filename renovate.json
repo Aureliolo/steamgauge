@@ -7,7 +7,8 @@
   ],
   "extends": [
     "config:best-practices",
-    "group:all"
+    "group:all",
+    "security:openssf-scorecard"
   ],
   "timezone": "Europe/Zurich",
   "schedule": ["before 6am on monday"],
@@ -30,6 +31,11 @@
       "description": "The manifests name the versions the binary is built with, so an in-range update moves the manifest as well as the lock rather than leaving the two to drift apart.",
       "matchManagers": ["cargo"],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "The toolchain is raised by the Rust custom manager below, together with the crates' rust-version; this manager would raise the same line a second time and leave rust-version behind.",
+      "matchManagers": ["rust-toolchain"],
+      "enabled": false
     },
     {
       "description": "A runner image this datasource knows about is not the same as a label GitHub will schedule a job on: an image can be offered before its label exists, and a raise to a label GitHub does not know fails actionlint on every workflow. Moving to a new image is a decision to make once the label exists, not one to take again every week, and for the release build it changes the machine every binary is made on.",
@@ -73,7 +79,19 @@
   },
   "customManagers": [
     {
-      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft and cargo-about. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes. For cargo-about it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
+      "description": "Rust: the toolchain rust-toolchain.toml names, which CI, the release and the fuzz build compile with, and the rust-version the crates declare, which is that same version on purpose: the one the code is tested with.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^rust-toolchain\\.toml$/", "/^Cargo\\.toml$/"],
+      "matchStrings": [
+        "channel = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"",
+        "rust-version = \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "rust-lang/rust",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    },
+    {
+      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft, shellcheck, cargo-about, cargo-deny and cargo-machete. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes; shellcheck publishes none, so the datasource hashes the archive itself. For cargo-about, cargo-deny and cargo-machete it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
       "matchStrings": [
@@ -81,7 +99,7 @@
       ]
     },
     {
-      "description": "The runner images inside the release build's matrix, which the github-actions manager reads from runs-on: but not from a matrix.",
+      "description": "The runner images inside the release build's and CI's matrices, which the github-actions manager reads from runs-on: but not from a matrix.",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
       "matchStrings": [

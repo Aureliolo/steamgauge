@@ -17,6 +17,9 @@ export const when = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 });
 
+// A cell with no number behind it, drawn as the report draws one.
+export const nothing = '–';
+
 export function set(node, text) {
   node.textContent = text;
 }

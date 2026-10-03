@@ -776,10 +776,10 @@ moved its pins one line at a time with no resolver behind it. CI runs no Python,
 have failed on the training machine and nowhere else; the second was found by installing the
 PR's lock into a throwaway environment, which is the check that now precedes any merge of one.
 `requirements.lock` is `uv pip compile` over `requirements.txt` now, resolved for Windows and
-the training machine's Python with the CUDA index recorded in the file, and Renovate's `pip-compile` manager
-re-runs the command in its header for every update, so a pin cannot be moved past what
-another pin allows. Same pins as the freeze plus `hf-xet`, which `huggingface_hub` had wanted
-all along; the training tests pass under it. Installing with uv needs
+the training machine's Python with the CUDA index recorded in the file, and Renovate's
+`pip-compile` manager re-runs the command in its header for every update, so a pin cannot be
+moved past what another pin allows. Same pins as the freeze plus `hf-xet`, which
+`huggingface_hub` had wanted all along; the training tests pass under it. Installing with uv needs
 `--index-strategy unsafe-best-match`, because the CUDA build of torch sits on a second index
 that uv will not look past the first one for; pip looks at both without being told.
 
@@ -935,7 +935,7 @@ is exactly what running the same thing twice is worth. It is not a finding, `e5-
 nothing was re-exported, re-installed or re-read on the strength of it.
 
 The second is the one worth keeping as a lesson, because it looked like a finding for half an
-hour. `multilingual-e5-large` was pre-trained on pairs written as `query: ` and `passage: `, and
+hour. `multilingual-e5-large` was pre-trained on pairs written as `"query: "` and `"passage: "`, and
 a fine-tune that drops them is asking the encoder a differently shaped question from the one it
 learned, so writing them back in should help. The first run answered **88.9%**, two points clear
 of the best run without them and the top of the whole table. Two more seeds answered 86.4% and
@@ -1077,8 +1077,9 @@ The last four rows are one change at a time, each measured on the frozen games, 
 75% and delivering it: 0.749, 0.751, 0.763 and 0.772. The last row is the reader that ships,
 scored here at one threshold so that it stands in the same column as the rows above it; with the
 line per subject it carries it answers 82.9% of frozen claims at 80.7% agreement, and the two
-frozen games added since the row above it was measured are in its figures and not in theirs. Reading the claim inside its review and training
-at the learning rate that suits that is worth nineteen points of coverage; the bigger backbone
+frozen games added since the row above it was measured are in its figures and not in theirs.
+Reading the claim inside its review and training at the learning rate that suits that is worth
+nineteen points of coverage; the bigger backbone
 is worth seven more on top and most of the macro F1.
 
 **The frozen set grew from eight games to ten on 2026-09-13**, because a game's role comes from
@@ -2089,7 +2090,7 @@ it cannot be agreed about, so disagreement on it is guaranteed rather than infor
 **The splitter was never the problem.** It cuts that review into ten claims, each a
 heading joined to the option it labels:
 
-```
+```text
 [ Difficulty: ] - - -\nx Average (Depends on the difficulty set)
 [ Price: ]---\nx Wait for sale
 ```
@@ -2108,8 +2109,8 @@ that quietly shrank on a machine holding only the reference sets would be the wo
 
 Measured over the ten frozen games, 467 of 5,579 labels, 8.4%, name a span this build does not
 cut: 199 merged into a bigger claim, 125 gone entirely, 122 with edges moved, 21 taken apart.
-The worst game is 25.2%, and it was labelled under the earliest rules. In the draw itself, 925 labels are held
-back, the blind sample is unchanged at 1,000 and the sharp block falls from 38 to 30.
+The worst game is 25.2%, and it was labelled under the earliest rules. In the draw itself, 925
+labels are held back, the blind sample is unchanged at 1,000 and the sharp block falls from 38 to 30.
 
 **Not applied to the training export**, which is the third door `is_not_a_claim` uses. A blank
 option teaches the opposite of what it reads and has to go; a fossil span is a real string with
@@ -2627,7 +2628,7 @@ Measured over 1.64M reviews in eight captures: 2,066 are ballots, 1 in 795, whic
 the splitter's own note already claimed. 82% of their option lines are blank. The splitter drops
 those and keeps the ticked ones, which is right, but what it keeps is this:
 
-```
+```text
 What I enjoy about this game.        What I dislike about the game.
 ☐ Game Play                          ☐ Clichés
 ☑ Graphics                           ☒ Bugs
@@ -2747,10 +2748,10 @@ never flagged `split_wrong`, because a labeller reading `.` marks it a bad claim
 bad split. Both instruments had to be read to see the whole change.
 
 **What it costs the reference set, which is less than it sounds.**
-`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, the rules before this change
-no longer cut 3,299 and the ones after no longer cut 4,222, so it moves 923 more, about 1.2%
-of the set. A label whose span still cuts finds its claim wherever it now sits; the rest
-drop out of measurement rather than being wrong. 4.8% of the set unscoreable is the standing
+`check-draws` asks how many drawn spans this build still cuts as drawn. Of 76,069, the rules
+before this change no longer cut 3,299 and the ones after no longer cut 4,222, so it moves 923
+more, about 1.2% of the set. A label whose span still cuts finds its claim wherever it now sits;
+the rest drop out of measurement rather than being wrong. 4.8% of the set unscoreable is the standing
 cost, and no re-cut or re-labelling is needed to keep working.
 
 It leaves every reading on disk describing claims this build no longer cuts, so the library is
@@ -3554,11 +3555,12 @@ twice:
 | the three averaged (`soup.py`) | 92.7% | 93.8% | 77.8% | 0.695 |
 
 Nothing clears a point of coverage, the soup included: averaging runs that differ by objective
-bought what averaging runs that differ by seed did, which is the best ingredient's figure. Paying for a confident wrong answer moved validation by 0.6
-and the frozen games by 0.7, with delivered accuracy 0.3 lower; learning from both labellers'
-answers moved nothing at all. Neither knob ships, both stay, and the labels are where the next
-point is: the knobs' job was to use the disagreement better, and at 5.8% of training claims
-the disagreement is too little to use.
+bought what averaging runs that differ by seed did, which is the best ingredient's figure.
+Paying for a confident wrong answer moved validation by 0.6 and the frozen games by 0.7, with
+delivered accuracy 0.3 lower; learning from both labellers' answers moved nothing at all.
+Neither knob ships, both stay, and the labels are where the next point is: the knobs' job was to
+use the disagreement better, and at 5.8% of training claims the disagreement is too little to
+use.
 
 ### Half the second reading was on disk and nothing read it
 
@@ -3794,9 +3796,9 @@ Ten points more of the frozen set answered at the same agreement is the finding,
 on the benchmark draw too, where agreement also rises two points. Against the person the new
 reader answers twenty-two more of the blind claims and names the person's subject on 2.2
 points fewer of what it answers, inside intervals fifteen points wide: a difference 169
-claims cannot tell from none, either way. The cold figure is scored against the answers as first filed (`4c07445`), before
-the re-judge replaced them. The whole-set figures are the queue's `measure-claims` before and after the
-re-read, from the release binary, on the same labels.
+claims cannot tell from none, either way. The cold figure is scored against the answers as first
+filed (`4c07445`), before the re-judge replaced them. The whole-set figures are the queue's
+`measure-claims` before and after the re-read, from the release binary, on the same labels.
 
 ### The seeds are averaged rather than chosen between
 
@@ -4090,9 +4092,9 @@ game, every file checked (1.33M tokens for the eight):
 
 **`community` is fixed: 478 of 800, 60%**, against 16% before the line learned to turn away
 claims about mods and the developers. The row held about 550 training labels before this; it
-now holds nearly twice that, where the frozen games hold six claims of it to measure by. 1203220's 58 `multiplayer` are the other side of the one line
-the sheet draws there, whether the players are pleasant or merely present, and are worth as
-much.
+now holds nearly twice that, where the frozen games hold six claims of it to measure by.
+1203220's 58 `multiplayer` are the other side of the one line the sheet draws there, whether
+the players are pleasant or merely present, and are worth as much.
 
 **`vr` is not: 77 of 800, 10%**, half the rate on the mixed games above, because all four were
 headset games, and the paragraph above says in so many words that a headset game's reviews
@@ -5124,10 +5126,11 @@ nothing. Two are missing, and no amount of further labelling closes either.
    that this beats a frontier model but that it gets most of the way there for the electricity
    rather than for tens of thousands of dollars a game, and can say how far short it falls.
 
-Then, in order:
+   Then, in order:
 
-3. **The sheet revision and the splitter together, once. Done 2026-09-21.** `reference/GAPS.md` holds the wording for every
-   rule, each traced to a labeller who could not see the others. The contested rate of 29% and
+3. **The sheet revision and the splitter together, once. Done 2026-09-21.**
+   `reference/GAPS.md` holds the wording for every rule, each traced to a labeller who could not
+   see the others. The contested rate of 29% and
    the `difficulty` against `gameplay` confusion say the sheet is the ceiling now, not the
    model. Measure the relabel cost on one game before paying it for thirty-six.
 

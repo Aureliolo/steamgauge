@@ -1,0 +1,23 @@
+name: Something it should do
+description: A change to what SteamGauge does or how it shows it.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The question you are asking of the reviews, or the task you are doing, and where SteamGauge stops helping.
+    validations:
+      required: true
+  - type: textarea
+    id: wanted
+    attributes:
+      label: What would help
+      description: What you would like it to do. A figure it should report needs its denominator, as CONTRIBUTING.md says.
+    validations:
+      required: true
+  - type: textarea
+    id: instead
+    attributes:
+      label: What you do now instead
+      description: How you get the answer today, if you do.

@@ -1,0 +1,51 @@
+name: Something does not work
+description: SteamGauge crashed, refused something, or showed something wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A vulnerability goes to the private form in [SECURITY.md](https://github.com/Aureliolo/steamgauge/blob/main/SECURITY.md), not here.
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you did, step by step, and what SteamGauge did. Name the game's Steam app id if it is about one game.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      placeholder: Windows 11 24H2, macOS 26.0, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+      description: The card and its driver version, or "none". When reading is involved, `steamgauge read` prints the device it reads on near its start; say which it named.
+      placeholder: NVIDIA GeForce RTX 4070, driver 581.29, read on directml
+  - type: input
+    id: version
+    attributes:
+      label: SteamGauge version
+      description: "`steamgauge --version` in a terminal prints it; it is also in the name of the archive you downloaded."
+      placeholder: steamgauge 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: What it said
+      description: |
+        SteamGauge keeps no log file. The window shows a failed task's message under it on the work board; copy that. For a step run from a terminal, paste everything it printed. Either can be run again from a terminal to see more: `steamgauge --help` lists the steps.
+
+        The library is the folder Settings shows under Library. Please do not attach files from it: they hold other people's reviews.
+      render: text
