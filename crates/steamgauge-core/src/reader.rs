@@ -393,34 +393,34 @@ const SMALL_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "model.onnx",
         local: "model.onnx",
-        sha256: "",
+        sha256: "9ae4fb5b2b7305b00f1c94bf2e59e24f5ddac4e4501653a8c50b0f06058c6d3d",
     },
     crate::model::Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
-        sha256: "",
+        sha256: "d24c9d96d2abb6c6fc871861908f062fa776d433a1446925bd4bfb467598b2a3",
     },
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
-        sha256: "",
+        sha256: "c513b0ff44451f41755edb83bf7c1615c9ba22eb67403bce1185e49c62731d7e",
     },
 ];
 const STANDARD_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "model.onnx",
         local: "model.onnx",
-        sha256: "",
+        sha256: "885672915399ce06fe81fe7726647bc6d4768e1a7ce7af0b64f3ae33e2f96a76",
     },
     crate::model::Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
-        sha256: "",
+        sha256: "917794ae198f6d09d709b56c8a1658a49136d0c6145b4b7fd0a4df27d37be952",
     },
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
-        sha256: "",
+        sha256: "ec4d27b7e791a1ea7e5dccb02183a16cc0cb405d71bf281327cc60857879bbf1",
     },
 ];
 
@@ -435,8 +435,8 @@ pub const SIZES: &[Size] = &[
         needs: 1_219 * 1024 * 1024,
         processor_seconds: 36.0,
         published: Published {
-            repository: "",
-            revision: "",
+            repository: "Aureliolo/game-review-reader-small",
+            revision: "7cc57fb55dfee066b8e0ce2370d98afb05a753ab",
             files: &SMALL_FILES,
         },
     },
@@ -446,8 +446,8 @@ pub const SIZES: &[Size] = &[
         needs: 2_756 * 1024 * 1024,
         processor_seconds: 284.9,
         published: Published {
-            repository: "",
-            revision: "",
+            repository: "Aureliolo/game-review-reader",
+            revision: "91d3912188d772f60008c084bf9af80020e404bc",
             files: &STANDARD_FILES,
         },
     },
@@ -1625,8 +1625,8 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_published_until_publishing_pins_it() {
-        assert!(SIZES.iter().all(|size| !size.published.is_pinned()));
+    fn every_size_is_fetched_from_a_pinned_commit() {
+        assert!(SIZES.iter().all(|size| size.published.is_pinned()));
     }
 
     #[test]

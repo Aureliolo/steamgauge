@@ -665,6 +665,24 @@ enum Command {
         to: PathBuf,
     },
 
+    /// Write what the published dataset says about every labelled review, as JSONL.
+    ///
+    /// Everything Steam shows about a review except its words and its author: language, dates,
+    /// whether it recommends, its votes, how it was bought, and the playtime shown on it. And
+    /// the SHA-256 of the text the labels were written against, so anyone who fetches the review
+    /// from Steam can tell whether it is still that text.
+    ExportReviewFacts {
+        /// Where the claim reference sets live. Every review any label names is written.
+        #[arg(long, default_value = "reference/claims")]
+        from: PathBuf,
+        /// Directory holding the captures.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
+        /// Where to write the JSONL.
+        #[arg(long)]
+        to: PathBuf,
+    },
+
     /// Write a draw of unlabelled claims, with their text, as JSONL for a teacher to read.
     ///
     /// Reviews no reference set holds, from games the model trains on, in the numbers a
@@ -883,6 +901,7 @@ pub async fn run() -> Result<()> {
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
         Command::ExportTraining { from, out, to } => run_export_training(&from, &out, &to),
+        Command::ExportReviewFacts { from, out, to } => run_export_review_facts(&from, &out, &to),
         Command::ExportPool {
             app_ids,
             out,
@@ -980,6 +999,7 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::StoreFacts { .. }
         | Command::Recount { .. }
         | Command::ExportTraining { .. }
+        | Command::ExportReviewFacts { .. }
         | Command::ExportPool { .. }
         | Command::Report { .. } => unreachable!("run answers every command that needs no encoder"),
     }
@@ -1344,6 +1364,75 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
             .collect::<Vec<_>>()
             .join(", ")
     );
+    Ok(())
+}
+
+/// The review ids every label under one game's reference sets names, in any of its draws,
+/// second readings or gold.
+fn labelled_reviews(game: &std::path::Path) -> Result<std::collections::HashSet<String>> {
+    let mut ids = std::collections::HashSet::new();
+    let mut pending = vec![game.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.file_name().is_some_and(|name| name == "labels.json") {
+                let labels: Vec<serde_json::Value> =
+                    serde_json::from_slice(&std::fs::read(&path)?)?;
+                ids.extend(
+                    labels
+                        .iter()
+                        .filter_map(|label| label.get("review_id")?.as_str().map(str::to_owned)),
+                );
+            }
+        }
+    }
+    Ok(ids)
+}
+
+fn run_export_review_facts(
+    from: &std::path::Path,
+    captures: &std::path::Path,
+    to: &std::path::Path,
+) -> Result<()> {
+    #[derive(serde::Serialize)]
+    struct Line<'a> {
+        app_id: u32,
+        #[serde(flatten)]
+        facts: &'a steamgauge_core::capture::ReviewFacts,
+    }
+
+    let mut games: Vec<u32> = std::fs::read_dir(from)?
+        .filter_map(|entry| entry.ok()?.file_name().to_str()?.parse().ok())
+        .collect();
+    games.sort_unstable();
+    let mut lines = String::new();
+    let (mut written, mut missing) = (0_usize, 0_usize);
+    for app_id in games {
+        let wanted = labelled_reviews(&from.join(app_id.to_string()))?;
+        if wanted.is_empty() {
+            continue;
+        }
+        let snapshot = steamgauge_core::embed::latest_snapshot(captures, app_id)?;
+        let found = steamgauge_core::capture::facts_for(&snapshot, &wanted)?;
+        missing += wanted.len() - found.len();
+        let mut facts: Vec<_> = found.values().collect();
+        facts.sort_by(|a, b| a.review_id.cmp(&b.review_id));
+        for facts in facts {
+            lines.push_str(&serde_json::to_string(&Line { app_id, facts })?);
+            lines.push('\n');
+            written += 1;
+        }
+    }
+    std::fs::write(to, lines)?;
+    println!("{written} labelled reviews -> {}", to.display());
+    if missing > 0 {
+        println!(
+            "{missing} labelled reviews are not in this machine's captures: their facts and \
+             fingerprints are not written, and their labels cannot be checked against a text"
+        );
+    }
     Ok(())
 }
 

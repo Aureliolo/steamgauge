@@ -53,7 +53,7 @@ def test_figures_read_the_way_a_person_reads_them():
     row = sizes.table(data).splitlines()[2]
 
     assert row == (
-        "| *large* (not shipped) | 4.0B | 8.8 GB | 83.9% | pending | 12.5 GB | 23 min | 36 s |"
+        "| *large* (not published) | 4.0B | 8.8 GB | 83.9% | pending | 12.5 GB | 23 min | 36 s |"
     )
 
 

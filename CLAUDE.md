@@ -15,7 +15,7 @@ cargo clippy --all-targets -- -D warnings          # not --all-features: cuda/me
 cargo test --workspace
 cargo build --release -p steamgauge-app --features directml   # always; without it reads run on CPU
 cargo run -p steamgauge-core --example sample-report -- report.html && node tools/report-check/check.mjs report.html
-pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+uvx ruff@0.15.2 check training && uvx ruff@0.15.2 format --check training   # pipx is not installed here; the venv's ruff is a different version
 bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside training/, never by path
 ```
 

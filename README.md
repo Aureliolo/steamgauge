@@ -336,15 +336,15 @@ unlabelled claims as well as from the labels, at seven times the parameters, eig
 download and eleven times the time on a card.
 
 <!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
-| Reader | Parameters | Download | Right, answering its surest 80% | Right, answering its surest 90% | Card memory | One big game on a card | One small game on the processor |
+| Reader | Parameters | Download | Accuracy at 80% coverage | Accuracy at 90% coverage | GPU memory | One large game on the GPU | One small game on the CPU |
 |---|---|---|---|---|---|---|---|
 | small | 118M | 244 MB | 77.9% | 73.8% | 1.2 GB | 62 s | 36 s |
 | standard | 559M | 1.1 GB | 84.7% | 82.0% | 2.6 GB | 125 s | 285 s |
-| *4B* (not shipped) | 4.0B | 8.8 GB | 83.6% | 79.8% | 12.5 GB | 23 min | 49 min |
+| *4B* (not published) | 4.0B | 8.8 GB | 83.6% | 79.8% | 12.5 GB | 23 min | 49 min |
 
-- **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
-- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's card and processor figures were measured on an earlier 4B of the same shape, whose graph is the one in its row with other weights.
-- **One small game on the processor:** 1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work.
+- **Accuracy at a coverage:** 458 claims from ten games held out of training, labelled under the current category sheet. Each reader answers the given share of claims it is most confident about, scored on DirectML (`frontier.py reader`).
+- **GPU memory and one large game on the GPU:** one read of game 920210 (117,664 claims) through the desktop app on DirectML, on an otherwise idle NVIDIA GeForce RTX 4090. Memory is the peak during the read minus what the GPU held before. The 4B's GPU and CPU figures are from a 4B of the same architecture.
+- **One small game on the CPU:** 1,416 claims of game 1888930 on the CPU only, loading included, on an AMD Ryzen 9 5950X with other work running.
 <!-- end of reader sizes -->
 
 ### How a person turns silver into gold
@@ -751,6 +751,25 @@ These rules keep those figures honest:
 - **Counting words is not understanding them.** A category assignment is a useful summary and
   a starting point for reading, never a substitute for it. That is why drilling down to the
   underlying reviews is a first-class feature and not an afterthought.
+
+## Models and dataset
+
+The readers, the search models and the labelled claims are on Hugging Face, each release
+tagged `v1`, `v2` and so on. The app fetches every file from one pinned commit and checks its
+length and SHA-256 before using it.
+
+| | Repository | DOI |
+|---|---|---|
+| Reader | [Aureliolo/game-review-reader](https://huggingface.co/Aureliolo/game-review-reader) | [10.57967/hf/10732](https://doi.org/10.57967/hf/10732) |
+| Reader, small | [Aureliolo/game-review-reader-small](https://huggingface.co/Aureliolo/game-review-reader-small) | [10.57967/hf/10734](https://doi.org/10.57967/hf/10734) |
+| Labelled claims | [Aureliolo/game-review-claims](https://huggingface.co/datasets/Aureliolo/game-review-claims) | [10.57967/hf/10735](https://doi.org/10.57967/hf/10735) |
+| Search encoder | [Aureliolo/steamgauge-search-encoder](https://huggingface.co/Aureliolo/steamgauge-search-encoder) | |
+| Search reranker | [Aureliolo/steamgauge-search-reranker](https://huggingface.co/Aureliolo/steamgauge-search-reranker) | |
+
+The search models are fp16 ONNX exports of Qwen3-Embedding-0.6B and Qwen3-Reranker-0.6B with
+their weights unchanged. The dataset holds no review text and nothing about the authors: each
+labelled review carries a SHA-256 fingerprint of its text, and `training/fetch_text.py`
+fetches the reviews from Steam and puts the text back on your own machine.
 
 ## Data and privacy
 

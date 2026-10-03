@@ -125,6 +125,9 @@ def called_name(call: ast.Call) -> str | None:
 
 
 SOURCES = sorted(path for path in HERE.glob("*.py") if path.name != "backbones.py")
+# Hub calls that write to a repository. A tag names the commit it points at with `revision`,
+# which is the same word a pinned load uses, and nothing comes down.
+WRITES = {"create_tag", "create_branch"}
 
 
 @pytest.mark.parametrize("path", SOURCES, ids=lambda path: path.name)
@@ -133,7 +136,10 @@ def test_nothing_is_fetched_except_through_the_table(path):
         f"{path.name}:{call.lineno} {called_name(call)}"
         for call in calls_in(path)
         if called_name(call) in {"from_pretrained", "snapshot_download", "hf_hub_download"}
-        or any(keyword.arg in backbones.DECIDED for keyword in call.keywords)
+        or (
+            called_name(call) not in WRITES
+            and any(keyword.arg in backbones.DECIDED for keyword in call.keywords)
+        )
     ]
     assert not stray, "load through backbones.load instead: " + ", ".join(stray)
 
