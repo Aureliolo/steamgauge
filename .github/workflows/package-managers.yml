@@ -332,8 +332,25 @@ jobs:
           winget validate --manifest winget --disable-interactivity
           # A manifest from a folder rather than from a source is refused until this is on.
           winget settings --enable LocalManifestFiles
-          winget install --manifest winget --scope user --silent --disable-interactivity `
-            --accept-package-agreements --accept-source-agreements
+          # Bounded, because a setup program that waits on a window nobody can see waits until the
+          # job is cancelled, and a cancelled job keeps nothing that says what it was waiting on.
+          $log = "$env:RUNNER_TEMP\winget-install.log"
+          $install = Start-Process winget -NoNewWindow -PassThru -ArgumentList @(
+            'install', '--manifest', 'winget', '--scope', 'user', '--silent', '--disable-interactivity',
+            '--accept-package-agreements', '--accept-source-agreements', '--log', $log, '--verbose-logs')
+          # ExitCode is read from the handle, which has to be taken while the process is running.
+          $null = $install.Handle
+          if (-not $install.WaitForExit(240000)) {
+            Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize | Out-String -Width 300
+            Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -gt (Get-Date).AddMinutes(-6) } |
+              Format-Table ProcessId, ParentProcessId, Name, CommandLine -AutoSize | Out-String -Width 400
+            Get-Content $log
+            throw 'winget install was still running after four minutes.'
+          }
+          if ($install.ExitCode -ne 0) {
+            Get-Content $log
+            throw "winget install failed with $($install.ExitCode)."
+          }
           $installed = "$env:LOCALAPPDATA\SteamGauge"
           foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
             if (-not (Test-Path "$installed\$file")) { throw "winget's install put no $file in $installed." }
