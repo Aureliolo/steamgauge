@@ -752,6 +752,25 @@ These rules keep those figures honest:
   a starting point for reading, never a substitute for it. That is why drilling down to the
   underlying reviews is a first-class feature and not an afterthought.
 
+## Models and dataset
+
+The readers, the search models and the labelled claims are on Hugging Face, each release
+tagged `v1`, `v2` and so on. The app fetches every file from one pinned commit and checks its
+length and SHA-256 before using it.
+
+| | Repository | DOI |
+|---|---|---|
+| Reader | [Aureliolo/game-review-reader](https://huggingface.co/Aureliolo/game-review-reader) | [10.57967/hf/10732](https://doi.org/10.57967/hf/10732) |
+| Reader, small | [Aureliolo/game-review-reader-small](https://huggingface.co/Aureliolo/game-review-reader-small) | [10.57967/hf/10734](https://doi.org/10.57967/hf/10734) |
+| Labelled claims | [Aureliolo/game-review-claims](https://huggingface.co/datasets/Aureliolo/game-review-claims) | [10.57967/hf/10735](https://doi.org/10.57967/hf/10735) |
+| Search encoder | [Aureliolo/steamgauge-search-encoder](https://huggingface.co/Aureliolo/steamgauge-search-encoder) | |
+| Search reranker | [Aureliolo/steamgauge-search-reranker](https://huggingface.co/Aureliolo/steamgauge-search-reranker) | |
+
+The search models are fp16 ONNX exports of Qwen3-Embedding-0.6B and Qwen3-Reranker-0.6B with
+their weights unchanged. The dataset holds no review text and nothing about the authors: each
+labelled review carries a SHA-256 fingerprint of its text, and `training/fetch_text.py`
+fetches the reviews from Steam and puts the text back on your own machine.
+
 ## Data and privacy
 
 This repository holds no review data. Reviews belong to the people who wrote them and to
