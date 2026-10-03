@@ -65,7 +65,10 @@ impl Releases {
         for repository in published() {
             // A repository the Hub will not list today is left out rather than reported as
             // having nothing newer, which would be a claim made from no answer.
-            if let Ok(Some(tag)) = steamgauge_core::model::newest_release(repository).await {
+            if let Ok(Some(tag)) =
+                steamgauge_core::model::newest_release(steamgauge_core::model::HUB, repository)
+                    .await
+            {
                 newest.insert(repository.to_owned(), tag);
             }
         }
