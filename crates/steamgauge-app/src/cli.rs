@@ -1588,7 +1588,6 @@ fn run_export_pool(
         total.reviews += report.reviews;
         total.claims += report.claims;
         total.labelled += report.labelled;
-        total.refused += report.refused;
     }
     std::io::Write::flush(&mut file)?;
     println!(
@@ -1597,9 +1596,6 @@ fn run_export_pool(
         total.claims,
         to.display()
     );
-    if total.refused > 0 {
-        println!("{} rows held back for carrying no claim", total.refused);
-    }
     Ok(())
 }
 
@@ -3354,7 +3350,7 @@ async fn run_mine_by_neighbour(
     let embed_batch = how.embed_batch;
 
     let lines = steamgauge_core::mine::Lines::cast(
-        &mut embedder,
+        &mut |texts: &[String]| embedder.embed(texts),
         reference,
         embed_batch,
         (!how.only.is_empty()).then_some(how.only.as_slice()),
@@ -3374,7 +3370,7 @@ async fn run_mine_by_neighbour(
         eprintln!("embedding app {app_id} on {}", embedder.device());
         let mut last_line = 0;
         let found = steamgauge_core::mine::draw_by_neighbour(
-            &mut embedder,
+            &mut |texts: &[String]| embedder.embed(texts),
             &lines,
             out,
             app_id,
