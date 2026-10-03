@@ -2099,14 +2099,12 @@ mod tests {
             report.distinct, report.claims,
             "no claim of these is said twice"
         );
-        let written = parquet::file::reader::SerializedFileReader::new(
+        let written = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(
             std::fs::File::open(snapshot.join("claims.parquet")).unwrap(),
         )
         .unwrap();
         assert_eq!(
-            parquet::file::reader::FileReader::metadata(&written)
-                .file_metadata()
-                .num_rows(),
+            written.metadata().file_metadata().num_rows(),
             i64::try_from(report.claims).unwrap(),
             "every claim counted is a row beside the capture"
         );

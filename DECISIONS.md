@@ -5000,9 +5000,9 @@ being wrong. Two checks ask both of steamgauge-core.
 
 **Coverage is the core's, by its own tests, and the floor is 78%.** `coverage.yml` runs
 `cargo llvm-cov -p steamgauge-core` on every pull request and on `main`, keeps the lcov report
-with the run, and fails under the floor. Measured on 2026-10-03 on `main` as it stood before the
-check: 13,008 of 16,785 lines, 77.50% (regions 76.82%, functions 78.31%). With the tests the
-mutants below asked for: 13,856 of 17,609 lines, 78.69% (regions 77.83%, functions 79.35%). The
+with the run, and fails under the floor. Measured on 2026-10-03 on `main` at 594748b: 13,008 of
+16,785 lines, 77.50% (regions 76.82%, functions 78.31%). With the tests the mutants below asked
+for, on `main` at f950fc8: 13,970 of 17,751 lines, 78.70% (regions 77.87%, functions 79.26%). The
 floor is that rounded down to the whole percent, and it is only ever raised: a pull request that
 lifts the figure past the next whole percent raises it with the figure, and none lowers it to
 get through. The lines counted include the test modules inside each file, which run whenever
