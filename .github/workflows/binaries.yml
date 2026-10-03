@@ -118,6 +118,15 @@ jobs:
                  ([.tool.driver.rules[]? | {key: .id, value: .messageStrings}] | from_entries) as $wording
                  | .results |= map(
                      select(.ruleId as $rule | $accepted | index($rule) | not)
+                     # ring ships its assembly pre-assembled by NASM, whose objects carry MD5
+                     # source hashes; BA2004 stands for any other module that does.
+                     | select(
+                         .ruleId != "BA2004"
+                         or ((.message.arguments // [])[1] // "" | split("\n")
+                             | map(select(length > 0)) as $modules
+                             | $modules == []
+                               or ($modules | any(startswith("The Netwide Assembler ") | not)))
+                       )
                      | if .message.text then . else
                          (.message.arguments // []) as $arguments
                          | .message.text = (

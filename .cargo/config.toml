@@ -4,6 +4,9 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "control-flow-guard"]
 
-# The C that crates compile with MSVC gets the compiler's Spectre mitigations too.
+# The C and C++ that crates compile with MSVC get the compiler's Spectre mitigations, and its
+# warnings at level 3. sqlite, oniguruma and zstd build with warnings switched off; cc passes
+# these flags after a build script's own, so /W3 is the level that stands.
 [env]
-CFLAGS_x86_64_pc_windows_msvc = "/Qspectre"
+CFLAGS_x86_64_pc_windows_msvc = "/Qspectre /W3"
+CXXFLAGS_x86_64_pc_windows_msvc = "/Qspectre /W3"
