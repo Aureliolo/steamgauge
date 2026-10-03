@@ -17,9 +17,8 @@ on:
   push:
     branches:
       - main
+  # Every pull request, whatever it targets, so that one stacked on another is measured too.
   pull_request:
-    branches:
-      - main
 
 permissions: {}
 

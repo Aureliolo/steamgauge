@@ -19,9 +19,9 @@ name: mutants
 # request forever once it is required. A pull request that changes nothing in the core finds no
 # mutants and passes in the minutes the build takes.
 on:
+  # Every pull request, whatever it targets, so that one stacked on another is held to its own
+  # lines too: the diff is taken from the base it targets.
   pull_request:
-    branches:
-      - main
   schedule:
     - cron: "17 4 * * 2"
   # The weekly run, started by hand.
