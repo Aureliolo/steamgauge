@@ -13,9 +13,37 @@ target="$1"
 version="$2"
 dir="$3"
 
+# Each step says what it is about to do and has four minutes to do it, so a step that waits on
+# something no one will ever answer fails as itself rather than as the job's timeout. A Windows
+# setup program that waits does so on a window nobody can see on this machine, so what is open
+# then, and which process holds it, is printed before giving up.
+step() {
+  local what="$1"
+  shift
+  echo "::group::${what}"
+  "$@" &
+  local pid=$!
+  local waited=0
+  while kill -0 "${pid}" 2>/dev/null && [[ "${waited}" -lt 240 ]]; do
+    sleep 2
+    waited=$((waited + 2))
+  done
+  if kill -0 "${pid}" 2>/dev/null; then
+    echo "${what}: still running after four minutes." >&2
+    if command -v powershell > /dev/null; then
+      powershell -NoProfile -Command \
+        "Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize | Out-String -Width 300; Get-CimInstance Win32_Process | Where-Object { \$_.CreationDate -gt (Get-Date).AddMinutes(-6) } | Format-Table ProcessId, ParentProcessId, Name, CommandLine -AutoSize | Out-String -Width 400" >&2
+    fi
+    exit 1
+  fi
+  wait "${pid}"
+  echo "::endgroup::"
+}
+
 expect_version() {
   local said
-  said="$("$@" --version)"
+  echo "Asking $1 for its version."
+  said="$(timeout 120 "$@" --version)"
   if [[ "${said}" != "steamgauge ${version}" ]]; then
     echo "$* --version said '${said}', not 'steamgauge ${version}'." >&2
     exit 1
@@ -27,6 +55,7 @@ expect_version() {
 # only when it starts. Up for a while and not exited is as much as a machine with no one at it
 # can tell.
 stays_up() {
+  echo "Starting the window: $*"
   "$@" &
   local pid=$!
   sleep 20
@@ -35,15 +64,23 @@ stays_up() {
     echo "The window exited within 20 seconds of starting." >&2
     exit 1
   fi
+  # Git Bash's signals do not reach a native Windows program, so there it is ended by its Windows
+  # process id; otherwise the wait below would wait on a window nothing closes.
+  if [[ -r "/proc/${pid}/winpid" ]]; then
+    taskkill //F //T //PID "$(cat "/proc/${pid}/winpid")" > /dev/null 2>&1 || true
+  fi
   kill "${pid}" 2>/dev/null || true
+  sleep 2
+  kill -9 "${pid}" 2>/dev/null || true
   wait "${pid}" 2>/dev/null || true
   echo "The window stayed up."
 }
 
 case "${target}" in
   x86_64-pc-windows-msvc)
-    "${dir}/steamgauge-${version}-windows-x64-setup.exe" /S
+    step "Installing silently" "${dir}/steamgauge-${version}-windows-x64-setup.exe" /S
     home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
+    ls -la "${home}"
     for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
       test -f "${home}/${file}" || { echo "The installer put no ${file} in ${home}." >&2; exit 1; }
     done
@@ -52,7 +89,7 @@ case "${target}" in
     expect_version "${home}/steamgauge.exe"
     stays_up "${home}/steamgauge.exe"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
-    "${home}/uninstall.exe" /S
+    step "Uninstalling silently" "${home}/uninstall.exe" /S
     sleep 5
     if [[ -e "${home}/steamgauge.exe" ]]; then
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
