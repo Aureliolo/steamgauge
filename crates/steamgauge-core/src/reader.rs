@@ -14,7 +14,7 @@ use std::{path::Path, sync::Arc};
 use ndarray::Array2;
 use ort::{session::Session, value::Tensor};
 use serde::Deserialize;
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::{PaddingParams, Tokenizer};
 
 use crate::{Error, Result};
 
@@ -697,15 +697,10 @@ impl ClaimReader {
         whole
             .with_truncation(None)
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
-        tokenizer.with_padding(Some(PaddingParams {
-            strategy: PaddingStrategy::BatchLongest,
-            ..PaddingParams::default()
-        }));
+        // The default pads each batch to its longest member, in place of the trainer's padding.
+        tokenizer.with_padding(Some(PaddingParams::default()));
         tokenizer
-            .with_truncation(Some(TruncationParams {
-                max_length: provenance.max_tokens,
-                ..TruncationParams::default()
-            }))
+            .with_truncation(Some(crate::model::cut_at(provenance.max_tokens)))
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
 
         // Proved once, here, rather than trusted. A tokenizer that pads or truncates hands back

@@ -32,14 +32,6 @@ exclude_re = [
   'replace <impl std::fmt::Debug for [A-Za-z]+>::fmt -> std::fmt::Result with ',
   # Waiting until a moment that is already now and not waiting are the same wait.
   'src[/\\]api\.rs:.*: replace > with >= in SteamClient::wait_turn$',
-  # Padding to the longest of the batch is what PaddingParams does by default; it is named to say
-  # that a tokenizer file's own padding is overridden, and without the name it still is.
-  'delete field strategy from struct PaddingParams expression in ',
-  # MAX_TOKENS is 512, which is also what TruncationParams defaults to: the field says which of
-  # the two the cut follows, and today they agree.
-  'src[/\\]embed\.rs:.*: delete field max_length from struct TruncationParams expression in Embedder::load$',
-  # The graph is handed token ids; the padding token's text, as against its id, is read by nothing.
-  'src[/\\]search_models\.rs:.*: delete field pad_token from struct PaddingParams expression in Model::session$',
   # A text's vector does not depend on what it is batched with, which is what the encoders were
   # chosen for, so where one batch ends changes how long the reviews take and nothing else.
   'src[/\\]embed\.rs:.*: replace >= with < in embed_reviews$',

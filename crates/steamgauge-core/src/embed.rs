@@ -23,7 +23,7 @@ use parquet::{
     file::properties::WriterProperties,
 };
 use sha2::{Digest, Sha256};
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::{PaddingParams, Tokenizer};
 
 use crate::{
     Error, Result,
@@ -83,15 +83,10 @@ impl Embedder {
         let (session, device_name) = model::session(cache_dir, encoder, precision)?;
         let mut tokenizer = Tokenizer::from_file(model::tokenizer_path(cache_dir, encoder))
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
-        tokenizer.with_padding(Some(PaddingParams {
-            strategy: PaddingStrategy::BatchLongest,
-            ..PaddingParams::default()
-        }));
+        // The default pads each batch to its longest member.
+        tokenizer.with_padding(Some(PaddingParams::default()));
         tokenizer
-            .with_truncation(Some(TruncationParams {
-                max_length: MAX_TOKENS,
-                ..TruncationParams::default()
-            }))
+            .with_truncation(Some(model::cut_at(MAX_TOKENS)))
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
 
         // Read the graph's own signature rather than assuming one: exports of the same
