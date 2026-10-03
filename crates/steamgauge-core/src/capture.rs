@@ -799,6 +799,145 @@ pub fn reviews_for<S: std::hash::BuildHasher + Sync>(
     Ok(found.into_iter().collect())
 }
 
+/// What a published dataset says about one review: everything Steam shows about it except its
+/// words and its author, and the fingerprint of the words that were labelled.
+///
+/// The text is the reviewer's and the author is a person; neither is ours to publish. The
+/// fingerprint is what lets anybody who fetches the review from Steam know whether it is still
+/// the text the labels were written against, since a review edited since may have moved every
+/// byte offset a label names.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "Steam's own fields, kept as Steam names them"
+)]
+pub struct ReviewFacts {
+    pub review_id: String,
+    pub language: String,
+    pub created: i64,
+    pub updated: i64,
+    pub voted_up: bool,
+    pub votes_up: u32,
+    pub votes_funny: u32,
+    pub weighted_vote_score: f64,
+    pub comment_count: u32,
+    pub steam_purchase: bool,
+    pub received_for_free: bool,
+    pub written_during_early_access: bool,
+    pub refunded: bool,
+    pub primarily_steam_deck: bool,
+    /// Shown on the review itself; the account's other playtimes are not.
+    pub playtime_at_review_minutes: u32,
+    /// SHA-256 of the review text as UTF-8, the bytes every label's offsets count.
+    pub text_sha256: String,
+    pub text_bytes: usize,
+}
+
+/// The [`ReviewFacts`] of the reviews named, from the copy of each that counts.
+///
+/// # Errors
+///
+/// Fails if a shard cannot be read.
+pub fn facts_for<S: std::hash::BuildHasher + Sync>(
+    snapshot: &Path,
+    ids: &std::collections::HashSet<String, S>,
+) -> Result<HashMap<String, ReviewFacts>> {
+    use arrow::array::{BooleanArray, Float64Array, UInt32Array};
+
+    let columns = [
+        "review",
+        "language",
+        "timestamp_created",
+        "voted_up",
+        "votes_up",
+        "votes_funny",
+        "weighted_vote_score",
+        "comment_count",
+        "steam_purchase",
+        "received_for_free",
+        "written_during_early_access",
+        "refunded",
+        "primarily_steam_deck",
+        "author_playtime_at_review",
+    ];
+    let found = side_by_side(snapshot, &columns, |batch, kept, into| {
+        fn column<'a, T: 'static>(batch: &'a RecordBatch, name: &'static str) -> Result<&'a T> {
+            batch
+                .column_by_name(name)
+                .and_then(|c| c.as_any().downcast_ref::<T>())
+                .ok_or(Error::MalformedPayload { field: name })
+        }
+        let review_ids = column::<StringArray>(batch, "recommendationid")?;
+        let bodies = column::<StringArray>(batch, "review")?;
+        let languages = column::<StringArray>(batch, "language")?;
+        let created = column::<Int64Array>(batch, "timestamp_created")?;
+        let updated = column::<Int64Array>(batch, "timestamp_updated")?;
+        let counts = |name| column::<UInt32Array>(batch, name);
+        let flags = |name| column::<BooleanArray>(batch, name);
+        let (votes_up, votes_funny, comments, playtime) = (
+            counts("votes_up")?,
+            counts("votes_funny")?,
+            counts("comment_count")?,
+            counts("author_playtime_at_review")?,
+        );
+        let (recommends, purchased, free, early, refunded, deck) = (
+            flags("voted_up")?,
+            flags("steam_purchase")?,
+            flags("received_for_free")?,
+            flags("written_during_early_access")?,
+            flags("refunded")?,
+            flags("primarily_steam_deck")?,
+        );
+        let score = column::<Float64Array>(batch, "weighted_vote_score")?;
+
+        for row in 0..batch.num_rows() {
+            if bodies.is_null(row) || !kept.row(row) {
+                continue;
+            }
+            let id = review_ids.value(row);
+            if !ids.contains(id) {
+                continue;
+            }
+            let count = |array: &UInt32Array| (!array.is_null(row)).then(|| array.value(row));
+            let flag = |array: &BooleanArray| !array.is_null(row) && array.value(row);
+            let time = |array: &Int64Array| (!array.is_null(row)).then(|| array.value(row));
+            let text = bodies.value(row);
+            into.push((
+                id.to_owned(),
+                ReviewFacts {
+                    review_id: id.to_owned(),
+                    language: if languages.is_null(row) {
+                        String::new()
+                    } else {
+                        languages.value(row).to_owned()
+                    },
+                    created: time(created).unwrap_or(0),
+                    updated: time(updated).unwrap_or(0),
+                    voted_up: flag(recommends),
+                    votes_up: count(votes_up).unwrap_or(0),
+                    votes_funny: count(votes_funny).unwrap_or(0),
+                    weighted_vote_score: if score.is_null(row) {
+                        0.0
+                    } else {
+                        score.value(row)
+                    },
+                    comment_count: count(comments).unwrap_or(0),
+                    steam_purchase: flag(purchased),
+                    received_for_free: flag(free),
+                    written_during_early_access: flag(early),
+                    refunded: flag(refunded),
+                    primarily_steam_deck: flag(deck),
+                    playtime_at_review_minutes: count(playtime).unwrap_or(0),
+                    text_sha256: crate::embed::sha256_hex(text),
+                    text_bytes: text.len(),
+                },
+            ));
+        }
+        Ok(())
+    })?;
+    Ok(found.into_iter().collect())
+}
+
 /// The name of the file a sweep writes, from when it started.
 #[must_use]
 pub fn sweep_file(started: i64) -> String {
@@ -1041,6 +1180,50 @@ mod tests {
         let kept = rows_kept(&scratch.0, |row, _| Some(row.recommendationid)).unwrap();
 
         assert_eq!(kept, wanted);
+    }
+
+    #[test]
+    fn a_reviews_published_facts_carry_neither_its_words_nor_its_author() {
+        let scratch = Scratch::new("facts");
+        let mut full = review("1", "Crashes on launch. ünïcode", 100, 200);
+        full["author"] = json!({
+            "steamid": "76561198000000000",
+            "num_games_owned": 400,
+            "playtime_forever": 9000,
+            "playtime_at_review": 1234,
+        });
+        full["votes_funny"] = json!(3);
+        full["weighted_vote_score"] = json!(0.75);
+        full["comment_count"] = json!(2);
+        full["steam_purchase"] = json!(true);
+        full["refunded"] = json!(false);
+        full["primarily_steam_deck"] = json!(true);
+        write(
+            &scratch.0.join("shard-0000.parquet"),
+            &[full, review("2", "not asked for", 1, 1)],
+        );
+
+        let wanted: std::collections::HashSet<String> = ["1".to_owned()].into();
+        let facts = facts_for(&scratch.0, &wanted).unwrap();
+
+        assert_eq!(facts.len(), 1, "only the reviews named are written");
+        let one = &facts["1"];
+        assert_eq!((one.created, one.updated), (100, 200));
+        assert_eq!(one.playtime_at_review_minutes, 1234);
+        assert!(one.voted_up && one.steam_purchase && one.primarily_steam_deck && !one.refunded);
+        assert_eq!((one.votes_funny, one.comment_count), (3, 2));
+        assert_eq!(
+            one.text_sha256,
+            crate::embed::sha256_hex("Crashes on launch. ünïcode")
+        );
+        assert_eq!(one.text_bytes, "Crashes on launch. ünïcode".len());
+        let written = serde_json::to_string(one).unwrap();
+        for private in ["Crashes", "76561198000000000", "9000", "400"] {
+            assert!(
+                !written.contains(private),
+                "{private} leaked into {written}"
+            );
+        }
     }
 
     #[test]

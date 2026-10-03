@@ -459,6 +459,145 @@ def wilson_note(at_threshold: dict) -> str:
     return f", somewhere in [{low:.3f}, {high:.3f}] over {answered} claims"
 
 
+# The licence each base encoder a reader is fine-tuned from carries. A card that names the wrong
+# one tells somebody they may do something they may not, or the reverse.
+BASE_LICENCES = {
+    "intfloat/multilingual-e5-large-instruct": "MIT",
+    "intfloat/multilingual-e5-small": "MIT",
+    "intfloat/multilingual-e5-base": "MIT",
+    "Qwen/Qwen3-Embedding-4B": "Apache-2.0",
+}
+
+
+def front_matter(fields: dict) -> list[str]:
+    """The YAML block a Hugging Face card opens with, which the hub lists and filters by."""
+    out = ["---"]
+    for key, value in fields.items():
+        if isinstance(value, list):
+            out += [f"{key}:", *(f"- {one}" for one in value)]
+        else:
+            out.append(f"{key}: {value}")
+    return [*out, "---", ""]
+
+
+def model_card(run: Path, metadata: dict | None = None) -> str:
+    """The card for an exported run, from what the export left beside its graph.
+
+    Built from `run.json`, `reader.json` and the sizes record rather than from the export's
+    working state, so a card can be written again when the figures beside it move without
+    exporting the graph again, which would not give the same bytes.
+    """
+    record = json.loads((run / "run.json").read_text(encoding="utf-8"))
+    reader = json.loads((run / "reader.json").read_text(encoding="utf-8"))
+    subjects = reader["subjects"]
+    threshold = reader["threshold"]
+    lines = reader.get("thresholds")
+    by_language = reader.get("language_thresholds")
+    metrics = record["validation"]
+    # A card that quotes one threshold for a reader that abstains per subject describes a reader
+    # nobody runs, and the card is what somebody reads before pointing this at a game of theirs.
+    drawn = [one for one in lines or [] if one is not None]
+    silent = sum(1 for one in lines or [] if one is None)
+
+    # The card quotes the frozen games. A card is read by somebody deciding whether to run this
+    # on a game of their own, and the validation figure answers a different question: how well
+    # it does on the games that chose its settings. Measured, the two differ by eighteen points.
+    frozen = record.get("test", metrics)
+    at_threshold = frozen.get(
+        "at_validation_threshold",
+        {
+            "coverage": metrics.get("threshold_coverage", 0),
+            "accuracy": metrics.get("threshold_accuracy"),
+        },
+    )
+    weakest = sorted(frozen["per_subject"].items(), key=lambda pair: pair[1]["f1"])[:5]
+    base = record["backbone"]
+    base_licence = BASE_LICENCES.get(base)
+    return "\n".join(
+        [
+            *(front_matter(metadata) if metadata else []),
+            f"# {READER_NAME}",
+            "",
+            f"Run `{run.name}`, fine-tuned from `{base}`.",
+            "",
+            "Reads one point from a Steam review and says which subject it is about, whether",
+            "it is praise or a complaint, and how sure it is. Below a calibrated threshold it",
+            "says nothing, and that is a supported answer rather than a failure.",
+            "",
+            "## Measured",
+            "",
+            f"- Accuracy {frozen.get('accuracy', 0):.3f}, macro F1 {frozen.get('macro_f1', 0):.3f}",
+            f"- Polarity macro F1 {frozen.get('polarity_macro_f1', 0):.3f}",
+            f"- Calibration error {frozen.get('calibration_error', 0):.3f}",
+            f"- Below {threshold:.2f} confidence it says nothing, which leaves it answering "
+            f"{at_threshold.get('coverage', 0):.0%} of claims at "
+            f"{at_threshold.get('accuracy') or 0:.3f} accuracy" + wilson_note(at_threshold),
+            *(
+                [
+                    f"- **What ships abstains per subject and per language**, not at that "
+                    f"one line: {len(drawn)} of {len(subjects)} subjects carry a line of "
+                    f"their own, {min(drawn):.2f} to {max(drawn):.2f}"
+                    + (f", and {silent} are declined outright" if silent else "")
+                    + ". The coverage above is what this run measured itself at, under one "
+                    "threshold; `steamgauge measure-claims` over the frozen games is the "
+                    "figure for the rule that ships, and it answers less of them more often.",
+                    *spoken_note(by_language),
+                ]
+                if lines
+                else []
+            ),
+            (
+                f"- Area under the risk-coverage curve {frozen.get('aurc', 0):.3f} (lower is "
+                f"better; it says whether the model knows when it does not know)"
+            ),
+            (
+                f"- Trained on {record['claims']['train']} claims, validated on "
+                f"{record['claims']['validation']}, measured on {record['claims']['test']}"
+            ),
+            f"- Data fingerprint `{record['data_fingerprint']}`, code `{record['git_sha'][:12]}`",
+            "",
+            "**Every figure above is from the frozen games**, which the model never saw and",
+            "which chose nothing about it, not even the threshold. At that same threshold the",
+            f"validation games report {metrics.get('threshold_accuracy') or 0:.3f}, which is",
+            "what it scores on games used to build it rather than what a new game gets.",
+            "Weakest subjects here: "
+            + ", ".join(f"`{name}` {row['f1']:.2f}" for name, row in weakest)
+            + ".",
+            "",
+            # Every size's card carries every size, so whichever one somebody lands on says
+            # what the others would cost and give; the same table as the README's.
+            *(
+                ["## The reader in each size", "", sizes.table(sizes.load()), ""]
+                if sizes.SIZES.is_file()
+                else []
+            ),
+            "## Honest limits",
+            "",
+            "The labels were produced by a language model working from a written category",
+            "sheet, so every figure above is agreement with a model rather than correctness.",
+            "One person adjudicated 200 of the frozen claims: the labels name the same",
+            "subject 65% of the time when the person reads cold and 89% once the sheet's",
+            "rule is in front of them. What this reader scores against the person is measured",
+            "once it is installed, by `steamgauge measure-claims --labels gold` over the frozen",
+            "games, and the README carries the figure for the reader that ships. Two models",
+            "can agree and be wrong together, most easily on sarcasm and on the boundaries",
+            "between categories.",
+            "",
+            "## Licence",
+            "",
+            "Apache-2.0"
+            + (
+                f". The encoder it was fine-tuned from, `{base}`, is {base_licence}, which allows it."
+                if base_licence and base_licence != "Apache-2.0"
+                else f", as is the encoder it was fine-tuned from, `{base}`."
+                if base_licence
+                else f". Check the licence of `{base}`, the encoder it was fine-tuned from."
+            ),
+            "",
+        ]
+    )
+
+
 def sample_claims(path: Path, count: int, record: dict, tokenizer) -> list:
     """Claims to check the exported graph on, in the form the reader will send them.
 
@@ -990,107 +1129,7 @@ def main():
     (run / "tokenizer.json").write_text(json.dumps(shipped, ensure_ascii=False), encoding="utf-8")
 
     card = run / "MODEL_CARD.md"
-    metrics = record["validation"]
-    # A card that quotes one threshold for a reader that abstains per subject describes a reader
-    # nobody runs, and the card is what somebody reads before pointing this at a game of theirs.
-    drawn = [one for one in lines or [] if one is not None]
-    silent = sum(1 for one in lines or [] if one is None)
-
-    # The card quotes the frozen games. A card is read by somebody deciding whether to run this
-    # on a game of their own, and the validation figure answers a different question: how well
-    # it does on the games that chose its settings. Measured, the two differ by eighteen points.
-    frozen = record.get("test", metrics)
-    at_threshold = frozen.get(
-        "at_validation_threshold",
-        {
-            "coverage": metrics.get("threshold_coverage", 0),
-            "accuracy": metrics.get("threshold_accuracy"),
-        },
-    )
-    weakest = sorted(frozen["per_subject"].items(), key=lambda pair: pair[1]["f1"])[:5]
-    card.write_text(
-        "\n".join(
-            [
-                f"# {READER_NAME}",
-                "",
-                f"Run `{run.name}`, fine-tuned from `{record['backbone']}`.",
-                "",
-                "Reads one point from a Steam review and says which subject it is about, whether",
-                "it is praise or a complaint, and how sure it is. Below a calibrated threshold it",
-                "says nothing, and that is a supported answer rather than a failure.",
-                "",
-                "## Measured",
-                "",
-                f"- Accuracy {frozen.get('accuracy', 0):.3f}, macro F1 {frozen.get('macro_f1', 0):.3f}",
-                f"- Polarity macro F1 {frozen.get('polarity_macro_f1', 0):.3f}",
-                f"- Calibration error {frozen.get('calibration_error', 0):.3f}",
-                f"- Below {threshold:.2f} confidence it says nothing, which leaves it answering "
-                f"{at_threshold.get('coverage', 0):.0%} of claims at "
-                f"{at_threshold.get('accuracy') or 0:.3f} accuracy" + wilson_note(at_threshold),
-                *(
-                    [
-                        f"- **What ships abstains per subject and per language**, not at that "
-                        f"one line: {len(drawn)} of {len(subjects)} subjects carry a line of "
-                        f"their own, {min(drawn):.2f} to {max(drawn):.2f}"
-                        + (f", and {silent} are declined outright" if silent else "")
-                        + ". The coverage above is what this run measured itself at, under one "
-                        "threshold; `steamgauge measure-claims` over the frozen games is the "
-                        "figure for the rule that ships, and it answers less of them more often.",
-                        *spoken_note(by_language),
-                    ]
-                    if lines
-                    else []
-                ),
-                (
-                    f"- Area under the risk-coverage curve {frozen.get('aurc', 0):.3f} (lower is "
-                    f"better; it says whether the model knows when it does not know)"
-                ),
-                (
-                    f"- Trained on {record['claims']['train']} claims, validated on "
-                    f"{record['claims']['validation']}, measured on {record['claims']['test']}"
-                ),
-                f"- Data fingerprint `{record['data_fingerprint']}`, code `{record['git_sha'][:12]}`",
-                "",
-                "**Every figure above is from the frozen games**, which the model never saw and",
-                "which chose nothing about it, not even the threshold. At that same threshold the",
-                f"validation games report {metrics.get('threshold_accuracy') or 0:.3f}, which is",
-                "what it scores on games used to build it rather than what a new game gets.",
-                "Weakest subjects here: "
-                + ", ".join(f"`{name}` {row['f1']:.2f}" for name, row in weakest)
-                + ".",
-                "",
-                # Every size's card carries every size, so whichever one somebody lands on says
-                # what the others would cost and give; the same table as the README's.
-                *(
-                    [
-                        "## The reader in each size",
-                        "",
-                        sizes.table(sizes.load()),
-                        "",
-                    ]
-                    if sizes.SIZES.is_file()
-                    else []
-                ),
-                "## Honest limits",
-                "",
-                "The labels were produced by a language model working from a written category",
-                "sheet, so every figure above is agreement with a model rather than correctness.",
-                "One person adjudicated 200 of the frozen claims: the labels name the same",
-                "subject 65% of the time when the person reads cold and 89% once the sheet's",
-                "rule is in front of them. What this reader scores against the person is measured",
-                "once it is installed, by `steamgauge measure-claims --labels gold` over the frozen",
-                "games, and the README carries the figure for the reader that ships. Two models",
-                "can agree and be wrong together, most easily on sarcasm and on the boundaries",
-                "between categories.",
-                "",
-                "## Licence",
-                "",
-                "Apache-2.0, as is the encoder it was fine-tuned from.",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
+    card.write_text(model_card(run), encoding="utf-8")
     print(f"wrote {graph} and {card}")
 
 
