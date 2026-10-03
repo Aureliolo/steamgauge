@@ -38,12 +38,14 @@ cp "${release}/${binary}" README.md LICENSE "${payload}/"
 cp "${notices}" "${payload}/THIRD-PARTY-NOTICES.txt"
 
 # The GPU backends load runtime libraries from beside the program (DirectML.dll on Windows), so
-# whatever the build put there travels with it, in the archive and in every installer.
+# whatever the build put there travels with it, in the archive and in every installer. ort places
+# them as symbolic links where the system allows one, as GitHub's Windows runners do, so links
+# are found too and cp copies what they point at.
 libraries=()
 while IFS= read -r library; do
-  cp "${library}" "${payload}/"
+  cp -L "${library}" "${payload}/"
   libraries+=("$(basename "${library}")")
-done < <(find "${release}" -maxdepth 1 -type f \
+done < <(find "${release}" -maxdepth 1 \( -type f -o -type l \) \
   \( -name '*.dll' -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) | LC_ALL=C sort)
 
 # Windows Explorer opens a zip and nothing else without help; every other system opens a tarball.
