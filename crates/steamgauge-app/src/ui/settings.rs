@@ -26,6 +26,8 @@ pub struct Settings {
     pub check_steam: bool,
     /// Whether a downloaded game is read as soon as the download finishes.
     pub read_after_download: bool,
+    /// Whether the app asks GitHub, at most once a day, whether a newer `SteamGauge` is out.
+    pub check_newer_version: bool,
 }
 
 impl Default for Settings {
@@ -36,6 +38,7 @@ impl Default for Settings {
             language: Some("english".to_owned()),
             check_steam: true,
             read_after_download: true,
+            check_newer_version: true,
         }
     }
 }
@@ -123,6 +126,7 @@ pub fn save_settings(
     search_every_game: bool,
 ) -> Result<Shown, String> {
     settings.checked().save(&app)?;
+    super::newer::check_in_background(&app);
     let library = super::library_dir(&app);
     std::fs::create_dir_all(&library).map_err(|e| e.to_string())?;
     steamgauge_core::meaning::Choice {
@@ -154,6 +158,13 @@ mod tests {
             SHARES.contains(&checked(f64::NAN)),
             "a share that is not a number still lands on one offered"
         );
+    }
+
+    #[test]
+    fn a_file_written_before_a_setting_existed_takes_its_default() {
+        let loaded: Settings = serde_json::from_str(r#"{"gpu_share": 0.5}"#).unwrap();
+        assert!(loaded.check_newer_version);
+        assert!(loaded.check_steam);
     }
 
     #[test]

@@ -7,15 +7,71 @@
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=flat&logo=tauri&logoColor=white)](https://tauri.app)
 [![Training on Python](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FAureliolo%2Fsteamgauge%2Fmain%2F.github%2Fworkflows%2Fci.yml&query=%24.jobs.python.steps%5B1%5D.with%5B%27python-version%27%5D&label=training&logo=python&logoColor=white&color=3776ab)](training/)
 [![Licence](https://img.shields.io/badge/licence-Apache--2.0-2f6f4e?style=flat)](LICENSE)
-
-> **Unreleased and in development.** There is no installer and no release yet. This file
-> describes what the tool is and how it is meant to be judged, not a running product. What
-> currently works, and what every figure is currently worth, is measured by the tool itself
-> and recorded next to the data it was measured from: see the reference sets under
-> `reference/` and the release notes when releases begin.
+[![Latest release](https://img.shields.io/github/v/release/Aureliolo/steamgauge?style=flat)](https://github.com/Aureliolo/steamgauge/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Aureliolo/steamgauge/total?style=flat)](https://github.com/Aureliolo/steamgauge/releases)
+[![SLSA Build L3](https://img.shields.io/badge/SLSA-Build%20L3-2f6f4e?style=flat)](.github/release-process.md#slsa)
+[![SBOM SPDX](https://img.shields.io/badge/SBOM-SPDX-2f6f4e?style=flat)](.github/release-process.md#what-a-release-carries)
+[![Sigstore attested](https://img.shields.io/badge/Sigstore-attested-2f6f4e?style=flat)](SECURITY.md#releases)
 
 A tool for finding out what players of a game actually think, rather than what the loudest
 reviews say.
+
+## Install
+
+Download SteamGauge from the [latest release](https://github.com/Aureliolo/steamgauge/releases/latest).
+Each system has an installer and a portable archive with the program in it:
+
+| System | Installer | Portable archive |
+|---|---|---|
+| Windows 10 or 11, x64 | `steamgauge-<version>-windows-x64-setup.exe` | `steamgauge-<version>-x86_64-pc-windows-msvc.zip` |
+| macOS on Apple Silicon | `steamgauge-<version>-macos-arm64.dmg` | `steamgauge-<version>-aarch64-apple-darwin.tar.gz` |
+| Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>_amd64.deb` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+
+**Windows.** Windows 10 or 11 on x64. The setup installs SteamGauge for your user alone, with no
+administrator rights, and installs Microsoft's WebView2 runtime where it is missing. Reviews are
+read on any graphics card with DirectX 12, and on the processor where there is none. The program
+is a windowed application, so it opens no console window. Given arguments from a terminal it
+runs the pipeline, and its output reaches the terminal through a pipe: Git Bash makes one by
+itself, and in PowerShell you add one, as in `steamgauge --help | Out-Host`.
+
+**macOS.** A Mac with Apple Silicon. Open the `.dmg` and drag SteamGauge into Applications.
+
+**Linux.** x86-64, and reading runs on the processor. The window needs WebKitGTK 4.1, which
+Ubuntu 22.04, Debian 12 and later carry. The `.deb` and the `.rpm` declare it, so the package
+manager installs it with SteamGauge (`sudo apt install ./steamgauge_<version>_amd64.deb`, or
+`sudo dnf install ./steamgauge-<version>-1.x86_64.rpm`). The portable archive needs it
+installed already: `libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora.
+
+### The first launch
+
+The installers carry no certificate from Microsoft or Apple, so both systems warn the first time
+SteamGauge opens. [SECURITY.md](SECURITY.md#what-signing-does-and-does-not-tell-you) explains
+what that certificate does and does not prove.
+
+- **Windows** shows a blue SmartScreen box, "Windows protected your PC", naming an unrecognised
+  app. Choose **More info**, then **Run anyway**.
+- **macOS** says Apple could not verify that SteamGauge is free of malware, and offers only
+  **Done** and **Move to Bin**. Choose **Done**, open System Settings, Privacy and Security,
+  and choose **Open Anyway** beside the line about SteamGauge, then confirm with your password.
+  Where macOS instead calls the app damaged, it is the quarantine flag on an app Apple has not
+  notarised; after verifying the download, `xattr -dr com.apple.quarantine /Applications/SteamGauge.app`
+  removes it.
+
+Either way it asks once.
+
+### Verifying a download
+
+Every file in a release is listed in `SHA256SUMS` and carries Sigstore build provenance naming
+the workflow and the commit it was built from. [SECURITY.md](SECURITY.md#releases) has the
+commands that check a file against both.
+
+### Upgrading
+
+When a newer version is out, the window names it under the menu and links to its release page;
+Settings turns the question off. Download the new installer and install it over the old one, as
+the first time; with a portable archive, the new program replaces the old one. Your library,
+your settings and the models already downloaded stay where they are.
 
 ## The problem it solves
 
@@ -785,16 +841,25 @@ This repository holds no review data. Reviews belong to the people who wrote the
 Valve, and they are downloadable by anyone with the app ID, so there is nothing to gain from
 redistributing them here.
 
-By default nothing you pull leaves your machine. The crawler talks to Valve, and the reading
-runs on a model on your own card, so a complete census is possible with no account, no key and
-no network beyond Steam itself. Reports are the same: one file with no
-fonts, scripts or stylesheets fetched from anywhere, so reading a result is not a way of
-publishing it.
+Nothing you download leaves your machine. The reading runs on a model on your own computer, so
+a complete census needs no account and no key. Reports are the same: one file with no fonts,
+scripts or stylesheets fetched from anywhere, so reading a result is not a way of publishing it.
 
-Configuring a hosted model changes that in a specific and bounded way: the text of a sampled
-subset of reviews is sent to that provider to induce categories, label examples and write
-summaries. The full corpus is never sent. Which provider, and whether to use one at all, is
-your choice, and the tool records what ran against every number it reports.
+The app makes requests to three places, and to nothing else:
+
+- **Steam**, for the reviews of the games you add, their names and their totals, and, when the
+  app opens, how many reviews each game in the library has now: at most every six hours, one
+  request per game, and Settings turns it off.
+- **Hugging Face**, for the readers and the search models. Each file is fetched once, from a
+  pinned commit, and checked against its pinned length and SHA-256 before it is used; the
+  pipeline's `embed` command fetches its encoder the same way. When the library is checked
+  against Steam, the app also asks Hugging Face whether newer releases of those models are
+  published, and fetches nothing from them.
+- **GitHub**, at most once a day, for whether a newer SteamGauge is out: one request to
+  SteamGauge's release page, which names the newest version and nothing else. Settings turns
+  it off.
+
+A link in the window, to a review on Steam or to a release page, opens in your browser.
 
 Steam review text, author IDs and profiles are public. A local corpus of millions of accounts
 is still personal data, so it stays on your disk, and exporting a corpus offers

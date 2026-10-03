@@ -37,6 +37,11 @@
             </button>
           </li>
         </ul>
+        <div class="rail-newer" id="newer-version" role="status" hidden>
+          <p class="newer-says"><span id="newer-name"></span> is out.</p>
+          <p class="newer-running" id="newer-running"></p>
+          <button type="button" class="link small" id="newer-open">Download it from its release page</button>
+        </div>
         <div class="rail-work" id="rail-work" hidden></div>
       </nav>
 
@@ -422,6 +427,14 @@
               <legend>Steam</legend>
               <label class="check"><input type="checkbox" id="check-steam" /> Ask Steam how many reviews each game has when the app opens</label>
               <p class="quiet small">At most every six hours, one request per game.</p>
+            </fieldset>
+            <fieldset>
+              <legend>New versions</legend>
+              <label class="check"><input type="checkbox" id="check-newer-version" /> Ask GitHub whether a newer SteamGauge is out</label>
+              <p class="quiet small">
+                At most once a day, one request to SteamGauge's release page. Nothing is downloaded
+                or installed: the window names a newer version and links to its page.
+              </p>
             </fieldset>
             <fieldset>
               <legend>Library</legend>

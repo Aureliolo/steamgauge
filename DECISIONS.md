@@ -127,6 +127,7 @@ prepared again: its vectors are in another space.
 | Immutable release artefacts with checksums | done |
 | Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
+| A newer version is named in the window and never installed by the app; no updater and no signing key | done 2026-10-03: at most once a day, a setting turns it off (below, "A newer version is named, never installed") |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
 
 ## Reference sets
@@ -4872,6 +4873,33 @@ the gap spans three standard errors of a two-proportion test, and it is at least
 library of seventy games tests thousands of shares, and at two standard errors dozens would
 clear by chance; a corpus of a million reviews makes a fifth of a point significant, and nobody
 acts on that. The share recommending the game is held to the same rule.
+
+### A newer version is named, never installed, and no key exists to sign one (2026-10-03)
+
+The user chose a notice over an updater. At most once a day, behind the window, the app asks
+`https://github.com/Aureliolo/steamgauge/releases/latest` with redirects not followed, reads
+the tag from the `Location` header, and compares it as a semantic version with the version it
+was built as (`newer_version` in the core). The answer and when it was asked are kept in
+`newer-version.json` in the app's configuration directory, so a restart within the day asks
+nothing; a question that fails, offline or otherwise, still counts as the day's and keeps the
+answer before it. When the release is newer, the rail names it and links to its page, which
+the window opens through the opener. A setting, on by default, turns the question off.
+
+**Keyless, so no signing key exists anywhere.** The Tauri updater was refused because it
+installs only what a long-lived private key signed, and that key would have to live in CI,
+where anyone who took it could push a build to every installed copy. Every other signature on
+a release is Sigstore's, keyless and tied to the workflow; the notice adds no key and installs
+nothing, and the person downloads the new installer and verifies it as they did the first.
+
+**No API, no token, no account.** The release page's redirect is one request that GitHub
+answers to anyone, and it carries nothing about the person or their library beyond the app's
+version. The tag is read only from a redirect to this repository's own release tags and only as a
+version, and the link the window opens is built from that version, never taken from the
+answer: the opener's capability allows exactly
+`https://github.com/Aureliolo/steamgauge/releases/tag/v[0-9]*` and denies, on GitHub, any URL
+with `..`, `%`, `?`, `#` or a further path segment, which a test reads back from the capability
+file. A pattern for a backslash was tried and denied every release page on Windows, where the
+opener's glob takes a backslash for a slash.
 
 ## Nothing here is identified by a number somebody incremented
 

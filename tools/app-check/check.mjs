@@ -4,7 +4,8 @@
 // The window is plain HTML and modules that talk to the core through `window.__TAURI__`. Served
 // here with `stub.js` standing in for that bridge, every page can be opened and every control
 // pressed without a library, a model or a webview: the cockpit, the work board, the library's
-// sorting, grouping and selection, the comparison, the settings and a game's page.
+// sorting, grouping and selection, the comparison, the settings, a game's page, and the notice
+// that a newer version is out.
 //
 //   node tools/app-check/check.mjs [--shots <folder>]
 //
@@ -91,6 +92,21 @@ const PROBE = `(async function () {
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board does not say nothing is running', shown('cockpit-idle'));
   check('the cockpit does not fit its page', fits());
+
+  var release = 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0';
+  check('a newer version kept from the last question is not announced at opening', shown('newer-version'));
+  check('the notice does not name the newer version', /SteamGauge 0\\.2\\.0 is out/.test($('#newer-version').textContent));
+  check('the notice does not name the version this computer has', /has 0\\.1\\.0/.test($('#newer-version').textContent));
+  $('#newer-open').click();
+  await pause();
+  check('the notice does not open the release page through the opener',
+    last('plugin:opener|open_url') && last('plugin:opener|open_url').args.url === release);
+  window.__stub.hear({ version: '0.3.0', running: '0.1.0',
+    url: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.3.0' });
+  await pause();
+  check('a fresh answer does not reach the notice', /SteamGauge 0\\.3\\.0 is out/.test($('#newer-version').textContent));
+  window.__stub.hear({ version: '0.2.0', running: '0.1.0', url: release });
+  await pause();
 
   window.__stub.board([
     { id: 1, task: { kind: 'read', app_id: 1, language: 'english' }, name: 'Alpha', state: 'running',
@@ -214,6 +230,16 @@ const PROBE = `(async function () {
   await pause(250);
   check('preparing every game for search is not saved', last('save_settings').args.searchEveryGame === true);
   check('the library\\'s place goes unsaid', /AppData/.test($('#library-place').textContent));
+  check('asking for a newer version is not on as it is by default', $('#check-newer-version').checked);
+  $('#check-newer-version').click();
+  await pause(250);
+  check('turning off the question for a newer version is not saved',
+    last('save_settings').args.settings.check_newer_version === false);
+  check('the notice stays after the question is turned off', !shown('newer-version'));
+  $('#check-newer-version').click();
+  await pause(250);
+  check('turning the question back on does not bring the notice back',
+    last('save_settings').args.settings.check_newer_version === true && shown('newer-version'));
 
   await go('library');
   rows().filter(function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click();

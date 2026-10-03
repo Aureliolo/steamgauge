@@ -6,6 +6,7 @@
 //! one of them is calling the wrong function.
 
 mod cockpit;
+mod newer;
 mod settings;
 mod work;
 
@@ -1118,6 +1119,7 @@ pub fn run() -> anyhow::Result<()> {
         .setup(|app| {
             work::start(app.handle());
             cockpit::check_on_opening(app.handle());
+            newer::check_in_background(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1138,6 +1140,7 @@ pub fn run() -> anyhow::Result<()> {
             work::open_report,
             settings::settings,
             settings::save_settings,
+            newer::newer_version,
             cockpit::overview,
             cockpit::games,
             cockpit::groups,

@@ -24,6 +24,7 @@ import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
+import { setUpNewer } from './newer.js';
 
 const PER_PAGE = 25;
 
@@ -934,6 +935,7 @@ setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
 setUpSettings();
+setUpNewer();
 
 for (const link of document.querySelectorAll('[data-go]')) {
   link.addEventListener('click', () => go(link.dataset.go));

@@ -20,6 +20,7 @@ pub mod measure;
 pub mod mine;
 pub mod model;
 pub mod moves;
+pub mod newer_version;
 pub mod picture;
 pub mod query;
 pub mod read;

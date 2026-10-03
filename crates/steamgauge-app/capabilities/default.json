@@ -1,13 +1,24 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the window is allowed to ask the core to do. Opening a link is the only thing that leaves the machine, and only to Steam, because every review the page shows has to be checkable at its source.",
+  "description": "What the window is allowed to ask the core to do. Opening a link is the only thing the window can send off the machine: to Steam, because every review the page shows has to be checkable at its source, and to a release page of SteamGauge itself, where a newer version is downloaded. The release pattern's wildcard would also match a path that climbs out of the releases, an encoded one, a query, a fragment or a further segment, so those are denied. A backslash is not denied by a pattern of its own because the opener's glob takes it for a slash on Windows, where such a pattern would deny every release page; the two dots it would need to climb anywhere are denied.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://steamcommunity.com/*" }, { "url": "https://store.steampowered.com/*" }]
+      "allow": [
+        { "url": "https://steamcommunity.com/*" },
+        { "url": "https://store.steampowered.com/*" },
+        { "url": "https://github.com/Aureliolo/steamgauge/releases/tag/v[0-9]*" }
+      ],
+      "deny": [
+        { "url": "https://github.com/*..*" },
+        { "url": "https://github.com/*%*" },
+        { "url": "https://github.com/*[?]*" },
+        { "url": "https://github.com/*#*" },
+        { "url": "https://github.com/Aureliolo/steamgauge/releases/tag/*/*" }
+      ]
     }
   ]
 }
