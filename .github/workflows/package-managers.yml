@@ -381,5 +381,8 @@ jobs:
           $window.WaitForExit()
           Write-Output 'The window stayed up.'
           winget uninstall --manifest winget --silent --disable-interactivity --accept-source-agreements
-          Start-Sleep -Seconds 5
+          # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so winget returns
+          # before the files are gone.
+          $deadline = (Get-Date).AddMinutes(2)
+          while ((Test-Path "$installed\steamgauge.exe") -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
           if (Test-Path "$installed\steamgauge.exe") { throw "Uninstalling left $installed\steamgauge.exe behind." }
