@@ -1,0 +1,9 @@
+# Every Windows build, the tests' too, is the build that ships: Control Flow Guard checks that
+# each indirect call lands at the start of a function. The linker's own mitigations are in the
+# app's build.rs.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "control-flow-guard"]
+
+# The C that crates compile with MSVC gets the compiler's Spectre mitigations too.
+[env]
+CFLAGS_x86_64_pc_windows_msvc = "/Qspectre"
