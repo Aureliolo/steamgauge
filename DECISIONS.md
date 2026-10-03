@@ -4937,12 +4937,18 @@ tools reachable.
 
 **Windows builds are hardened** with Control Flow Guard, shadow-stack compatibility and the
 compiler's Spectre mitigations for compiled C, and BinSkim reads the Windows and Linux programs
-on every pull request. BinSkim's first read of the Windows program found aws-lc, rustls's
-default cryptography, compiled at warning level 0, which nothing outside that crate can raise;
-TLS runs on ring instead (`crates/steamgauge-core/src/http.rs`), whose C is compiled with
-warnings on, and the lock is 156 lines shorter for it. `/DEPENDENTLOADFLAG` is left off: Windows carries an older `DirectML.dll`
-in System32, and limiting the program's imports to System32 would load that one over the one it
-ships.
+on every pull request. Its first read of the Windows program found C compiled at warning level
+0: aws-lc, rustls's default cryptography, and sqlite, oniguruma and zstd, whose build scripts
+turn warnings off. TLS runs on ring instead (`crates/steamgauge-core/src/http.rs`), the lighter
+of rustls's two providers, and the lock is 156 lines shorter for it; the rest compile at level
+3, because cc passes `CFLAGS` after a build script's own flags. Four findings are accepted, each
+with its reason beside it in `binaries.yml`: MSVC's stack cookies, which rustc does not emit;
+SafeStack on Linux, which stable Rust cannot build; MD5 source hashes in the objects ring ships
+pre-assembled by NASM; and whether the prebuilt ONNX Runtime was compiled with Spectre
+mitigations, which BinSkim cannot see and which guard secrets from code sharing a process, of
+which this one has neither (the user's call, asked 2026-10-03). `/DEPENDENTLOADFLAG` is left off:
+Windows carries an older `DirectML.dll` in System32, and limiting the program's imports to
+System32 would load that one over the one it ships.
 
 **A pre-release version is refused** by the bump and by the release gate. Every release is
 published as the latest, and immutable once it is, so a `1.0.0-rc.1` would have stood as the
