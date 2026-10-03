@@ -34,11 +34,15 @@ pub mod search;
 pub mod search_models;
 pub mod serve;
 pub mod shard;
+#[cfg(test)]
+mod stand_in;
 pub mod state;
 pub mod taxonomy;
 #[cfg(test)]
 mod tempdir;
 pub mod time;
+#[cfg(test)]
+mod tiny_model;
 
 pub use api::{DEFAULT_PACE, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;
