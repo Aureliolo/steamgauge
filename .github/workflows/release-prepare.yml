@@ -125,16 +125,11 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      # Set to main's head whether or not it exists, so a run repeated after one that stopped
-      # half way starts from the same place.
-      - name: Open the branch
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          GH_REPO: ${{ github.repository }}
-          BRANCH: ${{ steps.bump.outputs.branch }}
-        run: node tools/release/github-ref.mjs reset "heads/${BRANCH}" "${GITHUB_SHA}"
-
-      - name: Commit the bump
+      # The signed commit is made on a branch of its own, started at main's head, and the release
+      # branch is then moved onto it in one step, whether or not it exists. A run repeated after
+      # one that stopped half way starts from the same place, and an open release pull request is
+      # never left with nothing in it: GitHub closes one whose branch is moved to main's head.
+      - name: Commit the bump and move the release branch onto it
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
@@ -144,9 +139,14 @@ jobs:
           FILES: ${{ steps.bump.outputs.files }}
         run: |
           set -euo pipefail
+          staging="${BRANCH}-staging"
+          node tools/release/github-ref.mjs reset "heads/${staging}" "${GITHUB_SHA}"
           # Word-split on purpose: the report is a comma-separated list of paths without spaces.
           # shellcheck disable=SC2086
-          node tools/release/commit-signed.mjs "${BRANCH}" "Release v${VERSION}" ${FILES//,/ }
+          made="$(node tools/release/commit-signed.mjs "${staging}" "Release v${VERSION}" ${FILES//,/ })"
+          commit="${made%% *}"
+          node tools/release/github-ref.mjs reset "heads/${BRANCH}" "${commit}"
+          gh api -X DELETE "repos/${GH_REPO}/git/refs/heads/${staging}"
 
       - name: Open the release pull request and let it merge itself
         env:
