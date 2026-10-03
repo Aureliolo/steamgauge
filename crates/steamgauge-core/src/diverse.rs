@@ -116,9 +116,6 @@ pub fn handout(out_dir: &Path, app_id: u32, wanted: usize, seed: u64) -> Result<
 /// `pool²` of doing it naively.
 fn farthest_first(candidates: &[(String, Vec<f32>)], wanted: usize) -> Vec<Distinct> {
     let mut chosen = Vec::with_capacity(wanted.min(candidates.len()));
-    if candidates.is_empty() || wanted == 0 {
-        return chosen;
-    }
 
     // Distance to the nearest chosen point, starting at "infinitely far" for all so the first
     // pick is whichever is first: any point is as good a corner as any other to start from,
@@ -145,10 +142,7 @@ fn farthest_first(candidates: &[(String, Vec<f32>)], wanted: usize) -> Vec<Disti
             if taken[index] {
                 continue;
             }
-            let distance = 1.0 - dot(vector, just_chosen);
-            if distance < nearest[index] {
-                nearest[index] = distance;
-            }
+            nearest[index] = nearest[index].min(1.0 - dot(vector, just_chosen));
             if farthest.is_none_or(|(_, best)| nearest[index] > best) {
                 farthest = Some((index, nearest[index]));
             }
@@ -218,6 +212,114 @@ mod tests {
         assert_eq!(farthest_first(&candidates, 10).len(), 1);
         assert!(farthest_first(&[], 10).is_empty());
         assert!(farthest_first(&candidates, 0).is_empty());
+    }
+
+    #[test]
+    fn of_two_equally_far_candidates_the_one_drawn_first_is_taken() {
+        // The pool's order is the seed's, so taking the first of a tie keeps one seed's draw
+        // the same draw however often it is made.
+        let candidates = vec![
+            ("start".to_owned(), unit(1.0, 0.0)),
+            ("up".to_owned(), unit(0.0, 1.0)),
+            ("down".to_owned(), unit(0.0, -1.0)),
+        ];
+        let chosen: Vec<String> = farthest_first(&candidates, 2)
+            .into_iter()
+            .map(|d| d.text_hash)
+            .collect();
+        assert_eq!(chosen, ["start", "up"]);
+    }
+
+    /// A snapshot of `reviews` (id, text) with a vector for each distinct text.
+    fn corpus(out: &Path, reviews: &[(&str, &str)], vectors: &[(&str, Vec<f32>)]) {
+        use arrow::{
+            array::{ArrayRef, FixedSizeListBuilder, Float32Builder, StringBuilder},
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
+
+        let snapshot = out.join("appid=1").join("snapshot=1");
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+        let rows: Vec<serde_json::Value> = reviews
+            .iter()
+            .map(|(id, text)| {
+                serde_json::json!({"recommendationid": id, "review": text, "language": "english"})
+            })
+            .collect();
+        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+
+        let width = i32::try_from(vectors[0].1.len()).unwrap();
+        let schema = std::sync::Arc::new(Schema::new(vec![
+            Field::new("text_sha256", DataType::Utf8, false),
+            Field::new(
+                "embedding",
+                DataType::FixedSizeList(
+                    std::sync::Arc::new(Field::new("item", DataType::Float32, true)),
+                    width,
+                ),
+                false,
+            ),
+        ]));
+        let mut hashes = StringBuilder::new();
+        let mut floats = FixedSizeListBuilder::new(Float32Builder::new(), width);
+        for (text, vector) in vectors {
+            hashes.append_value(crate::embed::sha256_hex(text));
+            floats.values().append_slice(vector);
+            floats.append(true);
+        }
+        let columns: Vec<ArrayRef> = vec![
+            std::sync::Arc::new(hashes.finish()),
+            std::sync::Arc::new(floats.finish()),
+        ];
+        let batch = RecordBatch::try_new(std::sync::Arc::clone(&schema), columns).unwrap();
+        let file = std::fs::File::create(snapshot.join("embeddings.parquet")).unwrap();
+        let mut writer = parquet::arrow::ArrowWriter::try_new(file, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+    }
+
+    #[test]
+    fn a_handout_is_the_draw_in_its_order_with_each_text_shown_once() {
+        let out = crate::tempdir::Dir::new();
+        corpus(
+            out.path(),
+            &[
+                ("1", "great game"),
+                ("2", "crashes on launch"),
+                ("3", "great game"),
+                ("4", "the story is long"),
+            ],
+            &[
+                ("great game", unit(1.0, 0.0)),
+                ("crashes on launch", unit(-1.0, 0.0)),
+                ("the story is long", unit(0.0, 1.0)),
+            ],
+        );
+
+        let drawn = draw(out.path(), 1, 3, 7).unwrap();
+        let hashes: std::collections::HashSet<&str> =
+            drawn.iter().map(|pick| pick.text_hash.as_str()).collect();
+        assert_eq!(drawn.len(), 3);
+        assert_eq!(hashes.len(), 3, "every distinct text is drawn once");
+
+        let handed = handout(out.path(), 1, 3, 7).unwrap();
+        let in_order: Vec<String> = handed
+            .iter()
+            .map(|review| crate::embed::sha256_hex(&review.review))
+            .collect();
+        let drawn_order: Vec<String> = drawn.into_iter().map(|pick| pick.text_hash).collect();
+        assert_eq!(in_order, drawn_order);
+        let copied = handed
+            .iter()
+            .find(|review| review.review == "great game")
+            .unwrap();
+        assert_eq!(
+            copied.review_id, "1",
+            "the first review with a text is the one shown"
+        );
+        assert_eq!(copied.language, "english");
     }
 
     #[test]
