@@ -285,6 +285,64 @@ mod tests {
     }
 
     #[test]
+    fn a_month_missing_either_side_gives_no_subject_moves() {
+        let mut months: Vec<Month> = (1..=12)
+            .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
+            .collect();
+        months.extend((1..=3).map(|m| month(&format!("2024-{m:02}"), 100, 60, 15)));
+        months[0].complaining.clear();
+        assert!(recent(&reading(months)).unwrap().moves.is_empty());
+    }
+
+    #[test]
+    fn a_share_is_compared_only_once_both_windows_hold_enough_reviews() {
+        let compared = |before: u64, recent: u64| Shift::of((0, before), (0, recent)).is_some();
+        assert!(compared(ENOUGH_BEFORE, ENOUGH_RECENT));
+        assert!(!compared(ENOUGH_BEFORE - 1, ENOUGH_RECENT));
+        assert!(!compared(ENOUGH_BEFORE, ENOUGH_RECENT - 1));
+        assert!(!compared(ENOUGH_BEFORE - 1, ENOUGH_RECENT + 1_000));
+        assert!(!compared(ENOUGH_BEFORE + 1_000, ENOUGH_RECENT - 1));
+    }
+
+    #[test]
+    fn the_gap_is_measured_in_standard_errors_of_the_pooled_share() {
+        // 60 of 400 before and 30 of 100 lately: pooled 90 of 500, so the spread is
+        // sqrt(0.18 * 0.82 * (1/400 + 1/100)) and the gap of 0.15 is 3.49 of it.
+        let shift = Shift::of((60, 400), (30, 100)).unwrap();
+        assert!((shift.before - 0.15).abs() < 1e-12);
+        assert!((shift.recent - 0.30).abs() < 1e-12);
+        assert_eq!((shift.before_reviews, shift.recent_reviews), (400, 100));
+        let spread = (0.18_f64 * 0.82 * (1.0 / 400.0 + 1.0 / 100.0)).sqrt();
+        assert!((shift.z - 0.15 / spread).abs() < 1e-9, "z was {}", shift.z);
+        assert!(shift.clear());
+    }
+
+    #[test]
+    fn a_share_that_never_left_nothing_has_not_moved() {
+        let shift = Shift::of((0, 400), (0, 100)).unwrap();
+        assert!(shift.z.abs() < 1e-12, "z was {}", shift.z);
+        assert!(!shift.clear());
+    }
+
+    #[test]
+    fn a_change_is_clear_only_when_it_is_both_beyond_chance_and_worth_saying() {
+        let shift = |before: f64, recent: f64, z: f64| Shift {
+            before,
+            recent,
+            before_reviews: 1_000_000,
+            recent_reviews: 1_000_000,
+            z,
+        };
+        assert!(shift(0.40, 0.45, CLEAR).clear());
+        assert!(shift(0.45, 0.40, -CLEAR).clear());
+        assert!(
+            !shift(0.400, 0.405, 12.0).clear(),
+            "half a point is significant in a million reviews and still not worth a line"
+        );
+        assert!(!shift(0.40, 0.60, CLEAR - 0.1).clear());
+    }
+
+    #[test]
     fn praise_is_counted_as_well_as_complaint() {
         let mut months: Vec<Month> = (1..=12)
             .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
