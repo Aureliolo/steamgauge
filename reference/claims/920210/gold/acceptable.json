@@ -43,7 +43,21 @@
   },
   {
     "review_id": "118195822",
+    "index": 20,
+    "subject": "content",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "118195822",
     "index": 21,
+    "subject": "content",
+    "acceptable": true,
+    "by": "a person"
+  },
+  {
+    "review_id": "118195822",
+    "index": 23,
     "subject": "content",
     "acceptable": true,
     "by": "a person"
