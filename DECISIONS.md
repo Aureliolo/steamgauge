@@ -5045,10 +5045,10 @@ model, no network and no capture written by a crawl got a test each, or a strong
 the test already there: 65 of them, with the five in `time.rs`, each checked by running the
 mutants of its lines again. That turned up ten more on the same lines: nine now caught as well,
 and one no test can tell from the original, a span from a byte to the same byte, which is
-excluded with that reason. Two of the 166 sat on conditions that decided nothing, and the code
+excluded with that reason. Three of the 166 sat on conditions that decided nothing, and the code
 does without them: `worst_bias` asks `bias` alone, which answers nothing for a subject nobody
 raised, and the last batch of a split or a read is written whatever it holds, since ArrowWriter
-writes nothing for a batch of none. Two are the hand-written `Debug` output. The other 97, in
+writes nothing for a batch of none. Two are the hand-written `Debug` output. The other 96, in
 reading, crawling, embedding and the stages that walk a written capture, are the weekly list's.
 
 **The weekly run lists its survivors and does not fail on them.** Every Tuesday the whole crate
