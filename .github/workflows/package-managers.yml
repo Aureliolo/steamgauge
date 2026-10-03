@@ -235,7 +235,9 @@ jobs:
             $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'Machine')
             $found = (Get-Command steamgauge -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
             if ($found -ne "$installed\steamgauge.exe") { throw "steamgauge on the PATH is $found, not $installed\steamgauge.exe." }
-            $said = & steamgauge --version
+            # PowerShell hands a windowed program a pipe, and waits for it, only when something
+            # further down the pipeline reads it; an assignment alone does not count.
+            $said = (& steamgauge --version | Out-String).Trim()
             if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
             Write-Output $said
             foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
@@ -336,8 +338,9 @@ jobs:
           foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
             if (-not (Test-Path "$installed\$file")) { throw "winget's install put no $file in $installed." }
           }
-          # A windowed program writes to a pipe it is given, which the assignment gives it.
-          $said = & "$installed\steamgauge.exe" --version
+          # PowerShell hands a windowed program a pipe, and waits for it, only when something
+          # further down the pipeline reads it; an assignment alone does not count.
+          $said = (& "$installed\steamgauge.exe" --version | Out-String).Trim()
           if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
           Write-Output $said
           $window = Start-Process -FilePath "$installed\steamgauge.exe" -PassThru
