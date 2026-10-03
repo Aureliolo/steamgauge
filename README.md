@@ -177,16 +177,14 @@ outrank one three hundred used against ten, and a side with a handful of reviews
 rather than promoting whatever those few happened to write. Counts are by reviewer, once per
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
-The comparison is also made within each language and then pooled, because a library written
-in thirty languages is a library whose speakers do not praise and complain in the same
-proportions: against the whole other side, "historia" stood out in the praise of a story
+The comparison is also made within each language and then pooled, because reviews written in
+thirty languages come from speakers who do not praise and complain in the same proportions: against the whole other side, "historia" stood out in the praise of a story
 that Spanish speakers happened to like, and said nothing but "story". Each language's praise
 is compared with its own complaints, and a word a language uses either way contributes
 nothing. What a subject is called in each language stays off its rows as the English label
 does, read from the corpus rather than translated: "сюжет" under story says what the row said.
 
-A term is a word or a pair of adjacent words. Chinese, which a sixth of the library is
-written in, is cut into words by a dictionary (jieba, with the words of the trade added, since a
+A term is a word or a pair of adjacent words. Chinese is cut into words by a dictionary (jieba, with the words of the trade added, since a
 general dictionary reads 掉帧 as "drop" and "frame"); Korean is spaced words with the particle
 taken off; Japanese, which has no dictionary here, is cut into pairs of adjacent characters,
 the best that can be done without one. Everything the page shows is added up when a game is
@@ -261,31 +259,30 @@ Three things are reported together, and separating them is what makes the number
 
 Measured over one set of claims drawn from the frozen games on 2026-09-22, twenty a subject,
 which chose nothing about any row: the 458 of the 487 drawn that the splitter still cuts, since
-a span it no longer makes is a claim no reader can be handed. Every row abstains where it is
-unsure, and every row is scored only on what it answered, because a score that quietly drops
-the declined claims is a score for a classifier nobody is running. The readers are scored on
-DirectML, where the tool runs them, and the baselines are fitted on the same labels the reader
-learned from.
+a span it no longer makes is a claim no reader can be handed. Their answers follow the sheet as
+it stands: the key claims the person's September rules reach were asked again against it. Every
+row abstains where it is unsure, and every row is scored only on what it answered, because a
+score that quietly drops the declined claims is a score for a classifier nobody is running. The
+readers are scored on DirectML, where the tool runs them, and the baselines are fitted on the
+same labels the reader learned from.
 
 | | answers | agreement where it answers | macro F1 |
 |---|---|---|---|
-| the commonest subject | never reaches the promise | 4.6% | 0.003 |
-| TF-IDF bag of words | 46% | 75.1% | 0.497 |
-| nearest subject centroid over an untuned encoder | 6% | 77.8% | 0.478 |
-| **this reader, 560M parameters** (`e5inst-pool-qwen4b-headset-s1`, the one that ships) | **92%** | **79.0%** | **0.748** |
-| Claude Opus 5, given the same sheet | 99.3% | 87.0% | 0.870 |
+| the commonest subject | never reaches the promise | 5.9% | 0.004 |
+| TF-IDF bag of words | 48% | 75.9% | 0.508 |
+| nearest subject centroid over an untuned encoder | 3% | 83.3% | 0.448 |
+| **this reader, 560M parameters** (`e5inst-pool-person-rules-s1`, the one that ships) | **93%** | **80.7%** | **0.765** |
+| Claude Opus 5, given the same sheet | 99.3% | 85.9% | 0.860 |
 
-The reader before it, `e5inst-pool-qwen4b-licensed-s1`, answered 91% of the same claims at
-80.2% (macro F1 0.748), and the one before that, `e5-29006`, 84% at 77.8% (0.679). The reader
-that ships differs from the one before it by being told which games are played in a headset;
-answering the same most-confident share of these claims the two land within a point of each
-other, inside what one seed differs from the next. On the whole frozen set, 5,080 claims as
-they come, the reader that ships answers 90.4% at 81.6% (macro F1 0.698): a stratified sample
-is the harder question, and the one above.
+The reader before it, `e5inst-pool-qwen4b-headset-s1`, answered 92% of these claims at 79.0%
+(macro F1 0.748) when they were keyed to the sheet before the person's rules, which is the sheet
+it learned; scored on a key it was never taught would measure the rules rather than the reader.
+On the whole frozen set, 5,080 claims as they come, the reader that ships answers 91.5% at 81.5%
+(macro F1 0.707): a stratified sample is the harder question, and the one above.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
-quarter of which is `verdict`, the commonest-subject baseline scores 28.3% rather than 4.6% and
-TF-IDF answers 47% of claims at 75.4% rather than 46%. A stratified sample is the harder
+quarter of which is `verdict`, the commonest-subject baseline scores 28.8% rather than 5.9% and
+TF-IDF answers 46% of claims at 75.1% rather than 48%. A stratified sample is the harder
 question and the useful one, because the rows a reader has to get right are the rare ones.
 Both sets of figures are kept, in `reference/baselines-frontier-sample.json` and
 `reference/baselines-frozen.json`, and a row from one does not belong in a table with a row
@@ -293,20 +290,20 @@ from the other.
 
 The third row is what this project did before it trained anything, and it is why the rebuild
 happened: cosine distance to a prototype cannot say "this is about nothing", so at the accuracy
-it promises it can answer one claim in sixteen.
+it promises it can answer about one claim in forty.
 
 What separates the reader from the bag of words is reading each claim inside its review, a
 pretrained encoder of 560M parameters, forty-five thousand labels, many of them drawn at the
-subjects the reader was worst at, and a teacher: a 4B-parameter reader trained on the labels as
-they stood two days earlier, whose answers on a quarter of a million unlabelled claims the small
-one learns from as well. Together that is forty-six points of coverage over the bag of words
+subjects the reader was worst at, and a teacher: a 4B-parameter reader trained on the same
+labels, whose answers on a quarter of a million unlabelled claims the small one learns from as
+well. Together that is forty-five points of coverage over the bag of words
 and a quarter of macro F1. The teacher alone is worth four points of coverage, measured against
 the same recipe taught by the small reader's own seeds instead; a sweep of everything else,
 some fifty configurations measured the same way, moved nothing outside its own noise.
 `DECISIONS.md` has the tables and what each change was worth on its own.
 
 The last row is the one worth being honest about. **A frontier model asked directly is better
-than this, by eight points of agreement and seven of coverage.** What it is not is
+than this, by five points of agreement and seven of coverage.** What it is not is
 affordable: that comparison cost 389,000 tokens for 487 claims, and a single large game holds
 three million claims. This reader does that game on one desktop GPU, offline, for the
 electricity. The claim being made is not that a 560M-parameter model beats a frontier one. It
@@ -324,10 +321,6 @@ one person who has adjudicated 200 of them agrees with the labels on 65% of subj
 the frontier model on 64%, which is the section below and the number to hold the table
 against.
 
-That is not a projection. The library this was built against is **71 games, 9.9 million
-reviews, 25.8 million claims**, all of it read by this model on one card, and the counts and
-the rows behind them reconcile game by game (`--example check-readings`).
-
 ### The reader in each size
 
 The reader comes in more than one size, and the desktop app picks the largest one the machine's
@@ -336,21 +329,21 @@ the most accurate beside it, saying how long each would take on that computer. E
 learned from the same labels and the same teacher, a 4B, and every figure in a column was
 measured the same way for every row.
 
-The 4B in the last row is not shipped, and is the reason there is no larger size. Trained on
-exactly the sizes' labels, it answers its surest claims less accurately than `standard`, which
-learned from the first 4B's answers across a pool of unlabelled claims as well as from the labels,
-at seven times the parameters, eight times the download and eleven times the time on a card. On the frozen
-games the two 4Bs are level: 77.7% and 77.4% of claims right.
+The 4B in the last row is not shipped, and is the reason there is no larger size. It is the
+teacher the two sizes learned from, trained on exactly their labels, and it answers its surest
+claims less accurately than `standard`, which learned from its answers across a pool of
+unlabelled claims as well as from the labels, at seven times the parameters, eight times the
+download and eleven times the time on a card.
 
 <!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
 | Reader | Parameters | Download | Right, answering its surest 80% | Right, answering its surest 90% | Card memory | One big game on a card | One small game on the processor |
 |---|---|---|---|---|---|---|---|
-| small | 118M | 244 MB | 76.0% | 74.0% | 1.2 GB | 62 s | 36 s |
-| standard | 559M | 1.1 GB | 85.2% | 81.3% | 2.6 GB | 125 s | 285 s |
-| *4B* (not shipped) | 4.0B | 8.8 GB | 79.8% | 75.5% | 12.5 GB | 23 min | 49 min |
+| small | 118M | 244 MB | 77.9% | 73.8% | 1.2 GB | 62 s | 36 s |
+| standard | 559M | 1.1 GB | 84.7% | 82.0% | 2.6 GB | 125 s | 285 s |
+| *4B* (not shipped) | 4.0B | 8.8 GB | 83.6% | 79.8% | 12.5 GB | 23 min | 49 min |
 
 - **Right, answering its surest share:** the 458 claims of the frontier benchmark every reader can be handed, drawn from ten games none of them trained on and labelled under the current category sheet. Each reader answers only the claims it is surest of, the same share for every reader whatever its own abstention lines, scored on DirectML (`frontier.py reader`).
-- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's are the first 4B's, which taught the sizes, and whose graph is the same shape as the one in its row.
+- **Card memory and one big game on a card:** one whole read of game 920210 (117,664 claims) through the desktop app's reading path on DirectML, with the card to itself, on an NVIDIA GeForce RTX 4090. Memory is the most the card held during the read, less what it held before. The 4B's card and processor figures were measured on an earlier 4B of the same shape, whose graph is the one in its row with other weights.
 - **One small game on the processor:** 1,416 claims of game 1888930 read on the processor alone (a build without a GPU backend), loading included, on an AMD Ryzen 9 5950X that was also running other work.
 <!-- end of reader sizes -->
 
@@ -383,8 +376,8 @@ labellers were surest and still disagreed about, and 169 drawn blind, English an
 frozen games. Against the blind answers the labels the whole silver standard is made of name
 the same subject **65.1%** of the time (somewhere in 58% to 72% with 95% confidence), the
 second labeller 63.9%, and where the two labellers had agreed with each other, which is 149 of
-the 169, they agree with the person 68.5%. Polarity holds at 85.8%. The reader that ships
-answers 93.5% of those claims and names the person's subject on **67.9%** of them (60% to
+the 169, they agree with the person 68.5%. Polarity holds at 85.8%. The reader that shipped then
+answered 93.5% of those claims and names the person's subject on **67.9%** of them (60% to
 75%); the reader before it answered 81.1% at 70.1%, a difference 169 claims cannot tell from
 none, and both agree with the labels on about 82% of the frozen set. Two models agree with
 each other a good deal more than either agrees with a person, and "both labellers said so" is
@@ -396,12 +389,23 @@ again, 77 of the 200, with both labellers' answers and the sheet's own rule for 
 on the card, and moved 49 of them, 44 of the 59 blind ones: mostly rules the sheet already had
 and the person had not applied, or misses. The set as filed carries the second answer, so
 against it the labels name the same subject **89.3%** of the time on the blind claims and the
-reader that ships **79.9%** of what it answers (159 of 170 claims; the reader before it 76.8% of
-138). Those are not blind figures and are not quoted as
-accuracy; they say how far the labels and a person agree once the person is applying the same
-sheet. One rule did not carry either way: the sheet files "the best roguelike out there" under
-verdict, and with that sentence in view the person still read "Best Metroidvania I played" as
-genre. `DECISIONS.md` has the whole pass.
+reader that shipped then **79.9%** of what it answers (159 of 170 claims). Those are not blind
+figures and are not quoted as accuracy; they say how far the labels and a person agree once the
+person is applying the same sheet. One rule did not carry either way: the sheet files "the best
+roguelike out there" under verdict, and with that sentence in view the person still read "Best
+Metroidvania I played" as genre. `DECISIONS.md` has the whole pass.
+
+**Right, or something the person would also accept.** A claim can fairly sit under two
+subjects, and exact agreement counts every second subject as wrong. So the person was then
+shown each gold claim where the reader named another subject and asked whether it would also do.
+Against the 151 blind claims as filed, the reader that ships names the person's own subject on
+**84.8%** of those it answers (78% to 90%) and one the person accepts on **98.6%**; on the 46
+claims the two labellers disagreed about, 50.0% and 92.9%. Four of the reader's rejected answers
+on the first pass were rules its labels had taught it that the person does not hold; the sheet
+moved to the person on the two rules behind them and three boundaries more in September 2026, the labels were asked
+again, and the reader was trained again on them. On the random draw that changed nothing a
+hundred and fifty claims can see; on the disputed claims, where the rules were drawn, it gained
+seven and a half points exact. `DECISIONS.md` has both readers side by side.
 
 ### How the reference sets are made
 
@@ -529,11 +533,9 @@ These rules keep those figures honest:
   reason for the default is that evidence nobody can read is evidence nobody can check, and
   being able to open a rate and read what is behind it is the whole design.
 
-- **The reader is measurably worse in seven of the languages it reads, and the library is only
-  half English.** The library is **52.5% English** over 7.5 million reviews, with Simplified
-  Chinese at 15.5%, Russian at 6.6% and a long tail after that. The reference set drawn to
-  stand for it is 71% English: a fifth more English than the corpus it speaks about, which was
-  a readability choice made when the library was smaller and never re-examined.
+- **The reader is measurably worse in seven of the languages it reads, and the reference set
+  is 71% English.** Steam reviews of many games are far less English than that, so the
+  languages the reader sees most outside English are the ones it learned from least.
 
   Measured over 32,339 claims held out by cross-validation, each answered by a model that never
   trained on the game it came from (`training/language.py`):
@@ -553,15 +555,12 @@ These rules keep those figures honest:
   | **koreana** | **365** | **59.5%** | **[54.3, 64.4]** |
 
   German, French and Turkish match English or beat it. **Simplified Chinese is 6.5 points below
-  it on intervals that do not overlap, and Korean is eleven points below.** Chinese is one
-  review in six of the library, so this is not a tail case: it is the second-largest language
-  in the corpus, read worse than the first, and nothing on a report page currently says so.
-  Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
+  it on intervals that do not overlap, and Korean is eleven points below.** Nothing on a
+  report page says so. Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
   the same picture.
 
   Twelve of the twenty-nine languages have fewer than a hundred held-out claims and are not
-  quotable at all. Of the 52 games read, three have a commonest language that is not English,
-  and one of them is 63% Japanese.
+  quotable at all.
 
   Two separate things were wrong here, and they wanted different fixes.
 
@@ -619,20 +618,12 @@ These rules keep those figures honest:
   fitted on, so a corpus that declines far above it can be reported as a finding rather than a
   footnote. It now carries **25.0%**, where the subject-only rule carried 19.6%.
 
-  Read across the whole library under that rule, 52 games and 20.2 million claims, the average
-  game declines **22.6%** against the 25.0% it carries, the spread runs 16.6% to 31.0%, and
-  exactly one game reaches the 1.2 times that trips the warning. Under the subject-only rule the
-  same was true of a different one, a card game at 25.1% against a 19.6% expectation. The figure
-  travels, and it is still pitched high enough to stay quiet on ordinary games.
-
-  **The one it fires on is a different game than before, and why is the interesting part.**
-  1449850 declines 31.0%, and almost none of that is the twelve languages declined outright,
-  which are 1.1% of its reviews. It is that the corpus is 12% Simplified Chinese and 8% Korean,
-  the two languages whose lines are highest, 0.839 and 0.929 against English's 0.660. So the
-  warning now has two causes where it had one: a corpus about something the taxonomy lacks, and a
-  corpus written in the languages the reference set covers worst. Those want opposite responses,
-  the first a category and the second more labels, and **nothing on the page yet tells a reader
-  which of the two they are looking at**.
+  A game that declines 1.2 times that or more is flagged, and the flag has two causes: a corpus
+  about something the taxonomy lacks, and a corpus written largely in the languages the
+  reference set covers worst, whose lines are highest (Simplified Chinese 0.839 and Korean 0.929
+  against English's 0.660). Those want opposite responses, the first a category and the second
+  more labels, and **nothing on the page yet tells a reader which of the two they are looking
+  at**.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
   an accuracy, and that promise is measured on the games that chose it. On eleven games the

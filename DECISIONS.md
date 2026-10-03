@@ -2464,6 +2464,56 @@ its own. Against the labels #171 left, 2,086 were asked again and 414 changed th
 subject, most of all `updates` to `policy` (34), `updates` to `bugs` (19), `verdict` to `updates`
 (18) and `updates` to `verdict` (16).
 
+### The readers trained on the five rules (2026-10-03)
+
+The whole chain again on the labels the five rules left, 45,407 claims (sheet `14d11a13721e`):
+the 4B teacher (`qwen3-4b-lora-person-rules`, three epochs, validation macro F1 0.690), its
+answers on the pool, and the two shipped sizes taught by it with five folds each for their
+abstention lines (`e5inst-pool-person-rules-s1`, `e5small-pool-person-rules-s1`). The standard
+student took its batch as passes of 8 held to 18.5 GB of the card, the same gradient as before.
+
+**Against the person, every gold claim read by the new reader** (the gold games outside the
+frozen ten were read again for it; the first score, taken with thirteen of them still holding the
+old reader's readings, was a mixture and is not quoted). The user judged the five subjects the
+new reader gave that nobody had judged: four would do, one would not.
+
+| | old reader | new reader |
+|---|---|---|
+| blind, exact | 85.4% (79-90%) | 84.8% (78-90%) |
+| blind, right or acceptable | 98.5% | 98.6% |
+| sharp, exact | 42.5% (29-58%) | 50.0% (36-64%) |
+| sharp, right or acceptable | 87.5% | 92.9% |
+| sharp, its surest 80% | 37.8% | 48.6% |
+| the labels against the person, all 197 | 80.7% | 82.2% |
+
+On the random draw the two readers are one reader: the difference is a claim, inside an
+interval twelve points wide. On the claims two labellers disagreed about, which is where the five
+rules were drawn, the new reader is seven and a half points better exact and eleven on its surest
+answers, and the labels themselves moved towards the person by a point and a half overall and
+four on those claims. Forty-six claims cannot call that settled; it is the direction the rules
+were written to move, and nothing went the other way. Of the reader's answers the person
+rejects, one is a rule its labels taught it (`offtopic` filed as `updates`); the rest are its own.
+
+**On the frontier key**, re-asked where the five rules reach (53 of the 487 key claims over the
+two re-keyings, 18 of them now under another subject), every row is scored again, since a reader
+measured on a key it was never taught measures the rules rather than itself:
+
+| | answers | right where it answers | surest 80% | surest 90% | macro F1 |
+|---|---|---|---|---|---|
+| commonest subject | never reaches the promise | 5.9% | | | 0.004 |
+| TF-IDF, refitted on these labels | 48% | 75.9% | | | 0.508 |
+| small (`e5small-pool-person-rules-s1`) | 74% | 77.1% | 77.9% | 73.8% | 0.640 |
+| **standard** (`e5inst-pool-person-rules-s1`) | **93%** | **80.7%** | **84.7%** | **82.0%** | **0.765** |
+| 4B teacher (`qwen3-4b-lora-person-rules`) | 97% | 76.4% | 83.6% | 79.8% | 0.748 |
+| Claude Opus 5, its stored answers | 99.3% | 85.9% | | | 0.860 |
+
+Opus 5 falls from 87.0% to 85.9% on the moved key: it was given the sheet as it stood, not the
+person's rules. The 4B teacher still answers its surest claims less well than the standard student
+it taught, so the case against a larger size holds on the new labels. On the whole frozen set,
+5,080 claims as they come, standard answers 91.5% at 81.5% (macro F1 0.707), the reader before
+it 90.4% at 81.6% (0.698). The library was read again with the new standard reader, at half the
+card's time, so that what the README says the library was read with stays true.
+
 ### The sheet stopped having a name, because the one time it needed bumping it was not
 
 The sheet carried a version somebody chose: `core-4`, `core-5`, `core-6`. They are written out
