@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { answered } from "./github.mjs";
-import { createRef, refState } from "./github-ref.mjs";
+import { createRef, refState, resetRef } from "./github-ref.mjs";
 import { lockSubset, parseCrates } from "./lock-subset.mjs";
 import {
   DIRECTML,
@@ -91,7 +91,8 @@ test("a bump only ever moves forward", () => {
   assert.equal(nextVersion("0.3.9", "patch"), "0.3.10");
   assert.equal(nextVersion("0.3.9", "minor"), "0.4.0");
   assert.equal(nextVersion("0.3.9", "major"), "1.0.0");
-  assert.equal(nextVersion("0.3.9", "1.0.0-rc.1"), "1.0.0-rc.1");
+  assert.equal(nextVersion("0.3.9", "0.4.2"), "0.4.2");
+  assert.throws(() => nextVersion("0.3.9", "1.0.0-rc.1"), /pre-release/);
   assert.throws(() => nextVersion("0.3.9", "0.3.9"), /does not come after/);
   assert.throws(() => nextVersion("0.3.9", "0.2.0"), /does not come after/);
   assert.throws(() => nextVersion("1.0.0-rc.1", "patch"), /pre-release/);
@@ -310,7 +311,13 @@ test("the notes list each side under its own heading and link the range", () => 
       "",
     ].join("\n"),
   );
-  assert.match(renderNotes([], "o/r", null, "v0.1.0"), /commits\/v0\.1\.0/);
+});
+
+test("the first release says so, rather than listing the whole history", () => {
+  assert.equal(
+    renderNotes([{ title: "Reads faster", author: "a", url: "u1", ships: true }], "o/r", null, "v0.1.0"),
+    "## What's Changed\n\nThe first release.\n\n**Full Changelog**: https://github.com/o/r/commits/v0.1.0\n",
+  );
 });
 
 const still = async () => {};
@@ -335,4 +342,17 @@ test("creating a ref that exists at the same commit is success, at another is re
     method === "POST" ? { status: 422, body: {} } : { status: 200, body: { object: { sha } } };
   assert.equal(await createRef(at("abc"), "o/r", "tags/v1.0.0", "abc", still), "existed");
   await assert.rejects(createRef(at("def"), "o/r", "tags/v1.0.0", "abc", still), /already exists at def/);
+});
+
+test("resetting a branch moves one that exists and makes one that does not", async () => {
+  const calls = [];
+  const existing = async (method, path, body) => {
+    calls.push(`${method} ${path}`);
+    return method === "PATCH" ? { status: 200, body: { object: { sha: body.sha } } } : { status: 200, body: { object: { sha: "old" } } };
+  };
+  assert.equal(await resetRef(existing, "o/r", "heads/release/v0.1.0", "abc", still), "reset");
+  assert.deepEqual(calls, ["GET /repos/o/r/git/ref/heads/release/v0.1.0", "PATCH /repos/o/r/git/refs/heads/release/v0.1.0"]);
+
+  const missing = async (method) => (method === "GET" ? { status: 404, body: {} } : { status: 201, body: {} });
+  assert.equal(await resetRef(missing, "o/r", "heads/release/v0.1.0", "abc", still), "created");
 });

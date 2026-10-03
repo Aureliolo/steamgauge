@@ -70,6 +70,11 @@ export function previousRelease(tags, version) {
 }
 
 export function renderNotes(entries, repository, from, to) {
+  // Below the first release lies every pull request the repository ever merged, which is a
+  // history rather than release notes.
+  if (from === null) {
+    return `## What's Changed\n\nThe first release.\n\n**Full Changelog**: https://github.com/${repository}/commits/${to}\n`;
+  }
   const lines = ["## What's Changed", ""];
   const sections = [
     ["In what you download", true],
@@ -89,11 +94,7 @@ export function renderNotes(entries, repository, from, to) {
   if (entries.length === 0) {
     lines.push("Nothing has changed since the previous release.", "");
   }
-  lines.push(
-    from === null
-      ? `**Full Changelog**: https://github.com/${repository}/commits/${to}`
-      : `**Full Changelog**: https://github.com/${repository}/compare/${from}...${to}`,
-  );
+  lines.push(`**Full Changelog**: https://github.com/${repository}/compare/${from}...${to}`);
   return `${lines.join("\n")}\n`;
 }
 
@@ -129,7 +130,11 @@ async function main() {
   const ask = askGitHub(token);
 
   const previous = previousRelease(await releaseTags(ask, repository), tag.slice(1));
-  const range = previous === null ? commit : `${previous}..${commit}`;
+  if (previous === null) {
+    process.stdout.write(renderNotes([], repository, null, tag));
+    return;
+  }
+  const range = `${previous}..${commit}`;
 
   // Oldest first, and grouped by pull request: a pull request merged by rebase lands as several
   // commits, and it is one change.

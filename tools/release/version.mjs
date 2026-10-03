@@ -78,8 +78,14 @@ export function nextVersion(current, how) {
     next =
       how === "major" ? `${major + 1}.0.0` : how === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
   } else {
-    if (parseVersion(how) === null) {
+    const exact = parseVersion(how);
+    if (exact === null) {
       throw new Error(`Not a version: ${how}`);
+    }
+    // Every release is published as the latest one and is immutable once it is, so a
+    // pre-release would stand as the newest release for good.
+    if (exact.pre.length > 0) {
+      throw new Error(`${how} is a pre-release; a release is three numbers, such as 1.0.0.`);
     }
     next = how;
   }
