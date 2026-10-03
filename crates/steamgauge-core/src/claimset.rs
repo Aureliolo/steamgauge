@@ -621,7 +621,7 @@ impl Question {
         {
             return false;
         }
-        if let Some(one_in) = self.one_in.filter(|&n| n > 1) {
+        if let Some(one_in) = self.one_in.and_then(std::num::NonZeroU32::new) {
             use sha2::Digest as _;
             let digest = sha2::Sha256::digest(format!("{}/{}", label.review_id, label.index));
             let drawn = u32::from_le_bytes([digest[0], digest[1], digest[2], digest[3]]);
@@ -1689,8 +1689,6 @@ pub struct PoolReport {
     pub claims: usize,
     /// Reviews the draw reached that a reference set already holds.
     pub labelled: usize,
-    /// Rows held back for carrying no claim.
-    pub refused: usize,
 }
 
 /// Every review id a game's reference sets hold, whichever draw put it there.
@@ -1754,13 +1752,10 @@ pub fn export_pool(
         }
         let around = rejoined(&review);
         let mut at = 0;
+        // Drawn by this build's splitter, which hands out nothing that carries no claim.
         for claim in &review.claims {
             let offset = at;
             at += claim.text.len() + 1;
-            if crate::claims::is_not_a_claim(&claim.text) {
-                report.refused += 1;
-                continue;
-            }
             let row = serde_json::json!({
                 "text": claim.text,
                 "review": around,
@@ -2671,6 +2666,436 @@ mod tests {
             ..Question::default()
         };
         assert!(!only_games.names_claims());
+    }
+
+    #[test]
+    fn a_question_names_claims_by_either_flag_or_by_whether_a_label_says_what_else() {
+        for asked in [
+            Question {
+                split_wrong: Some(true),
+                ..Question::default()
+            },
+            Question {
+                ambiguous: Some(false),
+                ..Question::default()
+            },
+            Question {
+                answered_also: Some(false),
+                ..Question::default()
+            },
+        ] {
+            assert!(asked.names_claims(), "{asked:?}");
+        }
+        assert!(!Question::default().names_claims());
+    }
+
+    #[test]
+    fn a_question_asked_of_one_claim_in_one_or_in_none_asks_every_claim() {
+        let label = a_label(1, "r1", 0, "random", "bugs");
+        for one_in in [Some(0), Some(1), None] {
+            let asked = Question {
+                one_in,
+                ..Question::default()
+            };
+            assert!(asked.asks(1, &label, "Bugs everywhere."), "{one_in:?}");
+        }
+    }
+
+    #[test]
+    fn a_draw_reports_claims_per_review_handed_out() {
+        let report = DrawReport {
+            reviews: 4,
+            claims: 10,
+            batches: 1,
+        };
+        assert!((report.per_review() - 2.5).abs() < f64::EPSILON);
+        let nothing = DrawReport {
+            reviews: 0,
+            claims: 0,
+            batches: 0,
+        };
+        assert!(nothing.per_review().abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn an_ingest_is_clean_only_with_nothing_missing_unknown_or_rejected() {
+        assert!(ClaimIngest::default().is_clean());
+        for (missing, unknown, rejected) in [(1, 0, 0), (0, 1, 0), (0, 0, 1)] {
+            let found = ClaimIngest {
+                missing: vec!["a#0".to_owned(); missing],
+                unknown: vec!["b#0".to_owned(); unknown],
+                rejected: vec!["c#0".to_owned(); rejected],
+                ..ClaimIngest::default()
+            };
+            assert!(!found.is_clean(), "{found:?}");
+        }
+    }
+
+    #[test]
+    fn an_answer_off_the_sheet_is_not_taken() {
+        let answer = |subject: &str| ReturnedClaimLabel {
+            review_id: "r1".to_owned(),
+            index: 0,
+            subject: subject.to_owned(),
+            polarity: "praise".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+            also: None,
+        };
+        assert!(answer("bugs").is_on_the_sheet());
+        assert!(!answer("weather").is_on_the_sheet());
+    }
+
+    #[test]
+    fn the_reference_sets_live_under_reference_claims_a_directory_a_game() {
+        assert_eq!(
+            reference_root(),
+            std::path::Path::new("reference").join("claims")
+        );
+        assert_eq!(
+            default_reference_dir(42),
+            std::path::Path::new("reference").join("claims").join("42")
+        );
+    }
+
+    #[test]
+    fn a_draw_takes_its_share_of_english_and_the_rest_from_every_other_language() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::corpus(out.path());
+        let drawn = draw(out.path(), 1, 3, 2.0 / 3.0, 1, "random").unwrap();
+        let english = drawn.iter().filter(|r| r.language == "english").count();
+        assert_eq!((drawn.len(), english), (3, 2));
+        assert!(drawn.iter().all(|review| review.subset == "random"));
+        assert!(
+            !drawn.iter().any(|review| review.id == "5"),
+            "a review with no claim in it is not drawn"
+        );
+    }
+
+    #[test]
+    fn a_second_opinion_is_asked_on_the_share_named_and_the_same_reviews_each_time() {
+        let dir = crate::tempdir::Dir::new();
+        let drawn: Vec<DrawnReview> = (0..10)
+            .map(|id| review(&id.to_string(), &["Fine."]))
+            .collect();
+        write_set(dir.path(), &drawn, 0).unwrap();
+        let again = draw_second(dir.path(), 0.3, 1).unwrap();
+        assert_eq!(again.len(), 3);
+        let ids: Vec<String> = again.into_iter().map(|review| review.id).collect();
+        let same: Vec<String> = draw_second(dir.path(), 0.3, 1)
+            .unwrap()
+            .into_iter()
+            .map(|review| review.id)
+            .collect();
+        assert_eq!(ids, same);
+    }
+
+    #[test]
+    fn a_set_written_again_clears_the_batches_it_left_and_nothing_else() {
+        let dir = crate::tempdir::Dir::new();
+        let batches = dir.path().join("batches");
+        std::fs::create_dir_all(&batches).unwrap();
+        for name in ["batch-009.json", "batch-009.txt", "notes.json"] {
+            std::fs::write(batches.join(name), "{}").unwrap();
+        }
+        let report = write_set(dir.path(), &[review("a", &["Fine."])], 8).unwrap();
+        assert_eq!((report.reviews, report.batches), (1, 1));
+        let mut left: Vec<String> = std::fs::read_dir(&batches)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["batch-000.json", "batch-009.txt", "notes.json"]);
+
+        let none = write_set(dir.path(), &[review("a", &["Fine."])], 0).unwrap();
+        assert_eq!(
+            (none.reviews, none.batches),
+            (1, 0),
+            "no batch size, no batches"
+        );
+    }
+
+    #[test]
+    fn the_lines_take_turns_until_the_draw_is_full() {
+        let caught = |id: &str, n: u32| (id.to_owned(), (n, n + 1));
+        let lines: Vec<Caught> = vec![
+            vec![caught("a", 0), caught("a", 1), caught("b", 0)],
+            vec![caught("c", 0)],
+            Vec::new(),
+        ];
+        let (picks, taken) = round_robin(&lines, 3);
+        assert_eq!(taken, [2, 1, 0]);
+        assert_eq!(picks["a"], [(0, 1), (1, 2)]);
+        assert_eq!(picks["c"], [(0, 1)]);
+        assert!(!picks.contains_key("b"));
+        let (_, all) = round_robin(&lines, 10);
+        assert_eq!(all, [3, 1, 0]);
+    }
+
+    #[test]
+    fn a_mined_claim_is_counted_under_the_line_that_hooked_it() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join("appid=1").join("snapshot=1");
+        let texts = [
+            "(VR) is unplayable",
+            "DENUVO. again.",
+            "the steam workshop is full of them",
+            "no Steam Deck support",
+            "the combat feels weightless",
+        ];
+        let rows: Vec<serde_json::Value> = texts
+            .iter()
+            .enumerate()
+            .map(|(id, text)| {
+                serde_json::json!({"recommendationid": id.to_string(), "review": text,
+                                   "language": "english"})
+            })
+            .collect();
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        std::fs::write(
+            snapshot.join("reading.json"),
+            serde_json::json!({
+                "app_id": 1, "reviews": 5, "corpus_reviews": 5, "language": null, "claims": 5,
+                "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
+                "model": "m", "threshold": 0.5, "device": "cpu", "subjects": [],
+                "languages": [], "months": []
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let mined = draw_mined(out.path(), 1, &out.path().join("set"), 4, 1, &[]).unwrap();
+        let mut hooked: Vec<&str> = mined
+            .drawn
+            .iter()
+            .flat_map(|review| {
+                review
+                    .claims
+                    .iter()
+                    .filter(|claim| review.asks(claim.index))
+                    .filter_map(|claim| crate::mine::hooked(&claim.text))
+            })
+            .collect();
+        hooked.sort_unstable();
+        let mut counted: Vec<&str> = mined
+            .by_line
+            .iter()
+            .flat_map(|&(subject, count)| std::iter::repeat_n(subject, count))
+            .collect();
+        counted.sort_unstable();
+        assert_eq!(hooked, ["compatibility", "mods", "policy", "vr"]);
+        assert_eq!(counted, hooked);
+    }
+
+    #[test]
+    fn a_revisit_replaces_the_answers_it_was_given_and_says_what_it_could_not_place() {
+        let dir = crate::tempdir::Dir::new();
+        let set = dir.path().join("set");
+        let returned = dir.path().join("returned");
+        std::fs::create_dir_all(&set).unwrap();
+        std::fs::create_dir_all(&returned).unwrap();
+        let labels = vec![
+            a_label(1, "r1", 0, "random", "bugs"),
+            a_label(1, "r1", 1, "random", "story"),
+            a_label(1, "r2", 0, "random", "audio"),
+            a_label(1, "r3", 0, "random", "price"),
+        ];
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+        let answer = |review: &str, index: u16, subject: &str| {
+            serde_json::json!({"review_id": review, "index": index, "subject": subject,
+                               "polarity": "complaint", "ironic": false, "confidence": "high",
+                               "ambiguous": false})
+        };
+        std::fs::write(
+            returned.join("a.json"),
+            serde_json::json!([
+                answer("r1", 0, "performance"),
+                answer("r1", 1, "gameplay"),
+                answer("r2", 0, "audio"),
+                answer("r3", 0, "weather"),
+                answer("r9", 0, "bugs"),
+            ])
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(returned.join("notes.txt"), "not a label file").unwrap();
+
+        let report = ingest_revisit(&set, &returned, "a second labeller").unwrap();
+        assert_eq!((report.accepted, report.moved), (3, 2));
+        assert_eq!(report.unknown, ["r9#0"]);
+        assert_eq!(report.rejected.len(), 1);
+        assert!(report.rejected[0].starts_with("r3#0 weather"));
+
+        let stored: Vec<ClaimLabel> =
+            serde_json::from_slice(&std::fs::read(set.join("labels.json")).unwrap()).unwrap();
+        let first = &stored[0];
+        assert_eq!(
+            (
+                first.subject.as_str(),
+                first.polarity.as_str(),
+                first.produced_by.as_str()
+            ),
+            ("performance", "complaint", "a second labeller")
+        );
+        assert_eq!(
+            stored[3].subject, "price",
+            "a refused answer leaves the label as it was"
+        );
+        assert_eq!(stored[3].produced_by, "a-labeller");
+    }
+
+    /// A drawn and labelled set of two reviews, the second of three claims.
+    fn labelled_set(dir: &Path, subset: &str) {
+        let mut second = review("r2", &["Runs well.", "Looks great.", "Sounds great."]);
+        second.subset = subset.to_owned();
+        let mut first = review("r1", &["Bugs everywhere."]);
+        first.subset = subset.to_owned();
+        write_set(dir, &[first, second], 0).unwrap();
+        let labels = vec![
+            a_label(1, "r1", 0, subset, "bugs"),
+            a_label(1, "r2", 1, subset, "graphics"),
+            a_label(1, "r2", 2, subset, "audio"),
+        ];
+        std::fs::write(
+            dir.join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn every_labelled_claim_comes_with_its_text_and_where_it_sits_in_its_review() {
+        let root = crate::tempdir::Dir::new();
+        labelled_set(&root.path().join("1"), "random");
+        labelled_set(&root.path().join("1").join("declined"), "declined");
+        // Drawn and never labelled, so nothing to learn from yet.
+        write_set(&root.path().join("2"), &[review("r5", &["Fine."])], 0).unwrap();
+        let mut again = a_label(1, "r2", 1, "second", "gameplay");
+        again.produced_by = "another labeller".to_owned();
+        std::fs::create_dir_all(root.path().join("1").join("second")).unwrap();
+        std::fs::write(
+            root.path().join("1").join("second").join("labels.json"),
+            serde_json::to_vec(&[again]).unwrap(),
+        )
+        .unwrap();
+
+        let found = labelled_claims(root.path()).unwrap();
+        assert_eq!(
+            found.len(),
+            6,
+            "three labels in each of the two sets of game 1"
+        );
+        let looks = found
+            .iter()
+            .find(|claim| claim.label.subset == "random" && claim.label.index == 1)
+            .unwrap();
+        assert_eq!(looks.text, "Looks great.");
+        assert_eq!(looks.review, "Runs well. Looks great. Sounds great.");
+        assert_eq!(looks.review_offset, 11);
+        assert_eq!(
+            looks.again.as_ref().map(|again| again.subject.as_str()),
+            Some("gameplay")
+        );
+        let sounds = found
+            .iter()
+            .find(|claim| claim.label.subset == "random" && claim.label.index == 2)
+            .unwrap();
+        assert_eq!(sounds.review_offset, 24);
+    }
+
+    #[test]
+    fn of_two_rows_of_one_claim_from_draws_of_the_same_kind_the_first_is_kept() {
+        let claim = |subset: &str, subject: &str| LabelledClaim {
+            text: "The combat is superb.".to_owned(),
+            review: "The combat is superb.".to_owned(),
+            review_offset: 0,
+            again: None,
+            label: a_label(1, "r1", 0, subset, subject),
+        };
+        for subset in ["random", "declined"] {
+            let mut report = ExportReport::default();
+            let kept = read_once(
+                vec![claim(subset, "gameplay"), claim(subset, "audio")],
+                &mut report,
+            );
+            assert_eq!(kept[0].label.subject, "gameplay", "{subset}");
+            assert_eq!(
+                kept[0].again.as_ref().map(|a| a.subject.as_str()),
+                Some("audio")
+            );
+        }
+    }
+
+    #[test]
+    fn the_export_holds_back_a_row_with_no_claim_in_it_and_one_this_build_does_not_cut() {
+        let dir = crate::tempdir::Dir::new();
+        let captures = dir.path().join("captures");
+        crate::read::tests::corpus(&captures);
+        let set = dir.path().join("reference").join("1");
+        let mut drawn = review("1", &["Bugs everywhere.", "."]);
+        drawn.claims[0].end = 16;
+        let mut whole = review("3", &["Bugs everywhere."]);
+        whole.claims[0].end = 16;
+        write_set(&set, &[drawn, whole], 0).unwrap();
+        let mut labels = vec![
+            a_label(1, "1", 0, "random", "bugs"),
+            a_label(1, "1", 1, "random", "bugs"),
+            a_label(1, "3", 0, "random", "bugs"),
+        ];
+        labels[0].end = 16;
+        labels[2].start = 5;
+        labels[2].end = 16;
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+
+        let to = dir.path().join("train.jsonl");
+        let report = export_training(&dir.path().join("reference"), &captures, &to).unwrap();
+        assert_eq!((report.written, report.no_claim, report.recut), (1, 1, 1));
+        assert_eq!(std::fs::read_to_string(&to).unwrap().lines().count(), 1);
+    }
+
+    #[test]
+    fn a_pool_holds_every_claim_of_every_review_no_set_has_read() {
+        let dir = crate::tempdir::Dir::new();
+        crate::read::tests::corpus(dir.path());
+        let sets = dir.path().join("reference");
+        write_set(&sets, &[review("3", &["Bugs everywhere."])], 0).unwrap();
+        write_set(
+            &sets.join("second"),
+            &[review("6", &["Bugs everywhere."])],
+            0,
+        )
+        .unwrap();
+        std::fs::write(sets.join("labels.json"), "[]").unwrap();
+
+        let mut rows = Vec::new();
+        let report = export_pool(dir.path(), 1, &sets, 6, 5.0 / 6.0, 1, &mut rows).unwrap();
+        assert_eq!((report.reviews, report.claims, report.labelled), (4, 7, 2));
+        let rows: Vec<serde_json::Value> = String::from_utf8(rows)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(rows.len(), 7);
+        let lovely = rows
+            .iter()
+            .find(|row| row["text"] == "The music is lovely.")
+            .unwrap();
+        assert_eq!(lovely["review"], "Bugs everywhere. The music is lovely.");
+        assert_eq!(lovely["review_offset"], 17);
+        assert_eq!(lovely["subset"], "pool");
     }
 
     #[test]
