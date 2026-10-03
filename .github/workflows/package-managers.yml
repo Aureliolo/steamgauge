@@ -332,6 +332,10 @@ jobs:
           winget validate --manifest winget --disable-interactivity
           # A manifest from a folder rather than from a source is refused until this is on.
           winget settings --enable LocalManifestFiles
+          # winget marks a setup program from its own source as trusted, having scanned it, and one
+          # from a manifest on disk as from the internet; Windows then asks whether to run that
+          # one, in a window nobody here can answer. This turns the question off for winget alone.
+          $env:SEE_MASK_NOZONECHECKS = '1'
           # Bounded, because a setup program that waits on a window nobody can see waits until the
           # job is cancelled, and a cancelled job keeps nothing that says what it was waiting on.
           $log = "$env:RUNNER_TEMP\winget-install.log"
@@ -341,10 +345,20 @@ jobs:
           # ExitCode is read from the handle, which has to be taken while the process is running.
           $null = $install.Handle
           if (-not $install.WaitForExit(240000)) {
-            Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize | Out-String -Width 300
-            Get-CimInstance Win32_Process | Where-Object { $_.CreationDate -gt (Get-Date).AddMinutes(-6) } |
-              Format-Table ProcessId, ParentProcessId, Name, CommandLine -AutoSize | Out-String -Width 400
-            Get-Content $log
+            # Every window on the desktop with the text inside it, which is what was being asked.
+            Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+            $any = [System.Windows.Automation.Condition]::TrueCondition
+            $root = [System.Windows.Automation.AutomationElement]::RootElement
+            foreach ($window in $root.FindAll([System.Windows.Automation.TreeScope]::Children, $any)) {
+              $owner = (Get-Process -Id $window.Current.ProcessId -ErrorAction SilentlyContinue).ProcessName
+              Write-Output "$owner : $($window.Current.Name)"
+              foreach ($part in $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $any)) {
+                if ($part.Current.Name) { Write-Output "    $($part.Current.Name)" }
+              }
+            }
+            Get-CimInstance Win32_Process | Where-Object ParentProcessId -EQ $install.Id |
+              Format-Table ProcessId, Name, CommandLine -AutoSize | Out-String -Width 400
+            if (Test-Path $log) { Get-Content $log }
             throw 'winget install was still running after four minutes.'
           }
           if ($install.ExitCode -ne 0) {
