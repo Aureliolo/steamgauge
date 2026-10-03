@@ -1,7 +1,6 @@
 # Contributing
 
-The project is not usable yet and the approach is still moving. Before starting anything
-substantial, open an issue so the design is settled first.
+Before starting anything substantial, open an issue so the design is settled first.
 
 ## Working on it
 
