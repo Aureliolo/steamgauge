@@ -289,6 +289,16 @@ fn months(app_id: u32) -> Vec<Month> {
                     .enumerate()
                     .map(|(slot, _)| reviews / (slot as u64 + 2))
                     .collect(),
+                praising: SHEET
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, _)| reviews / (slot as u64 + 3))
+                    .collect(),
+                complaining: SHEET
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, _)| reviews / (slot as u64 + 5))
+                    .collect(),
             }
         })
         .collect()

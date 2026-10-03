@@ -629,7 +629,10 @@ pub async fn sweep(
             );
         }
     }
-    std::fs::write(dir.join("crawl.json"), serde_json::to_vec_pretty(&facts)?)?;
+    write_facts(&dir, &facts)?;
+    // The store is being asked about the game anyway; a name it will not give is not a reason
+    // to fail a sweep that has already landed.
+    let _ = name_where_missing(client, out_dir, app_id).await;
 
     Ok(SweepReport {
         app_id,
@@ -645,6 +648,45 @@ pub async fn sweep(
         stop: walked.stop,
         elapsed: begun.elapsed(),
     })
+}
+
+/// Writes a capture's crawl record beside itself and moves it over the old one, so a record is
+/// never half one version and half the next.
+fn write_facts(dir: &std::path::Path, facts: &Value) -> Result<()> {
+    let partial = dir.join("crawl.json.partial");
+    std::fs::write(&partial, serde_json::to_vec_pretty(facts)?)?;
+    std::fs::rename(partial, dir.join("crawl.json"))?;
+    Ok(())
+}
+
+/// Asks the store for a game's name where its capture recorded none, as captures made before
+/// the crawler asked for it did, and keeps it. Returns the name where one was found and kept.
+///
+/// # Errors
+///
+/// Fails if there is no capture or its crawl record cannot be read or written.
+pub async fn name_where_missing(
+    client: &SteamClient,
+    out_dir: &std::path::Path,
+    app_id: u32,
+) -> Result<Option<String>> {
+    let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
+    let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
+    if facts
+        .get("name")
+        .and_then(Value::as_str)
+        .is_some_and(|name| !name.is_empty())
+    {
+        return Ok(None);
+    }
+    let Some(name) = client.name(app_id).await.filter(|name| !name.is_empty()) else {
+        return Ok(None);
+    };
+    if let Some(object) = facts.as_object_mut() {
+        object.insert("name".to_owned(), json!(name));
+    }
+    write_facts(&dir, &facts)?;
+    Ok(Some(name))
 }
 
 /// What one walk in last-edit order brought in.

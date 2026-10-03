@@ -884,6 +884,7 @@ pub async fn run() -> Result<()> {
                 language,
                 depth: depth.into(),
                 card_share,
+                ..steamgauge_core::read::ReadOptions::default()
             };
             run_read(&app_ids, &model_dir, &options)
         }

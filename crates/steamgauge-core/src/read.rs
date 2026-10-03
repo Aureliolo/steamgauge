@@ -18,7 +18,10 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -64,6 +67,9 @@ pub struct ReadOptions {
     /// each batch it rests as long again as the batch kept the card busy, times
     /// (1 - share) / share. What it reads is the same; only how long it takes changes.
     pub card_share: f64,
+    /// Set by somebody who wants the read to end now. The reading already on disk is left as
+    /// it was, because the new one is written beside it and only takes its place on finishing.
+    pub stop: Arc<AtomicBool>,
 }
 
 /// How closely each review is read.
@@ -140,6 +146,7 @@ impl Default for ReadOptions {
             language: None,
             depth: Depth::Deep,
             card_share: 1.0,
+            stop: Arc::default(),
         }
     }
 }
@@ -150,6 +157,10 @@ impl Default for ReadOptions {
 pub struct ReadProgress {
     pub claims_read: u64,
     pub reviews_counted: u64,
+    /// Reviews of the capture walked so far, in any language. The capture's size is known
+    /// before the walk starts, so this is the one figure a share of the way through can be
+    /// taken of: how many claims a corpus holds is only known once it has been walked.
+    pub reviews_walked: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -222,6 +233,14 @@ pub struct Month {
     pub positive: u64,
     /// Reviews raising each subject, in taxonomy order.
     pub subjects: Vec<u64>,
+    /// Reviews praising each subject, in taxonomy order, whether or not they also complain
+    /// about it. Empty on a reading counted before months carried sides.
+    #[serde(default)]
+    pub praising: Vec<u64>,
+    /// Reviews complaining about each subject, in taxonomy order, whether or not they also
+    /// praise it. Empty on a reading counted before months carried sides.
+    #[serde(default)]
+    pub complaining: Vec<u64>,
 }
 
 impl Month {
@@ -478,14 +497,26 @@ pub fn read_corpus(
     } else {
         false
     };
-    let (counted, forward_passes) = read_and_count(
+    // Written beside the reading it replaces and moved over it only once complete, so a read
+    // that is stopped, fails or dies with the machine leaves the last one standing.
+    let partial = snapshot.join("readings.partial.parquet");
+    let (counted, forward_passes) = match read_and_count(
         model,
         app_id,
-        &snapshot,
+        (&snapshot, &partial),
         options,
         (context, headset_only),
         &mut on_progress,
-    )?;
+    ) {
+        Ok(read) => {
+            std::fs::rename(&partial, snapshot.join("readings.parquet"))?;
+            read
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&partial);
+            return Err(error);
+        }
+    };
     let captured = crate::report::crawl_facts(&options.out_dir, app_id)?;
 
     Ok(ReadReport {
@@ -553,6 +584,7 @@ pub fn recount_corpus(
         language: earlier.language.clone(),
         depth: earlier.depth,
         card_share: 1.0,
+        stop: Arc::default(),
     };
     let context = earlier.context;
 
@@ -694,6 +726,7 @@ fn recount_rows(
             on_progress(ReadProgress {
                 claims_read: claims_seen,
                 reviews_counted: counting.reviews,
+                reviews_walked: counting.corpus_reviews,
             });
         }
         Ok(())
@@ -804,7 +837,7 @@ const PENDING_CAP: usize = 16_384;
 fn read_and_count(
     model: &mut ClaimReader,
     app_id: u32,
-    snapshot: &Path,
+    (snapshot, readings): (&Path, &Path),
     options: &ReadOptions,
     (context, headset_only): (bool, bool),
     on_progress: &mut impl FnMut(ReadProgress),
@@ -812,11 +845,14 @@ fn read_and_count(
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
     let mut window: Vec<Queued> = Vec::with_capacity(LENGTH_WINDOW);
     let mut pending: Vec<Pending> = Vec::new();
-    let mut counting = Counting::new(&snapshot.join("readings.parquet"), options.top_helpful)?;
+    let mut counting = Counting::new(readings, options.top_helpful)?;
     // One allocation for every review a model that reads claims alone will ever queue.
     let nothing: Arc<str> = Arc::from("");
 
     crate::capture::for_each_row(snapshot, |row, text| {
+        if options.stop.load(Ordering::Relaxed) {
+            return Err(Error::Stopped);
+        }
         counting.note_corpus(&row);
         // Reading a claim nothing will count is a forward pass for nothing, and on a corpus
         // where the named language is a third of the reviews it is most of the work.
@@ -922,6 +958,7 @@ fn settle(
     on_progress(ReadProgress {
         claims_read: answers.len() as u64,
         reviews_counted: counting.reviews,
+        reviews_walked: counting.corpus_reviews,
     });
     Ok(())
 }
@@ -989,7 +1026,7 @@ fn drain(
 /// How long to leave the card idle after keeping it busy this long, for a read to take this
 /// share of its time. The card cannot be asked to favour anyone else, so a read that shares it
 /// does so by resting.
-fn rest_for(busy: std::time::Duration, share: f64) -> std::time::Duration {
+pub(crate) fn rest_for(busy: std::time::Duration, share: f64) -> std::time::Duration {
     if share >= 1.0 || share <= 0.0 {
         return std::time::Duration::ZERO;
     }
@@ -1156,6 +1193,8 @@ impl Counting {
                 reviews: 0,
                 positive: 0,
                 subjects: vec![0; SHEET.len()],
+                praising: vec![0; SHEET.len()],
+                complaining: vec![0; SHEET.len()],
             });
         month.reviews += 1;
         if row.voted_up {
@@ -1163,6 +1202,8 @@ impl Counting {
         }
         for &subject in &verdict.subjects {
             month.subjects[subject] += 1;
+            month.praising[subject] += u64::from(verdict.praise[subject]);
+            month.complaining[subject] += u64::from(verdict.complaint[subject]);
         }
 
         for &subject in &verdict.subjects {
@@ -1629,6 +1670,70 @@ mod tests {
                 "held review {text:?} came back changed"
             );
         }
+    }
+
+    #[test]
+    fn a_month_counts_who_praised_and_who_complained_about_each_subject() {
+        let dir = crate::tempdir::Dir::new();
+        let mut counting = Counting::new(&dir.path().join("readings.parquet"), 10).unwrap();
+        let at = |id: &str| SHEET.iter().position(|row| row.id == id).unwrap();
+        let claims = Depth::Deep.claims_of("Bugs everywhere. Lovely music.");
+        assert_eq!(claims.len(), 2);
+        let mut spans = Vec::new();
+        let mut answers = HashMap::new();
+        let mut from = 0;
+        for (index, claim) in claims.iter().enumerate() {
+            spans.push((from, from + claim.len()));
+            from += claim.len() + 1;
+            let (subject, polarity) = if index == 0 {
+                (at("bugs"), Polarity::Complaint)
+            } else {
+                (at("audio"), Polarity::Praise)
+            };
+            answers.insert(
+                key(false, &[0; 32], index, claim, "english"),
+                Reading {
+                    subject: Some(subject),
+                    confidence: 0.9,
+                    polarity,
+                    also: crate::reader::Also::default(),
+                },
+            );
+        }
+        let review = Pending {
+            at: Vec::new(),
+            row: crate::capture::Row {
+                recommendationid: "1".to_owned(),
+                helpfulness: 0.0,
+                votes_up: 0,
+                voted_up: false,
+                language: "english".to_owned(),
+                // 15 March 2024.
+                created: 1_710_504_000,
+            },
+            text: Arc::from(rejoined(&claims)),
+            spans,
+            fingerprint: [0; 32],
+        };
+        counting.count(&review, false, &answers).unwrap();
+        let provenance: crate::reader::Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": [], "threshold": 0.5, "max_tokens": 128
+        }))
+        .unwrap();
+        let report = counting
+            .finish(1, &ReadOptions::default(), &provenance)
+            .unwrap();
+
+        let month = &report.months[0];
+        assert_eq!(month.label, "2024-03");
+        assert_eq!(
+            (month.complaining[at("bugs")], month.praising[at("bugs")]),
+            (1, 0)
+        );
+        assert_eq!(
+            (month.praising[at("audio")], month.complaining[at("audio")]),
+            (1, 0)
+        );
     }
 
     #[test]

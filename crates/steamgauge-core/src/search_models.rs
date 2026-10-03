@@ -44,10 +44,10 @@ pub struct Model {
     pub repository: &'static str,
     /// The commit it is fetched from; empty until published.
     pub revision: &'static str,
+    /// The release tag that commit carries, to name it to a person; empty until published.
+    pub release: &'static str,
     graph: Asset,
     tokenizer: Asset,
-    /// What fetching it costs, once.
-    pub download_bytes: u64,
 }
 
 // The pins are of the files `export_search.py` wrote and that are to be published; an export
@@ -56,34 +56,38 @@ pub const ENCODER: Model = Model {
     name: "search-encoder",
     repository: "Aureliolo/steamgauge-search-encoder",
     revision: "c09c77b972e610a01a628e91395b427193f455fa",
+    release: "v1",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
         sha256: "f69a8a7017cfc32ae862bed62b8858a540d627ce691047f610a13821285aa859",
+        bytes: 1_310_380_253,
     },
     tokenizer: Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
         sha256: "c87c38db060bafb0122019c0c749ec1eb1ae510dae43c93f0042ec51099942e8",
+        bytes: 11_423_971,
     },
-    download_bytes: 1_310_380_253 + 11_423_971,
 };
 
 pub const RERANKER: Model = Model {
     name: "search-reranker",
     repository: "Aureliolo/steamgauge-search-reranker",
     revision: "977b6ea57a5559c7931f55f1351ee8e795d4cb4e",
+    release: "v1",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
         sha256: "0e73e548bd14f56b7f0c9b1f4ef00cb82b752f902150070622f822fa6aad8986",
+        bytes: 1_310_384_274,
     },
     tokenizer: Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
         sha256: "64916bb803f29cbbf1f60383b381612a965319299e249c6fff8a713e5b03be82",
+        bytes: 11_422_920,
     },
-    download_bytes: 1_310_384_274 + 11_422_920,
 };
 
 /// The encoder's vectors are this wide.
@@ -116,11 +120,16 @@ impl Model {
         cache_dir.join(self.name)
     }
 
+    /// What a first search would fetch of this model, counting only the files not here.
+    #[must_use]
+    pub fn bytes_left(self, cache_dir: &Path) -> u64 {
+        model::bytes_left(&[self.tokenizer, self.graph], &self.dir(cache_dir))
+    }
+
     /// Whether both files are here, so a window can say what a first search would fetch.
     #[must_use]
     pub fn fetched(self, cache_dir: &Path) -> bool {
-        let dir = self.dir(cache_dir);
-        dir.join(self.graph.local).is_file() && dir.join(self.tokenizer.local).is_file()
+        self.bytes_left(cache_dir) == 0
     }
 
     /// Makes sure both files are here and match their pins, fetching what is missing.

@@ -192,3 +192,7 @@ jobs:
       # do, answered yes or no and kept apart from the gold answer it sits beside.
       - run: cargo run --locked -p steamgauge-core --example sample-gold -- accept.html --acceptable
       - run: node tools/gold-check/acceptable.mjs accept.html
+      # The desktop app's window, every page of it, against a stand-in for the core: the work
+      # board, the library's grouping and selection, the comparison and the settings exist only
+      # once a browser has run them.
+      - run: node tools/app-check/check.mjs

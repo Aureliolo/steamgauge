@@ -19,6 +19,12 @@ pub fn largest() -> Option<Card> {
     platform::largest()
 }
 
+/// What the platform calls that card, to show a person which one is meant.
+#[must_use]
+pub fn name() -> Option<String> {
+    platform::name().filter(|name| !name.trim().is_empty())
+}
+
 #[cfg(windows)]
 mod platform {
     use winreg::RegKey;
@@ -28,10 +34,11 @@ mod platform {
     const DISPLAY_CLASS: &str =
         r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
 
-    pub fn largest() -> Option<super::Card> {
-        let class = RegKey::predef(HKEY_LOCAL_MACHINE)
-            .open_subkey(DISPLAY_CLASS)
-            .ok()?;
+    /// Every adapter's memory and the name its driver gives it.
+    fn adapters() -> Vec<(u64, Option<String>)> {
+        let Ok(class) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(DISPLAY_CLASS) else {
+            return Vec::new();
+        };
         class
             .enum_keys()
             .filter_map(Result::ok)
@@ -39,7 +46,7 @@ mod platform {
             .filter_map(|adapter| {
                 // The 64-bit value first: WMI's `AdapterRAM` and the older `MemorySize` are 32
                 // bits and read 4 GB on every card larger than that.
-                [
+                let bytes = [
                     "HardwareInformation.qwMemorySize",
                     "HardwareInformation.MemorySize",
                 ]
@@ -47,13 +54,28 @@ mod platform {
                 .find_map(|name| {
                     let value = adapter.get_raw_value(name).ok()?;
                     super::bytes_of(value.vtype == RegType::REG_DWORD, &value.bytes)
-                })
+                })?;
+                Some((bytes, adapter.get_value::<String, _>("DriverDesc").ok()))
             })
+            .collect()
+    }
+
+    pub fn largest() -> Option<super::Card> {
+        adapters()
+            .into_iter()
+            .map(|(bytes, _)| bytes)
             .max()
             .map(|bytes| super::Card {
                 bytes,
                 shared: false,
             })
+    }
+
+    pub fn name() -> Option<String> {
+        adapters()
+            .into_iter()
+            .max_by_key(|(bytes, _)| *bytes)
+            .and_then(|(_, name)| name)
     }
 }
 
@@ -69,6 +91,14 @@ mod platform {
             bytes,
             shared: true,
         })
+    }
+
+    pub fn name() -> Option<String> {
+        let out = std::process::Command::new("sysctl")
+            .args(["-n", "machdep.cpu.brand_string"])
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&out.stdout).trim().to_owned())
     }
 }
 
@@ -93,6 +123,17 @@ mod platform {
             bytes,
             shared: false,
         })
+    }
+
+    pub fn name() -> Option<String> {
+        let out = std::process::Command::new("nvidia-smi")
+            .args(["--query-gpu=name", "--format=csv,noheader"])
+            .output()
+            .ok()?;
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .next()
+            .map(|line| line.trim().to_owned())
     }
 }
 
