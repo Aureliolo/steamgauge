@@ -384,10 +384,12 @@ fn distinctive(
 /// first run it overlaps, so にほんごがない can come out as にほん and んごがない with the
 /// bridge taken by the second. Two runs that overlap by a character and were said by the
 /// same reviewers are one word.
+///
+/// A run taken into another is emptied where it stands and dropped at the end, so no run moves
+/// while the walk is over them; an empty run neither joins nor is joined.
 fn coalesce(shown: &mut Vec<Term>) {
-    let mut at = 0;
-    while at < shown.len() {
-        let joined_one = (0..shown.len()).find(|&other| {
+    for at in 0..shown.len() {
+        while let Some(other) = (0..shown.len()).find(|&other| {
             other != at
                 && nearly(shown[at].reviews, shown[other].reviews)
                 && shown[other].text.chars().next().is_some_and(|first| {
@@ -395,21 +397,15 @@ fn coalesce(shown: &mut Vec<Term>) {
                         && !is_han(first)
                         && shown[at].text.ends_with(first)
                 })
-        });
-        match joined_one {
-            Some(other) => {
-                let tail: String = shown[other].text.chars().skip(1).collect();
-                let reviews = shown[other].reviews;
-                shown[at].text.push_str(&tail);
-                shown[at].reviews = shown[at].reviews.min(reviews);
-                shown.remove(other);
-                if other < at {
-                    at -= 1;
-                }
-            }
-            None => at += 1,
+        }) {
+            let tail: String = shown[other].text.chars().skip(1).collect();
+            let reviews = shown[other].reviews;
+            shown[at].text.push_str(&tail);
+            shown[at].reviews = shown[at].reviews.min(reviews);
+            shown[other].text.clear();
         }
     }
+    shown.retain(|term| !term.text.is_empty());
 }
 
 /// Whether two counts are within a twentieth of each other, which is what "the same
