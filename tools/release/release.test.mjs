@@ -65,10 +65,33 @@ name = "two"
 version = "0.3.9"
 `;
 
-function workspace({ manifest = MANIFEST, lock = LOCK, two = "version.workspace = true" } = {}) {
+// A second workspace beside the first, depending on one of its crates by path, as the fuzz harness
+// does: its own crate and a registry crate of the same name as a workspace crate stay as they are.
+const FUZZ_LOCK = `version = 4
+
+[[package]]
+name = "one"
+version = "0.3.9"
+
+[[package]]
+name = "one-fuzz"
+version = "0.0.0"
+
+[[package]]
+name = "two"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc"
+`;
+
+function workspace({ manifest = MANIFEST, lock = LOCK, two = "version.workspace = true", fuzzLock } = {}) {
   const root = mkdtempSync(join(tmpdir(), "release-test-"));
   writeFileSync(join(root, "Cargo.toml"), manifest);
   writeFileSync(join(root, "Cargo.lock"), lock);
+  if (fuzzLock !== undefined) {
+    mkdirSync(join(root, "fuzz"));
+    writeFileSync(join(root, "fuzz", "Cargo.lock"), fuzzLock);
+  }
   for (const [name, version] of [
     ["one", "version.workspace = true"],
     ["two", two],
@@ -115,6 +138,28 @@ test("a bump moves the manifest and exactly the workspace's lock entries", () =>
     const lock = readFileSync(join(root, "Cargo.lock"), "utf8");
     assert.equal(lock, LOCK.replaceAll('version = "0.3.9"', 'version = "0.4.0"'));
     assert.deepEqual(inspect(root).problems, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a bump moves the workspace's crates in a lock file that depends on them, and nothing else there", () => {
+  const root = workspace({ fuzzLock: FUZZ_LOCK });
+  try {
+    const result = bump(root, "minor");
+    assert.deepEqual(result.files, ["Cargo.toml", "Cargo.lock", "fuzz/Cargo.lock"]);
+    const fuzz = readFileSync(join(root, "fuzz", "Cargo.lock"), "utf8");
+    assert.equal(fuzz, FUZZ_LOCK.replace('name = "one"\nversion = "0.3.9"', 'name = "one"\nversion = "0.4.0"'));
+    assert.deepEqual(inspect(root).problems, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a dependent lock file behind the manifest is refused", () => {
+  const root = workspace({ fuzzLock: FUZZ_LOCK.replace('version = "0.3.9"', 'version = "0.3.8"') });
+  try {
+    assert.deepEqual(inspect(root).problems, ["fuzz/Cargo.lock records one 0.3.8, not 0.3.9."]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
