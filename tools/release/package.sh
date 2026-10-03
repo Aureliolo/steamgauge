@@ -7,6 +7,9 @@
 # The binary must already be built for <target> with <features> (custom-protocol among them);
 # Tauri's bundler packages that build rather than making its own, so what is packaged is exactly
 # what the build step compiled from the locked sources. $CARGO_TAURI names the tauri-cli to use.
+
+# pipefail makes a failing stage fail the pipeline it is in.
+# shellcheck disable=SC2312
 set -euo pipefail
 
 target="$1"
@@ -62,7 +65,7 @@ feature_args=()
 if [[ -n "${features}" ]]; then
   feature_args=(--features "${features}")
 fi
-"${CARGO_TAURI}" bundle --ci --target "${target}" --bundles "${bundles}" --config "${config}" \
+"${CARGO_TAURI:?package.sh needs CARGO_TAURI}" bundle --ci --target "${target}" --bundles "${bundles}" --config "${config}" \
   ${feature_args[@]+"${feature_args[@]}"}
 
 # One file per installer, or the names below would silently pick one of several.

@@ -43,7 +43,7 @@ stays_up() {
 case "${target}" in
   x86_64-pc-windows-msvc)
     "${dir}/steamgauge-${version}-windows-x64-setup.exe" /S
-    home="$(cygpath -u "${LOCALAPPDATA}")/SteamGauge"
+    home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
     for file in steamgauge.exe DirectML.dll THIRD-PARTY-NOTICES.txt; do
       test -f "${home}/${file}" || { echo "The installer put no ${file} in ${home}." >&2; exit 1; }
     done
@@ -76,7 +76,7 @@ case "${target}" in
     expect_version /usr/bin/steamgauge
     stays_up xvfb-run --auto-servernum /usr/bin/steamgauge
     sudo apt-get remove -y steamgauge
-    docker run --rm -v "${PWD}/${dir}:/packages:ro" "${FEDORA_IMAGE}" bash -euo pipefail -c "
+    docker run --rm -v "${PWD}/${dir}:/packages:ro" "${FEDORA_IMAGE:?}" bash -euo pipefail -c "
       dnf install -y /packages/steamgauge-${version}-1.x86_64.rpm > /dev/null
       said=\"\$(steamgauge --version)\"
       echo \"\${said}\"

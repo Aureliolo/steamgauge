@@ -438,25 +438,10 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # Every step below names files through these, so a format or a name changes in one place.
-      - name: Name what each system ships
-        run: |
-          set -euo pipefail
-          {
-            echo 'archive() { case "$1" in *-windows-*) echo "steamgauge-${VERSION}-$1.zip" ;; *) echo "steamgauge-${VERSION}-$1.tar.gz" ;; esac; }'
-            echo 'installers() { case "$1" in'
-            echo '  x86_64-unknown-linux-gnu) echo "steamgauge_${VERSION}_amd64.deb steamgauge-${VERSION}-1.x86_64.rpm" ;;'
-            echo '  x86_64-pc-windows-msvc) echo "steamgauge-${VERSION}-windows-x64-setup.exe" ;;'
-            echo '  aarch64-apple-darwin) echo "steamgauge-${VERSION}-macos-arm64.dmg" ;;'
-            echo 'esac; }'
-            echo 'members() { case "$1" in *.zip) unzip -Z1 "$1" ;; *) tar -tzf "$1" ;; esac | sed "/\/$/d" | LC_ALL=C sort; }'
-            echo 'unpack() { case "$1" in *.zip) unzip -q "$1" -d "$2" ;; *) tar -xzf "$1" -C "$2" ;; esac; }'
-          } > "${RUNNER_TEMP}/names.sh"
-
       - name: Verify the downloaded packages
         run: |
           set -euo pipefail
-          source "${RUNNER_TEMP}/names.sh"
+          source tools/release/names.sh
           expected="$(for target in ${TARGETS}; do
             echo "dist/steamgauge-${VERSION}-${target}.crates"
             for file in "$(archive "${target}")" $(installers "${target}"); do
@@ -480,7 +465,7 @@ jobs:
       - name: Check the notices in each archive
         run: |
           set -euo pipefail
-          source "${RUNNER_TEMP}/names.sh"
+          source tools/release/names.sh
           failed=0
           for target in ${TARGETS}; do
             name="steamgauge-${VERSION}-${target}"
@@ -514,7 +499,7 @@ jobs:
       - name: Generate and check the SBOMs
         run: |
           set -euo pipefail
-          source "${RUNNER_TEMP}/names.sh"
+          source tools/release/names.sh
           failed=0
           for target in ${TARGETS}; do
             name="steamgauge-${VERSION}-${target}"
