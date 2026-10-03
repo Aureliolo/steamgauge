@@ -1,0 +1,101 @@
+name: coverage
+
+# How much of steamgauge-core its own tests run, held to a floor that only ever rises. The floor
+# is the figure measured when it was set, rounded down to the whole percent; DECISIONS.md records
+# each one. A change that adds code without the tests to run it lowers the figure and fails here,
+# and a change that lifts the figure past the next whole percent should raise the floor with it.
+#
+# The core alone, by its own tests. The app crate is two front ends over it: clap dispatching to
+# the core's stages, which reach Steam and a graphics card, and Tauri commands, which need a
+# window and a webview. tools/app-check drives the window against a stand-in for the core, and no
+# Rust test can, so counting those lines would only make the floor a measure of how much of the
+# product is window, and fail a change for adding a button.
+#
+# No paths filter, for the reason workflows.yml gives: a check that never reports holds a pull
+# request forever once it is required.
+on:
+  push:
+    branches:
+      - main
+  # Every pull request, whatever it targets, so that one stacked on another is measured too.
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # The ratchet. Raise it with the figure; never lower it to let a change through.
+  FAIL_UNDER_LINES: 78
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read # Reads the source it measures.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The toolchain rust-toolchain.toml names, with the profiler's tools for that compiler: a
+      # coverage map read by another LLVM than the one that wrote it is refused or misread.
+      - name: Install Rust
+        run: |
+          rustup toolchain install
+          rustup component add llvm-tools
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      # The release archive, refused unless it matches the digest written here.
+      - name: Install cargo-llvm-cov
+        env:
+          # renovate: datasource=github-release-attachments depName=taiki-e/cargo-llvm-cov versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_LLVM_COV_TAG: v0.9.1
+          CARGO_LLVM_COV_SHA256: 3fca950394a3c49457657c158b1619cec8dfd2647ae5b48746734c0ab969a522
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-llvm-cov-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/taiki-e/cargo-llvm-cov/releases/download/${CARGO_LLVM_COV_TAG}/cargo-llvm-cov-x86_64-unknown-linux-musl.tar.gz"
+          echo "${CARGO_LLVM_COV_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-llvm-cov
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/cargo-llvm-cov" llvm-cov --version
+
+      # The tests the test job runs on the core, which need no model, no card and no network.
+      - name: Run the tests under instrumentation
+        run: cargo llvm-cov --locked -p steamgauge-core --no-report
+
+      - name: Write the lcov report
+        run: cargo llvm-cov report -p steamgauge-core --lcov --output-path lcov.info
+
+      # Written before the floor is checked, so a run that falls below it still says where.
+      - name: Keep the lcov report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          if-no-files-found: error
+
+      - name: Hold the floor
+        run: |
+          set -euo pipefail
+          if ! cargo llvm-cov report -p steamgauge-core --summary-only --fail-under-lines "${FAIL_UNDER_LINES}" \
+            | tee "${RUNNER_TEMP}/summary.txt"; then
+            echo "::error::Line coverage of steamgauge-core is under ${FAIL_UNDER_LINES}%. Test the code this change adds; the floor is not lowered."
+            exit 1
+          fi
+          {
+            echo '```'
+            grep -E '^(Filename|TOTAL)' "${RUNNER_TEMP}/summary.txt"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

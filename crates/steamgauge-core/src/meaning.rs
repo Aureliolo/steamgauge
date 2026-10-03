@@ -838,8 +838,27 @@ mod tests {
             5,
             "every claim, the reranker being what leaves any out"
         );
-        assert!(found[..3].iter().all(|near| near.similarity > 0.99));
+        assert!(
+            found[..3]
+                .iter()
+                .all(|near| (near.similarity - 1.0).abs() < 0.01)
+        );
         assert!(found[3..].iter().all(|near| near.similarity < 0.01));
+        let filed: Vec<&str> = found[..3]
+            .iter()
+            .map(|near| near.subject.as_str())
+            .collect();
+        assert_eq!(
+            (
+                filed
+                    .iter()
+                    .filter(|&&subject| subject == "performance")
+                    .count(),
+                filed.iter().filter(|&&subject| subject == DECLINED).count()
+            ),
+            (2, 1),
+            "each claim carries the subject its reading filed it under: {filed:?}"
+        );
 
         let skipped = nearest(dir.path(), &query, 3, |review, _| review == "1").unwrap();
         assert_eq!(
@@ -882,6 +901,46 @@ mod tests {
         times.note(true, 0.0, 5);
         assert_eq!(times.per_claim(true), Some(0.0005));
         assert_eq!(times.per_claim(false), None);
+    }
+
+    #[test]
+    fn the_card_and_the_processor_keep_their_own_pace_and_it_is_kept_on_disk() {
+        let dir = crate::tempdir::Dir::new();
+        let mut times = Times::default();
+        assert!(
+            (times.estimate(false, 1_000) - PROCESSOR_SECONDS_PER_CLAIM * 1_000.0).abs() < 1e-9,
+            "a machine with no times of its own is given this project's"
+        );
+        times.note(true, 10.0, 1_000);
+        times.note(false, 50.0, 1_000);
+        times.note(true, 30.0, 1_000);
+        assert_eq!(
+            times.per_claim(true),
+            Some(0.02),
+            "both runs on the card, added"
+        );
+        assert_eq!(times.per_claim(false), Some(0.05));
+        assert!((times.estimate(true, 500) - 10.0).abs() < 1e-9);
+
+        times.save(dir.path()).unwrap();
+        assert_eq!(Times::load(dir.path()), times);
+    }
+
+    #[test]
+    fn the_nearest_claim_sorts_last_so_a_full_heap_gives_up_its_farthest() {
+        let near = |similarity| {
+            Ranked(Near {
+                similarity,
+                review_id: String::new(),
+                at: (0, 0),
+                subject: String::new(),
+                polarity: String::new(),
+                confidence: 0.0,
+                key: [0; 32],
+            })
+        };
+        assert_eq!(near(0.9).partial_cmp(&near(0.1)), Some(Ordering::Less));
+        assert!(near(0.1) > near(0.9));
     }
 
     #[test]

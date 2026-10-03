@@ -4993,6 +4993,77 @@ deploy to.
 **No apt or dnf repository**, the user's decision: Linux takes the release's `.deb` or `.rpm`,
 and the cask is macOS only.
 
+### The core's tests are held to a floor of coverage and to their mutants (2026-10-03)
+
+Passing tests say nothing about how much of the crate they run, or whether they would notice it
+being wrong. Two checks ask both of steamgauge-core.
+
+**Coverage is the core's, by its own tests, and the floor is 78%.** `coverage.yml` runs
+`cargo llvm-cov -p steamgauge-core` on every pull request and on `main`, keeps the lcov report
+with the run, and fails under the floor. Measured on 2026-10-03 on `main` at 594748b: 13,008 of
+16,785 lines, 77.50% (regions 76.82%, functions 78.31%). With the tests the mutants below asked
+for, on `main` at f950fc8: 13,970 of 17,751 lines, 78.70% (regions 77.87%, functions 79.26%).
+Both on Windows. The check runs on Linux, where the same tree read 79.85%, 13,977 of 17,504: the
+Windows build compiles some 250 lines more, none of which the tests reach. The floor is the
+Windows figure rounded down to the whole percent, so a machine a contributor checks on agrees
+with the check, and it is only ever raised: a pull request that lifts the figure past the next
+whole percent raises it with the figure, and none lowers it to get through. The lines counted
+include the test modules inside each file, which run whenever they exist; that is the same in
+every measurement, so the floor still moves only with the code the tests reach. The thinnest
+files are the ones that talk to Steam or open a model: `crawl.rs` 13%, `search_models.rs` 28%,
+`api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
+
+The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
+the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
+a window, which `tools/app-check` drives against a stand-in and no Rust test can reach. Counted
+in, the figure would say how much of the product is window, and a new button would fail it.
+
+**A survivor on a pull request's own lines fails it.** `mutants.yml` runs cargo-mutants over the
+lines a pull request changes in the core, and every mutant the tests still pass fails the
+check, with the line annotated. What both runs share is in `.cargo/mutants.toml`: the library's
+tests and `tests/` and not the examples, a test timeout of a minute against a suite that takes a
+second, so a timeout is a hang and never a slow pass, and the mutants no test can tell from the
+original, each with its reason: what the platform says about the graphics card, which differs
+on every machine, and the hand-written `Debug` output nothing reads back.
+
+**What it costs, and what it found.** Measured on this machine on 2026-10-03 at four compiler
+jobs. `time.rs`: 89 mutants in 16 minutes, 131 s to build the unmutated tree and then about 7 s
+to build and 1 s to test each; five survived, all in the calendar's century corrections, which
+change the answer on a few days in four hundred years, and a test walking every day from 1970 to
+2400 catches all five. One shard in eight of the whole crate, dealt round robin as the weekly
+run deals it: 448 mutants in 43 minutes, two at a time; 243 caught, 166 survived, 2 timed out,
+37 did not compile. 40% of the mutants that built survived, which over the crate's 3,569 is
+some 1,300. Two settings make those figures possible. `cargo test` relinks the 24 examples
+beside the tests after every change unless told `--tests`, which takes a mutant's build from 7 s
+to 33 s. And cargo-mutants hands cargo one compiler per processor whatever `-j` says, which ran
+the machine's memory out in the first build and failed it as crates "not found in rlib format"
+rather than as the allocation that caused it; `--jobserver-tasks 4` holds it to four here, and
+a runner has four processors to begin with.
+
+**The survivors that were cheap to kill were.** Of the 166, the ones in code that needs no
+model, no network and no capture written by a crawl got a test each, or a stronger assertion in
+the test already there: 65 of them, with the five in `time.rs`, each checked by running the
+mutants of its lines again. That turned up ten more on the same lines: nine now caught as well,
+and one no test can tell from the original, a span from a byte to the same byte, which is
+excluded with that reason. Three of the 166 sat on conditions that decided nothing, and the code
+does without them: `worst_bias` asks `bias` alone, which answers nothing for a subject nobody
+raised, and the last batch of a split or a read is written whatever it holds, since ArrowWriter
+writes nothing for a batch of none. Two are the hand-written `Debug` output. The other 96, in
+reading, crawling, embedding and the stages that walk a written capture, are the weekly list's.
+
+**The weekly run lists its survivors and does not fail on them.** Every Tuesday the whole crate
+runs in sixteen shards. A check that turned red on 1,300 survivors would stay red for the weeks
+the tests take to write, and a check that is always red is one nobody opens, which hides the week
+it fails for a reason. So the survivors go into one issue, "Mutants the tests miss", rewritten
+each week with a count per file and closed when it is empty, and the run fails only when a shard
+does not finish: a baseline that fails, a tree that does not build, a shard out of time. That is
+the gate broken rather than a finding. With every pull request held on its own lines, the list
+only shrinks, apart from what a newer cargo-mutants learns to mutate.
+
+**Linux only.** The only code the core compiles per platform is `card.rs` asking the machine
+about its card, which is excluded everywhere; the rest is one body of code on every system, and
+mutating it three times would triple the cost to learn nothing.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

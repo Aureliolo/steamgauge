@@ -100,6 +100,34 @@ mod tests {
         assert_eq!(day(1_709_251_200), "1 March 2024");
     }
 
+    /// The algorithm's corrections for the four-year, hundred-year and four-hundred-year cycles
+    /// each change the answer on a handful of days only, so a few dates pass with any of them
+    /// wrong: 2000 is a leap year, 2100 is not, and 2400 is again.
+    #[test]
+    fn every_day_from_1970_to_2400_is_the_day_after_the_one_before() {
+        let leap = |year: i64| year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        let mut expected = (1970_i64, 1_u8, 1_u8);
+        let mut days = 0;
+        while expected.0 <= 2400 {
+            assert_eq!(civil_from_days(days), expected, "{days} days after 1970");
+            let (year, month, date) = expected;
+            let length = match month {
+                2 if leap(year) => 29,
+                2 => 28,
+                4 | 6 | 9 | 11 => 30,
+                _ => 31,
+            };
+            expected = if date < length {
+                (year, month, date + 1)
+            } else if month < 12 {
+                (year, month + 1, 1)
+            } else {
+                (year + 1, 1, 1)
+            };
+            days += 1;
+        }
+    }
+
     #[test]
     fn months_sort_the_way_they_read() {
         let mut months = vec![

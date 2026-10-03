@@ -1010,4 +1010,116 @@ mod tests {
             "and nowhere else"
         );
     }
+
+    fn game(subjects: Vec<SubjectAgreement>) -> ClaimAgreement {
+        ClaimAgreement {
+            app_id: 1,
+            matched: 50,
+            unjoined: 0,
+            answered: 40,
+            agreed: 30,
+            declined: 10,
+            polarity_answered: 40,
+            polarity_agreed: 32,
+            clear_answered: 30,
+            clear_agreed: 25,
+            contested_answered: 10,
+            contested_agreed: 5,
+            subjects,
+            beyond_the_first: Beyond::default(),
+        }
+    }
+
+    #[test]
+    fn a_game_reports_its_polarity_rate_and_the_interval_of_its_agreement() {
+        let found = game(Vec::new());
+        assert!((found.polarity_rate().unwrap() - 0.8).abs() < 1e-9);
+        assert_eq!(found.interval(), wilson(30, 40));
+        let silent = ClaimAgreement {
+            polarity_answered: 0,
+            polarity_agreed: 0,
+            ..game(Vec::new())
+        };
+        assert_eq!(silent.polarity_rate(), None);
+    }
+
+    #[test]
+    fn macro_f1_is_the_plain_mean_over_the_subjects_somebody_labelled() {
+        // F1s of 1/3 and 1, and a subject with no labels that would drag the mean if counted.
+        let found = game(vec![
+            subject(20, 40, 10),
+            subject(10, 10, 10),
+            subject(0, 5, 0),
+        ]);
+        let expected = f64::midpoint(1.0 / 3.0, 1.0);
+        assert!((found.macro_f1().unwrap() - expected).abs() < 1e-9);
+        assert_eq!(game(vec![subject(0, 5, 0)]).macro_f1(), None);
+    }
+
+    #[test]
+    fn sensitivity_and_the_rates_beyond_the_first_subject_need_something_to_divide_by() {
+        assert!((subject(20, 40, 10).sensitivity().unwrap() - 0.5).abs() < 1e-9);
+        assert_eq!(subject(0, 4, 0).sensitivity(), None);
+        let beyond = Beyond {
+            labelled: 0,
+            read: 4,
+            agreed: 1,
+        };
+        assert!((beyond.precision().unwrap() - 0.25).abs() < 1e-9);
+        assert_eq!(beyond.recall(), None);
+        let unread = Beyond {
+            labelled: 2,
+            read: 0,
+            agreed: 0,
+        };
+        assert_eq!(unread.precision(), None);
+        assert!(unread.recall().unwrap().abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn pooling_adds_what_each_game_declined() {
+        let both = pooled(&[game(Vec::new()), game(Vec::new())]);
+        assert_eq!((both.matched, both.declined), (100, 20));
+        assert!((both.declined_share().unwrap() - 0.2).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_role_is_written_as_the_trainer_writes_it() {
+        assert_eq!(Role::Frozen.as_str(), "frozen");
+        assert_eq!(Role::Validation.as_str(), "validation");
+        assert_eq!(Role::Train.as_str(), "train");
+    }
+
+    #[test]
+    fn ceilings_add_every_count_and_take_their_interval_from_the_settled_claims() {
+        let one = Ceiling {
+            compared: 10,
+            labellers_agreed: 8,
+            model_agreed_where_they_did: 6,
+            labellers_split: 2,
+            model_matched_either: 1,
+            model_agreed_with_first: 7,
+            model_agreed_with_second: 5,
+            settled_and_clear: 4,
+            model_agreed_on_the_clear: 3,
+        };
+        let mut both = one.clone();
+        both.extend(&one);
+        assert_eq!(
+            [
+                both.compared,
+                both.labellers_agreed,
+                both.model_agreed_where_they_did,
+                both.labellers_split,
+                both.model_matched_either,
+                both.model_agreed_with_first,
+                both.model_agreed_with_second,
+                both.settled_and_clear,
+                both.model_agreed_on_the_clear,
+            ],
+            [20, 16, 12, 4, 2, 14, 10, 8, 6]
+        );
+        assert_eq!(both.interval(), wilson(12, 16));
+        assert_eq!(Ceiling::default().interval(), None);
+    }
 }

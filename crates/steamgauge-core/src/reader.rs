@@ -1401,6 +1401,13 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_window_with_no_room_to_spare_starts_at_the_claim_and_not_at_the_token_before_it() {
+        let touching: Vec<(usize, usize)> =
+            (0..6).map(|token| (token * 5, token * 5 + 5)).collect();
+        assert_eq!(centred(&touching, 10, 5, 6), Some((10, 15)));
+    }
+
     /// Offsets are whatever a tokenizer hands back for a stranger's text, and the reading of a
     /// whole library stops at the first panic. None of these describe the review they are
     /// given with, and each has to come back as a string rather than an index out of bounds.

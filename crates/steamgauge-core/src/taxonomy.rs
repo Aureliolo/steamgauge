@@ -1122,6 +1122,21 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
+    fn the_sheet_is_named_by_the_first_twelve_hex_digits_of_its_brief() {
+        use sha2::{Digest, Sha256};
+
+        let digest = Sha256::digest(labelling_brief(Unit::Claim).as_bytes());
+        let named = sheet();
+        assert_eq!(named.len(), 12);
+        assert!(
+            named
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
+        );
+        assert_eq!(u8::from_str_radix(&named[..2], 16).unwrap(), digest[0]);
+    }
+
+    #[test]
     fn category_ids_are_unique_and_stable_looking() {
         let ids: HashSet<&str> = SHEET.iter().map(|c| c.id).collect();
         assert_eq!(ids.len(), SHEET.len(), "duplicate category id");

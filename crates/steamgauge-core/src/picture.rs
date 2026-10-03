@@ -180,6 +180,12 @@ mod tests {
     use super::*;
     use crate::said::{SaidAbout, Term};
 
+    #[test]
+    fn a_share_of_nothing_is_no_share() {
+        assert_eq!(share(1, 4), Some(0.25));
+        assert_eq!(share(0, 0), None);
+    }
+
     fn subject(
         id: &str,
         label: &str,

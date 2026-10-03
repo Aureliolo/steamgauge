@@ -1,0 +1,269 @@
+name: mutants
+
+# Coverage says a line ran; this says a test would notice if it were wrong. cargo-mutants changes
+# steamgauge-core one small way at a time (a condition flipped, a return value replaced, an
+# operator swapped) and reports every change the tests still pass. .cargo/mutants.toml holds the
+# settings both runs share and the mutants no test can tell apart, each with why.
+#
+# A pull request is held to it on the lines it changes, and a mutant that survives there fails the
+# check: the change is in front of its author, and so is the test it needs. Every Tuesday the
+# whole crate is run, which is where anything no diff touched turns up, and what survives there
+# is kept in one issue rather than failing the run; DECISIONS.md says why.
+#
+# The core only, as the coverage job measures it, and on Linux only. The app crate is clap and
+# Tauri over the core and is driven by tools/app-check, not by Rust tests. The only code the core
+# compiles per platform is what card.rs asks the machine about its graphics card, which no test
+# can know the answer to and which is excluded on every platform alike.
+#
+# No paths filter, for the reason workflows.yml gives: a check that never reports holds a pull
+# request forever once it is required. A pull request that changes nothing in the core finds no
+# mutants and passes in the minutes the build takes.
+on:
+  # Every pull request, whatever it targets, so that one stacked on another is held to its own
+  # lines too: the diff is taken from the base it targets.
+  pull_request:
+  schedule:
+    - cron: "17 4 * * 2"
+  # The weekly run, started by hand.
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pull-request:
+    name: mutants
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read # Reads the source it mutates, and the base branch to diff it against.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Rust
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      # The release archive, refused unless it matches the digest written here.
+      - name: Install cargo-mutants
+        env:
+          # renovate: datasource=github-release-attachments depName=sourcefrog/cargo-mutants versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_MUTANTS_TAG: v27.1.0
+          CARGO_MUTANTS_SHA256: dfe6dc37d0342c891d2829b5a695aa57c2d0edecef7e7d0399a30cc6e206411e
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/sourcefrog/cargo-mutants/releases/download/${CARGO_MUTANTS_TAG}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${CARGO_MUTANTS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-mutants
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/cargo-mutants" mutants --version
+
+      # cargo-mutants builds in a copy of the tree, and handed this target directory it starts
+      # from the dependencies already built here, or restored by the cache, rather than from none.
+      - name: Build the tests
+        run: cargo test --locked --tests -p steamgauge-core --no-run
+
+      # The checkout is the merge of the pull request into its base, so the three-dot diff from
+      # the base is exactly what the pull request changes.
+      #
+      # cargo-mutants exits 3 for a timeout before 2 for a survivor, so the exit code can hide a
+      # survivor behind a mutant that hung; what fails the check is missed.txt. A timeout is a
+      # test noticing: the suite would not have finished.
+      - name: Mutate what the pull request changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git diff "${BASE_SHA}...HEAD" > "${RUNNER_TEMP}/change.diff"
+          status=0
+          cargo mutants -p steamgauge-core --in-diff "${RUNNER_TEMP}/change.diff" \
+            --copy-target=true --no-shuffle --jobs 2 || status=$?
+          if [[ "${status}" -ne 0 && "${status}" -ne 2 && "${status}" -ne 3 ]]; then
+            exit "${status}"
+          fi
+          if [[ -s mutants.out/missed.txt ]]; then
+            while IFS= read -r mutant; do
+              echo "::error file=${mutant%%:*},line=$(cut -d: -f2 <<< "${mutant}")::Survives the tests: ${mutant#*: }"
+            done < mutants.out/missed.txt
+            echo "::error::$(wc -l < mutants.out/missed.txt) mutants of the lines this pull request changes survive the tests. Each needs a test that fails on it, or, if no test could tell it from the original, an entry in .cargo/mutants.toml saying why."
+            exit 1
+          fi
+
+      # A job stopped at its timeout ends cancelled, not failed, and its report matters as much.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-pull-request
+          path: mutants.out/
+          if-no-files-found: ignore
+
+  # About 3,600 mutants at five to ten seconds each, two at a time on four cores, is five to ten
+  # hours on one runner, so the crate is dealt out over sixteen, round robin so that a slow file
+  # is spread across all of them: a shard is some 225 mutants, half an hour or so.
+  shard:
+    # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
+    # without one.
+    name: mutants shard
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read # Reads the source it mutates.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - name: Install cargo-mutants
+        env:
+          # renovate: datasource=github-release-attachments depName=sourcefrog/cargo-mutants versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_MUTANTS_TAG: v27.1.0
+          CARGO_MUTANTS_SHA256: dfe6dc37d0342c891d2829b5a695aa57c2d0edecef7e7d0399a30cc6e206411e
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/sourcefrog/cargo-mutants/releases/download/${CARGO_MUTANTS_TAG}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${CARGO_MUTANTS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-mutants
+          echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/cargo-mutants" mutants --version
+
+      - name: Build the tests
+        run: cargo test --locked --tests -p steamgauge-core --no-run
+
+      # Survivors and timeouts are what the report job gathers; anything else, a baseline that
+      # fails or a tree that does not build, fails the shard.
+      - name: Mutate one shard of the crate
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          status=0
+          cargo mutants -p steamgauge-core --shard "${SHARD}/16" --sharding round-robin \
+            --copy-target=true --no-shuffle --jobs 2 || status=$?
+          if [[ "${status}" -ne 0 && "${status}" -ne 2 && "${status}" -ne 3 ]]; then
+            exit "${status}"
+          fi
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-shard-${{ matrix.shard }}
+          path: mutants.out/
+          if-no-files-found: ignore
+
+  # The week's survivors in one issue, opened when there are some, rewritten each week while there
+  # still are, and closed when none are left, with the counts on the run's summary.
+  report:
+    name: mutants report
+    needs: shard
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write # Opens, rewrites or closes the one issue that lists the survivors.
+
+    steps:
+      - name: Gather the shards
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: mutants-shard-*
+          path: shards
+
+      - name: Report the survivors
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHARDS: ${{ needs.shard.result }}
+          TITLE: Mutants the tests miss
+        run: |
+          set -euo pipefail
+          count() { cat shards/*/"$1" 2>/dev/null | LC_ALL=C sort -u | grep -c . || true; }
+          missed="$(count missed.txt)"
+          caught="$(count caught.txt)"
+          timeout="$(count timeout.txt)"
+          unviable="$(count unviable.txt)"
+          tested=$((missed + caught + timeout))
+          {
+            echo "| Survived | Caught | Timed out | Unviable |"
+            echo "|---:|---:|---:|---:|"
+            echo "| ${missed} | ${caught} | ${timeout} | ${unviable} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          # A shard that failed or was cancelled tested only part of its share, and a list missing
+          # it would close the issue on survivors nobody looked for.
+          if [[ "${SHARDS}" != "success" ]]; then
+            echo "::error::Not every shard finished (${SHARDS}), so the issue is left as it was."
+            exit 1
+          fi
+
+          issue="$(gh issue list --state open --author app/github-actions --search "in:title \"${TITLE}\"" \
+            --json number,title --jq ".[] | select(.title == env.TITLE) | .number" | head -n 1)"
+          if [[ "${missed}" -eq 0 ]]; then
+            if [[ -n "${issue}" ]]; then
+              gh issue close "${issue}" --comment "The weekly run of ${RUN_URL} found no survivors among ${tested} mutants."
+            fi
+            exit 0
+          fi
+
+          # An issue holds 65,536 characters, and a crate's worth of survivors can be more: the
+          # list stops short of that and says how many it left out, which the artefacts hold.
+          survivors="${RUNNER_TEMP}/missed.txt"
+          cat shards/*/missed.txt | LC_ALL=C sort -u | LC_ALL=C sort -t: -k1,1 -k2,2n > "${survivors}"
+          listed="${RUNNER_TEMP}/listed.txt"
+          awk '{ used += length($0) + 1; if (used > 45000) exit; print }' "${survivors}" > "${listed}"
+          left_out=$((missed - $(wc -l < "${listed}")))
+          body="${RUNNER_TEMP}/body.md"
+          {
+            echo "${missed} of the ${tested} mutants of steamgauge-core the weekly run tested survive the tests (${RUN_URL})."
+            echo
+            echo "Each needs a test that fails on it, or, if no test could tell it from the original, an entry in \`.cargo/mutants.toml\` saying why. The run rewrites this list every week and closes the issue when it is empty. Each shard's \`mutants.out\` is kept with the run as an artefact, with the change every mutant made under \`diff/\`."
+            echo
+            echo "| File | Survivors |"
+            echo "|---|---:|"
+            cut -d: -f1 "${survivors}" | uniq -c | sort -k1,1nr -k2,2 | awk '{ printf "| `%s` | %d |\n", $2, $1 }'
+            echo
+            echo '```'
+            cat "${listed}"
+            echo '```'
+            if [[ "${left_out}" -gt 0 ]]; then
+              echo
+              echo "${left_out} more are in the artefacts."
+            fi
+          } > "${body}"
+          if [[ -n "${issue}" ]]; then
+            gh issue edit "${issue}" --body-file "${body}"
+            gh issue comment "${issue}" --body "${missed} survivors this week (${RUN_URL})."
+          else
+            gh issue create --title "${TITLE}" --body-file "${body}"
+          fi

@@ -1,0 +1,33 @@
+# cargo-mutants, as .github/workflows/mutants.yml runs it and as anyone runs it by hand:
+#
+#   cargo mutants -p steamgauge-core --jobserver-tasks 4
+#
+# Without --jobserver-tasks it runs one compiler per processor, which on a machine with many
+# cores and a shared pool of memory runs the pool out halfway through the first build: rustc
+# fails to allocate, leaves half-written libraries behind, and the build reports crates "not
+# found in rlib format" rather than the allocation that caused it.
+
+# The library's unit tests and tests/, and not the examples: no example is a test, and relinking
+# all 24 of them after each mutant takes its build from about 7 s to 33 s.
+additional_cargo_args = ["--tests"]
+
+# The suite takes about a second. A mutant that makes a rest sleep for ever, or a loop never end,
+# is stopped here and counted as a timeout, which is a test noticing; the floor is well above
+# anything a slow runner adds to a passing suite, so a timeout is never a slow pass.
+minimum_test_timeout = 60
+
+# Mutants no test can tell from the original, each with why. Anything else a mutant survives is a
+# missing test.
+exclude_re = [
+  # What the platform says about the graphics card is the machine's answer, read from the
+  # registry, sysctl or nvidia-smi, and differs on every machine the tests run on; the parsing
+  # under it (`bytes_of`, `largest_mib`) is tested and stays mutated.
+  'src[/\\]card\.rs:.*: replace (platform::)?(adapters|largest|name) -> ',
+  'src[/\\]card\.rs:.* in (platform::adapters|name)$',
+  # A span from a byte to the same byte is turned away at the door or found empty at the end,
+  # and both give no span.
+  'src[/\\]claims\.rs:\d+:\d+: replace > with >= in tidied$',
+  # A Debug written by hand says less than a derived one would, to keep a model's megabytes out
+  # of a log line; what it prints is for a person reading that line, and nothing reads it back.
+  'replace <impl std::fmt::Debug for [A-Za-z]+>::fmt -> std::fmt::Result with ',
+]

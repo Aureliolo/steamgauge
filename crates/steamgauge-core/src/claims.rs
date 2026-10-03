@@ -1136,9 +1136,8 @@ pub fn extract_corpus(
         Ok(())
     })?;
 
-    if pending.len() > 0 {
-        writer.write(&pending.take(&schema)?)?;
-    }
+    // ArrowWriter writes nothing for a batch of no rows.
+    writer.write(&pending.take(&schema)?)?;
     writer.close()?;
     report.distinct = seen.len() as u64;
     Ok(report)
@@ -2033,5 +2032,102 @@ mod tests {
         for claim in split(review) {
             assert!(review.contains(claim.as_ref()));
         }
+    }
+
+    #[test]
+    fn a_full_stop_inside_brackets_or_a_quotation_ends_neither_the_aside_nor_the_sentence() {
+        let aside = "The final boss is brutally unfair (especially in phase two. it summons \
+                     adds forever) and I gave up on it after an hour of trying.";
+        assert_eq!(split(aside), vec![aside]);
+        let quoted = "My friend promised me \"it gets good after ten hours. trust me\" and \
+                      it never did, not even after thirty of them.";
+        assert_eq!(split(quoted), vec![quoted]);
+    }
+
+    #[test]
+    fn a_declined_option_is_dropped_and_the_rest_of_the_form_kept() {
+        assert_eq!(
+            without_the_declined("Worth the price\n\u{2610} No\n\u{2611} Yes".to_owned()),
+            "Worth the price\n\u{2611} Yes"
+        );
+    }
+
+    #[test]
+    fn a_span_that_runs_backwards_or_holds_no_words_names_nothing() {
+        assert_eq!(tidied("A point.", 5, 2), None);
+        assert_eq!(
+            tidied("h\u{E9}llo", 2, 6),
+            None,
+            "it starts inside a character"
+        );
+        assert_eq!(
+            tidied("h\u{E9}llo", 0, 2),
+            None,
+            "it ends inside a character"
+        );
+        assert_eq!(tidied("A point.", 3, 3), None);
+        assert_eq!(tidied(" - , ", 0, 5), None);
+    }
+
+    #[test]
+    fn a_list_marker_is_up_to_three_digits_or_letters_and_its_mark() {
+        assert!(ends_on_a_list_marker("The Good\n12."));
+        assert!(ends_on_a_list_marker("The Good\nb)"));
+        assert!(!ends_on_a_list_marker("The Good\n1234."));
+        assert!(!ends_on_a_list_marker("The Good\nabcd:"));
+        assert!(!ends_on_a_list_marker("The Good\n."));
+    }
+
+    #[test]
+    fn a_capture_is_split_into_claims_beside_it_and_counted() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join("appid=1").join("snapshot=5");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        crate::search::tests::snapshot(&snapshot);
+        let report = extract_corpus(out.path(), 1, |_, _| {}).unwrap();
+        let cut: usize = [
+            "Runs badly on Steam Deck. Great story.",
+            "Perfect on my Steam Deck!",
+            "Steam deck? No idea. Fun though.",
+        ]
+        .iter()
+        .map(|review| claims_of(review).len())
+        .sum();
+        assert_eq!((report.reviews, report.empty), (3, 0));
+        assert_eq!(report.claims, cut as u64);
+        assert_eq!(
+            report.distinct, report.claims,
+            "no claim of these is said twice"
+        );
+        let written = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(
+            std::fs::File::open(snapshot.join("claims.parquet")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            written.metadata().file_metadata().num_rows(),
+            i64::try_from(report.claims).unwrap(),
+            "every claim counted is a row beside the capture"
+        );
+    }
+
+    #[test]
+    fn a_report_says_claims_per_review_and_what_share_of_them_repeat() {
+        let report = ClaimReport {
+            app_id: 1,
+            reviews: 4,
+            empty: 0,
+            claims: 10,
+            distinct: 4,
+        };
+        assert!((report.per_review() - 2.5).abs() < 1e-12);
+        assert!((report.repeated().unwrap() - 0.6).abs() < 1e-12);
+        let nothing = ClaimReport {
+            reviews: 0,
+            claims: 0,
+            distinct: 0,
+            ..report
+        };
+        assert!(nothing.per_review().abs() < f64::EPSILON);
+        assert_eq!(nothing.repeated(), None);
     }
 }

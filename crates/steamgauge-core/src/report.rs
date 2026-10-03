@@ -258,7 +258,7 @@ impl AppReport {
         self.reading
             .subjects
             .iter()
-            .filter(|s| s.mention_reviews > 0 && s.top_mention_reviews >= floor.max(2))
+            .filter(|s| s.top_mention_reviews >= floor.max(2))
             .filter_map(|s| self.bias(s).map(|factor| (s, factor)))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
     }

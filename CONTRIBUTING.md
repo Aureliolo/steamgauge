@@ -136,6 +136,24 @@ out of git. `fuzz/seeds/` is the committed start, and it is synthetic: never a r
 `data/`, which is other people's writing. A crash is fixed where it happens, with a test beside
 the code that reproduces it; the fuzz target is not where it is made to pass.
 
+### Coverage and mutants
+
+Two more checks hold the core's tests to what they are for. `coverage.yml` runs
+steamgauge-core's tests under cargo-llvm-cov and fails when the share of lines they run falls
+under the floor it names; the floor is raised as the figure rises and never lowered to let a
+change through. `mutants.yml` runs cargo-mutants over the lines a pull request changes in the
+core, and fails on every mutant the tests still pass: write the test that fails on it, or, where
+no test could tell it from the original, add it to `.cargo/mutants.toml` with the reason. Every
+Tuesday the whole crate is run, and what survives there is listed in one issue, "Mutants the
+tests miss". Both need their tool installed (`cargo install cargo-llvm-cov cargo-mutants`), and
+cargo-mutants needs its compiler count held down, or it starts one per processor at once:
+
+```sh
+cargo llvm-cov -p steamgauge-core --summary-only
+git diff origin/main... > change.diff
+cargo mutants -p steamgauge-core --in-diff change.diff --jobserver-tasks 4
+```
+
 ## What is held to a higher bar
 
 This tool exists to make a percentage mean what it appears to mean, so anything affecting a

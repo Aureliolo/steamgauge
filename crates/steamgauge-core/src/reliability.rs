@@ -418,6 +418,35 @@ mod tests {
         assert_eq!((found.only_first, found.only_second), (1, 2));
         let subject = found.subject().expect("subject is always scored");
         assert_eq!((subject.compared, subject.agreed), (3, 2));
+        assert!((subject.rate().unwrap() - 2.0 / 3.0).abs() < 1e-9);
+        assert_eq!(subject.interval(), crate::measure::wilson(2, 3));
+        let nothing = FieldAgreement {
+            compared: 0,
+            agreed: 0,
+            ..subject.clone()
+        };
+        assert_eq!((nothing.rate(), nothing.interval()), (None, None));
+    }
+
+    #[test]
+    fn the_flag_is_scored_apart_on_the_claims_it_marks_and_the_ones_it_does_not() {
+        let rows = vec![
+            (label("1", 0, "bugs", false), label("1", 0, "bugs", false)),
+            (label("1", 1, "story", false), label("1", 1, "price", false)),
+            (label("1", 2, "genre", true), label("1", 2, "genre", false)),
+            (label("1", 3, "verdict", true), label("1", 3, "genre", true)),
+            (label("1", 4, "bugs", false), label("1", 4, "bugs", true)),
+        ];
+        let contested = over(&Paired {
+            both: rows,
+            only_first: 0,
+            only_second: 0,
+        })
+        .contested;
+        assert!((contested.clear_rate().unwrap() - 0.5).abs() < 1e-9);
+        assert!((contested.flagged_rate().unwrap() - 2.0 / 3.0).abs() < 1e-9);
+        let none = Contested::over(&[]);
+        assert_eq!((none.clear_rate(), none.flagged_rate()), (None, None));
     }
 
     #[test]

@@ -3161,6 +3161,95 @@ mod tests {
     }
 
     #[test]
+    fn bars_are_drawn_against_the_busiest_month_and_the_share_line_across_them() {
+        // 400 and 600 reviews: the busier is the chart's full 160, the other two thirds of it.
+        let page = render(&sample_report("It crashes."));
+        assert!(
+            page.contains("height=\"160.00\""),
+            "the busiest month is full height"
+        );
+        assert!(
+            page.contains("height=\"106.67\""),
+            "the other is drawn to its scale"
+        );
+        assert!(page.contains("<polyline class=\"share\""));
+    }
+
+    #[test]
+    fn a_sparkline_spans_the_whole_width_from_its_first_month_to_its_last() {
+        let page = render(&with_months(vec![
+            month("2024-01", 400, 40),
+            month("2024-02", 400, 80),
+            month("2024-03", 400, 120),
+        ]));
+        assert!(page.contains(" 500.00,"), "the middle month sits halfway");
+        assert!(
+            page.contains(" 1000.00,"),
+            "the last month sits at the right-hand edge"
+        );
+    }
+
+    #[test]
+    fn the_games_disagree_most_by_the_widest_gap_in_points_not_the_largest_ratio() {
+        // Bugs at 40% against 20% is twenty points apart; performance at 10% against 3% is
+        // seven, though more than three times over.
+        let mut report = two_games();
+        report.apps[1].reading.subjects[0].mention_reviews = 200;
+        report.apps[1].reading.subjects[1].mention_reviews = 30;
+        let page = render(&report);
+        assert!(page.contains("disagree about most is"));
+        assert!(
+            !page.contains("disagree about most is <strong>performance</strong>"),
+            "the largest ratio was named rather than the widest gap"
+        );
+    }
+
+    #[test]
+    fn agreement_is_pooled_only_when_every_game_was_measured() {
+        let willing = "labelled claims this model was willing to answer";
+        let mut report = two_games();
+        report.apps[0].agreement =
+            crate::report::Measurement::Measured(Box::new(measured(100, 80)));
+        assert_eq!(
+            render(&report).matches(willing).count(),
+            1,
+            "one measured game of two is that game's figure and no pooled one"
+        );
+        report.apps[1].agreement =
+            crate::report::Measurement::Measured(Box::new(measured(100, 60)));
+        assert_eq!(render(&report).matches(willing).count(), 3);
+
+        let mut three = report.clone();
+        let mut third = two_games().apps[1].clone();
+        third.crawl.app_id = 11;
+        third.reading.app_id = 11;
+        three.apps.push(third);
+        assert_eq!(
+            render(&three).matches(willing).count(),
+            2,
+            "two measured games of three are not pooled"
+        );
+        three.apps[2].agreement = crate::report::Measurement::Measured(Box::new(measured(100, 70)));
+        assert_eq!(render(&three).matches(willing).count(), 4);
+    }
+
+    #[test]
+    fn a_share_line_needs_two_months_that_have_a_share() {
+        let page = render(&with_months(vec![
+            month("2024-01", 400, 40),
+            month("2024-02", 0, 0),
+        ]));
+        assert!(
+            page.contains("class=\"timeline\""),
+            "two months are a chart"
+        );
+        assert!(
+            !page.contains("<polyline class=\"share\""),
+            "one point is not a line"
+        );
+    }
+
+    #[test]
     fn a_cell_with_no_number_says_so_out_loud() {
         let mut out = String::new();
         let unraised = crate::read::SubjectCount {
@@ -3437,6 +3526,71 @@ mod tests {
         assert_eq!(percent(0.0004), "<0.1%");
         assert_eq!(percent(0.0), "0.0%");
         assert_eq!(percent(0.1234), "12.3%");
+        assert_eq!(
+            percent(0.001),
+            "0.1%",
+            "a tenth of a percent rounds to itself"
+        );
+    }
+
+    #[test]
+    fn a_subject_belongs_to_a_game_from_a_tenth_of_a_percent() {
+        assert_eq!(belongs_to(&[Some(0.001), Some(0.0)]), Some(0));
+        assert_eq!(belongs_to(&[Some(0.0009), Some(0.0)]), None);
+    }
+
+    #[test]
+    fn the_polarity_column_divides_by_every_review_that_judged_the_subject() {
+        let category = crate::read::SubjectCount {
+            praised: 2,
+            criticised: 1,
+            mixed: 1,
+            ..a_category("bugs", "Bugs and crashes", 0, 0)
+        };
+        let mut out = String::new();
+        polarity_cell(&mut out, &category);
+        assert!(out.contains("50.0% praise"), "{out}");
+        assert!(out.contains("25.0% gripe, 25.0% both"), "{out}");
+    }
+
+    #[test]
+    fn languages_past_the_ones_listed_are_summed_and_none_are_not_mentioned() {
+        let page = render(&sample_report("It crashes."));
+        assert!(
+            !page.contains("more languages"),
+            "two languages leave none over"
+        );
+
+        let mut report = sample_report("It crashes.");
+        report.apps[0].reading.languages = (0..13_u64)
+            .map(|rank| (format!("language{rank}"), 100 - rank))
+            .collect();
+        let page = render(&report);
+        assert!(page.contains("and 1 more languages"));
+    }
+
+    #[test]
+    fn labels_whose_reviews_this_build_cuts_differently_are_counted_out_loud() {
+        let mut out = String::new();
+        agreement_note(
+            &mut out,
+            &crate::measure::ClaimAgreement {
+                unjoined: 5,
+                ..measured(100, 80)
+            },
+        );
+        assert!(out.contains("A further 5 labelled claims"), "{out}");
+        let mut quiet = String::new();
+        agreement_note(&mut quiet, &measured(100, 80));
+        assert!(!quiet.contains("A further"), "{quiet}");
+    }
+
+    #[test]
+    fn the_whole_review_follows_its_claim_only_where_it_says_more() {
+        let mut report = sample_report("It crashes.");
+        assert!(!render(&report).contains("class=\"text whole"));
+        report.apps[0].examples[0].1[0].review.text = "It crashes. And it is ugly.".to_owned();
+        assert!(render(&report).contains("class=\"text whole"));
     }
 
     #[test]

@@ -2653,4 +2653,35 @@ mod tests {
         assert!(sample.contains("\"start\": 12") && sample.contains("\"end\": 25"));
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn a_question_names_claims_by_any_one_of_the_fields_that_can() {
+        let by_words = Question {
+            words: vec!["deck".to_owned()],
+            ..Question::default()
+        };
+        assert!(by_words.names_claims());
+        let by_subjects = Question {
+            subjects: vec!["bugs".to_owned()],
+            ..Question::default()
+        };
+        assert!(by_subjects.names_claims());
+        let only_games = Question {
+            apps: vec![1],
+            ..Question::default()
+        };
+        assert!(!only_games.names_claims());
+    }
+
+    #[test]
+    fn only_the_reviews_asked_about_are_cut() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join("appid=1").join("snapshot=5");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        crate::search::tests::snapshot(&snapshot);
+        let asked = std::collections::HashSet::from(["2".to_owned()]);
+        let cut = spans_cut_now(out.path(), 1, &asked).unwrap();
+        assert_eq!(cut.keys().collect::<Vec<_>>(), ["2"]);
+        assert_eq!(cut["2"].text, "Perfect on my Steam Deck!");
+    }
 }
