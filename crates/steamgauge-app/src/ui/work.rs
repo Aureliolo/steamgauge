@@ -273,24 +273,21 @@ impl Work {
     /// Stops a job: a waiting one never starts, and a running one is told to stop where it
     /// can, keeping what it finished.
     ///
-    /// A download is dropped where it stands, because what it wrote is kept and the next one
-    /// resumes from it. A read or a preparation is only told: it is in the middle of writing,
-    /// and it lets go of the game once it has cleaned up, not before another job could start
-    /// writing the same files.
+    /// A download and a check are dropped where they stand: a crawl records each window only
+    /// once it is whole and resumes from those, and a check writes nothing until it ends.
+    /// Everything else is only told, and stops at a point where what it leaves is consistent,
+    /// letting go of its game only then, not before another job could start on the same files.
     pub fn stop(&self, app: &AppHandle, id: u64) {
         {
             let mut board = self.lock();
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
             }
-            let lane = board
+            let droppable = board
                 .jobs
                 .iter()
-                .find(|job| job.id == id)
-                .map(|job| job.task.lane());
-            if lane == Some(Lane::Network)
-                && let Some(abort) = board.aborts.get(&id)
-            {
+                .any(|job| job.id == id && matches!(job.task, Task::Download { .. } | Task::Check));
+            if droppable && let Some(abort) = board.aborts.get(&id) {
                 abort.abort();
             }
             if let Some(job) = board.jobs.iter_mut().find(|job| job.id == id)
@@ -527,11 +524,11 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
         tokio::spawn(async move {
             match task {
                 Task::Download { app_id } => download(&app, id, app_id).await,
-                Task::Update { app_id } => update(&app, id, app_id).await,
+                Task::Update { app_id } => update(&app, id, app_id, stop).await,
                 Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
                 Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
                 Task::Check => check(&app, id).await,
-                Task::Export { app_ids, to } => export(&app, id, app_ids, to).await,
+                Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
             }
         })
     };
@@ -617,12 +614,17 @@ async fn download(app: &AppHandle, id: u64, app_id: u32) -> Result<Ended, String
     Ok(ended)
 }
 
-async fn update(app: &AppHandle, id: u64, app_id: u32) -> Result<Ended, String> {
+async fn update(
+    app: &AppHandle,
+    id: u64,
+    app_id: u32,
+    stop: Arc<AtomicBool>,
+) -> Result<Ended, String> {
     let out_dir = library_dir(app);
     let client = steam(app, id)?;
     let telling = app.clone();
     tell(app, id, "Asking Steam what changed", Unit::Pages, 0.0, None);
-    let swept = steamgauge_core::crawl::sweep(&client, app_id, &out_dir, move |progress| {
+    let swept = steamgauge_core::crawl::sweep(&client, app_id, &out_dir, &stop, move |progress| {
         tell(
             &telling,
             id,
@@ -982,8 +984,8 @@ async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {
 async fn export(
     app: &AppHandle,
     id: u64,
-    app_ids: Vec<u32>,
-    to: std::path::PathBuf,
+    (app_ids, to): (Vec<u32>, std::path::PathBuf),
+    stop: Arc<AtomicBool>,
 ) -> Result<Ended, String> {
     let dir = library_dir(app);
     let games = float(u64::try_from(app_ids.len()).unwrap_or(u64::MAX));
@@ -995,6 +997,9 @@ async fn export(
             ..steamgauge_core::report::ReportOptions::default()
         };
         let report = steamgauge_core::report::build(&app_ids, &options).map_err(text)?;
+        if stop.load(Ordering::Relaxed) {
+            return Err("stopped".to_owned());
+        }
         let partial = written.with_extension("partial");
         std::fs::write(&partial, steamgauge_core::html::render(&report)).map_err(text)?;
         std::fs::rename(&partial, &written).map_err(text)

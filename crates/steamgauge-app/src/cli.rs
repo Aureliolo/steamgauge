@@ -3654,7 +3654,8 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
     let interactive = std::io::stderr().is_terminal();
 
     eprintln!("bringing app {app_id} up to date");
-    let report = steamgauge_core::crawl::sweep(&client, app_id, out, |progress| {
+    let never = std::sync::atomic::AtomicBool::new(false);
+    let report = steamgauge_core::crawl::sweep(&client, app_id, out, &never, |progress| {
         if interactive {
             let mut err = std::io::stderr();
             let _ = write!(

@@ -544,6 +544,11 @@ const SWEEP_SLACK: i64 = 24 * 60 * 60;
 /// crawl. The rows land in a sweep file of their own and [`crate::capture::Newest`] records
 /// which copy of each review now counts, so nothing already captured is touched.
 ///
+/// `stop` is looked at between pages. A sweep told to stop returns [`crate::Error::Stopped`]
+/// having changed nothing: its file is left unfinished, under a name no reader looks for, and
+/// the next sweep walks again from the same watermark. Once the walk is done it finishes,
+/// because what follows is a single answer from Steam and the records it updates.
+///
 /// # Errors
 ///
 /// Fails if the capture is missing, the network does, or the files cannot be written.
@@ -551,6 +556,7 @@ pub async fn sweep(
     client: &SteamClient,
     app_id: u32,
     out_dir: &std::path::Path,
+    stop: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(SweepProgress),
 ) -> Result<SweepReport> {
     let begun = Instant::now();
@@ -564,31 +570,31 @@ pub async fn sweep(
             field: "snapshot_unix",
         })?;
     let started = now_unix();
+    forget_unfinished_sweeps(&dir)?;
 
     let mut newest = crate::capture::Newest::load(&dir)?;
     let path = dir.join(crate::capture::sweep_file(started));
     let walked = walk_since(
         client,
         app_id,
-        watermark,
-        started,
+        (watermark, started),
         &path,
         &mut newest,
-        &mut on_progress,
+        (stop, &mut on_progress),
     )
     .await?;
+    // Valve's total moves with the corpus, so coverage is re-read against today's figure
+    // rather than the one the crawl saw. Asked before anything is recorded, so the records
+    // below are written together or not at all.
+    let summary = client
+        .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
+        .await?
+        .query_summary;
     if walked.rows == 0 {
         std::fs::remove_file(&path)?;
     } else {
         newest.save(&dir)?;
     }
-
-    // Valve's total moves with the corpus, so coverage is re-read against today's figure
-    // rather than the one the crawl saw.
-    let summary = client
-        .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
-        .await?
-        .query_summary;
     let unique = facts
         .get("rows_unique")
         .and_then(Value::as_u64)
@@ -650,6 +656,20 @@ pub async fn sweep(
     })
 }
 
+/// Deletes what sweeps that never finished left behind. Each sweep writes a file named for when
+/// it started, so a stopped one leaves a file no later sweep will write over, and nothing in it
+/// was ever counted: `Newest` is saved only once a sweep's file is whole.
+fn forget_unfinished_sweeps(dir: &std::path::Path) -> Result<()> {
+    for entry in std::fs::read_dir(dir)?.filter_map(std::result::Result::ok) {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("sweep-") && name.ends_with(".parquet.partial") {
+            std::fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(())
+}
+
 /// Writes a capture's crawl record beside itself and moves it over the old one, so a record is
 /// never half one version and half the next.
 fn write_facts(dir: &std::path::Path, facts: &Value) -> Result<()> {
@@ -699,15 +719,17 @@ struct Walked {
 }
 
 /// Walks the corpus newest edit first, writing every review touched since `watermark` to
-/// `path` and noting each in `newest`, until it is safely past the watermark.
+/// `path` and noting each in `newest`, until it is safely past the watermark or `halt` is set.
 async fn walk_since(
     client: &SteamClient,
     app_id: u32,
-    watermark: i64,
-    started: i64,
+    (watermark, started): (i64, i64),
     path: &std::path::Path,
     newest: &mut crate::capture::Newest,
-    on_progress: &mut impl FnMut(SweepProgress),
+    (halt, on_progress): (
+        &std::sync::atomic::AtomicBool,
+        &mut impl FnMut(SweepProgress),
+    ),
 ) -> Result<Walked> {
     let mut writer = CaptureWriter::create(path, app_id)?;
     let mut seen: HashSet<String> = HashSet::new();
@@ -716,6 +738,9 @@ async fn walk_since(
     let (mut new, mut edited) = (0_u64, 0_u64);
 
     let stop = loop {
+        if halt.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(crate::Error::Stopped);
+        }
         let query = ReviewQuery::new(app_id)
             .order(SortOrder::Updated)
             .cursor(cursor.clone());
