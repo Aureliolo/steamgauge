@@ -2290,18 +2290,8 @@ mod tests {
                     unread_languages: Vec::new(),
                     strict_languages: Vec::new(),
                     months: vec![
-                        crate::read::Month {
-                            label: "2024-01".to_owned(),
-                            reviews: 400,
-                            positive: 320,
-                            subjects: vec![40, 100],
-                        },
-                        crate::read::Month {
-                            label: "2024-02".to_owned(),
-                            reviews: 600,
-                            positive: 380,
-                            subjects: vec![60, 300],
-                        },
+                        calendar("2024-01", 400, 320, vec![40, 100]),
+                        calendar("2024-02", 600, 380, vec![60, 300]),
                     ],
                     elapsed: std::time::Duration::ZERO,
                 },
@@ -2356,13 +2346,24 @@ mod tests {
         report
     }
 
-    fn month(label: &str, reviews: u64, bugs: u64) -> crate::read::Month {
+    fn calendar(
+        label: &str,
+        reviews: u64,
+        positive: u64,
+        subjects: Vec<u64>,
+    ) -> crate::read::Month {
         crate::read::Month {
             label: label.to_owned(),
             reviews,
-            positive: reviews / 2,
-            subjects: vec![0, bugs],
+            positive,
+            subjects,
+            praising: Vec::new(),
+            complaining: Vec::new(),
         }
+    }
+
+    fn month(label: &str, reviews: u64, bugs: u64) -> crate::read::Month {
+        calendar(label, reviews, reviews / 2, vec![0, bugs])
     }
 
     #[test]

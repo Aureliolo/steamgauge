@@ -1,310 +1,151 @@
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+/* The window: one game at a time, the evidence behind each of its rates, and the way a game is
+   added. The cockpit, the library, comparisons and settings live in modules of their own. */
 
-const whole = new Intl.NumberFormat();
-const share = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 2 });
-
-const el = (id) => document.getElementById(id);
-const shelf = el('shelf');
-const views = {
-  welcome: el('welcome'),
-  finder: el('finder'),
-  game: el('game'),
-  evidence: el('evidence'),
-};
+import {
+  invoke,
+  listen,
+  el,
+  set,
+  make,
+  whole,
+  share,
+  day,
+  size,
+  duration,
+  facts,
+  page,
+  go,
+  showing,
+  openOutside,
+  bcp47,
+} from './common.js';
+import { startWork, onWork, jobsFor, jobItem, active, queue, drawBrief } from './work.js';
+import { setUpCockpit } from './cockpit.js';
+import { setUpLibrary } from './library.js';
+import { setUpCompare } from './compare.js';
+import { setUpSettings } from './settings.js';
 
 const PER_PAGE = 25;
-const day = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
-let games = [];
 let chosen = null;
-let busy = false;
 /* The language the shown reading counts, or null for every language. */
 let readLanguage = null;
 
-function show(which) {
-  for (const [name, node] of Object.entries(views)) node.hidden = name !== which;
+/* The library as the core lists it, for a game's name and capture facts. */
+async function shelfGame(appId) {
+  const held = await invoke('library');
+  return held.games.find((game) => game.app_id === appId) ?? null;
 }
 
-function set(node, text) {
-  node.textContent = text;
+function stageName(stage) {
+  if (stage === 'read') return 'Read';
+  if (stage === 'embedded') return 'Embedded';
+  return 'Downloaded';
 }
 
-/* Reviews come from Valve and their titles come with them, so nothing here is ever built by
-   parsing text into markup. */
-function facts(list, entries) {
-  list.replaceChildren();
-  for (const [term, value, under] of entries) {
-    const wrap = document.createElement('div');
-    const dt = document.createElement('dt');
-    dt.textContent = term;
-    const dd = document.createElement('dd');
-    dd.textContent = value;
-    if (under) {
-      const small = document.createElement('small');
-      small.textContent = under;
-      dd.append(small);
-    }
-    wrap.append(dt, dd);
-    list.append(wrap);
-  }
-}
-
-function drawShelf() {
-  const needle = el('filter').value.trim().toLowerCase();
-  const shown = needle
-    ? games.filter((game) => game.name.toLowerCase().includes(needle) || String(game.app_id).includes(needle))
-    : games;
-
-  shelf.replaceChildren();
-  for (const game of shown) {
-    const item = document.createElement('li');
-    const button = document.createElement('button');
-    button.type = 'button';
-    if (game.app_id === chosen) button.setAttribute('aria-current', 'true');
-
-    const title = document.createElement('span');
-    title.className = 'title';
-    title.textContent = game.name;
-
-    const meta = document.createElement('span');
-    meta.className = 'meta';
-    const pip = document.createElement('span');
-    pip.className = `pip ${game.stage}`;
-    const count = document.createElement('span');
-    count.textContent = `${whole.format(game.reviews)} reviews`;
-    meta.append(pip, count);
-
-    button.append(title, meta);
-    button.addEventListener('click', () => choose(game.app_id));
-    item.append(button);
-    shelf.append(item);
-  }
-}
-
-function choose(appId) {
+/* A game's page. `named` stands in for a game whose download has only just been asked for and
+   is not on disk yet. */
+function openGame(appId, named = null) {
   chosen = appId;
-  const game = games.find((one) => one.app_id === appId);
-  if (!game) return;
-  drawShelf();
-  set(el('game-name'), game.name);
-  set(el('game-sub'), game.verdict ? `${game.verdict} on Steam` : `App ${game.app_id}`);
-  facts(el('game-facts'), [
-    ['Held here', whole.format(game.reviews), 'reviews downloaded'],
-    ['Valve reports', whole.format(game.valve_total), 'reviews in total'],
-    ['Coverage', share.format(game.coverage), 'of what Valve serves'],
-    ['Stage', stageName(game.stage), null],
-  ]);
+  go('game');
+  return showGame(appId, named);
+}
+
+/* Draws a game's page where it stands, without moving the page: also how the page follows a job
+   on the game finishing. */
+async function showGame(appId, named = null) {
+  const game = await shelfGame(appId);
+  if (chosen !== appId) return;
+  set(el('game-name'), game?.name ?? named ?? `App ${appId}`);
+  set(
+    el('game-sub'),
+    game === null ? 'Not downloaded yet' : game.verdict ? `${game.verdict} on Steam` : `App ${appId}`,
+  );
+  facts(
+    el('game-facts'),
+    game === null
+      ? []
+      : [
+          ['Held here', whole.format(game.reviews), 'reviews downloaded'],
+          ['Valve reports', whole.format(game.valve_total), 'reviews in total'],
+          ['Coverage', share.format(game.coverage), 'of what Valve serves'],
+          ['Stage', stageName(game.stage), null],
+        ],
+  );
   set(el('game-note'), '');
   el('game-note').classList.remove('bad');
-  el('work').hidden = true;
-  el('sweep-actions').hidden = busy;
-  show('game');
-  loadTopics(game);
-}
-
-/* Fetches what was written or edited since the capture was made, then re-reads the game if
-   it had been read, because counts over a corpus that has since changed are counts over a
-   corpus nobody can open. */
-async function sweepGame() {
-  if (busy || chosen === null) return;
-  busy = true;
-  const appId = chosen;
+  el('sweep-actions').hidden = game === null;
+  el('topics').hidden = true;
   el('game-actions').hidden = true;
-  el('sweep-actions').hidden = true;
-  el('work').hidden = false;
-  set(el('work-what'), 'Asking Steam what changed');
-  set(el('work-count'), '');
-  el('work-fill').style.width = '100%';
-  el('work-fill').classList.add('working');
-  set(el('game-note'), '');
-
-  try {
-    const swept = await invoke('sweep', { appId });
-    busy = false;
-    await refresh();
-    if (swept.rows > 0 && !el('topics').hidden) await readGame(readLanguage);
-    if (appId === chosen) {
-      set(
-        el('game-note'),
-        swept.rows === 0
-          ? `Nothing was written or edited since ${day.format(new Date(swept.since * 1000))}.`
-          : `${whole.format(swept.rows)} reviews fetched: ${whole.format(swept.new)} new and ` +
-              `${whole.format(swept.edited)} edited since ${day.format(new Date(swept.since * 1000))}.`,
-      );
-    }
-  } catch (failure) {
-    const note = el('game-note');
-    note.classList.add('bad');
-    set(note, String(failure));
-  } finally {
-    busy = false;
-    el('work').hidden = true;
-    el('sweep-actions').hidden = false;
-  }
+  drawGameJobs();
+  if (game !== null) loadTopics(appId);
 }
 
-listen('sweep', ({ payload }) => {
-  if (payload.app_id !== chosen) return;
-  set(el('work-what'), `Page ${whole.format(payload.pages)}`);
-  set(el('work-count'), `${whole.format(payload.rows)} changed`);
-});
+/* The work on the shown game: what is running or waiting, and the last thing that finished. */
+function drawGameJobs() {
+  if (chosen === null) return;
+  const mine = jobsFor(chosen);
+  const shown = mine.filter(active).concat(mine.filter((job) => !active(job)).slice(0, 1));
+  el('game-jobs').replaceChildren(...shown.map((job) => jobItem(job, { named: false })));
+  const reading = mine.some((job) => active(job) && job.task.kind === 'read');
+  el('do-read').disabled = reading;
+  el('do-sweep').disabled = mine.some((job) => active(job) && job.task.kind === 'update');
+}
 
-async function loadTopics(game) {
+async function loadTopics(appId) {
   const panel = el('topics');
   try {
-    const counted = await invoke('reading', { appId: game.app_id });
+    const counted = await invoke('reading', { appId });
     if (counted.app_id !== chosen) return;
     drawTopics(counted);
     drawTimeline(counted.months);
     drawLanguages(counted.languages, counted.corpus_reviews);
     panel.hidden = false;
     el('game-actions').hidden = true;
-    set(el('game-note'), '');
-    loadInduced(game.app_id);
+    loadInduced(appId);
   } catch (failure) {
     panel.hidden = true;
-    el('game-actions').hidden = busy;
-    offerSizes(game.app_id);
+    el('game-actions').hidden = false;
     set(
       el('game-note'),
       String(failure).includes('not been read')
         ? 'Downloaded but not read yet. Reading turns it into rates you can open.'
         : String(failure),
     );
+    drawReadCost(appId);
   }
 }
 
-/* The size somebody chose on a machine that reads on its processor, kept between sessions so
-   a re-read after a sweep uses the same one. The core ignores it wherever a card is reached. */
-const READER_KEY = 'reader';
-
-function rememberedReader() {
+/* What reading would take, said before the button is pressed: the reader the first read has to
+   fetch, and on a computer without a graphics card how long it would run. */
+async function drawReadCost(appId) {
+  let offer;
   try {
-    return localStorage.getItem(READER_KEY);
+    offer = await invoke('read_offer', { appId, language: el('read-language').value || null });
   } catch {
-    return null;
-  }
-}
-
-function rememberReader(name) {
-  try {
-    localStorage.setItem(READER_KEY, name);
-  } catch {
-    /* Forgetting only means the next session starts from the fast reader again. */
-  }
-}
-
-function duration(seconds) {
-  if (seconds < 60) return 'under a minute';
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 90) return minutes === 1 ? 'a minute' : `${minutes} minutes`;
-  return `${Math.round(seconds / 360) / 10} hours`;
-}
-
-/* Only where the machine reads on its processor, which is the one place the choice is the
-   person's: the most accurate reader takes several times as long there, and whether that is
-   worth it is theirs to say once they know how long it is. */
-async function offerSizes(appId) {
-  const holder = el('read-size-choice');
-  let choices = [];
-  try {
-    choices = await invoke('reader_choices', {
-      appId,
-      language: el('read-language').value || null,
-    });
-  } catch {
-    choices = [];
+    set(el('read-cost'), '');
+    return;
   }
   if (appId !== chosen) return;
-  holder.hidden = choices.length < 2;
-  if (holder.hidden) return;
-  const wanted = rememberedReader() ?? choices[0].name;
-  el('read-size').replaceChildren(
-    ...choices.map((choice, at) => {
-      const name =
-        at === 0
-          ? 'the fast reader'
-          : at === choices.length - 1
-            ? 'the most accurate reader'
-            : `the ${choice.name} reader`;
-      const cost =
-        choice.seconds !== null
-          ? `, about ${duration(choice.seconds)} on this computer`
-          : at === 0
-            ? ''
-            : `, about ${Math.round(choice.times)} times as long`;
-      const option = document.createElement('option');
-      option.value = choice.name;
-      option.textContent = name + cost;
-      option.selected = choice.name === wanted;
-      return option;
-    }),
-  );
-}
-
-/* `language` is a Steam language name to count only, or null for every language. Left
-   unset, it is whatever the control beside the button says, which is how a first reading
-   chooses; a reading that exists already is re-read in the language it was made in, or in
-   the other one when the reader asks to switch. */
-async function readGame(language = undefined) {
-  if (busy || chosen === null) return;
-  busy = true;
-  const appId = chosen;
-  const wanted = language === undefined ? el('read-language').value || null : language;
-  const reader = el('read-size-choice').hidden ? rememberedReader() : el('read-size').value;
-  el('game-actions').hidden = true;
-  el('sweep-actions').hidden = true;
-  el('work').hidden = false;
-  set(el('work-what'), 'Starting');
-  set(el('work-count'), '');
-  el('work-fill').style.width = '0%';
-  set(el('game-note'), '');
-
-  try {
-    await invoke('read_game', { appId, language: wanted, reader });
-    await refresh();
-    prepareAfterReading(appId);
-  } catch (failure) {
-    const note = el('game-note');
-    note.classList.add('bad');
-    set(note, String(failure));
-    el('game-actions').hidden = false;
-  } finally {
-    busy = false;
-    el('work').hidden = true;
-    el('sweep-actions').hidden = false;
+  const parts = [];
+  if (!offer.here) {
+    parts.push(
+      offer.published
+        ? `The first read fetches the ${offer.reader} reader, a ${size(offer.download_bytes)} download, once.`
+        : `No ${offer.reader} reader is on this computer and none has been published yet.`,
+    );
   }
+  const mine = offer.choices.find((choice) => choice.name === offer.reader);
+  if (mine?.seconds) parts.push(`About ${duration(mine.seconds)} on this computer.`);
+  if (parts.length === 0) parts.push('Splits each review into the points it makes and counts them.');
+  set(el('read-cost'), parts.join(' '));
 }
 
-listen('fetch', ({ payload }) => {
-  if (!busy) return;
-  const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
-  set(el('work-what'), `Fetching the model, ${payload.file}`);
-  set(
-    el('work-count'),
-    payload.total === null ? mb(payload.downloaded) : `${mb(payload.downloaded)} of ${mb(payload.total)}`,
-  );
-  /* The one bar in the window that does have a denominator: the server said how big the file
-     is, so the fill can mean something. */
-  el('work-fill').classList.remove('working');
-  el('work-fill').style.width =
-    payload.total === null ? '100%' : `${(100 * payload.downloaded) / payload.total}%`;
-});
-
-listen('read', ({ payload }) => {
-  if (payload.app_id !== chosen) return;
-  set(el('work-what'), 'Reading each point');
-  set(
-    el('work-count'),
-    `${whole.format(payload.claims_read)} read, ` +
-      `${whole.format(payload.reviews_counted)} reviews counted`,
-  );
-  /* No total to divide by: how many distinct points a corpus holds is not known until it has
-     been walked, and a bar that invents a denominator is a bar that lies. */
-  el('work-fill').style.width = '100%';
-  el('work-fill').classList.add('working');
-});
+function readGame(language = undefined) {
+  if (chosen === null) return;
+  const wanted = language === undefined ? el('read-language').value || null : language;
+  queue({ kind: 'read', app_id: chosen, language: wanted });
+}
 
 function cell(text, className) {
   const td = document.createElement('td');
@@ -406,9 +247,7 @@ function drawLanguages(languages, corpus) {
   if (line.hidden) return;
   const shown = languages.slice(0, 8);
   const named = shown.map((language) =>
-    language.share === null
-      ? language.name
-      : `${language.name} ${share.format(language.share)}`,
+    language.share === null ? language.name : `${language.name} ${share.format(language.share)}`,
   );
   const rest = languages.length - shown.length;
   set(
@@ -435,115 +274,96 @@ async function loadInduced(appId) {
   const list = el('induced-list');
   list.replaceChildren();
   for (const subject of found) {
-    const wrap = document.createElement('div');
-    wrap.className = 'found';
-    const dt = document.createElement('dt');
-    dt.textContent = subject.label;
-    if (subject.refines !== null) {
-      const form = document.createElement('span');
-      form.className = 'quiet';
-      form.textContent = ` a form of ${subject.refines}`;
-      dt.append(form);
-    }
-    const dd = document.createElement('dd');
-    const about = document.createElement('p');
-    about.textContent = subject.description;
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = `${whole.format(subject.reviews.length)} of the ${whole.format(
-      subject.found_in,
-    )} reviews it was found in`;
-    details.append(summary);
-    const quotes = document.createElement('ol');
-    quotes.className = 'quotes';
+    const dt = make('dt', null, subject.label);
+    if (subject.refines !== null) dt.append(make('span', 'quiet', ` a form of ${subject.refines}`));
+    const details = make(
+      'details',
+      null,
+      make(
+        'summary',
+        null,
+        `${whole.format(subject.reviews.length)} of the ${whole.format(subject.found_in)} reviews it was found in`,
+      ),
+    );
+    const quotes = make('ol', 'quotes');
     for (const review of subject.reviews) quotes.append(quoteItem(review));
     details.append(quotes);
-    dd.append(about, details);
-    wrap.append(dt, dd);
-    list.append(wrap);
+    list.append(make('div', 'found', dt, make('dd', null, make('p', null, subject.description), details)));
   }
   section.hidden = false;
+}
+
+function steamLink(url) {
+  const link = make('a', null, 'On Steam');
+  link.href = '#';
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    openOutside(url);
+  });
+  return link;
 }
 
 /* A review shown whole, with the facts about it and the way back to Steam, and no reading:
    the model that counts the table never read it, so a confidence here would be invented. */
 function quoteItem(review) {
-  const item = document.createElement('li');
-  const body = document.createElement('p');
+  const body = make('p', null, review.review);
   body.lang = bcp47(review.language);
-  body.textContent = review.review;
-  const byline = document.createElement('div');
-  byline.className = 'byline';
-  const verdict = document.createElement('span');
-  verdict.className = review.voted_up ? 'verdict-up' : 'verdict-down';
-  verdict.textContent = review.voted_up ? 'Recommended the game' : 'Did not recommend it';
-  byline.append(verdict);
-  if (review.votes_up > 0) {
-    const votes = document.createElement('span');
-    votes.textContent = `${whole.format(review.votes_up)} found it helpful`;
-    byline.append(votes);
-  }
-  const when = document.createElement('span');
-  when.textContent = day.format(new Date(review.created * 1000));
-  byline.append(when);
-  if (review.url) {
-    const link = document.createElement('a');
-    link.href = '#';
-    link.textContent = 'On Steam';
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      openOutside(review.url);
-    });
-    byline.append(link);
-  }
-  item.append(body, byline);
-  return item;
+  const byline = make(
+    'div',
+    'byline',
+    make(
+      'span',
+      review.voted_up ? 'verdict-up' : 'verdict-down',
+      review.voted_up ? 'Recommended the game' : 'Did not recommend it',
+    ),
+    review.votes_up > 0 ? make('span', null, `${whole.format(review.votes_up)} found it helpful`) : null,
+    make('span', null, day.format(new Date(review.created * 1000))),
+    review.url ? steamLink(review.url) : null,
+  );
+  return make('li', null, body, byline);
 }
 
-function drawTopics(counted) {
-  const ranked = counted.subjects
+function drawTopics(found) {
+  const ranked = found.subjects
     .filter((subject) => subject.reviews > 0)
     .sort((left, right) => right.reviews - left.reviews);
   const widest = ranked.length > 0 ? (ranked[0].rate ?? 0) : 0;
 
-  const parts = [`${whole.format(counted.reviews)} reviews`];
-  if (counted.language) {
-    parts[0] = `${whole.format(counted.reviews)} ${counted.language} reviews of ${whole.format(
-      counted.corpus_reviews,
+  const parts = [`${whole.format(found.reviews)} reviews`];
+  if (found.language) {
+    parts[0] = `${whole.format(found.reviews)} ${found.language} reviews of ${whole.format(
+      found.corpus_reviews,
     )} in the corpus`;
   }
-  parts.push(`${whole.format(counted.claims)} separate points`);
-  if (counted.positive_baseline !== null) {
-    parts.push(`${share.format(counted.positive_baseline)} recommending the game`);
+  parts.push(`${whole.format(found.claims)} separate points`);
+  if (found.positive_baseline !== null) {
+    parts.push(`${share.format(found.positive_baseline)} recommending the game`);
   }
   set(el('topics-counted'), `${parts.join(', ')}. `);
 
   /* The other reading is one click away, and it is a re-read rather than a filter: the
      model has to read the claims it skipped. */
-  readLanguage = counted.language;
-  set(
-    el('switch-language'),
-    counted.language ? 'Count every language instead' : 'Count only English reviews instead',
-  );
+  readLanguage = found.language;
+  set(el('switch-language'), found.language ? 'Count every language instead' : 'Count only English reviews instead');
 
   /* The paragraph is assembled by the core from the same counts the table shows, so the
      window only decides whether there is one to show. */
   const summary = el('in-short');
-  summary.hidden = counted.in_short === '';
-  set(summary, counted.in_short);
+  summary.hidden = found.in_short === '';
+  set(summary, found.in_short);
 
   const swept = el('swept-caveat');
-  swept.hidden = counted.swept_since === null;
-  if (counted.swept_since !== null) {
+  swept.hidden = found.swept_since === null;
+  if (found.swept_since !== null) {
     set(
       swept,
-      `The capture was brought up to date on ${day.format(new Date(counted.swept_since * 1000))} ` +
+      `The capture was brought up to date on ${day.format(new Date(found.swept_since * 1000))} ` +
         `and these counts were made before that. Read it again to count what arrived.`,
     );
   }
 
-  const unread = counted.claims > 0 ? counted.unclassified_claims / counted.claims : 0;
-  const silent = counted.reviews > 0 ? counted.silent_reviews / counted.reviews : 0;
+  const unread = found.claims > 0 ? found.unclassified_claims / found.claims : 0;
+  const silent = found.reviews > 0 ? found.silent_reviews / found.reviews : 0;
 
   /* Above the table, not below it, once the model has declined more than it answered. Every
      rate under it is then a floor, and a reader who finds that out in a footnote has already
@@ -561,11 +381,11 @@ function drawTopics(counted) {
   /* How often it is wrong, where that has been measured. A rate without this beside it is an
      opinion with decimal places, and a game nobody has labelled is told so rather than
      shown the same table with nothing missing from it. */
-  const measured = counted.measured;
-  const frozen = counted.frozen;
+  const measured = found.measured;
+  const frozen = found.frozen;
   /* Why this game carries no figure of its own: nobody has labelled it, or the model learned
      from its labels, in which case agreeing with them would measure memory. */
-  const why = counted.learned
+  const why = found.learned
     ? `This game's labelled claims are in the model's training set, so how often it agrees ` +
       `with them says how well it remembers them, not how it reads, and nothing here is ` +
       `scored against them.`
@@ -605,7 +425,7 @@ function drawTopics(counted) {
       `raises it, so they add up to more than 100% and are meant to. ` +
       (caveat.hidden
         ? `${share.format(unread)} of points name no subject the model would commit to, and ` +
-          `${whole.format(counted.silent_reviews)} reviews name none at all. Those are ` +
+          `${whole.format(found.silent_reviews)} reviews name none at all. Those are ` +
           `counted here rather than filed under whatever came closest. `
         : `Every row opens onto the points behind it. `) +
       trust,
@@ -614,48 +434,35 @@ function drawTopics(counted) {
   const rows = el('topic-rows');
   rows.replaceChildren();
   for (const subject of ranked) {
-    const row = document.createElement('tr');
-
-    const name = document.createElement('td');
-    const open = document.createElement('button');
+    const name = make('td');
+    const open = make('button', 'subject', subject.label);
     open.type = 'button';
-    open.className = 'subject';
-    open.textContent = subject.label;
     open.addEventListener('click', () => openClaims(subject, 0));
     name.append(open);
     /* Marked where the model is measured to miss most of a subject's labelled claims: that
        row's rate is a floor, and a reader scanning the table cannot tell it from a count
        unless the row says so. */
     if (subject.found !== null && subject.found < 0.25) {
-      const thin = document.createElement('span');
-      thin.className = 'thin';
+      const thin = make('span', 'thin', '!');
       thin.title = `Found in only ${share.format(subject.found)} of the labelled claims about it, so this rate is a floor rather than a count`;
-      thin.textContent = '!';
       name.append(thin);
     }
     /* The corrected share, where the measured errors allow one. Shown as a hint on the name
        rather than a column of its own, because most games have no labels and a column that
        is empty for most of them teaches a reader to skip it. */
     if (subject.corrected !== null) {
-      const fixed = document.createElement('span');
-      fixed.className = 'corrected';
+      const fixed = make('span', 'corrected', `≈ ${share.format(subject.corrected)} of points`);
       fixed.title = 'The share of points about this with the model’s measured errors taken out';
-      fixed.textContent = `≈ ${share.format(subject.corrected)} of points`;
       name.append(fixed);
     }
 
-    const rate = document.createElement('td');
-    rate.className = 'num rate';
-    const value = document.createElement('span');
-    value.textContent = subject.rate === null ? '—' : share.format(subject.rate);
-    const bar = document.createElement('i');
-    bar.className = 'bar';
+    const rate = make('td', 'num rate', make('span', null, subject.rate === null ? '—' : share.format(subject.rate)));
+    const bar = make('i', 'bar');
     bar.style.transform = `scaleX(${widest > 0 ? (subject.rate ?? 0) / widest : 0})`;
-    rate.append(value, bar);
+    rate.append(bar);
 
-    const gauge = document.createElement('td');
-    gauge.className = 'num';
-    const factor = document.createElement('span');
+    const gauge = make('td', 'num');
+    const factor = make('span');
     if (subject.bias === null) {
       factor.textContent = '—';
       factor.className = 'faint';
@@ -665,24 +472,29 @@ function drawTopics(counted) {
     }
     gauge.append(factor);
 
-    row.append(
-      name,
-      rate,
-      cell(whole.format(subject.praised), 'under'),
-      cell(whole.format(subject.criticised), 'over'),
-      cell(whole.format(subject.mixed), 'faint'),
-      gauge,
+    rows.append(
+      make(
+        'tr',
+        null,
+        name,
+        rate,
+        cell(whole.format(subject.praised), 'under'),
+        cell(whole.format(subject.criticised), 'over'),
+        cell(whole.format(subject.mixed), 'faint'),
+        gauge,
+      ),
     );
-    rows.append(row);
   }
 }
 
+let reading = null;
+
 /* `narrowed` is null for every point under the subject, or `{side, term}` for the points on
-   one side that use a word from the strip. The same page function serves both, so the strip
-   is a filter on the evidence and not a second view of it. */
+   one side, using one word from the strip where `term` is given. The same page function serves
+   both, so the strip is a filter on the evidence and not a second view of it. */
 async function openClaims(subject, from, narrowed = null) {
   reading = { subject, from, narrowed };
-  show('evidence');
+  go('evidence');
   set(el('evidence-name'), subject.label);
   set(el('evidence-lede'), 'Finding them...');
   el('said-strip').hidden = true;
@@ -693,9 +505,9 @@ async function openClaims(subject, from, narrowed = null) {
   el('earlier').disabled = true;
   el('later').disabled = true;
 
-  let page;
+  let found;
   try {
-    page = await invoke('claims_behind', {
+    found = await invoke('claims_behind', {
       appId: chosen,
       subject: subject.id,
       side: narrowed?.side ?? null,
@@ -711,20 +523,41 @@ async function openClaims(subject, from, narrowed = null) {
     return;
   }
 
+  const sided = narrowed?.side === 'praise' ? 'praising' : 'complaining';
   set(
     el('evidence-lede'),
     narrowed === null
-      ? `${whole.format(page.total)} separate points about this, raised in ` +
+      ? `${whole.format(found.total)} separate points about this, raised in ` +
           `${whole.format(subject.reviews)} reviews. Each one is shown as it was written.`
-      : `${whole.format(page.total)} ${narrowed.side === 'praise' ? 'praising' : 'complaining'} ` +
-          `points about this that say “${narrowed.term}”. Each one is shown as it was written.`,
+      : narrowed.term
+        ? `${whole.format(found.total)} ${sided} points about this that say “${narrowed.term}”. ` +
+          'Each one is shown as it was written.'
+        : `${whole.format(found.total)} ${sided} points about this. Each one is shown as it was written.`,
   );
-  drawClaims(page.claims);
+  drawClaims(found.claims);
 
-  const upTo = from + page.claims.length;
+  const upTo = from + found.claims.length;
   set(el('paging-note'), `${whole.format(from + 1)} to ${whole.format(upTo)}`);
   el('earlier').disabled = from === 0;
-  el('later').disabled = upTo >= page.total;
+  el('later').disabled = upTo >= found.total;
+}
+
+/* From the cockpit: one subject of one game, on the side that moved. */
+async function openSubject(appId, subjectId, side) {
+  chosen = appId;
+  let found;
+  try {
+    found = await invoke('reading', { appId });
+  } catch {
+    openGame(appId);
+    return;
+  }
+  const subject = found.subjects.find((one) => one.id === subjectId);
+  if (!subject) {
+    openGame(appId);
+    return;
+  }
+  openClaims(subject, 0, { side, term: null });
 }
 
 const NARROW_NONE = { side: null, subject: null };
@@ -734,9 +567,6 @@ const NARROW_NONE = { side: null, subject: null };
    on a processor. */
 let meaningFor = null;
 
-const size = (bytes) =>
-  bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
-
 async function drawMeaning(query) {
   const appId = chosen;
   meaningFor = { appId, query };
@@ -744,6 +574,7 @@ async function drawMeaning(query) {
   el('meaning-offer').hidden = true;
   el('meaning-quotes').replaceChildren();
   set(el('meaning-note'), '');
+  drawMeaningJobs();
 
   let offer;
   try {
@@ -753,8 +584,7 @@ async function drawMeaning(query) {
     return;
   }
   if (meaningFor?.appId !== appId || meaningFor.query !== query) return;
-  el('meaning-work').hidden = !offer.running;
-  if (offer.running) return;
+  if (offer.job !== null) return;
   // Something still to fetch means the search cannot run yet, even over a game whose points
   // are all prepared.
   const fetching = offer.download_bytes > 0;
@@ -762,25 +592,24 @@ async function drawMeaning(query) {
   if (offer.status !== 'none' && !fetching) await showNear(appId, query);
 }
 
+function drawMeaningJobs() {
+  if (!meaningFor) return;
+  const preparing = jobsFor(meaningFor.appId).filter((job) => job.task.kind === 'prepare');
+  const shown = preparing.filter(active).concat(preparing.filter((job) => !active(job)).slice(0, 1));
+  el('meaning-jobs').replaceChildren(...shown.map((job) => jobItem(job, { named: false })));
+}
+
 function choiceButton(label, detail, recommended, onClick) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = recommended ? 'primary' : 'quiet-button';
-  button.append(recommended ? `${label} (recommended)` : label);
-  if (detail) {
-    const more = document.createElement('span');
-    more.className = 'detail';
-    more.textContent = detail;
-    button.append(more);
-  }
-  button.addEventListener('click', onClick);
-  return button;
+  const choice = make('button', recommended ? 'primary' : 'quiet-button', recommended ? `${label} (recommended)` : label);
+  choice.type = 'button';
+  if (detail) choice.append(make('span', 'detail', detail));
+  choice.addEventListener('click', onClick);
+  return choice;
 }
 
 function drawOffer(offer, appId) {
   const where = offer.on_card ? "on this computer's graphics card" : 'on this computer';
-  const download =
-    offer.download_bytes > 0 ? `, and a ${size(offer.download_bytes)} download, once` : '';
+  const download = offer.download_bytes > 0 ? `, and a ${size(offer.download_bytes)} download, once` : '';
   const cost =
     offer.status === 'ready'
       ? `a ${size(offer.download_bytes)} download, once`
@@ -822,45 +651,18 @@ function drawOffer(offer, appId) {
           'computer: one finds the points nearest what you typed, the other reads each of them ' +
           'beside it so that opposites like "boring" and "fun" are not shown as the same thing.'
       : prepareNow
-      ? 'Recommended here: this computer has a graphics card the app can use, so it takes minutes.'
-      : `Not recommended here: this computer has no graphics card the app can use, so it would ` +
+        ? 'Recommended here: this computer has a graphics card the app can use, so it takes minutes.'
+        : `Not recommended here: this computer has no graphics card the app can use, so it would ` +
           `take ${duration(offer.seconds)}. It runs while you do other things, and stopping ` +
           'keeps what is done.',
   );
   el('meaning-offer').hidden = false;
 }
 
-async function startPreparing(appId) {
+function startPreparing(appId) {
   el('meaning-offer').hidden = true;
-  el('meaning-work').hidden = false;
-  set(el('meaning-what'), 'Preparing');
-  set(el('meaning-count'), '');
-  el('meaning-fill').style.width = '0%';
   set(el('meaning-note'), '');
-  let note = '';
-  try {
-    const finished = await invoke('prepare_meaning', { appId });
-    if (!finished) note = 'Stopped. What was done is kept, and preparing again carries on.';
-  } catch (failure) {
-    note = String(failure);
-  }
-  el('meaning-work').hidden = true;
-  if (meaningFor?.appId === appId && !el('meaning').hidden) {
-    await drawMeaning(meaningFor.query);
-    if (note) set(el('meaning-note'), note);
-  }
-}
-
-/* Somebody who asked for every game they read to be prepared has it done straight after the
-   read, in the background; the search view picks up its progress if they open it. */
-async function prepareAfterReading(appId) {
-  let offer;
-  try {
-    offer = await invoke('meaning_offer', { appId });
-  } catch {
-    return;
-  }
-  if (offer.every_game && !offer.running && offer.status !== 'ready') startPreparing(appId);
+  queue({ kind: 'prepare', app_id: appId });
 }
 
 async function showNear(appId, query) {
@@ -886,24 +688,6 @@ async function showNear(appId, query) {
   drawClaims(near, el('meaning-quotes'));
 }
 
-listen('meaning', ({ payload }) => {
-  const done = payload.total > 0 ? Math.min(1, payload.walked / payload.total) : 0;
-  set(el('meaning-what'), 'Preparing');
-  set(el('meaning-count'), `${whole.format(payload.walked)} of ${whole.format(payload.total)} points`);
-  el('meaning-fill').style.width = `${done * 100}%`;
-});
-
-listen('meaning-fetch', ({ payload }) => {
-  const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
-  set(el('meaning-what'), `Fetching the search models, ${payload.file}`);
-  set(
-    el('meaning-count'),
-    payload.total === null ? mb(payload.downloaded) : `${mb(payload.downloaded)} of ${mb(payload.total)}`,
-  );
-  el('meaning-fill').style.width =
-    payload.total === null ? '100%' : `${(payload.downloaded / payload.total) * 100}%`;
-});
-
 /* What reviewers said in the words somebody typed. The counts are always of every point that
    says it; a side or a subject narrows only the points listed, so the figures at the top never
    change under the reader's hand. */
@@ -912,7 +696,7 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
   // The same words asked of another game are a new search, meaning and all.
   const fresh = reading?.query !== query || reading.appId !== appId;
   reading = { appId, query, from, narrow };
-  show('evidence');
+  go('evidence');
   if (fresh) drawMeaning(query);
   set(el('evidence-name'), `“${query}”`);
   set(el('evidence-lede'), 'Looking through every review...');
@@ -937,12 +721,7 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
     set(el('evidence-lede'), String(failure));
     return;
   }
-  if (
-    reading?.appId !== appId ||
-    reading.query !== query ||
-    reading.from !== from ||
-    reading.narrow !== narrow
-  )
+  if (reading?.appId !== appId || reading.query !== query || reading.from !== from || reading.narrow !== narrow)
     return;
 
   if (found.claims === 0) {
@@ -965,27 +744,20 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
   const upTo = from + found.page.length;
   set(
     el('paging-note'),
-    found.narrowed === 0
-      ? ''
-      : `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.narrowed)}`,
+    found.narrowed === 0 ? '' : `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.narrowed)}`,
   );
   el('earlier').disabled = from === 0;
   el('later').disabled = upTo >= found.narrowed;
 }
 
 function chip(text, count, chosenHere, onClick) {
-  const button = document.createElement(onClick ? 'button' : 'span');
+  const node = make(onClick ? 'button' : 'span', `term${chosenHere ? ' chosen' : ''}${onClick ? '' : ' static'}`, text);
   if (onClick) {
-    button.type = 'button';
-    button.addEventListener('click', onClick);
+    node.type = 'button';
+    node.addEventListener('click', onClick);
   }
-  button.className = `term${chosenHere ? ' chosen' : ''}${onClick ? '' : ' static'}`;
-  button.append(text);
-  const n = document.createElement('span');
-  n.className = 'n';
-  n.textContent = whole.format(count);
-  button.append(n);
-  return button;
+  node.append(make('span', 'n', whole.format(count)));
+  return node;
 }
 
 function drawSaid(found, query, narrow) {
@@ -1039,22 +811,12 @@ function drawTerms(subject, narrowed) {
     for (const stale of strip.querySelectorAll('button')) stale.remove();
     for (const term of terms) {
       any = true;
-      const chip = document.createElement('button');
-      chip.type = 'button';
       const chosenHere = narrowed !== null && narrowed.side === side && narrowed.term === term.text;
-      chip.className = chosenHere ? 'term chosen' : 'term';
-      chip.title = chosenHere
-        ? 'Back to every point about this'
-        : `${whole.format(term.reviews)} reviews used this word on this side`;
-      chip.append(term.text);
-      const count = document.createElement('span');
-      count.className = 'n';
-      count.textContent = whole.format(term.reviews);
-      chip.append(count);
-      chip.addEventListener('click', () =>
-        openClaims(subject, 0, chosenHere ? null : { side, term: term.text }),
-      );
-      strip.append(chip);
+      const node = make('button', chosenHere ? 'term chosen' : 'term', term.text, make('span', 'n', whole.format(term.reviews)));
+      node.type = 'button';
+      node.title = chosenHere ? 'Back to every point about this' : `${whole.format(term.reviews)} reviews used this word on this side`;
+      node.addEventListener('click', () => openClaims(subject, 0, chosenHere ? null : { side, term: term.text }));
+      strip.append(node);
     }
   }
   el('stands-out').hidden = !any;
@@ -1063,9 +825,7 @@ function drawTerms(subject, narrowed) {
 function drawClaims(claims, list = el('quotes')) {
   list.replaceChildren();
   for (const found of claims) {
-    const item = document.createElement('li');
-
-    const body = document.createElement('p');
+    const body = make('p');
     body.lang = bcp47(found.language);
     /* The claim is shown inside the review it came from, so a reader can see whether it was
        cut in the right place rather than taking the split on trust. */
@@ -1073,124 +833,33 @@ function drawClaims(claims, list = el('quotes')) {
     if (at === -1) {
       body.textContent = found.claim;
     } else {
-      const before = document.createElement('span');
-      before.className = 'quiet';
-      before.textContent = found.review.slice(Math.max(0, at - 160), at);
-      const it = document.createElement('b');
-      it.textContent = found.claim;
-      const after = document.createElement('span');
-      after.className = 'quiet';
-      after.textContent = found.review.slice(at + found.claim.length, at + found.claim.length + 160);
-      body.append(before, it, after);
+      body.append(
+        make('span', 'quiet', found.review.slice(Math.max(0, at - 160), at)),
+        make('b', null, found.claim),
+        make('span', 'quiet', found.review.slice(at + found.claim.length, at + found.claim.length + 160)),
+      );
     }
 
-    const byline = document.createElement('div');
-    byline.className = 'byline';
-
-    const polarity = document.createElement('span');
-    polarity.className =
-      found.polarity === 'praise' ? 'verdict-up' : found.polarity === 'complaint' ? 'verdict-down' : '';
-    polarity.textContent =
-      found.polarity === 'praise' ? 'Praise' : found.polarity === 'complaint' ? 'Complaint' : 'Neutral';
-    byline.append(polarity);
-
-    const sure = document.createElement('span');
-    sure.textContent = `${share.format(found.confidence)} sure`;
-    byline.append(sure);
-
-    const verdict = document.createElement('span');
-    verdict.textContent = found.voted_up ? 'Recommended the game' : 'Did not recommend it';
-    byline.append(verdict);
-
-    if (found.votes_up > 0) {
-      const votes = document.createElement('span');
-      votes.textContent = `${whole.format(found.votes_up)} found it helpful`;
-      byline.append(votes);
-    }
-
-    const when = document.createElement('span');
-    when.textContent = day.format(new Date(found.created * 1000));
-    byline.append(when);
-
-    if (found.url) {
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = 'On Steam';
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        openOutside(found.url);
-      });
-      byline.append(link);
-    }
-
-    item.append(body, byline);
-    list.append(item);
+    const byline = make(
+      'div',
+      'byline',
+      make(
+        'span',
+        found.polarity === 'praise' ? 'verdict-up' : found.polarity === 'complaint' ? 'verdict-down' : '',
+        found.polarity === 'praise' ? 'Praise' : found.polarity === 'complaint' ? 'Complaint' : 'Neutral',
+      ),
+      make('span', null, `${share.format(found.confidence)} sure`),
+      make('span', null, found.voted_up ? 'Recommended the game' : 'Did not recommend it'),
+      found.votes_up > 0 ? make('span', null, `${whole.format(found.votes_up)} found it helpful`) : null,
+      make('span', null, day.format(new Date(found.created * 1000))),
+      found.url ? steamLink(found.url) : null,
+    );
+    list.append(make('li', null, body, byline));
   }
 }
 
-let reading = null;
-
-/* Steam's language codes are its own; the ones a browser needs for hyphenation and font
-   selection are not, and getting this wrong renders Chinese in a Japanese face. */
-function bcp47(steam) {
-  const known = {
-    schinese: 'zh-Hans',
-    tchinese: 'zh-Hant',
-    japanese: 'ja',
-    koreana: 'ko',
-    russian: 'ru',
-    thai: 'th',
-    brazilian: 'pt-BR',
-    latam: 'es-419',
-    english: 'en',
-    french: 'fr',
-    german: 'de',
-    spanish: 'es',
-    italian: 'it',
-    polish: 'pl',
-    turkish: 'tr',
-    ukrainian: 'uk',
-    czech: 'cs',
-    dutch: 'nl',
-    hungarian: 'hu',
-    portuguese: 'pt',
-    swedish: 'sv',
-    danish: 'da',
-    finnish: 'fi',
-    norwegian: 'no',
-    romanian: 'ro',
-    bulgarian: 'bg',
-    greek: 'el',
-    vietnamese: 'vi',
-    indonesian: 'id',
-  };
-  return known[steam] ?? '';
-}
-
-function openOutside(url) {
-  const opener = window.__TAURI__.opener;
-  if (opener?.openUrl) opener.openUrl(url);
-  else invoke('plugin:opener|open_url', { url });
-}
-
-function stageName(stage) {
-  if (stage === 'read') return 'Read';
-  if (stage === 'embedded') return 'Embedded';
-  return 'Downloaded';
-}
-
-async function refresh() {
-  const held = await invoke('library');
-  games = held.games;
-  set(el('where'), held.path);
-  drawShelf();
-  if (chosen !== null && games.some((game) => game.app_id === chosen)) choose(chosen);
-  else if (games.length > 0) choose(games[0].app_id);
-  else show('welcome');
-}
-
 function openFinder() {
-  show('finder');
+  go('finder');
   el('found').hidden = true;
   set(el('lookup-note'), '');
   el('lookup-note').classList.remove('bad');
@@ -1226,8 +895,15 @@ async function lookUp(event) {
     set(
       el('found-note'),
       found.held
-        ? 'Already in your library. Downloading again picks up where the last crawl stopped.'
+        ? 'Already in your library. Downloading again picks up where the last download stopped.'
         : `About ${whole.format(Math.ceil(found.reviews / 100))} requests, paced so Valve is not leaned on.`,
+    );
+    const settings = await invoke('settings');
+    set(
+      el('found-then'),
+      settings.read_after_download
+        ? 'Once downloaded, every review is read. That can be changed in Settings.'
+        : 'Once downloaded, the game is ready to read from its page.',
     );
     el('found').hidden = false;
   } catch (failure) {
@@ -1238,92 +914,69 @@ async function lookUp(event) {
   }
 }
 
-async function start() {
-  if (busy || !found) return;
-  busy = true;
+function start() {
+  if (!found) return;
   const appId = found.app_id;
-  const name = found.name || `App ${appId}`;
-
-  chosen = appId;
-  show('game');
-  set(el('game-name'), name);
-  set(el('game-sub'), 'Downloading every review');
-  facts(el('game-facts'), []);
-  set(el('game-note'), '');
-  el('work').hidden = false;
-  set(el('work-what'), 'Starting');
-  set(el('work-count'), '');
-  el('work-fill').style.width = '0%';
-
-  try {
-    const held = await invoke('crawl', { appId });
-    games = held.games;
-    set(el('where'), held.path);
-    drawShelf();
-    choose(appId);
-  } catch (failure) {
-    el('work').hidden = true;
-    const note = el('game-note');
-    note.classList.add('bad');
-    set(note, String(failure));
-  } finally {
-    busy = false;
-  }
+  queue({ kind: 'download', app_id: appId });
+  openGame(appId, found.name || null);
 }
 
-/* Steam refusing a download is not an error yet: the client waits for the refusal to lift, which
-   can take minutes, and the next progress event replaces this line once it has. */
-listen('steam-wait', ({ payload }) => {
-  if (payload.app_id !== chosen) return;
-  set(
-    el('work-what'),
-    `Steam is refusing requests (${payload.status}); asking again in ${payload.seconds} s`,
-  );
-});
-
-listen('crawl', ({ payload }) => {
-  if (payload.app_id !== chosen) return;
-  const done = payload.shards_total ? payload.shards_done / payload.shards_total : 0;
-  el('work-fill').style.width = `${(done * 100).toFixed(1)}%`;
-  set(el('work-what'), `Downloading, ${payload.shards_done} of ${payload.shards_total} windows`);
-  set(
-    el('work-count'),
-    payload.valve_total
-      ? `${whole.format(payload.unique)} of ${whole.format(payload.valve_total)}`
-      : whole.format(payload.unique),
-  );
-});
-
-el('filter').addEventListener('input', drawShelf);
-el('add').addEventListener('click', openFinder);
-el('welcome-add').addEventListener('click', openFinder);
-el('lookup-form').addEventListener('submit', lookUp);
-el('start').addEventListener('click', start);
-el('cancel').addEventListener('click', () => (chosen === null ? show('welcome') : choose(chosen)));
-el('back').addEventListener('click', () => choose(chosen));
-el('do-read').addEventListener('click', () => readGame());
-el('read-language').addEventListener('change', () => {
-  if (chosen !== null) offerSizes(chosen);
-});
-el('read-size').addEventListener('change', () => rememberReader(el('read-size').value));
-el('do-sweep').addEventListener('click', sweepGame);
-el('switch-language').addEventListener('click', () => readGame(readLanguage ? null : 'english'));
 function turnPage(from) {
   if (!reading) return;
   if (reading.query !== undefined) openSearch(reading.query, from, reading.narrow);
   else openClaims(reading.subject, from, reading.narrowed);
 }
+
+page('game', el('game'));
+page('evidence', el('evidence'));
+page('finder', el('finder'));
+setUpCockpit({ openGame, openSubject });
+setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
+setUpCompare({ openGame });
+setUpSettings();
+
+for (const link of document.querySelectorAll('[data-go]')) {
+  link.addEventListener('click', () => go(link.dataset.go));
+}
+el('cockpit-add').addEventListener('click', openFinder);
+el('lookup-form').addEventListener('submit', lookUp);
+el('start').addEventListener('click', start);
+el('cancel').addEventListener('click', () => go('library'));
+el('game-back').addEventListener('click', () => go('library'));
+el('back').addEventListener('click', () => openGame(chosen));
+el('do-read').addEventListener('click', () => readGame());
+el('read-language').addEventListener('change', () => {
+  if (chosen !== null) drawReadCost(chosen);
+});
+el('do-sweep').addEventListener('click', () => {
+  if (chosen !== null) queue({ kind: 'update', app_id: chosen });
+});
+el('switch-language').addEventListener('click', () => readGame(readLanguage ? null : 'english'));
 el('earlier').addEventListener('click', () => {
   if (reading) turnPage(Math.max(0, reading.from - PER_PAGE));
 });
 el('later').addEventListener('click', () => {
   if (reading) turnPage(reading.from + PER_PAGE);
 });
-el('meaning-stop').addEventListener('click', () => invoke('stop_meaning'));
 el('search-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const query = el('search-query').value.trim();
   if (query && chosen !== null) openSearch(query, 0);
 });
 
-refresh();
+onWork(() => {
+  if (showing() === 'game') drawGameJobs();
+  if (showing() === 'evidence') drawMeaningJobs();
+});
+/* A job that finished changed what is on disk: the game on screen is shown again where it was
+   that game, and a search that was waiting on its preparation is asked again. */
+listen('library', ({ payload }) => {
+  if (payload !== chosen) return;
+  if (showing() === 'game') showGame(chosen);
+  if (showing() === 'evidence' && meaningFor && !el('meaning').hidden) drawMeaning(meaningFor.query);
+});
+
+drawBrief(el('rail-work'));
+el('rail-work').addEventListener('click', () => go('cockpit'));
+startWork();
+go('cockpit');

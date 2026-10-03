@@ -54,6 +54,16 @@ Chrome is found in the usual places per platform, or wherever `CHROME_PATH` says
 check in it is a promise the page makes in its own prose; if you change what the page says
 it does, change the check with it.
 
+The desktop app's window is held to the same bar. `tools/app-check` serves it in headless
+Chrome with `stub.js` standing in for the core, answering every command from fixtures shaped as
+the Rust side sends them, and presses every page's controls. `--shots <folder>` saves each page,
+light and dark, for a person to look at. A command or a field added on the Rust side is added
+to the stub in the same change.
+
+```sh
+node tools/app-check/check.mjs
+```
+
 ### One build directory
 
 `target/`, and nothing beside it. The gates above build test binaries under `target/debug` and

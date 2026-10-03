@@ -5,25 +5,21 @@
 //! anything a number depends on. Where the window and the terminal disagree about a figure,
 //! one of them is calling the wrong function.
 
+mod cockpit;
+mod settings;
+mod work;
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
 };
 
 use serde::Serialize;
 use steamgauge_core::{
-    CrawlOptions, DEFAULT_PACE, DEFAULT_SHARD_TARGET, ReviewQuery, SteamClient, embed,
-    reading_time::ReadingTimes, report,
+    DEFAULT_PACE, ReviewQuery, SteamClient, embed, reading_time::ReadingTimes, report,
 };
-use tauri::{AppHandle, Emitter, Manager};
-
-/// Shards fetched at once. Pacing is global, so this reorders work rather than leaning
-/// harder on Valve, and matches what the pipeline uses when nobody says otherwise.
-const SHARDS_AT_ONCE: usize = 4;
+use tauri::{AppHandle, Manager};
 
 /// Where corpora live when nobody has said.
 ///
@@ -41,6 +37,14 @@ fn library_dir(app: &AppHandle) -> PathBuf {
 
 fn text(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            i64::try_from(since.as_secs()).unwrap_or(i64::MAX)
+        })
 }
 
 /// One game as the library lists it.
@@ -134,33 +138,6 @@ fn library(app: AppHandle) -> Shelf {
     shelf(&library_dir(&app))
 }
 
-/// Steam refusing a download, and how long the client will wait before asking again.
-#[derive(Debug, Clone, Serialize)]
-struct SteamWait {
-    app_id: u32,
-    seconds: u64,
-    status: u16,
-}
-
-/// A client for a download that tells the window whenever Steam refuses it. A crawl can wait
-/// minutes for a refusal to lift, and a bar that stops for minutes with nothing said is a bar
-/// that looks hung.
-fn waiting_client(app: &AppHandle, app_id: u32) -> Result<SteamClient, String> {
-    let window = app.clone();
-    Ok(SteamClient::new(DEFAULT_PACE)
-        .map_err(text)?
-        .with_notice(move |wait, status| {
-            let _ = window.emit(
-                "steam-wait",
-                SteamWait {
-                    app_id,
-                    seconds: wait.as_secs(),
-                    status,
-                },
-            );
-        }))
-}
-
 #[tauri::command]
 async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
     // A search waits seconds, not the half hour a crawl will: whoever typed the id would rather
@@ -187,213 +164,6 @@ async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
     })
 }
 
-/// How far a crawl has got, as the window draws it.
-#[derive(Debug, Clone, Serialize)]
-struct Step {
-    app_id: u32,
-    shards_done: usize,
-    shards_total: usize,
-    unique: u64,
-    valve_total: u64,
-}
-
-#[tauri::command]
-async fn crawl(app: AppHandle, app_id: u32) -> Result<Shelf, String> {
-    let out_dir = library_dir(&app);
-    std::fs::create_dir_all(&out_dir).map_err(text)?;
-    let options = CrawlOptions {
-        out_dir: out_dir.clone(),
-        concurrency: SHARDS_AT_ONCE,
-        shard_target: DEFAULT_SHARD_TARGET,
-        resume: true,
-    };
-    let client = waiting_client(&app, app_id)?;
-    let window = app.clone();
-    steamgauge_core::crawl(&client, app_id, &options, move |progress| {
-        let _ = window.emit(
-            "crawl",
-            Step {
-                app_id,
-                shards_done: progress.shards_done,
-                shards_total: progress.shards_total,
-                unique: progress.unique,
-                valve_total: progress.valve_total,
-            },
-        );
-    })
-    .await
-    .map_err(text)?;
-    Ok(shelf(&out_dir))
-}
-
-/// How far a sweep has got, as the window draws it.
-#[derive(Debug, Clone, Serialize)]
-struct SweepStep {
-    app_id: u32,
-    pages: u32,
-    rows: u64,
-}
-
-/// What a sweep brought in, as the window reports it.
-#[derive(Debug, Clone, Serialize)]
-struct Swept {
-    app_id: u32,
-    rows: u64,
-    new: u64,
-    edited: u64,
-    since: i64,
-}
-
-/// Brings a held capture up to date with what was written or edited since.
-#[tauri::command]
-async fn sweep(app: AppHandle, app_id: u32) -> Result<Swept, String> {
-    let out_dir = library_dir(&app);
-    let client = waiting_client(&app, app_id)?;
-    let window = app.clone();
-    let report = steamgauge_core::crawl::sweep(&client, app_id, &out_dir, move |progress| {
-        let _ = window.emit(
-            "sweep",
-            SweepStep {
-                app_id,
-                pages: progress.pages,
-                rows: progress.rows,
-            },
-        );
-    })
-    .await
-    .map_err(text)?;
-    Ok(Swept {
-        app_id,
-        rows: report.rows,
-        new: report.new,
-        edited: report.edited,
-        since: report.watermark,
-    })
-}
-
-/// How far a reading has got, as the window draws it.
-#[derive(Debug, Clone, Serialize)]
-struct ReadStep {
-    app_id: u32,
-    claims_read: u64,
-    reviews_counted: u64,
-}
-
-/// How far a model download has got, as the window draws it.
-#[derive(Debug, Clone, Serialize)]
-struct Fetch {
-    file: String,
-    downloaded: u64,
-    total: Option<u64>,
-}
-
-/// Reads a whole corpus with the trained model.
-///
-/// Runs off the window's thread: it is minutes of arithmetic on a million claims, and a
-/// webview that stops answering is a webview a person force-quits.
-///
-/// `reader` names the size somebody chose, which counts only where the machine reads on its
-/// processor: on a card the card decides, and a choice remembered from before the card was
-/// fitted must not overrule it.
-#[tauri::command]
-async fn read_game(
-    app: AppHandle,
-    app_id: u32,
-    language: Option<String>,
-    reader: Option<String>,
-) -> Result<(), String> {
-    use steamgauge_core::reader::{Size, fits, on_the_processor};
-
-    let out_dir = library_dir(&app);
-    let options = steamgauge_core::read::ReadOptions {
-        out_dir: out_dir.clone(),
-        language,
-        ..steamgauge_core::read::ReadOptions::default()
-    };
-    let window = app.clone();
-
-    // A standard user has the binary and nothing else. The model is fetched by checksum the
-    // first time it is needed, and the window is told how far the download has got, because
-    // half a gigabyte with no progress shown is indistinguishable from a hang.
-    let card = steamgauge_core::card::largest();
-    let reaches = steamgauge_core::model::REACHES_A_CARD;
-    // A name no size answers to is a choice remembered from a release that had it, and the
-    // window offers only the sizes there are, so it falls back rather than refusing to read.
-    let size = reader
-        .as_deref()
-        .filter(|_| on_the_processor(card, reaches))
-        .and_then(Size::named)
-        .unwrap_or_else(|| fits(card, reaches));
-    let model_dir = size.home();
-    if !model_dir.join("model.onnx").is_file() {
-        if !size.published.is_pinned() {
-            return Err(format!(
-                "no {} claim reader is installed and none has been published yet",
-                size.name
-            ));
-        }
-        let fetching = app.clone();
-        steamgauge_core::reader::ensure(size, &model_dir, |progress| {
-            let _ = fetching.emit(
-                "fetch",
-                Fetch {
-                    file: progress.file.to_owned(),
-                    downloaded: progress.downloaded,
-                    total: progress.total,
-                },
-            );
-        })
-        .await
-        .map_err(text)?;
-    }
-
-    // The one fact about the game the reader is told, asked of the store once and kept.
-    let game_dir = out_dir.join(format!("appid={app_id}"));
-    if steamgauge_core::facts::Facts::load(&game_dir).is_none() {
-        let headset_only = waiting_client(&app, app_id)?
-            .headset_only(app_id)
-            .await
-            .ok_or_else(|| {
-                "the store would not say whether this game is played in a VR headset".to_owned()
-            })?;
-        steamgauge_core::facts::Facts { headset_only }
-            .save(&game_dir)
-            .map_err(text)?;
-    }
-
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        // From before the model loads: the estimate is of the wait, and loading is part of it.
-        let started = std::time::Instant::now();
-        let mut model = steamgauge_core::reader::ClaimReader::load(&model_dir).map_err(text)?;
-        let report = steamgauge_core::read::read_corpus(&mut model, app_id, &options, |progress| {
-            let _ = window.emit(
-                "read",
-                ReadStep {
-                    app_id,
-                    claims_read: progress.claims_read,
-                    reviews_counted: progress.reviews_counted,
-                },
-            );
-        })
-        .map_err(text)?;
-        let snapshot = embed::latest_snapshot(&options.out_dir, app_id).map_err(text)?;
-        report.save(&snapshot.join("reading.json")).map_err(text)?;
-        if model.device() == "cpu" {
-            let mut times = ReadingTimes::load(&options.out_dir);
-            times.note(
-                size,
-                options.language.as_deref(),
-                started.elapsed().as_secs_f64(),
-                report.corpus_reviews,
-            );
-            times.save(&options.out_dir).map_err(text)?;
-        }
-        Ok(())
-    })
-    .await
-    .map_err(text)?
-}
-
 /// One size somebody on a processor can choose, and about how long it would take them.
 #[derive(Debug, Clone, Serialize)]
 struct ReaderChoice {
@@ -406,38 +176,71 @@ struct ReaderChoice {
     times: f64,
 }
 
-/// The sizes to offer for reading a game, smallest first; none where a card is reached,
-/// because there the card decides.
+/// What reading a game would take here, said before anything starts: which reader, what it
+/// has to fetch first, and on a processor how long each size would take.
+#[derive(Debug, Clone, Serialize)]
+struct ReadOffer {
+    reader: &'static str,
+    /// What the reader still has to fetch, where it has been published.
+    download_bytes: u64,
+    /// Whether a reader that is not here could be fetched at all.
+    published: bool,
+    here: bool,
+    /// The sizes to choose from, smallest first; none where a card is reached, because there
+    /// the card decides.
+    choices: Vec<ReaderChoice>,
+}
+
+/// What reading a game, or any game where none is named, would take on this machine.
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-fn reader_choices(
+fn read_offer(
     app: AppHandle,
-    app_id: u32,
+    app_id: Option<u32>,
     language: Option<String>,
-) -> Result<Vec<ReaderChoice>, String> {
+) -> Result<ReadOffer, String> {
     use steamgauge_core::reader::{SIZES, on_the_processor};
 
-    if !on_the_processor(
+    let dir = library_dir(&app);
+    let size = work::reader_here(&settings::Settings::load(&app));
+    let home = size.home();
+    let published = size.published.is_pinned();
+    let choices = if on_the_processor(
         steamgauge_core::card::largest(),
         steamgauge_core::model::REACHES_A_CARD,
     ) {
-        return Ok(Vec::new());
-    }
-    let dir = library_dir(&app);
-    let reviews = report::crawl_facts(&dir, app_id).map_err(text)?.rows_unique;
-    let times = ReadingTimes::load(&dir);
-    let fastest = SIZES[0].processor_seconds;
-    Ok(SIZES
-        .iter()
-        .map(|size| ReaderChoice {
-            name: size.name,
-            seconds: times.seconds(size, language.as_deref(), reviews),
-            times: size.processor_seconds / fastest,
-        })
-        .collect())
+        let reviews = app_id
+            .map(|app_id| report::crawl_facts(&dir, app_id).map(|facts| facts.rows_unique))
+            .transpose()
+            .map_err(text)?;
+        let times = ReadingTimes::load(&dir);
+        let fastest = SIZES[0].processor_seconds;
+        SIZES
+            .iter()
+            .map(|size| ReaderChoice {
+                name: size.name,
+                seconds: reviews
+                    .and_then(|reviews| times.seconds(size, language.as_deref(), reviews)),
+                times: size.processor_seconds / fastest,
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(ReadOffer {
+        reader: size.name,
+        download_bytes: if published {
+            size.published.bytes_left(&home)
+        } else {
+            0
+        },
+        published,
+        here: home.join("model.onnx").is_file(),
+        choices,
+    })
 }
 
 /// One subject, as the window draws it after a corpus has been read.
@@ -1016,14 +819,11 @@ fn words_found(
 
 /// The encoder that searches by meaning and the reranker that orders what it finds, each loaded
 /// once and kept: together they are well over a gigabyte, and a search that loaded them every
-/// time would spend seconds before looking at anything. With a flag that stops a preparation,
-/// and one that says a preparation is running, since two at once would write the same parts.
+/// time would spend seconds before looking at anything.
 #[derive(Default)]
 struct Meaning {
     embedder: Arc<Mutex<Option<steamgauge_core::search_models::SearchEncoder>>>,
     reranker: Arc<Mutex<Option<steamgauge_core::search_models::SearchReranker>>>,
-    stop: Arc<AtomicBool>,
-    running: Arc<AtomicBool>,
 }
 
 /// Whether this machine reads on a card, which is what decides how long preparing takes.
@@ -1048,7 +848,8 @@ struct MeaningOffer {
     /// once they are.
     download_bytes: u64,
     every_game: bool,
-    running: bool,
+    /// The job preparing this game, where one is waiting or running.
+    job: Option<u64>,
     /// `prepare` on a card, where it is minutes; `wait` on a processor, where it is hours.
     recommended: &'static str,
 }
@@ -1060,7 +861,7 @@ struct MeaningOffer {
 )]
 fn meaning_offer(
     app: AppHandle,
-    meaning: tauri::State<'_, Meaning>,
+    work: tauri::State<'_, work::Work>,
     app_id: u32,
 ) -> Result<MeaningOffer, String> {
     use steamgauge_core::{
@@ -1074,19 +875,18 @@ fn meaning_offer(
     let on_card = meaning_on_card();
     let left = report.claims.saturating_sub(held(&snapshot).0);
     let cache = steamgauge_core::model::default_cache_dir();
-    let download_bytes = [ENCODER, RERANKER]
-        .into_iter()
-        .filter(|model| !model.fetched(&cache))
-        .map(|model| model.download_bytes)
-        .sum();
     Ok(MeaningOffer {
         status: status(&snapshot),
         on_card,
         seconds: Times::load(&dir).estimate(on_card, left),
         disk_bytes: left.saturating_mul(BYTES_PER_CLAIM),
-        download_bytes,
+        download_bytes: ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache),
         every_game: Choice::load(&dir).every_game,
-        running: meaning.running.load(Ordering::Relaxed),
+        job: work.jobs().into_iter().find_map(|job| {
+            (job.task == work::Task::Prepare { app_id }
+                && matches!(job.state, work::State::Queued | work::State::Running))
+            .then_some(job.id)
+        }),
         recommended: if on_card { "prepare" } else { "wait" },
     })
 }
@@ -1102,23 +902,6 @@ fn choose_meaning(app: AppHandle, every_game: bool) -> Result<(), String> {
         .map_err(text)
 }
 
-#[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "tauri hands a command its arguments by value"
-)]
-fn stop_meaning(meaning: tauri::State<'_, Meaning>) {
-    meaning.stop.store(true, Ordering::Relaxed);
-}
-
-/// How far a preparation has got, as the window draws it.
-#[derive(Debug, Clone, Serialize)]
-struct MeaningStep {
-    app_id: u32,
-    walked: u64,
-    total: u64,
-}
-
 /// Loads a search model into `slot` unless it is there already.
 fn loaded<T>(
     slot: &mut Option<T>,
@@ -1129,88 +912,6 @@ fn loaded<T>(
     }
     slot.as_mut()
         .ok_or_else(|| "the search model did not load".to_owned())
-}
-
-/// Prepares a read game for search by meaning, fetching the two search models first if they
-/// are not here. Returns whether it finished; a stopped preparation keeps what it did.
-#[tauri::command]
-async fn prepare_meaning(
-    app: AppHandle,
-    meaning: tauri::State<'_, Meaning>,
-    app_id: u32,
-) -> Result<bool, String> {
-    use steamgauge_core::{
-        meaning::{Times, prepare},
-        search_models::{ENCODER, RERANKER, SearchEncoder},
-    };
-
-    if meaning.running.swap(true, Ordering::SeqCst) {
-        return Err("a game is already being prepared".to_owned());
-    }
-    meaning.stop.store(false, Ordering::Relaxed);
-    let running = Arc::clone(&meaning.running);
-    let outcome = async {
-        let fetching = app.clone();
-        // Both models' files have the same names, so each is said with the model it belongs to.
-        let fetched = |model: &'static str| {
-            let fetching = fetching.clone();
-            move |progress: steamgauge_core::model::DownloadProgress| {
-                let _ = fetching.emit(
-                    "meaning-fetch",
-                    Fetch {
-                        file: format!("{model}/{}", progress.file),
-                        downloaded: progress.downloaded,
-                        total: progress.total,
-                    },
-                );
-            }
-        };
-        let cache = steamgauge_core::model::default_cache_dir();
-        for model in [ENCODER, RERANKER] {
-            model
-                .ensure(&cache, fetched(model.name))
-                .await
-                .map_err(text)?;
-        }
-
-        let dir = library_dir(&app);
-        let embedder = Arc::clone(&meaning.embedder);
-        let stop = Arc::clone(&meaning.stop);
-        let window = app.clone();
-        tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
-            let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
-            let total = read_report(&snapshot)?.claims;
-            let mut slot = embedder.lock().map_err(text)?;
-            let encoder = loaded(&mut slot, SearchEncoder::load)?;
-            let on_card = encoder.device() != "cpu";
-            let started = std::time::Instant::now();
-            let prepared = prepare(
-                &snapshot,
-                |texts| encoder.claims(texts),
-                &stop,
-                |walked| {
-                    let _ = window.emit(
-                        "meaning",
-                        MeaningStep {
-                            app_id,
-                            walked,
-                            total,
-                        },
-                    );
-                },
-            )
-            .map_err(text)?;
-            let mut times = Times::load(&dir);
-            times.note(on_card, started.elapsed().as_secs_f64(), prepared.walked);
-            times.save(&dir).map_err(text)?;
-            Ok(prepared.finished)
-        })
-        .await
-        .map_err(text)?
-    }
-    .await;
-    running.store(false, Ordering::SeqCst);
-    outcome
 }
 
 /// One claim near in meaning to what was searched, with the review it came from.
@@ -1413,22 +1114,38 @@ pub fn run() -> anyhow::Result<()> {
         .plugin(tauri_plugin_opener::init())
         .manage(LastSearch::default())
         .manage(Meaning::default())
+        .manage(work::Work::default())
+        .setup(|app| {
+            work::start(app.handle());
+            cockpit::check_on_opening(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             library,
             look_up,
-            crawl,
             reading,
             claims_behind,
             induced,
-            read_game,
-            reader_choices,
+            read_offer,
             search_game,
             meaning_offer,
             choose_meaning,
-            prepare_meaning,
-            stop_meaning,
             search_by_meaning,
-            sweep
+            work::work,
+            work::queue,
+            work::stop_job,
+            work::clear_finished,
+            work::open_report,
+            settings::settings,
+            settings::save_settings,
+            cockpit::overview,
+            cockpit::games,
+            cockpit::groups,
+            cockpit::save_groups,
+            cockpit::compare,
+            cockpit::export_report,
+            cockpit::queue_reads,
+            cockpit::queue_updates
         ])
         .run(tauri::generate_context!())?;
     Ok(())

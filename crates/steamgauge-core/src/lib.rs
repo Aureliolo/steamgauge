@@ -19,6 +19,7 @@ pub mod meaning;
 pub mod measure;
 pub mod mine;
 pub mod model;
+pub mod moves;
 pub mod picture;
 pub mod query;
 pub mod read;
@@ -90,6 +91,11 @@ pub enum Error {
         expected: &'static str,
         actual: String,
     },
+
+    /// A server sending a pinned file at another length is sending another file, and one
+    /// sending more than the pin says could fill the disk before any hash is taken.
+    #[error("model file {file} did not arrive at its pinned length of {expected} bytes")]
+    ModelLength { file: &'static str, expected: u64 },
 
     #[error("no capture found at {path}; run `steamgauge crawl` first")]
     NoCapture { path: std::path::PathBuf },

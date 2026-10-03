@@ -388,22 +388,26 @@ impl Size {
 const GIB: u64 = 1024 * 1024 * 1024;
 
 /// The files every reader is: its graph, its tokenizer, and the lines it answers above, each
-/// size with its own hashes. `publish.py` writes the hashes here from the bytes it uploaded.
+/// size with its own hashes and lengths. `publish.py` writes both here from the bytes it
+/// uploaded.
 const SMALL_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "model.onnx",
         local: "model.onnx",
         sha256: "9ae4fb5b2b7305b00f1c94bf2e59e24f5ddac4e4501653a8c50b0f06058c6d3d",
+        bytes: 235_277_157,
     },
     crate::model::Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
         sha256: "d24c9d96d2abb6c6fc871861908f062fa776d433a1446925bd4bfb467598b2a3",
+        bytes: 9_581_622,
     },
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
         sha256: "c513b0ff44451f41755edb83bf7c1615c9ba22eb67403bce1185e49c62731d7e",
+        bytes: 2_176,
     },
 ];
 const STANDARD_FILES: [crate::model::Asset; 3] = [
@@ -411,16 +415,19 @@ const STANDARD_FILES: [crate::model::Asset; 3] = [
         remote: "model.onnx",
         local: "model.onnx",
         sha256: "885672915399ce06fe81fe7726647bc6d4768e1a7ce7af0b64f3ae33e2f96a76",
+        bytes: 1_118_206_465,
     },
     crate::model::Asset {
         remote: "tokenizer.json",
         local: "tokenizer.json",
         sha256: "917794ae198f6d09d709b56c8a1658a49136d0c6145b4b7fd0a4df27d37be952",
+        bytes: 9_581_584,
     },
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
         sha256: "ec4d27b7e791a1ea7e5dccb02183a16cc0cb405d71bf281327cc60857879bbf1",
+        bytes: 2_183,
     },
 ];
 
@@ -437,6 +444,7 @@ pub const SIZES: &[Size] = &[
         published: Published {
             repository: "Aureliolo/game-review-reader-small",
             revision: "7cc57fb55dfee066b8e0ce2370d98afb05a753ab",
+            release: "v1",
             files: &SMALL_FILES,
         },
     },
@@ -448,6 +456,7 @@ pub const SIZES: &[Size] = &[
         published: Published {
             repository: "Aureliolo/game-review-reader",
             revision: "91d3912188d772f60008c084bf9af80020e404bc",
+            release: "v1",
             files: &STANDARD_FILES,
         },
     },
@@ -500,6 +509,9 @@ pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -
 pub struct Published {
     pub repository: &'static str,
     pub revision: &'static str,
+    /// The release tag that commit carries, `v1` and on, to name it to a person. The commit is
+    /// what is fetched; a tag can be moved.
+    pub release: &'static str,
     files: &'static [crate::model::Asset],
 }
 
@@ -511,10 +523,20 @@ impl Published {
         }
     }
 
-    /// Whether a repository, a commit and every file's hash are pinned.
+    /// Whether a repository, a commit and every file's hash and length are pinned.
     #[must_use]
     pub fn is_pinned(&self) -> bool {
-        self.source().is_pinned() && self.files.iter().all(|file| !file.sha256.is_empty())
+        self.source().is_pinned()
+            && self
+                .files
+                .iter()
+                .all(|file| !file.sha256.is_empty() && file.bytes > 0)
+    }
+
+    /// What fetching this size into `dir` would download, counting only the files not there.
+    #[must_use]
+    pub fn bytes_left(&self, dir: &Path) -> u64 {
+        crate::model::bytes_left(self.files, dir)
     }
 }
 
@@ -1594,11 +1616,16 @@ mod tests {
         let files: Vec<crate::model::Asset> = STANDARD_FILES
             .iter()
             .zip(hashes)
-            .map(|(file, sha256)| crate::model::Asset { sha256, ..*file })
+            .map(|(file, sha256)| crate::model::Asset {
+                sha256,
+                bytes: 1,
+                ..*file
+            })
             .collect();
         Published {
             repository: "someone/game-review-reader",
             revision,
+            release: "v1",
             files: files.leak(),
         }
     }
@@ -1611,6 +1638,19 @@ mod tests {
             "two of three files pinned would fetch the third unverified"
         );
         assert!(pinned(COMMIT, [hash, hash, hash]).is_pinned());
+    }
+
+    #[test]
+    fn a_pin_with_any_length_missing_is_no_pin_at_all() {
+        let hash: &'static str = "0".repeat(64).leak();
+        let mut found = pinned(COMMIT, [hash, hash, hash]);
+        let mut files = found.files.to_vec();
+        files[2].bytes = 0;
+        found.files = files.leak();
+        assert!(
+            !found.is_pinned(),
+            "a file of unknown length cannot be counted towards a download or cut off at it"
+        );
     }
 
     #[test]

@@ -4813,8 +4813,8 @@ The library's re-read after the splitter's fixes is five hours on the card, and 
 that nothing take all of it. `steamgauge read --card-share 0.5` rests after each batch as long
 again as the batch took: a run of the reader returns once the card has answered, so its time is
 the card's time. The readings are the same; a share outside (0, 1] is refused where it is typed,
-since at zero a read would rest forever. The window's reads keep the whole card, as a person
-reading one game is waiting on it.
+since at zero a read would rest forever. The window's reads take whatever share its settings
+give them, the whole card unless the person chose less (2026-10-03, below).
 
 ### A run's memory on a shared card is held, apart from its time (2026-10-01)
 
@@ -4833,6 +4833,45 @@ and that run could not start either: 19.4 GB allocated when it failed, the rest 
 what the failure's own report does not itemise. Asked again, the user took the passes of 8 held
 at 18.5 GB for the standard student and its folds (2026-10-02): the only held shape that had
 run, the same gradient, about 6 GB of the card left to the user's programs.
+
+### The window opens on a cockpit, and everything it does is a job (2026-10-03)
+
+The user's picture of the app: it opens on a cockpit where everything can be seen, games live in
+a library with the functions over them, and the share of the graphics card is a setting. Asked
+what the cockpit shows and what the library does, the user chose every option offered: running
+work, the library's state, what moved lately across games, the machine and its models; update
+every game, compare, sort and group, save a report. Downloads were also to say their speed,
+their time left and one bar across every file, and a reader's download was to be announced
+before the first read.
+
+**Work is a board of jobs on three lanes.** Downloads and updates wait on Steam's pace, reads and
+preparations hold the card, and a report is written from disk; each lane runs one job at a time,
+so an hour's crawl never holds up a read and two reads never share the card. No job starts on a
+game another running job is working on, because a read walking a capture an update is writing
+to would count a corpus that changes under it. Before this, the window ran one stage at a time
+from the page that asked for it and lost sight of it when the page changed.
+
+**A read writes beside the reading it replaces** (`readings.partial.parquet`) and moves over it
+only when complete. It used to write in place, so a read that died, or now one that is stopped,
+would have left a reading whose `reading.json` described a file that no longer existed. Every
+capture file is written the same way: a shard or a sweep file has no footer until it is closed,
+and a capture's reader takes every `shard-*` and `sweep-*.parquet` it finds, so one left
+unfinished would have failed every read of that game. A sweep stops between pages through a
+flag rather than being dropped, and asks Steam for the totals before it records anything.
+
+**Every pinned model file carries its length** beside its hash. A download's total across its
+files is known before it starts, and a server sending past the pinned length is cut off before
+the hash is ever taken. The twelve encoder files pinned already were checked against the Hub at
+their pinned commits: every hash matched, and their lengths are the Hub's.
+
+**What moved lately** is the last three months of a capture, counting the month it was made in,
+against the twelve before them, from per-month counts of the reviews praising and complaining
+about each subject (`Month::praising`, `Month::complaining`, filled by a recount without the
+model). A change is shown where the recent window holds 100 reviews and the earlier one 300,
+the gap spans three standard errors of a two-proportion test, and it is at least two points: a
+library of seventy games tests thousands of shares, and at two standard errors dozens would
+clear by chance; a corpus of a million reviews makes a fifth of a point significant, and nobody
+acts on that. The share recommending the game is held to the same rule.
 
 ## Nothing here is identified by a number somebody incremented
 

@@ -140,69 +140,108 @@ impl Encoder {
                 remote: "onnx/model_O4.onnx",
                 local: "model_fp16.onnx",
                 sha256: "4654c156f3e4171abc9c716cdb771bf9116455d15ac1aab364aeeede0e3205b0",
+                bytes: 235_052_531,
             },
             (Self::E5Small, Precision::Float32) => Asset {
                 remote: "onnx/model.onnx",
                 local: "model_fp32.onnx",
                 sha256: "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
+                bytes: 470_268_510,
             },
             (Self::E5Base, Precision::Float16) => Asset {
                 remote: "onnx/model_O4.onnx",
                 local: "model_fp16.onnx",
                 sha256: "f60256a833caee5c75a3903e589116752ee016ca7bc16f9b96e4db09984c5703",
+                bytes: 554_948_118,
             },
             (Self::E5Base, Precision::Float32) => Asset {
                 remote: "onnx/model.onnx",
                 local: "model_fp32.onnx",
                 sha256: "84a4d426f7e87a6bf5bf195f0bae2c4a7d15f675b23ca96f42fab8326d7a77aa",
+                bytes: 1_110_059_084,
             },
             (Self::ArcticMediumV2, Precision::Float16) => Asset {
                 remote: "onnx/model_fp16.onnx",
                 local: "model_fp16.onnx",
                 sha256: "f27ab40ab6e230265ba49a202a37f1ad031556256cbbc105d0ca9c0bdc7ec42e",
+                bytes: 613_266_244,
             },
             (Self::ArcticMediumV2, Precision::Float32) => Asset {
                 remote: "onnx/model.onnx",
                 local: "model_fp32.onnx",
                 sha256: "c0c53d7f49a2db60761b92b7bbf5be87a7b3cf5d92dbbd7f1b5028bd5a40aa39",
+                bytes: 1_226_099_913,
             },
             (Self::GteBase, Precision::Float16) => Asset {
                 remote: "onnx/model_fp16.onnx",
                 local: "model_fp16.onnx",
                 sha256: "f1d0f4ec988a6c17387d3b256e631deea506a891aed3a6ded4f9bf09386cc38e",
+                bytes: 627_988_827,
             },
             (Self::GteBase, Precision::Float32) => Asset {
                 remote: "onnx/model.onnx",
                 local: "model_fp32.onnx",
                 sha256: "5b9f03fdc40350a78fa064b4cfb6bf9a229a7c40aa87736f537e3ebd00aa2b86",
+                bytes: 1_255_502_649,
             },
         }
     }
 
     fn tokenizer(self) -> Asset {
-        let sha256 = match self {
-            Self::E5Small => "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
-            Self::E5Base => "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
-            Self::ArcticMediumV2 => {
-                "f1cc44ad7faaeec47241864835473fd5403f2da94673f3f764a77ebcb0a803ec"
-            }
-            Self::GteBase => "3a56def25aa40facc030ea8b0b87f3688e4b3c39eb8b45d5702b3a1300fe2a20",
+        let (sha256, bytes) = match self {
+            Self::E5Small => (
+                "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+                17_082_730,
+            ),
+            Self::E5Base => (
+                "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
+                17_082_660,
+            ),
+            Self::ArcticMediumV2 => (
+                "f1cc44ad7faaeec47241864835473fd5403f2da94673f3f764a77ebcb0a803ec",
+                17_083_009,
+            ),
+            Self::GteBase => (
+                "3a56def25aa40facc030ea8b0b87f3688e4b3c39eb8b45d5702b3a1300fe2a20",
+                17_082_734,
+            ),
         };
         Asset {
             remote: "tokenizer.json",
             local: "tokenizer.json",
             sha256,
+            bytes,
         }
     }
 }
 
-/// One file pinned by hash: where it lives in a repository, what it is called here, and what
-/// it must hash to before it is used.
+/// One file pinned by hash and length: where it lives in a repository, what it is called here,
+/// and what it must hash to before it is used.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Asset {
     pub(crate) remote: &'static str,
     pub(crate) local: &'static str,
     pub(crate) sha256: &'static str,
+    /// The file's length. Known before a byte is fetched, so a download can say how far it has
+    /// to go across every file it needs, and a server sending more than this is cut off.
+    pub(crate) bytes: u64,
+}
+
+impl Asset {
+    /// Whether the copy in `dir` is at least the right length. The hash is what decides; this
+    /// is what a window can ask about without reading a gigabyte.
+    pub(crate) fn present_in(self, dir: &Path) -> bool {
+        std::fs::metadata(dir.join(self.local)).is_ok_and(|found| found.len() == self.bytes)
+    }
+}
+
+/// What fetching these files into `dir` would download, counting only the ones not there.
+pub(crate) fn bytes_left(assets: &[Asset], dir: &Path) -> u64 {
+    assets
+        .iter()
+        .filter(|asset| !asset.present_in(dir))
+        .map(|asset| asset.bytes)
+        .sum()
 }
 
 /// Which build of the graph to run.
@@ -343,7 +382,7 @@ pub(crate) async fn ensure_asset(
     on_progress: &mut impl FnMut(DownloadProgress),
 ) -> Result<()> {
     let path = dir.join(asset.local);
-    if path.is_file() && sha256_file(&path)? == asset.sha256 {
+    if asset.present_in(dir) && sha256_file(&path)? == asset.sha256 {
         return Ok(());
     }
     if !source.is_pinned() {
@@ -367,6 +406,49 @@ pub(crate) async fn ensure_asset(
     Ok(())
 }
 
+/// The release a published repository has gone furthest to, `v2` past `v1`, from the Hub's
+/// own list of its tags. Nothing is fetched from it: a newer release comes with the build that
+/// pins it, and this only says one exists.
+///
+/// # Errors
+///
+/// Fails on transport failures and on a listing that is not the Hub's.
+pub async fn newest_release(repository: &str) -> Result<Option<String>> {
+    #[derive(serde::Deserialize)]
+    struct Refs {
+        tags: Vec<Ref>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Ref {
+        name: String,
+    }
+
+    let refs: Refs = client()?
+        .get(format!(
+            "https://huggingface.co/api/models/{repository}/refs"
+        ))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    Ok(refs
+        .tags
+        .into_iter()
+        .filter_map(|tag| release_number(&tag.name).map(|number| (number, tag.name)))
+        .max_by_key(|(number, _)| *number)
+        .map(|(_, name)| name))
+}
+
+/// The number of a release tag, `v1` and on; none for any other tag.
+#[must_use]
+pub fn release_number(tag: &str) -> Option<u32> {
+    let digits = tag.strip_prefix('v')?;
+    (!digits.starts_with('0') && digits.bytes().all(|byte| byte.is_ascii_digit()))
+        .then(|| digits.parse().ok())
+        .flatten()
+}
+
 pub(crate) fn client() -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))
@@ -381,7 +463,6 @@ async fn download(
     on_progress: &mut impl FnMut(DownloadProgress),
 ) -> Result<()> {
     let mut response = http.get(url).send().await?.error_for_status()?;
-    let total = response.content_length();
 
     // Written beside the target and renamed, so an interrupted download is never mistaken
     // for a complete one on the next run.
@@ -390,15 +471,30 @@ async fn download(
     let mut downloaded = 0;
 
     while let Some(chunk) = response.chunk().await? {
-        std::io::Write::write_all(&mut file, &chunk)?;
         downloaded += chunk.len() as u64;
+        if downloaded > asset.bytes {
+            drop(file);
+            std::fs::remove_file(&partial)?;
+            return Err(Error::ModelLength {
+                file: asset.local,
+                expected: asset.bytes,
+            });
+        }
+        std::io::Write::write_all(&mut file, &chunk)?;
         on_progress(DownloadProgress {
             file: asset.local,
             downloaded,
-            total,
+            total: Some(asset.bytes),
         });
     }
     drop(file);
+    if downloaded != asset.bytes {
+        std::fs::remove_file(&partial)?;
+        return Err(Error::ModelLength {
+            file: asset.local,
+            expected: asset.bytes,
+        });
+    }
     std::fs::rename(&partial, path)?;
     Ok(())
 }
@@ -583,12 +679,41 @@ mod tests {
     }
 
     #[test]
+    fn only_release_tags_are_numbered_and_they_number_as_they_read() {
+        assert_eq!(release_number("v1"), Some(1));
+        assert_eq!(release_number("v12"), Some(12));
+        for other in ["main", "v", "v0", "v01", "1", "v1.2", "release"] {
+            assert_eq!(release_number(other), None, "{other}");
+        }
+    }
+
+    #[test]
+    fn only_files_missing_or_at_another_length_count_towards_a_download() {
+        let dir = crate::tempdir::Dir::new();
+        let pinned = |local: &'static str, bytes: u64| Asset {
+            remote: local,
+            local,
+            sha256: "",
+            bytes,
+        };
+        std::fs::write(dir.path().join("here.json"), [0_u8; 4]).unwrap();
+        std::fs::write(dir.path().join("short.onnx"), [0_u8; 3]).unwrap();
+        let assets = [
+            pinned("here.json", 4),
+            pinned("short.onnx", 10),
+            pinned("missing.onnx", 100),
+        ];
+        assert_eq!(bytes_left(&assets, dir.path()), 110);
+    }
+
+    #[test]
     fn a_file_is_never_fetched_from_a_source_that_is_not_pinned() {
         let dir = crate::tempdir::Dir::new();
         let asset = Asset {
             remote: "tokenizer.json",
             local: "tokenizer.json",
             sha256: "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+            bytes: 17_082_730,
         };
         let source = Source {
             repository: "intfloat/multilingual-e5-small",

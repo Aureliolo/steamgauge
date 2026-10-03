@@ -53,6 +53,14 @@ The app reads with the largest reader your graphics card has room for. Without a
 starts with the fast one and offers the most accurate beside it, saying how long each takes on
 that computer.
 
+The desktop app opens on a cockpit: everything running, with its speed and time left; the
+library's state, including the games Steam has new reviews for and the games read by an older
+reader; what moved in the last three months across every game, where the change is wider than
+chance; and which reader and models this computer uses. The library lists every game, sorted
+and grouped as you like, and updates, reads, compares or reports on any selection of them. Work
+runs in the background, downloads beside reads, and how much of the graphics card a read may
+take is a setting.
+
 ### What a percentage means here
 
 The headline figure for a category is a **mention rate**: the share of all reviews in the

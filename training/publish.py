@@ -350,23 +350,26 @@ def pins_in(source: str, constant: str) -> dict[str, str]:
 
 
 def pin_reader(
-    source: str, size: str, constant: str, repo: str, revision: str, hashes: dict
+    source: str, size: str, constant: str, release: tuple[str, str, str], files: dict
 ) -> str:
-    """reader.rs with one size pinned to a repository, a commit and its files' hashes."""
+    """reader.rs with one size pinned to a repository, a commit and its tag, and each file
+    (by remote name) to its hash and length."""
+    repo, revision, tag = release
     source, count = re.subn(
         rf'(name: "{re.escape(size)}",.*?published: Published \{{\s*repository: )"[^"]*"'
-        r'(,\s*revision: )"[^"]*"',
-        rf'\g<1>"{repo}"\g<2>"{revision}"',
+        r'(,\s*revision: )"[^"]*"(,\s*release: )"[^"]*"',
+        rf'\g<1>"{repo}"\g<2>"{revision}"\g<3>"{tag}"',
         source,
         count=1,
         flags=re.DOTALL,
     )
     if count != 1:
         raise SystemExit(f"could not find where to pin the {size} reader in {READER_RS}")
-    for name, digest in hashes.items():
+    for name, (digest, length) in files.items():
         source, count = re.subn(
-            rf'(const {constant}\b.*?remote: "{re.escape(name)}",\s*local: "[^"]+",\s*sha256: )"[^"]*"',
-            rf'\g<1>"{digest}"',
+            rf'(const {constant}\b.*?remote: "{re.escape(name)}",\s*local: "[^"]+",\s*sha256: )'
+            r'"[^"]*"(,\s*bytes: )[0-9_]+',
+            rf'\g<1>"{digest}"\g<2>{length:_}',
             source,
             count=1,
             flags=re.DOTALL,
@@ -376,12 +379,13 @@ def pin_reader(
     return source
 
 
-def pin_search(source: str, constant: str, repo: str, revision: str) -> str:
-    """search_models.rs with one model pinned to a repository and a commit."""
+def pin_search(source: str, constant: str, release: tuple[str, str, str]) -> str:
+    """search_models.rs with one model pinned to a repository, a commit and its tag."""
+    repo, revision, tag = release
     source, count = re.subn(
         rf'(pub const {constant}: Model = Model \{{\s*name: "[^"]*",\s*repository: )"[^"]*"'
-        r'(,\s*revision: )"[^"]*"',
-        rf'\g<1>"{repo}"\g<2>"{revision}"',
+        r'(,\s*revision: )"[^"]*"(,\s*release: )"[^"]*"',
+        rf'\g<1>"{repo}"\g<2>"{revision}"\g<3>"{tag}"',
         source,
         count=1,
     )
@@ -452,7 +456,7 @@ def main() -> None:
 
     # What goes where: each repository's files as (path in the repository, path here).
     uploads: dict[str, tuple[str, list[tuple[str, Path]]]] = {}
-    reader_hashes: dict[str, dict[str, str]] = {}
+    reader_files: dict[str, dict[str, tuple[str, int]]] = {}
 
     import export
 
@@ -482,7 +486,9 @@ def main() -> None:
             ),
             encoding="utf-8",
         )
-        reader_hashes[size["name"]] = {name: sha256(run / name) for name in MODEL_FILES}
+        reader_files[size["name"]] = {
+            name: (sha256(run / name), (run / name).stat().st_size) for name in MODEL_FILES
+        }
         uploads[repo] = (
             "model",
             [*((name, run / name) for name in MODEL_FILES), ("README.md", card)],
@@ -605,13 +611,13 @@ def main() -> None:
     # files. If anything between here and the hub changes a byte, the pin will not match what
     # comes down and the tool refuses it, which is the failure this arrangement exists to make
     # loud.
-    for size, hashes in reader_hashes.items():
+    for size, files in reader_files.items():
         repo, constant = READERS[size]
-        reader_rs = pin_reader(
-            reader_rs, size, constant, f"{args.owner}/{repo}", commits[repo], hashes
-        )
+        release = (f"{args.owner}/{repo}", commits[repo], args.tag)
+        reader_rs = pin_reader(reader_rs, size, constant, release, files)
     for name, (repo, constant, _) in SEARCH.items():
-        search_rs = pin_search(search_rs, constant, f"{args.owner}/{repo}", commits[repo])
+        release = (f"{args.owner}/{repo}", commits[repo], args.tag)
+        search_rs = pin_search(search_rs, constant, release)
     # The sources are kept with Unix line ends, which Windows would otherwise turn every one of.
     READER_RS.write_text(reader_rs, encoding="utf-8", newline="\n")
     SEARCH_RS.write_text(search_rs, encoding="utf-8", newline="\n")

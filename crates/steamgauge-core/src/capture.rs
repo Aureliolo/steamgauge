@@ -207,12 +207,26 @@ pub fn schema() -> Arc<Schema> {
 }
 
 /// Writes reviews to a single Parquet file.
+///
+/// The file is written under a name no reader looks for and given its own only once closed,
+/// so a crawl or a sweep that is stopped, fails or dies with the machine never leaves a file
+/// without a footer where every read of the capture would trip over it.
 #[derive(Debug)]
 pub struct CaptureWriter {
     writer: ArrowWriter<File>,
     schema: Arc<Schema>,
     app_id: u32,
     rows: u64,
+    partial: std::path::PathBuf,
+    path: std::path::PathBuf,
+}
+
+/// Where a capture file is written until it is complete.
+#[must_use]
+pub fn partial_of(path: &Path) -> std::path::PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(".partial");
+    std::path::PathBuf::from(name)
 }
 
 impl CaptureWriter {
@@ -231,12 +245,16 @@ impl CaptureWriter {
             .set_compression(Compression::ZSTD(ZstdLevel::default()))
             .set_max_row_group_row_count(Some(REVIEWS_PER_ROW_GROUP))
             .build();
-        let writer = ArrowWriter::try_new(File::create(path)?, Arc::clone(&schema), Some(props))?;
+        let partial = partial_of(path);
+        let writer =
+            ArrowWriter::try_new(File::create(&partial)?, Arc::clone(&schema), Some(props))?;
         Ok(Self {
             writer,
             schema,
             app_id,
             rows: 0,
+            partial,
+            path: path.to_path_buf(),
         })
     }
 
@@ -263,9 +281,10 @@ impl CaptureWriter {
 
     /// # Errors
     ///
-    /// Fails if the Parquet footer cannot be written.
+    /// Fails if the Parquet footer cannot be written or the file cannot be given its name.
     pub fn close(self) -> Result<u64> {
         self.writer.close()?;
+        std::fs::rename(&self.partial, &self.path)?;
         Ok(self.rows)
     }
 }
@@ -994,6 +1013,22 @@ mod tests {
         assert_eq!(decimal(Some(&json!(0))), Some(0.0));
         assert_eq!(decimal(Some(&json!(null))), None);
         assert_eq!(decimal(None), None);
+    }
+
+    #[test]
+    fn a_capture_file_is_only_read_once_it_is_whole() {
+        let dir = crate::tempdir::Dir::new();
+        let path = dir.path().join("sweep-17.parquet");
+        let review = json!({ "recommendationid": "1", "review": "Fine.", "language": "english" });
+        let mut writer = CaptureWriter::create(&path, 7).unwrap();
+        writer.write(&[&review]).unwrap();
+        assert!(
+            shards_of(dir.path()).unwrap().is_empty(),
+            "a file still being written, or left by a sweep that never finished, is no shard"
+        );
+        assert_eq!(writer.close().unwrap(), 1);
+        assert_eq!(shards_of(dir.path()).unwrap(), vec![(path.clone(), 17)]);
+        assert!(!partial_of(&path).exists());
     }
 
     #[test]

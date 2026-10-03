@@ -7,35 +7,175 @@
   </head>
   <body>
     <div class="frame">
-      <nav class="rail" aria-label="Library">
+      <nav class="rail" aria-label="SteamGauge">
         <div class="rail-head">
           <h1 class="mark">SteamGauge</h1>
-          <button type="button" id="add" class="add" aria-label="Add a game">
-            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-          </button>
         </div>
-        <div class="rail-find">
-          <label class="sr" for="filter">Filter the library</label>
-          <input type="search" id="filter" placeholder="Filter" autocomplete="off" spellcheck="false" />
-        </div>
-        <ul class="shelf" id="shelf"></ul>
-        <p class="rail-foot" id="where"></p>
+        <ul class="nav">
+          <li>
+            <button type="button" data-go="cockpit">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l2.6-3.4" /></svg>
+              Cockpit
+            </button>
+          </li>
+          <li>
+            <button type="button" data-go="library">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 2.5v11M6 2.5v11M9.2 3l2.9 10.5" /></svg>
+              Library
+            </button>
+          </li>
+          <li>
+            <button type="button" data-go="compare">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13.5V7M6.5 13.5V3M10 13.5V8.5M13.5 13.5V5" /></svg>
+              Compare
+            </button>
+          </li>
+          <li>
+            <button type="button" data-go="settings">
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7M11 3v3M5 10v3" /></svg>
+              Settings
+            </button>
+          </li>
+        </ul>
+        <div class="rail-work" id="rail-work" hidden></div>
       </nav>
 
       <main class="stage" id="stage">
-        <section class="empty" id="welcome" hidden>
-          <h2>Nothing counted yet</h2>
-          <p>
-            Give it a Steam app ID and it downloads every review for that game, not a sample,
-            then sorts what people said and counts how often they said it.
-          </p>
-          <p class="quiet">
-            The app ID is the number in the store URL:
-            <code>store.steampowered.com/app/<b>1091500</b>/</code>
-          </p>
-          <button type="button" class="primary" id="welcome-add">Add a game</button>
+        <section class="cockpit" id="cockpit" hidden>
+          <header class="page-head">
+            <h2>Cockpit</h2>
+            <p class="quiet" id="cockpit-sub"></p>
+          </header>
+
+          <div class="empty-note" id="cockpit-empty" hidden>
+            <p>
+              Give SteamGauge a Steam app ID and it downloads every review for that game, not a
+              sample, then sorts what people said and counts how often they said it.
+            </p>
+            <button type="button" class="primary" id="cockpit-add">Add a game</button>
+          </div>
+
+          <div class="panels">
+            <section class="panel work-panel" aria-labelledby="work-title">
+              <div class="panel-head">
+                <h3 id="work-title">Running</h3>
+                <button type="button" class="link" id="clear-finished" hidden>Clear finished</button>
+              </div>
+              <ul class="jobs" id="cockpit-work"></ul>
+              <p class="quiet" id="cockpit-idle">Nothing is running.</p>
+            </section>
+
+            <section class="panel" aria-labelledby="health-title">
+              <div class="panel-head">
+                <h3 id="health-title">Library</h3>
+                <button type="button" class="link" id="check-now">Check against Steam now</button>
+              </div>
+              <dl class="stats" id="health-stats"></dl>
+              <p class="place small" id="library-at"></p>
+              <div id="health-lists"></div>
+              <p class="quiet" id="health-calm">Every game is read by the current reader and nothing new is waiting on Steam.</p>
+              <p class="quiet small" id="checked"></p>
+            </section>
+
+            <section class="panel wide" aria-labelledby="moves-title">
+              <div class="panel-head">
+                <h3 id="moves-title">What moved lately</h3>
+              </div>
+              <p class="quiet small">
+                The last three months against the twelve before them, wherever the difference is
+                wider than the number of reviews can explain.
+              </p>
+              <ul class="moves" id="moves"></ul>
+              <p class="quiet" id="moves-calm">Nothing has moved beyond what chance would explain.</p>
+            </section>
+
+            <section class="panel" aria-labelledby="machine-title">
+              <div class="panel-head">
+                <h3 id="machine-title">This computer</h3>
+                <button type="button" class="link" id="to-settings">Settings</button>
+              </div>
+              <dl class="stats" id="machine-facts"></dl>
+              <p class="quiet small" id="machine-reads"></p>
+              <ul class="models" id="models"></ul>
+              <p class="quiet small" id="models-checked"></p>
+            </section>
+          </div>
+        </section>
+
+        <section class="library" id="library" hidden>
+          <header class="page-head with-actions">
+            <div>
+              <h2>Library</h2>
+              <p class="quiet" id="library-sub"></p>
+            </div>
+            <div class="row">
+              <button type="button" class="quiet-button" id="update-all">Update every game</button>
+              <button type="button" class="primary" id="library-add">Add a game</button>
+            </div>
+          </header>
+
+          <div class="group-bar">
+            <div class="tabs" id="group-tabs" role="toolbar" aria-label="Groups"></div>
+            <div class="row group-tools" id="group-tools" hidden>
+              <form class="row" id="rename-group">
+                <label class="sr" for="rename-group-name">Group name</label>
+                <input type="text" id="rename-group-name" autocomplete="off" spellcheck="false" />
+                <button type="submit" class="quiet-button small">Rename</button>
+              </form>
+              <button type="button" class="quiet-button small" id="delete-group">Delete the group</button>
+            </div>
+          </div>
+
+          <div class="row toolbar">
+            <label class="sr" for="library-filter">Filter the library</label>
+            <input type="search" id="library-filter" placeholder="Filter by name or app ID" autocomplete="off" spellcheck="false" />
+            <label class="quiet choice">
+              Sort by
+              <select id="library-sort">
+                <option value="name">name</option>
+                <option value="reviews">reviews held</option>
+                <option value="recommended">share recommending</option>
+                <option value="new">new on Steam</option>
+                <option value="updated">last updated</option>
+                <option value="lately">what moved lately</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="selection" id="selection" hidden>
+            <span id="selected-count"></span>
+            <button type="button" class="quiet-button small" id="selected-update">Update</button>
+            <button type="button" class="quiet-button small" id="selected-read">Read</button>
+            <button type="button" class="quiet-button small" id="selected-compare">Compare</button>
+            <button type="button" class="quiet-button small" id="selected-export">Save a report</button>
+            <label class="sr" for="selected-group">Add the selected games to a group</label>
+            <select id="selected-group"></select>
+            <button type="button" class="quiet-button small" id="selected-ungroup" hidden>Take out of this group</button>
+            <form class="row" id="new-group" hidden>
+              <label class="sr" for="new-group-name">New group name</label>
+              <input type="text" id="new-group-name" placeholder="Group name" autocomplete="off" spellcheck="false" />
+              <button type="submit" class="quiet-button small">Add</button>
+            </form>
+          </div>
+
+          <div class="table-wrap">
+            <table class="games">
+              <thead>
+                <tr>
+                  <th scope="col" class="tick"><input type="checkbox" id="select-all" aria-label="Select every game shown" /></th>
+                  <th scope="col">Game</th>
+                  <th scope="col" class="num">Reviews held</th>
+                  <th scope="col" class="num">Recommending</th>
+                  <th scope="col" class="num">New on Steam</th>
+                  <th scope="col" class="num">Updated</th>
+                  <th scope="col">Reading</th>
+                  <th scope="col">Moved lately</th>
+                </tr>
+              </thead>
+              <tbody id="library-rows"></tbody>
+            </table>
+          </div>
+          <p class="quiet" id="library-none" hidden>No game shown matches.</p>
         </section>
 
         <section class="finder" id="finder" hidden>
@@ -53,6 +193,10 @@
               />
               <button type="submit" class="primary" id="lookup">Look up</button>
             </div>
+            <p class="quiet small">
+              The app ID is the number in the store URL:
+              <code>store.steampowered.com/app/<b>1091500</b>/</code>
+            </p>
             <p class="note" id="lookup-note" role="status" aria-live="polite"></p>
           </form>
 
@@ -64,19 +208,21 @@
               <button type="button" class="primary" id="start">Download every review</button>
               <button type="button" class="quiet-button" id="cancel">Cancel</button>
             </div>
+            <p class="quiet small" id="found-then"></p>
           </div>
         </section>
 
         <section class="game" id="game" hidden>
+          <button type="button" class="back" id="game-back">
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" /></svg>
+            Library
+          </button>
           <header class="game-head">
             <h2 id="game-name"></h2>
             <p class="quiet" id="game-sub"></p>
           </header>
           <dl class="facts wide" id="game-facts"></dl>
-          <div class="work" id="work" hidden>
-            <p class="work-line"><span id="work-what"></span><span class="num" id="work-count"></span></p>
-            <div class="track"><span class="fill" id="work-fill"></span></div>
-          </div>
+          <ul class="jobs" id="game-jobs"></ul>
           <p class="note" id="game-note" role="status" aria-live="polite"></p>
           <div class="row" id="game-actions" hidden>
             <button type="button" class="primary" id="do-read">Read every review</button>
@@ -87,13 +233,9 @@
                 <option value="">every language</option>
               </select>
             </label>
-            <label class="quiet choice" id="read-size-choice" hidden>
-              with
-              <select id="read-size"></select>
-            </label>
-            <span class="quiet">Splits each review into the points it makes and counts them.</span>
+            <span class="quiet" id="read-cost"></span>
           </div>
-          <div class="row" id="sweep-actions" hidden>
+          <div class="row" id="sweep-actions">
             <button type="button" class="quiet-button" id="do-sweep">Bring it up to date</button>
             <span class="quiet">Fetches what was written or edited since, and nothing already held.</span>
           </div>
@@ -207,17 +349,86 @@
               <div class="meaning-choices" id="meaning-choices"></div>
               <p class="quiet" id="meaning-advice"></p>
             </div>
-            <div class="work" id="meaning-work" hidden>
-              <p class="work-line">
-                <span id="meaning-what"></span><span class="num" id="meaning-count"></span>
-              </p>
-              <div class="track"><span class="fill" id="meaning-fill"></span></div>
-              <button type="button" class="quiet-button" id="meaning-stop">Stop</button>
-              <span class="quiet">Stopping keeps what is done; preparing again carries on.</span>
-            </div>
+            <ul class="jobs" id="meaning-jobs"></ul>
             <p class="quiet" id="meaning-note" role="status" aria-live="polite"></p>
             <ol class="quotes" id="meaning-quotes"></ol>
           </section>
+        </section>
+
+        <section class="compare" id="compare" hidden>
+          <header class="page-head with-actions">
+            <div>
+              <h2>Compare</h2>
+              <p class="quiet" id="compare-sub"></p>
+            </div>
+            <div class="row">
+              <label class="sr" for="compare-add">Add a game to the comparison</label>
+              <select id="compare-add"></select>
+              <button type="button" class="quiet-button" id="compare-export">Save as a report</button>
+            </div>
+          </header>
+          <div class="table-wrap">
+            <table class="compared" id="compare-table" hidden>
+              <thead>
+                <tr id="compare-head"></tr>
+              </thead>
+              <tbody id="compare-rows"></tbody>
+            </table>
+          </div>
+          <p class="footnote">
+            Each bar is the share of that game's reviews raising the subject, against the widest
+            in the table. Its colours are the reviews that praise it, that do both, and that
+            complain, in that order.
+          </p>
+        </section>
+
+        <section class="settings" id="settings" hidden>
+          <header class="page-head">
+            <h2>Settings</h2>
+            <p class="quiet">Kept on this computer. Work already running keeps the settings it started with.</p>
+          </header>
+          <form id="settings-form">
+            <fieldset>
+              <legend>How much of the graphics card to use</legend>
+              <div class="options" id="gpu-share"></div>
+              <p class="quiet small">
+                Reading and preparing for search pause between batches so other programs keep
+                part of the card. Half the card takes about twice as long.
+              </p>
+            </fieldset>
+            <fieldset id="reader-setting" hidden>
+              <legend>Which reader to use</legend>
+              <label class="sr" for="reader-choice">Reader</label>
+              <select id="reader-choice"></select>
+              <p class="quiet small">
+                This computer reads on its processor, where the most accurate reader takes
+                several times as long.
+              </p>
+            </fieldset>
+            <fieldset>
+              <legend>Reading</legend>
+              <label class="choice" for="first-language">
+                A new game is read in
+                <select id="first-language">
+                  <option value="english">English only</option>
+                  <option value="">every language</option>
+                </select>
+              </label>
+              <label class="check"><input type="checkbox" id="read-after-download" /> Read a game as soon as its reviews are downloaded</label>
+              <label class="check"><input type="checkbox" id="search-every-game" /> Prepare every game read for search by meaning</label>
+              <p class="quiet small" id="reader-download"></p>
+            </fieldset>
+            <fieldset>
+              <legend>Steam</legend>
+              <label class="check"><input type="checkbox" id="check-steam" /> Ask Steam how many reviews each game has when the app opens</label>
+              <p class="quiet small">At most every six hours, one request per game.</p>
+            </fieldset>
+            <fieldset>
+              <legend>Library</legend>
+              <p class="place" id="library-place"></p>
+            </fieldset>
+          </form>
+          <p class="note" id="settings-note" role="status" aria-live="polite"></p>
         </section>
       </main>
     </div>

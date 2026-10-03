@@ -330,7 +330,8 @@ pub struct Prepared {
 ///
 /// `embed` turns a batch of texts into unit vectors. `stop` is looked at between batches;
 /// once it is set the part in hand is written and the preparation returns unfinished, and the
-/// next one carries on. `on_progress` is told how many claims have been walked.
+/// next one carries on. `share` is the share of the card's time it may take, as a read's is.
+/// `on_progress` is told how many claims have been walked.
 ///
 /// # Errors
 ///
@@ -339,7 +340,7 @@ pub struct Prepared {
 pub fn prepare(
     snapshot: &Path,
     mut embed: impl FnMut(&[String]) -> Result<Vec<Vec<f32>>>,
-    stop: &AtomicBool,
+    (stop, share): (&AtomicBool, f64),
     mut on_progress: impl FnMut(u64),
 ) -> Result<Prepared> {
     let dir = snapshot.join(DIR);
@@ -375,7 +376,10 @@ pub fn prepare(
                 return Err(Error::Stopped);
             }
             let texts: Vec<String> = batch.iter().map(|claim| claim.text.clone()).collect();
-            for (claim, vector) in batch.iter().zip(embed(&texts)?) {
+            let started = Instant::now();
+            let vectors = embed(&texts)?;
+            std::thread::sleep(crate::read::rest_for(started.elapsed(), share));
+            for (claim, vector) in batch.iter().zip(vectors) {
                 part.push(claim, &vector)?;
                 prepared.embedded += 1;
             }
@@ -821,7 +825,7 @@ mod tests {
         game(dir.path());
         assert_eq!(status(dir.path()), Status::None);
 
-        let prepared = prepare(dir.path(), embed, &AtomicBool::new(false), |_| {}).unwrap();
+        let prepared = prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
         assert!(prepared.finished);
         assert_eq!(prepared.walked, 5);
         assert_eq!(status(dir.path()), Status::Ready);
@@ -854,7 +858,7 @@ mod tests {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());
 
-        let stopped = prepare(dir.path(), embed, &AtomicBool::new(true), |_| {}).unwrap();
+        let stopped = prepare(dir.path(), embed, (&AtomicBool::new(true), 1.0), |_| {}).unwrap();
         assert!(!stopped.finished);
         assert_eq!(
             status(dir.path()),
@@ -862,8 +866,8 @@ mod tests {
             "stopped before anything was written"
         );
 
-        let first = prepare(dir.path(), embed, &AtomicBool::new(false), |_| {}).unwrap();
-        let again = prepare(dir.path(), embed, &AtomicBool::new(false), |_| {}).unwrap();
+        let first = prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        let again = prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
         assert_eq!(first.embedded, 5);
         assert_eq!(again.embedded, 0, "every claim already had its vector");
         assert!(again.finished);
