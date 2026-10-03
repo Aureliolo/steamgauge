@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import textwrap
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -19,6 +20,8 @@ SIZES = REPO / "reference" / "reader-sizes.json"
 README = REPO / "README.md"
 OPENS = "<!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->"
 CLOSES = "<!-- end of reader sizes -->"
+# The README's prose width, which its Markdown lint holds every line but a table row to.
+WIDTH = 100
 
 
 def _parameters(count: int) -> str:
@@ -63,12 +66,21 @@ def table(sizes: dict) -> str:
             f"| {_seconds(size['processor_seconds'])} |"
         )
     notes = [
-        "",
         f"- **Accuracy at a coverage:** {measured['frontier']}",
         f"- **GPU memory and one large game on the GPU:** {measured['card']}",
         f"- **One small game on the CPU:** {measured['processor']}",
     ]
-    return "\n".join(rows + notes)
+    wrapped = [
+        textwrap.fill(
+            note,
+            width=WIDTH,
+            subsequent_indent="  ",
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        for note in notes
+    ]
+    return "\n".join([*rows, "", *wrapped])
 
 
 def load(path: Path = SIZES) -> dict:

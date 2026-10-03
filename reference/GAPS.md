@@ -579,9 +579,10 @@ the soundtrack and the threats together (548430, 916440, 68267013, 163864741). `
 sends immersion to what creates it, and when several things are named no single one is left
 to take it. The same shape as the comma list: the claim carries several subjects, and one is
 picked. **Written into the sheet 2026-09-26**, on `atmosphere`: a feeling credited to several
-things at once stays `atmosphere`, because the feeling is the point and no one of them is. And **"an immersive dive into the wizarding world"** (990080, four claims) sits between
-this rule and `licensing`'s "feeling as if you are inside the film, show or book the game
-adapts"; the labeller took `licensing`, which the licensing rule settles.
+things at once stays `atmosphere`, because the feeling is the point and no one of them is. And
+**"an immersive dive into the wizarding world"** (990080, four claims) sits between this rule and
+`licensing`'s "feeling as if you are inside the film, show or book the game adapts"; the labeller
+took `licensing`, which the licensing rule settles.
 
 ### A VR controller is a headset and a controller: two reports
 
@@ -914,7 +915,6 @@ name. Filed `content`. **Written into the sheet 2026-09-26**, on `content`, as f
   will not sign you in point opposite ways for one event. **Written into the sheet
   2026-09-26**: a sign-in that fails is `bugs`.
 
-
 ## Splitter, not taxonomy
 
 Both labellers flagged these through `split_wrong`, and they are fixed: bullet markers,
@@ -944,8 +944,9 @@ superb" has a long middle and does not.
 
 **Done**, mid-run after all, because a label names a span of its review rather than an index,
 and `steamgauge measure-claims` joins by span: a labelled claim this build cuts differently is
-counted as unjoined rather than silently scored against the wrong sentence. Three or more comma-separated parts, each of weight 6 to 18, split; the cut
-happens after the fragments are joined, or the short parts would be joined straight back.
+counted as unjoined rather than silently scored against the wrong sentence. Three or more
+comma-separated parts, each of weight 6 to 18, split; the cut happens after the fragments are
+joined, or the short parts would be joined straight back.
 Readings record the splitter that cut them, and a reading cut by an older one is refused
 wherever a claim is quoted or scored by its index, until the game is read again.
 

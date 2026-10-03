@@ -10,6 +10,7 @@ import {
   whole,
   share,
   day,
+  nothing,
   size,
   duration,
   facts,
@@ -457,7 +458,7 @@ function drawTopics(found) {
       name.append(fixed);
     }
 
-    const rate = make('td', 'num rate', make('span', null, subject.rate === null ? '—' : share.format(subject.rate)));
+    const rate = make('td', 'num rate', make('span', null, subject.rate === null ? nothing : share.format(subject.rate)));
     const bar = make('i', 'bar');
     bar.style.transform = `scaleX(${widest > 0 ? (subject.rate ?? 0) / widest : 0})`;
     rate.append(bar);
@@ -465,7 +466,7 @@ function drawTopics(found) {
     const gauge = make('td', 'num');
     const factor = make('span');
     if (subject.bias === null) {
-      factor.textContent = '—';
+      factor.textContent = nothing;
       factor.className = 'faint';
     } else {
       factor.textContent = `${subject.bias.toFixed(1)}×`;

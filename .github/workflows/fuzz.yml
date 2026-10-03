@@ -4,16 +4,15 @@ name: fuzz
 # in any of them stops the reading of a whole library. ClusterFuzzLite builds the targets under
 # fuzz/ with AddressSanitizer in OSS-Fuzz's image (.clusterfuzzlite/) and runs them: briefly on
 # every pull request, for an hour every Monday on main, with the corpus that run grows pruned
-# after it. The corpus is kept as an artifact of these runs, which is where the pull request run
+# after it. The corpus is kept as an artefact of these runs, which is where the pull request run
 # starts from. A crash fails the job, attaches the input that caused it to the run, and goes to
 # code scanning beside the Scorecard results.
 #
 # No paths filter, for the reason workflows.yml gives: a check that never reports holds a pull
 # request forever once it is required.
 on:
+  # Every pull request, whatever it targets, so that one stacked on another is checked too.
   pull_request:
-    branches:
-      - main
   schedule:
     - cron: "43 2 * * 1"
   workflow_dispatch:
@@ -31,7 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      actions: read # Finds the corpus the weekly run left as an artifact.
+      actions: read # Finds the corpus the weekly run left as an artefact.
       contents: read # Clones the repository at the pull request.
       security-events: write # Uploads what a crash was to code scanning.
     steps:
@@ -69,7 +68,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
-      actions: read # Finds the corpus the last run left as an artifact.
+      actions: read # Finds the corpus the last run left as an artefact.
       contents: read # Clones the repository at main.
       security-events: write # Uploads what a crash was to code scanning.
     steps:
@@ -108,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      actions: read # Downloads the corpus the batch run left as an artifact.
+      actions: read # Downloads the corpus the batch run left as an artefact.
       contents: read # Clones the repository at main.
     steps:
       - name: Build the fuzz targets

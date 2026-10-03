@@ -1,6 +1,12 @@
 # Advisories against a locked dependency that no compatible release fixes, each with the evidence
 # that this project cannot reach the flaw. Every entry expires so it is looked at again; an
-# advisory whose flaw this project can reach is never listed here, however it scores.
+# advisory whose flaw this project can reach is never listed here, however it scores. deny.toml
+# and fuzz/deny.toml ignore the RUSTSEC ones among these for cargo-deny, which has no expiry, and
+# CI's deny job holds them to the dates here.
+#
+# osv-scanner reads the osv-scanner.toml beside each lock file it finds and nothing above it, and
+# Scorecard scans that way, recursively and with no --config. fuzz/Cargo.lock therefore has its own
+# file, which carries the entries from here that reach the fuzz harness's graph, word for word.
 #
 # A recursive scan reads training/requirements.txt, whose floors it takes for versions, and not
 # the lock, whose name it does not recognise. The transformers entries match only when the lock
@@ -23,31 +29,6 @@ ignoreUntil = 2027-03-27
 reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."
 
 [[IgnoredVulns]]
-id = "RUSTSEC-2025-0075"
-ignoreUntil = 2026-10-13
-reason = "unic-char-range 0.9.0 is unmaintained; no vulnerability is reported. It reaches the build only through urlpattern 0.3.0 under tauri-utils 2.9.3. tauri-utils 2.10.0 (with tauri 2.12.0) moves to urlpattern 0.6, which uses icu_properties and drops all five unic crates, but it was published on 2026-09-26 and renovate.json holds every release for three days; the weekly update takes it. Short expiry so the entry goes when it does."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0080"
-ignoreUntil = 2026-10-13
-reason = "unic-common 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0081"
-ignoreUntil = 2026-10-13
-reason = "unic-char-property 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0098"
-ignoreUntil = 2026-10-13
-reason = "unic-ucd-version 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2025-0100"
-ignoreUntil = 2026-10-13
-reason = "unic-ucd-ident 0.9.0 is unmaintained; no vulnerability is reported. Same path and same fix as RUSTSEC-2025-0075: urlpattern 0.3.0 under tauri-utils 2.9.3, gone with tauri-utils 2.10.0 once it clears the three-day release age."
-
-[[IgnoredVulns]]
 id = "PYSEC-2025-217"
 ignoreUntil = 2027-03-27
 reason = "transformers 4.57.6, held below 5 (DECISIONS, 'transformers 5 is held'). The flaw is in the X-CLIP checkpoint conversion script, which the published wheel does not ship: transformers/models/x_clip in 4.57.6 holds only the configuration, modelling and processing modules. Nothing in training/ uses X-CLIP."
@@ -56,3 +37,8 @@ reason = "transformers 4.57.6, held below 5 (DECISIONS, 'transformers 5 is held'
 id = "GHSA-69w3-r845-3855"
 ignoreUntil = 2027-03-27
 reason = "transformers 4.57.6, held below 5. Trainer._load_rng_state calls torch.load without weights_only, which the advisory says matters only under torch below 2.6; the floor is torch 2.13 and the lock resolves 2.14, where torch.load defaults to weights_only=True. training/ never imports Trainer either. Covers its alias PYSEC-2026-2288."
+
+[[IgnoredVulns]]
+id = "GHSA-x9r9-c232-4q39"
+ignoreUntil = 2027-03-27
+reason = "transformers 4.57.6, held below 5; the fix is after 5.8.1. GenerativePreTrainedModel.load_custom_generate writes a repository's custom_generate/generate.py to the module cache before the trust check. It is reached only through generation with a custom_generate repository, and training/ never generates: the readers are encoders scored by a classification head, and no file in training/ or tools/ calls generate or names custom_generate. Covers its aliases PYSEC-2026-4174 and CVE-2026-80047."

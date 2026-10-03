@@ -57,6 +57,20 @@ def test_figures_read_the_way_a_person_reads_them():
     )
 
 
+def test_what_each_column_was_measured_on_keeps_to_the_prose_width():
+    said = "word " * 60
+    data = {
+        "measured": {"frontier": said, "card": said, "processor": said},
+        "sizes": [],
+    }
+
+    notes = sizes.table(data).splitlines()[3:]
+
+    assert len(notes) > 3
+    assert all(len(line) <= sizes.WIDTH for line in notes)
+    assert all(line.startswith(("- **", "  ")) for line in notes)
+
+
 def test_the_readme_block_is_replaced_and_nothing_around_it():
     text = f"before\n{sizes.OPENS}\nold\n{sizes.CLOSES}\nafter\n"
 

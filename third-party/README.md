@@ -15,6 +15,10 @@ again at release, for a crate under a licence the list does not accept, for a cl
 file has changed, and for a crate whose only text would be SPDX's template of a licence that
 names a copyright holder. What to do about any of these is in the message each one prints.
 
+`deny.toml` at the root, and `fuzz/deny.toml` for the fuzz harness, allow the same licences for
+every crate in the graph, the ones no archive carries included, so a licence accepted here is
+accepted there in the same change.
+
 ## The texts no crate carries
 
 Kept byte for byte as their publishers ship them; `.gitattributes` stops Git changing their line
@@ -23,8 +27,8 @@ and the carriage returns.
 
 | Component | Version | In the archive | Files here | Taken from |
 |---|---|---|---|---|
-| ONNX Runtime | 1.28.0 | linked into the binary, on every platform, from the prebuilt library the `ort-sys` 2.0.0-rc.13 build downloads (`ms@1.28.0` in its table) | `onnxruntime/LICENSE`, `onnxruntime/ThirdPartyNotices.txt` | https://github.com/microsoft/onnxruntime at tag `v1.28.0` (commit `da9b5e364c465de65c49d91e696cd6485270757f`) |
-| DirectML | 1.15.4 | `DirectML.dll` beside the Windows binary, byte for byte `bin/x64-win/DirectML.dll` of the package | `directml/LICENSE.txt`, `directml/LICENSE-CODE.txt`, `directml/ThirdPartyNotices.txt` | https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4, the package root |
+| ONNX Runtime | 1.28.0 | linked into the binary, on every platform, from the prebuilt library the `ort-sys` 2.0.0-rc.13 build downloads (`ms@1.28.0` in its table) | `onnxruntime/LICENSE`, `onnxruntime/ThirdPartyNotices.txt` | <https://github.com/microsoft/onnxruntime> at tag `v1.28.0` (commit `da9b5e364c465de65c49d91e696cd6485270757f`) |
+| DirectML | 1.15.4 | `DirectML.dll` beside the Windows binary, byte for byte `bin/x64-win/DirectML.dll` of the package | `directml/LICENSE.txt`, `directml/LICENSE-CODE.txt`, `directml/ThirdPartyNotices.txt` | <https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4>, the package root |
 
 | File | SHA-256 |
 |---|---|

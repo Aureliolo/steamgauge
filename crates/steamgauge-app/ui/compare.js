@@ -2,7 +2,7 @@
    those how many praise it and how many complain. Every share is of the game's own reviews, so a
    game with a million reviews and one with a thousand compare as rates, not as counts. */
 
-import { invoke, el, set, make, button, roundShare, whole, language, page } from './common.js';
+import { invoke, el, set, make, button, roundShare, whole, nothing, language, page } from './common.js';
 
 let chosen = [];
 
@@ -99,7 +99,7 @@ export function setUpCompare({ openGame }) {
           make('th', 'subject', label),
           ...found.map((game) => {
             const subject = game.subjects.find((one) => one.id === id);
-            if (!subject || game.reviews === 0) return make('td', 'faint', '—');
+            if (!subject || game.reviews === 0) return make('td', 'faint', nothing);
             const raised = subject.mention_reviews;
             const praising = (subject.praised + subject.mixed) / Math.max(raised, 1);
             const complaining = (subject.criticised + subject.mixed) / Math.max(raised, 1);

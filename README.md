@@ -242,20 +242,21 @@ rather than promoting whatever those few happened to write. Counts are by review
 review however often it repeats itself, for the same reason the headline is a mention rate.
 
 The comparison is also made within each language and then pooled, because reviews written in
-thirty languages come from speakers who do not praise and complain in the same proportions: against the whole other side, "historia" stood out in the praise of a story
-that Spanish speakers happened to like, and said nothing but "story". Each language's praise
+thirty languages come from speakers who do not praise and complain in the same proportions:
+against the whole other side, "historia" stood out in the praise of a story that Spanish
+speakers happened to like, and said nothing but "story". Each language's praise
 is compared with its own complaints, and a word a language uses either way contributes
 nothing. What a subject is called in each language stays off its rows as the English label
 does, read from the corpus rather than translated: "сюжет" under story says what the row said.
 
-A term is a word or a pair of adjacent words. Chinese is cut into words by a dictionary (jieba, with the words of the trade added, since a
-general dictionary reads 掉帧 as "drop" and "frame"); Korean is spaced words with the particle
-taken off; Japanese, which has no dictionary here, is cut into pairs of adjacent characters,
-the best that can be done without one. Everything the page shows is added up when a game is
-read, so a change to the adding up
-does not cost the hours of a reading again: `steamgauge recount` replays the stored readings
-through the same counting in seconds, and refuses if this build takes a review apart
-differently from the build that read it.
+A term is a word or a pair of adjacent words. Chinese is cut into words by a dictionary (jieba,
+with the words of the trade added, since a general dictionary reads 掉帧 as "drop" and "frame");
+Korean is spaced words with the particle taken off; Japanese, which has no dictionary here, is
+cut into pairs of adjacent characters, the best that can be done without one. Everything the
+page shows is added up when a game is read, so a change to the adding up does not cost the
+hours of a reading again: `steamgauge recount` replays the stored readings through the same
+counting in seconds, and refuses if this build takes a review apart differently from the build
+that read it.
 
 ### Asking it about anything
 
@@ -406,9 +407,15 @@ download and eleven times the time on a card.
 | standard | 559M | 1.1 GB | 84.7% | 82.0% | 2.6 GB | 125 s | 285 s |
 | *4B* (not published) | 4.0B | 8.8 GB | 83.6% | 79.8% | 12.5 GB | 23 min | 49 min |
 
-- **Accuracy at a coverage:** 458 claims from ten games held out of training, labelled under the current category sheet. Each reader answers the given share of claims it is most confident about, scored on DirectML (`frontier.py reader`).
-- **GPU memory and one large game on the GPU:** one read of game 920210 (117,664 claims) through the desktop app on DirectML, on an otherwise idle NVIDIA GeForce RTX 4090. Memory is the peak during the read minus what the GPU held before. The 4B's GPU and CPU figures are from a 4B of the same architecture.
-- **One small game on the CPU:** 1,416 claims of game 1888930 on the CPU only, loading included, on an AMD Ryzen 9 5950X with other work running.
+- **Accuracy at a coverage:** 458 claims from ten games held out of training, labelled under the
+  current category sheet. Each reader answers the given share of claims it is most confident about,
+  scored on DirectML (`frontier.py reader`).
+- **GPU memory and one large game on the GPU:** one read of game 920210 (117,664 claims) through the
+  desktop app on DirectML, on an otherwise idle NVIDIA GeForce RTX 4090. Memory is the peak during
+  the read minus what the GPU held before. The 4B's GPU and CPU figures are from a 4B of the same
+  architecture.
+- **One small game on the CPU:** 1,416 claims of game 1888930 on the CPU only, loading included, on
+  an AMD Ryzen 9 5950X with other work running.
 <!-- end of reader sizes -->
 
 ### How a person turns silver into gold
@@ -445,8 +452,8 @@ answered 93.5% of those claims and names the person's subject on **67.9%** of th
 75%); the reader before it answered 81.1% at 70.1%, a difference 169 claims cannot tell from
 none, and both agree with the labels on about 82% of the frozen set. Two models agree with
 each other a good deal more than either agrees with a person, and "both labellers said so" is
-right about two times in three. Most of the difference is the boundaries the gap list already names: content
-against gameplay, genre against verdict, story against gameplay and content.
+right about two times in three. Most of the difference is the boundaries the gap list already
+names: content against gameplay, genre against verdict, story against gameplay and content.
 
 Those are the cold figures. The person then read every answer that differed from the labels
 again, 77 of the 200, with both labellers' answers and the sheet's own rule for each category
@@ -466,10 +473,10 @@ Against the 151 blind claims as filed, the reader that ships names the person's 
 **84.8%** of those it answers (78% to 90%) and one the person accepts on **98.6%**; on the 46
 claims the two labellers disagreed about, 50.0% and 92.9%. Four of the reader's rejected answers
 on the first pass were rules its labels had taught it that the person does not hold; the sheet
-moved to the person on the two rules behind them and three boundaries more in September 2026, the labels were asked
-again, and the reader was trained again on them. On the random draw that changed nothing a
-hundred and fifty claims can see; on the disputed claims, where the rules were drawn, it gained
-seven and a half points exact. `DECISIONS.md` has both readers side by side.
+moved to the person on the two rules behind them and three boundaries more in September 2026,
+the labels were asked again, and the reader was trained again on them. On the random draw that
+changed nothing a hundred and fifty claims can see; on the disputed claims, where the rules were
+drawn, it gained seven and a half points exact. `DECISIONS.md` has both readers side by side.
 
 ### How the reference sets are made
 
@@ -537,13 +544,14 @@ rather than about somebody's afternoon:
   drives the splitting rules. Three rounds of them came from labellers reporting it.
 - **Every game the model is measured on is read again by a different labeller, blind, in full,
   and a share of every other set is too.** That is 21,449 of the 33,615 claims the random draws
-  hold, nearly two thirds, and every one of the 5,579 the frozen games hold. `steamgauge second-opinion` draws the same reviews as fresh
-  batches with no labels in them, and `steamgauge compare-labels` reads the two labellings
-  together. It reports each field apart from the others, because they fail
-  differently: subject is a judgement about the claim, and `ambiguous` is a judgement about the
-  taxonomy. Beside every percentage is Cohen's kappa, which is what the percentage cannot tell
-  you: a corpus is mostly `verdict` and `offtopic`, so two labellers who never read a claim
-  would still agree most of the time by landing on the commonest subject.
+  hold, nearly two thirds, and every one of the 5,579 the frozen games hold.
+  `steamgauge second-opinion` draws the same reviews as fresh batches with no labels in them,
+  and `steamgauge compare-labels` reads the two labellings together. It reports each field apart
+  from the others, because they fail differently: subject is a judgement about the claim, and
+  `ambiguous` is a judgement about the taxonomy. Beside every percentage is Cohen's kappa, which
+  is what the percentage cannot tell you: a corpus is mostly `verdict` and `offtopic`, so two
+  labellers who never read a claim would still agree most of the time by landing on the
+  commonest subject.
 - **What comes back is checked rather than trusted.** `steamgauge ingest-claims` refuses a set that
   does not cover the drawn sample exactly: claims nobody labelled, labels naming claims nobody
   drew, subjects the taxonomy does not have, claims labelled twice, and labels whose judgements
@@ -620,8 +628,8 @@ These rules keep those figures honest:
 
   German, French and Turkish match English or beat it. **Simplified Chinese is 6.5 points below
   it on intervals that do not overlap, and Korean is eleven points below.** Nothing on a
-  report page says so. Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to six points down with
-  the same picture.
+  report page says so. Russian, Spanish, Brazilian Portuguese, Polish and Japanese sit four to
+  six points down with the same picture.
 
   Twelve of the twenty-nine languages have fewer than a hundred held-out claims and are not
   quotable at all.
@@ -732,9 +740,9 @@ These rules keep those figures honest:
   same definition reached for it on 27.4% and on 43.9% of the same 21,449 claims, kappa 0.46.
   The flag does find the right claims: where neither reached for it the two agree on the
   subject 98.8% of the time, where one of them did 82.4%, and where both did 72.5%. What
-  differs is the bar. So a game's contested rate is not compared with another game's, and agreement is
-  reported over the contested claims as a floor on how hard the taxonomy is rather than as a
-  property of the corpus.
+  differs is the bar. So a game's contested rate is not compared with another game's, and
+  agreement is reported over the contested claims as a floor on how hard the taxonomy is rather
+  than as a property of the corpus.
 
 - **A labeller is told one thing about the game, and the model is told the same thing.**
   Withholding the game keeps the label answerable from what the model reads. The one exception

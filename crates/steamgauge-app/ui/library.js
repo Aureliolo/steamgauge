@@ -11,6 +11,7 @@ import {
   whole,
   roundShare,
   day,
+  nothing,
   language,
   page,
   go,
@@ -268,14 +269,14 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
             `${roundShare.format(moved.shift.before)} → ${roundShare.format(moved.shift.recent)}`,
           ),
         )
-      : make('span', 'faint', '—');
+      : make('span', 'faint', nothing);
 
     tr.append(
       make('td', 'tick', tick),
       name,
       make('td', 'num', whole.format(row.reviews)),
-      make('td', 'num', row.recommended === null ? '—' : roundShare.format(row.recommended)),
-      make('td', 'num', row.new_on_steam ? `+${whole.format(row.new_on_steam)}` : '—'),
+      make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended)),
+      make('td', 'num', row.new_on_steam ? `+${whole.format(row.new_on_steam)}` : nothing),
       make('td', 'num', day.format(new Date((row.updated ?? row.downloaded) * 1000))),
       make('td', null, reading),
       make('td', null, lately),

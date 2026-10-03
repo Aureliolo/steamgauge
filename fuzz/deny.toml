@@ -1,0 +1,51 @@
+# cargo-deny over the fuzz harness, which is a workspace of its own and is built only on Linux, in
+# OSS-Fuzz's image. It ships nowhere, but it builds the core crate and runs in CI, so its lock is
+# held to the same advisories, sources and licences as the product's; see ../deny.toml.
+
+[graph]
+targets = ["x86_64-unknown-linux-gnu"]
+all-features = true
+
+[advisories]
+yanked = "deny"
+unmaintained = "all"
+unsound = "all"
+unused-ignored-advisory = "deny"
+# Evidence and expiry in ../osv-scanner.toml, which CI's deny job holds this list to.
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is unmaintained and runs only inside the compiler. Evidence and expiry in osv-scanner.toml." },
+]
+
+[licenses]
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-3-Clause",
+  "BSD-2-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "MPL-2.0",
+  "CDLA-Permissive-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"
+
+# libFuzzer is LLVM's, under the NCSA licence, and reaches only this harness.
+[[licenses.exceptions]]
+crate = "libfuzzer-sys"
+allow = ["NCSA"]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -1,0 +1,73 @@
+[default]
+# British spelling everywhere: colour, behaviour, licence as the noun.
+locale = "en-gb"
+# Spellings that are not this project's, each matched whole so the prose around them is still
+# checked: CSS's own properties, values and media feature, the DOM's style property, and the
+# colour flags of actionlint, cargo and cargo-about; ClusterFuzzLite's input and LLVM's sanitiser
+# by their names; the in-toto file extension; syft's catalogers; GitHub's artifact actions;
+# ONNX's LayerNormalization; a game's name; a partial word typed into a filter under test;
+# hexadecimal digests and Unicode escapes, which are not words; a licence quoted word for word;
+# and the review text the splitter and the term lists are tested and built on, which is in the
+# languages and the spellings reviewers write in.
+extend-ignore-re = [
+  '\b(?:[a-z]+-)*color(?:-[a-z]+)*\s*:',
+  '\bcolor-mix\(',
+  ':\s*center\b',
+  'currentColor',
+  'prefers-color-scheme',
+  '\)\.(?:backgroundC|c)olor\b',
+  '\bstyle\.color\b',
+  '(?:^|[\s"])--?color\b',
+  'CARGO_TERM_COLOR',
+  "filter\\.value = 'gam'",
+  'remove, minimize, block, or modify',
+  '"(?:colou?r ?blind|locali[sz](?:ation|ed))"',
+  '["`]ect["`]',
+  '\bsanitizer: ',
+  'AddressSanitizer',
+  '\.intoto\.jsonl',
+  '(?i)\bcatalogers?\b',
+  '\b(?:upload|download)-artifact\b',
+  'LayerNormalization',
+  '(?i)\bbeat[ _]saber\b',
+  '\b[0-9a-f]*[0-9][0-9a-f]*\b',
+  '\\u\{[0-9A-Fa-f]+\}',
+  '(?s)const FILLER: &str = ".*?";',
+  '"(?:performans|erros|trama|som|commandes|controles|tutoriel|tutoriales)"',
+  'Stunden bis zum Ende der Kampagne',
+]
+
+[default.extend-identifiers]
+# Other projects' names, which are not ours to spell: serde's `Serialize`, sha2's `finalize`,
+# Node's and torch's `normalize`, torch's `synchronize`, scikit-learn's `analyzer`, the HTTP
+# `authorization` header and transformers' `DataCollatorForLanguageModeling`.
+Serialize = "Serialize"
+skip_serializing_if = "skip_serializing_if"
+finalize = "finalize"
+normalize = "normalize"
+synchronize = "synchronize"
+analyzer = "analyzer"
+authorization = "authorization"
+DataCollatorForLanguageModeling = "DataCollatorForLanguageModeling"
+
+[default.extend-words]
+# A prefix this project hyphenates, as in mis-split and mis-cut.
+mis = "mis"
+
+[files]
+# Hidden paths too: the workflows' comments are prose like any other.
+ignore-hidden = false
+# Git's own folder; the licence texts, which are legal wording that must not change by a letter;
+# and data: each run's record and model card under training/runs, the reference labels, claims
+# and figures, and the synthetic reviews the fuzzer starts from, which are in many languages.
+extend-exclude = [
+  ".git/",
+  "LICENSE",
+  "third-party/directml/",
+  "third-party/onnxruntime/",
+  "training/runs/*/",
+  "reference/claims/",
+  "reference/induced/",
+  "reference/*.json",
+  "fuzz/seeds/",
+]

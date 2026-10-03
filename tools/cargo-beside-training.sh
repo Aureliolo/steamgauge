@@ -20,11 +20,11 @@ START_GB=${START_GB:-25}
 FLOOR_GB=${FLOOR_GB:-12}
 
 free_commit_gb() {
-  powershell -NoProfile -Command "[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory/1MB)" 2>/dev/null | tr -d '\r'
+  powershell -NoProfile -Command "[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory/1MB)" 2>/dev/null | tr -d '\r' || true
 }
 
 command=${1:-}
-case "$command" in
+case "${command}" in
   check | clippy | test | run) ;;
   *)
     echo "only check, clippy, test and run may build beside training, not '${command}'" >&2
@@ -44,25 +44,30 @@ case " $* " in
     echo "no release or workspace builds beside training" >&2
     exit 64
     ;;
+  *) ;;
 esac
 
 have=$(free_commit_gb)
-if ! [[ "$have" =~ ^[0-9]+$ ]] || [ "$have" -lt "$START_GB" ]; then
+if ! [[ "${have}" =~ ^[0-9]+$ ]] || [[ "${have}" -lt "${START_GB}" ]]; then
   echo "${have:-an unreadable figure of} GB of commit free, ${START_GB} needed; not building" >&2
   exit 75
 fi
 
-cargo "$command" -j 2 "$@" &
+cargo "${command}" -j 2 "$@" &
 pid=$!
-while kill -0 "$pid" 2> /dev/null; do
+while kill -0 "${pid}" 2> /dev/null; do
   have=$(free_commit_gb)
-  if ! [[ "$have" =~ ^[0-9]+$ ]] || [ "$have" -lt "$FLOOR_GB" ]; then
+  if ! [[ "${have}" =~ ^[0-9]+$ ]] || [[ "${have}" -lt "${FLOOR_GB}" ]]; then
     echo "free commit fell to ${have:-an unreadable figure} GB; stopping the build" >&2
-    taskkill //F //T //PID "$(cat "/proc/$pid/winpid")" > /dev/null 2>&1
-    kill "$pid" 2> /dev/null
-    wait "$pid" 2> /dev/null
+    # Killing the shell's cargo leaves the rustc processes it started running on Windows; the
+    # Windows process tree has to go by the Windows id.
+    if winpid=$(cat "/proc/${pid}/winpid" 2> /dev/null); then
+      taskkill //F //T //PID "${winpid}" > /dev/null 2>&1
+    fi
+    kill "${pid}" 2> /dev/null
+    wait "${pid}" 2> /dev/null
     exit 75
   fi
   sleep 5
 done
-wait "$pid"
+wait "${pid}"

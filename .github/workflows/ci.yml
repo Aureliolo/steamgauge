@@ -3,10 +3,10 @@ name: ci
 on:
   push:
     branches: [main]
+  # Every pull request, whatever it targets, so that one stacked on another is checked too.
   pull_request:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,10 +16,16 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+# The runners are the images release-build.yml builds the release on, so what is tested here is
+# what ships. Matrix jobs are named by platform rather than by image: the name is what the branch
+# ruleset requires, and an image raise must not rename a required check out from under it.
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read # Reads the source it lints.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -47,7 +53,10 @@ jobs:
   # that cannot be taken back. Nothing is compiled.
   notices:
     name: notices
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads Cargo.lock, third-party/ and the notices script.
     env:
       # release-build.yml's targets, each with its GPU feature after the colon.
       ARCHIVES: >-
@@ -92,16 +101,25 @@ jobs:
   # behind its feature, so the default lint above never compiles it. Without this the first
   # compile of the provider code a release actually runs is the release build.
   backends:
-    name: backends (${{ matrix.os }}, ${{ matrix.feature }})
+    name: backends (${{ matrix.platform }}, ${{ matrix.feature }})
     strategy:
       fail-fast: false
       matrix:
+        # Renovate reads a runner out of `runs-on:` but not out of a matrix, so each of these
+        # carries its own line for it.
         include:
-          - os: windows-latest
+          - platform: windows
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
             feature: directml
-          - os: macos-latest
+          - platform: macos
+            # renovate: datasource=github-runners depName=macos
+            runner: macos-26
             feature: coreml
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read # Reads the source it lints.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -113,12 +131,24 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets --features "steamgauge-core/${FEATURE}" -- -D warnings
 
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - platform: linux
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+          - platform: windows
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
+          - platform: macos
+            # renovate: datasource=github-runners depName=macos
+            runner: macos-26
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read # Reads the source it tests.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -134,7 +164,10 @@ jobs:
   # code without a multi-gigabyte download of libraries a runner cannot use.
   python:
     name: python
-    runs-on: windows-latest
+    runs-on: windows-2025
+    timeout-minutes: 30
+    permissions:
+      contents: read # Reads the training scripts and their lock.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -160,7 +193,10 @@ jobs:
   # fixture, on screen and again under print media, needing no corpus and no model.
   report:
     name: report
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read # Reads the source it builds the pages from.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -196,3 +232,204 @@ jobs:
       # board, the library's grouping and selection, the comparison and the settings exist only
       # once a browser has run them.
       - run: node tools/app-check/check.mjs
+
+  # Advisories, yanked crates, licences and sources for both lock files: the product's and the
+  # fuzz harness's, which is a workspace of its own. --locked also refuses a lock file that has
+  # fallen behind its manifests, which nothing else here checks for the fuzz harness.
+  deny:
+    name: deny
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read # Reads the manifests, the lock files and the ignore lists.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The archive's digest is read from the checksum file the release publishes beside it,
+      # which is what is pinned here, as for cargo-about in the notices job: that file holds the
+      # digest with no file name, and pinned to the archive Renovate would write the checksum
+      # file's digest in its place.
+      - name: Install cargo-deny
+        env:
+          # renovate: datasource=github-release-attachments depName=EmbarkStudios/cargo-deny versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_DENY_TAG: 0.20.2
+          CARGO_DENY_SHA256: 8ac46937040e08ea06fe0f87340c495b79c913cc86a36c065d7b9a8b352c14f3
+        run: |
+          set -euo pipefail
+          name="cargo-deny-${CARGO_DENY_TAG}-x86_64-unknown-linux-musl"
+          url="https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_TAG}/${name}.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${name}.tar.gz.sha256" "${url}.sha256"
+          echo "${CARGO_DENY_SHA256}  ${RUNNER_TEMP}/${name}.tar.gz.sha256" | sha256sum --check --strict
+          digest="$(cat "${RUNNER_TEMP}/${name}.tar.gz.sha256")"
+          if [[ ! "${digest}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "${name}.tar.gz.sha256 does not hold a SHA-256." >&2
+            exit 1
+          fi
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${name}.tar.gz" "${url}"
+          echo "${digest}  ${RUNNER_TEMP}/${name}.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${name}.tar.gz" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/${name}" >> "${GITHUB_PATH}"
+      - name: Check the product's graph
+        run: cargo deny --workspace --locked check
+      - name: Check the fuzz harness's graph
+        run: cargo deny --manifest-path fuzz/Cargo.toml --workspace --locked check
+      # cargo-deny keeps no expiry for an ignored advisory, so each one it ignores is held to
+      # the entry osv-scanner.toml keeps for it, whose ignoreUntil is the one date that counts.
+      - name: Hold the ignored advisories to osv-scanner.toml
+        shell: python
+        run: |
+          import datetime
+          import sys
+          import tomllib
+          from pathlib import Path
+
+
+          def load(path):
+              return tomllib.loads(Path(path).read_text(encoding="utf-8"))
+
+
+          today = datetime.datetime.now(datetime.UTC).date()
+          kept = {entry["id"]: entry for entry in load("osv-scanner.toml")["IgnoredVulns"]}
+          wrong = []
+          ignored = set()
+          for path in ("deny.toml", "fuzz/deny.toml"):
+              for entry in load(path)["advisories"].get("ignore", []):
+                  advisory = entry["id"] if isinstance(entry, dict) else entry
+                  ignored.add(advisory)
+                  if advisory not in kept:
+                      wrong.append(f"{path} ignores {advisory}, which osv-scanner.toml does not list.")
+                  elif kept[advisory]["ignoreUntil"] <= today:
+                      until = kept[advisory]["ignoreUntil"]
+                      wrong.append(f"{path} ignores {advisory}, whose ignoreUntil {until} has passed.")
+          for advisory in sorted(kept):
+              if advisory.startswith("RUSTSEC-") and advisory not in ignored:
+                  wrong.append(f"osv-scanner.toml ignores {advisory}, which no deny.toml does.")
+          for entry in load("fuzz/osv-scanner.toml")["IgnoredVulns"]:
+              if kept.get(entry["id"]) != entry:
+                  wrong.append(f"fuzz/osv-scanner.toml's {entry['id']} is not osv-scanner.toml's.")
+          for message in wrong:
+              print(f"::error::{message}")
+          sys.exit(1 if wrong else 0)
+
+  # A dependency no code uses still compiles, still ships its licence and still carries its
+  # advisories.
+  machete:
+    name: machete
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the manifests and the source it checks them against.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # As cargo-deny above, and for the same reason the checksum file's digest is the one pinned.
+      - name: Install cargo-machete
+        env:
+          # renovate: datasource=github-release-attachments depName=bnjbvr/cargo-machete versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          CARGO_MACHETE_TAG: v0.9.2
+          CARGO_MACHETE_SHA256: d8e3968ed6cbff33c65889434721a9f99972d345aad673890f42d48f62c380ce
+        run: |
+          set -euo pipefail
+          name="cargo-machete-${CARGO_MACHETE_TAG}-x86_64-unknown-linux-musl"
+          url="https://github.com/bnjbvr/cargo-machete/releases/download/${CARGO_MACHETE_TAG}/${name}.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${name}.tar.gz.sha256" "${url}.sha256"
+          echo "${CARGO_MACHETE_SHA256}  ${RUNNER_TEMP}/${name}.tar.gz.sha256" | sha256sum --check --strict
+          digest="$(cat "${RUNNER_TEMP}/${name}.tar.gz.sha256")"
+          if [[ ! "${digest}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "${name}.tar.gz.sha256 does not hold a SHA-256." >&2
+            exit 1
+          fi
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${RUNNER_TEMP}/${name}.tar.gz" "${url}"
+          echo "${digest}  ${RUNNER_TEMP}/${name}.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${name}.tar.gz" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/${name}" >> "${GITHUB_PATH}"
+      # Every manifest under the repository, the fuzz harness's included.
+      - name: Check for unused dependencies
+        run: cargo machete
+
+  # Spelling in British English everywhere, the code and the workflows included; _typos.toml
+  # says what is not this project's to spell.
+  typos:
+    name: typos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check spelling
+        uses: crate-ci/typos@00f422f3b19c57bc6338715ebfe3316d38768461 # v1.50.3
+
+  # No em dash anywhere. The ONNX Runtime notices are Microsoft's text, shipped in every archive
+  # byte for byte, and are the one file that may carry one.
+  dashes:
+    name: dashes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The dash is built from its UTF-8 bytes, so this file holds none for the search to find and
+      # the pattern does not depend on the runner's locale.
+      - name: Check for em dashes
+        run: |
+          set -euo pipefail
+          em="$(printf '\342\200\224')"
+          if git grep -n -I -F -e "${em}" -- . ':(exclude)third-party/onnxruntime/ThirdPartyNotices.txt'; then
+            echo "::error::Em dashes are not used here; use a colon, semicolon, comma, full stop or brackets."
+            exit 1
+          fi
+
+  # Markdown as .markdownlint-cli2.jsonc holds it: prose at 100 columns, like the code.
+  markdown:
+    name: markdown
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the Markdown it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Lint
+        uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+
+  # Every shell script in the repository, with every optional check on. actionlint reads the
+  # shell inside the workflows' run: blocks, and nothing reads the scripts beside them.
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the scripts it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # A pinned release rather than the image's own, whose version moves with the image and
+      # whose optional checks move with it.
+      - name: Install shellcheck
+        env:
+          # renovate: datasource=github-release-attachments depName=koalaman/shellcheck versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          SHELLCHECK_TAG: v0.11.0
+          SHELLCHECK_SHA256: b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
+        run: |
+          set -euo pipefail
+          name="shellcheck-${SHELLCHECK_TAG}"
+          archive="${RUNNER_TEMP}/${name}.linux.x86_64.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_TAG}/${name}.linux.x86_64.tar.gz"
+          echo "${SHELLCHECK_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" "${name}/shellcheck"
+          echo "${RUNNER_TEMP}/${name}" >> "${GITHUB_PATH}"
+      - name: Check the scripts
+        run: |
+          set -euo pipefail
+          git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --enable=all

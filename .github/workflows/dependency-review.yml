@@ -1,0 +1,29 @@
+name: dependency review
+
+# Refuses a pull request that brings in a dependency with a known advisory of any severity, from
+# any of the manifests GitHub's dependency graph reads: the Cargo locks, the Python lock and the
+# workflows' actions. It is checked against GitHub's advisory database, beside the RustSec one
+# cargo-deny reads in ci.yml.
+on:
+  # Every pull request, whatever it targets, so that one stacked on another is checked too.
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: dependency-review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the dependency graph of both sides of the pull request.
+
+    steps:
+      - name: Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low

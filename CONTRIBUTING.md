@@ -20,15 +20,32 @@ node --test tools/release/release.test.mjs
 ```
 
 `--locked` fails when `Cargo.lock` no longer matches the manifests. The release build refuses
-that too, but only once the tag is made, and a tag cannot be taken back. The last line tests the scripts that raise the
-version and write each release's changelog; `.github/release-process.md` says how a release is
-cut.
+that too, but only once the tag is made, and a tag cannot be taken back. The last line tests
+the scripts that raise the version and write each release's changelog;
+`.github/release-process.md` says how a release is cut.
+
+CI also holds the dependencies, the spelling and the Markdown to a standard, each with a tool
+whose version `ci.yml` pins:
+
+```sh
+cargo deny --workspace --locked check                              # advisories, licences, sources
+cargo deny --manifest-path fuzz/Cargo.toml --workspace --locked check
+cargo machete                                                      # dependencies nothing uses
+typos                                                              # British spelling, _typos.toml
+npx markdownlint-cli2                                              # .markdownlint-cli2.jsonc
+git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
+```
+
+No file may carry an em dash, except the ONNX Runtime notices, which are Microsoft's text. An
+advisory cargo-deny is told to ignore is ignored in `osv-scanner.toml` too, with the evidence
+and an expiry: the deny job fails on one that is not, or whose date has passed.
 
 A new dependency brings its licence into every release archive. CI's notices job writes each
 archive's `THIRD-PARTY-NOTICES.txt` on every pull request and fails on a crate whose licence
 `third-party/about.toml` does not accept, or whose licence text cargo-about cannot find; the
 message says which, and `third-party/README.md` says what to do. Accepting another licence is a
-decision about what the binary may contain, so make it in the pull request that needs it.
+decision about what the binary may contain, so make it in the pull request that needs it, in
+`deny.toml` and `fuzz/deny.toml` as well, which hold every other crate to the same list.
 
 Not `--all-features`: the cuda and metal backends need vendor toolchains, and the default set
 is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,
@@ -100,7 +117,7 @@ never share a span, and a claim holds nothing its span does not.
 
 CI runs them with ClusterFuzzLite (`.clusterfuzzlite/`, `.github/workflows/fuzz.yml`): ten
 minutes on every pull request, an hour every Monday on `main`. A crash fails the check,
-attaches the input that caused it to the run as an artifact, and shows in code scanning.
+attaches the input that caused it to the run as an artefact, and shows in code scanning.
 
 `fuzz/` is a workspace of its own, so none of the gates above builds it, and none of it ships.
 Running a target needs a nightly toolchain and cargo-fuzz, and it builds the core crate with a
@@ -109,7 +126,7 @@ sanitiser, which is not a build to start beside a training run:
 ```sh
 cargo install cargo-fuzz
 cargo +nightly fuzz run splitter fuzz/corpus/splitter fuzz/seeds -- -dict=fuzz/review.dict -max_len=16384
-cargo +nightly fuzz run splitter path/to/crash-input        # replays one input, as from a CI artifact
+cargo +nightly fuzz run splitter path/to/crash-input        # replays one input, as from a CI artefact
 cargo +nightly fuzz tmin splitter path/to/crash-input       # cuts it to the least that still fails
 cargo +nightly fuzz list                                    # the other targets
 ```
