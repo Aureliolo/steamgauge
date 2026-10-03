@@ -4853,7 +4853,11 @@ from the page that asked for it and lost sight of it when the page changed.
 
 **A read writes beside the reading it replaces** (`readings.partial.parquet`) and moves over it
 only when complete. It used to write in place, so a read that died, or now one that is stopped,
-would have left a reading whose `reading.json` described a file that no longer existed.
+would have left a reading whose `reading.json` described a file that no longer existed. Every
+capture file is written the same way: a shard or a sweep file has no footer until it is closed,
+and a capture's reader takes every `shard-*` and `sweep-*.parquet` it finds, so one left
+unfinished would have failed every read of that game. A sweep stops between pages through a
+flag rather than being dropped, and asks Steam for the totals before it records anything.
 
 **Every pinned model file carries its length** beside its hash. A download's total across its
 files is known before it starts, and a server sending past the pinned length is cut off before
