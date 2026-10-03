@@ -37,11 +37,30 @@ def test_the_search_pins_are_read_from_the_tool_itself():
     assert all(len(digest) == 64 for digest in pins.values())
 
 
-def test_no_text_and_no_author_is_published():
-    publish.checked([{"review_id": "1", "subject": "bugs"}], "labels")
-    for leak in ("text", "review", "author_steamid", "author"):
+def test_only_the_named_fields_are_published():
+    publish.checked([{"review_id": "1", "subject": "bugs"}], publish.LABEL_FIELDS, "labels")
+    for leak in ("text", "review", "author_steamid", "author", "splitter"):
         with pytest.raises(SystemExit):
-            publish.checked([{"review_id": "1", leak: "x"}], "labels")
+            publish.checked([{"review_id": "1", leak: "x"}], publish.LABEL_FIELDS, "labels")
+    for fields in (publish.LABEL_FIELDS, publish.JUDGEMENT_FIELDS, publish.REVIEW_FIELDS):
+        assert not fields & {"text", "review", "author", "author_steamid", "steamid"}
+
+
+def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path):
+    game = tmp_path / "7"
+    for reading, subject in (("second", "story"), ("opus", "bugs")):
+        (game / reading).mkdir(parents=True)
+        (game / reading / "labels.json").write_text(
+            f'[{{"app_id": 7, "review_id": "r", "index": 0, "subject": "{subject}"}}]',
+            encoding="utf-8",
+        )
+    (game / "opus" / "labels.json").write_text(
+        '[{"app_id": 7, "review_id": "r", "index": 0, "subject": "bugs"},'
+        ' {"app_id": 7, "review_id": "r", "index": 1, "subject": "price"}]',
+        encoding="utf-8",
+    )
+    _, again, _, _ = publish.read_labels(tmp_path)
+    assert [(row["index"], row["subject"]) for row in again] == [(0, "story"), (1, "price")]
 
 
 def row(subject, polarity="praise", ambiguous=False, index=0):
@@ -76,20 +95,21 @@ def test_the_card_carries_what_the_rows_say():
     card = publish.dataset_card(
         10,
         2,
-        "abcd",
         {
             "claims": 4,
             "subject": 0.75,
             "subject_kappa": 0.7,
             "polarity": 1.0,
             "polarity_kappa": 1.0,
+            "ambiguous": 0.5,
             "contested_kappa": 0.4,
         },
-        unstamped=1,
+        reviews=3,
+        labellers={"model-a": 7, "model-b": 3},
     )
-    assert "4 of the claims are labelled a second time" in card
-    assert "75% of the time (Cohen's kappa 0.70)" in card
-    assert "1 of the second readings predate" in card
-    assert "`splitter`" not in card, (
-        "no row carries a splitter field; the card must not promise one"
-    )
+    assert "10 claims from 3 Steam reviews of 2 games" in card
+    assert "4 claims have a second label" in card
+    assert "| `subject` | 75% | 0.70 |" in card
+    assert "| `ambiguous` | 50% | 0.40 |" in card
+    assert "model-a (7), model-b (3)" in card
+    assert "`splitter`" not in card

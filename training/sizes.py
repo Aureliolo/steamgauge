@@ -50,13 +50,12 @@ def table(sizes: dict) -> str:
     """The sizes as a Markdown table, with what each column was measured on beneath it."""
     measured = sizes["measured"]
     rows = [
-        "| Reader | Parameters | Download | Right, answering its surest 80% | Right, answering "
-        "its surest 90% | Card memory | One big game on a card | One small game on the "
-        "processor |",
+        "| Reader | Parameters | Download | Accuracy at 80% coverage | Accuracy at 90% "
+        "coverage | GPU memory | One large game on the GPU | One small game on the CPU |",
         "|---|---|---|---|---|---|---|---|",
     ]
     for size in sizes["sizes"]:
-        name = size["name"] if size["ships"] else f"*{size['name']}* (not shipped)"
+        name = size["name"] if size["ships"] else f"*{size['name']}* (not published)"
         rows.append(
             f"| {name} | {_parameters(size['parameters'])} | {_download(size['download_mib'])} "
             f"| {_share(size['right_at_80'])} | {_share(size['right_at_90'])} "
@@ -65,9 +64,9 @@ def table(sizes: dict) -> str:
         )
     notes = [
         "",
-        f"- **Right, answering its surest share:** {measured['frontier']}",
-        f"- **Card memory and one big game on a card:** {measured['card']}",
-        f"- **One small game on the processor:** {measured['processor']}",
+        f"- **Accuracy at a coverage:** {measured['frontier']}",
+        f"- **GPU memory and one large game on the GPU:** {measured['card']}",
+        f"- **One small game on the CPU:** {measured['processor']}",
     ]
     return "\n".join(rows + notes)
 

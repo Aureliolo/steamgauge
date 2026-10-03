@@ -30,6 +30,7 @@ import hashlib
 import json
 import os
 import re
+from collections import Counter
 from pathlib import Path
 
 import sizes
@@ -66,15 +67,54 @@ def sha256(path: Path) -> str:
 
 
 # The draws beside a game's random one that train the reader, as the Rust side names them in
-# `claimset::TEACHING_SETS`. Named rather than "every subdirectory holding labels": `second/`
-# holds another labeller's answers to claims the set already has, and goes up as its own file.
+# `claimset::TEACHING_SETS`. Named rather than "every subdirectory holding labels": the second
+# readings answer claims the set already has, and go up as their own file.
 TEACHING_SETS = ["declined", "mined", "retrieved", "multilingual"]
+# `claimset::SECOND_READINGS`, in its order: the first to answer a claim is its second reading.
+SECOND_READINGS = ["second", "opus"]
 
 KEY = ("app_id", "review_id", "index")
 
-# Checked rather than trusted, because a text or author field arriving in a later version of a
-# format would be published before anyone noticed.
-FORBIDDEN = {"text", "review", "claim", "body", "author", "author_steamid", "steamid"}
+# Every field a published file may carry. A field outside these stops the publish rather than
+# going up: a text or author field arriving in a later version of a format would otherwise be
+# published before anyone noticed.
+LABEL_FIELDS = {
+    *KEY,
+    "start",
+    "end",
+    "language",
+    "subset",
+    "taxonomy",
+    "produced_by",
+    "subject",
+    "polarity",
+    "also",
+    "ironic",
+    "confidence",
+    "ambiguous",
+    "split_wrong",
+}
+JUDGEMENT_FIELDS = {*KEY, "subject", "acceptable", "by"}
+REVIEW_FIELDS = {
+    "app_id",
+    "review_id",
+    "language",
+    "created",
+    "updated",
+    "voted_up",
+    "votes_up",
+    "votes_funny",
+    "weighted_vote_score",
+    "comment_count",
+    "steam_purchase",
+    "received_for_free",
+    "written_during_early_access",
+    "refunded",
+    "primarily_steam_deck",
+    "playtime_at_review_minutes",
+    "text_sha256",
+    "text_bytes",
+}
 
 
 def kappa(pairs: list[tuple[str, str]]) -> float:
@@ -112,6 +152,7 @@ def agreement(rows: list[dict], again: list[dict]) -> dict:
         "subject_kappa": kappa(subject),
         "polarity": sum(left == right for left, right in polarity) / len(both),
         "polarity_kappa": kappa(polarity),
+        "ambiguous": sum(left == right for left, right in contested) / len(both),
         "contested_kappa": kappa(contested),
     }
 
@@ -119,33 +160,27 @@ def agreement(rows: list[dict], again: list[dict]) -> dict:
 def dataset_card(
     labels: int,
     games: int,
-    fingerprint: str,
     agreed: dict,
-    unstamped: int,
     reviews: int = 0,
     gold: int = 0,
+    labellers: dict[str, int] | None = None,
 ) -> str:
     twice = (
         [
-            f"{agreed['claims']:,} of the claims are labelled a second time by a different",
-            "model, in `second-readings.jsonl`, and on those the two agree on the subject",
-            f"{agreed['subject']:.0%} of the time (Cohen's kappa {agreed['subject_kappa']:.2f})",
-            f"and on polarity {agreed['polarity']:.0%} (kappa {agreed['polarity_kappa']:.2f}).",
-            "They agree far less about whether a claim is contested (kappa",
-            f"{agreed['contested_kappa']:.2f}), which is a fact about the labellers rather than",
-            "the claims and is documented in the repository.",
-            *(
-                [
-                    f"{unstamped:,} of the second readings predate the field that records which",
-                    "sheet a label answered, and carry no `taxonomy`; the first readings all do.",
-                ]
-                if unstamped
-                else []
-            ),
+            "",
+            f"{agreed['claims']:,} claims have a second label from a different model, in",
+            "`second-readings.jsonl`. On those claims the two labels agree:",
+            "",
+            "| Field | Agreement | Cohen's kappa |",
+            "|---|---|---|",
+            f"| `subject` | {agreed['subject']:.0%} | {agreed['subject_kappa']:.2f} |",
+            f"| `polarity` | {agreed['polarity']:.0%} | {agreed['polarity_kappa']:.2f} |",
+            f"| `ambiguous` | {agreed['ambiguous']:.0%} | {agreed['contested_kappa']:.2f} |",
         ]
         if agreed["claims"]
-        else ["No claim here has been labelled a second time yet."]
+        else ["No claim has a second label yet."]
     )
+    by = ", ".join(f"{name} ({count:,})" for name, count in (labellers or {}).items())
     return "\n".join(
         [
             "---",
@@ -163,69 +198,113 @@ def dataset_card(
             "",
             "# Game review claims",
             "",
-            f"{labels:,} claims from {games} games on Steam, each labelled with the subject it",
-            "is about, whether it is praise or a complaint, whether it is ironic, how sure the",
-            "labeller was, whether the call was genuinely contested, and whether the claim was",
-            "cut in the wrong place.",
+            f"{labels:,} claims from {reviews:,} Steam reviews of {games} games, each labelled",
+            "with its subject and whether it is praise, a complaint or neutral. A claim is one",
+            "point a reviewer makes. Part of",
+            "[SteamGauge](https://github.com/Aureliolo/steamgauge).",
+            "",
+            "The dataset contains no review text and no author information. `fetch_text.py`",
+            "fetches the labelled reviews from Steam's public review endpoint and adds each",
+            "claim's text.",
             "",
             "## Files",
             "",
-            "- `claims.jsonl`: one label per claim. A claim is the bytes `start` to `end` of its",
-            "  review's text, as UTF-8.",
-            "- `second-readings.jsonl`: the claims a second labeller answered too.",
-            f"- `gold.jsonl`: {gold:,} claims one person adjudicated, and `acceptable.jsonl`, that",
-            "  person's judgement of which other subjects would also do for them.",
-            f"- `reviews.jsonl`: what Steam shows about each of the {reviews:,} labelled reviews:",
-            "  language, dates, whether it recommends the game, its votes, how the game was",
-            "  bought, the playtime shown on the review, and `text_sha256`, the SHA-256 of the",
-            "  text the labels were written against.",
-            "- `fetch_text.py`: fetches the text back from Steam on your own machine.",
+            "- `claims.jsonl`: one label per claim.",
+            "- `second-readings.jsonl`: a second label, from a different model, for some claims.",
+            f"- `gold.jsonl`: {gold:,} claims labelled by one person.",
+            "- `acceptable.jsonl`: for some gold claims, whether a subject other than the gold",
+            "  one is also acceptable, judged by the same person.",
+            "- `reviews.jsonl`: one row per labelled review.",
+            "- `fetch_text.py`: adds the text to the claims. Python standard library only.",
             "",
-            "## What is not here",
+            "## Fields",
             "",
-            "The review text and the author. The words are the reviewers', and the author is a",
-            "person; neither is ours to publish. Every review is public on Steam, and",
-            "`python fetch_text.py` fetches each labelled one by its id, checks it against",
-            "`text_sha256` and writes every claim with its text cut out at its offsets. A review",
-            "deleted since it was labelled cannot come back, and one edited since no longer",
-            "matches its fingerprint; both are counted and left out rather than cut at offsets",
-            "that no longer name the same words. The script needs nothing beyond Python.",
+            "`claims.jsonl`, `second-readings.jsonl` and `gold.jsonl`:",
             "",
-            "## How the labels were made",
+            "| Field | Meaning |",
+            "|---|---|",
+            "| `app_id`, `review_id` | The Steam game and review. |",
+            "| `index` | The claim's position among its review's claims. |",
+            "| `start`, `end` | The claim's UTF-8 byte offsets in the review text. |",
+            "| `language` | The review's language, as Steam gives it. |",
+            "| `subject` | What the claim is about. |",
+            "| `polarity` | `praise`, `complaint` or `neutral`. |",
+            "| `also` | Further subjects the claim is about, each with its own polarity. |",
+            "| `ironic` | The claim means the opposite of what it says; `polarity` is what it "
+            "means. |",
+            "| `confidence` | The labeller's confidence in the subject: `high`, `medium` or "
+            "`low`. |",
+            "| `ambiguous` | The category rules do not settle which subject the claim is about. |",
+            "| `split_wrong` | The claim is cut in the wrong place. |",
+            "| `produced_by` | The model that wrote the label, or `a person`. |",
+            "| `taxonomy` | The category sheet the label was written against: a hash of the "
+            "sheet, or `core-5` or `core-6`. Null where it was not recorded. |",
+            "| `subset` | How the claim was drawn (below). |",
             "",
-            "By a language model, working from a written category sheet, one game at a time and",
-            "without being told which game. This is a silver standard: what it measures is",
-            "agreement between models, not correctness. The gold answers are the measure",
-            "against a person.",
+            "`subset`:",
+            "",
+            "- `random`: a random draw of the game's reviews. Only these rows estimate how often",
+            "  a subject comes up.",
+            "- `declined`: claims a trained reader did not answer.",
+            "- `mined`: claims found by keyword for rarely mentioned subjects.",
+            "- `retrieved`: claims found by meaning for rarely mentioned subjects.",
+            "- `multilingual`: claims from reviews in languages other than English.",
+            "",
+            "`acceptable.jsonl`: `app_id`, `review_id`, `index`, `subject`, `acceptable`, `by`.",
+            "",
+            "`reviews.jsonl`: `app_id`, `review_id`, `language`, `created` and `updated` (Unix",
+            "time), `voted_up`, `votes_up`, `votes_funny`, `weighted_vote_score`,",
+            "`comment_count`, `steam_purchase`, `received_for_free`,",
+            "`written_during_early_access`, `refunded`, `primarily_steam_deck`,",
+            "`playtime_at_review_minutes`, and the SHA-256 (`text_sha256`) and length in bytes",
+            "(`text_bytes`) of the review text the labels were written against.",
+            "",
+            "## Text",
+            "",
+            "```",
+            "python fetch_text.py --data . --to claims-with-text.jsonl",
+            "```",
+            "",
+            "`--claims gold.jsonl` or `--claims second-readings.jsonl` does the same for another",
+            "label file. Reviews deleted or edited on Steam since labelling are left out.",
+            "",
+            "## Labels",
+            "",
+            "Written by Claude models from a category sheet, one game at a time, without the",
+            "game's name" + (f": {by}." if by else "."),
             *twice,
             "",
-            f"Data fingerprint `{fingerprint}`. Every row names the `taxonomy` its subject comes",
-            "from and the model that wrote it in `produced_by`, both versioned in the",
-            "repository. Two models disagree with each other about as often as either disagrees",
-            "with the truth, so a row that could not say which one wrote it would be a row you",
-            "could not split back apart. A row's offsets may name a span the current splitter",
-            "does not cut as one claim; `steamgauge` counts those rather than scoring them",
-            "against whatever now sits there. `subset` says how the claim's review was drawn:",
-            "`random` and `stratified` are random draws of a game and the only rows any",
-            "prevalence figure may count; the rest were drawn for being hard or rare.",
+            "The category sheet is [`taxonomy.rs`](https://github.com/Aureliolo/steamgauge/blob/"
+            "main/crates/steamgauge-core/src/taxonomy.rs) in the SteamGauge repository.",
             "",
             "## Licence",
             "",
-            "CC BY 4.0. The labels are ours to give; the reviews are not, and are not here.",
+            "CC BY 4.0. Review text is not included.",
         ]
     )
 
 
-def search_card(name: str, base: str, owner: str) -> str:
+def search_card(name: str, base: str) -> str:
     """The card for one of the two search exports: Qwen's weights, unchanged, in the shape the
     tool runs."""
     encoder = name == "search-encoder"
-    gives = (
-        "each text's unit vector at its last token, 1,024 numbers, for nearest-neighbour search"
+    use = (
+        [
+            "- Returns `vector`: a normalised 1,024-dimension embedding per text, taken at the",
+            "  last token.",
+            "- Searches are written as `Instruct: {instruction}\\nQuery: {query}`; the passages",
+            "  searched are embedded as they are.",
+            "- Parity with the original model on DirectML: cosine similarity at least 0.99988.",
+        ]
         if encoder
-        else "the model's 'yes' against its 'no' at the last token, for a query and a passage "
-        "laid out in the reranker's own prompt, two rows of its output layer being all that "
-        "is kept of it"
+        else [
+            "- Returns `score`: the probability that a passage answers a query, from the",
+            '  model\'s "yes" and "no" at the last token. Only those two rows of the output',
+            "  layer are kept.",
+            "- Input is the reranker's own prompt: system and user turns holding `<Instruct>`,",
+            "  `<Query>` and `<Document>`, as on the original model's card.",
+            "- Parity with the original model on DirectML: scores within 0.0076.",
+        ]
     )
     return "\n".join(
         [
@@ -239,27 +318,22 @@ def search_card(name: str, base: str, owner: str) -> str:
             f"pipeline_tag: {'feature-extraction' if encoder else 'text-ranking'}",
             "---",
             "",
-            f"# {'Search encoder' if encoder else 'Search reranker'} for SteamGauge",
+            f"# SteamGauge {'search encoder' if encoder else 'search reranker'}",
             "",
-            f"[`{base}`](https://huggingface.co/{base}), its weights unchanged, exported to one",
-            "half-precision ONNX graph that gives " + gives + ".",
+            f"[`{base}`](https://huggingface.co/{base}) as a half-precision ONNX graph, weights",
+            "unchanged. [SteamGauge](https://github.com/Aureliolo/steamgauge) uses it to search",
+            "Steam reviews by meaning: the encoder finds the claims closest to a search, and the",
+            "reranker orders them.",
             "",
-            "SteamGauge searches what a game's reviewers said by meaning: the encoder gathers",
-            "the claims nearest a search, and the reranker reads each beside it and orders",
-            "them. Neither had a full-precision ONNX export of the shape the tool runs: the",
-            "embedding's only one carries a text generator's cache as fifty-six inputs, and the",
-            "reranker has only quantised ones. Checked against the full-precision model on",
-            "DirectML: cosine at least 0.99988 for the encoder, score drift at most 0.0076 for",
-            "the reranker.",
+            "## Use",
             "",
-            "The tool fetches these files from a pinned commit and checks each against its",
-            f"SHA-256. The labelled data they were chosen on is [`{owner}/{DATASET}`]"
-            f"(https://huggingface.co/datasets/{owner}/{DATASET}).",
+            "- `model.onnx` takes `input_ids` and `attention_mask` from `tokenizer.json`, padded",
+            "  on the right.",
+            *use,
             "",
             "## Licence",
             "",
-            f"Apache-2.0, as is `{base}`, whose authors are Qwen. All credit for the model is",
-            "theirs; this is a conversion.",
+            f"Apache-2.0, as is `{base}`. The model is Qwen's work.",
             "",
         ]
     )
@@ -326,17 +400,22 @@ def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], li
     for game in sorted(path for path in reference.iterdir() if path.is_dir()):
         for draw in [game, *(game / name for name in TEACHING_SETS)]:
             rows.extend(load(draw / "labels.json"))
-        again.extend(load(game / "second" / "labels.json"))
+        answered: set[tuple] = set()
+        for reading in SECOND_READINGS:
+            for row in load(game / reading / "labels.json"):
+                if (key := tuple(row[name] for name in KEY)) not in answered:
+                    answered.add(key)
+                    again.append(row)
         gold.extend(load(game / "gold" / "labels.json"))
         app = int(game.name)
         acceptable.extend({"app_id": app, **one} for one in load(game / "gold" / "acceptable.json"))
     return rows, again, gold, acceptable
 
 
-def checked(rows: list[dict], what: str) -> None:
-    leaking = sorted(FORBIDDEN & set().union(*(row.keys() for row in rows)))
-    if leaking:
-        raise SystemExit(f"{what} carry {leaking}; not publishing that")
+def checked(rows: list[dict], fields: set[str], what: str) -> None:
+    unknown = sorted(set().union(*(row.keys() for row in rows)) - fields)
+    if unknown:
+        raise SystemExit(f"{what} carry {unknown}, which nothing says may be published")
 
 
 def jsonl(found: list[dict]) -> str:
@@ -351,6 +430,7 @@ def main() -> None:
         "--reviews", required=True, help="what `steamgauge export-review-facts` wrote"
     )
     parser.add_argument("--reference", default=str(REPO / "reference" / "claims"))
+    parser.add_argument("--runs", default=str(HERE / "runs"), help="where the exported runs are")
     parser.add_argument(
         "--cache",
         default=str(Path(os.environ.get("LOCALAPPDATA", "")) / "steamgauge" / "models"),
@@ -380,7 +460,7 @@ def main() -> None:
         if not size["ships"]:
             continue
         repo, _ = READERS[size["name"]]
-        run = HERE / "runs" / size["run"]
+        run = Path(args.runs) / size["run"]
         for name in MODEL_FILES:
             if not (run / name).is_file():
                 raise SystemExit(f"{run / name} is missing; export the run first")
@@ -397,6 +477,8 @@ def main() -> None:
                     "datasets": [f"{args.owner}/{DATASET}"],
                     "tags": ["onnx", "steam", "game-reviews", "aspect-based-sentiment-analysis"],
                 },
+                title=export.READER_NAME
+                + ("" if size["name"] == "standard" else f" ({size['name']})"),
             ),
             encoding="utf-8",
         )
@@ -417,7 +499,7 @@ def main() -> None:
             if sha256(directory / file) != pinned[file]:
                 raise SystemExit(f"{directory / file} is not the file {constant} pins")
         card = staging / f"{repo}.md"
-        card.write_text(search_card(name, base, args.owner), encoding="utf-8")
+        card.write_text(search_card(name, base), encoding="utf-8")
         uploads[repo] = (
             "model",
             [*((file, directory / file) for file in SEARCH_FILES), ("README.md", card)],
@@ -435,20 +517,24 @@ def main() -> None:
         for line in Path(args.reviews).read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    for found, what in (
-        (rows, "labels"),
-        (again, "second readings"),
-        (gold, "gold answers"),
-        (acceptable, "judgements"),
-        (reviews, "review facts"),
+    for found, fields, what in (
+        (rows, LABEL_FIELDS, "labels"),
+        (again, LABEL_FIELDS, "second readings"),
+        (gold, LABEL_FIELDS, "gold answers"),
+        (acceptable, JUDGEMENT_FIELDS, "judgements"),
+        (reviews, REVIEW_FIELDS, "review facts"),
     ):
-        checked(found, f"the {what}")
+        checked(found, fields, f"the {what}")
+    # A second reading whose sheet was not recorded holds either nothing or an empty string;
+    # both go up as one null so a reader of the file has a single case to handle.
+    for row in again:
+        row["taxonomy"] = row.get("taxonomy") or None
     for name in (*KEY, "start", "end", "subject", "polarity", "produced_by"):
         if any(name not in row for row in rows + again):
             raise SystemExit(f"a row has no {name}; nothing can be joined back from it")
-    # The second readings made before a label recorded its sheet carry none, and a fingerprint
+    # Only second readings made before a label recorded its sheet may lack one, and a fingerprint
     # guessed from a commit date would be the stamping the ingest refuses to do.
-    if any("taxonomy" not in row for row in rows):
+    if any(not row.get("taxonomy") for row in rows + gold):
         raise SystemExit("a row has no taxonomy; the sheet it answered is not known")
     described = {row["review_id"] for row in reviews}
     bare = {row["review_id"] for row in rows + again + gold} - described
@@ -457,13 +543,6 @@ def main() -> None:
             f"{len(bare):,} labelled reviews have no facts in {args.reviews}; a label nobody can "
             "check against its text is not one to publish. Run export-review-facts again."
         )
-    unstamped = sum("taxonomy" not in row for row in again)
-    standard = (
-        HERE / "runs" / next(s["run"] for s in sizes.load()["sizes"] if s["name"] == "standard")
-    )
-    fingerprint = json.loads((standard / "run.json").read_text(encoding="utf-8"))[
-        "data_fingerprint"
-    ]
     files = {
         "claims.jsonl": rows,
         "second-readings.jsonl": again,
@@ -478,11 +557,10 @@ def main() -> None:
         dataset_card(
             len(rows),
             len({row["app_id"] for row in rows}),
-            fingerprint,
             agreement(rows, again),
-            unstamped,
             reviews=len(reviews),
             gold=len(gold),
+            labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
         ),
         encoding="utf-8",
     )
