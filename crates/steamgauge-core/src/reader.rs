@@ -446,10 +446,10 @@ pub const SIZES: &[Size] = &[
         needs: mib(1_219),
         processor_seconds: 36.0,
         published: Published {
-            hub: crate::model::HUB,
             repository: "Aureliolo/game-review-reader-small",
             revision: "7cc57fb55dfee066b8e0ce2370d98afb05a753ab",
             release: "v1",
+            hub: crate::model::HUB,
             files: &SMALL_FILES,
         },
     },
@@ -459,10 +459,10 @@ pub const SIZES: &[Size] = &[
         needs: mib(2_756),
         processor_seconds: 284.9,
         published: Published {
-            hub: crate::model::HUB,
             repository: "Aureliolo/game-review-reader",
             revision: "91d3912188d772f60008c084bf9af80020e404bc",
             release: "v1",
+            hub: crate::model::HUB,
             files: &STANDARD_FILES,
         },
     },
@@ -513,13 +513,14 @@ pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -
 /// weaker version of that guarantee, it is its absence.
 #[derive(Debug, Clone, Copy)]
 pub struct Published {
-    /// The Hub's origin, [`crate::model::HUB`] everywhere but a test.
-    pub hub: &'static str,
     pub repository: &'static str,
     pub revision: &'static str,
     /// The release tag that commit carries, `v1` and on, to name it to a person. The commit is
     /// what is fetched; a tag can be moved.
     pub release: &'static str,
+    /// The Hub's origin, [`crate::model::HUB`] everywhere but a test. After the three above,
+    /// which `training/publish.py` finds together to pin.
+    pub hub: &'static str,
     files: &'static [crate::model::Asset],
 }
 

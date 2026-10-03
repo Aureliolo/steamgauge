@@ -40,14 +40,15 @@ static PROMPTS: std::sync::LazyLock<Prompts> = std::sync::LazyLock::new(|| {
 pub struct Model {
     /// What the vectors a game is prepared with are recorded as, and the cache directory.
     pub name: &'static str,
-    /// The Hub's origin, [`model::HUB`] everywhere but a test.
-    pub hub: &'static str,
     /// Empty until published.
     pub repository: &'static str,
     /// The commit it is fetched from; empty until published.
     pub revision: &'static str,
     /// The release tag that commit carries, to name it to a person; empty until published.
     pub release: &'static str,
+    /// The Hub's origin, [`model::HUB`] everywhere but a test. After the three above, which
+    /// `training/publish.py` finds together to pin.
+    pub hub: &'static str,
     graph: Asset,
     tokenizer: Asset,
 }
@@ -56,10 +57,10 @@ pub struct Model {
 // run again is not byte for byte the same file, so these are the ones, not any export.
 pub const ENCODER: Model = Model {
     name: "search-encoder",
-    hub: model::HUB,
     repository: "Aureliolo/steamgauge-search-encoder",
     revision: "c09c77b972e610a01a628e91395b427193f455fa",
     release: "v1",
+    hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -76,10 +77,10 @@ pub const ENCODER: Model = Model {
 
 pub const RERANKER: Model = Model {
     name: "search-reranker",
-    hub: model::HUB,
     repository: "Aureliolo/steamgauge-search-reranker",
     revision: "977b6ea57a5559c7931f55f1351ee8e795d4cb4e",
     release: "v1",
+    hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
