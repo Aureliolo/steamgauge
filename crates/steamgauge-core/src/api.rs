@@ -121,7 +121,7 @@ impl SteamClient {
     /// Fails if the HTTP client cannot be constructed, which in practice means a missing or
     /// unusable TLS backend.
     pub fn new(pace: Duration) -> Result<Self> {
-        let http = reqwest::Client::builder()
+        let http = crate::http::builder()
             .user_agent(concat!(
                 "steamgauge/",
                 env!("CARGO_PKG_VERSION"),

@@ -4937,7 +4937,10 @@ tools reachable.
 
 **Windows builds are hardened** with Control Flow Guard, shadow-stack compatibility and the
 compiler's Spectre mitigations for compiled C, and BinSkim reads the Windows and Linux programs
-on every pull request. `/DEPENDENTLOADFLAG` is left off: Windows carries an older `DirectML.dll`
+on every pull request. BinSkim's first read of the Windows program found aws-lc, rustls's
+default cryptography, compiled at warning level 0, which nothing outside that crate can raise;
+TLS runs on ring instead (`crates/steamgauge-core/src/http.rs`), whose C is compiled with
+warnings on, and the lock is 156 lines shorter for it. `/DEPENDENTLOADFLAG` is left off: Windows carries an older `DirectML.dll`
 in System32, and limiting the program's imports to System32 would load that one over the one it
 ships.
 

@@ -44,7 +44,7 @@ case "${target}" in
   x86_64-pc-windows-msvc)
     "${dir}/steamgauge-${version}-windows-x64-setup.exe" /S
     home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
-    for file in steamgauge.exe DirectML.dll THIRD-PARTY-NOTICES.txt; do
+    for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
       test -f "${home}/${file}" || { echo "The installer put no ${file} in ${home}." >&2; exit 1; }
     done
     # A windowed program writes to a pipe it is given, which is what the command substitution
@@ -66,16 +66,26 @@ case "${target}" in
     cp -R "${mount}/SteamGauge.app" "${HOME}/Applications/"
     hdiutil detach "${mount}"
     app="${HOME}/Applications/SteamGauge.app"
-    test -f "${app}/Contents/Resources/THIRD-PARTY-NOTICES.txt" \
-      || { echo "The app carries no THIRD-PARTY-NOTICES.txt." >&2; exit 1; }
+    for file in LICENSE THIRD-PARTY-NOTICES.txt; do
+      test -f "${app}/Contents/Resources/${file}" || { echo "The app carries no ${file}." >&2; exit 1; }
+    done
     expect_version "${app}/Contents/MacOS/steamgauge"
     stays_up "${app}/Contents/MacOS/steamgauge"
     ;;
   x86_64-unknown-linux-gnu)
-    sudo apt-get install -y "./${dir}/steamgauge_${version}_amd64.deb"
+    deb="${dir}/steamgauge_${version}_amd64.deb"
+    sudo apt-get install -y "./${deb}"
     expect_version /usr/bin/steamgauge
     stays_up xvfb-run --auto-servernum /usr/bin/steamgauge
-    sudo apt-get remove -y steamgauge
+    # Stopping xvfb-run leaves the program it started running.
+    pkill -x steamgauge || true
+    # Removed by the name the package declares, which the bundler takes from the product name.
+    package="$(dpkg-deb --field "${deb}" Package)"
+    sudo apt-get remove -y "${package}"
+    if [[ -e /usr/bin/steamgauge ]]; then
+      echo "Removing ${package} left /usr/bin/steamgauge behind." >&2
+      exit 1
+    fi
     docker run --rm -v "${PWD}/${dir}:/packages:ro" "${FEDORA_IMAGE:?}" bash -euo pipefail -c "
       dnf install -y /packages/steamgauge-${version}-1.x86_64.rpm > /dev/null
       said=\"\$(steamgauge --version)\"

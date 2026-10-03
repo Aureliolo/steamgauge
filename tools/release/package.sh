@@ -55,7 +55,9 @@ esac
 
 # Resources are named relative to the directory tauri.conf.json is in, and land beside the
 # program on Windows and Linux and in the bundle's Resources on macOS.
-resources="\"../../${payload}/THIRD-PARTY-NOTICES.txt\": \"THIRD-PARTY-NOTICES.txt\""
+# The licence travels as a file rather than as the bundler's licence page, which would make the
+# disk image and the setup program ask a person to accept an Apache licence before installing.
+resources="\"../../${payload}/LICENSE\": \"LICENSE\", \"../../${payload}/THIRD-PARTY-NOTICES.txt\": \"THIRD-PARTY-NOTICES.txt\""
 for library in ${libraries[@]+"${libraries[@]}"}; do
   resources="${resources}, \"../../${payload}/${library}\": \"${library}\""
 done

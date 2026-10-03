@@ -37,7 +37,9 @@ jobs:
             # Line tables give BinSkim the PDB it reads compiler details from, and change nothing
             # in the code.
             debug: line-tables-only
-            accepted: ''
+            # BA2014 asks for MSVC's /GS stack cookies in every function; rustc emits none, and
+            # BinSkim reads each Rust function as a C one built without them.
+            accepted: BA2014
             spectre: spectre
           - platform: linux
             # renovate: datasource=github-runners depName=ubuntu

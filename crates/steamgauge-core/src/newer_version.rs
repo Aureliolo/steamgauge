@@ -119,7 +119,7 @@ fn version_in(location: &str) -> Option<semver::Version> {
 ///
 /// Fails on transport failures, including the timeout.
 pub async fn latest() -> Result<Option<String>> {
-    let response = reqwest::Client::builder()
+    let response = crate::http::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(PATIENCE)
