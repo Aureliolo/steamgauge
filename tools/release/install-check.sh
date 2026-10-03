@@ -78,7 +78,9 @@ stays_up() {
 
 case "${target}" in
   x86_64-pc-windows-msvc)
-    step "Installing silently" "${dir}/steamgauge-${version}-windows-x64-setup.exe" /S
+    # `//S` reaches the setup program as `/S`: Git Bash takes a lone `/S` for a path and hands the
+    # program `S:/`, which it does not know, so it opens its wizard and waits on it.
+    step "Installing silently" "${dir}/steamgauge-${version}-windows-x64-setup.exe" //S
     home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
     ls -la "${home}"
     for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
@@ -89,7 +91,7 @@ case "${target}" in
     expect_version "${home}/steamgauge.exe"
     stays_up "${home}/steamgauge.exe"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
-    step "Uninstalling silently" "${home}/uninstall.exe" /S
+    step "Uninstalling silently" "${home}/uninstall.exe" //S
     sleep 5
     if [[ -e "${home}/steamgauge.exe" ]]; then
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
