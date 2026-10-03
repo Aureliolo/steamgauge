@@ -31,8 +31,10 @@ Three repository settings have to be in place too. **Allow auto-merge** is on, s
 request can merge itself. The pull request is opened with the `release` label, which is how the
 changelog keeps it out of the next release's notes: the label has to exist, because `gh` fails
 on one it cannot find, so deleting it stops a release being prepared rather than quietly putting
-the line back. And a re-run after one that stopped half way starts the branch again from `main`
-and reuses the pull request it opened.
+the line back. And a re-run after one that stopped half way makes the version commit again on
+`main`'s head, on a staging branch of its own, and moves the release branch onto it in one step,
+so the pull request it opened stays open and is reused: moved to `main`'s head first, the branch
+would have nothing in it, and GitHub closes a pull request that has nothing in it.
 
 ## What the changelog says
 
