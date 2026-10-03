@@ -1,9 +1,16 @@
+//! One binary, two front ends: a window when it is opened like an application, the pipeline
+//! when it is given arguments. Neither is the real one. Anything a person can do in the
+//! window can be scripted, and anything a script can do can be watched happening.
+
+// A console program on Windows opens a console window beside the app for as long as it runs.
+// As a windowed program the pipeline still writes to whatever pipe or file it is given, which
+// is how a terminal (Git Bash by itself, PowerShell through `| Out-Host`) shows its output. Debug
+// builds keep the console, for `cargo run`.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod cli;
 mod ui;
 
-/// One binary, two front ends: a window when it is opened like an application, the pipeline
-/// when it is given arguments. Neither is the real one. Anything a person can do in the
-/// window can be scripted, and anything a script can do can be watched happening.
 /// Enough for the argument parser to build itself without inlining. Every subcommand and every
 /// argument is a nested builder call, so an unoptimised build walks far deeper than Windows
 /// gives the main thread by default, and `cargo run -- --version` overflows before reaching any

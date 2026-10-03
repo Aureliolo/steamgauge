@@ -91,7 +91,7 @@
       "versioningTemplate": "semver"
     },
     {
-      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft, shellcheck, cargo-about, cargo-deny and cargo-machete. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes; shellcheck publishes none, so the datasource hashes the archive itself. For cargo-about, cargo-deny and cargo-machete it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
+      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft, shellcheck, tauri-cli (one archive per system, each with its own pair), cargo-about, cargo-deny and cargo-machete. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes; shellcheck and tauri-cli publish none, so the datasource hashes the archive itself. For cargo-about, cargo-deny and cargo-machete it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
       "matchStrings": [
@@ -99,7 +99,15 @@
       ]
     },
     {
-      "description": "The runner images inside the release build's and CI's matrices, which the github-actions manager reads from runs-on: but not from a matrix.",
+      "description": "A container image a workflow runs with `docker run`, named in an environment variable as image:tag@digest. The tag and the digest move together.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>docker) depName=(?<depName>\\S+)\\n\\s*[A-Z0-9_]+_IMAGE: \\S+?:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]{64})"
+      ]
+    },
+    {
+      "description": "The runner images inside the release build's, CI's and the packaging checks' matrices, which the github-actions manager reads from runs-on: but not from a matrix.",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
       "matchStrings": [

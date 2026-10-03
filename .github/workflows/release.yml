@@ -94,8 +94,14 @@ jobs:
           while read -r _ subject; do
             verify "dist/${subject#\*}"
           done < dist/SHA256SUMS
-          for archive in dist/steamgauge-*.tar.gz; do
-            verify "${archive}" --predicate-type https://spdx.dev/Document/v2.3
+          shopt -s nullglob
+          packages=(dist/steamgauge-*.tar.gz dist/steamgauge-*.zip dist/steamgauge-*-setup.exe dist/steamgauge-*.dmg dist/steamgauge_*.deb dist/steamgauge-*.rpm)
+          if [[ "${#packages[@]}" -ne 7 ]]; then
+            echo "Expected three archives and four installers, found ${#packages[@]}: ${packages[*]}" >&2
+            exit 1
+          fi
+          for package in "${packages[@]}"; do
+            verify "${package}" --predicate-type https://spdx.dev/Document/v2.3
           done
 
       - name: Summarise
@@ -162,8 +168,9 @@ jobs:
           while read -r _ subject; do
             assets+=("dist/${subject#\*}")
           done < dist/SHA256SUMS
-          if [[ "${#assets[@]}" -ne 8 ]]; then
-            echo "Expected eight files to publish, found ${#assets[@]}: ${assets[*]}" >&2
+          # Three archives, four installers, three SBOMs, the checksums and the attestations.
+          if [[ "${#assets[@]}" -ne 12 ]]; then
+            echo "Expected twelve files to publish, found ${#assets[@]}: ${assets[*]}" >&2
             exit 1
           fi
 
@@ -182,7 +189,7 @@ jobs:
           # A release the tag already carries is taken as done, so the whole run can be re-run
           # after a later job fails. A published release is immutable and never rewritten here,
           # so the way to be idempotent about it is to confirm it is already right, and "already
-          # right" means these eight files and no others. Half a release is a third answer, and
+          # right" means these twelve files and no others. Half a release is a third answer, and
           # it says which files are there.
           already_released() {
             if ! gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
@@ -191,12 +198,12 @@ jobs:
             have="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | LC_ALL=C sort)"
             want="$(printf '%s\n' "${assets[@]##*/}" | LC_ALL=C sort)"
             if [[ "${have}" == "${want}" ]]; then
-              echo "${GITHUB_REF_NAME} is released with all eight files."
+              echo "${GITHUB_REF_NAME} is released with all twelve files."
               return 0
             fi
             echo "${GITHUB_REF_NAME} already has a release, and it carries:" >&2
             printf '%s\n' "${have}" >&2
-            echo "rather than the eight files this job publishes. A published release is not" >&2
+            echo "and not the twelve files this job publishes. A published release is not" >&2
             echo "rewritten here, so this needs a person." >&2
             exit 1
           }
@@ -212,14 +219,14 @@ jobs:
           printf '%s\n' \
             '## Download' \
             '' \
-            "Take the archive for your machine, unpack it, and run \`steamgauge\` for the desktop app or" \
-            "\`steamgauge --help\` for the command line." \
+            'Take the installer for your machine and open it. The portable archive holds the same' \
+            'program for running without installing.' \
             '' \
-            '| Machine | Archive |' \
-            '| --- | --- |' \
-            "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.tar.gz\` |" \
-            "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
-            "| Linux, x86-64: CPU only, needs WebKitGTK 4.1 | \`steamgauge-${VERSION}-x86_64-unknown-linux-gnu.tar.gz\` |" \
+            '| Machine | Installer | Portable |' \
+            '| --- | --- | --- |' \
+            "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-windows-x64-setup.exe\` | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.zip\` |" \
+            "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-macos-arm64.dmg\` | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
+            "| Linux, x86-64: CPU only | \`steamgauge_${VERSION}_amd64.deb\`, \`steamgauge-${VERSION}-1.x86_64.rpm\` | \`steamgauge-${VERSION}-x86_64-unknown-linux-gnu.tar.gz\` (needs WebKitGTK 4.1) |" \
             '' \
             'Windows and macOS warn on first launch, because no build carries an operating-system' \
             'certificate. [SECURITY.md](https://github.com/Aureliolo/steamgauge/blob/main/SECURITY.md)' \
@@ -228,7 +235,7 @@ jobs:
             '```bash' \
             "gh release download v${VERSION} --repo Aureliolo/steamgauge" \
             'sha256sum --check SHA256SUMS' \
-            "gh attestation verify steamgauge-${VERSION}-<target>.tar.gz --repo Aureliolo/steamgauge \\" \
+            "gh attestation verify <the file you downloaded> --repo Aureliolo/steamgauge \\" \
             "  --bundle steamgauge-${VERSION}.intoto.jsonl \\" \
             "  --signer-workflow Aureliolo/steamgauge/.github/workflows/release-build.yml \\" \
             "  --source-ref refs/tags/v${VERSION} --deny-self-hosted-runners" \

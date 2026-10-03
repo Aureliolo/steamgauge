@@ -3,24 +3,32 @@
 ## What a human does
 
 Run **prepare release** from the Actions tab with `patch`, `minor` or `major`, or an exact
-version. It raises the version in `Cargo.toml`, under `[workspace.package]` where every crate
-takes it from, and in the entry `Cargo.lock` keeps for each crate, on a `release/vX.Y.Z` branch
-with a signed commit, opens the pull request, and links it in the run summary.
-
-That pull request's checks are held at the start. GitHub creates the runs for anything a
-workflow opens with the job token but does not start them, so the merge box carries a banner
-offering **Approve workflows to run**. Click it, then merge once the checks are green.
-Everything after the merge is automatic.
+version. Only the repository's owner can. It raises the version in `Cargo.toml`, under
+`[workspace.package]` where every crate takes it from, and in the entry `Cargo.lock` keeps for
+each crate, on a `release/vX.Y.Z` branch with a signed commit, opens the pull request, sets it
+to merge itself once its checks are green, and links it in the run summary. Everything after
+that is automatic.
 
 Nobody types a version twice and nobody creates a tag by hand, which is the release step that
 cannot be checked afterwards and the one most likely to be done from the wrong branch.
 
-Two repository settings have to be in place for the button to work. The pull request is opened
-with the `release` label, which is how the changelog keeps it out of the next release's notes:
-the label has to exist, because `gh` fails on one it cannot find, so deleting it stops a release
-being prepared rather than quietly putting the line back. And the job token can only open a
-pull request while **Allow GitHub Actions to create and approve pull requests** is on, under
-Settings, Actions, General.
+### The packaging app
+
+The branch, the commit and the pull request are made as a GitHub App rather than with the job
+token. GitHub holds the checks of a pull request the job token opens until someone approves
+them, and a merge made with the job token starts no workflow, so the tag would never be cut.
+The App is installed on this repository with write access to contents and pull requests. Its
+client ID is the variable `PACKAGING_APP_CLIENT_ID` and its private key the secret
+`PACKAGING_APP_KEY`, both in the `release-prepare` environment, which only `main` can deploy to.
+Each run mints a token from them that lasts an hour and can write contents and pull requests of
+this repository alone; the run stops at once if either is missing.
+
+Three repository settings have to be in place too. **Allow auto-merge** is on, so the pull
+request can merge itself. The pull request is opened with the `release` label, which is how the
+changelog keeps it out of the next release's notes: the label has to exist, because `gh` fails
+on one it cannot find, so deleting it stops a release being prepared rather than quietly putting
+the line back. And a re-run after one that stopped half way starts the branch again from `main`
+and reuses the pull request it opened.
 
 ## What the changelog says
 
@@ -40,42 +48,51 @@ GITHUB_REPOSITORY=Aureliolo/steamgauge GH_TOKEN="$(gh auth token)" node tools/re
 ```
 
 It picks the newest release below the tag, so it reads the same afterwards as it did at the
-time. The first release has nothing below it and lists everything.
+time. The first release has nothing below it and says it is the first release.
 
 ## What happens on the merge
 
 `release-tag.yml` sees a new version on `main` with no matching tag, creates `vX.Y.Z`, and
 dispatches `release.yml` on it, since a tag it makes with the job token would otherwise start
-nothing. `release.yml` calls `release-build.yml`, which runs the first five jobs, then verifies
+nothing. `release.yml` calls `release-build.yml`, which runs the first six jobs, then verifies
 and publishes:
 
-1. **gate** refuses to go on unless the tag matches the workspace version, every crate takes
+1. **gate** refuses to go on unless the version is three numbers (a release is published as the
+   latest and is immutable, so a pre-release would stand as the newest release for good), the
+   tag matches the workspace version, every crate takes
    that version and `Cargo.lock` agrees, the release commit is reachable from `main`, and that
    commit carries a valid signature. Then it runs the formatter, clippy and the tests with
    `--locked`, as CI does, checks the working tree is still clean, and writes the changelog.
 2. **notices** writes each archive's `THIRD-PARTY-NOTICES.txt` with cargo-about, for that
    platform's target and GPU feature from `Cargo.lock` (see below). It compiles nothing, and it
    is a job of its own so that the build runs no tool the binary does not need.
-3. **build**, once for each platform, builds the binary with `--locked` and the GPU backend that
-   platform ships with, checks the build left the tree as it found it, and packs the archive:
-   the binary, the runtime libraries beside it, the README, the licence and the third-party
-   notices. It also records the crates `cargo tree` resolves for that target and those
-   features.
+3. **build**, once for each platform, builds the binary with `--locked`, `custom-protocol` (the
+   pages served from inside the binary, no developer tools) and the GPU backend that platform
+   ships with, and checks the build left the tree as it found it. `tools/release/package.sh`
+   then packs the portable archive (the binary, the runtime libraries beside it, the README,
+   the licence and the third-party notices) and has Tauri's bundler, pinned by version and
+   digest, package that same build into the platform's installers. It also records the crates
+   `cargo tree` resolves for that target and those features.
 4. **sbom** first reads each archive's notices back against that crate list and the files the
    archive holds. Then it builds an SPDX SBOM of each archive: every file in it with its
    SHA-256, and every crate that build compiled, read from `Cargo.lock` cut down to exactly
    those crates, since a binary names nothing on its own. The job checks each SBOM against its
    archive's members and hashes and against the crate list, because an SBOM that lists nothing
    looks exactly like a passing step (`.github/syft.yaml` says what syft reads). Last, it writes
-   `SHA256SUMS` over the archives and the SBOMs.
-5. **attest** signs every file that ships through Sigstore, attests each SBOM against its
-   archive, and gathers the four signed attestations into one JSON Lines file. It is the only
-   job with a token that can sign: see below.
-6. **verify**, in `release.yml`, rechecks the checksums and verifies every file against that
+   `SHA256SUMS` over the archives, the installers and the SBOMs.
+5. **install**, on each platform, installs that platform's installers the way a person would
+   (the setup program silently, the disk image copied to Applications, the `.deb` through apt
+   and the `.rpm` through dnf on Fedora), runs the installed program, which has to name the
+   version, and starts its window, which has to stay up (`tools/release/install-check.sh`). On
+   Windows it uninstalls again and checks the program is gone.
+6. **attest** signs every file that ships through Sigstore, attests each platform's SBOM against
+   its archive and its installers, and gathers the four signed attestations into one JSON Lines
+   file. It is the only job with a token that can sign: see below.
+7. **verify**, in `release.yml`, rechecks the checksums and verifies every file against that
    JSON Lines file the way a user would, naming `release-build.yml` at this tag as the builder.
    It holds no token that can write.
-7. **publish**, in `release.yml`, runs only on a tag. It checks the checksums once more and
-   creates the GitHub Release with all eight files in one call, because an immutable release
+8. **publish**, in `release.yml`, runs only on a tag. It checks the checksums once more and
+   creates the GitHub Release with all twelve files in one call, because an immutable release
    locks its files the moment it is published.
 
 ## A dry run
@@ -88,14 +105,20 @@ pass for a release's.
 
 ## What a release carries
 
-- One archive per platform, `steamgauge-X.Y.Z-<target>.tar.gz`: Windows on x86-64 with
-  DirectML, macOS on Apple Silicon with CoreML, and Linux on x86-64 on the CPU, which needs
-  WebKitGTK 4.1 installed. Each holds the binary, `DirectML.dll` on Windows, `README.md`,
-  `LICENSE` and `THIRD-PARTY-NOTICES.txt`.
-- An SPDX SBOM of each archive, `steamgauge-X.Y.Z-<target>.spdx.json`.
-- `SHA256SUMS`, over the archives and the SBOMs.
-- A Sigstore build-provenance attestation over all seven, and an SBOM attestation tying each
-  SBOM to its archive. Both are keyless: there is no signing key anywhere, including in CI.
+- The installers: `steamgauge-X.Y.Z-windows-x64-setup.exe` (Windows on x86-64 with DirectML,
+  installed for the current user, fetching WebView2 if the machine lacks it),
+  `steamgauge-X.Y.Z-macos-arm64.dmg` (macOS on Apple Silicon with CoreML), and
+  `steamgauge_X.Y.Z_amd64.deb` and `steamgauge-X.Y.Z-1.x86_64.rpm` (Linux on x86-64 on the CPU,
+  each declaring WebKitGTK 4.1 so the package manager installs it).
+- One portable archive per platform holding the same program: `steamgauge-X.Y.Z-<target>.zip`
+  for Windows and `steamgauge-X.Y.Z-<target>.tar.gz` for the others. Each holds the binary,
+  `DirectML.dll` on Windows, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Linux
+  one needs WebKitGTK 4.1 installed.
+- An SPDX SBOM of each platform's program, `steamgauge-X.Y.Z-<target>.spdx.json`.
+- `SHA256SUMS`, over the installers, the archives and the SBOMs.
+- A Sigstore build-provenance attestation over all of them, and an SBOM attestation tying each
+  SBOM to its platform's archive and installers. Both are keyless: there is no signing key
+  anywhere, including in CI.
   They are stored on the repository and attached to the release as
   `steamgauge-X.Y.Z.intoto.jsonl`, which is also the file OpenSSF Scorecard looks for. The
   checksum file has no signature of its own beside it; the provenance is that signature.
@@ -106,10 +129,10 @@ Releases are immutable, so a published one cannot be edited or replaced.
 
 ```bash
 VERSION=X.Y.Z
-TARGET=x86_64-pc-windows-msvc   # or aarch64-apple-darwin, x86_64-unknown-linux-gnu
+FILE="steamgauge-${VERSION}-windows-x64-setup.exe"   # or whichever file you took
 gh release download "v${VERSION}" --repo Aureliolo/steamgauge
 sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify "steamgauge-${VERSION}-${TARGET}.tar.gz" --repo Aureliolo/steamgauge \
+gh attestation verify "${FILE}" --repo Aureliolo/steamgauge \
   --bundle "steamgauge-${VERSION}.intoto.jsonl" \
   --signer-workflow Aureliolo/steamgauge/.github/workflows/release-build.yml \
   --source-ref "refs/tags/v${VERSION}" \
@@ -177,7 +200,13 @@ fetch from a crate's repository (`renovate.json` records it).
 No build carries a certificate that Windows or macOS trusts, so both warn on first launch
 (SECURITY.md explains the difference between that and provenance). Windows binaries are to gain
 a SignPath Foundation signature once the project is enrolled; nothing in the pipeline does that
-yet. macOS has no free certificate authority, so its archive carries provenance only.
+yet. macOS has no free certificate authority, so its disk image and archive carry provenance
+only.
+
+Windows builds are hardened the same way whether they ship or not (`.cargo/config.toml` and the
+app's `build.rs`): Control Flow Guard, compatibility with the hardware shadow stack, and the
+compiler's Spectre mitigations for the C that crates compile. BinSkim (`binaries.yml`) reads the
+Windows and Linux programs on every pull request and refuses any mitigation missing.
 
 ## Versions that cannot be released
 
@@ -191,7 +220,7 @@ version, naming it, before it writes a branch.
 
 Re-running the release workflow on the tag is the first thing to try, and it is safe: the
 publish job asks what the tag already carries before acting, and passes when that is exactly
-the eight files. **tag release** can be run by hand too, and starts the release workflow again
+the twelve files. **tag release** can be run by hand too, and starts the release workflow again
 on a tag that already exists.
 
 - **Tag does not match the workspace version**: the tag was created outside `release-tag.yml`,
@@ -225,6 +254,13 @@ on a tag that already exists.
   `DirectML.dll` its notices do not account for, and the lines above it say which. A new runtime
   library beside the binary needs its licence in `third-party/` and in `notices.mjs` before it
   can ship.
+- **Expected exactly one file matching ...**, in the build job: Tauri's bundler wrote no
+  installer of that kind, or more than one, usually after a tauri-cli upgrade changed its file
+  names. Fix `tools/release/package.sh` on `main` and prepare the next version.
+- **... --version said ...**, **The installer put no ... in ...**, **The window exited within 20
+  seconds of starting** or **Uninstalling left ... behind**, in an install job: an installer
+  installs something that does not run, or does not run as it should, on its own system. That
+  is the failure the job exists for; nothing was signed or published.
 - **vX.Y.Z already has a release, and it carries ...**: the tag has a release with something
-  other than the eight files, which means an upload failed part way. A published release is not
+  other than the twelve files, which means an upload failed part way. A published release is not
   rewritten here, so look at what is attached before deciding anything.
