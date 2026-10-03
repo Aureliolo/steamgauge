@@ -41,9 +41,10 @@ step() {
 }
 
 expect_version() {
-  local said
-  echo "Asking $1 for its version."
-  said="$(timeout 120 "$@" --version)"
+  local said answer
+  answer="$(mktemp)"
+  step "Asking $1 for its version" bash -c '"$@" --version > "'"${answer}"'"' _ "$@"
+  said="$(cat "${answer}")"
   if [[ "${said}" != "steamgauge ${version}" ]]; then
     echo "$* --version said '${said}', not 'steamgauge ${version}'." >&2
     exit 1
@@ -64,8 +65,8 @@ stays_up() {
     echo "The window exited within 20 seconds of starting." >&2
     exit 1
   fi
-  # Git Bash's signals do not reach a native Windows program, so there it is ended by its Windows
-  # process id; otherwise the wait below would wait on a window nothing closes.
+  # On Windows the window is ended with its whole tree, the WebView2 processes it started included,
+  # which a signal to the program alone leaves running.
   if [[ -r "/proc/${pid}/winpid" ]]; then
     taskkill //F //T //PID "$(cat "/proc/${pid}/winpid")" > /dev/null 2>&1 || true
   fi
