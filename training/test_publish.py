@@ -6,27 +6,34 @@ COMMIT = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
 HASH = "a" * 64
 
 
-def test_pinning_a_size_fills_its_repository_commit_and_hashes_and_nothing_else():
+def test_pinning_a_size_fills_its_repository_commit_tag_hashes_and_lengths_and_nothing_else():
     source = publish.READER_RS.read_text(encoding="utf-8")
-    hashes = {name: HASH for name in publish.MODEL_FILES}
-    pinned = publish.pin_reader(
-        source, "small", "SMALL_FILES", "someone/game-review-reader-small", COMMIT, hashes
-    )
-    assert publish.pins_in(pinned, "SMALL_FILES") == hashes
-    assert publish.pins_in(pinned, "STANDARD_FILES") == publish.pins_in(source, "STANDARD_FILES"), (
+    files = {name: (HASH, 1_234_567) for name in publish.MODEL_FILES}
+    release = ("someone/game-review-reader-small", COMMIT, "v7")
+    pinned = publish.pin_reader(source, "small", "SMALL_FILES", release, files)
+    assert publish.pins_in(pinned, "SMALL_FILES") == {name: HASH for name in files}
+
+    def constant(text, name):
+        return text.split(f"const {name}")[1].split("];")[0]
+
+    assert constant(pinned, "SMALL_FILES").count("bytes: 1_234_567,") == len(files)
+    assert constant(pinned, "STANDARD_FILES") == constant(source, "STANDARD_FILES"), (
         "pinning one size must leave the other's files alone"
     )
     small = pinned.split('name: "small"')[1].split('name: "standard"')[0]
-    assert '"someone/game-review-reader-small"' in small and f'"{COMMIT}"' in small
+    for value in release:
+        assert f'"{value}"' in small
     standard = pinned.split('name: "standard"')[1].split("files:")[0]
     assert standard == source.split('name: "standard"')[1].split("files:")[0]
 
 
-def test_pinning_a_search_model_fills_its_repository_and_commit():
+def test_pinning_a_search_model_fills_its_repository_commit_and_tag():
     source = publish.SEARCH_RS.read_text(encoding="utf-8")
-    pinned = publish.pin_search(source, "RERANKER", "someone/steamgauge-search-reranker", COMMIT)
+    release = ("someone/steamgauge-search-reranker", COMMIT, "v7")
+    pinned = publish.pin_search(source, "RERANKER", release)
     reranker = pinned.split("pub const RERANKER")[1]
-    assert '"someone/steamgauge-search-reranker"' in reranker and f'"{COMMIT}"' in reranker
+    for value in release:
+        assert f'"{value}"' in reranker
 
     def encoder(text):
         return text.split("pub const ENCODER")[1].split("pub const RERANKER")[0]
