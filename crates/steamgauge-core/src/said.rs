@@ -332,7 +332,7 @@ fn distinctive(
             let kept = &mut shown[at];
             let turned = turned_by_a_modifier(term)
                 && (!turned_by_a_modifier(&kept.text) || term.starts_with(&kept.text));
-            if term.len() > kept.text.len()
+            if term.contains(kept.text.as_str())
                 && (nearly(reviews, kept.reviews) || (turned && reviews * 2 >= kept.reviews))
             {
                 term.clone_into(&mut kept.text);
@@ -393,7 +393,6 @@ fn coalesce(shown: &mut Vec<Term>) {
                 && shown[other].text.chars().next().is_some_and(|first| {
                     crate::claims::writes_without_spaces(first)
                         && !is_han(first)
-                        && shown[at].text.chars().count() > 1
                         && shown[at].text.ends_with(first)
                 })
         });
@@ -639,9 +638,6 @@ fn log_odds(here: u64, of: u64, there: u64, of_other: u64) -> (f64, f64) {
 fn pooled_log_odds(term: &str, by_language: &[(&Counter, &Counter)]) -> (f64, f64) {
     let (mut weight, mut weighted) = (0.0, 0.0);
     for (this, other) in by_language {
-        if this.reviews == 0 && other.reviews == 0 {
-            continue;
-        }
         let (here, there) = match (this.terms.get(term), other.terms.get(term)) {
             (None, None) => continue,
             (Some(&here), None) => (here, other.forgotten),
@@ -2021,6 +2017,166 @@ mod tests {
         }
         let found = said.finish(&[("performance", "Performance")]);
         assert!(found[0].criticised.is_empty(), "{:?}", found[0].criticised);
+    }
+
+    fn texts(terms: &[Term]) -> Vec<&str> {
+        terms.iter().map(|term| term.text.as_str()).collect()
+    }
+
+    #[test]
+    fn a_side_of_just_enough_reviews_shows_what_it_said() {
+        let mut said = Said::new(1);
+        for review in 0..FEWEST_ON_A_SIDE {
+            said.note(0, Polarity::Complaint, &format!("{review} stutter"));
+            said.note(0, Polarity::Praise, &format!("{review} smooth"));
+            said.next_review("english");
+        }
+        let found = said.finish(&[("performance", "Performance")]);
+        assert_eq!(texts(&found[0].criticised), ["stutter"]);
+    }
+
+    #[test]
+    fn a_subjects_label_and_its_names_elsewhere_are_never_findings_on_its_row() {
+        // The numbers keep each word apart, so every one of them stands alone.
+        let mut said = Said::new(1);
+        for review in 0..60 {
+            for claim in ["pacing", "оптимизация", "stutter"] {
+                said.note(0, Polarity::Complaint, &format!("{review} {claim}"));
+            }
+            said.note(0, Polarity::Praise, &format!("{review} smooth"));
+            said.next_review("english");
+        }
+        let found = said.finish(&[("performance", "Frame pacing")]);
+        assert_eq!(texts(&found[0].criticised), ["stutter"]);
+    }
+
+    #[test]
+    fn a_lean_that_is_significant_but_not_twice_as_likely_is_not_shown() {
+        let (delta, _) = log_odds(550, 1000, 450, 1000);
+        assert!(delta < AT_LEAST_TWICE, "{delta}");
+        assert!(deviations(550, 1000, 450, 1000) >= CLEARLY);
+
+        let mut said = Said::new(1);
+        for review in 0..1000 {
+            said.note(0, Polarity::Praise, &format!("{review} zephyr"));
+            said.note(0, Polarity::Complaint, &format!("{review} zephyr"));
+            if review < 550 {
+                said.note(0, Polarity::Praise, &format!("{review} long"));
+            }
+            if review < 450 {
+                said.note(0, Polarity::Complaint, &format!("{review} long"));
+            }
+            said.next_review("english");
+        }
+        let found = said.finish(&[("story", "Story")]);
+        assert!(found[0].praised.is_empty(), "{:?}", found[0].praised);
+    }
+
+    #[test]
+    fn a_phrase_said_by_only_some_of_a_words_reviewers_is_a_finding_of_its_own() {
+        let mut said = Said::new(1);
+        for review in 0..100 {
+            let claim = if review < 60 { "full price" } else { "price" };
+            said.note(0, Polarity::Praise, &format!("{review} {claim}"));
+            said.note(0, Polarity::Complaint, &format!("{review} zephyr"));
+            said.next_review("english");
+        }
+        let found = said.finish(&[("value", "Value")]);
+        assert_eq!(texts(&found[0].praised), ["price", "full"]);
+    }
+
+    #[test]
+    fn a_negated_phrase_that_takes_a_words_place_leaves_every_other_finding_shown() {
+        let mut said = Said::new(1);
+        for review in 0..100 {
+            let claim = if review < 55 {
+                "no microtransactions"
+            } else {
+                "microtransactions"
+            };
+            said.note(0, Polarity::Praise, &format!("{review} {claim}"));
+            said.note(0, Polarity::Praise, &format!("{review} beautiful"));
+            said.note(0, Polarity::Complaint, &format!("{review} zephyr"));
+            said.next_review("english");
+        }
+        let found = said.finish(&[("monetisation", "Monetisation")]);
+        assert_eq!(
+            texts(&found[0].praised),
+            ["no microtransactions", "beautiful"]
+        );
+    }
+
+    #[test]
+    fn of_two_forms_the_one_more_reviewers_used_is_shown_and_a_tie_keeps_the_clearer() {
+        // "server" stands out more clearly than "servers", which complaints use too, and fewer
+        // reviewers used it. "listening" and "listened" were used by as many, and the one
+        // complaints use less is the clearer.
+        let mut said = Said::new(1);
+        for review in 0..300 {
+            let mut note = |polarity, word: &str| {
+                said.note(0, polarity, &format!("{review} {word}"));
+            };
+            note(Polarity::Praise, "zephyr");
+            note(Polarity::Complaint, "zephyr");
+            if review < 100 {
+                note(Polarity::Praise, "server");
+                note(Polarity::Praise, "listened");
+            }
+            if review < 150 {
+                note(Polarity::Praise, "servers");
+            }
+            if (100..200).contains(&review) {
+                note(Polarity::Praise, "listening");
+            }
+            if review < 2 {
+                note(Polarity::Complaint, "server");
+                note(Polarity::Complaint, "listened");
+            }
+            if review < 10 {
+                note(Polarity::Complaint, "listening");
+            }
+            if review < 90 {
+                note(Polarity::Complaint, "servers");
+            }
+            said.next_review("english");
+        }
+        let found = said.finish(&[("multiplayer", "Multiplayer")]);
+        let mut praised = texts(&found[0].praised);
+        praised.sort_unstable();
+        assert_eq!(praised, ["listening", "servers"]);
+    }
+
+    #[test]
+    fn a_run_joined_onto_one_before_it_is_looked_at_again_for_what_follows() {
+        let term = |text: &str, reviews| Term {
+            text: text.to_owned(),
+            reviews,
+        };
+        // ほん and んご are too far apart in reviewers to join each other, and にほ takes ほん
+        // first; the run that makes is near enough to んご to take it as well.
+        let mut shown = vec![term("ほん", 100), term("にほ", 96), term("んご", 94)];
+        coalesce(&mut shown);
+        assert_eq!(shown, [term("にほんご", 94)]);
+    }
+
+    #[test]
+    fn only_the_words_that_turn_what_follows_are_modifiers() {
+        assert!(turns_what_follows("no"));
+        assert!(turns_what_follows("not"));
+        assert!(!turns_what_follows("bugs"));
+    }
+
+    #[test]
+    fn a_japanese_run_is_not_one_finding_with_a_kanji_pair_inside_it() {
+        // Only Chinese, cut into words by the dictionary, has words that are its substrings.
+        assert!(!shares_a_word("画面", "画面がきれい"));
+        assert!(shares_a_word("画面", "画面很好"));
+    }
+
+    #[test]
+    fn a_pair_of_kana_and_kanji_continues_a_run_of_kana() {
+        assert!(overlaps("ゲーム", "ム画"));
+        assert!(!overlaps("游戏性", "性能"));
     }
 
     #[test]
