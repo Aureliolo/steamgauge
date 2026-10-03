@@ -114,9 +114,9 @@ publishes and packages:
     runs what it installed: the cask with Homebrew on Apple Silicon macOS, the Scoop manifest by
     the release's address and as a bucket, and the winget manifests with `winget install
     --manifest`, the last two on Windows. winget comes from its own pinned release, because
-    the runner image's lags the manifest schema and warns over every header. Each installed program has to say
-    `steamgauge X.Y.Z` to `--version` and keep its window up for 20 seconds, and each uninstall
-    has to remove it.
+    the runner image's lags the manifest schema and warns over every header. Each installed
+    program has to say `steamgauge X.Y.Z` to `--version` and keep its window up for 20 seconds,
+    and each uninstall has to remove it.
 11. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
     `main`, as the packaging App, and merges it once every check has passed; a check that fails,
     or anything else that keeps it from merging, fails the job with the reason.
