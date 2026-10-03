@@ -13,22 +13,25 @@ def test_pinning_a_size_fills_its_repository_commit_and_hashes_and_nothing_else(
         source, "small", "SMALL_FILES", "someone/game-review-reader-small", COMMIT, hashes
     )
     assert publish.pins_in(pinned, "SMALL_FILES") == hashes
-    assert set(publish.pins_in(pinned, "STANDARD_FILES").values()) == {""}, (
+    assert publish.pins_in(pinned, "STANDARD_FILES") == publish.pins_in(source, "STANDARD_FILES"), (
         "pinning one size must leave the other's files alone"
     )
     small = pinned.split('name: "small"')[1].split('name: "standard"')[0]
     assert '"someone/game-review-reader-small"' in small and f'"{COMMIT}"' in small
-    standard = pinned.split('name: "standard"')[1]
-    assert 'repository: ""' in standard.split("files:")[0]
+    standard = pinned.split('name: "standard"')[1].split("files:")[0]
+    assert standard == source.split('name: "standard"')[1].split("files:")[0]
 
 
 def test_pinning_a_search_model_fills_its_repository_and_commit():
     source = publish.SEARCH_RS.read_text(encoding="utf-8")
     pinned = publish.pin_search(source, "RERANKER", "someone/steamgauge-search-reranker", COMMIT)
     reranker = pinned.split("pub const RERANKER")[1]
-    encoder = pinned.split("pub const ENCODER")[1].split("pub const RERANKER")[0]
     assert '"someone/steamgauge-search-reranker"' in reranker and f'"{COMMIT}"' in reranker
-    assert 'repository: ""' in encoder and 'revision: ""' in encoder
+
+    def encoder(text):
+        return text.split("pub const ENCODER")[1].split("pub const RERANKER")[0]
+
+    assert encoder(pinned) == encoder(source), "pinning one model must leave the other alone"
 
 
 def test_the_search_pins_are_read_from_the_tool_itself():
