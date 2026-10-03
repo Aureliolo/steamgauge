@@ -5007,10 +5007,11 @@ Both on Windows. The check runs on Linux, where the same tree read 79.85%, 13,97
 Windows build compiles some 250 lines more, none of which the tests reach. The floor is the
 Windows figure rounded down to the whole percent, so a machine a contributor checks on agrees
 with the check, and it is only ever raised: a pull request that lifts the figure past the next
-whole percent raises it with the figure, and none lowers it to get through. The lines counted include the test modules inside each file, which run whenever
-they exist; that is the same in every measurement, so the floor still moves only with the code
-the tests reach. The thinnest files are the ones that talk to Steam or open a model: `crawl.rs`
-13%, `search_models.rs` 28%, `api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
+whole percent raises it with the figure, and none lowers it to get through. The lines counted
+include the test modules inside each file, which run whenever they exist; that is the same in
+every measurement, so the floor still moves only with the code the tests reach. The thinnest
+files are the ones that talk to Steam or open a model: `crawl.rs` 13%, `search_models.rs` 28%,
+`api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
 
 The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
 the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
