@@ -173,9 +173,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Option<(String, String, Vec<u8
     }
 
     let mut body = vec![0; length];
-    if length > 0 {
-        reader.read_exact(&mut body)?;
-    }
+    reader.read_exact(&mut body)?;
     // The query string is not used by any route and would only ever be a way to reach one by
     // accident.
     let path = path.split('?').next().unwrap_or("/").to_owned();
@@ -210,6 +208,9 @@ pub fn answers_held(path: &Path) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
+
     use super::Adjudication;
 
     #[test]
@@ -269,5 +270,168 @@ mod tests {
     fn answers_held_is_zero_when_there_is_no_file_yet() {
         let dir = crate::tempdir::Dir::new();
         assert_eq!(super::answers_held(&dir.path().join("nothing.json")), 0);
+    }
+
+    /// Sends `request` to the page as a browser would and returns all it said back, and the
+    /// error answering it ended in, if it did.
+    fn ask(page: &Adjudication, request: Vec<u8>) -> (String, Option<String>) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let browser = std::thread::spawn(move || {
+            let mut stream = TcpStream::connect(address).unwrap();
+            stream.write_all(&request).unwrap();
+            stream.shutdown(std::net::Shutdown::Write).unwrap();
+            let mut said = Vec::new();
+            let _ = stream.read_to_end(&mut said);
+            String::from_utf8_lossy(&said).into_owned()
+        });
+        let (mut stream, _) = listener.accept().unwrap();
+        let failed = page
+            .answer(&mut stream)
+            .err()
+            .map(|error| error.to_string());
+        drop(stream);
+        (browser.join().unwrap(), failed)
+    }
+
+    fn post(body: &[u8]) -> Vec<u8> {
+        let mut request = format!(
+            "POST /answers HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\n\r\n",
+            body.len()
+        )
+        .into_bytes();
+        request.extend_from_slice(body);
+        request
+    }
+
+    fn get(path: &str) -> Vec<u8> {
+        format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").into_bytes()
+    }
+
+    fn page_in(dir: &crate::tempdir::Dir) -> (Adjudication, std::path::PathBuf) {
+        let target = dir.path().join("gold-answers.json");
+        (
+            Adjudication::new("<p>the page</p>".to_owned(), target.clone()),
+            target,
+        )
+    }
+
+    #[test]
+    fn the_page_is_served_at_the_root_and_nothing_is_served_anywhere_else() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, _) = page_in(&dir);
+        let (said, _) = ask(&page, get("/"));
+        assert!(said.starts_with("HTTP/1.1 200 OK\r\n"), "{said}");
+        assert!(said.contains("Content-Type: text/html"), "{said}");
+        assert!(said.ends_with("\r\n\r\n<p>the page</p>"), "{said}");
+
+        let (said, _) = ask(&page, get("/elsewhere"));
+        assert!(said.starts_with("HTTP/1.1 404 Not Found\r\n"), "{said}");
+        let (said, _) = ask(&page, b"DELETE /answers HTTP/1.1\r\n\r\n".to_vec());
+        assert!(said.starts_with("HTTP/1.1 404 Not Found\r\n"), "{said}");
+    }
+
+    #[test]
+    fn answers_posted_are_on_disk_and_read_back_by_the_page() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, target) = page_in(&dir);
+        let (said, _) = ask(&page, get("/answers"));
+        assert!(
+            said.ends_with("\r\n\r\n[]"),
+            "nothing held reads as none: {said}"
+        );
+
+        let (said, failed) = ask(&page, post(br#"[{"app_id":1,"review_id":"r1","index":0}]"#));
+        assert_eq!(failed, None);
+        assert!(said.starts_with("HTTP/1.1 200 OK\r\n"), "{said}");
+        assert!(said.ends_with("{\"saved\":true}"), "{said}");
+        assert_eq!(super::answers_held(&target), 1);
+
+        // The query string reaches no route of its own.
+        let (said, _) = ask(&page, get("/answers?fresh=1"));
+        assert!(said.contains("\"review_id\": \"r1\""), "{said}");
+    }
+
+    #[test]
+    fn a_request_written_with_bare_line_feeds_is_read_as_well() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, target) = page_in(&dir);
+        let body = br#"[{"app_id":1,"review_id":"r1","index":0}]"#;
+        let mut request =
+            format!("POST /answers HTTP/1.1\nContent-Length: {}\n\n", body.len()).into_bytes();
+        request.extend_from_slice(body);
+        let (said, failed) = ask(&page, request);
+        assert_eq!(failed, None);
+        assert!(said.starts_with("HTTP/1.1 200 OK"), "{said}");
+        assert_eq!(super::answers_held(&target), 1);
+    }
+
+    #[test]
+    fn a_connection_that_says_nothing_is_not_answered() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, _) = page_in(&dir);
+        assert_eq!(ask(&page, Vec::new()), (String::new(), None));
+    }
+
+    #[test]
+    fn a_body_up_to_the_cap_is_read_whole_and_one_over_it_is_not_read() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, target) = page_in(&dir);
+        page.keep(br#"[{"app_id":1,"review_id":"r1","index":0}]"#)
+            .unwrap();
+
+        // An empty list padded out to exactly the cap with the whitespace JSON allows.
+        let mut whole = vec![b' '; super::MOST_BYTES];
+        whole[0] = b'[';
+        whole[super::MOST_BYTES - 1] = b']';
+        let (said, failed) = ask(&page, post(&whole));
+        assert_eq!(failed, None);
+        assert!(said.starts_with("HTTP/1.1 200 OK"), "{said}");
+        assert_eq!(super::answers_held(&target), 1, "merged, not replaced");
+
+        // Said to be one byte over, which is refused before a byte of it is read.
+        let over = format!(
+            "POST /answers HTTP/1.1\r\nContent-Length: {}\r\n\r\n",
+            super::MOST_BYTES + 1
+        );
+        let (said, failed) = ask(&page, over.into_bytes());
+        assert!(failed.is_some());
+        assert_eq!(said, "");
+        assert_eq!(super::answers_held(&target), 1);
+    }
+
+    #[test]
+    fn answers_are_kept_in_a_directory_that_did_not_exist_yet() {
+        let dir = crate::tempdir::Dir::new();
+        let target = dir.path().join("gold").join("answers.json");
+        let page = Adjudication::new(String::new(), target.clone());
+        page.keep(b"[{}]").unwrap();
+        assert_eq!(super::answers_held(&target), 1);
+    }
+
+    #[test]
+    fn serving_says_where_to_open_the_page_and_answers_there() {
+        let dir = crate::tempdir::Dir::new();
+        let (page, _) = page_in(&dir);
+        let (said, heard) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let say = move |line: &str| {
+                let _ = said.send(line.to_owned());
+            };
+            let _ = page.serve(0, &say);
+        });
+        let opening = heard
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("the address is said");
+        let address = opening
+            .strip_prefix("adjudicating at http://")
+            .and_then(|rest| rest.strip_suffix('/'))
+            .unwrap_or_else(|| panic!("{opening}"));
+        let mut stream = TcpStream::connect(address).unwrap();
+        stream.write_all(&get("/")).unwrap();
+        let mut answer = String::new();
+        stream.read_to_string(&mut answer).unwrap();
+        assert!(answer.ends_with("<p>the page</p>"), "{answer}");
     }
 }
