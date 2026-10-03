@@ -106,7 +106,9 @@ end
 CASK
 
 # The autoupdate block is what `checkver.ps1 -Update` in a Scoop bucket reads to raise the
-# manifest by itself; the hash comes from the release's SHA256SUMS rather than a download.
+# manifest by itself; the hash comes from the release's SHA256SUMS rather than a download. The
+# program's own folder goes on the PATH rather than a `bin` shim: Scoop makes the shim of a
+# windowed program windowed too, and that shim returns at once and passes on none of its output.
 jq -n \
   --arg version "${version}" \
   --arg homepage "${repository}" \
@@ -123,7 +125,7 @@ jq -n \
     homepage: $homepage,
     license: "Apache-2.0",
     architecture: {"64bit": {url: "\($download)/\($folder).zip", hash: $hash, extract_dir: $folder}},
-    bin: "steamgauge.exe",
+    env_add_path: ".",
     shortcuts: [["steamgauge.exe", "SteamGauge"]],
     checkver: "github",
     autoupdate: {architecture: {"64bit": {

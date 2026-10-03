@@ -4985,7 +4985,9 @@ by its real path, because Tauri on macOS refuses its own path when that passes t
 symlink, which is what a plain `binary` link would be.
 
 **Scoop takes the portable archive, winget the setup program.** Scoop installs portable
-programs into its own folder and adds a Start menu shortcut and a shim on the `PATH`; winget
+programs into its own folder, adds a Start menu shortcut, and puts that folder on the `PATH`
+rather than a shim, because Scoop's shim of a windowed program is windowed too, returns at once
+and passes on no output; winget
 runs the per-user NSIS setup silently, under the product code the setup program registers, so
 a copy installed from the release page is the same package to it.
 

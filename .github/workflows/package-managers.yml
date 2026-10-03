@@ -2,9 +2,10 @@ name: package managers
 
 # The Homebrew cask, the Scoop manifest and the winget manifests, installed the way a person
 # installs them, on the system each is for, and the program they installed run. On a pull request
-# that touches them, the committed files, checked first against what the release they name is
-# signed over; until a release has put them on main there is nothing to install, and the jobs
-# skip. Called by the release, the files it wrote for itself, before any of them goes further.
+# that touches them, what the branch's script writes for the latest release, from that release's
+# signed checksums, after the committed files are checked against what the release's own script
+# wrote; until a release exists there is nothing to install, and the jobs skip. Called by the
+# release, the files it wrote for itself, before any of them goes further.
 on:
   pull_request:
     paths:
@@ -41,9 +42,10 @@ env:
   SCOOP_COMMIT: b588a06e41d920d2123ec70aee682bae14935939
 
 jobs:
-  # A pull request can change the files by hand; what reaches people has to be exactly what the
-  # release's own signed checksums say, written by the script as it was at that release's tag. A
-  # change to the script shows in the next release, which installs what it wrote before merging.
+  # A pull request can change the committed files by hand; what reaches people has to be exactly
+  # what the release's own signed checksums say, written by the script as it was at that release's
+  # tag. What is installed is what this branch's script writes, so a change to the script is
+  # proven before a release depends on it.
   signed:
     name: package managers (signed)
     if: github.event_name == 'pull_request'
@@ -66,29 +68,36 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ ! -f bucket/steamgauge.json && ! -f Casks/steamgauge.rb ]]; then
-            echo "No release has put a cask or a Scoop manifest on this branch yet; nothing to install."
-            exit 0
+          if [[ -f bucket/steamgauge.json ]]; then
+            version="$(jq -r .version bucket/steamgauge.json)"
+          else
+            tag="$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --exclude-pre-releases \
+              --limit 1 --json tagName --jq '.[0].tagName // empty')"
+            if [[ -z "${tag}" ]]; then
+              echo "No release exists yet; nothing to install."
+              exit 0
+            fi
+            version="${tag#v}"
           fi
-          version="$(jq -r .version bucket/steamgauge.json)"
           tag="v${version}"
-          mkdir release written
+          mkdir release released written
           gh release download "${tag}" --repo "${GITHUB_REPOSITORY}" --dir release \
             --pattern SHA256SUMS --pattern "steamgauge-${version}.intoto.jsonl"
           gh attestation verify release/SHA256SUMS --bundle "release/steamgauge-${version}.intoto.jsonl" \
             --repo "${GITHUB_REPOSITORY}" \
             --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release-build.yml" \
             --source-ref "refs/tags/${tag}" --deny-self-hosted-runners
-          gh api -H "Accept: application/vnd.github.raw" \
-            "repos/${GITHUB_REPOSITORY}/contents/tools/release/package-managers.sh?ref=${tag}" > "${RUNNER_TEMP}/package-managers.sh"
-          bash "${RUNNER_TEMP}/package-managers.sh" "${version}" release/SHA256SUMS written
-          diff -u written/Casks/steamgauge.rb Casks/steamgauge.rb
-          diff -u written/bucket/steamgauge.json bucket/steamgauge.json
+          if [[ -f bucket/steamgauge.json || -f Casks/steamgauge.rb ]]; then
+            gh api -H "Accept: application/vnd.github.raw" \
+              "repos/${GITHUB_REPOSITORY}/contents/tools/release/package-managers.sh?ref=${tag}" > "${RUNNER_TEMP}/package-managers.sh"
+            bash "${RUNNER_TEMP}/package-managers.sh" "${version}" release/SHA256SUMS released
+            diff -u released/Casks/steamgauge.rb Casks/steamgauge.rb
+            diff -u released/bucket/steamgauge.json bucket/steamgauge.json
+          fi
+          bash tools/release/package-managers.sh "${version}" release/SHA256SUMS written
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
-      # The winget manifests live in winget-pkgs rather than here, so the ones this release
-      # writes are what the winget job installs.
-      - name: Upload what the release writes
+      - name: Upload what this branch writes
         if: steps.check.outputs.version != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -219,13 +228,16 @@ jobs:
             & $scoop @args
             if ($LASTEXITCODE -ne 0) { throw "scoop $args failed with $LASTEXITCODE." }
           }
-          # The command through Scoop's shim, which hands the windowed program the pipe it was
-          # given; the window from the folder the Start menu shortcut points into.
+          # The command as a new terminal finds it, on the PATH Scoop left in the registry; the
+          # window from the folder the Start menu shortcut points into.
           function Check {
-            $said = & "$env:SCOOP\shims\steamgauge.exe" --version
+            $installed = "$env:SCOOP\apps\steamgauge\current"
+            $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'Machine')
+            $found = (Get-Command steamgauge -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+            if ($found -ne "$installed\steamgauge.exe") { throw "steamgauge on the PATH is $found, not $installed\steamgauge.exe." }
+            $said = & steamgauge --version
             if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
             Write-Output $said
-            $installed = "$env:SCOOP\apps\steamgauge\current"
             foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
               if (-not (Test-Path "$installed\$file")) { throw "Scoop put no $file in $installed." }
             }
@@ -258,6 +270,7 @@ jobs:
           Check
           Scoop uninstall steamgauge
           if (Test-Path "$env:SCOOP\apps\steamgauge") { throw 'Uninstalling left SteamGauge behind.' }
+          if ([Environment]::GetEnvironmentVariable('PATH', 'User') -like '*apps\steamgauge*') { throw 'Uninstalling left SteamGauge on the PATH.' }
 
   # winget's own checks of the manifests, then winget installing the setup program they name,
   # per user and silently, as `winget install` does for a person.
@@ -267,11 +280,21 @@ jobs:
     if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
     runs-on: windows-2025
     timeout-minutes: 20
-    # It downloads only this run's own files, which takes no token.
+    # It downloads only this run's own files and public releases, which takes no token.
     permissions: {}
     defaults:
       run:
         shell: pwsh
+    env:
+      # The runner image's winget lags the manifest schema winget-pkgs takes and warns over every
+      # header, so the manifests are checked by a current one: the program and the packages it
+      # runs on, both from its release.
+      # renovate: datasource=github-release-attachments depName=microsoft/winget-cli versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+      WINGET_TAG: v1.29.380
+      WINGET_SHA256: 65dea9c01ce08ee7b763366b27c0e651f97db857c11ca9b9c301826c10092f2e
+      # renovate: datasource=github-release-attachments depName=microsoft/winget-cli versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+      WINGET_DEPENDENCIES_TAG: v1.29.380
+      WINGET_DEPENDENCIES_SHA256: ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1
 
     steps:
       - name: Take the files under test
@@ -279,12 +302,31 @@ jobs:
         with:
           name: ${{ inputs.files || 'package-managers-signed' }}
 
+      - name: Install winget at its pinned release
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $dir = "$env:RUNNER_TEMP\winget-cli"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          function Fetch($tag, $name, $sha256) {
+            $file = "$dir\$name"
+            Invoke-WebRequest "https://github.com/microsoft/winget-cli/releases/download/$tag/$name" -OutFile $file
+            if ((Get-FileHash -Algorithm SHA256 $file).Hash -ne $sha256) { throw "$name is not the file pinned." }
+            $file
+          }
+          $bundle = Fetch $env:WINGET_TAG Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle $env:WINGET_SHA256
+          $zip = Fetch $env:WINGET_DEPENDENCIES_TAG DesktopAppInstaller_Dependencies.zip $env:WINGET_DEPENDENCIES_SHA256
+          Expand-Archive $zip "$dir\dependencies"
+          Add-AppxPackage -Path $bundle -DependencyPath (Get-ChildItem "$dir\dependencies\x64\*.appx").FullName -ForceApplicationShutdown
+          $said = winget --version
+          if ($said -ne $env:WINGET_TAG) { throw "winget --version said $said, not $env:WINGET_TAG." }
+          Write-Output $said
+
       - name: Validate, install, run and uninstall
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          winget --version
-          $version = (Get-Content bucket/steamgauge.json -Raw | ConvertFrom-Json).version
+          $version =(Get-Content bucket/steamgauge.json -Raw | ConvertFrom-Json).version
           winget validate --manifest winget --disable-interactivity
           # A manifest from a folder rather than from a source is refused until this is on.
           winget settings --enable LocalManifestFiles

@@ -113,7 +113,8 @@ publishes and packages:
 10. **package managers** (`package-managers.yml`) installs each of them as a person would and
     runs what it installed: the cask with Homebrew on Apple Silicon macOS, the Scoop manifest by
     the release's address and as a bucket, and the winget manifests with `winget install
-    --manifest`, the last two on Windows. Each installed program has to say
+    --manifest`, the last two on Windows. winget comes from its own pinned release, because
+    the runner image's lags the manifest schema and warns over every header. Each installed program has to say
     `steamgauge X.Y.Z` to `--version` and keep its window up for 20 seconds, and each uninstall
     has to remove it.
 11. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
@@ -242,7 +243,9 @@ brew install --cask aureliolo/steamgauge/steamgauge
   on macOS refuses its own path when that passes through one. There is no cask for Linux, and
   no apt or dnf repository either: Linux takes the release's `.deb` or `.rpm`.
 - **Scoop.** `bucket/steamgauge.json` installs the portable Windows archive, puts `steamgauge`
-  on the `PATH` through Scoop's shim and adds a Start menu shortcut for the window. The same
+  on the `PATH` by adding its own folder there, and adds a Start menu shortcut for the window.
+  Scoop's shim would not do: Scoop makes the shim of a windowed program windowed too, and that
+  shim returns at once and passes on none of the program's output. The same
   manifest is attached to every release, which is what the address above reads; this repository
   is also a bucket (`scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge`), which
   `scoop update` then follows.
@@ -253,8 +256,10 @@ brew install --cask aureliolo/steamgauge/steamgauge
 Every hash in them is one `SHA256SUMS` gives, after the release's attestation over that file
 has verified. Nothing in `Casks/` or `bucket/` is edited by hand: each release writes both and
 lands them on `main` through the packaging App, and a pull request that changes them anyway is
-held to what the release they name is signed over (`package-managers.yml`). Until the first
-release, neither folder exists, and the tap and the bucket are empty.
+held to what the release they name is signed over (`package-managers.yml`). That pull request
+check installs what its own branch's script writes for the latest release, so a change to the
+script is installed and run before any release depends on it. Until the first release, neither
+folder exists, and the tap and the bucket are empty.
 
 ### Setting them up, once
 
