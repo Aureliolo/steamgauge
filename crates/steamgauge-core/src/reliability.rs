@@ -235,8 +235,10 @@ fn score(
         } else {
             // Ordered, so "story read as gameplay" and the reverse are one disagreement
             // rather than two halves of one.
-            let pair = if a < b { (a, b) } else { (b, a) };
-            *splits.entry(pair).or_default() += 1;
+            let mut pair = [a, b];
+            pair.sort_unstable();
+            let [low, high] = pair;
+            *splits.entry((low, high)).or_default() += 1;
         }
     }
 
@@ -278,7 +280,10 @@ fn kappa(
             (*count as f64 / total) * (other as f64 / total)
         })
         .sum();
-    ((1.0 - expected).abs() > f64::EPSILON).then(|| (observed - expected) / (1.0 - expected))
+    // Chance agreement is exactly one only when both labellers used one value and the same
+    // one, and then this is nought over nought.
+    let kappa = (observed - expected) / (1.0 - expected);
+    kappa.is_finite().then_some(kappa)
 }
 
 #[cfg(test)]
@@ -399,6 +404,58 @@ mod tests {
     }
 
     #[test]
+    fn two_labellings_are_joined_by_review_and_claim_and_the_rest_counted_to_their_side() {
+        let dir = crate::tempdir::Dir::new();
+        let (first, second) = (
+            dir.path().join("first.json"),
+            dir.path().join("second.json"),
+        );
+        let write = |path: &std::path::Path, labels: &[ClaimLabel]| {
+            std::fs::write(path, serde_json::to_vec(labels).unwrap()).unwrap();
+        };
+        write(
+            &first,
+            &[
+                label("1", 0, "bugs", false),
+                label("1", 1, "story", false),
+                label("2", 0, "price", false),
+                label("3", 0, "genre", false),
+            ],
+        );
+        write(
+            &second,
+            &[
+                label("1", 1, "gameplay", false),
+                label("1", 0, "bugs", false),
+                label("2", 1, "price", false),
+            ],
+        );
+        let found = paired(&first, &second).unwrap();
+        let joined: Vec<(&str, u16, &str, &str)> = found
+            .both
+            .iter()
+            .map(|(a, b)| {
+                assert_eq!((&a.review_id, a.index), (&b.review_id, b.index));
+                (
+                    a.review_id.as_str(),
+                    a.index,
+                    a.subject.as_str(),
+                    b.subject.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            joined,
+            [("1", 0, "bugs", "bugs"), ("1", 1, "story", "gameplay")]
+        );
+        assert_eq!((found.only_first, found.only_second), (2, 1));
+        assert!(matches!(
+            paired(&first, &dir.path().join("missing.json")),
+            Err(crate::Error::NoReferenceSet { .. })
+        ));
+    }
+
+    #[test]
     fn pooling_two_games_adds_their_claims() {
         let mut every = Paired {
             both: vec![(label("1", 0, "bugs", false), label("1", 0, "bugs", false))],
@@ -410,12 +467,12 @@ mod tests {
                 (label("2", 0, "story", false), label("2", 0, "story", false)),
                 (label("2", 1, "story", false), label("2", 1, "price", false)),
             ],
-            only_first: 0,
+            only_first: 3,
             only_second: 2,
         });
         let found = over(&every);
         assert_eq!(found.overlap, 3);
-        assert_eq!((found.only_first, found.only_second), (1, 2));
+        assert_eq!((found.only_first, found.only_second), (4, 2));
         let subject = found.subject().expect("subject is always scored");
         assert_eq!((subject.compared, subject.agreed), (3, 2));
         assert!((subject.rate().unwrap() - 2.0 / 3.0).abs() < 1e-9);
