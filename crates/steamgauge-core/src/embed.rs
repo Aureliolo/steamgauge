@@ -199,6 +199,9 @@ impl Embedder {
 /// Under mean pooling, padding tokens must not contribute, or a short review batched with a
 /// long one would get a vector that depends on its batch neighbours rather than on what it
 /// says. Under CLS pooling only the leading token is read, which padding never reaches.
+///
+/// The mean is never divided out: a sum points the same way as the mean of its terms, and
+/// normalising leaves nothing of the length either had.
 fn pool(
     hidden: &ndarray::ArrayView3<'_, f32>,
     mask: &[i64],
@@ -210,22 +213,16 @@ fn pool(
     let mut out = Vec::with_capacity(rows);
     for row in 0..rows {
         let mut acc = vec![0.0_f32; dimensions];
-        let mut kept = 0.0_f32;
         for col in 0..cols {
             if mask[row * cols + col] == 0 {
                 continue;
             }
-            kept += 1.0;
             for (dim, value) in acc.iter_mut().enumerate() {
                 *value += hidden[[row, col, dim]];
             }
             if pooling == Pooling::Cls {
                 break;
             }
-        }
-        let divisor = if kept > 0.0 { kept } else { 1.0 };
-        for value in &mut acc {
-            *value /= divisor;
         }
         let norm = acc.iter().map(|v| v * v).sum::<f32>().sqrt();
         if norm > 0.0 {
@@ -346,14 +343,18 @@ pub fn embed_corpus(
         }
         Ok(())
     })?;
-    drain_window(
+    written = written.saturating_add(drain_window(
         embedder,
         app_id,
         batch_size,
         &schema,
         &mut writer,
         &mut window,
-    )?;
+    )?);
+    on_progress(EmbedProgress {
+        embedded: written,
+        unique_texts,
+    });
     writer.close()?;
     std::fs::rename(&partial, &path)?;
 
@@ -798,7 +799,7 @@ pub fn corpus_encoder(out_dir: &Path, app_id: u32) -> Result<String> {
 /// in it, which is what an interrupted crawl leaves behind.
 pub fn latest_snapshot(out_dir: &Path, app_id: u32) -> Result<PathBuf> {
     let app_dir = out_dir.join(format!("appid={app_id}"));
-    let mut best: Option<(i64, PathBuf)> = None;
+    let mut captures: Vec<(i64, PathBuf)> = Vec::new();
 
     for entry in std::fs::read_dir(&app_dir).map_err(|_| Error::NoCapture {
         path: app_dir.clone(),
@@ -816,14 +817,12 @@ pub fn latest_snapshot(out_dir: &Path, app_id: u32) -> Result<PathBuf> {
         // newer than the completed crawl it was meant to replace. Taking it on age alone
         // would hide a finished corpus behind an empty one, so a snapshot has to contain at
         // least one shard before it can shadow anything.
-        if !holds_a_shard(&path) {
-            continue;
-        }
-        if best.as_ref().is_none_or(|(seen, _)| stamp > *seen) {
-            best = Some((stamp, path));
+        if holds_a_shard(&path) {
+            captures.push((stamp, path));
         }
     }
-    best.map(|(_, path)| path).ok_or_else(|| {
+    let newest = captures.into_iter().max_by_key(|(stamp, _)| *stamp);
+    newest.map(|(_, path)| path).ok_or_else(|| {
         // A finished crawl that found nothing is not a crawl that never ran, and telling
         // somebody to run it again sends them to fetch the same nothing. The crawl's own
         // record says which it was.
@@ -951,6 +950,343 @@ mod tests {
         assert_eq!(report(100, 60).dedupe_rate(), Some(0.4));
         assert_eq!(report(0, 0).dedupe_rate(), None);
         assert!((report(100, 60).texts_per_second() - 60.0).abs() < 1e-9);
+        let slower = EmbedReport {
+            elapsed: Duration::from_secs(2),
+            ..report(100, 60)
+        };
+        assert!((slower.texts_per_second() - 30.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_text_with_nothing_to_read_pools_to_nothing_rather_than_to_nan() {
+        let hidden = ndarray::Array3::<f32>::zeros((1, 2, 4));
+        let pooled = pool(&hidden.view(), &[0, 0], 1, 2, Pooling::Mean, 4);
+        assert_eq!(pooled, [[0.0; 4]]);
+    }
+
+    /// The words the tiny encoder knows, after `[PAD]` and `[UNK]`.
+    const WORDS: [&str; 5] = ["query", ":", "good", "game", "bad"];
+
+    /// A tiny `encoder` in `cache`, as [`model::ensure`] would leave it: each token's vector is
+    /// one at the dimension of its id, padding's included, so that whatever reads padding shows.
+    fn tiny_encoder(cache: &Path, encoder: Encoder, precision: model::Precision, types: bool) {
+        let table: Vec<Vec<f32>> = (0..WORDS.len() + 2)
+            .map(|id| {
+                (0..encoder.dimensions())
+                    .map(|dim| if dim == id { 1.0 } else { 0.0 })
+                    .collect()
+            })
+            .collect();
+        let mut graph = crate::tiny_model::Graph::new();
+        if types {
+            graph.input(
+                "token_type_ids",
+                &[
+                    crate::tiny_model::Dim::Named("batch"),
+                    crate::tiny_model::Dim::Named("tokens"),
+                ],
+            );
+        }
+        graph
+            .per_token("last_hidden_state", &table)
+            .write(&model::model_path(cache, encoder, precision));
+        crate::tiny_model::write_json(
+            &model::tokenizer_path(cache, encoder),
+            &crate::tiny_model::word_tokenizer(&WORDS),
+        );
+    }
+
+    fn texts(texts: &[&str]) -> Vec<String> {
+        texts.iter().map(|&text| text.to_owned()).collect()
+    }
+
+    fn one(embedder: &mut Embedder, text: &str, prefix: &str) -> Vec<f32> {
+        embedder
+            .embed_as(&texts(&[text]), prefix)
+            .unwrap()
+            .remove(0)
+    }
+
+    #[test]
+    fn an_embedder_runs_the_graph_beside_it_and_says_what_it_loaded() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_encoder(
+            cache.path(),
+            Encoder::E5Small,
+            model::Precision::Float32,
+            false,
+        );
+        let mut embedder =
+            Embedder::load(cache.path(), Encoder::E5Small, model::Precision::Float32).unwrap();
+        assert_eq!(embedder.device(), "cpu");
+        assert_eq!(embedder.encoder(), Encoder::E5Small);
+        assert_eq!(embedder.precision(), model::Precision::Float32);
+        assert_eq!(embedder.dimensions(), 384);
+
+        let vectors = embedder.embed(&texts(&["good", "bad game"])).unwrap();
+        assert_eq!(vectors.len(), 2);
+        assert!(vectors.iter().all(|vector| vector.len() == 384));
+        assert!(embedder.embed(&[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn e5_is_asked_with_its_prefix_and_the_others_without() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_encoder(
+            cache.path(),
+            Encoder::E5Small,
+            model::Precision::Float16,
+            false,
+        );
+        tiny_encoder(
+            cache.path(),
+            Encoder::GteBase,
+            model::Precision::Float16,
+            true,
+        );
+
+        let mut e5 =
+            Embedder::load(cache.path(), Encoder::E5Small, model::Precision::Float16).unwrap();
+        let asked = e5.embed(&texts(&["good"])).unwrap().remove(0);
+        assert_eq!(asked, one(&mut e5, "good", "query: "));
+        assert_ne!(asked, one(&mut e5, "good", ""));
+
+        let mut gte =
+            Embedder::load(cache.path(), Encoder::GteBase, model::Precision::Float16).unwrap();
+        let asked = gte.embed(&texts(&["good"])).unwrap().remove(0);
+        assert_eq!(asked, one(&mut gte, "good", ""));
+        assert_eq!(asked.len(), 768);
+    }
+
+    #[test]
+    fn a_texts_vector_does_not_depend_on_what_it_was_batched_with() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_encoder(
+            cache.path(),
+            Encoder::E5Small,
+            model::Precision::Float16,
+            false,
+        );
+        let mut embedder =
+            Embedder::load(cache.path(), Encoder::E5Small, model::Precision::Float16).unwrap();
+        let alone = one(&mut embedder, "good", "");
+        let batched = embedder
+            .embed_as(&texts(&["good game bad", "good"]), "")
+            .unwrap();
+        assert_eq!(batched[1], alone);
+        assert_eq!(batched[0], one(&mut embedder, "good game bad", ""));
+    }
+
+    #[test]
+    fn cls_pooling_reads_the_leading_token_and_mean_pooling_every_token() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_encoder(
+            cache.path(),
+            Encoder::E5Small,
+            model::Precision::Float16,
+            false,
+        );
+        tiny_encoder(
+            cache.path(),
+            Encoder::GteBase,
+            model::Precision::Float16,
+            true,
+        );
+        let mut mean =
+            Embedder::load(cache.path(), Encoder::E5Small, model::Precision::Float16).unwrap();
+        assert_ne!(one(&mut mean, "good game", ""), one(&mut mean, "good", ""));
+        let mut cls =
+            Embedder::load(cache.path(), Encoder::GteBase, model::Precision::Float16).unwrap();
+        assert_eq!(one(&mut cls, "good game", ""), one(&mut cls, "good", ""));
+    }
+
+    const APP: u32 = 7;
+
+    /// A crawled capture of `reviews`, as (id, text) pairs.
+    fn capture(out: &Path, reviews: &[(&str, &str)]) -> PathBuf {
+        let snapshot = out.join(format!("appid={APP}")).join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        let rows: Vec<serde_json::Value> = reviews
+            .iter()
+            .map(|(id, text)| {
+                serde_json::json!({"recommendationid": id, "review": text, "language": "english"})
+            })
+            .collect();
+        let mut writer =
+            crate::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), APP).unwrap();
+        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        snapshot
+    }
+
+    /// How many reviews each stored vector stands for, by its text's hash.
+    fn reviews_per_vector(path: &Path) -> HashMap<String, u32> {
+        use arrow::array::{StringArray, UInt32Array};
+        let mut counts = HashMap::new();
+        let reader = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path).unwrap())
+            .unwrap()
+            .build()
+            .unwrap();
+        for batch in reader {
+            let batch = batch.unwrap();
+            let column = |name| batch.column_by_name(name).unwrap().as_any();
+            let hashes = column("text_sha256").downcast_ref::<StringArray>().unwrap();
+            let counted = column("n_reviews").downcast_ref::<UInt32Array>().unwrap();
+            for row in 0..batch.num_rows() {
+                counts.insert(hashes.value(row).to_owned(), counted.value(row));
+            }
+        }
+        counts
+    }
+
+    #[test]
+    fn a_corpus_is_embedded_once_per_distinct_text_and_read_back_by_review() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float32, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float32).unwrap();
+        let snapshot = capture(
+            out.path(),
+            &[
+                ("r1", "good game"),
+                ("r2", "good game"),
+                ("r3", "bad"),
+                ("r4", " "),
+                ("r5", "good"),
+            ],
+        );
+
+        let mut progress = Vec::new();
+        let report = embed_corpus(
+            &mut embedder,
+            out.path(),
+            APP,
+            2,
+            crate::taxonomy::Unit::Review,
+            |done| progress.push((done.embedded, done.unique_texts)),
+        )
+        .unwrap();
+        assert_eq!(
+            (report.reviews, report.unique_texts, report.dim),
+            (4, 3, 384)
+        );
+        assert_eq!(report.device, "cpu");
+        assert_eq!(report.path, snapshot.join("embeddings.parquet"));
+        assert_eq!(progress, [(3, 3)]);
+        assert_eq!(
+            reviews_per_vector(&report.path),
+            HashMap::from([
+                (sha256_hex("good game"), 2),
+                (sha256_hex("bad"), 1),
+                (sha256_hex("good"), 1),
+            ])
+        );
+        let sidecar: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(snapshot.join("embeddings.json")).unwrap())
+                .unwrap();
+        assert_eq!(sidecar["model"], "intfloat/multilingual-e5-small");
+        assert_eq!(sidecar["precision"], "fp32");
+        assert_eq!(sidecar["dimensions"], 384);
+        assert_eq!(sidecar["batch_size"], 2);
+        assert_eq!(sidecar["device"], "cpu");
+        assert_eq!(sidecar["unit"], "review");
+        assert_eq!(
+            (sidecar["texts"].clone(), sidecar["unique_texts"].clone()),
+            (4.into(), 3.into())
+        );
+        assert_eq!(
+            corpus_encoder(out.path(), APP).unwrap(),
+            "intfloat/multilingual-e5-small"
+        );
+
+        let good_game = embedder.embed(&texts(&["good game"])).unwrap().remove(0);
+        let bad = embedder.embed(&texts(&["bad"])).unwrap().remove(0);
+        let good = embedder.embed(&texts(&["good"])).unwrap().remove(0);
+        let centroid = corpus_centroid(out.path(), APP).unwrap();
+        for (dim, value) in centroid.iter().enumerate() {
+            let expected = (good_game[dim] + bad[dim] + good[dim]) / 3.0;
+            assert!(
+                (value - expected).abs() < 1e-6,
+                "{dim}: {value} against {expected}"
+            );
+        }
+
+        let wanted: HashSet<String> = ["r1", "r3"].map(str::to_owned).into();
+        assert_eq!(
+            vectors_for(out.path(), APP, &wanted).unwrap(),
+            HashMap::from([
+                ("r1".to_owned(), good_game.clone()),
+                ("r3".to_owned(), bad.clone())
+            ])
+        );
+        let asked: HashSet<String> = ["r1", "r3", "r4", "r5"].map(str::to_owned).into();
+        assert_eq!(
+            embed_reviews(&mut embedder, out.path(), APP, &asked, 2).unwrap(),
+            HashMap::from([
+                ("r1".to_owned(), good_game),
+                ("r3".to_owned(), bad),
+                ("r5".to_owned(), good),
+            ]),
+            "a blank review is never embedded"
+        );
+    }
+
+    #[test]
+    fn the_points_reviews_make_are_embedded_beside_and_apart_from_the_reviews() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        let snapshot = capture(out.path(), &[("r1", "good game"), ("r2", "bad")]);
+        let report = embed_corpus(
+            &mut embedder,
+            out.path(),
+            APP,
+            8,
+            crate::taxonomy::Unit::Claim,
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(report.path, snapshot.join("claim-embeddings.parquet"));
+        assert!(report.path.exists());
+        assert!(snapshot.join("claim-embeddings.json").exists());
+        assert!(!snapshot.join("embeddings.parquet").exists());
+        assert!(!snapshot.join("embeddings.json").exists());
+    }
+
+    #[test]
+    fn a_capture_with_nothing_to_embed_is_named_rather_than_written_empty() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        capture(out.path(), &[("r1", " ")]);
+        let refused = embed_corpus(
+            &mut embedder,
+            out.path(),
+            APP,
+            8,
+            crate::taxonomy::Unit::Review,
+            |_| {},
+        );
+        assert!(
+            matches!(refused, Err(Error::NoCapture { .. })),
+            "{refused:?}"
+        );
+    }
+
+    #[test]
+    fn a_snapshot_holding_vectors_but_no_shard_is_not_a_capture() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join(format!("appid={APP}")).join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        std::fs::write(snapshot.join("embeddings.parquet"), b"vectors").unwrap();
+        std::fs::write(snapshot.join("shard-0000.json"), b"not a shard").unwrap();
+        let found = latest_snapshot(out.path(), APP);
+        assert!(matches!(found, Err(Error::NoCapture { .. })), "{found:?}");
     }
 
     #[test]
