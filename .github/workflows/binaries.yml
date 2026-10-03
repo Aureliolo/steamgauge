@@ -47,7 +47,9 @@ jobs:
             program: steamgauge
             binskim: linux-x64/BinSkim
             debug: none
-            accepted: ''
+            # BA3031 asks for LLVM's SafeStack, which Rust offers only as a nightly sanitizer
+            # (-Zsanitizer=safe-stack); a release built on the stable toolchain cannot have it.
+            accepted: BA3031
             spectre: ''
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
