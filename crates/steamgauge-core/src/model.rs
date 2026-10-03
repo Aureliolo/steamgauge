@@ -91,6 +91,19 @@ impl Encoder {
         }
     }
 
+    /// The commit the pinned files are fetched from: the newest at which every one of them has
+    /// the hash pinned below. A branch name would let whoever controls the repository decide
+    /// what is downloaded; the hashes would refuse it, and the commit means nothing else is
+    /// ever asked for.
+    fn revision(self) -> &'static str {
+        match self {
+            Self::E5Small => "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            Self::E5Base => "d128750597153bb5987e10b1c3493a34e5a4502a",
+            Self::ArcticMediumV2 => "95c2741480856aa9666782eb4afe11959938017f",
+            Self::GteBase => "2edbf5e672aab465f9ed4c154a8b61791c082c69",
+        }
+    }
+
     #[must_use]
     pub const fn dimensions(self) -> usize {
         match self {
@@ -282,9 +295,36 @@ pub async fn ensure(
     let http = client()?;
 
     for asset in [encoder.tokenizer(), encoder.graph(precision)] {
-        ensure_asset(&http, encoder.id(), asset, &dir, &mut on_progress).await?;
+        let source = Source {
+            repository: encoder.id(),
+            revision: encoder.revision(),
+        };
+        ensure_asset(&http, source, asset, &dir, &mut on_progress).await?;
     }
     Ok(())
+}
+
+/// Where pinned files are fetched from: a Hugging Face repository at one commit.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Source {
+    pub(crate) repository: &'static str,
+    pub(crate) revision: &'static str,
+}
+
+impl Source {
+    /// Whether this names a repository and a full commit, the only revision that cannot move.
+    pub(crate) fn is_pinned(self) -> bool {
+        !self.repository.is_empty()
+            && self.revision.len() == 40
+            && self.revision.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }
+
+    fn url(self, remote: &str) -> String {
+        format!(
+            "https://huggingface.co/{}/resolve/{}/{remote}",
+            self.repository, self.revision
+        )
+    }
 }
 
 /// Fetches one pinned file from a Hugging Face repository unless the copy on disk already
@@ -292,11 +332,12 @@ pub async fn ensure(
 ///
 /// # Errors
 ///
-/// Returns [`Error::ModelChecksum`] if what was downloaded does not match, and propagates
+/// Returns [`Error::NoAnchors`] if the file has to be fetched and the source is not pinned to a
+/// commit, [`Error::ModelChecksum`] if what was downloaded does not match, and propagates
 /// transport and filesystem failures.
 pub(crate) async fn ensure_asset(
     http: &reqwest::Client,
-    repository: &str,
+    source: Source,
     asset: Asset,
     dir: &Path,
     on_progress: &mut impl FnMut(DownloadProgress),
@@ -305,7 +346,12 @@ pub(crate) async fn ensure_asset(
     if path.is_file() && sha256_file(&path)? == asset.sha256 {
         return Ok(());
     }
-    download(http, repository, asset, &path, on_progress).await?;
+    if !source.is_pinned() {
+        return Err(Error::NoAnchors {
+            path: dir.to_path_buf(),
+        });
+    }
+    download(http, &source.url(asset.remote), asset, &path, on_progress).await?;
 
     let actual = sha256_file(&path)?;
     if actual != asset.sha256 {
@@ -329,16 +375,12 @@ pub(crate) fn client() -> Result<reqwest::Client> {
 
 async fn download(
     http: &reqwest::Client,
-    repository: &str,
+    url: &str,
     asset: Asset,
     path: &Path,
     on_progress: &mut impl FnMut(DownloadProgress),
 ) -> Result<()> {
-    let url = format!(
-        "https://huggingface.co/{repository}/resolve/main/{}",
-        asset.remote
-    );
-    let mut response = http.get(&url).send().await?.error_for_status()?;
+    let mut response = http.get(url).send().await?.error_for_status()?;
     let total = response.content_length();
 
     // Written beside the target and renamed, so an interrupted download is never mistaken
@@ -502,6 +544,72 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn every_encoder_is_fetched_from_a_commit_and_not_a_branch() {
+        for encoder in EVERY_ENCODER {
+            let source = Source {
+                repository: encoder.id(),
+                revision: encoder.revision(),
+            };
+            assert!(source.is_pinned(), "{}", encoder.id());
+            assert!(
+                source
+                    .url("tokenizer.json")
+                    .ends_with(&format!("/resolve/{}/tokenizer.json", encoder.revision())),
+                "{}",
+                encoder.id()
+            );
+        }
+    }
+
+    #[test]
+    fn a_source_without_a_full_commit_is_not_pinned() {
+        for revision in ["", "main", "v1", "614241f", &"g".repeat(40)] {
+            let source = Source {
+                repository: "intfloat/multilingual-e5-small",
+                revision: revision.to_owned().leak(),
+            };
+            assert!(!source.is_pinned(), "{revision:?}");
+        }
+        assert!(
+            !Source {
+                repository: "",
+                revision: "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            }
+            .is_pinned()
+        );
+    }
+
+    #[test]
+    fn a_file_is_never_fetched_from_a_source_that_is_not_pinned() {
+        let dir = crate::tempdir::Dir::new();
+        let asset = Asset {
+            remote: "tokenizer.json",
+            local: "tokenizer.json",
+            sha256: "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+        };
+        let source = Source {
+            repository: "intfloat/multilingual-e5-small",
+            revision: "main",
+        };
+        let fetched = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(ensure_asset(
+                &client().unwrap(),
+                source,
+                asset,
+                dir.path(),
+                &mut |_| {},
+            ));
+        assert!(
+            matches!(fetched, Err(Error::NoAnchors { .. })),
+            "{fetched:?}"
+        );
+        assert!(!dir.path().join("tokenizer.json").exists());
     }
 
     #[test]

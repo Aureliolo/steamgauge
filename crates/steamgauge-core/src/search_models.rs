@@ -42,6 +42,8 @@ pub struct Model {
     pub name: &'static str,
     /// Empty until published.
     pub repository: &'static str,
+    /// The commit it is fetched from; empty until published.
+    pub revision: &'static str,
     graph: Asset,
     tokenizer: Asset,
     /// What fetching it costs, once.
@@ -53,6 +55,7 @@ pub struct Model {
 pub const ENCODER: Model = Model {
     name: "search-encoder",
     repository: "",
+    revision: "",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -69,6 +72,7 @@ pub const ENCODER: Model = Model {
 pub const RERANKER: Model = Model {
     name: "search-reranker",
     repository: "",
+    revision: "",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -132,15 +136,16 @@ impl Model {
     ) -> Result<()> {
         let dir = self.dir(cache_dir);
         std::fs::create_dir_all(&dir)?;
-        if self.repository.is_empty() && !self.fetched(cache_dir) {
-            return Err(Error::NoAnchors { path: dir });
-        }
         let http = model::client()?;
+        let source = model::Source {
+            repository: self.repository,
+            revision: self.revision,
+        };
         for asset in [self.tokenizer, self.graph] {
             // A copy here that matches its pin is used without asking anyone; one that does not
             // is fetched again, which before publication fails rather than running a file
             // nothing vouches for.
-            model::ensure_asset(&http, self.repository, asset, &dir, &mut on_progress).await?;
+            model::ensure_asset(&http, source, asset, &dir, &mut on_progress).await?;
         }
         Ok(())
     }

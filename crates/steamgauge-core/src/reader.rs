@@ -387,8 +387,26 @@ impl Size {
 
 const GIB: u64 = 1024 * 1024 * 1024;
 
-/// The files every reader is: its graph, its tokenizer, and the lines it answers above.
-const THREE_FILES: [crate::model::Asset; 3] = [
+/// The files every reader is: its graph, its tokenizer, and the lines it answers above, each
+/// size with its own hashes. `publish.py` writes the hashes here from the bytes it uploaded.
+const SMALL_FILES: [crate::model::Asset; 3] = [
+    crate::model::Asset {
+        remote: "model.onnx",
+        local: "model.onnx",
+        sha256: "",
+    },
+    crate::model::Asset {
+        remote: "tokenizer.json",
+        local: "tokenizer.json",
+        sha256: "",
+    },
+    crate::model::Asset {
+        remote: "reader.json",
+        local: "reader.json",
+        sha256: "",
+    },
+];
+const STANDARD_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -418,7 +436,8 @@ pub const SIZES: &[Size] = &[
         processor_seconds: 36.0,
         published: Published {
             repository: "",
-            files: &THREE_FILES,
+            revision: "",
+            files: &SMALL_FILES,
         },
     },
     Size {
@@ -428,7 +447,8 @@ pub const SIZES: &[Size] = &[
         processor_seconds: 284.9,
         published: Published {
             repository: "",
-            files: &THREE_FILES,
+            revision: "",
+            files: &STANDARD_FILES,
         },
     },
 ];
@@ -469,7 +489,8 @@ pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -
     card.is_none_or(|_| !reaches_a_card)
 }
 
-/// A claim reader as published: which repository, and which files at which hashes.
+/// A claim reader as published: which repository, at which commit, and which files at which
+/// hashes.
 ///
 /// Empty hashes mean nothing has been published yet, and [`ensure`] refuses rather than
 /// fetching something unverified: a model file that does not match a pin would change every
@@ -478,14 +499,22 @@ pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -
 #[derive(Debug, Clone, Copy)]
 pub struct Published {
     pub repository: &'static str,
+    pub revision: &'static str,
     files: &'static [crate::model::Asset],
 }
 
 impl Published {
-    /// Whether anything is pinned at all.
+    fn source(&self) -> crate::model::Source {
+        crate::model::Source {
+            repository: self.repository,
+            revision: self.revision,
+        }
+    }
+
+    /// Whether a repository, a commit and every file's hash are pinned.
     #[must_use]
     pub fn is_pinned(&self) -> bool {
-        !self.repository.is_empty() && self.files.iter().all(|file| !file.sha256.is_empty())
+        self.source().is_pinned() && self.files.iter().all(|file| !file.sha256.is_empty())
     }
 }
 
@@ -508,14 +537,8 @@ pub async fn ensure(
     std::fs::create_dir_all(dir)?;
     let http = crate::model::client()?;
     for file in size.published.files {
-        crate::model::ensure_asset(
-            &http,
-            size.published.repository,
-            *file,
-            dir,
-            &mut on_progress,
-        )
-        .await?;
+        crate::model::ensure_asset(&http, size.published.source(), *file, dir, &mut on_progress)
+            .await?;
     }
     Ok(())
 }
@@ -1565,25 +1588,45 @@ mod tests {
         );
     }
 
+    const COMMIT: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
+
+    fn pinned(revision: &'static str, hashes: [&'static str; 3]) -> Published {
+        let files: Vec<crate::model::Asset> = STANDARD_FILES
+            .iter()
+            .zip(hashes)
+            .map(|(file, sha256)| crate::model::Asset { sha256, ..*file })
+            .collect();
+        Published {
+            repository: "someone/game-review-reader",
+            revision,
+            files: files.leak(),
+        }
+    }
+
     #[test]
     fn a_pin_with_any_hash_missing_is_no_pin_at_all() {
-        let pinned = |hashes: [&'static str; 3]| {
-            let files: Vec<crate::model::Asset> = THREE_FILES
-                .iter()
-                .zip(hashes)
-                .map(|(file, sha256)| crate::model::Asset { sha256, ..*file })
-                .collect();
-            Published {
-                repository: "someone/game-review-reader",
-                files: files.leak(),
-            }
-        };
         let hash: &'static str = "0".repeat(64).leak();
         assert!(
-            !pinned([hash, hash, ""]).is_pinned(),
+            !pinned(COMMIT, [hash, hash, ""]).is_pinned(),
             "two of three files pinned would fetch the third unverified"
         );
-        assert!(pinned([hash, hash, hash]).is_pinned());
+        assert!(pinned(COMMIT, [hash, hash, hash]).is_pinned());
+    }
+
+    #[test]
+    fn a_pin_fetches_from_a_full_commit_and_never_a_name_that_moves() {
+        let hash: &'static str = "0".repeat(64).leak();
+        for moving in ["", "main", "v1", "614241f"] {
+            assert!(
+                !pinned(moving, [hash, hash, hash]).is_pinned(),
+                "{moving:?} is not a commit the files can be fetched from unchanged"
+            );
+        }
+    }
+
+    #[test]
+    fn nothing_is_published_until_publishing_pins_it() {
+        assert!(SIZES.iter().all(|size| !size.published.is_pinned()));
     }
 
     #[test]
