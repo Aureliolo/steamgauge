@@ -21,15 +21,18 @@ reported to code scanning; `CONTRIBUTING.md` says how to run the fuzzers yoursel
 Every release is built by GitHub Actions on GitHub-hosted runners, from a signed commit on
 `main`, with `--locked` dependencies and no build cache, by `release-build.yml`. Nothing is built
 or signed on a developer machine. Each release carries an installer and a portable archive for
-each system (the README's Install section lists them), an SPDX SBOM of each, and `SHA256SUMS`
-over all of them, and two kinds of Sigstore attestation: build provenance over every file, and
-each SBOM bound to the file it describes. The build and the signing both run in that one
-reusable workflow, which is SLSA Build Level 3, and the attestations are attached to the release
-as `steamgauge-<version>.intoto.jsonl` as well as stored on the repository, so they verify from
-the file alone. Releases are immutable and the `v*` tags cannot be moved or deleted. Each archive
-also carries `THIRD-PARTY-NOTICES.txt`, the licence of every crate compiled into the binary and
-of ONNX Runtime and, on Windows, DirectML, checked at release against the crates that build
-resolved and the files the archive holds.
+each system (the README's Install section lists them), an SPDX SBOM of each, the Scoop manifest
+`steamgauge.json`, and `SHA256SUMS` over all of them, and two kinds of Sigstore attestation:
+build provenance over every file, and each SBOM bound to the file it describes. The build and
+the signing both run in that one reusable workflow, which is SLSA Build Level 3, and the
+attestations are attached to the release as `steamgauge-<version>.intoto.jsonl` as well as
+stored on the repository, so they verify from the file alone. Releases are immutable and the
+`v*` tags cannot be moved or deleted. Each archive also carries `THIRD-PARTY-NOTICES.txt`, the
+licence of every crate compiled into the binary and of ONNX Runtime and, on Windows, DirectML,
+checked at release against the crates that build resolved and the files the archive holds. The
+Homebrew cask, the Scoop manifest and the winget manifests are written from the release's own
+`SHA256SUMS` once its attestation verifies, so Homebrew, Scoop and winget install a file only if
+it matches the hash the release is signed over.
 
 Verify a download before running it. `file` is the name of any file in the release:
 

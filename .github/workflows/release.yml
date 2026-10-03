@@ -168,9 +168,10 @@ jobs:
           while read -r _ subject; do
             assets+=("dist/${subject#\*}")
           done < dist/SHA256SUMS
-          # Three archives, four installers, three SBOMs, the checksums and the attestations.
-          if [[ "${#assets[@]}" -ne 12 ]]; then
-            echo "Expected twelve files to publish, found ${#assets[@]}: ${assets[*]}" >&2
+          # Three archives, four installers, three SBOMs, the Scoop manifest, the checksums and
+          # the attestations.
+          if [[ "${#assets[@]}" -ne 13 ]]; then
+            echo "Expected thirteen files to publish, found ${#assets[@]}: ${assets[*]}" >&2
             exit 1
           fi
 
@@ -189,7 +190,7 @@ jobs:
           # A release the tag already carries is taken as done, so the whole run can be re-run
           # after a later job fails. A published release is immutable and never rewritten here,
           # so the way to be idempotent about it is to confirm it is already right, and "already
-          # right" means these twelve files and no others. Half a release is a third answer, and
+          # right" means these thirteen files and no others. Half a release is a third answer, and
           # it says which files are there.
           already_released() {
             if ! gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
@@ -198,12 +199,12 @@ jobs:
             have="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | LC_ALL=C sort)"
             want="$(printf '%s\n' "${assets[@]##*/}" | LC_ALL=C sort)"
             if [[ "${have}" == "${want}" ]]; then
-              echo "${GITHUB_REF_NAME} is released with all twelve files."
+              echo "${GITHUB_REF_NAME} is released with all thirteen files."
               return 0
             fi
             echo "${GITHUB_REF_NAME} already has a release, and it carries:" >&2
             printf '%s\n' "${have}" >&2
-            echo "and not the twelve files this job publishes. A published release is not" >&2
+            echo "and not the thirteen files this job publishes. A published release is not" >&2
             echo "rewritten here, so this needs a person." >&2
             exit 1
           }
@@ -227,6 +228,15 @@ jobs:
             "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-windows-x64-setup.exe\` | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.zip\` |" \
             "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-macos-arm64.dmg\` | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
             "| Linux, x86-64: CPU only | \`steamgauge_${VERSION}_amd64.deb\`, \`steamgauge-${VERSION}-1.x86_64.rpm\` | \`steamgauge-${VERSION}-x86_64-unknown-linux-gnu.tar.gz\` (needs WebKitGTK 4.1) |" \
+            '' \
+            'Or with a package manager:' \
+            '' \
+            '```bash' \
+            'winget install Aureliolo.SteamGauge' \
+            "scoop install https://github.com/Aureliolo/steamgauge/releases/download/v${VERSION}/steamgauge.json" \
+            'brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge' \
+            'brew install --cask aureliolo/steamgauge/steamgauge' \
+            '```' \
             '' \
             'Windows and macOS warn on first launch, because no build carries an operating-system' \
             'certificate. [SECURITY.md](https://github.com/Aureliolo/steamgauge/blob/main/SECURITY.md)' \
@@ -266,3 +276,300 @@ jobs:
           done
           echo "The release could not be created in three attempts." >&2
           exit 1
+
+  # The cask, the Scoop manifest and the winget manifests for this release, from the checksums as
+  # published, verified against the release's attestation the way a person's download would be.
+  package-managers-write:
+    name: package managers (write)
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag'
+    needs: [build, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the tagged script and the published release.
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Write them from the release's signed checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          bundle="steamgauge-${VERSION}.intoto.jsonl"
+          gh release download "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --dir release \
+            --pattern SHA256SUMS --pattern steamgauge.json --pattern "${bundle}"
+          for subject in release/SHA256SUMS release/steamgauge.json; do
+            gh attestation verify "${subject}" --bundle "release/${bundle}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release-build.yml" \
+              --source-ref "${GITHUB_REF}" --deny-self-hosted-runners
+          done
+          bash tools/release/package-managers.sh "${VERSION}" release/SHA256SUMS package-managers
+          # The bucket and the release's own attachment are one manifest.
+          cmp package-managers/bucket/steamgauge.json release/steamgauge.json
+
+      # Kept a month rather than a day: the first version reaches winget by hand, from these files.
+      - name: Upload them
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-managers
+          path: |
+            package-managers/Casks/steamgauge.rb
+            package-managers/bucket/steamgauge.json
+            package-managers/winget/*.yaml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Say how the first version reaches winget
+        if: vars.WINGET != 'submit'
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo '### winget'
+            echo
+            echo 'The winget job is off until the first version is in winget-pkgs. Submit this one by hand, on Windows, with'
+            echo "Microsoft's wingetcreate (\`winget install Microsoft.WingetCreate\`), signed in as the account that owns the fork:"
+            echo
+            echo '```powershell'
+            echo "gh run download ${GITHUB_RUN_ID} --repo ${GITHUB_REPOSITORY} --name package-managers --dir package-managers"
+            echo "wingetcreate submit --prtitle \"New package: Aureliolo.SteamGauge version ${VERSION}\" package-managers/winget"
+            echo '```'
+            echo
+            echo "Once a moderator has merged it, set the repository variable \`WINGET\` to \`submit\`; .github/release-process.md has the rest."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # Installed with Homebrew, Scoop and winget from the files just written, and the program each
+  # installed run, before any of them goes near main or winget-pkgs.
+  package-managers-test:
+    name: package managers
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag'
+    needs: package-managers-write
+    permissions:
+      contents: read # Reads the tagged workflow and the published release.
+    # `./` as for release-build.yml above.
+    uses: ./.github/workflows/package-managers.yml # zizmor: ignore[self-repository]
+    with:
+      files: package-managers
+      tag: ${{ github.ref_name }}
+
+  # The cask and the manifest land on main through a pull request that merges once every check
+  # has passed, with no one to approve anything. It is opened as the packaging App because GitHub
+  # holds the checks of a pull request opened with the job token until someone with write access
+  # approves them. An installation token lasts an hour, so one is made for each change, and the
+  # waiting in between is done with the job token, which reads only.
+  package-managers-main:
+    name: package managers (main)
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag'
+    needs: [build, package-managers-test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    # The App's key is a secret of this environment, which only release tags can deploy to.
+    environment: packages
+    permissions:
+      contents: read # Reads the tagged scripts.
+      pull-requests: read # Watches the pull request.
+      checks: read # Reads its checks.
+      statuses: read # Reads its commit statuses, if any.
+      actions: read # Sees whether its checks are held for approval.
+    env:
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download them
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-managers
+          path: package-managers
+
+      - name: Refuse to go on without the packaging App
+        env:
+          CLIENT_ID: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          KEY_SET: ${{ secrets.PACKAGING_APP_KEY != '' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLIENT_ID}" || "${KEY_SET}" != true ]]; then
+            echo "::error::The packaging App is not set up: the variable PACKAGING_APP_CLIENT_ID and the secret PACKAGING_APP_KEY in the packages environment are needed. See .github/release-process.md." >&2
+            exit 1
+          fi
+
+      - name: Act as the packaging App
+        id: opener
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PACKAGING_APP_KEY }}
+          repositories: steamgauge
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open the pull request
+        id: open
+        env:
+          GH_TOKEN: ${{ steps.opener.outputs.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: bash tools/release/package-managers-pr.sh open "${VERSION}" package-managers >> "${GITHUB_OUTPUT}"
+
+      - name: Wait for its checks
+        id: first
+        if: steps.open.outputs.done != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.open.outputs.pr }}
+        run: bash tools/release/package-managers-pr.sh wait "${PR}" >> "${GITHUB_OUTPUT}"
+
+      - name: Act as the packaging App again
+        id: merger
+        if: steps.first.outputs.state == 'clean' || steps.first.outputs.state == 'behind'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PACKAGING_APP_KEY }}
+          repositories: steamgauge
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Behind when main moved while the checks ran: the branch is brought up to date, which runs
+      # them again.
+      - name: Merge it, or bring it up to date
+        if: steps.merger.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.merger.outputs.token }}
+          PR: ${{ steps.open.outputs.pr }}
+          STATE: ${{ steps.first.outputs.state }}
+        run: bash tools/release/package-managers-pr.sh act "${PR}" "${STATE}"
+
+      - name: Wait for its checks again
+        id: second
+        if: steps.first.outputs.state == 'behind'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.open.outputs.pr }}
+        run: bash tools/release/package-managers-pr.sh wait "${PR}" >> "${GITHUB_OUTPUT}"
+
+      - name: Act as the packaging App once more
+        id: last
+        if: steps.second.outputs.state == 'clean'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PACKAGING_APP_KEY }}
+          repositories: steamgauge
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Merge it
+        if: steps.last.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.last.outputs.token }}
+          PR: ${{ steps.open.outputs.pr }}
+        run: bash tools/release/package-managers-pr.sh act "${PR}" clean
+
+      # Main moving twice while the checks ran is left to a re-run of this job, which picks the
+      # pull request up where it is.
+      - name: Check it merged
+        if: steps.open.outputs.done != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.open.outputs.pr }}
+        run: |
+          set -euo pipefail
+          state="$(gh pr view "${PR}" --json state --jq .state)"
+          if [[ "${state}" != MERGED ]]; then
+            echo "::error::Pull request #${PR} is ${state}, not merged: main moved twice while its checks ran. Re-run this job." >&2
+            exit 1
+          fi
+
+  # winget takes packages only through a pull request to microsoft/winget-pkgs, which Microsoft's
+  # wingetcreate opens from a fork with a classic token; GitHub lets no fine-grained token open
+  # one. A new package waits on a moderator, so the first version is submitted by hand (the write
+  # job's summary gives the command); this job runs once the repository variable WINGET is set to
+  # `submit`, after that one is accepted.
+  winget:
+    name: winget
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag' && vars.WINGET == 'submit'
+    needs: [build, package-managers-test]
+    runs-on: windows-2025
+    timeout-minutes: 20
+    # The token is a secret of this environment, which only release tags can deploy to.
+    environment: winget
+    permissions:
+      contents: read # Reads the published release.
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      # renovate: datasource=github-release-attachments depName=microsoft/winget-create versioning=loose
+      WINGETCREATE_TAG: v1.12.13.0
+      WINGETCREATE_SHA256: 24042bd37915805615e6cf969ac57c6439124c3fe85823327f5f3fb24bd9ffea
+
+    steps:
+      - name: Refuse to go on without the token
+        env:
+          TOKEN_SET: ${{ secrets.WINGET_TOKEN != '' }}
+        run: |
+          if ($env:TOKEN_SET -ne 'true') {
+            Write-Output '::error::WINGET is set to submit, but the secret WINGET_TOKEN in the winget environment is missing. See .github/release-process.md.'
+            exit 1
+          }
+
+      - name: Download wingetcreate and check it
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = "https://github.com/microsoft/winget-create/releases/download/$env:WINGETCREATE_TAG/wingetcreate.exe"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\wingetcreate.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\wingetcreate.exe").Hash.ToLowerInvariant()
+          if ($hash -ne $env:WINGETCREATE_SHA256) { throw "wingetcreate.exe hashes to $hash, not the pinned $env:WINGETCREATE_SHA256." }
+
+      - name: Download the manifests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-managers
+          path: package-managers
+
+      # The hash comes from the signed checksums already; the setup program is fetched too, and
+      # checked to be this release's, to be signed and to hash to what the manifest says.
+      - name: Check the installer against the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $bundle = "steamgauge-$env:VERSION.intoto.jsonl"
+          $manifest = Get-Content package-managers/winget/Aureliolo.SteamGauge.installer.yaml -Raw
+          $installers = [regex]::Matches($manifest, 'InstallerUrl: (?<url>\S+)\s+InstallerSha256: (?<hash>\S+)')
+          if ($installers.Count -ne 1) { throw "The installer manifest has $($installers.Count) installers, not 1." }
+          gh release download $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --dir release --pattern $bundle
+          $url = $installers[0].Groups['url'].Value
+          $setup = Split-Path -Leaf $url
+          $release = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/$setup"
+          if ($url -cne $release) { throw "$url is not this release's $setup." }
+          gh release download $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --dir release --pattern $setup
+          gh attestation verify "release/$setup" --bundle "release/$bundle" `
+            --repo $env:GITHUB_REPOSITORY `
+            --signer-workflow "$env:GITHUB_REPOSITORY/.github/workflows/release-build.yml" `
+            --source-ref $env:GITHUB_REF --deny-self-hosted-runners
+          $hash = (Get-FileHash -Algorithm SHA256 "release/$setup").Hash
+          if ($installers[0].Groups['hash'].Value -cne $hash) { throw "$setup hashes to $hash, not what the manifest says." }
+
+      - name: Submit them
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          & "$env:RUNNER_TEMP\wingetcreate.exe" submit --prtitle "New version: Aureliolo.SteamGauge version $env:VERSION" `
+            --no-open package-managers/winget

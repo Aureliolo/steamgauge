@@ -91,11 +91,19 @@
       "versioningTemplate": "semver"
     },
     {
-      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft, shellcheck, tauri-cli (one archive per system, each with its own pair), cargo-about, cargo-deny and cargo-machete. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes; shellcheck and tauri-cli publish none, so the datasource hashes the archive itself. For cargo-about, cargo-deny and cargo-machete it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
+      "description": "A tool the workflows download with a SHA-256 on the next line: actionlint, syft, shellcheck, tauri-cli (one archive per system, each with its own pair), wingetcreate, cargo-about, cargo-deny and cargo-machete. The tag and the digest move together. For actionlint and syft the digest is the archive's, which the datasource finds in the checksum file the release publishes; shellcheck, tauri-cli and wingetcreate publish none, so the datasource hashes the file itself. For cargo-about, cargo-deny and cargo-machete it is the digest of the checksum file itself, which holds the archive's digest with no file name beside it: pinned to the archive, the datasource would take that file for the archive and write its digest instead.",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>github-release-attachments) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\n\\s*[A-Z0-9_]+_TAG: (?<currentValue>\\S+)\\n\\s*[A-Z0-9_]+_SHA256: (?<currentDigest>[0-9a-f]{64})"
+      ]
+    },
+    {
+      "description": "A tag with the commit it names on the next line: Scoop's own code, which the package managers workflow fetches by commit. The tag and the commit move together.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>github-tags) depName=(?<depName>\\S+)\\n\\s*[A-Z0-9_]+_TAG: (?<currentValue>\\S+)\\n\\s*[A-Z0-9_]+_COMMIT: (?<currentDigest>[0-9a-f]{40})"
       ]
     },
     {

@@ -4960,6 +4960,39 @@ approves them, and a merge the job token makes starts no workflow, so with the j
 release cost an approval and a merge by hand. The App's key lives in an environment only `main`
 can deploy to, and each run's token lasts an hour and writes to this repository alone.
 
+### winget, Scoop and Homebrew install a release, each written from its signed checksums (2026-10-03)
+
+The user asked for the package-manager channels of the same mature release setup, done the way
+it does them. Every release writes a winget package, `Aureliolo.SteamGauge`, a Scoop manifest
+and a Homebrew cask from its own `SHA256SUMS`, after the attestation over that file verifies
+(`tools/release/package-managers.sh`), so nothing installs a file the release is not signed
+over. Each is installed by its own package manager on its own system and the program it
+installed run, naming its version and keeping its window up, before anything lands
+(`package-managers.yml`). The cask and the Scoop manifest land on `main` through the packaging
+App, whose pull request merges once its checks pass; this repository is the tap and the bucket.
+The Scoop manifest is also attached to the release and signed with it, so `scoop install` takes
+it by the release's address.
+
+**A cask, not a formula.** What ships for macOS is an app in a disk image, which only a cask
+installs. `steamgauge` reaches the `PATH` through a script that runs the program inside the app
+by its real path, because Tauri on macOS refuses its own path when that passes through a
+symlink, which is what a plain `binary` link would be.
+
+**Scoop takes the portable archive, winget the setup program.** Scoop installs portable
+programs into its own folder and adds a Start menu shortcut and a shim on the `PATH`; winget
+runs the per-user NSIS setup silently, under the product code the setup program registers, so
+a copy installed from the release page is the same package to it.
+
+**winget is submitted by `wingetcreate`, and the first version by the user.** A new package
+waits on a moderator, so the first version is submitted by hand with the command the release's
+run summary gives, and the job that submits each release stays off until the repository
+variable `WINGET` is `submit`. It needs a classic token, which GitHub requires for a pull request
+to a repository its owner is not a member of; it lives in an environment only `v*` tags can
+deploy to.
+
+**No apt or dnf repository**, the user's decision: Linux takes the release's `.deb` or `.rpm`,
+and the cask is macOS only.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

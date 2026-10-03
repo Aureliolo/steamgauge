@@ -265,6 +265,9 @@ test("the changelog splits on what reaches the download", () => {
   assert.equal(shipsInDownload(["rust-toolchain.toml"]), true);
   assert.equal(shipsInDownload(["third-party/about.toml"]), true);
   assert.equal(shipsInDownload([".github/workflows/release-build.yml"]), true);
+  assert.equal(shipsInDownload(["tools/release/package.sh"]), true);
+  assert.equal(shipsInDownload(["tools/release/package-managers.sh"]), true);
+  assert.equal(shipsInDownload(["tools/release/package-managers-pr.sh", "Casks/steamgauge.rb"]), false);
   assert.equal(shipsInDownload(["training/train.py", "crates/steamgauge-core/src/taxonomy.rs"]), true);
   assert.equal(shipsInDownload(["crates/steamgauge-core/examples/sample-report.rs"]), false);
   assert.equal(shipsInDownload(["crates/steamgauge-core/tests/pipeline.rs"]), false);

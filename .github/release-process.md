@@ -21,7 +21,10 @@ The App is installed on this repository with write access to contents and pull r
 client ID is the variable `PACKAGING_APP_CLIENT_ID` and its private key the secret
 `PACKAGING_APP_KEY`, both in the `release-prepare` environment, which only `main` can deploy to.
 Each run mints a token from them that lasts an hour and can write contents and pull requests of
-this repository alone; the run stops at once if either is missing.
+this repository alone; the run stops at once if either is missing. The release's **package
+managers (main)** job lands the Homebrew cask and the Scoop manifest the same way, as the same
+App, so it needs the same two in a second environment, `packages`, which only tags matching
+`v*` can deploy to (see [Package managers](#package-managers)).
 
 Three repository settings have to be in place too. **Allow auto-merge** is on, so the pull
 request can merge itself. The pull request is opened with the `release` label, which is how the
@@ -36,7 +39,9 @@ and reuses the pull request it opened.
 its title. Entries are split into what reaches the download, meaning `crates/` (bar each crate's
 examples and tests), `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `README.md`, `LICENSE`,
 `third-party/` and `tools/release/notices.mjs`, which write the notices each archive carries,
-and `release-build.yml` itself, and what stays in this repository: training, the reference
+`tools/release/package.sh`, which packs the archives and installers,
+`tools/release/package-managers.sh`, which writes the Scoop manifest a release carries, and
+`release-build.yml` itself, and what stays in this repository: training, the reference
 data, the browser checks, CI and the documents. Most of what lands here is the second kind, and
 a title describes a change, not its reach; in one flat list a training run and a change to the
 reader read alike.
@@ -54,8 +59,8 @@ time. The first release has nothing below it and says it is the first release.
 
 `release-tag.yml` sees a new version on `main` with no matching tag, creates `vX.Y.Z`, and
 dispatches `release.yml` on it, since a tag it makes with the job token would otherwise start
-nothing. `release.yml` calls `release-build.yml`, which runs the first six jobs, then verifies
-and publishes:
+nothing. `release.yml` calls `release-build.yml`, which runs the first six jobs, then verifies,
+publishes and packages:
 
 1. **gate** refuses to go on unless the version is three numbers (a release is published as the
    latest and is immutable, so a pre-release would stand as the newest release for good), the
@@ -79,7 +84,9 @@ and publishes:
    those crates, since a binary names nothing on its own. The job checks each SBOM against its
    archive's members and hashes and against the crate list, because an SBOM that lists nothing
    looks exactly like a passing step (`.github/syft.yaml` says what syft reads). Last, it writes
-   `SHA256SUMS` over the archives, the installers and the SBOMs.
+   the Scoop manifest `steamgauge.json` from the Windows archive's checksum
+   (`tools/release/package-managers.sh`), and `SHA256SUMS` over the archives, the installers,
+   the SBOMs and that manifest.
 5. **install**, on each platform, installs that platform's installers the way a person would
    (the setup program silently, the disk image copied to Applications, the `.deb` through apt
    and the `.rpm` through dnf on Fedora), runs the installed program, which has to name the
@@ -92,16 +99,35 @@ and publishes:
    JSON Lines file the way a user would, naming `release-build.yml` at this tag as the builder.
    It holds no token that can write.
 8. **publish**, in `release.yml`, runs only on a tag. It checks the checksums once more and
-   creates the GitHub Release with all twelve files in one call, because an immutable release
+   creates the GitHub Release with all thirteen files in one call, because an immutable release
    locks its files the moment it is published.
+9. **package managers (write)** downloads the published `SHA256SUMS` and `steamgauge.json`,
+   verifies both against the release's attestation, and writes the Homebrew cask, the Scoop
+   manifest and the winget manifests from those checksums with
+   `tools/release/package-managers.sh` at the tag. The Scoop manifest it writes has to be the
+   release's own byte for byte. While the winget job is off, its run summary gives the command
+   that submits the first version by hand (see [Package managers](#package-managers)).
+10. **package managers** (`package-managers.yml`) installs each of them as a person would and
+    runs what it installed: the cask with Homebrew on Apple Silicon macOS, the Scoop manifest by
+    the release's address and as a bucket, and the winget manifests with `winget install
+    --manifest`, the last two on Windows. Each installed program has to say
+    `steamgauge X.Y.Z` to `--version` and keep its window up for 20 seconds, and each uninstall
+    has to remove it.
+11. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
+    `main`, as the packaging App, and merges it once every check has passed; a check that fails,
+    or anything else that keeps it from merging, fails the job with the reason.
+12. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program the
+    winget manifests name against the release, its attestation and its hash, and submits the
+    manifests with Microsoft's `wingetcreate` to `microsoft/winget-pkgs`, where Microsoft's
+    checks and moderators merge them.
 
 ## A dry run
 
 Dispatch **release** on a branch rather than a tag. Every job up to verify runs exactly as it
 would for a release, bar the two checks only a tag can pass (its name, and being on `main`), and
-publish is skipped. The run summary carries the checksums and the notes a release from there
-would have. The attestations it makes name the branch as their source, so none of them can
-pass for a release's.
+publish and every job after it are skipped. The run summary carries the checksums and the notes
+a release from there would have. The attestations it makes name the branch as their source, so
+none of them can pass for a release's.
 
 ## What a release carries
 
@@ -115,7 +141,8 @@ pass for a release's.
   `DirectML.dll` on Windows, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Linux
   one needs WebKitGTK 4.1 installed.
 - An SPDX SBOM of each platform's program, `steamgauge-X.Y.Z-<target>.spdx.json`.
-- `SHA256SUMS`, over the installers, the archives and the SBOMs.
+- `steamgauge.json`, the Scoop manifest, which `scoop install` reads by the release's address.
+- `SHA256SUMS`, over the installers, the archives, the SBOMs and the Scoop manifest.
 - A Sigstore build-provenance attestation over all of them, and an SBOM attestation tying each
   SBOM to its platform's archive and installers. Both are keyless: there is no signing key
   anywhere, including in CI.
@@ -195,6 +222,89 @@ licence was read, and the archive holds no file the notices and `LICENSE` do not
 cargo-about is held at 0.8.4: the prebuilt 0.9 releases fail on the first licence they have to
 fetch from a crate's repository (`renovate.json` records it).
 
+## Package managers
+
+```bash
+winget install Aureliolo.SteamGauge
+scoop install https://github.com/Aureliolo/steamgauge/releases/latest/download/steamgauge.json
+brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge
+brew install --cask aureliolo/steamgauge/steamgauge
+```
+
+- **Homebrew.** This repository is its own tap. Its name does not start with `homebrew-`, so
+  `brew tap` needs its address. `Casks/steamgauge.rb` is a cask rather than a formula, because
+  what ships for macOS is an app in a disk image: it installs `SteamGauge.app` from the `.dmg`
+  on Apple Silicon with macOS 13 or later, and puts `steamgauge` on the `PATH` through a script
+  that runs the program inside the app by its real path. A symlink would not do, because Tauri
+  on macOS refuses its own path when that passes through one. There is no cask for Linux, and
+  no apt or dnf repository either: Linux takes the release's `.deb` or `.rpm`.
+- **Scoop.** `bucket/steamgauge.json` installs the portable Windows archive, puts `steamgauge`
+  on the `PATH` through Scoop's shim and adds a Start menu shortcut for the window. The same
+  manifest is attached to every release, which is what the address above reads; this repository
+  is also a bucket (`scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge`), which
+  `scoop update` then follows.
+- **winget.** `Aureliolo.SteamGauge` installs the release's setup program, for the current user
+  and silently, under the product code `SteamGauge`, the name Tauri's setup program registers
+  its uninstall entry under, so winget recognises a copy installed from the release page too.
+
+Every hash in them is one `SHA256SUMS` gives, after the release's attestation over that file
+has verified. Nothing in `Casks/` or `bucket/` is edited by hand: each release writes both and
+lands them on `main` through the packaging App, and a pull request that changes them anyway is
+held to what the release they name is signed over (`package-managers.yml`). Until the first
+release, neither folder exists, and the tap and the bucket are empty.
+
+### Setting them up, once
+
+Create an environment named `packages` under Settings, Environments, and limit it to tags
+matching `v*`. Put the packaging App's client ID in its variable `PACKAGING_APP_CLIENT_ID` and
+the App's private key in its secret `PACKAGING_APP_KEY`, as for `release-prepare`. The pull
+request the release opens needs no approval and merges once its checks pass.
+
+### winget
+
+winget takes packages only through a pull request to `microsoft/winget-pkgs`, which
+`wingetcreate` opens from a fork. A new package waits on a moderator, so the first version is
+submitted by hand, and the **winget** job stays off until the repository variable `WINGET` is
+`submit`.
+
+1. Once the first release is published and its **package managers** jobs have passed, its run
+   summary gives the two commands, under **winget**. On Windows, with the GitHub CLI and
+   `wingetcreate` installed (`winget install GitHub.cli Microsoft.WingetCreate`):
+
+   ```powershell
+   gh run download <run id> --repo Aureliolo/steamgauge --name package-managers --dir package-managers
+   wingetcreate submit --prtitle "New package: Aureliolo.SteamGauge version X.Y.Z" package-managers/winget
+   ```
+
+   `wingetcreate` asks you to sign in to GitHub the first time, and opens the pull request from
+   your fork of `winget-pkgs` (`Aureliolo/winget-pkgs`). The run keeps those files for 30 days.
+   After that, write them again from the release, in a checkout of its tag:
+
+   ```bash
+   gh release download vX.Y.Z --repo Aureliolo/steamgauge --dir release \
+     --pattern SHA256SUMS --pattern steamgauge-X.Y.Z.intoto.jsonl
+   gh attestation verify release/SHA256SUMS --repo Aureliolo/steamgauge \
+     --bundle release/steamgauge-X.Y.Z.intoto.jsonl \
+     --signer-workflow Aureliolo/steamgauge/.github/workflows/release-build.yml \
+     --source-ref refs/tags/vX.Y.Z --deny-self-hosted-runners
+   bash tools/release/package-managers.sh X.Y.Z release/SHA256SUMS package-managers
+   ```
+
+2. Wait for a moderator to merge it.
+3. Make a **classic** token with only the `public_repo` scope, and an expiry, on the account
+   whose fork `wingetcreate` submits from: GitHub lets no fine-grained token open a pull request
+   on a repository its owner is not a member of, and `wingetcreate` says so. A classic
+   `public_repo` token can push to every public repository of its account, this one included,
+   so the safer owner is a GitHub account used for nothing else, with its own fork of
+   `microsoft/winget-pkgs` and no access to this repository.
+4. Create an environment named `winget`, limited to tags matching `v*`, and put the token in its
+   secret `WINGET_TOKEN`.
+5. Set the repository variable `WINGET` to `submit`.
+
+From then on every release submits itself as `New version: Aureliolo.SteamGauge version X.Y.Z`,
+after the **package managers** jobs have installed it. With `WINGET` set, a missing token fails
+the release; when the token expires, the job fails, and a new one is made the same way.
+
 ## Operating-system signing
 
 No build carries a certificate that Windows or macOS trusts, so both warn on first launch
@@ -220,8 +330,9 @@ version, naming it, before it writes a branch.
 
 Re-running the release workflow on the tag is the first thing to try, and it is safe: the
 publish job asks what the tag already carries before acting, and passes when that is exactly
-the twelve files. **tag release** can be run by hand too, and starts the release workflow again
-on a tag that already exists.
+the thirteen files, and package managers (main) picks its pull request up where it is. **tag
+release** can be run by hand too, and starts the release workflow again on a tag that already
+exists.
 
 - **Tag does not match the workspace version**: the tag was created outside `release-tag.yml`,
   at a commit whose `Cargo.toml` says something else. It cannot be taken back, because the
@@ -262,5 +373,21 @@ on a tag that already exists.
   installs something that does not run, or does not run as it should, on its own system. That
   is the failure the job exists for; nothing was signed or published.
 - **vX.Y.Z already has a release, and it carries ...**: the tag has a release with something
-  other than the twelve files, which means an upload failed part way. A published release is not
-  rewritten here, so look at what is attached before deciding anything.
+  other than the thirteen files, which means an upload failed part way. A published release is
+  not rewritten here, so look at what is attached before deciding anything.
+- **... does not hold exactly one SHA-256 for ...**, in package managers (write) or the sbom
+  job: a file the cask or a manifest names is missing from `SHA256SUMS`, usually after its name
+  changed in `tools/release/package.sh` and not in `tools/release/package-managers.sh`.
+- **... --version said ...**, **The window exited within 20 seconds of starting**, or
+  **Uninstalling left ... behind**, in a package managers job: Homebrew, Scoop or winget installs
+  something that does not run on its own system. The release is out, and nothing has reached
+  `main` or `winget-pkgs`; fix it on `main` and release the next version.
+- **The packaging App is not set up**, in package managers (main): the `packages` environment
+  lacks `PACKAGING_APP_CLIENT_ID` or `PACKAGING_APP_KEY` (see
+  [Setting them up, once](#setting-them-up-once)). Add them and re-run the job.
+- **Pull request #N failed: ...**, **... conflicts with main** or **... is OPEN, not merged**:
+  the pull request putting the cask and the Scoop manifest on `main` did not merge. The message
+  names the check or the reason; a re-run of the job picks the pull request up where it is.
+- **WINGET is set to submit, but the secret WINGET_TOKEN ...** or a refusal from
+  `wingetcreate`: the token is missing or expired (see [winget](#winget)). Make a new one and
+  re-run the job.

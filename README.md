@@ -28,6 +28,27 @@ Each system has an installer and a portable archive with the program in it:
 | Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>_amd64.deb` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
 | Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
 
+Or install it with a package manager. Each takes a release's file only if it matches the hash
+the release is signed over.
+
+```powershell
+# Windows, with winget: the installer
+winget install Aureliolo.SteamGauge
+# Windows, with Scoop: the portable program, with a Start menu shortcut
+scoop install https://github.com/Aureliolo/steamgauge/releases/latest/download/steamgauge.json
+```
+
+```bash
+# macOS on Apple Silicon, with Homebrew: this repository is the tap
+brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge
+brew install --cask aureliolo/steamgauge/steamgauge
+```
+
+Scoop also takes this repository as a bucket, which `scoop update` then follows:
+`scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge`, then
+`scoop install aureliolo/steamgauge`. Homebrew and Scoop both put `steamgauge` on the `PATH` for
+the pipeline.
+
 **Windows.** Windows 10 or 11 on x64. The setup installs SteamGauge for your user alone, with no
 administrator rights, and installs Microsoft's WebView2 runtime where it is missing. Reviews are
 read on any graphics card with DirectX 12, and on the processor where there is none. The program
@@ -70,7 +91,9 @@ commands that check a file against both.
 
 When a newer version is out, the window names it under the menu and links to its release page;
 Settings turns the question off. Download the new installer and install it over the old one, as
-the first time; with a portable archive, the new program replaces the old one. Your library,
+the first time; with a portable archive, the new program replaces the old one. With a package
+manager, upgrade through it: `winget upgrade Aureliolo.SteamGauge`, `scoop update steamgauge`
+or `brew upgrade --cask steamgauge`. Your library,
 your settings and the models already downloaded stay where they are.
 
 ## The problem it solves
