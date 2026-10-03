@@ -5040,7 +5040,8 @@ check, with the line annotated. What both runs share is in `.cargo/mutants.toml`
 tests and `tests/` and not the examples, a test timeout of a minute against a suite that takes a
 second, so a timeout is a hang and never a slow pass, and the mutants no test can tell from the
 original, each with its reason: what the platform says about the graphics card, which differs
-on every machine, and the hand-written `Debug` output nothing reads back.
+on every machine, the hand-written `Debug` output nothing reads back, and `shard::plan`, which
+only hands Valve's count to a planner tested on counts written by hand.
 
 **What it costs, and what it found.** Measured on this machine on 2026-10-03 at four compiler
 jobs. `time.rs`: 89 mutants in 16 minutes, 131 s to build the unmutated tree and then about 7 s
