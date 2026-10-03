@@ -38,8 +38,12 @@ jobs:
             # in the code.
             debug: line-tables-only
             # BA2014 asks for MSVC's /GS stack cookies in every function; rustc emits none, and
-            # BinSkim reads each Rust function as a C one built without them.
-            accepted: BA2014
+            # BinSkim reads each Rust function as a C one built without them. BA2024 cannot tell
+            # whether ONNX Runtime, linked prebuilt and without debug information, was compiled
+            # with Spectre mitigations; those guard secrets from code sharing a process, and this
+            # one holds no secret and runs no code but its own. The C it compiles itself has
+            # /Qspectre (.cargo/config.toml).
+            accepted: BA2014 BA2024
             spectre: spectre
           - platform: linux
             # renovate: datasource=github-runners depName=ubuntu
