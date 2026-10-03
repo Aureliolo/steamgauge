@@ -105,6 +105,13 @@
     language: 'english',
     check_steam: true,
     read_after_download: true,
+    check_newer_version: true,
+  };
+  // The answer the core kept from the last day's question.
+  let newer = {
+    version: '0.2.0',
+    running: '0.1.0',
+    url: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0',
   };
   let searchEveryGame = false;
   let board = [];
@@ -273,6 +280,8 @@
       searchEveryGame = every;
       return answers.settings();
     },
+    newer_version: () => (settings.check_newer_version ? newer : null),
+    'plugin:opener|open_url': () => null,
     read_offer: ({ appId }) => ({
       reader: 'standard',
       download_bytes: appId === 3 ? 1_127_000_000 : 0,
@@ -341,6 +350,11 @@
     board: (jobs) => {
       board = jobs;
       send('work', board);
+    },
+    // A fresh answer, kept and then announced, in that order, as the core does.
+    hear: (release) => {
+      newer = release;
+      send('newer-version', release);
     },
   };
 })();

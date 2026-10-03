@@ -2,6 +2,7 @@
    computer without one uses, and what happens on its own. */
 
 import { invoke, el, set, make, roundShare, size, page } from './common.js';
+import { showNewer } from './newer.js';
 
 let shown = null;
 
@@ -55,6 +56,7 @@ export function setUpSettings() {
     el('read-after-download').checked = shown.read_after_download;
     el('search-every-game').checked = shown.search_every_game;
     el('check-steam').checked = shown.check_steam;
+    el('check-newer-version').checked = shown.check_newer_version;
     set(el('library-place'), shown.library);
     set(
       el('reader-download'),
@@ -74,10 +76,12 @@ export function setUpSettings() {
       language: el('first-language').value || null,
       check_steam: el('check-steam').checked,
       read_after_download: el('read-after-download').checked,
+      check_newer_version: el('check-newer-version').checked,
     };
     try {
       shown = await invoke('save_settings', { settings, searchEveryGame: el('search-every-game').checked });
       set(el('settings-note'), 'Saved. Work already running keeps the settings it started with.');
+      showNewer();
     } catch (failure) {
       el('settings-note').classList.add('bad');
       set(el('settings-note'), String(failure));
