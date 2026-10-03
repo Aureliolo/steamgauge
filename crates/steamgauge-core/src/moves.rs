@@ -285,6 +285,48 @@ mod tests {
     }
 
     #[test]
+    fn praise_is_counted_as_well_as_complaint() {
+        let mut months: Vec<Month> = (1..=12)
+            .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
+            .collect();
+        months.extend((1..=3).map(|m| month(&format!("2024-{m:02}"), 100, 60, 15)));
+        for one in &mut months {
+            one.praising.clone_from(&one.complaining);
+        }
+        let found = recent(&reading(months)).unwrap();
+        assert!(
+            found
+                .moves
+                .iter()
+                .any(|moved| (moved.subject, moved.side) == ("bugs", Side::Praise)),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn the_recent_window_ends_where_the_capture_was_made_or_else_at_the_last_month() {
+        let months: Vec<Month> = (1..=12)
+            .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
+            .chain((1..=3).map(|m| month(&format!("2024-{m:02}"), 100, 60, 15)))
+            .collect();
+        let mut a_year_on = reading(months.clone());
+        a_year_on.captured_unix = MID_MARCH_2024 + 365 * 86_400;
+        let found = recent(&a_year_on).unwrap();
+        assert_eq!(
+            (found.from.as_str(), found.to.as_str()),
+            ("2025-01", "2025-03")
+        );
+        assert!(
+            found.moves.is_empty(),
+            "a quarter with no reviews in it moved nothing"
+        );
+
+        let mut undated = reading(months);
+        undated.captured_unix = 0;
+        assert_eq!(recent(&undated).unwrap().to, "2024-03");
+    }
+
+    #[test]
     fn month_labels_step_across_a_year() {
         let january = index_of("2024-01").unwrap();
         assert_eq!(label_of(january - 1), "2023-12");

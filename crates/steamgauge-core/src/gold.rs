@@ -1225,6 +1225,17 @@ mod tests {
             written_in_another_script("koreana", "Great game, would recommend to anyone."),
             "an English review under a Korean tag is not Korean either"
         );
+        assert!(
+            written_in_another_script(
+                "english",
+                "\u{8FD9}\u{4E2A}\u{6E38}\u{620F}\u{5F88}\u{597D}\u{73A9}"
+            ),
+            "Chinese under an English tag is Han, which English is not written in"
+        );
+        assert!(
+            !written_in_another_script("english", "Boss \u{D080}\u{C2A4}\u{D2B8}\u{C790}"),
+            "as many letters of the tag's script as of another is not mostly another"
+        );
     }
 
     /// A label from an earlier splitter can name a span this build cuts elsewhere: a template
@@ -1294,6 +1305,38 @@ mod tests {
             !still_cut(Some(&cut(&[])), &label(2, 18)),
             "the review produces no claims at all now, which is what happens to drawings"
         );
+
+        let mut draw = GoldDraw::default();
+        assert!(draw.holds_back(
+            &label(2, 18),
+            "Too hard for me.",
+            false,
+            Some(&cut(&[(2, 33)]))
+        ));
+        assert!(!draw.holds_back(
+            &label(2, 18),
+            "Too hard for me.",
+            false,
+            Some(&cut(&[(2, 18)]))
+        ));
+        assert_eq!(
+            (draw.recut, draw.declined, draw.mistagged),
+            (1, 0, 0),
+            "the draw says how many it held back, and why"
+        );
+    }
+
+    #[test]
+    fn a_draw_of_some_boundaries_passes_over_the_others_whichever_way_round_they_came() {
+        let wanted = vec![("story".to_owned(), "gameplay".to_owned())];
+        let mut passed = 0;
+        assert!(!elsewhere(&wanted, "story", "gameplay", &mut passed));
+        assert!(!elsewhere(&wanted, "gameplay", "story", &mut passed));
+        assert!(elsewhere(&wanted, "story", "price", &mut passed));
+        assert!(elsewhere(&wanted, "price", "gameplay", &mut passed));
+        assert!(elsewhere(&wanted, "price", "story", &mut passed));
+        assert_eq!(passed, 3);
+        assert!(!elsewhere(&[], "story", "price", &mut passed));
     }
 
     /// Since a heading introduces every box ticked under it, two claims of one review can

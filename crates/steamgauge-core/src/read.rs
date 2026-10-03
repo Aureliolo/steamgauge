@@ -1265,10 +1265,9 @@ impl Counting {
         options: &ReadOptions,
         provenance: &crate::reader::Provenance,
     ) -> Result<ReadReport> {
-        if self.rows.len() > 0 {
-            let batch = self.rows.take(&self.schema)?;
-            self.writer.write(&batch)?;
-        }
+        // ArrowWriter writes nothing for a batch of no rows.
+        let batch = self.rows.take(&self.schema)?;
+        self.writer.write(&batch)?;
         self.writer.close()?;
 
         let top_reviews = self.top.take();
@@ -1556,6 +1555,61 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_review_is_chiefly_about_its_surest_claim_and_the_first_of_two_as_sure() {
+        let at = |id: &str| SHEET.iter().position(|row| row.id == id).unwrap();
+        let claims = ["Bugs everywhere.", "Lovely music."];
+        let answered = |bugs: f32, audio: f32| {
+            claims
+                .iter()
+                .enumerate()
+                .map(|(index, claim)| {
+                    let (subject, confidence) = if index == 0 {
+                        (at("bugs"), bugs)
+                    } else {
+                        (at("audio"), audio)
+                    };
+                    (
+                        key(false, &[0; 32], index, claim, "english"),
+                        Reading {
+                            subject: Some(subject),
+                            confidence,
+                            polarity: Polarity::Praise,
+                            also: crate::reader::Also::default(),
+                        },
+                    )
+                })
+                .collect::<HashMap<_, _>>()
+        };
+        let primary = |bugs, audio| {
+            judge(&claims, &[0; 32], false, "english", &answered(bugs, audio)).primary
+        };
+        assert_eq!(primary(0.9, 0.95), Some(at("audio")));
+        assert_eq!(primary(0.9, 0.9), Some(at("bugs")));
+    }
+
+    #[test]
+    fn the_mixed_share_is_of_the_reviews_that_raise_the_subject() {
+        let subject = SubjectCount {
+            id: "bugs".to_owned(),
+            label: "Bugs and crashes".to_owned(),
+            mention_reviews: 12,
+            primary_reviews: 6,
+            claims: 20,
+            praised: 4,
+            criticised: 5,
+            mixed: 3,
+            top_mention_reviews: 1,
+            positive_mentions: 4,
+        };
+        assert_eq!(subject.mixed_share(), Some(0.25));
+        let unraised = SubjectCount {
+            mention_reviews: 0,
+            ..subject
+        };
+        assert_eq!(unraised.mixed_share(), None);
+    }
+
+    #[test]
     fn a_read_given_part_of_the_card_rests_in_proportion_to_its_work() {
         let busy = std::time::Duration::from_millis(400);
         assert_eq!(
@@ -1694,7 +1748,7 @@ mod tests {
                 key(false, &[0; 32], index, claim, "english"),
                 Reading {
                     subject: Some(subject),
-                    confidence: 0.9,
+                    confidence: if index == 0 { 0.9 } else { 0.95 },
                     polarity,
                     also: crate::reader::Also::default(),
                 },
@@ -1716,6 +1770,27 @@ mod tests {
             fingerprint: [0; 32],
         };
         counting.count(&review, false, &answers).unwrap();
+        // A recommending review the reader answered nothing about: counted, and silent.
+        let unanswered = Depth::Deep.claims_of("Nothing anybody asked about.");
+        let quiet = Pending {
+            at: Vec::new(),
+            row: crate::capture::Row {
+                recommendationid: "2".to_owned(),
+                voted_up: true,
+                ..review.row.clone()
+            },
+            text: Arc::from(rejoined(&unanswered)),
+            spans: unanswered
+                .iter()
+                .scan(0, |from, claim| {
+                    let span = (*from, *from + claim.len());
+                    *from += claim.len() + 1;
+                    Some(span)
+                })
+                .collect(),
+            fingerprint: [1; 32],
+        };
+        counting.count(&quiet, false, &answers).unwrap();
         let provenance: crate::reader::Provenance = serde_json::from_value(serde_json::json!({
             "subjects": [], "threshold": 0.5, "max_tokens": 128
         }))
@@ -1733,6 +1808,23 @@ mod tests {
         assert_eq!(
             (month.praising[at("audio")], month.complaining[at("audio")]),
             (1, 0)
+        );
+        assert_eq!((month.reviews, month.positive), (2, 1));
+        assert_eq!(
+            (report.reviews, report.positive, report.silent_reviews),
+            (2, 1, 1)
+        );
+        let primary = |id: &str| {
+            report
+                .subjects
+                .iter()
+                .find(|subject| subject.id == id)
+                .map_or(0, |subject| subject.primary_reviews)
+        };
+        assert_eq!(
+            (primary("audio"), primary("bugs")),
+            (1, 0),
+            "a review is chiefly about the claim the reader was surest of, not its first"
         );
     }
 

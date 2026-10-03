@@ -2109,6 +2109,40 @@ mod tests {
         assert_eq!(counter.forgotten, 1);
     }
 
+    #[test]
+    fn nothing_is_forgotten_until_twice_what_is_kept_has_been_seen() {
+        let mut counter = Counter::default();
+        for n in 0..(KEPT + 10) {
+            counter.add(format!("term{n}"));
+        }
+        assert_eq!(counter.terms.len(), KEPT + 10);
+        assert_eq!(counter.forgotten, 0);
+    }
+
+    #[test]
+    fn counts_within_a_twentieth_of_each_other_are_the_same_reviewers() {
+        assert!(nearly(100, 95));
+        assert!(nearly(95, 100));
+        assert!(!nearly(100, 94));
+        assert!(!nearly(94, 100));
+    }
+
+    #[test]
+    fn log_odds_add_half_a_review_to_every_cell() {
+        let (delta, sigma) = log_odds(5, 10, 5, 10);
+        assert!(delta.abs() < 1e-12);
+        assert!((sigma - (4.0 / 5.5_f64).sqrt()).abs() < 1e-12);
+        let (absent, _) = log_odds(0, 10, 10, 10);
+        assert!((absent - 2.0 * (0.5_f64 / 10.5).ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_pair_is_joined_onto_a_run_only_where_both_its_characters_are_written_without_spaces() {
+        assert!(overlaps("\u{30B2}\u{30FC}\u{30E0}", "\u{30E0}\u{304C}"));
+        assert!(!overlaps("\u{30B2}\u{30FC}\u{30E0}", "\u{30E0}a"));
+        assert!(!overlaps("\u{30B2}\u{30FC}\u{30E0}", "a\u{30B2}"));
+    }
+
     fn deviations(here: u64, of: u64, there: u64, of_other: u64) -> f64 {
         let (delta, sigma) = log_odds(here, of, there, of_other);
         delta / sigma
