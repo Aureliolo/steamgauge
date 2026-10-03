@@ -1,0 +1,309 @@
+name: package managers
+
+# The Homebrew cask, the Scoop manifest and the winget manifests, installed the way a person
+# installs them, on the system each is for, and the program they installed run. On a pull request
+# that touches them, the committed files, checked first against what the release they name is
+# signed over; until a release has put them on main there is nothing to install, and the jobs
+# skip. Called by the release, the files it wrote for itself, before any of them goes further.
+on:
+  pull_request:
+    paths:
+      - Casks/**
+      - bucket/**
+      - tools/release/package-managers.sh
+      - .github/workflows/package-managers.yml
+      - .github/workflows/release.yml
+      - .github/workflows/release-build.yml
+  workflow_call:
+    inputs:
+      files:
+        description: The uploaded files holding Casks/, bucket/ and winget/, installed in place of the committed ones
+        type: string
+        required: true
+      tag:
+        description: The release whose attached steamgauge.json Scoop also installs from, by its address
+        type: string
+        required: true
+
+permissions: {}
+
+# Its own group: called by the release, `github.workflow` is the release's name, and a group
+# matching the release's own would hold this run behind the run that called it.
+concurrency:
+  group: package-managers-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Scoop's own code, pinned by commit; its installer always fetches the tip of master, so it is
+  # not used. The pin is raised by Renovate from the tag.
+  # renovate: datasource=github-tags depName=ScoopInstaller/Scoop
+  SCOOP_TAG: v0.5.3
+  SCOOP_COMMIT: b588a06e41d920d2123ec70aee682bae14935939
+
+jobs:
+  # A pull request can change the files by hand; what reaches people has to be exactly what the
+  # release's own signed checksums say, written by the script as it was at that release's tag. A
+  # change to the script shows in the next release, which installs what it wrote before merging.
+  signed:
+    name: package managers (signed)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files, and the public release they name.
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the files are what the release they name is signed over
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f bucket/steamgauge.json && ! -f Casks/steamgauge.rb ]]; then
+            echo "No release has put a cask or a Scoop manifest on this branch yet; nothing to install."
+            exit 0
+          fi
+          version="$(jq -r .version bucket/steamgauge.json)"
+          tag="v${version}"
+          mkdir release written
+          gh release download "${tag}" --repo "${GITHUB_REPOSITORY}" --dir release \
+            --pattern SHA256SUMS --pattern "steamgauge-${version}.intoto.jsonl"
+          gh attestation verify release/SHA256SUMS --bundle "release/steamgauge-${version}.intoto.jsonl" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release-build.yml" \
+            --source-ref "refs/tags/${tag}" --deny-self-hosted-runners
+          gh api -H "Accept: application/vnd.github.raw" \
+            "repos/${GITHUB_REPOSITORY}/contents/tools/release/package-managers.sh?ref=${tag}" > "${RUNNER_TEMP}/package-managers.sh"
+          bash "${RUNNER_TEMP}/package-managers.sh" "${version}" release/SHA256SUMS written
+          diff -u written/Casks/steamgauge.rb Casks/steamgauge.rb
+          diff -u written/bucket/steamgauge.json bucket/steamgauge.json
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      # The winget manifests live in winget-pkgs rather than here, so the ones this release
+      # writes are what the winget job installs.
+      - name: Upload what the release writes
+        if: steps.check.outputs.version != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-managers-signed
+          path: |
+            written/Casks/steamgauge.rb
+            written/bucket/steamgauge.json
+            written/winget/*.yaml
+          if-no-files-found: error
+          retention-days: 1
+
+  # The disk image holds an Apple Silicon app, so the cask is installed on Apple Silicon alone.
+  homebrew:
+    name: package managers (homebrew)
+    needs: signed
+    if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads the cask.
+    env:
+      # Homebrew as the runner image ships it: it has no version to pin, and an update would
+      # change it between runs.
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_ANALYTICS: 1
+      HOMEBREW_NO_ENV_HINTS: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Take the files under test
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.files || 'package-managers-signed' }}
+
+      # Homebrew clones a tap, so the cask has to be committed, on a branch the clone checks out;
+      # a person's tap is the same repository at its default branch.
+      - name: Tap this repository, install from it and run what it installed
+        run: |
+          set -euo pipefail
+          brew --version
+          git switch --quiet --create package-managers-check
+          git add Casks/steamgauge.rb
+          git -c user.name=package-managers -c user.email=package-managers@localhost commit --quiet \
+            --allow-empty --message 'The cask under test'
+          version="$(jq -r .version bucket/steamgauge.json)"
+          brew tap aureliolo/steamgauge "${GITHUB_WORKSPACE}"
+          brew install --cask aureliolo/steamgauge/steamgauge
+          app=/Applications/SteamGauge.app
+          test -x "${app}/Contents/MacOS/steamgauge"
+          said="$(steamgauge --version)"
+          if [[ "${said}" != "steamgauge ${version}" ]]; then
+            echo "steamgauge --version said '${said}', not 'steamgauge ${version}'." >&2
+            exit 1
+          fi
+          echo "${said}"
+          # Up for a while and not exited is as much as a machine with no one at it can tell.
+          "${app}/Contents/MacOS/steamgauge" &
+          pid=$!
+          sleep 20
+          if ! kill -0 "${pid}" 2> /dev/null; then
+            wait "${pid}" || true
+            echo "The window exited within 20 seconds of starting." >&2
+            exit 1
+          fi
+          kill "${pid}" 2> /dev/null || true
+          wait "${pid}" 2> /dev/null || true
+          echo "The window stayed up."
+          brew audit --cask --strict aureliolo/steamgauge/steamgauge
+          brew uninstall --cask aureliolo/steamgauge/steamgauge
+          if [[ -e "${app}" ]] || command -v steamgauge > /dev/null; then
+            echo "Uninstalling left SteamGauge behind." >&2
+            exit 1
+          fi
+          brew untap aureliolo/steamgauge
+
+  scoop:
+    name: package managers (scoop)
+    needs: signed
+    if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads the manifest.
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Take the files under test
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.files || 'package-managers-signed' }}
+
+      - name: Install Scoop at its pinned commit
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $core = "$env:RUNNER_TEMP\scoop\apps\scoop\current"
+          git init --quiet $core
+          git -C $core fetch --quiet --depth 1 https://github.com/ScoopInstaller/Scoop.git $env:SCOOP_COMMIT
+          git -C $core checkout --quiet FETCH_HEAD
+          if ((git -C $core rev-parse HEAD) -ne $env:SCOOP_COMMIT) { throw 'Scoop is not at its pinned commit.' }
+          # The folders Scoop's installer makes that Scoop itself expects to find.
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\scoop\shims", "$env:RUNNER_TEMP\scoop\buckets" | Out-Null
+
+      # By address first, as the README gives it: from the release itself when there is one, the
+      # file when there is not. Then as a bucket, this repository added the way a person adds it.
+      - name: Install by address, then from this repository as a bucket
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $env:SCOOP = "$env:RUNNER_TEMP\scoop"
+          $scoop = "$env:SCOOP\apps\scoop\current\bin\scoop.ps1"
+          $version = (Get-Content bucket/steamgauge.json -Raw | ConvertFrom-Json).version
+          # scoop.ps1 is a script, not a program, so a failure shows only in its exit code.
+          function Scoop {
+            & $scoop @args
+            if ($LASTEXITCODE -ne 0) { throw "scoop $args failed with $LASTEXITCODE." }
+          }
+          # The command through Scoop's shim, which hands the windowed program the pipe it was
+          # given; the window from the folder the Start menu shortcut points into.
+          function Check {
+            $said = & "$env:SCOOP\shims\steamgauge.exe" --version
+            if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
+            Write-Output $said
+            $installed = "$env:SCOOP\apps\steamgauge\current"
+            foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
+              if (-not (Test-Path "$installed\$file")) { throw "Scoop put no $file in $installed." }
+            }
+            $shortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Scoop Apps\SteamGauge.lnk"
+            if (-not (Test-Path $shortcut)) { throw "Scoop made no Start menu shortcut at $shortcut." }
+            $window = Start-Process -FilePath "$installed\steamgauge.exe" -PassThru
+            Start-Sleep -Seconds 20
+            if ($window.HasExited) { throw "The window exited within 20 seconds of starting, with $($window.ExitCode)." }
+            Stop-Process -Id $window.Id -Force
+            $window.WaitForExit()
+            Write-Output 'The window stayed up.'
+          }
+
+          $address = if ($env:TAG) {
+            "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:TAG/steamgauge.json"
+          } else {
+            (Resolve-Path bucket/steamgauge.json).Path
+          }
+          Scoop install --no-update-scoop $address
+          Check
+          Scoop uninstall steamgauge
+
+          git switch --quiet --create package-managers-check
+          git add bucket/steamgauge.json
+          git -c user.name=package-managers -c user.email=package-managers@localhost commit --quiet `
+            --allow-empty --message 'The manifest under test'
+          # Scoop takes a bucket only by a Git URL, which a plain path is not.
+          Scoop bucket add aureliolo ("file:///" + ($env:GITHUB_WORKSPACE -replace '\\', '/'))
+          Scoop install --no-update-scoop aureliolo/steamgauge
+          Check
+          Scoop uninstall steamgauge
+          if (Test-Path "$env:SCOOP\apps\steamgauge") { throw 'Uninstalling left SteamGauge behind.' }
+
+  # winget's own checks of the manifests, then winget installing the setup program they name,
+  # per user and silently, as `winget install` does for a person.
+  winget:
+    name: package managers (winget)
+    needs: signed
+    if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    # It downloads only this run's own files, which takes no token.
+    permissions: {}
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Take the files under test
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.files || 'package-managers-signed' }}
+
+      - name: Validate, install, run and uninstall
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          winget --version
+          $version = (Get-Content bucket/steamgauge.json -Raw | ConvertFrom-Json).version
+          winget validate --manifest winget --disable-interactivity
+          # A manifest from a folder rather than from a source is refused until this is on.
+          winget settings --enable LocalManifestFiles
+          winget install --manifest winget --scope user --silent --disable-interactivity `
+            --accept-package-agreements --accept-source-agreements
+          $installed = "$env:LOCALAPPDATA\SteamGauge"
+          foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
+            if (-not (Test-Path "$installed\$file")) { throw "winget's install put no $file in $installed." }
+          }
+          # A windowed program writes to a pipe it is given, which the assignment gives it.
+          $said = & "$installed\steamgauge.exe" --version
+          if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
+          Write-Output $said
+          $window = Start-Process -FilePath "$installed\steamgauge.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($window.HasExited) { throw "The window exited within 20 seconds of starting, with $($window.ExitCode)." }
+          Stop-Process -Id $window.Id -Force
+          $window.WaitForExit()
+          Write-Output 'The window stayed up.'
+          winget uninstall --manifest winget --silent --disable-interactivity --accept-source-agreements
+          Start-Sleep -Seconds 5
+          if (Test-Path "$installed\steamgauge.exe") { throw "Uninstalling left $installed\steamgauge.exe behind." }

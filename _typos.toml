@@ -6,7 +6,8 @@ locale = "en-gb"
 # colour flags of actionlint, cargo and cargo-about; ClusterFuzzLite's input and LLVM's sanitiser
 # by their names, rustc's sanitiser flag, BinSkim's rule names and its analyse command; the
 # in-toto file extension; syft's catalogers; GitHub's artifact actions; ONNX's
-# LayerNormalization; a game's name; a partial word typed into a filter under test; hexadecimal
+# LayerNormalization; PowerShell's -PassThru switch; the winget manifest's UpgradeBehavior field;
+# a game's name; a partial word typed into a filter under test; hexadecimal
 # digests and Unicode escapes, which are not words; a licence quoted word for word; and the
 # review text the splitter and the term lists are tested and built on, which is in the languages
 # and the spellings reviewers write in.
@@ -33,6 +34,8 @@ extend-ignore-re = [
   '(?i)\bcatalogers?\b',
   '\b(?:upload|download)-artifact\b',
   'LayerNormalization',
+  '-PassThru\b',
+  '(?m)^UpgradeBehavior: ',
   '(?i)\bbeat[ _]saber\b',
   '\b[0-9a-f]*[0-9][0-9a-f]*\b',
   '\\u\{[0-9A-Fa-f]+\}',

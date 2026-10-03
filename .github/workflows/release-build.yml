@@ -547,15 +547,22 @@ jobs:
           done
           exit "${failed}"
 
-      # Written once every other file exists, so it covers the SBOMs too.
-      - name: Write the checksums
+      # Written once every other file exists, so it covers the SBOMs too. Scoop installs from
+      # steamgauge.json by the release's address, so it ships in the release and is signed with
+      # it, written from the checksums of the files it names; the checksums are then written
+      # again to take it in.
+      - name: Write the checksums and the Scoop manifest
         run: |
           set -euo pipefail
           rm dist/*.crates dist/*.sha256
-          (cd dist && sha256sum -- * > SHA256SUMS)
-          # Three archives, four installers and three SBOMs.
-          if [[ "$(wc -l < dist/SHA256SUMS)" -ne 10 ]]; then
-            echo "Expected three archives, four installers and three SBOMs, found:" >&2
+          (cd dist && sha256sum -- *) > "${RUNNER_TEMP}/files.sha256"
+          bash tools/release/package-managers.sh "${VERSION}" "${RUNNER_TEMP}/files.sha256" "${RUNNER_TEMP}/package-managers"
+          cp "${RUNNER_TEMP}/package-managers/bucket/steamgauge.json" dist/steamgauge.json
+          (cd dist && sha256sum -- *) > "${RUNNER_TEMP}/SHA256SUMS"
+          mv "${RUNNER_TEMP}/SHA256SUMS" dist/SHA256SUMS
+          # Three archives, four installers, three SBOMs and the Scoop manifest.
+          if [[ "$(wc -l < dist/SHA256SUMS)" -ne 11 ]]; then
+            echo "Expected three archives, four installers, three SBOMs and the Scoop manifest, found:" >&2
             cat dist/SHA256SUMS >&2
             exit 1
           fi
@@ -669,6 +676,7 @@ jobs:
             dist/steamgauge_*.deb
             dist/steamgauge-*.rpm
             dist/steamgauge-*.spdx.json
+            dist/steamgauge.json
             dist/SHA256SUMS
 
       # Each system's SBOM describes the program its archive carries, and its installers install

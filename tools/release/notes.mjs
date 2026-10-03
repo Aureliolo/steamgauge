@@ -22,8 +22,10 @@ import { compareVersions, parseVersion } from "./version.mjs";
 
 // What decides the bytes of a release archive. Everything under crates/ is compiled in or
 // shipped beside the binary, except the examples and tests, which are neither. The toolchain
-// file picks the compiler, release-build.yml assembles the archive and says what goes in, and
-// third-party/ with notices.mjs writes the THIRD-PARTY-NOTICES.txt each archive carries.
+// file picks the compiler, release-build.yml and package.sh assemble the archives and the
+// installers and say what goes in, third-party/ with notices.mjs writes the
+// THIRD-PARTY-NOTICES.txt each archive carries, and package-managers.sh writes the Scoop
+// manifest the release carries.
 const SHIPPED = [
   "crates/",
   "Cargo.toml",
@@ -33,11 +35,14 @@ const SHIPPED = [
   "LICENSE",
   "third-party/",
   "tools/release/notices.mjs",
+  "tools/release/package.sh",
+  "tools/release/package-managers.sh",
   ".github/workflows/release-build.yml",
 ];
 const NEVER_SHIPPED = /^crates\/[^/]+\/(examples|tests|benches)\//;
 
-// The label release-prepare.yml puts on the pull request that only raises the version.
+// The label on the pull requests a release makes for itself: release-prepare.yml's, which only
+// raises the version, and the one that puts the Homebrew cask and the Scoop manifest on main.
 const THE_RELEASE_ITSELF = "release";
 
 // One shipped file is enough. A pull request that fixes the reader and adds the fixture for it
