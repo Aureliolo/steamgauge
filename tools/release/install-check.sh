@@ -92,10 +92,30 @@ case "${target}" in
     expect_version "${home}/steamgauge.exe"
     stays_up "${home}/steamgauge.exe"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
+    # The uninstall a quiet uninstaller such as winget runs is the one the setup program
+    # registered, so that is the one checked, and then run.
+    entry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SteamGauge'
+    quiet="$(powershell -NoProfile -Command "(Get-ItemProperty '${entry}').QuietUninstallString")"
+    quiet="${quiet%$'\r'}"
+    expected="\"$(cygpath -w "${home}")\\uninstall.exe\" /S"
+    if [[ "${quiet}" != "${expected}" ]]; then
+      echo "The setup program registered the quiet uninstall '${quiet}', not '${expected}'." >&2
+      exit 1
+    fi
     step "Uninstalling silently" "${home}/uninstall.exe" //S
-    sleep 5
+    # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
+    # the files are gone.
+    for _ in $(seq 60); do
+      [[ -e "${home}/steamgauge.exe" ]] || break
+      sleep 2
+    done
     if [[ -e "${home}/steamgauge.exe" ]]; then
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
+      exit 1
+    fi
+    left="$(powershell -NoProfile -Command "Test-Path '${entry}'")"
+    if [[ "${left%$'\r'}" != False ]]; then
+      echo "Uninstalling left its entry in Apps behind." >&2
       exit 1
     fi
     ;;

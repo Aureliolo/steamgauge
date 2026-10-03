@@ -4927,6 +4927,12 @@ signed: the version it names, its window staying up, and on Windows uninstalling
 same check runs on every pull request (`packages.yml`). Each system's SBOM is attested against
 its archive and its installers alike.
 
+**The Windows setup program registers a quiet uninstall.** Tauri's template writes only the
+uninstall that opens a window, and a quiet uninstaller such as `winget uninstall --silent` falls
+back to that one and waits on a window nobody asked for. A hook
+(`crates/steamgauge-app/installer-hooks.nsh`) adds the same uninstaller with `/S` as the quiet
+one, and the install check reads that registered command and runs it.
+
 **On Windows the program is a windowed application.** As a console program it opened a console
 window beside the app for as long as it ran, which the user rejected outright: double-clicking
 shows the window and nothing else. The pipeline is the same binary given arguments, and as a
