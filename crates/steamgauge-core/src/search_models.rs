@@ -54,8 +54,8 @@ pub struct Model {
 // run again is not byte for byte the same file, so these are the ones, not any export.
 pub const ENCODER: Model = Model {
     name: "search-encoder",
-    repository: "",
-    revision: "",
+    repository: "Aureliolo/steamgauge-search-encoder",
+    revision: "c09c77b972e610a01a628e91395b427193f455fa",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -71,8 +71,8 @@ pub const ENCODER: Model = Model {
 
 pub const RERANKER: Model = Model {
     name: "search-reranker",
-    repository: "",
-    revision: "",
+    repository: "Aureliolo/steamgauge-search-reranker",
+    revision: "977b6ea57a5559c7931f55f1351ee8e795d4cb4e",
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -335,9 +335,25 @@ mod tests {
     #[test]
     fn an_unpublished_model_with_nothing_here_cannot_be_ensured() {
         let empty = crate::tempdir::Dir::new();
+        let unpublished = Model {
+            repository: "",
+            revision: "",
+            ..ENCODER
+        };
         let refused = tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(ENCODER.ensure(empty.path(), |_| {}));
+            .block_on(unpublished.ensure(empty.path(), |_| {}));
         assert!(refused.is_err());
+    }
+
+    #[test]
+    fn both_search_models_are_fetched_from_a_pinned_commit() {
+        for model in [ENCODER, RERANKER] {
+            let source = model::Source {
+                repository: model.repository,
+                revision: model.revision,
+            };
+            assert!(source.is_pinned(), "{}", model.name);
+        }
     }
 }

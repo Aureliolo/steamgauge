@@ -612,8 +612,9 @@ def main() -> None:
         )
     for name, (repo, constant, _) in SEARCH.items():
         search_rs = pin_search(search_rs, constant, f"{args.owner}/{repo}", commits[repo])
-    READER_RS.write_text(reader_rs, encoding="utf-8")
-    SEARCH_RS.write_text(search_rs, encoding="utf-8")
+    # The sources are kept with Unix line ends, which Windows would otherwise turn every one of.
+    READER_RS.write_text(reader_rs, encoding="utf-8", newline="\n")
+    SEARCH_RS.write_text(search_rs, encoding="utf-8", newline="\n")
     print(f"\npinned in {READER_RS.relative_to(REPO)} and {SEARCH_RS.relative_to(REPO)}")
 
 
