@@ -5024,6 +5024,11 @@ every measurement, so the floor still moves only with the code the tests reach. 
 files are the ones that talk to Steam or open a model: `crawl.rs` 13%, `search_models.rs` 28%,
 `api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
 
+With the tests the first weekly list asked for in the capture readers, the splitter, `said.rs`
+and the smaller files, on 2026-10-04 on Windows: 14,782 of 18,156 lines, 81.42% (regions 80.72%,
+functions 82.00%), against 13,981 of 17,523, 79.79%, for `main` at 2c0b68d the same day. The
+floor is 81%.
+
 The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
 the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
 a window, which `tools/app-check` drives against a stand-in and no Rust test can reach. Counted
