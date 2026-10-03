@@ -517,7 +517,12 @@ struct InducedOut {
 fn induced(app: AppHandle, app_id: u32) -> Result<Vec<InducedOut>, String> {
     let dir = library_dir(&app);
     let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
-    let found = report::induced_for(app_id, &snapshot, report::DEFAULT_EXAMPLES).map_err(text)?;
+    let found = report::induced_for(
+        &steamgauge_core::induced::default_path(app_id),
+        &snapshot,
+        report::DEFAULT_EXAMPLES,
+    )
+    .map_err(text)?;
     Ok(found
         .into_iter()
         .map(|evidence| InducedOut {
