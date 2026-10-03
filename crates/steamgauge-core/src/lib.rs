@@ -14,6 +14,7 @@ pub mod embed;
 pub mod facts;
 pub mod gold;
 pub mod html;
+mod http;
 pub mod induced;
 pub mod meaning;
 pub mod measure;

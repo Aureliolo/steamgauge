@@ -4,11 +4,12 @@ locale = "en-gb"
 # Spellings that are not this project's, each matched whole so the prose around them is still
 # checked: CSS's own properties, values and media feature, the DOM's style property, and the
 # colour flags of actionlint, cargo and cargo-about; ClusterFuzzLite's input and LLVM's sanitiser
-# by their names; the in-toto file extension; syft's catalogers; GitHub's artifact actions;
-# ONNX's LayerNormalization; a game's name; a partial word typed into a filter under test;
-# hexadecimal digests and Unicode escapes, which are not words; a licence quoted word for word;
-# and the review text the splitter and the term lists are tested and built on, which is in the
-# languages and the spellings reviewers write in.
+# by their names, rustc's sanitiser flag, BinSkim's rule names and its analyse command; the
+# in-toto file extension; syft's catalogers; GitHub's artifact actions; ONNX's
+# LayerNormalization; a game's name; a partial word typed into a filter under test; hexadecimal
+# digests and Unicode escapes, which are not words; a licence quoted word for word; and the
+# review text the splitter and the term lists are tested and built on, which is in the languages
+# and the spellings reviewers write in.
 extend-ignore-re = [
   '\b(?:[a-z]+-)*color(?:-[a-z]+)*\s*:',
   '\bcolor-mix\(',
@@ -25,6 +26,9 @@ extend-ignore-re = [
   '["`]ect["`]',
   '\bsanitizer: ',
   'AddressSanitizer',
+  '-Zsanitizer=',
+  '\bBA[0-9]{4}\b',
+  '"\$\{binskim\}" analyze',
   '\.intoto\.jsonl',
   '(?i)\bcatalogers?\b',
   '\b(?:upload|download)-artifact\b',

@@ -12,7 +12,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Decided | State |
 |---|---|
 | Rust core, **Tauri desktop shell**, and a CLI beside it | done: one binary, a window when opened with no arguments and the pipeline when given any |
-| Compiled binary for Windows, Linux and macOS; the user downloads it, double-clicks it, and works entirely in the UI | built for all three by the release workflow, DirectML on Windows and CoreML on Apple Silicon; the claim reader is fetched by checksum on first use once one is published |
+| Compiled binary for Windows, Linux and macOS; the user downloads it, double-clicks it, and works entirely in the UI | built and packaged into installers for all three by the release workflow, DirectML on Windows and CoreML on Apple Silicon; the reader is fetched by checksum on first use |
 | The UI is first class, not a wrapper over the pipeline, and has to be good enough to look at | the window crawls, reads, shows the counts with their measured error, opens every row onto its claims and every word that stands out onto the claims that use it, draws the timeline, lists the languages, shows the induced subjects, and switches which language is counted without re-crawling |
 | Results also export as one self-contained HTML page that fetches nothing | done |
 | Name: **SteamGauge**, binary `steamgauge` | done 2026-09-11, renamed from `steam-review-census`. A census counts heads; this reads opinions, and "to gauge opinion" is the phrase for it. `gauge` alone was left to ThoughtWorks' test framework and npm's progress bar |
@@ -122,8 +122,9 @@ prepared again: its vectors are in another space.
 | Decided | State |
 |---|---|
 | Apache-2.0 | done |
-| Signed releases with provenance and an SBOM per archive | done, dry run passed, not yet run on a tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds the three archives with no cache, writes an SPDX SBOM of each that is checked against the archive and the crates its build resolved, and attests build provenance over every file and each SBOM against its archive. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
-| Releases cut by a button rather than a hand-made tag | done: prepare release raises the version in a signed pull request, merging it tags, and the tag starts the release. The changelog is split by whether a pull request touched what ships |
+| Signed releases with provenance and an SBOM per archive | done, dry run passed, not yet run on a tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds each system's program with no cache, packs it into a portable archive and the system's installers, writes an SPDX SBOM of each program that is checked against its archive and the crates its build resolved, installs and runs every installer on its own system, and attests build provenance over every file and each SBOM against its archive and installers. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
+| A person installs it like any other program | done, not yet run on a tag: a setup program on Windows, a disk image on macOS, a `.deb` and an `.rpm` on Linux, made by Tauri's bundler from the build the release made; see below |
+| Releases cut by a button rather than a hand-made tag | done: prepare release, which only the owner can run, raises the version in a signed pull request opened by the packaging App, which merges itself when green; merging it tags, and the tag starts the release. The changelog is split by whether a pull request touched what ships, and the first release says it is the first |
 | Immutable release artefacts with checksums | done |
 | Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
@@ -4905,6 +4906,59 @@ answer: the opener's capability allows exactly
 with `..`, `%`, `?`, `#` or a further path segment, which a test reads back from the capability
 file. A pattern for a backslash was tried and denied every release page on Windows, where the
 opener's glob takes a backslash for a slash.
+
+### A release is installers, and each is installed before it is signed (2026-10-03)
+
+Measured against a mature release setup the user named as the standard, the releases shipped a
+bare `.tar.gz` per system: Windows 10 cannot open one without help, macOS has no `.app` to put
+in Applications, and on Linux WebKitGTK had to be found by hand. Each system now gets installers
+and keeps a portable archive: a per-user NSIS setup program on Windows that fetches WebView2
+where it is missing, a disk image on macOS, a `.deb` and an `.rpm` on Linux that declare
+WebKitGTK 4.1, and a `.zip` rather than a tarball for Windows. Tauri's bundler packages the build
+the release step made (`cargo tauri bundle`), so what is installed was compiled from the locked
+sources by the same step, not by a second build. The bundler is pinned by version and digest,
+and it checks the hashes of the NSIS tools it fetches. There is no AppImage: building one fetches
+tools from an unpinned "continuous" release.
+
+**The bundler stamps the program it packs** with the kind of package it is in, so the program
+inside an installer is not byte for byte the program in the archive. Each installer is therefore
+proved by installing it and running what it installed, on its own system, before anything is
+signed: the version it names, its window staying up, and on Windows uninstalling cleanly. The
+same check runs on every pull request (`packages.yml`). Each system's SBOM is attested against
+its archive and its installers alike.
+
+**On Windows the program is a windowed application.** As a console program it opened a console
+window beside the app for as long as it ran, which the user rejected outright: double-clicking
+shows the window and nothing else. The pipeline is the same binary given arguments, and as a
+windowed program it writes to whatever pipe it is handed, which Git Bash makes by itself and
+PowerShell makes with `| Out-Host`. Debug builds keep the console. Every shipped build has
+`custom-protocol`, without which Tauri treats a build as development and leaves the developer
+tools reachable.
+
+**Windows builds are hardened** with Control Flow Guard, shadow-stack compatibility and the
+compiler's Spectre mitigations for compiled C, and BinSkim reads the Windows and Linux programs
+on every pull request. Its first read of the Windows program found C compiled at warning level
+0: aws-lc, rustls's default cryptography, and sqlite, oniguruma and zstd, whose build scripts
+turn warnings off. TLS runs on ring instead (`crates/steamgauge-core/src/http.rs`), the lighter
+of rustls's two providers, and the lock is 156 lines shorter for it; the rest compile at level
+3, because cc passes `CFLAGS` after a build script's own flags. Four findings are accepted, each
+with its reason beside it in `binaries.yml`: MSVC's stack cookies, which rustc does not emit;
+SafeStack on Linux, which stable Rust cannot build; MD5 source hashes in the objects ring ships
+pre-assembled by NASM; and whether the prebuilt ONNX Runtime was compiled with Spectre
+mitigations, which BinSkim cannot see and which guard secrets from code sharing a process, of
+which this one has neither (the user's call, asked 2026-10-03). `/DEPENDENTLOADFLAG` is left off:
+Windows carries an older `DirectML.dll` in System32, and limiting the program's imports to
+System32 would load that one over the one it ships.
+
+**A pre-release version is refused** by the bump and by the release gate. Every release is
+published as the latest, and immutable once it is, so a `1.0.0-rc.1` would have stood as the
+newest release for good.
+
+**The release pull request merges itself** through the user's packaging GitHub App, asked and
+chosen by the user. GitHub holds the checks of a pull request the job token opens until someone
+approves them, and a merge the job token makes starts no workflow, so with the job token every
+release cost an approval and a merge by hand. The App's key lives in an environment only `main`
+can deploy to, and each run's token lasts an hour and writes to this repository alone.
 
 ## Nothing here is identified by a number somebody incremented
 

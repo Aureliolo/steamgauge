@@ -450,7 +450,7 @@ pub fn release_number(tag: &str) -> Option<u32> {
 }
 
 pub(crate) fn client() -> Result<reqwest::Client> {
-    Ok(reqwest::Client::builder()
+    Ok(crate::http::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))
         .build()?)
 }

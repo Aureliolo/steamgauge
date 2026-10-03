@@ -32,6 +32,9 @@ tauri-build = { version = "2.6.3", features = [] }
 
 [features]
 default = []
+# The window's pages served from inside the binary, with no developer tools. Every build that
+# ships has it; without it Tauri treats the build as development.
+custom-protocol = ["tauri/custom-protocol"]
 directml = ["steamgauge-core/directml"]
 coreml = ["steamgauge-core/coreml"]
 cuda = ["steamgauge-core/cuda"]

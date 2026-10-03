@@ -1,0 +1,161 @@
+name: binaries
+
+# Microsoft's BinSkim over the program as it ships, on the two systems it reads: the Windows PE
+# and the Linux ELF. Each finding is a mitigation the compiler or linker left out, so the job
+# refuses any it has not been told to accept, and the results go to code scanning.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  BINSKIM_VERSION: 4.4.9.11
+  BINSKIM_SHA256: 69678989cbc273b5b50fcf98fb0fd978e1e35a3f844acb24254b31f0ce90c447
+
+jobs:
+  binskim:
+    name: binskim (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            features: custom-protocol,directml
+            program: steamgauge.exe
+            binskim: win-x64/BinSkim.exe
+            # Line tables give BinSkim the PDB it reads compiler details from, and change nothing
+            # in the code.
+            debug: line-tables-only
+            # BA2014 asks for MSVC's /GS stack cookies in every function; rustc emits none, and
+            # BinSkim reads each Rust function as a C one built without them. BA2024 cannot tell
+            # whether ONNX Runtime, linked prebuilt and without debug information, was compiled
+            # with Spectre mitigations; those guard secrets from code sharing a process, and this
+            # one holds no secret and runs no code but its own. The C it compiles itself has
+            # /Qspectre (.cargo/config.toml).
+            accepted: BA2014 BA2024
+            spectre: spectre
+          - platform: linux
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            features: custom-protocol
+            program: steamgauge
+            binskim: linux-x64/BinSkim
+            debug: none
+            # BA3031 asks for LLVM's SafeStack, which Rust offers only as a nightly sanitiser
+            # (-Zsanitizer=safe-stack); a release built on the stable toolchain cannot have it.
+            accepted: BA3031
+            spectre: ''
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read # Reads the source it builds.
+      security-events: write # Uploads the results to code scanning.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the webview Tauri links against
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+          CARGO_PROFILE_RELEASE_DEBUG: ${{ matrix.debug }}
+          VSCMD_ARG_VCVARS_SPECTRE: ${{ matrix.spectre }}
+        run: |
+          set -euo pipefail
+          rustup target add "${TARGET}"
+          cargo build --locked --release --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+
+      # The NuGet package, refused unless it has the digest written above.
+      - name: Install BinSkim
+        run: |
+          set -euo pipefail
+          package="${RUNNER_TEMP}/binskim.nupkg"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${package}" \
+            "https://api.nuget.org/v3-flatcontainer/microsoft.codeanalysis.binskim/${BINSKIM_VERSION}/microsoft.codeanalysis.binskim.${BINSKIM_VERSION}.nupkg"
+          echo "${BINSKIM_SHA256}  ${package}" | sha256sum --check --strict
+          unzip -q "${package}" -d .binskim
+          if [[ "${RUNNER_OS}" == Linux ]]; then
+            chmod +x .binskim/tools/*/linux-x64/BinSkim
+          fi
+
+      - name: Analyse
+        env:
+          TARGET: ${{ matrix.target }}
+          PROGRAM: ${{ matrix.program }}
+          BINSKIM: ${{ matrix.binskim }}
+          ACCEPTED: ${{ matrix.accepted }}
+        run: |
+          set -euo pipefail
+          binskim="$(echo .binskim/tools/net*/"${BINSKIM}")"
+          status=0
+          "${binskim}" analyze "target/${TARGET}/release/${PROGRAM}" --output raw.sarif \
+            --insert FlattenedMessages --quiet || status=$?
+          echo "BinSkim exited with ${status}."
+          jq -e 'all(.runs[].invocations[]; .executionSuccessful)' raw.sarif > /dev/null
+          # A result BinSkim left as a reference to its rule's wording gets that wording, with its
+          # arguments put in, since code scanning takes only text.
+          jq --arg accepted "${ACCEPTED}" \
+            '($accepted | split(" ") | map(select(length > 0))) as $accepted
+             | .runs[] |= (
+                 ([.tool.driver.rules[]? | {key: .id, value: .messageStrings}] | from_entries) as $wording
+                 | .results |= map(
+                     select(.ruleId as $rule | $accepted | index($rule) | not)
+                     # ring ships its assembly pre-assembled by NASM, whose objects carry MD5
+                     # source hashes; BA2004 stands for any other module that does.
+                     | select(
+                         .ruleId != "BA2004"
+                         or ((.message.arguments // [])[1] // "" | split("\n")
+                             | map(select(length > 0)) as $modules
+                             | $modules == []
+                               or ($modules | any(startswith("The Netwide Assembler ") | not)))
+                       )
+                     | if .message.text then . else
+                         (.message.arguments // []) as $arguments
+                         | .message.text = (
+                             reduce range($arguments | length) as $i
+                               ($wording[.ruleId][.message.id].text // .message.id // .ruleId;
+                                gsub("[{]\($i)[}]"; $arguments[$i]))
+                           )
+                       end
+                   )
+               )' \
+            raw.sarif > binskim.sarif
+          jq -e 'all(.runs[].results[]; .message.text | type == "string")' binskim.sarif > /dev/null
+
+      - name: Upload the results
+        if: '!cancelled()'
+        uses: github/codeql-action/upload-sarif@977e6ceaea7361825998245d787fa3b4d6b9e5df # codeql-bundle-v2.27.0
+        with:
+          sarif_file: binskim.sarif
+          category: binskim-${{ matrix.platform }}
+
+      # A warning is refused as an error is: each is a mitigation missing from what ships.
+      - name: Refuse anything BinSkim found
+        run: |
+          set -euo pipefail
+          found='[.runs[].results[] | select((.level // "warning") != "note" and (.kind // "fail") == "fail")]'
+          jq -r "${found}[] | \"\(.ruleId): \(.message.text)\"" binskim.sarif
+          # Decided by jq's own exit status: its text ends in a carriage return on Windows.
+          jq -e "${found} | length == 0" binskim.sarif > /dev/null

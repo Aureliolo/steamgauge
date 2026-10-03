@@ -25,6 +25,8 @@ bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside train
 - One build tree, `target/`. A running `steamgauge.exe` (a crawl, `gold --serve`) holds the
   release binary open: the build fails with "Access is denied" among other output, and the next
   command silently runs the old binary. Stop it, rebuild, see `Finished`.
+- The Windows release binary is a windowed program: it prints only into a pipe or a file. Git
+  Bash gives it a pipe; from PowerShell or Python capture or redirect its output, or it is lost.
 - Check the device line of `embed` or `read` says `directml` before trusting any timing.
 - The GPU and system RAM are shared with other work on this machine. Check the card is idle
   before a GPU task. A CUDA OOM with VRAM free means system commit ran out: on Windows every

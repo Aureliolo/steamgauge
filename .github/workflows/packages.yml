@@ -1,0 +1,136 @@
+name: packages
+
+# What release-build.yml does to make and check the installers, on every pull request: build the
+# program as it ships, package it the same way, install each package on its own system and run
+# it. A change that breaks an installer is found on the pull request that makes it rather than on
+# a tag, where the version is spent. Nothing here is signed or kept.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  install:
+    name: install (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: linux
+            target: x86_64-unknown-linux-gnu
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+            features: custom-protocol
+          - system: windows
+            target: x86_64-pc-windows-msvc
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
+            features: custom-protocol,directml
+          - system: macos
+            target: aarch64-apple-darwin
+            # renovate: datasource=github-runners depName=macos
+            runner: macos-26
+            features: custom-protocol,coreml
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read # Reads the source it builds.
+    env:
+      # renovate: datasource=docker depName=fedora
+      FEDORA_IMAGE: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the webview Tauri links against, and a display for its window
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev xvfb
+
+      - name: Install tauri-cli (Linux)
+        if: runner.os == 'Linux'
+        env:
+          # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          TAURI_CLI_TAG: tauri-cli-v2.12.1
+          TAURI_CLI_SHA256: 04ef3a9a2ed7b7dc479bef08ab40deee80065c99fc778f79ebce775eb72bbeff
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-tauri.tgz"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/tauri-apps/tauri/releases/download/${TAURI_CLI_TAG}/cargo-tauri-x86_64-unknown-linux-gnu.tgz"
+          echo "${TAURI_CLI_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-tauri
+          echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri" >> "${GITHUB_ENV}"
+
+      - name: Install tauri-cli (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          TAURI_CLI_TAG: tauri-cli-v2.12.1
+          TAURI_CLI_SHA256: d3919ebe0bf7013dd98293862784dd37b8f76db2d650e13a3ec11c5dd799c519
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-tauri.zip"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/tauri-apps/tauri/releases/download/${TAURI_CLI_TAG}/cargo-tauri-x86_64-pc-windows-msvc.zip"
+          echo "${TAURI_CLI_SHA256}  ${archive}" | sha256sum --check --strict
+          7z x -y -bso0 -bsp0 "-o${RUNNER_TEMP}" "${archive}" cargo-tauri.exe
+          echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri.exe" >> "${GITHUB_ENV}"
+
+      - name: Install tauri-cli (macOS)
+        if: runner.os == 'macOS'
+        env:
+          # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          TAURI_CLI_TAG: tauri-cli-v2.12.1
+          TAURI_CLI_SHA256: ee35ee364a0c626df7852d9a5bc0c5394b6440772e9864cfb9b11dcb8d33f527
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/cargo-tauri.zip"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
+            "https://github.com/tauri-apps/tauri/releases/download/${TAURI_CLI_TAG}/cargo-tauri-aarch64-apple-darwin.zip"
+          echo "${TAURI_CLI_SHA256}  ${archive}" | shasum -a 256 --check --strict
+          unzip -q -o "${archive}" cargo-tauri -d "${RUNNER_TEMP}"
+          echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri" >> "${GITHUB_ENV}"
+
+      # No cache, as in the release build, so this builds what a release would.
+      - name: Build
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+        run: |
+          set -euo pipefail
+          rustup target add "${TARGET}"
+          cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+
+      # The release packs the notices cargo-about writes, which CI's notices job checks on its
+      # own; any text stands in for them here, since it is the packaging under test.
+      - name: Package
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+        run: |
+          set -euo pipefail
+          version="$(node tools/release/version.mjs check)"
+          echo "VERSION=${version}" >> "${GITHUB_ENV}"
+          bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${version}" LICENSE dist
+
+      - name: Install and run
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: bash tools/release/install-check.sh "${TARGET}" "${VERSION}" dist

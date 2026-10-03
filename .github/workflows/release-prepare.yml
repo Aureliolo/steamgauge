@@ -3,14 +3,15 @@ name: prepare release
 # Cutting a tag by hand is the one release step nobody can check afterwards, and it is the step
 # most often done at the wrong time, from the wrong branch, against the wrong version. This puts
 # it behind a button: pick the bump, and out comes a branch with the signed version commit and a
-# pull request for it. Merge that and the tagging and publishing follow, with nobody typing a
-# version again.
+# pull request for it that merges itself once its checks are green. The merge tags, and the
+# tagging builds and publishes, with nobody typing a version again.
 #
-# The checks on that pull request are created in an approval-required state and wait for a
-# click. That is GitHub's rule for anything a workflow opens with the job token: the runs exist,
-# they are held, and a banner in the merge box offers "Approve workflows to run". Getting them to
-# start by themselves would mean a GitHub App or a personal access token, which is a standing
-# credential bought to save one click.
+# The branch, the commit and the pull request are made as the packaging GitHub App rather than
+# with the job token. GitHub holds every check on a pull request the job token opens until
+# someone approves it, and a pull request merged by the job token starts no workflow, so the tag
+# would never be cut. The App's key lives in the release-prepare environment, which only main can
+# deploy to, and the token minted from it lasts an hour and can write contents and pull requests
+# of this repository alone.
 on:
   workflow_dispatch:
     inputs:
@@ -40,11 +41,33 @@ jobs:
     if: github.repository == 'Aureliolo/steamgauge'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    environment: release-prepare
     permissions:
-      contents: write # Creates the release branch and the signed version commit on it.
-      pull-requests: write # Opens the release pull request for that branch.
+      contents: read # Reads main, and whether a version's tag is taken; the App does the writing.
 
     steps:
+      # Anyone with write access can press the button; only the owner releases.
+      - name: Refuse anyone but the repository's owner
+        env:
+          STARTED_BY: ${{ github.triggering_actor }}
+        run: |
+          set -euo pipefail
+          if [[ "${STARTED_BY}" != "${GITHUB_REPOSITORY_OWNER}" ]]; then
+            echo "::error::Only ${GITHUB_REPOSITORY_OWNER} prepares releases; this run was started by ${STARTED_BY}." >&2
+            exit 1
+          fi
+
+      - name: Refuse to go on without the packaging App
+        env:
+          CLIENT_ID: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          KEY_SET: ${{ secrets.PACKAGING_APP_KEY != '' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLIENT_ID}" || "${KEY_SET}" != true ]]; then
+            echo "::error::The packaging App is not set up: the variable PACKAGING_APP_CLIENT_ID and the secret PACKAGING_APP_KEY in the release-prepare environment are needed. See .github/release-process.md." >&2
+            exit 1
+          fi
+
       - name: Checkout main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,16 +113,28 @@ jobs:
             exit 1
           fi
 
+      - name: Act as the packaging App
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PACKAGING_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PACKAGING_APP_KEY }}
+          repositories: steamgauge
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Set to main's head whether or not it exists, so a run repeated after one that stopped
+      # half way starts from the same place.
       - name: Open the branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ steps.bump.outputs.branch }}
-        run: node tools/release/github-ref.mjs create "heads/${BRANCH}" "${GITHUB_SHA}"
+        run: node tools/release/github-ref.mjs reset "heads/${BRANCH}" "${GITHUB_SHA}"
 
       - name: Commit the bump
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           EXPECTED_HEAD_OID: ${{ github.sha }}
           BRANCH: ${{ steps.bump.outputs.branch }}
@@ -111,9 +146,9 @@ jobs:
           # shellcheck disable=SC2086
           node tools/release/commit-signed.mjs "${BRANCH}" "Release v${VERSION}" ${FILES//,/ }
 
-      - name: Open the release pull request
+      - name: Open the release pull request and let it merge itself
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ steps.bump.outputs.branch }}
           VERSION: ${{ steps.bump.outputs.version }}
@@ -126,14 +161,17 @@ jobs:
           # tools/release/notes.mjs excludes by. It has to exist in the repository: gh fails the
           # whole command on a label it cannot find, so deleting it stops a release being
           # prepared rather than quietly putting the line back.
-          url="$(gh pr create --base main --head "${BRANCH}" --label release \
-            --title "Release v${VERSION}" --body "${body}")"
+          url="$(gh pr list --head "${BRANCH}" --state open --json url --jq '.[0].url // empty')"
+          if [[ -z "${url}" ]]; then
+            url="$(gh pr create --base main --head "${BRANCH}" --label release \
+              --title "Release v${VERSION}" --body "${body}")"
+          fi
+          gh pr merge "${url}" --auto --squash
 
           {
             echo "## Release v${VERSION}"
             echo
             echo "${url}"
             echo
-            echo 'Its checks are waiting on **Approve workflows to run** in the merge box.'
-            echo 'Approve them, and merge once they are green: that tags and publishes.'
+            echo 'It merges itself once its checks are green, and the merge tags and publishes.'
           } >> "${GITHUB_STEP_SUMMARY}"
