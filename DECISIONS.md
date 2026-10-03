@@ -5002,10 +5002,12 @@ being wrong. Two checks ask both of steamgauge-core.
 `cargo llvm-cov -p steamgauge-core` on every pull request and on `main`, keeps the lcov report
 with the run, and fails under the floor. Measured on 2026-10-03 on `main` at 594748b: 13,008 of
 16,785 lines, 77.50% (regions 76.82%, functions 78.31%). With the tests the mutants below asked
-for, on `main` at f950fc8: 13,970 of 17,751 lines, 78.70% (regions 77.87%, functions 79.26%). The
-floor is that rounded down to the whole percent, and it is only ever raised: a pull request that
-lifts the figure past the next whole percent raises it with the figure, and none lowers it to
-get through. The lines counted include the test modules inside each file, which run whenever
+for, on `main` at f950fc8: 13,970 of 17,751 lines, 78.70% (regions 77.87%, functions 79.26%).
+Both on Windows. The check runs on Linux, where the same tree read 79.85%, 13,977 of 17,504: the
+Windows build compiles some 250 lines more, none of which the tests reach. The floor is the
+Windows figure rounded down to the whole percent, so a machine a contributor checks on agrees
+with the check, and it is only ever raised: a pull request that lifts the figure past the next
+whole percent raises it with the figure, and none lowers it to get through. The lines counted include the test modules inside each file, which run whenever
 they exist; that is the same in every measurement, so the floor still moves only with the code
 the tests reach. The thinnest files are the ones that talk to Steam or open a model: `crawl.rs`
 13%, `search_models.rs` 28%, `api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
