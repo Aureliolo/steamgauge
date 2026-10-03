@@ -71,7 +71,7 @@ jobs:
           echo "${CARGO_MUTANTS_SHA256}  ${archive}" | sha256sum --check --strict
           tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-mutants
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
-          "${RUNNER_TEMP}/cargo-mutants" --version
+          "${RUNNER_TEMP}/cargo-mutants" mutants --version
 
       # cargo-mutants builds in a copy of the tree, and handed this target directory it starts
       # from the dependencies already built here, or restored by the cache, rather than from none.
@@ -117,7 +117,9 @@ jobs:
   # hours on one runner, so the crate is dealt out over sixteen, round robin so that a slow file
   # is spread across all of them: a shard is some 225 mutants, half an hour or so.
   shard:
-    name: mutants (${{ matrix.shard }}/16)
+    # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
+    # without one.
+    name: mutants shard
     if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
@@ -152,7 +154,7 @@ jobs:
           echo "${CARGO_MUTANTS_SHA256}  ${archive}" | sha256sum --check --strict
           tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-mutants
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
-          "${RUNNER_TEMP}/cargo-mutants" --version
+          "${RUNNER_TEMP}/cargo-mutants" mutants --version
 
       - name: Build the tests
         run: cargo test --locked --tests -p steamgauge-core --no-run
