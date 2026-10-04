@@ -1553,6 +1553,14 @@ mod tests {
                 "japanese",
                 "\u{3068}\u{3066}\u{3082}\u{3044}\u{3044}\u{30b2}\u{30fc}\u{30e0}",
             ),
+            (
+                "schinese",
+                "\u{8fd9}\u{4e2a}\u{6e38}\u{620f}\u{5f88}\u{597d}",
+            ),
+            (
+                "tchinese",
+                "\u{9019}\u{500b}\u{904a}\u{6232}\u{5f88}\u{597d}",
+            ),
         ];
         for (language, text) in written {
             assert!(

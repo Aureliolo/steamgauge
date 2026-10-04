@@ -3726,6 +3726,17 @@ mod tests {
     }
 
     #[test]
+    fn of_two_subjects_equally_far_apart_the_one_the_sheet_lists_first_is_named() {
+        let mut report = two_games();
+        // Performance comes before bugs on the sheet, and both are a quarter apart.
+        report.apps[0].reading.subjects[0].mention_reviews = 500;
+        report.apps[1].reading.subjects[0].mention_reviews = 250;
+        report.apps[0].reading.subjects[1].mention_reviews = 250;
+        report.apps[1].reading.subjects[1].mention_reviews = 0;
+        assert!(render(&report).contains("disagree about most is <strong>performance</strong>"));
+    }
+
+    #[test]
     fn what_steam_calls_a_game_is_given_only_where_steam_calls_it_anything() {
         assert!(
             render(&sample_report("ordinary text"))
@@ -3942,6 +3953,9 @@ mod tests {
         assert!(plain.contains("<span class=\"lang\">english</span>"));
         assert!(plain.contains("<span class=\"chip\">Bugs and crashes</span>"));
         assert!(plain.contains("<span class=\"chip\">Performance</span>"));
+        let one_other = quoted(&|example| example.also = vec!["bugs".to_owned()]);
+        assert!(one_other.contains("<span class=\"chip\">Bugs and crashes</span>"));
+        assert!(!one_other.contains("<span class=\"chip\">Performance</span>"));
 
         let bare = quoted(&|example| {
             example.review.votes_up = 0;
@@ -3962,6 +3976,14 @@ mod tests {
             example.review.text = "The claim. And a little more.".to_owned();
         });
         assert!(short.contains("<div class=\"text whole\">"));
+        let at_the_limit = quoted(&|example| {
+            example.claim = "The claim.".to_owned();
+            example.review.text = format!("The claim.{}", "x".repeat(PREVIEW_CHARS - 10));
+        });
+        assert!(
+            at_the_limit.contains("<div class=\"text whole\">"),
+            "a review exactly as long as the preview is shown whole"
+        );
     }
 
     #[test]
