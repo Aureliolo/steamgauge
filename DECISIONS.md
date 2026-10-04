@@ -5091,6 +5091,16 @@ only shrinks, apart from what a newer cargo-mutants learns to mutate.
 about its card, which is excluded everywhere; the rest is one body of code on every system, and
 mutating it three times would triple the cost to learn nothing.
 
+### Macro F1 counts every subject somebody labelled, the ones never got right as 0 (2026-10-04)
+
+The trainer's macro F1 (`train.py`, `export.py`) averages over every subject the labels use and
+scores one the model never got right as 0. The tool's (`measure.rs`, behind `steamgauge measure`
+and the report's agreement line) left such a subject out of the mean altogether, so it read
+higher exactly when a game held a subject the model missed entirely, and two figures meant to
+agree did not measure the same thing. The mutants the weekly run listed in `measure.rs` brought it
+up. The tool now scores it as the trainer does. Figures above from `steamgauge measure` were
+taken before, and can read high where a game held such a subject; none from training can.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
