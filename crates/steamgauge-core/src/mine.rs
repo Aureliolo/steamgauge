@@ -1157,6 +1157,10 @@ mod tests {
         assert!(snapshot.exists());
         // Ten claims in the corpus, less the one of review 3, which the set already holds.
         assert_eq!(found.claims_seen, 9);
-        assert_eq!(told.last(), Some(&9));
+        assert_eq!(
+            told,
+            [9],
+            "nine claims are one window of a batch of four, embedded and told once"
+        );
     }
 }
