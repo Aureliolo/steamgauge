@@ -960,6 +960,7 @@ mod tests {
     fn pooling_nothing_is_empty_rather_than_a_panic() {
         let none = pooled(&[]);
         assert_eq!(none.rate(), None);
+        assert_eq!(none.declined_share(), None);
         assert_eq!(none.subjects.len(), SHEET.len());
     }
 
