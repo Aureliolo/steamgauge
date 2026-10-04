@@ -381,14 +381,17 @@ mod tests {
         page.keep(br#"[{"app_id":1,"review_id":"r1","index":0}]"#)
             .unwrap();
 
-        // An empty list padded out to exactly the cap with the whitespace JSON allows.
-        let mut whole = vec![b' '; super::MOST_BYTES];
-        whole[0] = b'[';
-        whole[super::MOST_BYTES - 1] = b']';
-        let (said, failed) = ask(&page, post(&whole));
-        assert_eq!(failed, None);
-        assert!(said.starts_with("HTTP/1.1 200 OK"), "{said}");
-        assert_eq!(super::answers_held(&target), 1, "merged, not replaced");
+        // An empty list padded out with the whitespace JSON allows: to several megabytes, far
+        // more than a sitting's answers come to, and then to exactly the cap.
+        for length in [8 << 20, super::MOST_BYTES] {
+            let mut whole = vec![b' '; length];
+            whole[0] = b'[';
+            whole[length - 1] = b']';
+            let (said, failed) = ask(&page, post(&whole));
+            assert_eq!(failed, None, "{length}");
+            assert!(said.starts_with("HTTP/1.1 200 OK"), "{said}");
+            assert_eq!(super::answers_held(&target), 1, "merged, not replaced");
+        }
 
         // Said to be one byte over, which is refused before a byte of it is read.
         let over = format!(
