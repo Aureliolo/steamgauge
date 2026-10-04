@@ -536,8 +536,11 @@ impl Lines {
     /// `licensing` alone keeps `policy` claims about licence agreements out of it. A draw for
     /// one row is how a row that no game picked for the others will fill gets filled, which
     /// is what `licensing` needed after ten games of retrieval gave it sixteen labels.
+    ///
+    /// `embed` turns a batch of texts into unit vectors, as [`crate::embed::Embedder::embed`]
+    /// does.
     pub fn cast(
-        embedder: &mut crate::embed::Embedder,
+        embed: &mut impl FnMut(&[String]) -> Result<Vec<Vec<f32>>>,
         reference_root: &Path,
         batch_size: usize,
         only: Option<&[String]>,
@@ -578,7 +581,7 @@ impl Lines {
         let mut rows: Vec<f32> = Vec::new();
         let mut dimensions = 0;
         for chunk in texts.chunks(batch_size.max(1)) {
-            for vector in embedder.embed(chunk)? {
+            for vector in embed(chunk)? {
                 dimensions = vector.len();
                 rows.extend(vector);
             }
@@ -695,6 +698,8 @@ pub struct Retrieved {
 ///
 /// Every review carries `subset: "retrieved"`, and no prevalence figure may count one.
 ///
+/// `embed` is the encoder the lines were cast with, as in [`Lines::cast`].
+///
 /// # Errors
 ///
 /// Fails if there is no capture, no reading, the reading was cut by another splitter, or the
@@ -704,7 +709,7 @@ pub struct Retrieved {
     reason = "a draw is its corpus, its reference set and its budget, and each is a separate thing"
 )]
 pub fn draw_by_neighbour(
-    embedder: &mut crate::embed::Embedder,
+    embed: &mut impl FnMut(&[String]) -> Result<Vec<Vec<f32>>>,
     lines: &Lines,
     out_dir: &Path,
     app_id: u32,
@@ -749,7 +754,7 @@ pub fn draw_by_neighbour(
         pending.sort_unstable_by_key(|(_, _, text)| text.len());
         for chunk in pending.chunks(batch_size.max(1)) {
             let texts: Vec<String> = chunk.iter().map(|(_, _, text)| text.clone()).collect();
-            let vectors = embedder.embed(&texts)?;
+            let vectors = embed(&texts)?;
             let margins = lines.margins(&vectors)?;
             for ((id, at, _), found) in chunk.iter().zip(margins) {
                 let Some((line, margin)) = found else {
@@ -833,7 +838,11 @@ fn margin_key(margin: f32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{PROBES, hooked, hooked_among};
+    use std::path::Path;
+
+    use super::{
+        Error, Lines, PROBES, contains_term, draw_by_neighbour, hooked, hooked_among, margin_key,
+    };
 
     /// A term listed twice is a term that was edited twice and reconciled neither time, and
     /// nothing else in the file would notice.
@@ -979,5 +988,179 @@ mod tests {
     #[test]
     fn a_claim_about_nothing_on_the_list_is_not_hooked() {
         assert_eq!(hooked("the combat feels weightless"), None);
+    }
+
+    #[test]
+    fn a_term_is_matched_only_where_a_word_begins_and_ends() {
+        assert!(contains_term("mod list", "mod"));
+        assert!(!contains_term("a xmod here", "mod"));
+        assert!(
+            contains_term("modern mod", "mod"),
+            "a whole word after a part of one is still found"
+        );
+        assert!(!contains_term("mod_list", "mod"));
+        assert!(!contains_term("mod\u{e9}", "mod"));
+        assert!(!contains_term("\u{e9}mod", "mod"));
+    }
+
+    /// Texts as unit vectors on three axes: a headset, a licence, and everything else.
+    fn embedded(texts: &[String]) -> Vec<Vec<f32>> {
+        texts
+            .iter()
+            .map(|text| {
+                let text = text.to_lowercase();
+                if text.contains("headset") {
+                    vec![1.0, 0.0, 0.0]
+                } else if text.contains("licence") {
+                    vec![0.0, 1.0, 0.0]
+                } else {
+                    vec![0.0, 0.0, 1.0]
+                }
+            })
+            .collect()
+    }
+
+    /// A reference set of app 1: a claim each about a headset and a licence, a verdict, and two
+    /// that cast no vote, one contested and one empty. The verdict is review 3 of the corpus
+    /// `read::tests` writes.
+    fn reference(root: &Path) {
+        let game = root.join("1");
+        std::fs::create_dir_all(&game).unwrap();
+        let claims = [
+            ("10", "The headset tracking is great.", "vr", false),
+            ("11", "The licence agreement is absurd.", "licensing", false),
+            ("3", "It is fun.", "verdict", false),
+            ("12", "The headset feels heavy.", "vr", true),
+            ("13", "   ", "gameplay", false),
+        ];
+        let drawn: Vec<serde_json::Value> = claims
+            .iter()
+            .map(|(id, text, _, _)| {
+                serde_json::json!({
+                    "id": id, "app_id": 1, "language": "english", "subset": "random",
+                    "claims": [{"index": 0, "start": 0, "end": text.len(), "text": text}],
+                })
+            })
+            .collect();
+        let labels: Vec<serde_json::Value> = claims
+            .iter()
+            .map(|(id, text, subject, ambiguous)| {
+                serde_json::json!({
+                    "review_id": id, "index": 0, "app_id": 1,
+                    "language": "english", "subset": "random", "start": 0, "end": text.len(),
+                    "subject": subject, "polarity": "praise", "ironic": false,
+                    "confidence": "high", "ambiguous": ambiguous, "split_wrong": false,
+                })
+            })
+            .collect();
+        std::fs::write(
+            game.join("sample.json"),
+            serde_json::to_vec(&drawn).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            game.join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn lines(root: &Path, only: Option<&[String]>) -> crate::Result<Lines> {
+        Lines::cast(&mut |texts: &[String]| Ok(embedded(texts)), root, 2, only)
+    }
+
+    #[test]
+    fn every_clear_labelled_claim_is_a_query_on_its_line_or_against_every_line() {
+        let dir = crate::tempdir::Dir::new();
+        reference(dir.path());
+
+        let (cast, against) = lines(dir.path(), None).unwrap().cast_count();
+        let held = |subject: &str| cast.iter().find(|(id, _)| *id == subject).unwrap().1;
+        assert_eq!(cast.len(), PROBES.len());
+        assert_eq!((held("vr"), held("licensing"), held("mods")), (1, 1, 0));
+        assert_eq!(
+            against, 1,
+            "the verdict votes against; the contested and empty do not vote"
+        );
+
+        let only = ["vr".to_owned()];
+        assert_eq!(
+            lines(dir.path(), Some(&only)).unwrap().cast_count(),
+            (vec![("vr", 1)], 2),
+            "a line not cast joins the common subjects in voting against"
+        );
+
+        let nothing_labelled = ["tutorial".to_owned()];
+        assert!(matches!(
+            lines(dir.path(), Some(&nothing_labelled)),
+            Err(Error::NoReferenceSet { .. })
+        ));
+        let empty = crate::tempdir::Dir::new();
+        assert!(matches!(
+            lines(empty.path(), None),
+            Err(Error::NoReferenceSet { .. })
+        ));
+    }
+
+    #[test]
+    fn a_claim_goes_to_its_nearest_line_by_its_margin_over_the_nearest_common_subject() {
+        let dir = crate::tempdir::Dir::new();
+        reference(dir.path());
+        let only = ["vr".to_owned(), "licensing".to_owned()];
+        let lines = lines(dir.path(), Some(&only)).unwrap();
+        let vr = lines.subjects.iter().position(|s| *s == "vr").unwrap();
+        let licensing = lines
+            .subjects
+            .iter()
+            .position(|s| *s == "licensing")
+            .unwrap();
+
+        assert!(lines.margins(&[]).unwrap().is_empty());
+        let found = lines
+            .margins(&[vec![0.8, 0.0, 0.6], vec![0.0, 0.28, 0.96]])
+            .unwrap();
+        let [Some((first, near)), Some((second, far))] = found[..] else {
+            panic!("every claim sits nearest some line: {found:?}");
+        };
+        assert_eq!((first, second), (vr, licensing));
+        assert!((near - 0.2).abs() < 1e-6, "{near}");
+        assert!((far + 0.68).abs() < 1e-6, "{far}");
+    }
+
+    #[test]
+    fn a_wider_margin_is_a_smaller_key_and_a_margin_past_the_ends_is_held_at_them() {
+        assert_eq!(margin_key(2.0), 0);
+        assert_eq!(margin_key(0.5), 1_500_000);
+        assert_eq!(margin_key(-2.0), 4_000_000);
+        assert_eq!(margin_key(-3.0), margin_key(-2.0));
+        assert!(margin_key(0.3) < margin_key(0.2));
+    }
+
+    #[test]
+    fn a_retrieval_draw_looks_at_every_claim_of_every_review_not_already_drawn() {
+        let dir = crate::tempdir::Dir::new();
+        reference(&dir.path().join("reference"));
+        let snapshot = crate::read::tests::read_corpus_of(dir.path(), 1);
+        let lines = lines(&dir.path().join("reference"), None).unwrap();
+        let mut told = Vec::new();
+        let found = draw_by_neighbour(
+            &mut |texts: &[String]| Ok(embedded(texts)),
+            &lines,
+            dir.path(),
+            1,
+            &dir.path().join("reference").join("1"),
+            2,
+            4,
+            |seen| told.push(seen),
+        )
+        .unwrap();
+        assert!(snapshot.exists());
+        // Ten claims in the corpus, less the one of review 3, which the set already holds.
+        assert_eq!(found.claims_seen, 9);
+        assert_eq!(
+            told,
+            [9],
+            "nine claims are one window of a batch of four, embedded and told once"
+        );
     }
 }

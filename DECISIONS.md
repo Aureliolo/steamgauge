@@ -5033,6 +5033,10 @@ measuring, measured the same way: 15,545 of 18,475 lines, 84.14% (regions 83.20%
 a model answering from a table in the tests, so the walk, the batching and the counting are
 tested without a model on disk.
 
+With the tests asked for in retrieval and the claim sets as well: 16,512 of 18,968 lines, 87.05%
+(regions 86.39%, functions 86.81%). Retrieval is handed its encoder as a function, so casting
+the lines and drawing by them are tested with vectors written by hand.
+
 The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
 the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
 a window, which `tools/app-check` drives against a stand-in and no Rust test can reach. Counted
