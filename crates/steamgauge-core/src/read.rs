@@ -1619,6 +1619,9 @@ pub(crate) mod tests {
         /// Batches run on the card, and claims asked in them.
         pub(crate) runs: usize,
         pub(crate) asked: usize,
+        /// How long each question was, its claim and the review it was read in, in the order
+        /// they were asked.
+        pub(crate) lengths: Vec<usize>,
     }
 
     impl Table {
@@ -1641,6 +1644,7 @@ pub(crate) mod tests {
                 .unwrap(),
                 runs: 0,
                 asked: 0,
+                lengths: Vec::new(),
             }
         }
 
@@ -1678,20 +1682,29 @@ pub(crate) mod tests {
 
     impl Model for Table {
         type Encoder = ();
-        type Prepared = Vec<Reading>;
+        type Prepared = Vec<(usize, Reading)>;
 
         fn encoder(&self) -> Arc<()> {
             Arc::new(())
         }
 
-        fn prepare((): &(), asked: &[Asked<'_>]) -> Result<Vec<Reading>> {
-            Ok(asked.iter().map(Self::answer).collect())
+        fn prepare((): &(), asked: &[Asked<'_>]) -> Result<Vec<(usize, Reading)>> {
+            Ok(asked
+                .iter()
+                .map(|one| (one.claim.len() + one.review.len(), Self::answer(one)))
+                .collect())
         }
 
-        fn run(&mut self, prepared: Vec<Reading>) -> Result<Vec<Reading>> {
+        fn run(&mut self, prepared: Vec<(usize, Reading)>) -> Result<Vec<Reading>> {
             self.runs += 1;
             self.asked += prepared.len();
-            Ok(prepared)
+            Ok(prepared
+                .into_iter()
+                .map(|(length, reading)| {
+                    self.lengths.push(length);
+                    reading
+                })
+                .collect())
         }
 
         fn provenance(&self) -> &Provenance {
@@ -1982,6 +1995,11 @@ pub(crate) mod tests {
         let mut model = Table::new(false);
         read_with(&mut model, 1, &options, |_| {}).unwrap();
         assert_eq!((model.runs, model.asked), (4, 7));
+        assert!(
+            model.lengths.is_sorted(),
+            "shortest first, so a batch pads to a length near its own: {:?}",
+            model.lengths
+        );
     }
 
     #[test]
@@ -2063,6 +2081,8 @@ pub(crate) mod tests {
                 ),
                 ("run-1", "Table Reader", "lines-1")
             );
+            assert_eq!(again.trained_on, "labels-1");
+            assert!((again.threshold - 0.5).abs() < f32::EPSILON);
             assert_eq!(again.usual_declined, Some(0.25));
             assert_eq!(again.frozen.map(|frozen| frozen.claims), Some(300));
             assert_eq!(again.context, context);
@@ -2125,7 +2145,7 @@ pub(crate) mod tests {
         let out = crate::tempdir::Dir::new();
         let snapshot = corpus(out.path());
         let mut told = Vec::new();
-        recount_rows(
+        let counted = recount_rows(
             &snapshot,
             &out.path().join("replay.parquet"),
             &options(out.path()),
@@ -2141,6 +2161,33 @@ pub(crate) mod tests {
         )
         .unwrap();
         assert_eq!(told, [(4, 2, 2), (6, 4, 4), (8, 6, 6)]);
+        assert_eq!(
+            (counted.claims, counted.unclassified),
+            (10, 10),
+            "a claim with no stored answer is a claim nobody answered"
+        );
+    }
+
+    #[test]
+    fn a_reading_of_no_claims_has_no_share_declined_rather_than_an_undefined_one() {
+        let mut found: ReadReport = serde_json::from_value(serde_json::json!({
+            "app_id": 1, "reviews": 0, "corpus_reviews": 0, "language": null, "claims": 0,
+            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
+            "model": "m", "threshold": 0.5, "device": "cpu", "usual_declined": 0.25,
+            "subjects": [], "languages": [], "months": []
+        }))
+        .unwrap();
+        assert_eq!(found.unclassified_share(), None);
+        assert_eq!(found.declined_against_usual(), None);
+        found.claims = 10;
+        found.unclassified_claims = 5;
+        found.usual_declined = Some(0.0);
+        assert_eq!(found.unclassified_share(), Some(0.5));
+        assert_eq!(
+            found.declined_against_usual(),
+            None,
+            "a reader that never declines gives nothing to compare against"
+        );
     }
 
     #[test]
