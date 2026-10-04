@@ -944,6 +944,156 @@ mod tests {
     }
 
     #[test]
+    fn a_reading_replaced_since_it_was_prepared_is_stale_and_an_unfinished_one_is_partial() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        assert_eq!(status(dir.path()), Status::Ready);
+
+        let readings = dir.path().join("readings.parquet");
+        std::fs::File::options()
+            .write(true)
+            .open(&readings)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() + Duration::from_secs(100))
+            .unwrap();
+        assert_eq!(status(dir.path()), Status::Stale);
+
+        let unfinished = Sidecar {
+            encoder: ENCODER.name.to_owned(),
+            complete: false,
+            readings: readings_written(dir.path()),
+        };
+        write_sidecar(&dir.path().join(DIR), &unfinished).unwrap();
+        assert_eq!(
+            status(dir.path()),
+            Status::Partial,
+            "a preparation that never finished is not ready, whatever reading it began on"
+        );
+    }
+
+    #[test]
+    fn a_small_game_is_embedded_in_one_batch_and_its_progress_told_once() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        let mut batches = 0;
+        let mut told = Vec::new();
+        prepare(
+            dir.path(),
+            |texts| {
+                batches += 1;
+                embed(texts)
+            },
+            (&AtomicBool::new(false), 1.0),
+            |walked| told.push(walked),
+        )
+        .unwrap();
+        assert_eq!(batches, 1);
+        assert_eq!(told, [5]);
+    }
+
+    #[test]
+    fn a_part_is_written_once_it_is_full_or_a_minute_old_and_never_empty() {
+        let mut part = Part::new();
+        part.since = Instant::now()
+            .checked_sub(PART_EVERY + Duration::from_secs(1))
+            .unwrap();
+        assert!(!part.due(), "an empty part is never written");
+        part.rows = 1;
+        assert!(part.due(), "a minute's work is not left in memory");
+        part.since = Instant::now();
+        assert!(!part.due());
+        part.rows = PART_MOST - 1;
+        assert!(!part.due());
+        part.rows = PART_MOST;
+        assert!(part.due());
+    }
+
+    fn waiting(text: &str) -> Waiting {
+        Waiting {
+            key: key_of(text),
+            review: Arc::from("1"),
+            at: (0, 4),
+            subject: "story",
+            polarity: "praise",
+            confidence: 0.9,
+            text: text.to_owned(),
+        }
+    }
+
+    #[test]
+    fn each_part_is_a_file_of_its_own_and_all_of_them_are_held() {
+        let dir = crate::tempdir::Dir::new();
+        let parts_dir = dir.path().join(DIR);
+        std::fs::create_dir_all(&parts_dir).unwrap();
+        let vector = embed(&["deck".to_owned()]).unwrap().remove(0);
+        let mut part = Part::new();
+        for text in ["one", "two"] {
+            part.push(&waiting(text), &vector).unwrap();
+            part.write(&parts_dir).unwrap();
+        }
+        let written = parts(dir.path());
+        let names: Vec<&str> = written
+            .iter()
+            .filter_map(|path| path.file_name()?.to_str())
+            .collect();
+        assert_eq!(names, ["part-00000.parquet", "part-00001.parquet"]);
+        let bytes: u64 = written
+            .iter()
+            .map(|path| std::fs::metadata(path).unwrap().len())
+            .sum();
+        assert_eq!(held(dir.path()), (2, bytes));
+    }
+
+    #[test]
+    fn the_nearest_are_kept_when_there_are_more_claims_than_room() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        let mut query = vec![0.0_f32; DIMENSIONS];
+        query[0] = 1.0;
+        let found = nearest(dir.path(), &query, 3, |_, _| false).unwrap();
+        assert_eq!(found.len(), 3);
+        assert!(
+            found.iter().all(|near| near.similarity > 0.99),
+            "{:?}",
+            found.iter().map(|near| near.similarity).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn two_claims_rank_alike_exactly_when_they_are_as_near() {
+        let near = |similarity| {
+            Ranked(Near {
+                similarity,
+                review_id: String::new(),
+                at: (0, 0),
+                subject: String::new(),
+                polarity: String::new(),
+                confidence: 0.0,
+                key: [0; 32],
+            })
+        };
+        assert!(near(0.5) == near(0.5));
+        assert!(near(0.5) != near(0.6));
+    }
+
+    #[test]
+    fn a_preparation_that_walked_nothing_teaches_nothing_about_pace() {
+        let mut times = Times::default();
+        times.note(true, 10.0, 0);
+        assert_eq!(times.per_claim(true), None);
+    }
+
+    #[test]
+    fn the_choice_to_prepare_every_game_is_kept() {
+        let dir = crate::tempdir::Dir::new();
+        assert_eq!(Choice::load(dir.path()), Choice::default());
+        Choice { every_game: true }.save(dir.path()).unwrap();
+        assert_eq!(Choice::load(dir.path()), Choice { every_game: true });
+    }
+
+    #[test]
     fn another_encoders_pace_is_not_this_ones() {
         let kept: Times = serde_json::from_str(
             r#"{"taken": [{"on": "card", "seconds": 361.0, "walked": 208912}]}"#,

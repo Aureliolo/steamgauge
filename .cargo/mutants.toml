@@ -32,6 +32,10 @@ exclude_re = [
   'replace <impl std::fmt::Debug for [A-Za-z]+>::fmt -> std::fmt::Result with ',
   # Waiting until a moment that is already now and not waiting are the same wait.
   'src[/\\]api\.rs:.*: replace > with >= in SteamClient::wait_turn$',
+  # BYTES_PER_CLAIM, the only sum outside a function there, is a bound on what a claim's row takes
+  # on disk added up from the schema's widths; a written file cannot tell it from one eight
+  # bytes less, and only a test restating the sum could.
+  'src[/\\]meaning\.rs:\d+:\d+: replace \+ with [*-]$',
   # A text's vector does not depend on what it is batched with, which is what the encoders were
   # chosen for, so where one batch ends changes how long the reviews take and nothing else.
   'src[/\\]embed\.rs:.*: replace >= with < in embed_reviews$',

@@ -445,8 +445,6 @@ pub fn draw(
                     hedged(label) || hedged(other),
                     Question {
                         shown: Some(vec![answered(label), answered(other)]),
-                        was: None,
-                        offered: None,
                         ..question.clone()
                     },
                 ));
@@ -1481,6 +1479,208 @@ mod tests {
             );
             assert_eq!(text, claim.text, "claim {} is not itself", claim.index);
         }
+        assert_eq!(
+            rejoined.text,
+            "\u{6559}\u{5b66}\u{7eaf}\u{9760}\u{81ea}\u{5df1}\u{9886}\u{609f} \
+             \u{6218}\u{6597}\u{624b}\u{611f}\u{6781}\u{597d} Worth it.",
+            "the claims are joined by a space each, as the labeller read them"
+        );
+    }
+
+    #[test]
+    fn a_claim_in_another_script_is_held_back_only_where_a_language_was_asked_for() {
+        let label: ClaimLabel = serde_json::from_value(serde_json::json!({
+            "review_id": "r1", "index": 0, "app_id": 1, "language": "english",
+            "subset": "random", "start": 0, "end": 4, "taxonomy": "a-sheet",
+            "produced_by": "one", "subject": "verdict", "polarity": "praise", "ironic": false,
+            "confidence": "high", "ambiguous": false, "split_wrong": false
+        }))
+        .unwrap();
+        let hangul = "\u{D080}\u{C2A4}\u{D2B8} \u{C790}\u{CCB4}\u{C5D0}\u{C11C}";
+        let mut found = GoldDraw::default();
+        assert!(!found.holds_back(&label, hangul, false, None));
+        assert!(found.holds_back(&label, hangul, true, None));
+        assert!(found.holds_back(&label, hangul, true, None));
+        assert_eq!(found.mistagged, 2);
+    }
+
+    #[test]
+    fn a_labeller_hedges_by_any_one_of_the_three_signs() {
+        let label = |ambiguous: bool, split_wrong: bool, confidence: &str| -> ClaimLabel {
+            serde_json::from_value(serde_json::json!({
+                "review_id": "r1", "index": 0, "app_id": 1, "language": "english",
+                "subset": "random", "start": 0, "end": 4, "taxonomy": "a-sheet",
+                "produced_by": "one", "subject": "verdict", "polarity": "praise",
+                "ironic": false, "confidence": confidence, "ambiguous": ambiguous,
+                "split_wrong": split_wrong
+            }))
+            .unwrap()
+        };
+        assert!(hedged(&label(true, false, "high")));
+        assert!(hedged(&label(false, true, "high")));
+        assert!(hedged(&label(false, false, "low")));
+        assert!(!hedged(&label(false, false, "high")));
+    }
+
+    #[test]
+    fn each_language_is_read_in_the_scripts_it_is_written_in() {
+        let written = [
+            (
+                "russian",
+                "\u{0418}\u{0433}\u{0440}\u{0430} \u{0445}\u{043e}\u{0440}\u{043e}\u{0448}\u{0430}\u{044f}",
+            ),
+            (
+                "ukrainian",
+                "\u{0414}\u{0443}\u{0436}\u{0435} \u{0434}\u{043e}\u{0431}\u{0440}\u{0435}",
+            ),
+            (
+                "bulgarian",
+                "\u{041c}\u{043d}\u{043e}\u{0433}\u{043e} \u{0434}\u{043e}\u{0431}\u{0440}\u{0430}",
+            ),
+            (
+                "greek",
+                "\u{03a0}\u{03bf}\u{03bb}\u{03cd} \u{03ba}\u{03b1}\u{03bb}\u{03cc}",
+            ),
+            (
+                "thai",
+                "\u{0e40}\u{0e01}\u{0e21}\u{0e14}\u{0e35}\u{0e21}\u{0e32}\u{0e01}",
+            ),
+            (
+                "arabic",
+                "\u{0644}\u{0639}\u{0628}\u{0629} \u{0631}\u{0627}\u{0626}\u{0639}\u{0629}",
+            ),
+            (
+                "japanese",
+                "\u{3068}\u{3066}\u{3082}\u{3044}\u{3044}\u{30b2}\u{30fc}\u{30e0}",
+            ),
+            (
+                "schinese",
+                "\u{8fd9}\u{4e2a}\u{6e38}\u{620f}\u{5f88}\u{597d}",
+            ),
+            (
+                "tchinese",
+                "\u{9019}\u{500b}\u{904a}\u{6232}\u{5f88}\u{597d}",
+            ),
+        ];
+        for (language, text) in written {
+            assert!(
+                !written_in_another_script(language, text),
+                "{language} is written in its own script"
+            );
+            assert!(
+                written_in_another_script("english", text),
+                "{language} under an English tag is not English"
+            );
+        }
+    }
+
+    #[test]
+    fn only_claims_in_the_languages_asked_for_are_drawn() {
+        let root = crate::tempdir::Dir::new();
+        a_reference_set(root.path());
+        let languages = |asked: &[String]| {
+            draw(
+                root.path(),
+                &root.path().join("no-captures"),
+                &Asked {
+                    languages: asked,
+                    ..asking(100, Splits::Frozen)
+                },
+            )
+            .unwrap()
+        };
+        let (english, found) = languages(&["english".to_owned()]);
+        assert_eq!(english.len(), 3);
+        assert_eq!(found.languages, ["english"]);
+        let (russian, _) = languages(&["russian".to_owned()]);
+        assert!(russian.is_empty(), "{russian:?}");
+    }
+
+    #[test]
+    fn a_draw_by_language_holds_back_a_claim_its_tag_misnames() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(&set).unwrap();
+        let drawn = serde_json::json!([{
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "frozen",
+            "claims": [
+                {"index": 0, "start": 0, "end": 9, "text": "Runs badly"},
+                {"index": 1, "start": 10, "end": 20,
+                 "text": "\u{D080}\u{C2A4}\u{D2B8} \u{C790}\u{CCB4}\u{C5D0}\u{C11C}"}
+            ]
+        }]);
+        std::fs::write(set.join("sample.json"), drawn.to_string()).unwrap();
+        let label = |index: u16| {
+            serde_json::json!({
+                "review_id": "r1", "index": index, "app_id": 214_490,
+                "language": "english", "subset": "frozen", "start": 0, "end": 9,
+                "taxonomy": "a-sheet", "produced_by": "one",
+                "subject": "performance", "polarity": "praise", "ironic": false,
+                "confidence": "high", "ambiguous": false, "split_wrong": false
+            })
+        };
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([label(0), label(1)]).to_string(),
+        )
+        .unwrap();
+        let (questions, found) = draw(
+            root.path(),
+            &root.path().join("no-captures"),
+            &Asked {
+                languages: &["english".to_owned()],
+                ..asking(10, Splits::Frozen)
+            },
+        )
+        .unwrap();
+        assert_eq!(found.mistagged, 1);
+        assert_eq!(questions.len(), 1);
+        assert_eq!(questions[0].claim, "Runs badly");
+    }
+
+    #[test]
+    fn a_gold_answer_that_differs_from_the_label_is_asked_again_with_both_labellers_shown() {
+        let root = crate::tempdir::Dir::new();
+        a_reference_set(root.path());
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(set.join("gold")).unwrap();
+        let gold = |index: u16, subject: &str| {
+            serde_json::json!({
+                "review_id": "r1", "index": index, "app_id": 214_490,
+                "language": "english", "subset": "random", "start": 0, "end": 9,
+                "taxonomy": "a-sheet", "produced_by": "a person",
+                "subject": subject, "polarity": "praise", "ironic": false,
+                "confidence": "high", "ambiguous": false, "split_wrong": false
+            })
+        };
+        std::fs::write(
+            set.join("gold").join("labels.json"),
+            serde_json::json!([gold(0, "performance"), gold(2, "content")]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second").unwrap();
+        assert_eq!((found.games, found.agreed, found.split), (1, 1, 1));
+        let asked = &questions[0];
+        assert_eq!((asked.app_id, asked.index), (214_490, 2));
+        assert_eq!(asked.claim, "Worth it");
+        assert_eq!(asked.before, "Runs badly Looks great ");
+        assert_eq!(asked.after, "");
+        assert_eq!(
+            asked.was.as_ref().map(|was| was.subject.as_str()),
+            Some("content")
+        );
+        let shown: Vec<&str> = asked
+            .shown
+            .iter()
+            .flatten()
+            .map(|one| one.subject.as_str())
+            .collect();
+        assert_eq!(
+            shown,
+            ["verdict", "price"],
+            "the first labeller, then the second"
+        );
     }
 
     #[test]
@@ -1708,8 +1908,13 @@ mod tests {
         );
         assert_eq!(asked.claim, "Runs badly on Steam Deck.");
         assert_eq!(
+            (asked.before.as_str(), asked.after.as_str()),
+            ("", " Great story.")
+        );
+        assert_eq!(
             found.agreed, 1,
             "the story claim the reader answered as the person did"
         );
+        assert_eq!(found.games, 1);
     }
 }

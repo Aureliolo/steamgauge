@@ -3649,4 +3649,426 @@ mod tests {
         assert_eq!(thousands(1_000), "1,000");
         assert_eq!(thousands(1_161_047), "1,161,047");
     }
+
+    #[test]
+    fn time_played_is_minutes_under_an_hour_and_whole_hours_from_one() {
+        assert_eq!(hours(59), "59 min");
+        assert_eq!(hours(60), "1 h");
+        assert_eq!(hours(600), "10 h");
+    }
+
+    #[test]
+    fn a_share_of_nothing_is_nothing() {
+        assert!(share_of(3, 0).abs() < f64::EPSILON);
+        assert!((share_of(1, 4) - 0.25).abs() < f64::EPSILON);
+    }
+
+    /// The part of `page` from `opening` to the next `closing` after it.
+    fn between<'a>(page: &'a str, opening: &str, closing: &str) -> &'a str {
+        page.split_once(opening)
+            .and_then(|(_, rest)| rest.split_once(closing))
+            .map_or_else(|| panic!("no {opening} on the page"), |(inside, _)| inside)
+    }
+
+    #[test]
+    fn the_title_names_the_game_when_there_is_one_and_steam_when_there_are_several() {
+        assert!(
+            render(&sample_report("ordinary text"))
+                .contains("<title>A Game &lt;&amp; Friends&gt; reviews | SteamGauge</title>")
+        );
+        assert!(render(&two_games()).contains("<title>Steam reviews | SteamGauge</title>"));
+    }
+
+    #[test]
+    fn several_games_are_listed_first_and_each_section_leads_back_to_the_list() {
+        let several = render(&two_games());
+        assert!(several.contains("<nav class=\"contents\" id=\"games\""));
+        assert_eq!(
+            several
+                .matches("<a href=\"#games\">Back to the games</a>")
+                .count(),
+            2
+        );
+
+        let one = render(&sample_report("ordinary text"));
+        assert!(!one.contains("<nav class=\"contents\""));
+        assert!(one.contains("<a href=\"#main\">Back to the top</a>"));
+    }
+
+    #[test]
+    fn the_matrix_lists_the_subjects_raised_loudest_first_shaded_by_the_root_of_their_rate() {
+        let mut report = two_games();
+        report.apps[0].reading.subjects[0].mention_reviews = 500;
+        report.apps[1].reading.subjects[0].mention_reviews = 80;
+        let page = render(&report);
+        let matrix = between(&page, "<table class=\"matrix\">", "</table>");
+        assert_eq!(
+            attributes(matrix, "<tr data-name=\""),
+            ["bugs and crashes", "performance"]
+        );
+        assert!(
+            matrix.contains("style=\"--heat:1.000\">50.0%"),
+            "half the reviews is full shade"
+        );
+        assert!(matrix.contains("style=\"--heat:0.400\">8.0%"), "{matrix}");
+    }
+
+    #[test]
+    fn games_a_tenth_of_a_percent_apart_are_far_enough_apart_to_name_and_level_ones_are_not() {
+        assert!(!render(&two_games()).contains("disagree about most"));
+
+        let mut report = two_games();
+        report.apps[0].reading.subjects[1].mention_reviews = 1;
+        report.apps[1].reading.subjects[1].mention_reviews = 0;
+        assert!(render(&report).contains(
+            "The subject these games disagree about most is <strong>performance</strong>"
+        ));
+    }
+
+    #[test]
+    fn of_two_subjects_equally_far_apart_the_one_the_sheet_lists_first_is_named() {
+        let mut report = two_games();
+        // Performance comes before bugs on the sheet, and both are a quarter apart.
+        report.apps[0].reading.subjects[0].mention_reviews = 500;
+        report.apps[1].reading.subjects[0].mention_reviews = 250;
+        report.apps[0].reading.subjects[1].mention_reviews = 250;
+        report.apps[1].reading.subjects[1].mention_reviews = 0;
+        assert!(render(&report).contains("disagree about most is <strong>performance</strong>"));
+    }
+
+    #[test]
+    fn what_steam_calls_a_game_is_given_only_where_steam_calls_it_anything() {
+        assert!(
+            render(&sample_report("ordinary text"))
+                .contains("<dt>Steam calls it</dt><dd>Mostly Positive</dd>")
+        );
+        let mut report = sample_report("ordinary text");
+        report.apps[0].crawl.review_score_desc = String::new();
+        assert!(!render(&report).contains("Steam calls it"));
+    }
+
+    #[test]
+    fn the_headline_names_its_subject_as_the_way_to_its_reviews() {
+        let page = render(&sample_report("ordinary text"));
+        let headline = between(&page, "<p class=\"headline\">", "</p>");
+        assert!(
+            headline.contains("<a href=\"#panel-7-bugs\"><strong>bugs and crashes</strong></a>"),
+            "{headline}"
+        );
+    }
+
+    #[test]
+    fn each_month_has_its_slot_across_the_width_for_its_bar_its_point_and_its_pointer() {
+        let months = (1..=4)
+            .map(|at| month(&format!("2024-0{at}"), 100, 10))
+            .collect();
+        let page = render(&with_months(months));
+        let slots = ["0.00", "250.00", "500.00", "750.00"];
+        assert_eq!(attributes(&page, "<rect class=\"bar\" x=\""), slots);
+        assert_eq!(attributes(&page, "<rect class=\"hit\" x=\""), slots);
+        let points = between(&page, "<polyline class=\"share\" points=\"", "\"");
+        let centres: Vec<&str> = points
+            .split(' ')
+            .filter_map(|point| point.split_once(',').map(|(x, _)| x))
+            .collect();
+        assert_eq!(centres, ["125.00", "375.00", "625.00", "875.00"]);
+    }
+
+    #[test]
+    fn each_row_s_bar_is_its_share_of_the_loudest_row() {
+        let page = render(&sample_report("ordinary text"));
+        let row = |name: &str| between(&page, &format!("data-name=\"{name}\""), "</tr>").to_owned();
+        assert!(row("bugs and crashes").contains("--fill:1.0000"));
+        assert!(row("performance").contains("--fill:0.2500"));
+    }
+
+    fn scored(id: &'static str, labelled: u64, agreed: u64) -> crate::measure::SubjectAgreement {
+        crate::measure::SubjectAgreement {
+            id,
+            label: "Bugs and crashes",
+            labelled,
+            read: agreed,
+            agreed,
+            seen: labelled * 4,
+            mistaken_for: None,
+        }
+    }
+
+    fn measured_on(subjects: Vec<crate::measure::SubjectAgreement>) -> Report {
+        let mut report = sample_report("ordinary text");
+        let mut agreement = measured(400, 300);
+        agreement.subjects = subjects;
+        report.apps[0].agreement = crate::report::Measurement::Measured(Box::new(agreement));
+        report
+    }
+
+    #[test]
+    fn a_row_carries_its_own_measurement_and_corrects_the_share_the_model_read() {
+        let page = render(&measured_on(vec![scored("bugs", 100, 80)]));
+        let bugs = between(&page, "id=\"panel-7-bugs\"", "</tr>");
+        assert!(bugs.contains("Corrected for those errors"), "{bugs}");
+        assert!(bugs.contains("against the 26.7% the model read"), "{bugs}");
+
+        let page = render(&measured_on(vec![scored("bugs", 100, 4)]));
+        let row = |name: &str| between(&page, &format!("data-name=\"{name}\""), "</tr>").to_owned();
+        assert!(row("bugs and crashes").contains("class=\"thin\""));
+        assert!(!row("performance").contains("class=\"thin\""));
+
+        let mut nothing_read = measured_on(vec![scored("bugs", 100, 80)]);
+        nothing_read.apps[0].reading.claims = 0;
+        let page = render(&nothing_read);
+        assert!(
+            !between(&page, "id=\"panel-7-bugs\"", "</tr>").contains("Corrected for those errors"),
+            "a reading of no claims has no share to correct"
+        );
+    }
+
+    #[test]
+    fn a_row_is_judged_from_ten_labels_and_thin_only_under_a_quarter() {
+        assert!(
+            thinly_measured(&scored("bugs", ENOUGH_TO_JUDGE_A_ROW, 1)).contains("class=\"thin\"")
+        );
+
+        let mut quarter = String::new();
+        how_well_this_row_is_known(&mut quarter, &scored("bugs", 100, 25), Some(0.2));
+        assert!(!quarter.contains("note warn"), "{quarter}");
+        let mut few = String::new();
+        how_well_this_row_is_known(
+            &mut few,
+            &scored("bugs", ENOUGH_TO_JUDGE_A_ROW - 1, 0),
+            None,
+        );
+        assert!(!few.contains("note warn"), "{few}");
+    }
+
+    #[test]
+    fn a_subject_s_line_is_drawn_once_three_months_carry_a_rate() {
+        let rated = (1..=4)
+            .map(|at| month(&format!("2024-0{at}"), 100, 10 * at))
+            .collect();
+        let page = render(&with_months(rated));
+        assert!(
+            between(&page, "id=\"panel-7-bugs\"", "</tr>").contains("<figure class=\"spark\">")
+        );
+
+        let two = vec![
+            month("2024-01", 100, 10),
+            month("2024-02", 100, 10),
+            month("2024-03", 5, 1),
+        ];
+        let page = render(&with_months(two));
+        assert!(
+            !between(&page, "id=\"panel-7-bugs\"", "</tr>").contains("<figure class=\"spark\">")
+        );
+    }
+
+    #[test]
+    fn the_bias_gauge_leaves_the_middle_by_the_log_of_the_factor_either_way_and_stops_at_the_edge()
+    {
+        let gauge = |factor: f64| {
+            let mut out = String::new();
+            bias_cell(&mut out, Some(factor));
+            out
+        };
+        assert!(gauge(2.0).contains("gauge over\" style=\"--offset:0.3333\""));
+        assert!(gauge(0.5).contains("gauge under\" style=\"--offset:0.3333\""));
+        assert!(gauge(64.0).contains("gauge over\" style=\"--offset:1.0000\""));
+        assert!(gauge(1.0 / 64.0).contains("gauge under\" style=\"--offset:1.0000\""));
+    }
+
+    #[test]
+    fn a_share_is_warmer_or_colder_only_once_its_interval_clears_the_baseline() {
+        let mut category = a_category("bugs", "Bugs and crashes", 400, 30);
+        category.positive_mentions = 300;
+        let (low, high) = crate::measure::wilson(300, 400).unwrap();
+        let tone = |baseline: f64| {
+            let mut out = String::new();
+            verdict_cell(&mut out, &category, Some(baseline));
+            (out.contains("warmer"), out.contains("colder"))
+        };
+        assert_eq!(
+            tone(low),
+            (false, false),
+            "touching the baseline is not clearing it"
+        );
+        assert_eq!(tone(low - 1e-9), (true, false));
+        assert_eq!(tone(high), (false, false));
+        assert_eq!(tone(high + 1e-9), (false, true));
+    }
+
+    #[test]
+    fn the_top_of_the_pile_is_listed_in_full() {
+        let mut report = sample_report("ordinary text");
+        let mut top = report.apps[0].examples[0].1[0].clone();
+        top.claim = "Steam put this first".to_owned();
+        top.review.text = "Steam put this first".to_owned();
+        report.apps[0].top = vec![top];
+        let page = render(&report);
+        let pile = between(&page, "<h3>The top of the pile</h3>", "</details>");
+        assert!(
+            pile.contains("<summary>Read all 1 of them</summary>"),
+            "{pile}"
+        );
+        assert!(pile.contains("Steam put this first"), "{pile}");
+    }
+
+    #[test]
+    fn each_side_of_a_subject_counts_the_reviews_on_it_and_the_neutral_side_counts_none() {
+        let mut report = sample_report("ordinary text");
+        let example = report.apps[0].examples[0].1[0].clone();
+        let side = |polarity: &str| Example {
+            polarity: polarity.to_owned(),
+            ..example.clone()
+        };
+        report.apps[0].examples[0].1 = vec![side("praise"), side("complaint"), side("neutral")];
+        let page = render(&report);
+        let panel = between(&page, "id=\"panel-7-bugs\"", "</tr>");
+        // A third of 400 praise, a third complain and a sixth do both.
+        assert!(
+            panel.contains("What they praise <span class=\"count\">199 reviews</span></h4>"),
+            "{panel}"
+        );
+        assert!(
+            panel
+                .contains("What they complain about <span class=\"count\">199 reviews</span></h4>")
+        );
+        assert!(panel.contains("Said without judging</h4>"));
+    }
+
+    #[test]
+    fn a_quoted_review_says_only_what_it_has_to_say() {
+        let report = sample_report("ordinary text");
+        let app = &report.apps[0];
+        let quoted = |change: &dyn Fn(&mut Example)| {
+            let mut example = app.examples[0].1[0].clone();
+            change(&mut example);
+            let mut out = String::new();
+            review(&mut out, app, &example);
+            out
+        };
+
+        let plain = quoted(&|_| {});
+        assert!(plain.contains("<span class=\"votes\">12 found this helpful</span>"));
+        assert!(plain.contains("<span class=\"played\">10 h played</span>"));
+        assert!(plain.contains("<span class=\"lang\">english</span>"));
+        assert!(plain.contains("<span class=\"chip\">Bugs and crashes</span>"));
+        assert!(plain.contains("<span class=\"chip\">Performance</span>"));
+        let one_other = quoted(&|example| example.also = vec!["bugs".to_owned()]);
+        assert!(one_other.contains("<span class=\"chip\">Bugs and crashes</span>"));
+        assert!(!one_other.contains("<span class=\"chip\">Performance</span>"));
+
+        let bare = quoted(&|example| {
+            example.review.votes_up = 0;
+            example.review.playtime_at_review_minutes = 0;
+            example.review.language = String::new();
+        });
+        assert!(!bare.contains("class=\"votes\""));
+        assert!(!bare.contains("class=\"played\""));
+        assert!(!bare.contains("class=\"lang\""));
+
+        let long = quoted(&|example| {
+            example.claim = "The claim.".to_owned();
+            example.review.text = format!("The claim. {}", "More. ".repeat(80));
+        });
+        assert!(long.contains("<div class=\"text whole long\">"));
+        let short = quoted(&|example| {
+            example.claim = "The claim.".to_owned();
+            example.review.text = "The claim. And a little more.".to_owned();
+        });
+        assert!(short.contains("<div class=\"text whole\">"));
+        let at_the_limit = quoted(&|example| {
+            example.claim = "The claim.".to_owned();
+            example.review.text = format!("The claim.{}", "x".repeat(PREVIEW_CHARS - 10));
+        });
+        assert!(
+            at_the_limit.contains("<div class=\"text whole\">"),
+            "a review exactly as long as the preview is shown whole"
+        );
+    }
+
+    #[test]
+    fn the_page_says_who_read_the_corpus_and_by_what_rule() {
+        assert!(render(&sample_report("ordinary text")).contains(
+            "<dt>Read by</dt><dd>Game Review Reader (run a-reader), a fine-tune of test-reader, \
+             trained on label set 0123456789abcdef, answering only above 0.50 confidence</dd>"
+        ));
+    }
+
+    #[test]
+    fn the_languages_say_how_much_is_not_english_and_each_bar_is_against_the_largest() {
+        let page = render(&sample_report("ordinary text"));
+        assert!(page.contains("40.0% of these reviews are not in English"));
+        let languages = between(&page, "<ul class=\"languages\">", "</ul>");
+        assert!(languages.contains("English</span><span class=\"bar\" style=\"--fill:1.0000\""));
+        assert!(
+            languages
+                .contains("Chinese (simplified)</span><span class=\"bar\" style=\"--fill:0.6667\"")
+        );
+    }
+
+    #[test]
+    fn only_a_shallow_reading_says_how_it_was_read() {
+        assert!(!render(&sample_report("ordinary text")).contains("<dt>Depth</dt>"));
+        let mut shallow = sample_report("ordinary text");
+        shallow.apps[0].reading.depth = crate::read::Depth::Shallow;
+        assert!(render(&shallow).contains("<dt>Depth</dt>"));
+    }
+
+    #[test]
+    fn what_was_declined_is_set_against_what_is_usually_declined() {
+        let page = render(&sample_report("ordinary text"));
+        assert!(
+            page.contains("below the 10.0% it usually declines on a game it has never seen"),
+            "the same share as usual is not called unusual"
+        );
+
+        let mut unusual = sample_report("ordinary text");
+        unusual.apps[0].reading.unclassified_claims = 900;
+        assert!(
+            render(&unusual)
+                .contains("That is 3.0 times what it declines on a game it has never seen")
+        );
+    }
+
+    #[test]
+    fn reviews_the_model_said_nothing_about_are_counted_only_where_there_are_some() {
+        assert!(
+            render(&sample_report("ordinary text"))
+                .contains("<dt>Reviews it said nothing about</dt><dd>3 (0.3% of those read)")
+        );
+        let mut silent = sample_report("ordinary text");
+        silent.apps[0].reading.silent_reviews = 0;
+        assert!(!render(&silent).contains("Reviews it said nothing about"));
+    }
+
+    #[test]
+    fn the_shape_of_the_error_is_drawn_from_the_subjects_with_enough_labels_to_judge() {
+        let mut agreement = measured(400, 300);
+        let mistaken =
+            |id, labelled, agreed, as_what: &'static str, count| crate::measure::SubjectAgreement {
+                mistaken_for: Some((as_what, count)),
+                ..scored(id, labelled, agreed)
+            };
+        agreement.subjects = vec![
+            mistaken("bugs", 20, 5, "Story", 3),
+            mistaken("performance", 20, 18, "Graphics", 2),
+            mistaken("story", ENOUGH_TO_JUDGE_A_ROW - 1, 0, "Audio", 9),
+        ];
+        let mut out = String::new();
+        agreement_note(&mut out, &agreement);
+        assert!(
+            out.contains(
+                "Every one of the 2 subjects with enough labels to judge is found in at least a \
+                 quarter of the claims making it."
+            ),
+            "found in exactly a quarter is not fewer: {out}"
+        );
+        assert!(
+            out.contains(
+                "Where it disagrees most, 3 claims the labeller called Bugs and crashes \
+                 were read as Story"
+            ),
+            "{out}"
+        );
+    }
 }

@@ -30,7 +30,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   # The ratchet. Raise it with the figure; never lower it to let a change through.
-  FAIL_UNDER_LINES: 78
+  FAIL_UNDER_LINES: 90
 
 jobs:
   coverage:
