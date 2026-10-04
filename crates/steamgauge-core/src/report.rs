@@ -380,9 +380,7 @@ impl Report {
     pub fn worst_bias(&self) -> Option<(Pooled, f64)> {
         self.pooled()
             .into_iter()
-            .filter(|c| {
-                c.mentions > 0 && c.top_mentions >= c.top_reviews.div_ceil(HEADLINE_TOP_SHARE)
-            })
+            .filter(|c| c.top_mentions >= c.top_reviews.div_ceil(HEADLINE_TOP_SHARE))
             .filter_map(|c| c.bias().map(|factor| (c, factor)))
             .max_by(|(_, a), (_, b)| a.total_cmp(b))
     }
@@ -530,13 +528,24 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         .filter(|claim| top_ids.contains(&claim.review_id))
         .filter_map(quote)
         .collect();
-    top.sort_by_key(|example| std::cmp::Reverse(example.review.votes_up));
+    // By id within a count of votes, so the claims of one review sit together for the dedup
+    // even where another review drew as many votes.
+    top.sort_by(|a, b| {
+        b.review
+            .votes_up
+            .cmp(&a.review.votes_up)
+            .then_with(|| a.review.id.cmp(&b.review.id))
+    });
     top.dedup_by(|a, b| a.review.id == b.review.id);
 
     let reference = crate::claimset::default_reference_dir(app_id);
     let agreement = agreement_for(app_id, &options.out_dir, &reference);
     let ceiling = ceiling_for(app_id, &options.out_dir, &reference, &agreement);
-    let induced = induced_for(app_id, &snapshot, options.examples)?;
+    let induced = induced_for(
+        &crate::induced::default_path(app_id),
+        &snapshot,
+        options.examples,
+    )?;
     Ok(AppReport {
         crawl,
         reading,
@@ -552,14 +561,15 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
 ///
 /// A game nobody has induced subjects for renders without the section, and the page says so
 /// in one line rather than leaving an empty heading.
-/// The subjects induced for a game, each with the first few reviews it rests on fetched from
-/// the capture. Empty where the induction has not been run.
+/// The subjects induced for a game, kept at `set` (its [`crate::induced::default_path`]), each
+/// with the first few reviews it rests on fetched from the capture. Empty where the induction
+/// has not been run.
 ///
 /// # Errors
 ///
 /// Fails if the induced set is unreadable or the capture cannot be walked.
-pub fn induced_for(app_id: u32, snapshot: &Path, examples: usize) -> Result<Vec<InducedEvidence>> {
-    let Some(set) = crate::induced::load(&crate::induced::default_path(app_id))? else {
+pub fn induced_for(set: &Path, snapshot: &Path, examples: usize) -> Result<Vec<InducedEvidence>> {
+    let Some(set) = crate::induced::load(set)? else {
         return Ok(Vec::new());
     };
     let wanted: HashSet<String> = set
@@ -854,6 +864,286 @@ mod tests {
             ceiling: None,
             induced: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_capture_last_changed_when_it_was_last_swept_or_else_when_it_was_crawled() {
+        let crawled = app(50, Vec::new()).crawl;
+        assert_eq!(crawled.changed_unix(), crawled.snapshot_unix);
+        let swept = CrawlFacts {
+            snapshot_unix: 100,
+            swept_unix: Some(250),
+            ..crawled
+        };
+        assert_eq!(swept.changed_unix(), 250);
+        assert_eq!(
+            CrawlFacts {
+                swept_unix: None,
+                ..swept
+            }
+            .changed_unix(),
+            100
+        );
+    }
+
+    #[test]
+    fn evidence_the_model_never_read_carries_no_polarity_and_says_so() {
+        let quoted = |polarity: &str| Example {
+            review: CapturedReview {
+                id: "1".to_owned(),
+                text: "Bugs everywhere.".to_owned(),
+                language: "english".to_owned(),
+                author_steamid: String::new(),
+                voted_up: false,
+                votes_up: 0,
+                votes_funny: 0,
+                playtime_at_review_minutes: 0,
+                created: 0,
+            },
+            claim: "Bugs everywhere.".to_owned(),
+            at: (0, 16),
+            polarity: polarity.to_owned(),
+            confidence: 0.9,
+            also: Vec::new(),
+            from_the_top: false,
+        };
+        assert!(quoted("complaint").was_read());
+        assert!(!quoted("").was_read());
+    }
+
+    #[test]
+    fn a_game_with_nothing_read_has_no_rates_rather_than_undefined_ones() {
+        let mut empty = app(0, vec![("bugs", 0, 0)]);
+        empty.reading.reviews = 0;
+        assert_eq!(empty.positive_baseline(), None);
+        assert_eq!(empty.rate(0), None);
+        assert_eq!(empty.top_rate(0), None);
+        let nothing = Pooled {
+            id: "bugs",
+            label: "Bugs and crashes",
+            top_mentions: 0,
+            top_reviews: 0,
+            mentions: 0,
+            reviews: 0,
+        };
+        assert_eq!(
+            (nothing.rate(), nothing.top_rate(), nothing.bias()),
+            (None, None, None)
+        );
+        let unraised = Pooled {
+            top_reviews: 50,
+            reviews: 1_000,
+            ..nothing
+        };
+        assert_eq!(
+            unraised.bias(),
+            None,
+            "nobody raised it, so nothing overstates it"
+        );
+    }
+
+    #[test]
+    fn the_report_wide_headline_is_held_to_the_floor_scaled_to_every_games_top() {
+        // Over the two games the top of the pile is a hundred reviews. Story's one mention there
+        // is a hundredfold "bias" out of a single review; bugs clears the floor of ten.
+        let report = Report {
+            apps: vec![
+                app(50, vec![("bugs", 3_000, 6), ("story", 20, 1)]),
+                app(50, vec![("bugs", 3_000, 6), ("story", 0, 0)]),
+            ],
+            generated_unix: 0,
+        };
+        let (pooled, factor) = report.worst_bias().unwrap();
+        assert_eq!(pooled.id, "bugs");
+        assert!((factor - 4.0).abs() < 1e-9, "factor was {factor}");
+    }
+
+    /// Reads the corpus `read::tests` writes for `app_id` under a scratch directory.
+    fn library(app_id: u32) -> (crate::tempdir::Dir, std::path::PathBuf) {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = crate::read::tests::read_corpus_of(out.path(), app_id);
+        (out, snapshot)
+    }
+
+    #[test]
+    fn a_quoted_claim_comes_with_every_subject_its_review_raises() {
+        let (_out, snapshot) = library(1);
+        let wanted: HashSet<String> = ["1", "2", "4"].map(str::to_owned).into();
+        let raised = raised_by(&snapshot, &wanted).unwrap();
+        let mut found: Vec<(&str, Vec<&str>)> = raised
+            .iter()
+            .map(|(id, subjects)| (id.as_str(), subjects.iter().map(String::as_str).collect()))
+            .collect();
+        found.sort_unstable();
+        assert_eq!(
+            found,
+            [
+                ("1", vec!["bugs", "audio"]),
+                ("2", vec!["story", "controls"])
+            ]
+        );
+    }
+
+    #[test]
+    fn twice_as_many_claims_are_drawn_as_shown_a_side_at_a_time() {
+        let (out, snapshot) = library(1);
+        let drawn = shortlist(
+            &snapshot,
+            &ReportOptions {
+                out_dir: out.path().to_path_buf(),
+                examples: 1,
+                seed: 1,
+            },
+        )
+        .unwrap();
+        let sides = |id: &str| {
+            let mut sides: Vec<&str> = drawn[id]
+                .iter()
+                .map(|claim| claim.polarity.as_str())
+                .collect();
+            sides.sort_unstable();
+            sides
+        };
+        assert_eq!(sides("bugs"), ["complaint", "complaint", "praise"]);
+        assert_eq!(sides("controls"), ["complaint"]);
+    }
+
+    #[test]
+    fn a_page_quotes_each_claim_once_and_each_review_at_the_top_once() {
+        let (out, _snapshot) = library(1);
+        let report = build(
+            &[1],
+            &ReportOptions {
+                out_dir: out.path().to_path_buf(),
+                examples: 4,
+                seed: 1,
+            },
+        )
+        .unwrap();
+        assert!(report.generated_unix > crate::read::tests::SWEPT);
+        let game = &report.apps[0];
+        let (_, bugs) = game.examples.iter().find(|(id, _)| id == "bugs").unwrap();
+        let mut quoted: Vec<(&str, (u32, u32), &str, bool)> = bugs
+            .iter()
+            .map(|example| {
+                (
+                    example.review.id.as_str(),
+                    example.at,
+                    example.polarity.as_str(),
+                    example.from_the_top,
+                )
+            })
+            .collect();
+        quoted.sort_unstable();
+        assert_eq!(
+            quoted,
+            [
+                ("1", (0, 16), "complaint", true),
+                ("3", (0, 16), "complaint", false),
+                ("6", (0, 16), "complaint", false),
+                ("6", (17, 37), "praise", false),
+            ]
+        );
+        let first = bugs
+            .iter()
+            .find(|example| example.review.id == "1")
+            .unwrap();
+        assert_eq!(first.also, ["bugs", "audio"]);
+        assert_eq!(first.claim, "Bugs everywhere.");
+
+        let top: Vec<&str> = game
+            .top
+            .iter()
+            .map(|example| example.review.id.as_str())
+            .collect();
+        assert_eq!(top, ["1", "2"]);
+    }
+
+    #[test]
+    fn an_induced_subject_comes_with_the_reviews_it_rests_on_that_the_capture_holds() {
+        let (out, snapshot) = library(1);
+        let set = out.path().join("induced.json");
+        assert!(induced_for(&set, &snapshot, 2).unwrap().is_empty());
+        std::fs::write(
+            &set,
+            serde_json::json!({
+                "app_id": 1, "seed": 1, "handout_size": 7, "induced_by": "a test",
+                "subjects": [{
+                    "id": "music", "label": "Music", "description": "The score.",
+                    "refines": "audio", "evidence": ["7", "404", "1"],
+                }],
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let found = induced_for(&set, &snapshot, 2).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].subject.id, "music");
+        let quoted: Vec<&str> = found[0]
+            .reviews
+            .iter()
+            .map(|review| review.id.as_str())
+            .collect();
+        assert_eq!(
+            quoted,
+            ["7"],
+            "the first two named, of which the capture holds one"
+        );
+    }
+
+    #[test]
+    fn a_measured_game_is_scored_and_its_ceiling_read_where_two_labellers_settled_claims() {
+        // A game the model never saw, so its labels are scored.
+        const FROZEN: u32 = 214_490;
+        let (out, _snapshot) = library(FROZEN);
+        let reference = out.path().join("reference");
+        let label = |review: &str, (start, end): (u32, u32), subject: &str| {
+            serde_json::json!({
+                "review_id": review, "index": 0, "app_id": FROZEN, "language": "english",
+                "subset": "random", "start": start, "end": end, "subject": subject,
+                "polarity": "complaint", "ironic": false, "confidence": "high",
+                "ambiguous": false, "split_wrong": false
+            })
+        };
+        let write = |dir: &Path, labels: serde_json::Value| {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(dir.join("labels.json"), labels.to_string()).unwrap();
+        };
+
+        write(&reference, serde_json::json!([label("1", (3, 9), "bugs")]));
+        match agreement_for(FROZEN, out.path(), &reference) {
+            Measurement::Unscored(why) => assert!(why.starts_with("none of its 1"), "{why}"),
+            other => panic!("labels naming no claim this build cuts were {other:?}"),
+        }
+
+        let labels = serde_json::json!([label("1", (0, 16), "bugs"), label("3", (0, 16), "bugs")]);
+        write(&reference, labels.clone());
+        let agreement = agreement_for(FROZEN, out.path(), &reference);
+        let measured = agreement.report().expect("scored");
+        assert_eq!((measured.matched, measured.agreed), (2, 2));
+        assert!(
+            ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none(),
+            "read once, so there is no second labeller to settle anything with"
+        );
+
+        // A reading the ceiling takes, under a name other than the one that admits it.
+        write(&reference.join("opus"), labels.clone());
+        assert!(ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none());
+
+        write(&reference.join("second"), labels);
+        let ceiling = ceiling_for(FROZEN, out.path(), &reference, &agreement).unwrap();
+        assert_eq!((ceiling.compared, ceiling.labellers_agreed), (2, 2));
+
+        write(
+            &reference.join("second"),
+            serde_json::json!([label("1", (0, 16), "story"), label("3", (0, 16), "story")]),
+        );
+        std::fs::remove_dir_all(reference.join("opus")).unwrap();
+        assert!(
+            ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none(),
+            "two labellers who settled nothing set no ceiling"
+        );
+        assert!(ceiling_for(FROZEN, out.path(), &reference, &Measurement::Unlabelled).is_none());
     }
 
     #[test]

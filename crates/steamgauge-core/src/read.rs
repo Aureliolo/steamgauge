@@ -39,9 +39,51 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error, Result,
-    reader::{Asked, ClaimReader, Polarity, Prepared, Reading},
+    reader::{Asked, ClaimReader, Polarity, Provenance, Reading},
     taxonomy::SHEET,
 };
+
+/// What a reading asks of a model: the half that tokenises, which runs on a thread of its own
+/// beside the card, and the half that runs on the card.
+///
+/// The trained reader is the only one that ships. A model that answers from a table stands in
+/// for it in the tests, which is how the walk, the batching and the counting are held to what
+/// they do without a model on disk.
+pub(crate) trait Model {
+    type Encoder: Send + Sync;
+    type Prepared: Send;
+
+    fn encoder(&self) -> Arc<Self::Encoder>;
+    fn prepare(encoder: &Self::Encoder, asked: &[Asked<'_>]) -> Result<Self::Prepared>;
+    fn run(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>>;
+    fn provenance(&self) -> &Provenance;
+    fn device(&self) -> &str;
+}
+
+impl Model for ClaimReader {
+    type Encoder = crate::reader::Encoder;
+    type Prepared = crate::reader::Prepared;
+
+    fn encoder(&self) -> Arc<Self::Encoder> {
+        Self::encoder(self)
+    }
+
+    fn prepare(encoder: &Self::Encoder, asked: &[Asked<'_>]) -> Result<Self::Prepared> {
+        encoder.prepare(asked)
+    }
+
+    fn run(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>> {
+        Self::run(self, prepared)
+    }
+
+    fn provenance(&self) -> &Provenance {
+        Self::provenance(self)
+    }
+
+    fn device(&self) -> &str {
+        Self::device(self)
+    }
+}
 
 /// Claims per forward pass. Claims are short, so this is larger than the review-level default.
 ///
@@ -475,6 +517,15 @@ pub fn read_corpus(
     model: &mut ClaimReader,
     app_id: u32,
     options: &ReadOptions,
+    on_progress: impl FnMut(ReadProgress),
+) -> Result<ReadReport> {
+    read_with(model, app_id, options, on_progress)
+}
+
+fn read_with(
+    model: &mut impl Model,
+    app_id: u32,
+    options: &ReadOptions,
     mut on_progress: impl FnMut(ReadProgress),
 ) -> Result<ReadReport> {
     let started = Instant::now();
@@ -610,7 +661,7 @@ pub fn recount_corpus(
         &options,
         context,
         &stored,
-        &mut on_progress,
+        (RECOUNT_TELLS_EVERY, &mut on_progress),
     )
     .and_then(|counted| {
         // A claim the replay found no answer for is one this build cuts differently from
@@ -651,15 +702,19 @@ pub fn recount_corpus(
 /// Every stored answer of a corpus, by review id and then by the span each names.
 type Stored = HashMap<String, Vec<((u32, u32), Reading)>>;
 
+/// Reviews a recount counts between two reports of how far it has got.
+const RECOUNT_TELLS_EVERY: u64 = 25_000;
+
 /// Walks the capture once, handing every review its stored answers, and returns the counting
-/// before it is finished, so the walk's totals can be checked against the reading's.
+/// before it is finished, so the walk's totals can be checked against the reading's. Says how
+/// far it has got every `every` reviews.
 fn recount_rows(
     snapshot: &Path,
     replay: &Path,
     options: &ReadOptions,
     context: bool,
     stored: &Stored,
-    on_progress: &mut impl FnMut(ReadProgress),
+    (every, on_progress): (u64, &mut impl FnMut(ReadProgress)),
 ) -> Result<Counting> {
     let mut counting = Counting::new(replay, options.top_helpful)?;
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
@@ -722,7 +777,7 @@ fn recount_rows(
             context,
             &answers,
         )?;
-        if counting.reviews % 25_000 == 0 {
+        if counting.reviews % every == 0 {
             on_progress(ReadProgress {
                 claims_read: claims_seen,
                 reviews_counted: counting.reviews,
@@ -835,7 +890,7 @@ const PENDING_CAP: usize = 16_384;
 /// drain after its last claim was queued, which is the same arithmetic in the same order
 /// against answers that are already final.
 fn read_and_count(
-    model: &mut ClaimReader,
+    model: &mut impl Model,
     app_id: u32,
     (snapshot, readings): (&Path, &Path),
     options: &ReadOptions,
@@ -977,8 +1032,8 @@ const LENGTH_WINDOW: usize = 16_384;
 /// The batch after next is tokenised while the card works on the one in hand. Tokenising is
 /// most of what a reading spends its processor on, and taking turns with the card left both at
 /// about half duty; the batches, their order and their answers are the same either way.
-fn drain(
-    model: &mut ClaimReader,
+fn drain<M: Model>(
+    model: &mut M,
     options: &ReadOptions,
     window: &mut Vec<Queued>,
     answers: &mut HashMap<[u8; 32], Reading>,
@@ -992,13 +1047,13 @@ fn drain(
     let queued: &[Queued] = window;
 
     std::thread::scope(|scope| -> Result<()> {
-        let (send, receive) = std::sync::mpsc::sync_channel::<Result<Prepared>>(1);
+        let (send, receive) = std::sync::mpsc::sync_channel::<Result<M::Prepared>>(1);
         scope.spawn(move || {
             for chunk in queued.chunks(size) {
                 let asked: Vec<Asked<'_>> = chunk.iter().map(Queued::asked).collect();
                 // A closed channel is the reader having given up on this window, which is not
                 // this thread's error to report.
-                if send.send(encoder.prepare(&asked)).is_err() {
+                if send.send(M::prepare(&encoder, &asked)).is_err() {
                     return;
                 }
             }
@@ -1551,8 +1606,662 @@ impl ReadingRows {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+
+    /// A model that answers from what a claim says. "bug-free" is praise of the bugs, "bug" a
+    /// complaint about them, "music" praise of the audio, and "story" praise of the story with
+    /// a complaint about the controls beside it. "great" is praise of the audio in a review
+    /// that mentions music, which only a model reading in context can see. Anything else is
+    /// declined.
+    pub(crate) struct Table {
+        provenance: Provenance,
+        /// Batches run on the card, and claims asked in them.
+        pub(crate) runs: usize,
+        pub(crate) asked: usize,
+        /// How long each question was, its claim and the review it was read in, in the order
+        /// they were asked.
+        pub(crate) lengths: Vec<usize>,
+    }
+
+    impl Table {
+        pub(crate) fn new(context: bool) -> Self {
+            Self {
+                provenance: serde_json::from_value(serde_json::json!({
+                    "subjects": crate::taxonomy::categories(),
+                    "threshold": 0.5,
+                    "max_tokens": 128,
+                    "context": context,
+                    "trained_from": "a table",
+                    "data_fingerprint": "labels-1",
+                    "run_id": "run-1",
+                    "name": "Table Reader",
+                    "lines_fingerprint": "lines-1",
+                    "usual_declined": 0.25,
+                    "frozen": {"games": 3, "claims": 300, "coverage": 0.8, "accuracy": 0.9,
+                               "macro_f1": 0.7},
+                }))
+                .unwrap(),
+                runs: 0,
+                asked: 0,
+                lengths: Vec::new(),
+            }
+        }
+
+        fn answer(asked: &Asked<'_>) -> Reading {
+            let at = |id: &str| SHEET.iter().position(|row| row.id == id);
+            let said = |subject: &str, polarity, confidence| Reading {
+                subject: at(subject),
+                confidence,
+                polarity,
+                also: crate::reader::Also::default(),
+            };
+            let claim = asked.claim.to_lowercase();
+            if claim.contains("bug-free") {
+                said("bugs", Polarity::Praise, 0.7)
+            } else if claim.contains("bug") {
+                said("bugs", Polarity::Complaint, 0.9)
+            } else if claim.contains("music") {
+                said("audio", Polarity::Praise, 0.8)
+            } else if claim.contains("story") {
+                let mut reading = said("story", Polarity::Praise, 0.95);
+                reading
+                    .also
+                    .insert(at("controls").unwrap(), Polarity::Complaint);
+                reading
+            } else if claim.contains("great") && asked.review.to_lowercase().contains("music") {
+                said("audio", Polarity::Praise, 0.6)
+            } else {
+                Reading {
+                    confidence: 0.3,
+                    ..Reading::default()
+                }
+            }
+        }
+    }
+
+    impl Model for Table {
+        type Encoder = ();
+        type Prepared = Vec<(usize, Reading)>;
+
+        fn encoder(&self) -> Arc<()> {
+            Arc::new(())
+        }
+
+        fn prepare((): &(), asked: &[Asked<'_>]) -> Result<Vec<(usize, Reading)>> {
+            Ok(asked
+                .iter()
+                .map(|one| (one.claim.len() + one.review.len(), Self::answer(one)))
+                .collect())
+        }
+
+        fn run(&mut self, prepared: Vec<(usize, Reading)>) -> Result<Vec<Reading>> {
+            self.runs += 1;
+            self.asked += prepared.len();
+            Ok(prepared
+                .into_iter()
+                .map(|(length, reading)| {
+                    self.lengths.push(length);
+                    reading
+                })
+                .collect())
+        }
+
+        fn provenance(&self) -> &Provenance {
+            &self.provenance
+        }
+
+        fn device(&self) -> &'static str {
+            "table"
+        }
+    }
+
+    /// When the capture was crawled and when it was last swept.
+    pub(crate) const CRAWLED: i64 = 1_700_000_000;
+    pub(crate) const SWEPT: i64 = 1_712_000_000;
+
+    /// Seven reviews of app 1 under `out`, with the crawl's record beside them: "Bugs
+    /// everywhere." three times, a review that is only punctuation, one in Chinese, and one
+    /// that both damns and praises the bugs.
+    pub(crate) fn corpus(out: &Path) -> PathBuf {
+        corpus_of(out, 1)
+    }
+
+    /// [`corpus`] read by the table at the default options, with its reading saved beside it.
+    pub(crate) fn read_corpus_of(out: &Path, app_id: u32) -> PathBuf {
+        let snapshot = corpus_of(out, app_id);
+        let options = options(out);
+        read_with(&mut Table::new(false), app_id, &options, |_| {})
+            .unwrap()
+            .save(&snapshot.join("reading.json"))
+            .unwrap();
+        snapshot
+    }
+
+    pub(crate) fn corpus_of(out: &Path, app_id: u32) -> PathBuf {
+        // (id, review, language, recommends, day of 2024 written, helpfulness)
+        let reviews = [
+            (
+                "1",
+                "Bugs everywhere. The music is lovely.",
+                "english",
+                false,
+                "2024-03-15",
+                0.9,
+            ),
+            (
+                "2",
+                "The story is gripping. It is great.",
+                "english",
+                true,
+                "2024-03-20",
+                0.5,
+            ),
+            ("3", "Bugs everywhere.", "english", true, "2024-04-01", 0.1),
+            ("4", "\u{597D}\u{73A9}", "schinese", true, "2024-04-02", 0.2),
+            ("5", "...", "english", false, "2024-04-03", 0.0),
+            (
+                "6",
+                "Bugs everywhere. Mostly bug-free now.",
+                "english",
+                true,
+                "2024-04-04",
+                0.3,
+            ),
+            (
+                "7",
+                "The music swells. It is great.",
+                "english",
+                true,
+                "2024-04-05",
+                0.4,
+            ),
+        ];
+        let snapshot = out
+            .join(format!("appid={app_id}"))
+            .join(format!("snapshot={CRAWLED}"));
+        let rows: Vec<serde_json::Value> = reviews
+            .iter()
+            .map(|(id, text, language, recommends, day, helpful)| {
+                let (month, date) = (&day[5..7], &day[8..10]);
+                // Midday on the day, counted from the first of March 2024.
+                let days = if month == "03" { 0 } else { 31 } + date.parse::<i64>().unwrap() - 1;
+                serde_json::json!({
+                    "recommendationid": id, "review": text, "language": language,
+                    "voted_up": recommends, "weighted_vote_score": helpful.to_string(),
+                    // The two most helpful drew as many votes as each other.
+                    "votes_up": match *id { "1" | "2" => 50, "4" => 20, "6" => 30, "7" => 40,
+                                            _ => 10 },
+                    "timestamp_created": 1_709_294_400 + days * 86_400,
+                    "author": {"steamid": format!("7656{id}")},
+                })
+            })
+            .collect();
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), app_id)
+                .unwrap();
+        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        std::fs::write(
+            snapshot.join("crawl.json"),
+            serde_json::json!({
+                "app_id": app_id, "name": "Test Game", "review_score_desc": "Mixed",
+                "rows_unique": 7, "valve_total_reviews": 7, "valve_total_positive": 5,
+                "valve_total_negative": 2, "coverage": 1.0, "snapshot_unix": CRAWLED,
+                "shards": 1, "swept_unix": SWEPT,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        snapshot
+    }
+
+    pub(crate) fn options(out: &Path) -> ReadOptions {
+        ReadOptions {
+            out_dir: out.to_path_buf(),
+            top_helpful: 2,
+            ..ReadOptions::default()
+        }
+    }
+
+    /// Each subject anybody raised, as (mentions, primary, claims, praised, criticised, mixed,
+    /// top of the pile, recommending).
+    fn tallies(report: &ReadReport) -> Vec<(&str, [u64; 8])> {
+        report
+            .subjects
+            .iter()
+            .filter(|subject| subject.mention_reviews > 0)
+            .map(|subject| {
+                (
+                    subject.id.as_str(),
+                    [
+                        subject.mention_reviews,
+                        subject.primary_reviews,
+                        subject.claims,
+                        subject.praised,
+                        subject.criticised,
+                        subject.mixed,
+                        subject.top_mention_reviews,
+                        subject.positive_mentions,
+                    ],
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_corpus_is_read_once_per_distinct_claim_and_every_review_counted() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let mut model = Table::new(false);
+        let mut told = Vec::new();
+        let report = read_with(&mut model, 1, &options(out.path()), |progress| {
+            told.push((
+                progress.claims_read,
+                progress.reviews_counted,
+                progress.reviews_walked,
+            ));
+        })
+        .unwrap();
+
+        assert_eq!(
+            (report.reviews, report.corpus_reviews, report.positive),
+            (7, 7, 5)
+        );
+        assert_eq!(
+            (
+                report.claims,
+                report.unclassified_claims,
+                report.silent_reviews,
+                report.claimless_reviews
+            ),
+            (10, 3, 2, 1)
+        );
+        assert_eq!(
+            report.forward_passes, 7,
+            "\"Bugs everywhere.\" is one question however many reviews say it"
+        );
+        assert_eq!((model.runs, model.asked), (1, 7), "asked in one batch");
+        assert_eq!(told, [(7, 7, 7)]);
+        assert_eq!(report.top_helpful, 2);
+        assert_eq!(
+            tallies(&report),
+            [
+                ("bugs", [3, 3, 4, 0, 2, 1, 1, 2]),
+                ("story", [1, 1, 1, 1, 0, 0, 1, 1]),
+                ("audio", [2, 1, 2, 2, 0, 0, 1, 1]),
+                ("controls", [1, 0, 1, 0, 1, 0, 1, 1]),
+            ]
+        );
+        assert_eq!(
+            report.languages,
+            [("english".to_owned(), 6), ("schinese".to_owned(), 1)]
+        );
+        let months: Vec<(&str, u64, u64)> = report
+            .months
+            .iter()
+            .map(|month| (month.label.as_str(), month.reviews, month.positive))
+            .collect();
+        assert_eq!(months, [("2024-03", 2, 1), ("2024-04", 5, 4)]);
+        let bugs = SHEET.iter().position(|row| row.id == "bugs").unwrap();
+        let april = &report.months[1];
+        assert_eq!(
+            (
+                april.subjects[bugs],
+                april.praising[bugs],
+                april.complaining[bugs]
+            ),
+            (2, 1, 2)
+        );
+    }
+
+    #[test]
+    fn a_reading_carries_what_read_it_and_a_row_for_every_claim() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let report = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+
+        assert_eq!(report.device, "table");
+        assert_eq!(
+            (
+                report.model.as_str(),
+                report.trained_on.as_str(),
+                report.read_with.as_str(),
+                report.reader.as_str(),
+                report.read_by_rule.as_str()
+            ),
+            ("a table", "labels-1", "run-1", "Table Reader", "lines-1")
+        );
+        assert!((report.threshold - 0.5).abs() < f32::EPSILON);
+        assert_eq!(report.usual_declined, Some(0.25));
+        assert_eq!(report.frozen.map(|frozen| frozen.games), Some(3));
+        assert!(!report.context);
+        assert_eq!(
+            report.captured_unix, SWEPT,
+            "the capture last changed when it was swept"
+        );
+        assert!(report.elapsed > Duration::ZERO);
+
+        // A row per claim, the declined ones too, and every subject a claim names.
+        let mut rows = Vec::new();
+        for_each_full_reading(
+            &snapshot.join("readings.parquet"),
+            |id, at, subject, _, polarity, also| {
+                rows.push((
+                    id.to_owned(),
+                    at,
+                    subject.map(str::to_owned),
+                    polarity.to_owned(),
+                    also.to_text(),
+                ));
+            },
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 10);
+        assert!(rows.contains(&(
+            "2".to_owned(),
+            (0, 22),
+            Some("story".to_owned()),
+            "praise".to_owned(),
+            Some("controls:complaint".to_owned())
+        )));
+        assert!(rows.contains(&("2".to_owned(), (23, 35), None, "neutral".to_owned(), None)));
+        assert!(!snapshot.join("readings.partial.parquet").exists());
+    }
+
+    #[test]
+    fn a_read_of_one_language_counts_only_it_and_still_walks_the_whole_capture() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let options = ReadOptions {
+            language: Some("english".to_owned()),
+            ..options(out.path())
+        };
+        let mut model = Table::new(false);
+        let report = read_with(&mut model, 1, &options, |_| {}).unwrap();
+        assert_eq!((report.reviews, report.corpus_reviews), (6, 7));
+        assert_eq!((report.claims, report.unclassified_claims), (9, 2));
+        assert_eq!(model.asked, 6, "the Chinese review is never asked about");
+    }
+
+    #[test]
+    fn claims_are_asked_a_batch_at_a_time() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let options = ReadOptions {
+            batch_size: 2,
+            ..options(out.path())
+        };
+        let mut model = Table::new(false);
+        read_with(&mut model, 1, &options, |_| {}).unwrap();
+        assert_eq!((model.runs, model.asked), (4, 7));
+        assert!(
+            model.lengths.is_sorted(),
+            "shortest first, so a batch pads to a length near its own: {:?}",
+            model.lengths
+        );
+    }
+
+    #[test]
+    fn in_context_a_claim_is_a_question_about_its_own_review() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let mut model = Table::new(true);
+        let report = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        assert!(report.context);
+        // Every claim of every review is its own question now, "Bugs everywhere." included.
+        assert_eq!(report.forward_passes, 10);
+        // "It is great." beside the music is about the audio; beside the story it is not.
+        assert_eq!((report.claims, report.unclassified_claims), (10, 2));
+        let audio = report.subjects.iter().find(|s| s.id == "audio").unwrap();
+        assert_eq!((audio.mention_reviews, audio.claims), (2, 3));
+    }
+
+    #[test]
+    fn a_recount_of_a_readings_own_answers_gives_the_counts_it_gave() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        for context in [false, true] {
+            let mut model = Table::new(context);
+            let read = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+            read.save(&snapshot.join("reading.json")).unwrap();
+
+            let mut told = 0;
+            let again = recount_corpus(out.path(), 1, 2, &model.provenance, |_| told += 1).unwrap();
+            assert_eq!(
+                told, 0,
+                "a corpus this small is counted before there is anything to tell"
+            );
+            assert_eq!(tallies(&again), tallies(&read));
+            assert_eq!(
+                (
+                    again.reviews,
+                    again.corpus_reviews,
+                    again.claims,
+                    again.unclassified_claims
+                ),
+                (
+                    read.reviews,
+                    read.corpus_reviews,
+                    read.claims,
+                    read.unclassified_claims
+                )
+            );
+            assert_eq!(
+                (
+                    again.silent_reviews,
+                    again.claimless_reviews,
+                    again.positive,
+                    again.top_helpful
+                ),
+                (
+                    read.silent_reviews,
+                    read.claimless_reviews,
+                    read.positive,
+                    read.top_helpful
+                )
+            );
+            assert_eq!(again.languages, read.languages);
+            assert_eq!(again.months.len(), read.months.len());
+
+            // The reading's own record of how it was read, kept as it was.
+            assert_eq!(
+                (
+                    again.forward_passes,
+                    again.device.as_str(),
+                    again.model.as_str()
+                ),
+                (read.forward_passes, "table", "a table")
+            );
+            assert_eq!(
+                (
+                    again.read_with.as_str(),
+                    again.reader.as_str(),
+                    again.read_by_rule.as_str()
+                ),
+                ("run-1", "Table Reader", "lines-1")
+            );
+            assert_eq!(again.trained_on, "labels-1");
+            assert!((again.threshold - 0.5).abs() < f32::EPSILON);
+            assert_eq!(again.usual_declined, Some(0.25));
+            assert_eq!(again.frozen.map(|frozen| frozen.claims), Some(300));
+            assert_eq!(again.context, context);
+            assert_eq!(again.captured_unix, SWEPT);
+            assert!(again.elapsed > Duration::ZERO);
+            assert!(!snapshot.join("readings.recount.parquet").exists());
+        }
+    }
+
+    #[test]
+    fn a_recount_of_one_language_counts_what_the_read_of_it_counted() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut model = Table::new(false);
+        let options = ReadOptions {
+            language: Some("english".to_owned()),
+            ..options(out.path())
+        };
+        let read = read_with(&mut model, 1, &options, |_| {}).unwrap();
+        read.save(&snapshot.join("reading.json")).unwrap();
+        let again = recount_corpus(out.path(), 1, 2, &model.provenance, |_| {}).unwrap();
+        assert_eq!((again.reviews, again.corpus_reviews), (6, 7));
+        assert_eq!(tallies(&again), tallies(&read));
+    }
+
+    #[test]
+    fn a_recount_refuses_readings_it_cannot_reconcile() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut model = Table::new(false);
+        let read = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        let recount = |reading: &ReadReport, provenance: &Provenance| {
+            reading.save(&snapshot.join("reading.json")).unwrap();
+            recount_corpus(out.path(), 1, 2, provenance, |_| {})
+        };
+        assert!(recount(&read, &model.provenance).is_ok());
+
+        let mut redrawn = model.provenance.clone();
+        redrawn.lines_fingerprint = "lines-2".to_owned();
+        let refused = recount(&read, &redrawn).unwrap_err().to_string();
+        assert!(
+            refused.contains("lines-1") && refused.contains("lines-2"),
+            "{refused}"
+        );
+
+        let more_claims = ReadReport {
+            claims: read.claims + 1,
+            ..read.clone()
+        };
+        assert!(recount(&more_claims, &model.provenance).is_err());
+        let fewer_declined = ReadReport {
+            unclassified_claims: read.unclassified_claims - 1,
+            ..read.clone()
+        };
+        assert!(recount(&fewer_declined, &model.provenance).is_err());
+    }
+
+    #[test]
+    fn a_recount_says_how_far_it_has_got_at_every_interval_of_reviews() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut told = Vec::new();
+        let counted = recount_rows(
+            &snapshot,
+            &out.path().join("replay.parquet"),
+            &options(out.path()),
+            false,
+            &Stored::new(),
+            (2, &mut |progress: ReadProgress| {
+                told.push((
+                    progress.claims_read,
+                    progress.reviews_counted,
+                    progress.reviews_walked,
+                ));
+            }),
+        )
+        .unwrap();
+        assert_eq!(told, [(4, 2, 2), (6, 4, 4), (8, 6, 6)]);
+        assert_eq!(
+            (counted.claims, counted.unclassified),
+            (10, 10),
+            "a claim with no stored answer is a claim nobody answered"
+        );
+    }
+
+    #[test]
+    fn a_reading_of_no_claims_has_no_share_declined_rather_than_an_undefined_one() {
+        let mut found: ReadReport = serde_json::from_value(serde_json::json!({
+            "app_id": 1, "reviews": 0, "corpus_reviews": 0, "language": null, "claims": 0,
+            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
+            "model": "m", "threshold": 0.5, "device": "cpu", "usual_declined": 0.25,
+            "subjects": [], "languages": [], "months": []
+        }))
+        .unwrap();
+        assert_eq!(found.unclassified_share(), None);
+        assert_eq!(found.declined_against_usual(), None);
+        found.claims = 10;
+        found.unclassified_claims = 5;
+        found.usual_declined = Some(0.0);
+        assert_eq!(found.unclassified_share(), Some(0.5));
+        assert_eq!(
+            found.declined_against_usual(),
+            None,
+            "a reader that never declines gives nothing to compare against"
+        );
+    }
+
+    #[test]
+    fn the_languages_read_more_strictly_than_english_and_the_unread_are_named() {
+        let dir = crate::tempdir::Dir::new();
+        let mut counting = Counting::new(&dir.path().join("readings.parquet"), 1).unwrap();
+        for (language, reviews) in [
+            ("english", 5),
+            ("german", 4),
+            ("french", 3),
+            ("spanish", 2),
+            ("korean", 1),
+        ] {
+            for _ in 0..reviews {
+                counting.note_corpus(&crate::capture::Row {
+                    recommendationid: String::new(),
+                    helpfulness: 0.0,
+                    votes_up: 0,
+                    voted_up: false,
+                    language: language.to_owned(),
+                    created: 0,
+                });
+            }
+        }
+        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+            "subjects": [], "threshold": 0.5, "max_tokens": 128,
+            "language_thresholds": {"english": 0.5, "german": 0.7, "french": 0.4,
+                                    "spanish": 0.5, "korean": null},
+        }))
+        .unwrap();
+        let report = counting
+            .finish(1, &ReadOptions::default(), &provenance)
+            .unwrap();
+        assert_eq!(report.corpus_reviews, 15);
+        assert_eq!(report.strict_languages, [("german".to_owned(), 4)]);
+        assert_eq!(report.unread_languages, [("korean".to_owned(), 1)]);
+    }
+
+    #[test]
+    fn a_depth_is_named_as_a_reading_records_it() {
+        assert_eq!(Depth::Deep.as_str(), "deep");
+        assert_eq!(Depth::Shallow.as_str(), "shallow");
+    }
+
+    #[test]
+    fn a_shallow_point_is_the_review_without_the_space_around_it() {
+        let text = "  Great game, buy it.\n";
+        let spans = Depth::Shallow.spans_of(text);
+        assert_eq!((spans.len(), spans[0].clone()), (1, 2..21));
+        assert_eq!(&text[2..21], Depth::Shallow.claims_of(text)[0]);
+    }
+
+    #[test]
+    fn a_rate_needs_reviews_to_be_a_rate_of() {
+        let month = |reviews, positive| Month {
+            label: "2024-03".to_owned(),
+            reviews,
+            positive,
+            subjects: vec![reviews / 2],
+            praising: Vec::new(),
+            complaining: Vec::new(),
+        };
+        assert_eq!(month(0, 0).rate(0), None);
+        assert_eq!(month(10, 5).rate(0), Some(0.5));
+        assert_eq!(month(10, 5).rate(1), None);
+        assert_eq!(
+            month(Month::ENOUGH_FOR_A_RATE, 15).positive_share_if_enough(),
+            Some(0.5)
+        );
+        assert_eq!(
+            month(Month::ENOUGH_FOR_A_RATE - 1, 15).positive_share_if_enough(),
+            None
+        );
+    }
 
     #[test]
     fn a_review_is_chiefly_about_its_surest_claim_and_the_first_of_two_as_sure() {

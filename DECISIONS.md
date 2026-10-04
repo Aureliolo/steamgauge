@@ -5027,7 +5027,11 @@ files are the ones that talk to Steam or open a model: `crawl.rs` 13%, `search_m
 With the tests the first weekly list asked for in the capture readers, the splitter, `said.rs`
 and the smaller files, on 2026-10-04 on Windows: 14,782 of 18,156 lines, 81.42% (regions 80.72%,
 functions 82.00%), against 13,981 of 17,523, 79.79%, for `main` at 2c0b68d the same day, each
-measured without the tests of #189 to #191.
+measured without the tests of #189 to #191. With those asked for in reading, reporting and
+measuring, measured the same way: 15,545 of 18,475 lines, 84.14% (regions 83.20%, functions
+84.10%). A reading walks its corpus through `read::Model`, the trained reader in the product and
+a model answering from a table in the tests, so the walk, the batching and the counting are
+tested without a model on disk.
 
 The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
 the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
@@ -5040,8 +5044,10 @@ check, with the line annotated. What both runs share is in `.cargo/mutants.toml`
 tests and `tests/` and not the examples, a test timeout of a minute against a suite that takes a
 second, so a timeout is a hang and never a slow pass, and the mutants no test can tell from the
 original, each with its reason: what the platform says about the graphics card, which differs
-on every machine, the hand-written `Debug` output nothing reads back, and `shard::plan`, which
-only hands Valve's count to a planner tested on counts written by hand.
+on every machine, the hand-written `Debug` output nothing reads back, `shard::plan`, which only
+hands Valve's count to a planner tested on counts written by hand, the trained reader's side of
+`read::Model`, how often finished readings are handed to a writer that buffers them into the
+same row groups either way, and a game's hash landing exactly on a share of the split.
 
 **What it costs, and what it found.** Measured on this machine on 2026-10-03 at four compiler
 jobs. `time.rs`: 89 mutants in 16 minutes, 131 s to build the unmutated tree and then about 7 s

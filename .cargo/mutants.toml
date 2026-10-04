@@ -19,6 +19,16 @@ minimum_test_timeout = 60
 # Mutants no test can tell from the original, each with why. Anything else a mutant survives is a
 # missing test.
 exclude_re = [
+  # The trained reader behind the seam a reading walks through: each method hands the call to
+  # the model unchanged, and no test can load one. The walk itself is tested through a model
+  # that answers from a table, and stays mutated.
+  'src[/\\]read\.rs:.*<impl Model for ClaimReader>',
+  # How often finished rows are handed to the readings writer, which buffers them into the same
+  # row groups however often it is handed them: the threshold bounds memory, not the file.
+  'src[/\\]read\.rs:\d+:\d+: replace >= with < in Counting::count$',
+  # A game falls in the split where a hash of its id lands against a share, and a hash landing
+  # exactly on a share is about one chance in 2^55; the trainer places games by the same `<`.
+  'src[/\\]measure\.rs:\d+:\d+: replace < with <= in role$',
   # What the platform says about the graphics card is the machine's answer, read from the
   # registry, sysctl or nvidia-smi, and differs on every machine the tests run on; the parsing
   # under it (`bytes_of`, `largest_mib`) is tested and stays mutated.

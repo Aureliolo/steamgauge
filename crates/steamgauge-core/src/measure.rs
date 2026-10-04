@@ -55,7 +55,7 @@ impl SubjectAgreement {
     #[must_use]
     pub fn f1(&self) -> Option<f64> {
         let (precision, recall) = (self.precision()?, self.recall()?);
-        (precision + recall > 0.0).then(|| 2.0 * precision * recall / (precision + recall))
+        (self.agreed > 0).then(|| 2.0 * precision * recall / (precision + recall))
     }
 
     /// Of the labelled claims about this subject, the share the model filed here. Declined
@@ -200,7 +200,8 @@ impl ClaimAgreement {
             .then(|| self.polarity_agreed as f64 / self.polarity_answered as f64)
     }
 
-    /// Macro F1 over the subjects a labeller actually used.
+    /// Macro F1 over the subjects a labeller actually used, which are the only ones with an
+    /// F1: a subject nobody labelled has no recall.
     ///
     /// Macro rather than weighted, because a corpus is mostly `verdict` and weighting by
     /// support would let one category the model finds easy carry the score for the rest.
@@ -209,7 +210,6 @@ impl ClaimAgreement {
         let scored: Vec<f64> = self
             .subjects
             .iter()
-            .filter(|subject| subject.labelled > 0)
             .filter_map(SubjectAgreement::f1)
             .collect();
         #[expect(clippy::cast_precision_loss, reason = "at most a few dozen subjects")]
@@ -960,6 +960,7 @@ mod tests {
     fn pooling_nothing_is_empty_rather_than_a_panic() {
         let none = pooled(&[]);
         assert_eq!(none.rate(), None);
+        assert_eq!(none.declined_share(), None);
         assert_eq!(none.subjects.len(), SHEET.len());
     }
 
@@ -1096,7 +1097,7 @@ mod tests {
             compared: 10,
             labellers_agreed: 8,
             model_agreed_where_they_did: 6,
-            labellers_split: 2,
+            labellers_split: 3,
             model_matched_either: 1,
             model_agreed_with_first: 7,
             model_agreed_with_second: 5,
@@ -1117,9 +1118,240 @@ mod tests {
                 both.settled_and_clear,
                 both.model_agreed_on_the_clear,
             ],
-            [20, 16, 12, 4, 2, 14, 10, 8, 6]
+            [20, 16, 12, 6, 2, 14, 10, 8, 6]
         );
         assert_eq!(both.interval(), wilson(12, 16));
         assert_eq!(Ceiling::default().interval(), None);
+    }
+
+    #[test]
+    fn a_ceiling_over_no_claims_has_no_rates_rather_than_undefined_ones() {
+        let none = Ceiling::default();
+        assert_eq!(
+            [
+                none.between_labellers(),
+                none.against_the_settled(),
+                none.where_they_split(),
+                none.on_the_clear()
+            ],
+            [None; 4]
+        );
+    }
+
+    #[test]
+    fn pooling_adds_every_count_of_every_game() {
+        let one = |scale: u64| ClaimAgreement {
+            app_id: 1,
+            matched: 20 * scale,
+            unjoined: 3 * scale,
+            answered: 15 * scale,
+            agreed: 11 * scale,
+            declined: 5 * scale,
+            polarity_answered: 14 * scale,
+            polarity_agreed: 9 * scale,
+            clear_answered: 12 * scale,
+            clear_agreed: 8 * scale,
+            contested_answered: 3 * scale,
+            contested_agreed: 2 * scale,
+            subjects: vec![SubjectAgreement {
+                seen: 20 * scale,
+                ..subject(6 * scale, 7 * scale, 4 * scale)
+            }],
+            beyond_the_first: Beyond::default(),
+        };
+        let both = pooled(&[one(2), one(3)]);
+        assert_eq!(
+            [
+                both.matched,
+                both.unjoined,
+                both.answered,
+                both.agreed,
+                both.declined,
+                both.polarity_answered,
+                both.polarity_agreed,
+                both.clear_answered,
+                both.clear_agreed,
+                both.contested_answered,
+                both.contested_agreed,
+            ],
+            [100, 15, 75, 55, 25, 70, 45, 60, 40, 15, 10]
+        );
+        let gameplay = both.subjects.iter().find(|s| s.id == "gameplay").unwrap();
+        assert_eq!(
+            (
+                gameplay.labelled,
+                gameplay.read,
+                gameplay.agreed,
+                gameplay.seen
+            ),
+            (30, 35, 20, 100)
+        );
+    }
+
+    #[test]
+    fn a_subject_scores_only_what_it_has_something_to_divide_by() {
+        let never_read = subject(4, 0, 0);
+        assert_eq!(never_read.precision(), None);
+        assert_eq!(never_read.f1(), None);
+        let never_right = subject(4, 3, 0);
+        assert_eq!(never_right.precision(), Some(0.0));
+        assert_eq!(never_right.f1(), None, "nothing agreed is no F1 here");
+        assert!((subject(4, 4, 2).f1().unwrap() - 0.5).abs() < 1e-9);
+        let everything_labelled_here = SubjectAgreement {
+            seen: 4,
+            ..subject(4, 4, 2)
+        };
+        assert_eq!(everything_labelled_here.false_positive_rate(), None);
+        let some_elsewhere = SubjectAgreement {
+            seen: 10,
+            ..subject(4, 5, 2)
+        };
+        assert!((some_elsewhere.false_positive_rate().unwrap() - 0.5).abs() < 1e-9);
+    }
+
+    /// A label as the reference set holds it, on a claim of the corpus `read::tests` writes.
+    fn label(
+        review: &str,
+        index: u16,
+        (start, end): (u32, u32),
+        subject: &str,
+        polarity: &str,
+        ambiguous: bool,
+    ) -> ClaimLabel {
+        ClaimLabel {
+            review_id: review.to_owned(),
+            index,
+            app_id: 1,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start,
+            end,
+            taxonomy: String::new(),
+            produced_by: "a test".to_owned(),
+            subject: subject.to_owned(),
+            polarity: polarity.to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous,
+            split_wrong: false,
+            also: None,
+        }
+    }
+
+    fn write_labels(dir: &Path, labels: &[ClaimLabel]) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(dir.join("labels.json"), serde_json::to_vec(labels).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn a_games_readings_are_scored_against_its_labels_claim_by_claim() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        let mut story = label("2", 0, (0, 22), "story", "praise", false);
+        story.also = Some(vec![
+            crate::claimset::Also {
+                subject: "controls".to_owned(),
+                polarity: "complaint".to_owned(),
+            },
+            crate::claimset::Also {
+                subject: "audio".to_owned(),
+                polarity: "praise".to_owned(),
+            },
+        ]);
+        write_labels(
+            &reference,
+            &[
+                label("1", 0, (0, 16), "bugs", "complaint", false),
+                label("1", 1, (17, 37), "audio", "complaint", true),
+                story,
+                label("2", 1, (23, 35), "verdict", "praise", false),
+                label("3", 0, (0, 16), "performance", "complaint", false),
+                label("6", 1, (17, 37), "bugs", "praise", false),
+                // A span no claim of this cut covers, a review the capture lacks, and a subject
+                // the sheet does not have.
+                label("7", 0, (4, 9), "audio", "praise", false),
+                label("9", 0, (0, 5), "audio", "praise", false),
+                label("4", 0, (0, 6), "weather", "neutral", false),
+            ],
+        );
+
+        let found = agreement(out.path(), 1, &reference).unwrap();
+        assert_eq!((found.matched, found.unjoined), (7, 2));
+        assert_eq!((found.answered, found.agreed, found.declined), (5, 4, 1));
+        assert_eq!((found.contested_answered, found.contested_agreed), (1, 1));
+        assert_eq!((found.clear_answered, found.clear_agreed), (4, 3));
+        assert_eq!((found.polarity_answered, found.polarity_agreed), (5, 4));
+        assert_eq!(
+            found.beyond_the_first,
+            Beyond {
+                labelled: 2,
+                read: 1,
+                agreed: 1
+            }
+        );
+        let row = |id: &str| found.subjects.iter().find(|s| s.id == id).unwrap();
+        let counts = |id: &str| {
+            let one = row(id);
+            (one.labelled, one.read, one.agreed, one.seen)
+        };
+        assert_eq!(counts("bugs"), (2, 3, 2, 6));
+        assert_eq!(counts("audio"), (1, 1, 1, 6));
+        assert_eq!(counts("story"), (1, 1, 1, 6));
+        assert_eq!(counts("verdict"), (1, 0, 0, 6));
+        assert_eq!(counts("performance"), (1, 0, 0, 6));
+        assert_eq!(
+            row("performance").mistaken_for,
+            Some(("Bugs and crashes", 1))
+        );
+        assert_eq!(row("bugs").mistaken_for, None);
+    }
+
+    #[test]
+    fn a_claim_two_labellers_read_is_scored_against_what_each_of_them_said() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        let both = |review, index, span, first: &str, second: &str, ambiguous: (bool, bool)| {
+            (
+                label(review, index, span, first, "praise", ambiguous.0),
+                label(review, index, span, second, "praise", ambiguous.1),
+            )
+        };
+        let pairs = [
+            both("1", 0, (0, 16), "bugs", "bugs", (false, false)),
+            both("1", 1, (17, 37), "audio", "audio", (true, false)),
+            both("2", 0, (0, 22), "story", "story", (false, false)),
+            both("3", 0, (0, 16), "performance", "bugs", (false, false)),
+            both("6", 1, (17, 37), "bugs", "gameplay", (false, false)),
+            both("6", 0, (0, 16), "story", "story", (false, true)),
+            // Declined by the model, so in nobody's figure.
+            both("2", 1, (23, 35), "verdict", "verdict", (false, false)),
+        ];
+        let (first, second): (Vec<ClaimLabel>, Vec<ClaimLabel>) = pairs.into_iter().unzip();
+        let mut first = first;
+        // Read once only, so not compared.
+        first.push(label("7", 0, (0, 17), "audio", "praise", false));
+        write_labels(&reference, &first);
+        write_labels(
+            &reference.join(crate::claimset::SECOND_READINGS[0]),
+            &second,
+        );
+
+        let found = ceiling(out.path(), 1, &reference).unwrap();
+        assert_eq!(
+            [
+                found.compared,
+                found.labellers_agreed,
+                found.model_agreed_where_they_did,
+                found.labellers_split,
+                found.model_matched_either,
+                found.model_agreed_with_first,
+                found.model_agreed_with_second,
+                found.settled_and_clear,
+                found.model_agreed_on_the_clear,
+            ],
+            [6, 4, 3, 2, 2, 4, 4, 2, 2]
+        );
     }
 }
