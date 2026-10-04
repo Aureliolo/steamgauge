@@ -24,36 +24,59 @@ fail() {
   exit 1
 }
 
+# Prints whether the commit <ref> holds exactly the files in <folder>: true or false.
+holds() {
+  local ref="$1" folder="$2"
+  local path have want
+  for path in "${files[@]}"; do
+    have="$(gh api "repos/${GH_REPO}/contents/${path}?ref=${ref}" --jq .content 2> /dev/null | base64 -d)" || {
+      echo false
+      return
+    }
+    want="$(cat "${folder}/${path}")"
+    if [[ "${have}" != "${want}" ]]; then
+      echo false
+      return
+    fi
+  done
+  echo true
+}
+
 open_pr() {
   local version="$1" folder="$2"
   local branch="package-managers/v${version}"
-  local main path have want changed=0
+  local main same
   main="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
-  for path in "${files[@]}"; do
-    if ! have="$(gh api "repos/${GH_REPO}/contents/${path}?ref=${main}" --jq .content 2> /dev/null | base64 -d)"; then
-      have=""
-    fi
-    want="$(cat "${folder}/${path}")"
-    if [[ "${have}" != "${want}" ]]; then
-      changed=1
-    fi
-  done
-  if [[ "${changed}" == 0 ]]; then
+  same="$(holds "${main}" "${folder}")"
+  if [[ "${same}" == true ]]; then
     echo "done=true"
     return
   fi
 
-  # Left by an earlier run: started again from main, so the pull request carries one commit.
+  # A re-run finds the pull request an earlier run opened and takes it up where it is. Moving its
+  # branch back to main would leave it with nothing in it, and GitHub closes such a pull request.
+  local pr head
+  pr="$(gh pr list --head "${branch}" --state open --json number --jq '.[0].number // empty')"
+  if [[ -n "${pr}" ]]; then
+    head="$(gh pr view "${pr}" --json headRefOid --jq .headRefOid)"
+    same="$(holds "${head}" "${folder}")"
+    if [[ "${same}" == true ]]; then
+      echo "pr=${pr}"
+      echo "head=${head}"
+      return
+    fi
+  fi
+
+  # Left by an earlier run with other files: started again from main, so the pull request
+  # carries one commit.
   # The commit goes through GitHub's API, which signs it; every branch takes only signed commits.
   # Its printed line is kept off stdout, which the workflow reads as the step's outputs.
-  local head
   node "${tools}/github-ref.mjs" reset "heads/${branch}" "${main}" >&2
   head="$(cd "${folder}" && EXPECTED_HEAD_OID="${main}" node "${tools}/commit-signed.mjs" \
     "${branch}" "Package v${version} for Homebrew and Scoop" "${files[@]}")"
   head="${head%% *}"
 
   # The label keeps it out of the next release's changelog, as it does the version bump's.
-  local pr
   pr="$(gh pr list --head "${branch}" --state open --json number --jq '.[0].number // empty')"
   if [[ -z "${pr}" ]]; then
     pr="$(gh pr create --base main --head "${branch}" --label release \
