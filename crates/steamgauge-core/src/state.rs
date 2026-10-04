@@ -364,6 +364,39 @@ mod tests {
     }
 
     #[test]
+    fn a_shard_being_fetched_says_so_and_a_finished_crawl_says_when() {
+        let (state, _d) = state();
+        let id = state.begin_crawl(7, 1000, "url", 30).unwrap();
+        state.record_shards(id, &shards()).unwrap();
+        state.mark_running(id, 1).unwrap();
+        let status: String = state
+            .lock()
+            .query_row(
+                "SELECT status FROM shard WHERE crawl_id = ?1 AND idx = 1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(status, "running");
+
+        let before = now_unix();
+        state.finish_crawl(id).unwrap();
+        let finished: i64 = state
+            .lock()
+            .query_row(
+                "SELECT finished_unix FROM crawl WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(
+            before > 1_700_000_000,
+            "{before} is not a time this century"
+        );
+        assert!(finished >= before && finished <= now_unix(), "{finished}");
+    }
+
+    #[test]
     fn a_crawl_is_finished_once_every_shard_has_landed() {
         let (state, _d) = state();
         let id = state.begin_crawl(7, 1000, "url", 30).unwrap();

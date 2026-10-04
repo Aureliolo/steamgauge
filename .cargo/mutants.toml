@@ -34,6 +34,9 @@ exclude_re = [
   # under it (`bytes_of`, `largest_mib`) is tested and stays mutated.
   'src[/\\]card\.rs:.*: replace (platform::)?(adapters|largest|name) -> ',
   'src[/\\]card\.rs:.* in (platform::adapters|name)$',
+  # How often the kept rows are cut back to the limit: cut on every row or every so often, the
+  # smallest keys are the ones kept, so it bounds memory and never changes which rows come back.
+  'src[/\\]bounded\.rs:\d+:\d+: replace >= with < in Smallest<K, T>::offer$',
   # A span from a byte to the same byte is turned away at the door or found empty at the end,
   # and both give no span.
   'src[/\\]claims\.rs:\d+:\d+: replace > with >= in tidied$',

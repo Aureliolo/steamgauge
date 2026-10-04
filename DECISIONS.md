@@ -5041,7 +5041,10 @@ original, each with its reason: what the platform says about the graphics card, 
 on every machine, the hand-written `Debug` output nothing reads back, `shard::plan`, which only
 hands Valve's count to a planner tested on counts written by hand, the trained reader's side of
 `read::Model`, how often finished readings are handed to a writer that buffers them into the
-same row groups either way, and a game's hash landing exactly on a share of the split.
+same row groups either way, a game's hash landing exactly on a share of the split, a span from a
+byte to the same byte, waiting until a moment that is already now, where one batch of texts to
+embed ends, the sum of schema widths that bounds a claim's bytes on disk, and how often the
+keeper of the smallest keys cuts back to its limit.
 
 **What it costs, and what it found.** Measured on this machine on 2026-10-03 at four compiler
 jobs. `time.rs`: 89 mutants in 16 minutes, 131 s to build the unmutated tree and then about 7 s

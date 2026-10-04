@@ -557,13 +557,11 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     })
 }
 
-/// A game's induced subjects with a few of the reviews behind each, or nothing.
-///
-/// A game nobody has induced subjects for renders without the section, and the page says so
-/// in one line rather than leaving an empty heading.
 /// The subjects induced for a game, kept at `set` (its [`crate::induced::default_path`]), each
-/// with the first few reviews it rests on fetched from the capture. Empty where the induction
-/// has not been run.
+/// with the first few reviews it rests on fetched from the capture.
+///
+/// Empty where the induction has not been run: a game nobody has induced subjects for renders
+/// without the section, and the page says so in one line rather than leaving an empty heading.
 ///
 /// # Errors
 ///

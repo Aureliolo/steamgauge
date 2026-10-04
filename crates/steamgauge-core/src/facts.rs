@@ -107,11 +107,40 @@ mod tests {
 
     #[test]
     fn a_handout_finds_the_facts_of_the_game_it_was_drawn_from() {
-        let game = std::env::temp_dir().join(format!("steamgauge-facts-{}", std::process::id()));
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path();
         let handout = game.join("retrieved").join("revisit");
         std::fs::create_dir_all(&handout).unwrap();
-        Facts { headset_only: true }.save(&game).unwrap();
+        Facts { headset_only: true }.save(game).unwrap();
         assert_eq!(Facts::around(&handout), Some(Facts { headset_only: true }));
-        let _ = std::fs::remove_dir_all(&game);
+    }
+
+    #[test]
+    fn a_game_s_facts_come_from_beside_its_capture_and_else_beside_its_reference_sets() {
+        let dir = crate::tempdir::Dir::new();
+        let captures = dir.path().join("captures");
+        let reference = dir.path().join("reference").join("620980");
+        std::fs::create_dir_all(captures.join("appid=620980")).unwrap();
+        std::fs::create_dir_all(&reference).unwrap();
+        Facts {
+            headset_only: false,
+        }
+        .save(&reference)
+        .unwrap();
+        assert_eq!(
+            of_game(&captures, &reference, 620_980),
+            Some(Facts {
+                headset_only: false
+            })
+        );
+        Facts { headset_only: true }
+            .save(&captures.join("appid=620980"))
+            .unwrap();
+        assert_eq!(
+            of_game(&captures, &reference, 620_980),
+            Some(Facts { headset_only: true }),
+            "the capture's own facts come first"
+        );
+        assert_eq!(of_game(&captures, &dir.path().join("none"), 1), None);
     }
 }

@@ -109,6 +109,15 @@ mod tests {
     }
 
     #[test]
+    fn a_rank_changes_with_the_seed_the_purpose_and_the_row() {
+        let first = rank(1, "quotes", "review 1");
+        assert_ne!(first, rank(2, "quotes", "review 1"));
+        assert_ne!(first, rank(1, "draw", "review 1"));
+        assert_ne!(first, rank(1, "quotes", "review 2"));
+        assert_eq!(first, rank(1, "quotes", "review 1"));
+    }
+
+    #[test]
     fn fewer_rows_than_the_limit_come_back_in_key_order() {
         let mut bounded = Smallest::new(10);
         for key in [5_u32, 1, 9] {
