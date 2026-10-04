@@ -5006,36 +5006,26 @@ and the cask is macOS only.
 Passing tests say nothing about how much of the crate they run, or whether they would notice it
 being wrong. Two checks ask both of steamgauge-core.
 
-**Coverage is the core's, by its own tests, and the floor is 90%.** `coverage.yml` runs
+**Coverage is the core's, by its own tests, and the floor is 97%.** `coverage.yml` runs
 `cargo llvm-cov -p steamgauge-core` on every pull request and on `main`, keeps the lcov report
-with the run, and fails under the floor. Measured on 2026-10-03 on `main` at 594748b: 13,008 of
-16,785 lines, 77.50% (regions 76.82%, functions 78.31%). With the tests the mutants below asked
-for, on `main` at f950fc8: 13,970 of 17,751 lines, 78.70% (regions 77.87%, functions 79.26%).
-With the tests the code that talks to Steam, GitHub, the Hub or a model now has, through a
-stand-in server on 127.0.0.1 and ONNX graphs written in the test (#189, #190, #191), on 2026-10-04:
-18,281 of 20,090 lines, 90.996% (regions 90.10%, functions 91.03%), and the floor is 90%.
-Both on Windows. The check runs on Linux, where the same tree read 79.85%, 13,977 of 17,504: the
-Windows build compiles some 250 lines more, none of which the tests reach. The floor is the
-Windows figure rounded down to the whole percent, so a machine a contributor checks on agrees
-with the check, and it is only ever raised: a pull request that lifts the figure past the next
-whole percent raises it with the figure, and none lowers it to get through. The lines counted
-include the test modules inside each file, which run whenever they exist; that is the same in
-every measurement, so the floor still moves only with the code the tests reach. The thinnest
-files are the ones that talk to Steam or open a model: `crawl.rs` 13%, `search_models.rs` 28%,
-`api.rs` 30%, `embed.rs` 30%, `mine.rs` 38%.
+with the run, and fails under the floor. Measured on Windows: on 2026-10-03 on `main` at
+594748b, 13,008 of 16,785 lines, 77.50% (regions 76.82%, functions 78.31%); on 2026-10-04 at
+5b08267, once the tests the first weekly mutant list asked for were in, 21,629 of 22,235 lines,
+97.27% (regions 96.40%, functions 96.37%). Those tests reach what no test reached before. The
+code that talks to Steam, GitHub, the Hub or a model answers a stand-in server on 127.0.0.1 and
+runs ONNX graphs written inside the test. A reading walks its corpus through `read::Model`, the
+trained reader in the product and a model answering from a table in the tests, so the walk, the
+batching and the counting are tested without a model on disk. Retrieval is handed its encoder
+as a function, so casting the lines and drawing by them are tested with vectors written by hand.
 
-With the tests the first weekly list asked for in the capture readers, the splitter, `said.rs`
-and the smaller files, on 2026-10-04 on Windows: 14,782 of 18,156 lines, 81.42% (regions 80.72%,
-functions 82.00%), against 13,981 of 17,523, 79.79%, for `main` at 2c0b68d the same day, each
-measured without the tests of #189 to #191. With those asked for in reading, reporting and
-measuring, measured the same way: 15,545 of 18,475 lines, 84.14% (regions 83.20%, functions
-84.10%). A reading walks its corpus through `read::Model`, the trained reader in the product and
-a model answering from a table in the tests, so the walk, the batching and the counting are
-tested without a model on disk.
-
-With the tests asked for in retrieval and the claim sets as well: 16,512 of 18,968 lines, 87.05%
-(regions 86.39%, functions 86.81%). Retrieval is handed its encoder as a function, so casting
-the lines and drawing by them are tested with vectors written by hand.
+The check runs on Linux, where the figure reads a little higher: the Windows build compiles some
+250 lines more, none of which the tests reach. The floor is the Windows figure rounded down to
+the whole percent, so a machine a contributor checks on agrees with the check, and it is only
+ever raised: a pull request that lifts the figure past the next whole percent raises it with
+the figure, and none lowers it to get through. The lines counted include the test modules inside
+each file, which run whenever they exist; that is the same in every measurement, so the floor
+still moves only with the code the tests reach. The thinnest file is `card.rs`, 37%, which asks
+the machine about its graphics card and differs on every machine; every other file is over 94%.
 
 The app crate is not measured. Across the workspace its 4,403 lines are 8% run (`cli.rs` 2%,
 the window's `ui/mod.rs` 1%): it is clap handing stages to the core and Tauri commands that need
