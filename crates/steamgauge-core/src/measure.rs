@@ -52,10 +52,17 @@ impl SubjectAgreement {
         (self.labelled > 0).then(|| self.agreed as f64 / self.labelled as f64)
     }
 
+    /// A subject somebody labelled has an F1, and one the model never got right scores 0, as
+    /// the trainer scores it: left out, it would lift the macro mean over exactly the subjects
+    /// the model is worst at.
     #[must_use]
     pub fn f1(&self) -> Option<f64> {
-        let (precision, recall) = (self.precision()?, self.recall()?);
-        (self.agreed > 0).then(|| 2.0 * precision * recall / (precision + recall))
+        let recall = self.recall()?;
+        if self.agreed == 0 {
+            return Some(0.0);
+        }
+        let precision = self.precision()?;
+        Some(2.0 * precision * recall / (precision + recall))
     }
 
     /// Of the labelled claims about this subject, the share the model filed here. Declined
@@ -1046,13 +1053,15 @@ mod tests {
 
     #[test]
     fn macro_f1_is_the_plain_mean_over_the_subjects_somebody_labelled() {
-        // F1s of 1/3 and 1, and a subject with no labels that would drag the mean if counted.
+        // F1s of 1/3, 1 and 0, the last labelled and never found, and a subject with no labels,
+        // which has no F1 to count.
         let found = game(vec![
             subject(20, 40, 10),
             subject(10, 10, 10),
+            subject(6, 0, 0),
             subject(0, 5, 0),
         ]);
-        let expected = f64::midpoint(1.0 / 3.0, 1.0);
+        let expected = (1.0 / 3.0 + 1.0) / 3.0;
         assert!((found.macro_f1().unwrap() - expected).abs() < 1e-9);
         assert_eq!(game(vec![subject(0, 5, 0)]).macro_f1(), None);
     }
@@ -1192,10 +1201,18 @@ mod tests {
     fn a_subject_scores_only_what_it_has_something_to_divide_by() {
         let never_read = subject(4, 0, 0);
         assert_eq!(never_read.precision(), None);
-        assert_eq!(never_read.f1(), None);
+        assert_eq!(
+            never_read.f1(),
+            Some(0.0),
+            "labelled and never found scores 0"
+        );
         let never_right = subject(4, 3, 0);
         assert_eq!(never_right.precision(), Some(0.0));
-        assert_eq!(never_right.f1(), None, "nothing agreed is no F1 here");
+        assert_eq!(
+            never_right.f1(),
+            Some(0.0),
+            "labelled and never right scores 0"
+        );
         assert!((subject(4, 4, 2).f1().unwrap() - 0.5).abs() < 1e-9);
         let everything_labelled_here = SubjectAgreement {
             seen: 4,
