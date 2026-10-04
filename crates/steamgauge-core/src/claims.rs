@@ -187,6 +187,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             // wherever it appears, including the full-width stops, which sit between
             // characters with no space anywhere near them.
             !numbers_a_list(&text[start..at])
+                && !continues_a_number(text, at)
                 && !abbreviates(text, at)
                 && !continues_a_word(text, at)
         } else {
@@ -856,6 +857,15 @@ fn abbreviates(text: &str, at: usize) -> bool {
         .map(|ch| ch.to_ascii_lowercase())
         .collect();
     ABBREVIATIONS.contains(&word.as_str())
+}
+
+/// Whether a full stop is a decimal point rather than the end of a thought, as in "9.5/10"
+/// and "1.6 patch". Not covered by [`continues_a_word`]: a numeral can be a capital as well,
+/// as "Ⅷ" is, which that would read as the next sentence starting.
+fn continues_a_number(text: &str, at: usize) -> bool {
+    let before = text[..at].chars().next_back().is_some_and(char::is_numeric);
+    let after = text[at + 1..].chars().next().is_some_and(char::is_numeric);
+    before && after
 }
 
 /// Whether a full stop with no space after it sits inside a word or a number, "example.com",
@@ -1978,6 +1988,15 @@ mod tests {
             split("1. 2. The interface is unusable."),
             vec!["The interface is unusable."]
         );
+    }
+
+    /// A stop between two numerals is inside a number even when the second is also a capital,
+    /// as a Roman numeral is, glued to a title.
+    #[test]
+    fn a_stop_between_two_numerals_stays_inside_the_number_when_the_second_is_a_capital() {
+        let review = "The combat system in the original release of FFⅦ.Ⅷ is where the \
+                      story finally finds its footing and the pacing picks up.";
+        assert_eq!(split(review), vec![review]);
     }
 
     /// A digit straight after the mark is a number carrying on rather than a list. Taken for
