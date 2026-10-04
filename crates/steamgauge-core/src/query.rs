@@ -9,7 +9,8 @@
 
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 
-const BASE_URL: &str = "https://store.steampowered.com/appreviews";
+/// The store, which serves the reviews and everything else this crate asks Steam.
+pub(crate) const STORE: &str = "https://store.steampowered.com";
 
 /// Valve caps a page at 100 regardless of what is requested; asking for more is silently
 /// clamped server-side, so the crawler plans its request budget against this number.
@@ -107,6 +108,11 @@ impl ReviewQuery {
 
     #[must_use]
     pub fn to_url(&self) -> String {
+        self.url_at(STORE)
+    }
+
+    /// The same page asked of the store at `store`, an origin with no slash after it.
+    pub(crate) fn url_at(&self, store: &str) -> String {
         let window = match self.window {
             Some((start, end)) => {
                 format!("&start_date={start}&end_date={end}&date_range_type=include")
@@ -114,7 +120,7 @@ impl ReviewQuery {
             None => String::new(),
         };
         format!(
-            "{BASE_URL}/{app}?json=1&language=all&purchase_type=all&filter_offtopic_activity=0&filter={filter}&num_per_page={per_page}&cursor={cursor}{window}",
+            "{store}/appreviews/{app}?json=1&language=all&purchase_type=all&filter_offtopic_activity=0&filter={filter}&num_per_page={per_page}&cursor={cursor}{window}",
             app = self.app_id,
             filter = self.order.as_param(),
             per_page = self.per_page,

@@ -46,6 +46,9 @@ pub struct Model {
     pub revision: &'static str,
     /// The release tag that commit carries, to name it to a person; empty until published.
     pub release: &'static str,
+    /// The Hub's origin, [`model::HUB`] everywhere but a test. After the three above, which
+    /// `training/publish.py` finds together to pin.
+    pub hub: &'static str,
     graph: Asset,
     tokenizer: Asset,
 }
@@ -57,6 +60,7 @@ pub const ENCODER: Model = Model {
     repository: "Aureliolo/steamgauge-search-encoder",
     revision: "c09c77b972e610a01a628e91395b427193f455fa",
     release: "v1",
+    hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -76,6 +80,7 @@ pub const RERANKER: Model = Model {
     repository: "Aureliolo/steamgauge-search-reranker",
     revision: "977b6ea57a5559c7931f55f1351ee8e795d4cb4e",
     release: "v1",
+    hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
         local: "model.onnx",
@@ -147,6 +152,7 @@ impl Model {
         std::fs::create_dir_all(&dir)?;
         let http = model::client()?;
         let source = model::Source {
+            hub: self.hub,
             repository: self.repository,
             revision: self.revision,
         };
@@ -356,9 +362,166 @@ mod tests {
     }
 
     #[test]
+    fn a_processor_reranks_fewer_candidates_than_a_card() {
+        assert!(candidates("cpu") < candidates("directml"));
+        assert!(candidates("cpu") > 0);
+        assert_eq!(candidates("directml"), candidates("cuda"));
+    }
+
+    /// The words the tiny models know, after `[PAD]` and `[UNK]`.
+    const WORDS: [&str; 3] = ["<|endoftext|>", "good", "bad"];
+    const GOOD: usize = 3;
+
+    /// Tiny copies of both models in `cache`: the encoder's vector counts each token at the
+    /// dimension of its id, and the reranker's score counts "good"s. `[PAD]` counts in both and
+    /// the end token in neither, so a batch padded with anything but the end token shows.
+    fn tiny_models(cache: &Path) {
+        let vocabulary = WORDS.len() + 2;
+        let vectors: Vec<Vec<f32>> = (0..vocabulary)
+            .map(|id| {
+                (0..DIMENSIONS)
+                    .map(|dim| if dim == id && id != 2 { 1.0 } else { 0.0 })
+                    .collect()
+            })
+            .collect();
+        let mut scores = vec![vec![0.0]; vocabulary];
+        scores[0][0] = 7.0;
+        scores[GOOD][0] = 1.0;
+        let tokenizer = crate::tiny_model::word_tokenizer(&WORDS);
+        for (model, graph) in [
+            (
+                ENCODER,
+                crate::tiny_model::Graph::new().summed("vector", &vectors),
+            ),
+            (
+                RERANKER,
+                crate::tiny_model::Graph::new().summed("score", &scores),
+            ),
+        ] {
+            let dir = model.dir(cache);
+            graph.write(&dir.join(model.graph.local));
+            crate::tiny_model::write_json(&dir.join(model.tokenizer.local), &tokenizer);
+        }
+    }
+
+    fn texts(texts: &[&str]) -> Vec<String> {
+        texts.iter().map(|&text| text.to_owned()).collect()
+    }
+
+    #[test]
+    fn claims_and_a_search_are_put_in_one_space_and_only_the_search_is_told_what_it_is() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_models(cache.path());
+        let mut encoder = SearchEncoder::load(cache.path()).unwrap();
+        assert_eq!(encoder.device(), "cpu");
+
+        let claims = encoder.claims(&texts(&["good", "bad good bad"])).unwrap();
+        assert_eq!(claims.len(), 2);
+        assert!(claims.iter().all(|vector| vector.len() == DIMENSIONS));
+        assert_eq!(claims[0][GOOD..=GOOD + 1], [1.0, 0.0]);
+        assert_eq!(claims[1][GOOD..=GOOD + 1], [1.0, 2.0]);
+        assert_eq!(
+            claims[0],
+            encoder.claims(&texts(&["good"])).unwrap()[0],
+            "padding is the end token, which says nothing"
+        );
+        assert!(encoder.claims(&[]).unwrap().is_empty());
+
+        let asked = PROMPTS
+            .query
+            .replace("{instruction}", &PROMPTS.instruction)
+            .replace("{query}", "good");
+        let search = encoder.search("good").unwrap();
+        assert_eq!(search, encoder.claims(&[asked]).unwrap()[0]);
+        assert_ne!(search, claims[0]);
+    }
+
+    #[test]
+    fn every_claim_is_scored_in_its_order_however_many_batches_it_takes() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_models(cache.path());
+        let mut reranker = SearchReranker::load(cache.path()).unwrap();
+        assert_eq!(reranker.device(), "cpu");
+
+        let claims: Vec<String> = (0..=RERANK_BATCH)
+            .map(|goods| "good ".repeat(goods))
+            .collect();
+        let scores = reranker.score("bad", &claims).unwrap();
+        assert_eq!(scores.len(), RERANK_BATCH + 1);
+        for (goods, score) in scores.iter().enumerate() {
+            let alone = reranker.score("bad", &claims[goods..=goods]).unwrap();
+            assert_eq!(alone, [*score], "{goods}");
+        }
+        let counted: Vec<f32> = (0..=RERANK_BATCH)
+            .map(|goods| f32::from(u8::try_from(goods).unwrap()))
+            .collect();
+        let base = scores[0];
+        assert_eq!(
+            scores.iter().map(|score| score - base).collect::<Vec<_>>(),
+            counted,
+            "each claim scored for its own goods, in order"
+        );
+        assert!(reranker.score("bad", &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_reranker_reads_a_search_and_a_claim_only_as_far_as_its_budget() {
+        let cache = crate::tempdir::Dir::new();
+        tiny_models(cache.path());
+        let mut reranker = SearchReranker::load(cache.path()).unwrap();
+        let long = reranker
+            .score("bad", &texts(&[&"good ".repeat(400), &"good ".repeat(500)]))
+            .unwrap();
+        assert_eq!(long[..1], long[1..]);
+        assert!(long[0] < 320.0, "{long:?}");
+    }
+
+    #[tokio::test]
+    async fn a_model_is_fetched_into_a_directory_of_its_own_and_then_counts_as_here() {
+        let hub = crate::stand_in::Server::new(|asked| {
+            crate::stand_in::Answer::body(if asked.path().ends_with("model.onnx") {
+                "the graph"
+            } else {
+                "the tokenizer"
+            })
+        });
+        let pinned = |name: &'static str, content: &str| Asset {
+            remote: name,
+            local: name,
+            sha256: crate::embed::sha256_hex(content).leak(),
+            bytes: content.len() as u64,
+        };
+        let model = Model {
+            hub: hub.origin().leak(),
+            graph: pinned("model.onnx", "the graph"),
+            tokenizer: pinned("tokenizer.json", "the tokenizer"),
+            ..ENCODER
+        };
+        let cache = crate::tempdir::Dir::new();
+        assert_eq!(model.bytes_left(cache.path()), 9 + 13);
+        assert!(!model.fetched(cache.path()));
+
+        model.ensure(cache.path(), |_| {}).await.unwrap();
+        assert_eq!(
+            std::fs::read(cache.path().join("search-encoder").join("model.onnx")).unwrap(),
+            b"the graph"
+        );
+        assert_eq!(model.bytes_left(cache.path()), 0);
+        assert!(model.fetched(cache.path()));
+        assert_eq!(
+            hub.asked()[0].path(),
+            format!(
+                "/{}/resolve/{}/tokenizer.json",
+                ENCODER.repository, ENCODER.revision
+            )
+        );
+    }
+
+    #[test]
     fn both_search_models_are_fetched_from_a_pinned_commit() {
         for model in [ENCODER, RERANKER] {
             let source = model::Source {
+                hub: model.hub,
                 repository: model.repository,
                 revision: model.revision,
             };

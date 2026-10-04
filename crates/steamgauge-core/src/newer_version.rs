@@ -15,6 +15,9 @@ use crate::Result;
 /// Where this repository's releases are listed. Every page the notice links to is under it.
 pub const RELEASES: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/releases");
 
+/// The page that redirects to the newest release, which is the question [`Asked::ask`] asks.
+pub const LATEST: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/releases/latest");
+
 /// How long an answer stands before it is asked for again, in seconds.
 pub const ASK_EVERY: i64 = 24 * 60 * 60;
 
@@ -74,12 +77,12 @@ impl Asked {
         now < self.at || now - self.at >= ASK_EVERY
     }
 
-    /// Asks the release page and records the answer. A question that fails, offline or
-    /// otherwise, still counts as the day's question and keeps the answer before it.
-    pub async fn ask(self, now: i64) -> Self {
+    /// Asks `page`, which is [`LATEST`], and records the answer. A question that fails, offline
+    /// or otherwise, still counts as the day's question and keeps the answer before it.
+    pub async fn ask(self, page: &str, now: i64) -> Self {
         Self {
             at: now,
-            latest: latest().await.unwrap_or(self.latest),
+            latest: latest(page).await.unwrap_or(self.latest),
         }
     }
 
@@ -113,19 +116,20 @@ fn version_in(location: &str) -> Option<semver::Version> {
     version(tag)
 }
 
-/// The version of the newest release, asked of the release page without following its redirect.
+/// The version of the newest release, asked of `page`, which is [`LATEST`], without following
+/// its redirect.
 ///
 /// # Errors
 ///
 /// Fails on transport failures, including the timeout.
-pub async fn latest() -> Result<Option<String>> {
+pub async fn latest(page: &str) -> Result<Option<String>> {
     let response = crate::http::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(PATIENCE)
         .timeout(PATIENCE)
         .build()?
-        .head(format!("{RELEASES}/latest"))
+        .head(page)
         .send()
         .await?;
     Ok(response
@@ -141,6 +145,7 @@ pub async fn latest() -> Result<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stand_in;
 
     fn heard(latest: &str) -> Asked {
         Asked {
@@ -198,6 +203,74 @@ mod tests {
             asked.due(1_000_000 - 1),
             "a clock set back before the last question asks again"
         );
+    }
+
+    #[test]
+    fn a_day_is_twenty_four_hours_and_not_one_sooner() {
+        let asked = Asked {
+            at: 1_000_000,
+            latest: None,
+        };
+        assert!(!asked.due(1_000_000 + 23 * 60 * 60));
+        assert!(asked.due(1_000_000 + 24 * 60 * 60));
+    }
+
+    /// A stand-in release page answering as GitHub does: a redirect to the newest tag.
+    fn release_page(answer: stand_in::Answer) -> (stand_in::Server, String) {
+        let server = stand_in::Server::new(move |_| answer.clone());
+        let page = format!("{}/latest", server.origin());
+        (server, page)
+    }
+
+    fn tag_page(tag: &str) -> String {
+        let repository = RELEASES.strip_prefix("https://github.com").unwrap();
+        format!("{repository}/tag/{tag}")
+    }
+
+    fn redirect_to(tag: &str) -> stand_in::Answer {
+        stand_in::Answer::status(302).header("Location", &tag_page(tag))
+    }
+
+    #[tokio::test]
+    async fn asking_records_when_and_the_release_the_redirect_names() {
+        let (server, page) = release_page(redirect_to("v9.9.9"));
+        let asked = Asked::default().ask(&page, 1_000_000).await;
+        assert_eq!(
+            asked,
+            Asked {
+                at: 1_000_000,
+                latest: Some("9.9.9".to_owned()),
+            }
+        );
+        let request = &server.asked()[0];
+        assert_eq!(request.method, "HEAD", "nothing is downloaded");
+        assert!(
+            request
+                .header("user-agent")
+                .is_some_and(|agent| agent.starts_with("steamgauge/")),
+            "{request:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_question_that_fails_keeps_the_answer_before_it_and_still_counts() {
+        let (_server, page) = release_page(stand_in::Answer::hang_up());
+        let asked = heard("0.2.0").ask(&page, 1_000_000).await;
+        assert_eq!(
+            asked,
+            Asked {
+                at: 1_000_000,
+                ..heard("0.2.0")
+            }
+        );
+        assert!(!asked.due(1_000_000 + 60));
+    }
+
+    #[tokio::test]
+    async fn an_answer_that_is_not_a_redirect_names_no_release() {
+        let (_server, page) =
+            release_page(stand_in::Answer::status(200).header("Location", &tag_page("v1.0.0")));
+        assert_eq!(latest(&page).await.unwrap(), None);
     }
 
     #[test]

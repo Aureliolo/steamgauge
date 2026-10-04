@@ -6,7 +6,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use steamgauge_core::newer_version::{Asked, Release};
+use steamgauge_core::newer_version::{Asked, LATEST, Release};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::{now_unix, settings::Settings};
@@ -32,7 +32,7 @@ pub fn check_in_background(app: &AppHandle) {
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let asked = Asked::load(&dir).ask(now_unix()).await;
+        let asked = Asked::load(&dir).ask(LATEST, now_unix()).await;
         // Kept before the window is told, so a window that asks after the event still hears it.
         let _ = asked.save(&dir);
         ASKING.store(false, Ordering::Release);

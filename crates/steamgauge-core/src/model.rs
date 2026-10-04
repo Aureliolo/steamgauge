@@ -335,6 +335,7 @@ pub async fn ensure(
 
     for asset in [encoder.tokenizer(), encoder.graph(precision)] {
         let source = Source {
+            hub: HUB,
             repository: encoder.id(),
             revision: encoder.revision(),
         };
@@ -343,9 +344,14 @@ pub async fn ensure(
     Ok(())
 }
 
+/// The Hugging Face Hub, where every model this crate runs is published.
+pub const HUB: &str = "https://huggingface.co";
+
 /// Where pinned files are fetched from: a Hugging Face repository at one commit.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Source {
+    /// The Hub's origin, [`HUB`] everywhere but a test.
+    pub(crate) hub: &'static str,
     pub(crate) repository: &'static str,
     pub(crate) revision: &'static str,
 }
@@ -360,8 +366,8 @@ impl Source {
 
     fn url(self, remote: &str) -> String {
         format!(
-            "https://huggingface.co/{}/resolve/{}/{remote}",
-            self.repository, self.revision
+            "{}/{}/resolve/{}/{remote}",
+            self.hub, self.repository, self.revision
         )
     }
 }
@@ -406,14 +412,14 @@ pub(crate) async fn ensure_asset(
     Ok(())
 }
 
-/// The release a published repository has gone furthest to, `v2` past `v1`, from the Hub's
-/// own list of its tags. Nothing is fetched from it: a newer release comes with the build that
-/// pins it, and this only says one exists.
+/// The release a published repository has gone furthest to, `v2` past `v1`, from the list of
+/// its tags on `hub`, which is [`HUB`]. Nothing is fetched from it: a newer release comes with
+/// the build that pins it, and this only says one exists.
 ///
 /// # Errors
 ///
 /// Fails on transport failures and on a listing that is not the Hub's.
-pub async fn newest_release(repository: &str) -> Result<Option<String>> {
+pub async fn newest_release(hub: &str, repository: &str) -> Result<Option<String>> {
     #[derive(serde::Deserialize)]
     struct Refs {
         tags: Vec<Ref>,
@@ -424,9 +430,7 @@ pub async fn newest_release(repository: &str) -> Result<Option<String>> {
     }
 
     let refs: Refs = client()?
-        .get(format!(
-            "https://huggingface.co/api/models/{repository}/refs"
-        ))
+        .get(format!("{hub}/api/models/{repository}/refs"))
         .send()
         .await?
         .error_for_status()?
@@ -615,6 +619,7 @@ fn try_session(path: &Path, provider: ort::ep::ExecutionProviderDispatch) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stand_in;
 
     const EVERY_ENCODER: [Encoder; 4] = [
         Encoder::E5Small,
@@ -646,6 +651,7 @@ mod tests {
     fn every_encoder_is_fetched_from_a_commit_and_not_a_branch() {
         for encoder in EVERY_ENCODER {
             let source = Source {
+                hub: HUB,
                 repository: encoder.id(),
                 revision: encoder.revision(),
             };
@@ -664,6 +670,7 @@ mod tests {
     fn a_source_without_a_full_commit_is_not_pinned() {
         for revision in ["", "main", "v1", "614241f", &"g".repeat(40)] {
             let source = Source {
+                hub: HUB,
                 repository: "intfloat/multilingual-e5-small",
                 revision: revision.to_owned().leak(),
             };
@@ -671,6 +678,7 @@ mod tests {
         }
         assert!(
             !Source {
+                hub: HUB,
                 repository: "",
                 revision: "614241f622f53c4eeff9890bdc4f31cfecc418b3",
             }
@@ -716,6 +724,7 @@ mod tests {
             bytes: 17_082_730,
         };
         let source = Source {
+            hub: HUB,
             repository: "intfloat/multilingual-e5-small",
             revision: "main",
         };
@@ -765,6 +774,163 @@ mod tests {
                 "{encoder:?}"
             );
         }
+    }
+
+    const COMMIT: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
+    const GRAPH: &[u8] = b"graph bytes";
+
+    /// A file pinned to what `content` hashes to and how long it is.
+    fn pinned_to(content: &[u8]) -> Asset {
+        Asset {
+            remote: "onnx/model.onnx",
+            local: "model.onnx",
+            sha256: hex(&Sha256::digest(content)).leak(),
+            bytes: content.len() as u64,
+        }
+    }
+
+    /// A stand-in Hub serving `content` for every file asked of it.
+    fn hub(content: &'static [u8]) -> (stand_in::Server, Source) {
+        let server = stand_in::Server::new(move |_| stand_in::Answer::body(content));
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        (server, source)
+    }
+
+    /// Fetches `asset` into `dir`, with every progress report as (downloaded, total).
+    async fn fetch(
+        source: Source,
+        asset: Asset,
+        dir: &Path,
+    ) -> (Result<()>, Vec<(u64, Option<u64>)>) {
+        let mut reports = Vec::new();
+        let fetched = ensure_asset(&client().unwrap(), source, asset, dir, &mut |progress| {
+            reports.push((progress.downloaded, progress.total));
+        })
+        .await;
+        (fetched, reports)
+    }
+
+    #[tokio::test]
+    async fn a_file_is_fetched_from_its_commit_and_kept_once_it_matches_its_pin() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let (fetched, reports) = fetch(source, pinned_to(GRAPH), dir.path()).await;
+        fetched.unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert!(!dir.path().join("model.partial").exists());
+        assert_eq!(reports.last(), Some(&(11, Some(11))));
+        let asked = &server.asked()[0];
+        assert_eq!(
+            asked.path(),
+            format!("/someone/encoder/resolve/{COMMIT}/onnx/model.onnx")
+        );
+        assert!(
+            asked
+                .header("user-agent")
+                .is_some_and(|agent| agent.starts_with("steamgauge/")),
+            "{asked:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_copy_that_matches_its_pin_is_used_without_asking_and_one_that_does_not_is_replaced()
+    {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        fetch(source, pinned_to(GRAPH), dir.path()).await.0.unwrap();
+        assert!(server.asked().is_empty());
+
+        std::fs::write(dir.path().join("model.onnx"), b"other bytes").unwrap();
+        fetch(source, pinned_to(GRAPH), dir.path()).await.0.unwrap();
+        assert_eq!(server.asked().len(), 1);
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+    }
+
+    #[tokio::test]
+    async fn a_download_that_does_not_match_its_pin_is_refused_and_removed() {
+        let dir = crate::tempdir::Dir::new();
+        let (_server, source) = hub(b"other bytes");
+        let (fetched, _) = fetch(source, pinned_to(GRAPH), dir.path()).await;
+        assert!(
+            matches!(fetched, Err(Error::ModelChecksum { .. })),
+            "{fetched:?}"
+        );
+        assert!(!dir.path().join("model.onnx").exists());
+    }
+
+    #[tokio::test]
+    async fn a_server_sending_more_than_the_pin_is_cut_off_before_the_excess_is_kept() {
+        let dir = crate::tempdir::Dir::new();
+        let (_server, source) = hub(b"graph bytes and then a great deal more");
+        let (fetched, reports) = fetch(source, pinned_to(GRAPH), dir.path()).await;
+        assert!(
+            matches!(fetched, Err(Error::ModelLength { .. })),
+            "{fetched:?}"
+        );
+        assert!(
+            reports.iter().all(|(downloaded, _)| *downloaded <= 11),
+            "{reports:?}"
+        );
+        assert!(!dir.path().join("model.onnx").exists());
+        assert!(!dir.path().join("model.partial").exists());
+    }
+
+    #[tokio::test]
+    async fn a_download_that_ends_short_is_refused_and_leaves_nothing_behind() {
+        let dir = crate::tempdir::Dir::new();
+        let (_server, source) = hub(b"graph");
+        let (fetched, _) = fetch(source, pinned_to(GRAPH), dir.path()).await;
+        assert!(
+            matches!(fetched, Err(Error::ModelLength { .. })),
+            "{fetched:?}"
+        );
+        assert!(!dir.path().join("model.onnx").exists());
+        assert!(!dir.path().join("model.partial").exists());
+    }
+
+    #[tokio::test]
+    async fn the_newest_release_is_the_highest_numbered_tag_on_the_hub() {
+        let server = stand_in::Server::new(|_| {
+            stand_in::Answer::json(&serde_json::json!({
+                "branches": [{"name": "main"}],
+                "tags": [{"name": "v2"}, {"name": "v10"}, {"name": "latest"}, {"name": "v9"}],
+            }))
+        });
+        let newest = newest_release(&server.origin(), "someone/reader")
+            .await
+            .unwrap();
+        assert_eq!(newest.as_deref(), Some("v10"));
+        assert_eq!(server.asked()[0].path(), "/api/models/someone/reader/refs");
+    }
+
+    #[tokio::test]
+    async fn a_cache_that_cannot_be_made_fails_before_anything_is_fetched() {
+        let dir = crate::tempdir::Dir::new();
+        let occupied = dir.path().join("a file");
+        std::fs::write(&occupied, b"").unwrap();
+        let made = ensure(&occupied, Encoder::E5Small, Precision::Float16, |_| {}).await;
+        assert!(matches!(made, Err(Error::Io(_))), "{made:?}");
+    }
+
+    #[test]
+    fn the_cache_is_where_the_platform_keeps_caches_and_not_wherever_the_app_started() {
+        let platform_says = ["LOCALAPPDATA", "XDG_CACHE_HOME", "HOME"]
+            .iter()
+            .any(|name| std::env::var_os(name).is_some());
+        assert!(
+            platform_says,
+            "every machine the tests run on names a cache or a home"
+        );
+        assert!(
+            default_cache_dir().is_absolute(),
+            "{:?}",
+            default_cache_dir()
+        );
     }
 
     #[test]

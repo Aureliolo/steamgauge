@@ -387,6 +387,10 @@ impl Size {
 
 const GIB: u64 = 1024 * 1024 * 1024;
 
+const fn mib(count: u64) -> u64 {
+    count * 1024 * 1024
+}
+
 /// The files every reader is: its graph, its tokenizer, and the lines it answers above, each
 /// size with its own hashes and lengths. `publish.py` writes both here from the bytes it
 /// uploaded.
@@ -439,24 +443,26 @@ pub const SIZES: &[Size] = &[
     Size {
         name: "small",
         dir: "game-review-reader-small",
-        needs: 1_219 * 1024 * 1024,
+        needs: mib(1_219),
         processor_seconds: 36.0,
         published: Published {
             repository: "Aureliolo/game-review-reader-small",
             revision: "7cc57fb55dfee066b8e0ce2370d98afb05a753ab",
             release: "v1",
+            hub: crate::model::HUB,
             files: &SMALL_FILES,
         },
     },
     Size {
         name: "standard",
         dir: "game-review-reader",
-        needs: 2_756 * 1024 * 1024,
+        needs: mib(2_756),
         processor_seconds: 284.9,
         published: Published {
             repository: "Aureliolo/game-review-reader",
             revision: "91d3912188d772f60008c084bf9af80020e404bc",
             release: "v1",
+            hub: crate::model::HUB,
             files: &STANDARD_FILES,
         },
     },
@@ -512,12 +518,16 @@ pub struct Published {
     /// The release tag that commit carries, `v1` and on, to name it to a person. The commit is
     /// what is fetched; a tag can be moved.
     pub release: &'static str,
+    /// The Hub's origin, [`crate::model::HUB`] everywhere but a test. After the three above,
+    /// which `training/publish.py` finds together to pin.
+    pub hub: &'static str,
     files: &'static [crate::model::Asset],
 }
 
 impl Published {
     fn source(&self) -> crate::model::Source {
         crate::model::Source {
+            hub: self.hub,
             repository: self.repository,
             revision: self.revision,
         }
@@ -777,12 +787,8 @@ impl ClaimReader {
             mask,
             languages,
         } = prepared;
-        let parts = pieces(rows, self.provenance.max_batch);
-        if parts.len() <= 1 {
-            return self.run_rows(rows, cols, ids, mask, &languages);
-        }
         let mut readings = Vec::with_capacity(rows);
-        for part in parts {
+        for part in pieces(rows, self.provenance.max_batch) {
             readings.extend(self.run_rows(
                 part.len(),
                 cols,
@@ -803,10 +809,6 @@ impl ClaimReader {
         mask: Vec<i64>,
         languages: &[String],
     ) -> Result<Vec<Reading>> {
-        if rows == 0 {
-            return Ok(Vec::new());
-        }
-
         let outputs = self.session.run(ort::inputs![
             "input_ids" => Tensor::from_array(Array2::from_shape_vec((rows, cols), ids)?)?,
             "attention_mask" => Tensor::from_array(Array2::from_shape_vec((rows, cols), mask)?)?,
@@ -1181,7 +1183,9 @@ fn softmax_best(logits: &[f32]) -> (usize, f32) {
         return (0, 0.0);
     }
     let total: f32 = logits.iter().map(|value| (value - highest).exp()).sum();
-    (best, if total > 0.0 { 1.0 / total } else { 0.0 })
+    // The best class contributes one to the total, so it is at least one unless a logit was
+    // infinite or not a number; the NaN that leaves reads as no confidence, which `max` gives.
+    (best, (1.0 / total).max(0.0))
 }
 
 /// The runs of rows a batch of `rows` goes through the graph in, at most `most` at a time.
@@ -1196,6 +1200,7 @@ fn pieces(rows: usize, most: Option<usize>) -> Vec<std::ops::Range<usize>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stand_in;
 
     #[test]
     fn small_capitals_are_read_as_the_letters_they_are() {
@@ -1630,6 +1635,7 @@ mod tests {
             })
             .collect();
         Published {
+            hub: crate::model::HUB,
             repository: "someone/game-review-reader",
             revision,
             release: "v1",
@@ -1825,16 +1831,388 @@ mod tests {
         assert!(opens < closes && closes <= review.len());
     }
 
+    /// A size published on a stand-in Hub, whose files hold `contents` and are pinned to them,
+    /// or to nothing where `pin` is false.
+    fn published_on(hub: &stand_in::Server, contents: [&[u8]; 3], pin: bool) -> Size {
+        let files: Vec<crate::model::Asset> = STANDARD_FILES
+            .iter()
+            .zip(contents)
+            .map(|(file, content)| crate::model::Asset {
+                sha256: if pin {
+                    crate::embed::sha256_hex(std::str::from_utf8(content).unwrap()).leak()
+                } else {
+                    ""
+                },
+                bytes: content.len() as u64,
+                ..*file
+            })
+            .collect();
+        Size {
+            published: Published {
+                hub: hub.origin().leak(),
+                repository: "someone/game-review-reader",
+                revision: COMMIT,
+                release: "v1",
+                files: files.leak(),
+            },
+            ..SIZES[0]
+        }
+    }
+
+    const CONTENTS: [&[u8]; 3] = [b"the graph", b"the tokenizer", b"the record"];
+
+    /// Serves each file of [`CONTENTS`] at the path it is published under.
+    fn hub_with_contents() -> stand_in::Server {
+        stand_in::Server::new(|asked| {
+            let name = asked.path().rsplit('/').next().unwrap_or_default();
+            STANDARD_FILES
+                .iter()
+                .zip(CONTENTS)
+                .find(|(file, _)| file.remote == name)
+                .map_or(stand_in::Answer::status(404), |(_, content)| {
+                    stand_in::Answer::body(content)
+                })
+        })
+    }
+
     #[tokio::test]
     async fn nothing_is_fetched_until_something_is_published() {
         // The empty pin must refuse rather than reach for the network. A refusal that names
         // the directory is what the CLI turns into "train one, or pass --model".
-        let Some(unpublished) = SIZES.iter().find(|size| !size.published.is_pinned()) else {
-            return;
+        let hub = hub_with_contents();
+        let unpublished = published_on(&hub, CONTENTS, false);
+        let dir = crate::tempdir::Dir::new();
+        let target = dir.path().join("reader");
+        let refused = ensure(&unpublished, &target, |_| {}).await;
+        assert!(
+            matches!(refused, Err(Error::NoAnchors { .. })),
+            "{refused:?}"
+        );
+        assert!(
+            !target.exists(),
+            "a refused fetch must leave nothing behind"
+        );
+        assert!(hub.asked().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_published_size_is_fetched_file_by_file_from_its_commit() {
+        let hub = hub_with_contents();
+        let size = published_on(&hub, CONTENTS, true);
+        let dir = crate::tempdir::Dir::new();
+        let target = dir.path().join("reader");
+        assert_eq!(size.published.bytes_left(&target), 9 + 13 + 10);
+
+        ensure(&size, &target, |_| {}).await.unwrap();
+        for (file, content) in STANDARD_FILES.iter().zip(CONTENTS) {
+            assert_eq!(std::fs::read(target.join(file.local)).unwrap(), content);
+        }
+        assert_eq!(size.published.bytes_left(&target), 0);
+        let asked: Vec<String> = hub
+            .asked()
+            .iter()
+            .map(|one| one.path().to_owned())
+            .collect();
+        assert_eq!(
+            asked,
+            ["model.onnx", "tokenizer.json", "reader.json"]
+                .map(|name| format!("/someone/game-review-reader/resolve/{COMMIT}/{name}"))
+        );
+    }
+
+    #[test]
+    fn a_size_nobody_has_put_in_the_working_tree_lives_in_the_cache() {
+        for size in SIZES {
+            assert_eq!(
+                size.home(),
+                crate::model::default_cache_dir().join(size.dir)
+            );
+        }
+    }
+
+    #[test]
+    fn half_of_memory_a_card_shares_with_the_processor_is_the_cards() {
+        let shared = |gib: u64| {
+            Some(crate::card::Card {
+                bytes: gib * GIB,
+                shared: true,
+            })
         };
-        let dir = std::env::temp_dir().join(format!("steamgauge-unpinned-{}", std::process::id()));
-        let refused = ensure(unpublished, &dir, |_| {}).await;
-        assert!(matches!(refused, Err(Error::NoAnchors { .. })));
-        assert!(!dir.exists(), "a refused fetch must leave nothing behind");
+        assert_eq!(fits(shared(4), true).name, "small");
+        assert_eq!(fits(shared(8), true).name, "standard");
+    }
+
+    #[test]
+    fn one_class_s_probability_is_its_share_of_the_softmax() {
+        let logits = [0.0, 4.0, 1.0];
+        let (best, confidence) = softmax_best(&logits);
+        assert!((softmax_at(&logits, best) - confidence).abs() < 1e-6);
+        assert!((softmax_at(&logits, 0) - 0.017_148).abs() < 1e-5);
+        let total: f32 = (0..3).map(|class| softmax_at(&logits, class)).sum();
+        assert!((total - 1.0).abs() < 1e-6);
+        assert!(softmax_at(&logits, 3).abs() < f32::EPSILON, "no such class");
+    }
+
+    #[test]
+    fn a_tie_goes_to_the_first_class_as_the_trainers_argmax_gives_it() {
+        assert_eq!(softmax_best(&[2.0, 2.0, 1.0]).0, 0);
+        assert_eq!(softmax_best(&[1.0, 3.0, 3.0]).0, 1);
+    }
+
+    #[test]
+    fn the_budget_spends_the_claim_twice_and_four_special_tokens_and_splits_what_is_left() {
+        let review = (0..40)
+            .map(|n| format!("w{n}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let offsets = words(&review);
+        let at = offsets[20].0;
+        let length = offsets[22].1 - at;
+        // Twenty-one tokens less three twice and four is eleven, five either side.
+        let (opens, closes) = centred(&offsets, at, length, 21).unwrap();
+        assert_eq!(
+            &review[opens..closes],
+            "w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27"
+        );
+    }
+
+    /// The words the tiny reader knows, after `[PAD]` and `[UNK]`.
+    const READER_WORDS: [&str; 7] = ["query", ":", "passage", "crashes", "pretty", "love", "hate"];
+
+    fn sheet_row(id: &str) -> usize {
+        crate::taxonomy::SHEET
+            .iter()
+            .position(|category| category.id == id)
+            .unwrap()
+    }
+
+    /// A tiny reader in `dir`, trained, as far as `reader.json` says, on the sheet's subjects in
+    /// reverse: "crashes" argues for bugs and "pretty" for graphics, five each a time it appears,
+    /// "love" for praise and "hate" for complaint. `settings` is laid over its record.
+    fn tiny_reader(dir: &Path, settings: &serde_json::Value) {
+        let subjects: Vec<&str> = crate::taxonomy::SHEET
+            .iter()
+            .rev()
+            .map(|category| category.id)
+            .collect();
+        let class = |id: &str| subjects.iter().position(|subject| *subject == id).unwrap();
+        let vocabulary = READER_WORDS.len() + 2;
+        let mut subject = vec![vec![0.0; subjects.len()]; vocabulary];
+        subject[2 + 3][class("bugs")] = 5.0;
+        subject[2 + 4][class("graphics")] = 5.0;
+        let mut polarity = vec![vec![0.0; 3]; vocabulary];
+        polarity[2 + 5][0] = 5.0;
+        polarity[2 + 6][1] = 5.0;
+        crate::tiny_model::Graph::new()
+            .summed("subject_logits", &subject)
+            .summed("polarity_logits", &polarity)
+            .write(&dir.join("model.onnx"));
+        crate::tiny_model::write_json(
+            &dir.join("tokenizer.json"),
+            &crate::tiny_model::word_tokenizer(&READER_WORDS),
+        );
+        let mut record = serde_json::json!({
+            "subjects": subjects,
+            "threshold": 0.5,
+            "max_tokens": 512,
+        });
+        for (key, value) in settings.as_object().unwrap() {
+            record[key] = value.clone();
+        }
+        crate::tiny_model::write_json(&dir.join("reader.json"), &record);
+    }
+
+    fn alone(claim: &str) -> Asked<'_> {
+        Asked {
+            claim,
+            language: "english",
+            review: claim,
+            at: 0,
+            headset_only: false,
+        }
+    }
+
+    fn in_review<'a>(review: &'a str, claim: &'a str, headset_only: bool) -> Asked<'a> {
+        Asked {
+            claim,
+            language: "english",
+            review,
+            at: review.find(claim).unwrap(),
+            headset_only,
+        }
+    }
+
+    /// What a reading says, in a form two readings can be compared in.
+    fn said(reading: &Reading) -> (Option<usize>, Polarity, u32) {
+        (
+            reading.subject,
+            reading.polarity,
+            reading.confidence.to_bits(),
+        )
+    }
+
+    #[test]
+    fn a_reader_answers_in_the_sheet_s_order_whatever_order_it_was_trained_in() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(dir.path(), &serde_json::json!({"prefix": true}));
+        let mut reader = ClaimReader::load(dir.path()).unwrap();
+        assert_eq!(reader.device(), "cpu");
+
+        let readings = reader
+            .read(&[
+                alone("it crashes and i hate it"),
+                alone("so pretty i love it"),
+                alone("nothing to see"),
+            ])
+            .unwrap();
+        assert_eq!(readings.len(), 3);
+        assert_eq!(readings[0].subject, Some(sheet_row("bugs")));
+        assert_eq!(readings[0].polarity, Polarity::Complaint);
+        let sure = 5.0_f32.exp() / (5.0_f32.exp() + 25.0);
+        assert!(
+            (readings[0].confidence - sure).abs() < 1e-5,
+            "{}",
+            readings[0].confidence
+        );
+        assert_eq!(readings[1].subject, Some(sheet_row("graphics")));
+        assert_eq!(readings[1].polarity, Polarity::Praise);
+        assert_eq!(
+            readings[2].subject, None,
+            "one in twenty-six is under the line"
+        );
+        assert!(reader.read(&[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_claim_is_read_only_as_far_as_the_reader_was_trained_to_read() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(dir.path(), &serde_json::json!({"max_tokens": 3}));
+        let mut reader = ClaimReader::load(dir.path()).unwrap();
+        let readings = reader
+            .read(&[alone("it is crashes"), alone("it is really crashes")])
+            .unwrap();
+        assert_eq!(readings[0].subject, Some(sheet_row("bugs")));
+        assert_eq!(readings[1].subject, None);
+    }
+
+    #[test]
+    fn a_batch_read_in_pieces_reads_every_claim_as_it_reads_it_alone() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(dir.path(), &serde_json::json!({"max_batch": 2}));
+        let mut reader = ClaimReader::load(dir.path()).unwrap();
+        let claims = [
+            "it crashes",
+            "pretty",
+            "nothing much to say here at all",
+            "i hate how it crashes",
+            "love it",
+        ];
+        let together = reader
+            .read(&claims.map(alone))
+            .unwrap()
+            .iter()
+            .map(said)
+            .collect::<Vec<_>>();
+        let apart = claims
+            .iter()
+            .map(|claim| said(&reader.read(&[alone(claim)]).unwrap()[0]))
+            .collect::<Vec<_>>();
+        assert_eq!(together, apart);
+    }
+
+    #[test]
+    fn a_reader_trained_on_context_reads_the_claim_beside_its_window() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(
+            dir.path(),
+            &serde_json::json!({"context": true, "prefix": true}),
+        );
+        let mut reader = ClaimReader::load(dir.path()).unwrap();
+        let review = "it crashes. great";
+        let read = reader.read(&[in_review(review, "great", false)]).unwrap();
+        assert_eq!(read[0].subject, Some(sheet_row("bugs")), "from its window");
+
+        let alone_dir = dir.path().join("alone");
+        tiny_reader(&alone_dir, &serde_json::json!({"prefix": true}));
+        let mut alone_reader = ClaimReader::load(&alone_dir).unwrap();
+        let read = alone_reader
+            .read(&[in_review(review, "great", false)])
+            .unwrap();
+        assert_eq!(read[0].subject, None);
+    }
+
+    #[test]
+    fn the_window_is_marked_and_told_of_the_headset_as_the_reader_was_trained() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(
+            dir.path(),
+            &serde_json::json!({"context": true, "mark": true, "headset_marker": true}),
+        );
+        let reader = ClaimReader::load(dir.path()).unwrap();
+        let review = "before it. the claim itself. after it.";
+        let asked = [
+            in_review(review, "the claim itself.", true),
+            in_review(review, "after it.", false),
+        ];
+        let expected = [
+            "Played in a VR headset. before it. ** the claim itself. ** after it.",
+            "before it. the claim itself. ** after it. **",
+        ];
+        assert_eq!(reader.windows_for(&asked), expected);
+        assert_eq!(reader.encoder().windows_for(&asked), expected);
+
+        let unmarked = dir.path().join("unmarked");
+        tiny_reader(&unmarked, &serde_json::json!({"context": true}));
+        let reader = ClaimReader::load(&unmarked).unwrap();
+        assert_eq!(
+            reader.windows_for(&asked[..1]),
+            [review],
+            "a reader never told of headsets is told nothing"
+        );
+    }
+
+    #[test]
+    fn every_claim_of_a_review_is_centred_on_itself() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(
+            dir.path(),
+            &serde_json::json!({"context": true, "max_tokens": 8}),
+        );
+        let reader = ClaimReader::load(dir.path()).unwrap();
+        let review = (0..20)
+            .map(|n| format!("w{n}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let asked = [
+            in_review(&review, "w5", false),
+            in_review(&review, "w15", false),
+        ];
+        assert_eq!(reader.windows_for(&asked), ["w4 w5 w6", "w14 w15 w16"]);
+    }
+
+    #[test]
+    fn a_tokenizer_whose_offsets_stop_short_of_the_text_is_refused() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(dir.path(), &serde_json::json!({}));
+        let letters = |dropped: &str| {
+            let kept: String = ('a'..='z')
+                .filter(|letter| !dropped.contains(*letter))
+                .collect();
+            crate::tiny_model::letter_tokenizer(&kept)
+        };
+        // The probe ends "dog": without a "g" the offsets stop a byte short, which is allowed.
+        crate::tiny_model::write_json(&dir.path().join("tokenizer.json"), &letters("g"));
+        assert!(ClaimReader::load(dir.path()).is_ok());
+        // Without "o" either they stop two short, as a tokenizer reporting padding does.
+        crate::tiny_model::write_json(&dir.path().join("tokenizer.json"), &letters("og"));
+        let refused = ClaimReader::load(dir.path());
+        assert!(matches!(refused, Err(Error::Tokenizer(_))), "{refused:?}");
+    }
+
+    #[test]
+    fn the_polarity_heads_answers_are_in_the_trainers_order() {
+        assert_eq!(Polarity::from_index(0), Polarity::Praise);
+        assert_eq!(Polarity::from_index(1), Polarity::Complaint);
+        assert_eq!(Polarity::from_index(2), Polarity::Neutral);
     }
 }
