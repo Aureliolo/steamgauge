@@ -120,11 +120,29 @@ mod tests {
     fn a_size_read_here_is_timed_from_its_own_readings() {
         let mut times = ReadingTimes::default();
         times.note(size("small"), Some("english"), 60.0, 10_000);
-        times.note(size("small"), Some("english"), 30.0, 5_000);
+        times.note(size("small"), Some("english"), 90.0, 5_000);
 
         assert_eq!(
-            times.seconds(size("small"), Some("english"), 20_000),
-            Some(120.0)
+            times.seconds(size("small"), Some("english"), 15_000),
+            Some(150.0)
+        );
+    }
+
+    #[test]
+    fn a_reading_of_another_size_or_language_is_kept_apart() {
+        let mut times = ReadingTimes::default();
+        times.note(size("small"), Some("english"), 60.0, 10_000);
+        times.note(size("small"), None, 90.0, 5_000);
+        times.note(size("standard"), Some("english"), 300.0, 10_000);
+
+        assert_eq!(
+            times.seconds(size("small"), Some("english"), 10_000),
+            Some(60.0)
+        );
+        assert_eq!(times.seconds(size("small"), None, 5_000), Some(90.0));
+        assert_eq!(
+            times.seconds(size("standard"), Some("english"), 10_000),
+            Some(300.0)
         );
     }
 

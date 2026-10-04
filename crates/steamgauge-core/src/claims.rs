@@ -1997,6 +1997,17 @@ mod tests {
         let review = "The combat system in the original release of FFⅦ.Ⅷ is where the \
                       story finally finds its footing and the pacing picks up.";
         assert_eq!(split(review), vec![review]);
+        assert_eq!(
+            split(
+                "The patch notes promised a fix for the crashes in version 2.The game still \
+                 crashes on every single loading screen."
+            ),
+            vec![
+                "The patch notes promised a fix for the crashes in version 2.",
+                "The game still crashes on every single loading screen."
+            ],
+            "a numeral on one side only is the end of a sentence typed without a space"
+        );
     }
 
     /// A digit straight after the mark is a number carrying on rather than a list. Taken for

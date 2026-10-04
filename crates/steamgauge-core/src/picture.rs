@@ -101,9 +101,9 @@ fn leaning(subject: &SubjectCount, reading: &ReadReport) -> Option<String> {
     if praised + criticised == 0 {
         return None;
     }
-    let lean = if praised >= criticised.saturating_mul(MOSTLY) && praised > 0 {
+    let lean = if praised >= criticised.saturating_mul(MOSTLY) {
         "is mostly praised"
-    } else if criticised >= praised.saturating_mul(MOSTLY) && criticised > 0 {
+    } else if criticised >= praised.saturating_mul(MOSTLY) {
         "is mostly criticised"
     } else {
         "divides opinion"
@@ -292,6 +292,24 @@ mod tests {
              \u{201c}bosses\u{201d}, the complaints \u{201c}grind\u{201d}. Story and writing \
              divides opinion. Performance is mostly criticised; the complaints say \
              \u{201c}stutter\u{201d} and \u{201c}crashes\u{201d}."
+        );
+    }
+
+    #[test]
+    fn a_side_nobody_took_leaves_the_other_one_and_a_subject_nobody_raised_goes_unnamed() {
+        let found = reading(
+            vec![
+                subject("audio", "Audio and music", 30, 30, 0),
+                subject("controls", "Controls", 20, 0, 20),
+                subject("story", "Story and writing", 0, 0, 0),
+            ],
+            Vec::new(),
+        );
+        assert_eq!(
+            in_short(&found),
+            "Of 1,000 reviews, 70.0% recommend the game. The subjects raised most are audio and \
+             music (3.0% of reviews) and controls (2.0% of reviews). Audio and music is mostly \
+             praised. Controls is mostly criticised."
         );
     }
 
