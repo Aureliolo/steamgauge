@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use ndarray::Array2;
 use ort::{session::Session, value::Tensor};
-use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
+use tokenizers::{PaddingParams, Tokenizer};
 
 use crate::{
     Error, Result,
@@ -173,18 +173,15 @@ impl Model {
         let pad = tokenizer
             .token_to_id("<|endoftext|>")
             .ok_or_else(|| Error::Tokenizer("no <|endoftext|> to pad with".to_owned()))?;
-        // Right padding, which is what the graph reads each row's last real token under.
+        // Right padding to the longest of the batch, which is what the graph reads each row's
+        // last real token under. Only the id is set: the graph is handed ids, and the text a
+        // padded position would carry is read by nothing.
         tokenizer.with_padding(Some(PaddingParams {
-            strategy: PaddingStrategy::BatchLongest,
             pad_id: pad,
-            pad_token: "<|endoftext|>".to_owned(),
             ..PaddingParams::default()
         }));
         tokenizer
-            .with_truncation(Some(TruncationParams {
-                max_length: limit,
-                ..TruncationParams::default()
-            }))
+            .with_truncation(Some(model::cut_at(limit)))
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
         Ok(Loaded {
             session,

@@ -384,11 +384,7 @@ async fn crawl_shard(
     let mut last = walk_shard(client, app_id, shard, path).await?;
     for walk in 2..=MAX_SHARD_WALKS {
         if !fell_short(last.rows, shard.expected) {
-            return Ok(ShardOutcome {
-                walks: walk - 1,
-                short: false,
-                ..last
-            });
+            return Ok(last);
         }
         last = walk_shard(client, app_id, shard, path).await?;
         last.walks = walk;
@@ -816,6 +812,7 @@ fn now_unix() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stand_in;
 
     fn report(unique: u64, total: u64) -> CrawlReport {
         CrawlReport {
@@ -887,5 +884,425 @@ mod tests {
         assert_eq!(StopReason::Exhausted.as_str(), "Exhausted");
         assert_eq!(StopReason::CursorRepeated.as_str(), "CursorRepeated");
         assert_eq!(StopReason::NoCursor.as_str(), "NoCursor");
+    }
+
+    #[test]
+    fn a_shortfall_of_exactly_the_floor_is_drift() {
+        assert!(!fell_short(80, 100));
+        assert!(fell_short(79, 100));
+    }
+
+    #[test]
+    fn a_walk_landing_exactly_on_the_ratio_is_not_short() {
+        assert!(!fell_short(950, 1000));
+        assert!(fell_short(949, 1000));
+    }
+
+    const APP: u32 = 7;
+    const DAY: i64 = 24 * 60 * 60;
+    /// What the stand-in serves a page of, whatever is asked for: Valve caps a page too.
+    const PAGE: usize = 10;
+
+    fn review(id: &str, created: i64, updated: i64) -> Value {
+        json!({
+            "recommendationid": id,
+            "timestamp_created": created,
+            "timestamp_updated": updated,
+            "review": format!("review {id}"),
+            "language": "english",
+            "voted_up": true,
+        })
+    }
+
+    fn summary_of(total: usize) -> stand_in::Answer {
+        stand_in::Answer::json(&json!({
+            "success": 1,
+            "query_summary": {
+                "total_reviews": total,
+                "total_positive": total,
+                "total_negative": 0,
+                "review_score_desc": "Very Positive",
+            },
+            "reviews": [],
+            "cursor": "*",
+        }))
+    }
+
+    fn name_of_the_game(name: &str) -> stand_in::Answer {
+        stand_in::Answer::json(&json!({
+            APP.to_string(): {"success": true, "data": {"name": name}}
+        }))
+    }
+
+    /// Where a cursor the stand-in handed out starts: `*` at the beginning, `at{n}` after `n`.
+    fn offset(asked: &stand_in::Asked) -> usize {
+        asked
+            .param("cursor")
+            .and_then(|cursor| cursor.strip_prefix("at"))
+            .and_then(|at| at.parse().ok())
+            .unwrap_or(0)
+    }
+
+    fn page_of(served: &[Value], from: usize) -> stand_in::Answer {
+        let to = (from + PAGE).min(served.len());
+        let next = if from < served.len() { to } else { from };
+        stand_in::Answer::json(&json!({
+            "success": 1,
+            "reviews": served.get(from..to).unwrap_or(&[]),
+            "cursor": format!("at{next}"),
+        }))
+    }
+
+    /// Valve as far as a crawl can tell: `reviews` newest first, a page at a time, counted and
+    /// served by window, with the name of the game beside them. The first `stalls` walks of the
+    /// window starting at `stalled` end after their first page, as Steam's do now and then.
+    fn valve(
+        reviews: Vec<Value>,
+        stalled: Option<i64>,
+        stalls: usize,
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        let walks = std::sync::Mutex::new(0_usize);
+        move |asked| {
+            if asked.path() == "/api/appdetails" {
+                return name_of_the_game("A Game");
+            }
+            let bound = |name| {
+                asked
+                    .param(name)
+                    .and_then(|value| value.parse::<i64>().ok())
+            };
+            let (start, end) = (
+                bound("start_date").unwrap_or(i64::MIN),
+                bound("end_date").unwrap_or(i64::MAX),
+            );
+            let mut served: Vec<Value> = reviews
+                .iter()
+                .filter(|review| {
+                    (start..=end).contains(&review["timestamp_created"].as_i64().unwrap())
+                })
+                .cloned()
+                .collect();
+            served.sort_by_key(|review| std::cmp::Reverse(review["timestamp_created"].as_i64()));
+            if asked.param("num_per_page") == Some("0") {
+                let distinct: HashSet<&str> = served
+                    .iter()
+                    .filter_map(|review| review["recommendationid"].as_str())
+                    .collect();
+                return summary_of(distinct.len());
+            }
+            let from = offset(asked);
+            if stalled == Some(start) {
+                let mut walks = walks.lock().unwrap();
+                if from == 0 {
+                    *walks += 1;
+                }
+                if *walks <= stalls && from > 0 {
+                    return page_of(&served, served.len());
+                }
+            }
+            page_of(&served, from)
+        }
+    }
+
+    /// Forty reviews in 2014 and thirty in 2024, so that a target of forty plans the two years
+    /// as two windows, and one review of 2024 served twice, as a page boundary moving under a
+    /// cursor serves one.
+    fn corpus() -> Vec<Value> {
+        let year = |at: i64, prefix: &'static str, count: i64| {
+            (0..count).map(move |n| {
+                let when = at + n * DAY;
+                review(&format!("{prefix}{n}"), when, when)
+            })
+        };
+        let mut reviews: Vec<Value> = year(1_400_000_000, "early-", 40)
+            .chain(year(1_710_000_000, "late-", 30))
+            .collect();
+        reviews.push(review(
+            "late-4",
+            1_710_000_000 + 4 * DAY,
+            1_710_000_000 + 4 * DAY,
+        ));
+        reviews
+    }
+
+    fn client_of(server: &stand_in::Server) -> SteamClient {
+        SteamClient::new(Duration::ZERO)
+            .unwrap()
+            .with_store(&server.origin())
+    }
+
+    fn options(out_dir: &std::path::Path) -> CrawlOptions {
+        CrawlOptions {
+            out_dir: out_dir.to_path_buf(),
+            concurrency: 2,
+            shard_target: 40,
+            resume: true,
+        }
+    }
+
+    fn ids_in(snapshot: &std::path::Path) -> HashSet<String> {
+        let mut ids = HashSet::new();
+        crate::capture::for_each_body(snapshot, |id, _, _| {
+            ids.insert(id.to_owned());
+            Ok(())
+        })
+        .unwrap();
+        ids
+    }
+
+    fn facts(dir: &std::path::Path) -> Value {
+        serde_json::from_slice(&std::fs::read(dir.join("crawl.json")).unwrap()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_crawl_captures_every_review_once_and_records_what_it_found() {
+        let out = crate::tempdir::Dir::new();
+        let server = stand_in::Server::new(valve(corpus(), None, 0));
+        let mut done = Vec::new();
+        let before = now_unix();
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |progress| {
+            done.push((progress.shards_done, progress.shards_total));
+        })
+        .await
+        .unwrap();
+        let after = now_unix();
+
+        assert_eq!(report.name, "A Game");
+        assert_eq!(
+            (report.shards, report.unique, report.valve_total),
+            (2, 70, 70)
+        );
+        assert_eq!(report.duplicates_this_run, 1);
+        assert!(report.complete && !report.resumed);
+        assert_eq!((report.shards_restarted, report.shards_short), (0, 0));
+        assert_eq!(done, [(1, 2), (2, 2)]);
+
+        let stamp: i64 = report
+            .dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.strip_prefix("snapshot="))
+            .and_then(|stamp| stamp.parse().ok())
+            .unwrap();
+        assert!((before..=after).contains(&stamp), "{stamp}");
+        assert_eq!(
+            report.dir,
+            out.path()
+                .join(format!("appid={APP}"))
+                .join(format!("snapshot={stamp}"))
+        );
+        assert_eq!(ids_in(&report.dir).len(), 70);
+        let facts = facts(&report.dir);
+        assert_eq!(facts["rows_unique"], 70);
+        assert_eq!(facts["complete"], true);
+        assert_eq!(facts["name"], "A Game");
+    }
+
+    #[tokio::test]
+    async fn a_window_steam_stops_serving_early_is_walked_again() {
+        let out = crate::tempdir::Dir::new();
+        let server = stand_in::Server::new(valve(corpus(), Some(shard::CORPUS_EPOCH), 1));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!((report.shards_restarted, report.shards_short), (1, 0));
+        assert!(report.complete);
+        assert_eq!(report.unique, 70);
+    }
+
+    #[tokio::test]
+    async fn a_window_still_short_after_every_walk_is_left_for_the_next_run_to_finish() {
+        let out = crate::tempdir::Dir::new();
+        let stalling = stand_in::Server::new(valve(corpus(), Some(shard::CORPUS_EPOCH), 3));
+        let first = crawl(&client_of(&stalling), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!((first.shards_restarted, first.shards_short), (1, 1));
+        assert!(!first.complete);
+        assert!(!first.resumed);
+        assert_eq!(facts(&first.dir)["complete"], false);
+
+        let serving = stand_in::Server::new(valve(corpus(), None, 0));
+        let second = crawl(&client_of(&serving), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert!(second.resumed && second.complete);
+        assert_eq!(
+            second.dir, first.dir,
+            "a resumed crawl lands beside the first"
+        );
+        assert_eq!(
+            second.shards, 1,
+            "only the unfinished window is walked again"
+        );
+        assert_eq!(second.unique, 70);
+        assert_eq!(ids_in(&second.dir).len(), 70);
+    }
+
+    const WATERMARK: i64 = 1_700_000_000;
+
+    /// A capture of two reviews, crawled at [`WATERMARK`], as a sweep finds it.
+    fn captured(out: &std::path::Path, facts: &Value) -> std::path::PathBuf {
+        let dir = out
+            .join(format!("appid={APP}"))
+            .join(format!("snapshot={WATERMARK}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut writer = CaptureWriter::create(&dir.join("shard-0000.parquet"), APP).unwrap();
+        let (one, two) = (review("r1", 500, 500), review("r2", 600, 600));
+        writer.write(&[&one, &two]).unwrap();
+        writer.close().unwrap();
+        write_facts(&dir, facts).unwrap();
+        dir
+    }
+
+    /// Steam answering a sweep: `pages` in last-edit order, and `total` as the corpus's size.
+    fn edits(
+        pages: Vec<Vec<Value>>,
+        total: usize,
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        move |asked| {
+            if asked.path() == "/api/appdetails" {
+                return name_of_the_game("A Game");
+            }
+            if asked.param("num_per_page") == Some("0") {
+                return summary_of(total);
+            }
+            assert_eq!(asked.param("filter"), Some("updated"));
+            let at = offset(asked);
+            let next = if at < pages.len() { at + 1 } else { at };
+            stand_in::Answer::json(&json!({
+                "success": 1,
+                "reviews": pages.get(at).cloned().unwrap_or_default(),
+                "cursor": format!("at{next}"),
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sweep_brings_in_what_was_written_or_edited_since_the_watermark() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2, "name": "A Game"}),
+        );
+        // Written while the sweep before this one was walking, and fetched by it.
+        let mut newest = crate::capture::Newest::default();
+        newest.record("r9", WATERMARK + 2, WATERMARK);
+        newest.save(&dir).unwrap();
+        std::fs::write(dir.join("sweep-1.parquet.partial"), b"stopped").unwrap();
+        std::fs::write(dir.join("sweep-2.parquet"), b"finished").unwrap();
+
+        let w = WATERMARK;
+        let pages = vec![
+            vec![
+                review("r3", w + 50, w + 50),
+                review("r9", w + 2, w + 30),
+                review("r1", 500, w + 10),
+            ],
+            vec![review("r4", w, w), review("r3", w + 50, w + 50)],
+            // Exactly a day behind the watermark is still inside the slack.
+            vec![review("r2", 600, w - DAY)],
+            // Out of order, as Valve's last-edit order sometimes is.
+            vec![review("r5", w + 5, w + 5), review("r6", 100, w - 2 * DAY)],
+            vec![review("r7", 100, w - 3 * DAY)],
+            vec![review("r8", w + 7, w + 7)],
+        ];
+        let server = stand_in::Server::new(edits(pages, 10));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        let before = now_unix();
+        let report = sweep(&client_of(&server), APP, out.path(), &stop, |_| {})
+            .await
+            .unwrap();
+        let after = now_unix();
+
+        assert!((before..=after).contains(&report.started));
+        assert_eq!(report.watermark, WATERMARK);
+        assert_eq!(report.stop, StopReason::Exhausted);
+        assert_eq!(
+            report.pages, 5,
+            "the walk stops once a page is a day behind"
+        );
+        assert_eq!((report.rows, report.new, report.edited), (5, 3, 2));
+        assert_eq!((report.unique, report.valve_total), (5, 10));
+        assert_eq!(report.coverage(), Some(0.5));
+
+        let swept = dir.join(crate::capture::sweep_file(report.started));
+        assert!(swept.exists());
+        assert!(!dir.join("sweep-1.parquet.partial").exists());
+        assert!(dir.join("sweep-2.parquet").exists());
+        assert!(
+            crate::capture::Newest::load(&dir)
+                .unwrap()
+                .copies
+                .contains_key("r3")
+        );
+        let facts = facts(&dir);
+        assert_eq!(facts["swept_unix"], report.started);
+        assert_eq!(facts["sweeps"], 1);
+        assert_eq!(facts["rows_swept"], 5);
+        assert_eq!(facts["rows_unique"], 5);
+        assert_eq!(facts["valve_total_reviews"], 10);
+        assert_eq!(facts["coverage"], 0.5);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_that_finds_nothing_new_leaves_no_file_but_counts_as_a_sweep() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": 1, "swept_unix": WATERMARK, "sweeps": 2, "name": "A Game"}),
+        );
+        let pages = vec![vec![review("r1", 500, WATERMARK - 2 * DAY)]];
+        let server = stand_in::Server::new(edits(pages, 2));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        let report = sweep(&client_of(&server), APP, out.path(), &stop, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(
+            report.watermark, WATERMARK,
+            "the last sweep is the watermark"
+        );
+        assert_eq!(report.rows, 0);
+        assert!(
+            !dir.join(crate::capture::sweep_file(report.started))
+                .exists()
+        );
+        assert!(!dir.join(crate::capture::Newest::FILE).exists());
+        assert_eq!(facts(&dir)["sweeps"], 3);
+    }
+
+    #[tokio::test]
+    async fn a_name_is_asked_for_only_where_the_capture_has_none_and_kept() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(out.path(), &json!({"snapshot_unix": WATERMARK}));
+        let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
+        let named = name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        assert_eq!(named.as_deref(), Some("A Game"));
+        assert_eq!(facts(&dir)["name"], "A Game");
+
+        let asked = store.asked().len();
+        let again = name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        assert_eq!(again, None);
+        assert_eq!(
+            store.asked().len(),
+            asked,
+            "a capture with a name asks nobody"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_blank_name_from_the_store_is_not_kept() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(out.path(), &json!({"snapshot_unix": WATERMARK}));
+        let store = stand_in::Server::new(|_| name_of_the_game(" "));
+        let named = name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        assert_eq!(named, None);
+        assert!(facts(&dir).get("name").is_none());
     }
 }

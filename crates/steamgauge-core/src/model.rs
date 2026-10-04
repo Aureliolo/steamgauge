@@ -453,6 +453,15 @@ pub fn release_number(tag: &str) -> Option<u32> {
         .flatten()
 }
 
+/// What every tokenizer here is cut at: `max_length` tokens, whatever the file it was read from
+/// says.
+pub(crate) fn cut_at(max_length: usize) -> tokenizers::TruncationParams {
+    tokenizers::TruncationParams {
+        max_length,
+        ..tokenizers::TruncationParams::default()
+    }
+}
+
 pub(crate) fn client() -> Result<reqwest::Client> {
     Ok(crate::http::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))

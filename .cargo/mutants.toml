@@ -30,4 +30,9 @@ exclude_re = [
   # A Debug written by hand says less than a derived one would, to keep a model's megabytes out
   # of a log line; what it prints is for a person reading that line, and nothing reads it back.
   'replace <impl std::fmt::Debug for [A-Za-z]+>::fmt -> std::fmt::Result with ',
+  # Waiting until a moment that is already now and not waiting are the same wait.
+  'src[/\\]api\.rs:.*: replace > with >= in SteamClient::wait_turn$',
+  # A text's vector does not depend on what it is batched with, which is what the encoders were
+  # chosen for, so where one batch ends changes how long the reviews take and nothing else.
+  'src[/\\]embed\.rs:.*: replace >= with < in embed_reviews$',
 ]
