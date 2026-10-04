@@ -1199,6 +1199,7 @@ mod tests {
         let bad = embedder.embed(&texts(&["bad"])).unwrap().remove(0);
         let good = embedder.embed(&texts(&["good"])).unwrap().remove(0);
         let centroid = corpus_centroid(out.path(), APP).unwrap();
+        assert_eq!(centroid.len(), 384);
         for (dim, value) in centroid.iter().enumerate() {
             let expected = (good_game[dim] + bad[dim] + good[dim]) / 3.0;
             assert!(
@@ -1327,7 +1328,8 @@ mod tests {
         // an interrupted restart leaves an empty directory stamped later than the corpus it
         // was replacing. Age alone would pick the empty one and every later command would
         // report a corpus that is not there.
-        let root = std::env::temp_dir().join("steamgauge-snapshot-precedence");
+        let scratch = crate::tempdir::Dir::new();
+        let root = scratch.path();
         let app = root.join("appid=1");
         let complete = app.join("snapshot=100");
         let abandoned = app.join("snapshot=200");
@@ -1335,17 +1337,15 @@ mod tests {
         std::fs::create_dir_all(&abandoned).unwrap();
         std::fs::write(complete.join("shard-0000.parquet"), b"not really parquet").unwrap();
 
-        assert_eq!(latest_snapshot(&root, 1).unwrap(), complete);
+        assert_eq!(latest_snapshot(root, 1).unwrap(), complete);
 
         // A crawl opens each shard's file before it fetches anything, so an interrupted one
         // leaves empty shards behind. Those are not a corpus either.
         std::fs::write(abandoned.join("shard-0000.parquet"), b"").unwrap();
-        assert_eq!(latest_snapshot(&root, 1).unwrap(), complete);
+        assert_eq!(latest_snapshot(root, 1).unwrap(), complete);
 
         // Once the restart writes a shard with something in it, it does take precedence.
         std::fs::write(abandoned.join("shard-0000.parquet"), b"not really parquet").unwrap();
-        assert_eq!(latest_snapshot(&root, 1).unwrap(), abandoned);
-
-        std::fs::remove_dir_all(&root).ok();
+        assert_eq!(latest_snapshot(root, 1).unwrap(), abandoned);
     }
 }
