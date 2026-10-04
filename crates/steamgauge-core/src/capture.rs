@@ -1177,7 +1177,9 @@ mod tests {
         let wanted: std::collections::HashSet<String> = ["1", "3"].map(str::to_owned).into();
         let fetched = reviews_for(dir, &wanted).unwrap();
         assert_eq!(fetched["1"].text, "fixed now, runs fine");
-        assert_eq!(texts_for(dir, &wanted).unwrap()["3"], "arrived later");
+        let texts = texts_for(dir, &wanted).unwrap();
+        assert_eq!(texts["1"], "fixed now, runs fine");
+        assert_eq!(texts["3"], "arrived later");
 
         let kept = rows_kept(dir, |row, text| {
             Some((row.recommendationid, text.to_owned()))
@@ -1276,6 +1278,98 @@ mod tests {
         .unwrap();
         assert_eq!(rows, 2);
         assert!(Newest::load(&scratch.0).unwrap().copies.is_empty());
+    }
+
+    #[test]
+    fn a_writer_counts_the_reviews_it_has_written() {
+        let scratch = Scratch::new("rows");
+        let mut writer = CaptureWriter::create(&scratch.0.join("shard-0000.parquet"), 1).unwrap();
+        assert_eq!(writer.rows(), 0);
+        let (one, two) = (review("1", "one", 1, 1), review("2", "two", 2, 2));
+        writer.write(&[&one, &two]).unwrap();
+        writer.write(&[]).unwrap();
+        assert_eq!(writer.rows(), 2);
+        assert_eq!(writer.close().unwrap(), 2);
+    }
+
+    #[test]
+    fn a_review_without_words_is_given_by_no_reader() {
+        let scratch = Scratch::new("wordless");
+        let mut silent = review("2", "", 1, 1);
+        silent.as_object_mut().unwrap().remove("review");
+        write(
+            &scratch.0.join("shard-0000.parquet"),
+            &[review("1", "fine", 1, 1), silent, review("3", "   ", 1, 1)],
+        );
+        let wanted: std::collections::HashSet<String> = ["1", "2"].map(str::to_owned).into();
+
+        let mut rows = Vec::new();
+        for_each_row(&scratch.0, |row, _| {
+            rows.push(row.recommendationid);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(rows, ["1"], "a blank review is no row");
+        assert_eq!(
+            texts_for(&scratch.0, &wanted)
+                .unwrap()
+                .into_keys()
+                .collect::<Vec<_>>(),
+            ["1"]
+        );
+        assert_eq!(
+            reviews_for(&scratch.0, &wanted)
+                .unwrap()
+                .into_keys()
+                .collect::<Vec<_>>(),
+            ["1"]
+        );
+        assert_eq!(
+            facts_for(&scratch.0, &wanted)
+                .unwrap()
+                .into_keys()
+                .collect::<Vec<_>>(),
+            ["1"]
+        );
+    }
+
+    #[test]
+    fn a_review_recommends_the_game_only_where_it_says_so() {
+        let scratch = Scratch::new("recommends");
+        let mut against = review("2", "no", 1, 1);
+        against["voted_up"] = json!(false);
+        let mut unsaid = review("3", "maybe", 1, 1);
+        unsaid.as_object_mut().unwrap().remove("voted_up");
+        write(
+            &scratch.0.join("shard-0000.parquet"),
+            &[review("1", "yes", 1, 1), against, unsaid],
+        );
+
+        let mut rows = Vec::new();
+        for_each_row(&scratch.0, |row, _| {
+            rows.push((row.recommendationid, row.voted_up));
+            Ok(())
+        })
+        .unwrap();
+        let expected = [
+            ("1".to_owned(), true),
+            ("2".to_owned(), false),
+            ("3".to_owned(), false),
+        ];
+        assert_eq!(rows, expected);
+
+        let wanted: std::collections::HashSet<String> = ["1", "2", "3"].map(str::to_owned).into();
+        let fetched = reviews_for(&scratch.0, &wanted).unwrap();
+        for (id, recommends) in expected {
+            assert_eq!(fetched[&id].voted_up, recommends, "review {id}");
+        }
+    }
+
+    #[test]
+    fn a_record_of_copies_that_cannot_be_read_is_an_error_rather_than_none() {
+        let scratch = Scratch::new("unreadable");
+        std::fs::create_dir(scratch.0.join(Newest::FILE)).unwrap();
+        assert!(Newest::load(&scratch.0).is_err());
     }
 
     #[test]

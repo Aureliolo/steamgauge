@@ -527,8 +527,9 @@ enum Markup {
 /// or right after a sentence ended, it is the heading it looks like. Markup does not count
 /// as written: a heading straight after `[/list]` is still the first thing on its line.
 fn opens_a_heading(text: &str, start: usize, at: usize) -> bool {
-    let line_start = text[..at].rfind('\n').map_or(0, |index| index + 1);
-    let written = without_markup(&text[start.max(line_start)..at]);
+    let since = &text[start..at];
+    let on_this_line = since.rsplit('\n').next().unwrap_or(since);
+    let written = without_markup(on_this_line);
     let written = written.trim_end();
     written.is_empty() || written.ends_with(TERMINATORS)
 }
@@ -859,16 +860,18 @@ fn abbreviates(text: &str, at: usize) -> bool {
 }
 
 /// Whether a full stop is a decimal point rather than the end of a thought, as in "9.5/10"
-/// and "1.6 patch".
+/// and "1.6 patch". Not covered by [`continues_a_word`]: a numeral can be a capital as well,
+/// as "Ⅷ" is, which that would read as the next sentence starting.
 fn continues_a_number(text: &str, at: usize) -> bool {
     let before = text[..at].chars().next_back().is_some_and(char::is_numeric);
     let after = text[at + 1..].chars().next().is_some_and(char::is_numeric);
     before && after
 }
 
-/// Whether a full stop with no space after it sits inside a word, "example.com", "v1.2b",
-/// rather than between two sentences a reviewer typed without a space, "great game.Would
-/// recommend". A capital straight after the stop is the second kind, and it is common.
+/// Whether a full stop with no space after it sits inside a word or a number, "example.com",
+/// "v1.2b", "9.5/10", rather than between two sentences a reviewer typed without a space,
+/// "great game.Would recommend". A capital straight after the stop is the second kind, and it
+/// is common; a digit is never a capital, so a decimal point always carries on.
 ///
 /// A lowercase letter after a stop and a space is not a reason to keep going. It once was, to
 /// protect abbreviations, and what it protected instead was every reviewer who never touches
@@ -1987,6 +1990,15 @@ mod tests {
         );
     }
 
+    /// A stop between two numerals is inside a number even when the second is also a capital,
+    /// as a Roman numeral is, glued to a title.
+    #[test]
+    fn a_stop_between_two_numerals_stays_inside_the_number_when_the_second_is_a_capital() {
+        let review = "The combat system in the original release of FFⅦ.Ⅷ is where the \
+                      story finally finds its footing and the pacing picks up.";
+        assert_eq!(split(review), vec![review]);
+    }
+
     /// A digit straight after the mark is a number carrying on rather than a list. Taken for
     /// one, "9.5/10" comes back as "5/10" and "1:30" as "30".
     #[test]
@@ -2108,6 +2120,242 @@ mod tests {
             i64::try_from(report.claims).unwrap(),
             "every claim counted is a row beside the capture"
         );
+    }
+
+    #[test]
+    fn a_full_stop_straight_after_a_tag_still_ends_the_sentence() {
+        assert_eq!(
+            split("The story is [b]superb[/b]. The combat is dull and repetitive though."),
+            vec![
+                "The story is superb.",
+                "The combat is dull and repetitive though."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_terminator_inside_a_tag_is_part_of_the_tag() {
+        assert_eq!(
+            split("The combat is good [url=store?page=2]and the story is great[/url] honestly."),
+            vec!["The combat is good and the story is great honestly."]
+        );
+    }
+
+    #[test]
+    fn a_closed_aside_lets_the_sentence_after_it_end() {
+        assert_eq!(
+            split("The game (despite its bugs) is fun. The story is weak and too short."),
+            vec![
+                "The game (despite its bugs) is fun.",
+                "The story is weak and too short."
+            ]
+        );
+        assert_eq!(
+            split(
+                "The game \u{FF08}despite its bugs\u{FF09} is fun. The story is weak and too short."
+            )
+            .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_full_stop_inside_paired_quotation_marks_ends_the_quotation_only() {
+        assert_eq!(
+            split("He said \u{201C}It runs well. Trust me\u{201D} and he was wrong about it."),
+            vec!["He said \u{201C}It runs well. Trust me\u{201D} and he was wrong about it."]
+        );
+        assert_eq!(
+            split("\u{00AB}It runs well. Trust me,\u{00BB} he said. The combat is dull and slow."),
+            vec![
+                "\u{00AB}It runs well. Trust me,\u{00BB} he said.",
+                "The combat is dull and slow."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_claim_is_the_text_as_the_reviewer_wrote_it_line_breaks_and_all() {
+        let review = "The menus are slow,\r\nand the map is unreadable.";
+        let claims = split(review);
+        assert_eq!(claims, vec![review]);
+        assert!(matches!(claims[0], std::borrow::Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn a_form_nobody_ticked_is_prose_with_its_options_dropped() {
+        assert_eq!(
+            split(
+                "\u{2610} Bad\n\u{2610} Okay\n\u{2610} Good\nThe combat is dull and slow. The story is not much better either.\n"
+            ),
+            vec![
+                "The combat is dull and slow.",
+                "The story is not much better either."
+            ]
+        );
+    }
+
+    #[test]
+    fn three_options_with_one_ticked_are_a_template() {
+        assert_eq!(
+            split("Graphics:\n\u{2610} Bad\n\u{2611} Good\n\u{2610} Great\n"),
+            vec!["Graphics:\n\u{2611} Good"]
+        );
+    }
+
+    #[test]
+    fn a_drawn_line_in_a_template_heads_nothing_and_says_nothing() {
+        let review = "Graphics:\n=====\n\u{2610} Bad\n\u{2611} Good\n=====\nAudio:\n\u{2610} Bad\n\u{2611} Good\n";
+        let claims = claims_of(review);
+        let said: Vec<&str> = claims.iter().map(|(_, claim)| claim.as_ref()).collect();
+        assert_eq!(said, ["Graphics:\n\u{2611} Good", "Audio:\n\u{2611} Good"]);
+        assert_eq!(claims[1].0.start, review.find("Audio").unwrap());
+        assert!(is_a_drawn_line("  =====  "));
+        assert!(!is_a_drawn_line("="), "one mark is a mark, not a line");
+        assert!(!is_a_drawn_line("== 10/10 =="));
+        assert!(!is_a_drawn_line("   "));
+    }
+
+    #[test]
+    fn emoticons_after_a_full_stop_stay_with_the_sentence_they_follow() {
+        assert_eq!(
+            split("Great fun. :D :) If you like Vermintide you will like this one."),
+            vec![
+                "Great fun. :D :)",
+                "If you like Vermintide you will like this one."
+            ]
+        );
+    }
+
+    #[test]
+    fn an_emoticon_is_a_few_marks_with_one_letter_at_most_and_never_a_letter_alone() {
+        for face in [":D", "<3", "^^", ":)", "xD", "D:"] {
+            assert!(is_an_emoticon(face), "{face}");
+        }
+        for words in ["A", "ok", "ok!", "wow!", "", ":-) :-)"] {
+            assert!(!is_an_emoticon(words), "{words}");
+        }
+    }
+
+    #[test]
+    fn a_heading_opened_after_a_line_ending_on_a_comma_is_still_a_heading() {
+        assert_eq!(
+            split("I liked the art and the music,\n[h1]Cons[/h1]\nThe menus are slow and ugly."),
+            vec![
+                "I liked the art and the music",
+                "Cons\nThe menus are slow and ugly."
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_markup_between_a_question_and_its_answer_does_not_part_them() {
+        assert_eq!(
+            split(
+                "Do you want to see your objectives?\n[b][/b]\nTop left.\nThe menus are a disaster to navigate."
+            ),
+            vec![
+                "Do you want to see your objectives?\n\nTop left.",
+                "The menus are a disaster to navigate."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_question_mark_inside_a_web_address_ends_nothing() {
+        for review in [
+            "Read https://example.com/news?id=7 for the full list of changes in this patch.",
+            "Go to www.example.com/news?id=7 for the full list of changes in this patch.",
+        ] {
+            assert_eq!(split(review), vec![review]);
+        }
+    }
+
+    #[test]
+    fn the_number_of_a_list_item_is_not_a_sentence() {
+        assert_eq!(
+            split(
+                "Is it worth buying at full price today?\n1. The interface is unusable and slow."
+            ),
+            vec![
+                "Is it worth buying at full price today?",
+                "The interface is unusable and slow."
+            ]
+        );
+        assert_eq!(
+            split("[h1]Cons[/h1]\n1. Too slow. The menus are a disaster to navigate."),
+            vec![
+                "Cons\n1. Too slow.",
+                "The menus are a disaster to navigate."
+            ]
+        );
+    }
+
+    #[test]
+    fn markup_weighs_nothing_and_a_character_of_a_dense_script_weighs_three() {
+        assert_eq!(weight("Cons"), 4);
+        assert_eq!(weight("[h1]Cons[/h1]"), 4);
+        assert_eq!(weight("\u{753B}\u{9762}"), 2 * DENSE_CHARACTER);
+        assert_eq!(weight(""), 0);
+    }
+
+    #[test]
+    fn a_piece_of_exactly_the_least_weight_is_a_claim_of_its_own() {
+        assert_eq!(weight("Fun as hell."), MIN_CLAIM_WEIGHT);
+        assert_eq!(
+            split("Fun as hell. The menus are a disaster to navigate."),
+            vec!["Fun as hell.", "The menus are a disaster to navigate."]
+        );
+        assert_eq!(
+            split("Pros:\nFun as hell. The menus are a disaster to navigate."),
+            vec![
+                "Pros:\nFun as hell.",
+                "The menus are a disaster to navigate."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_review_with_nothing_to_split_is_counted_as_empty() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join("appid=1").join("snapshot=5");
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+        let reviews = [
+            serde_json::json!({"recommendationid": "1", "review": "Fun. The menus are a disaster.", "language": "english"}),
+            serde_json::json!({"recommendationid": "2", "review": "(\u{256F}\u{00B0}\u{25A1}\u{00B0})", "language": "english"}),
+        ];
+        writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        let report = extract_corpus(out.path(), 1, |_, _| {}).unwrap();
+        assert_eq!((report.reviews, report.empty), (2, 1));
+    }
+
+    #[test]
+    fn progress_is_told_once_for_every_batch_of_claims_written() {
+        // Two claims a review: the batch fills at the 8,192nd review and not before.
+        let out = crate::tempdir::Dir::new();
+        let snapshot = out.path().join("appid=1").join("snapshot=5");
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
+        let reviews: Vec<serde_json::Value> = (0..9_000)
+            .map(|id| {
+                serde_json::json!({
+                    "recommendationid": id.to_string(),
+                    "review": "The combat is fun. The menus are a disaster.",
+                    "language": "english",
+                })
+            })
+            .collect();
+        writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        let mut told = Vec::new();
+        let report = extract_corpus(out.path(), 1, |reviews, claims| {
+            told.push((reviews, claims));
+        })
+        .unwrap();
+        assert_eq!(told, [(8_192, 16_384)]);
+        assert_eq!(report.claims, 18_000);
     }
 
     #[test]

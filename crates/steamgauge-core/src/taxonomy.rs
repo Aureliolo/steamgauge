@@ -1185,6 +1185,47 @@ mod tests {
     }
 
     #[test]
+    fn a_category_is_embedded_as_its_label_and_its_description() {
+        let bugs = by_id("bugs").unwrap();
+        assert_eq!(
+            embedding_text(bugs),
+            format!("{}. {}", bugs.label, bugs.description)
+        );
+    }
+
+    #[test]
+    fn the_categories_recorded_are_every_id_on_the_sheet_in_its_order() {
+        let ids: Vec<&str> = SHEET.iter().map(|category| category.id).collect();
+        assert_eq!(categories(), ids);
+        assert!(categories_still_mean(&categories()));
+    }
+
+    #[test]
+    fn a_mismatch_names_the_categories_each_side_lacks() {
+        let mut was = categories();
+        let dropped = was.remove(0);
+        assert_eq!(categories_differ(&was), format!("missing {dropped}"));
+        assert!(!categories_still_mean(&was));
+
+        was.push("weather".to_owned());
+        assert_eq!(
+            categories_differ(&was),
+            format!("without weather, missing {dropped}")
+        );
+
+        was.push(dropped);
+        assert_eq!(categories_differ(&was), "without weather");
+
+        was.retain(|id| id != "weather");
+        was.reverse();
+        assert!(categories_still_mean(&was));
+        assert_eq!(
+            categories_differ(&was),
+            "the same categories in another order"
+        );
+    }
+
+    #[test]
     fn every_boundary_rule_names_a_category_that_exists() {
         let ids: HashSet<&str> = SHEET.iter().map(|c| c.id).collect();
         for category in SHEET {
@@ -1296,9 +1337,10 @@ mod tests {
         // tool, which makes it capable of drifting from the taxonomy it claims to describe.
         // A reference set labelled against a stale sheet is silently mislabelled, and the
         // first set produced by this project lost consistency exactly that way.
-        for (file, unit) in [
-            ("labelling-brief.txt", Unit::Review),
-            ("claim-brief.txt", Unit::Claim),
+        for (file, brief) in [
+            ("labelling-brief.txt", labelling_brief(Unit::Review)),
+            ("claim-brief.txt", labelling_brief(Unit::Claim)),
+            ("induction-brief.txt", induction_brief()),
         ] {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../reference")
@@ -1307,7 +1349,7 @@ mod tests {
                 .unwrap_or_else(|e| panic!("{} is missing: {e}", path.display()));
             assert_eq!(
                 committed.replace("\r\n", "\n"),
-                labelling_brief(unit),
+                brief,
                 "reference/{file} is stale; regenerate it with `steamgauge brief`"
             );
         }

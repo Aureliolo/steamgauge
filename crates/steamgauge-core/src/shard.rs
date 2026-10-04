@@ -39,6 +39,22 @@ pub async fn plan(
     to: i64,
     target: u64,
 ) -> Result<Vec<Shard>> {
+    plan_by(
+        |window| client.count(app_id, Some(window)),
+        from,
+        to,
+        target,
+    )
+    .await
+}
+
+/// [`plan`] over any count of the reviews in a window, which is what lets it be tested
+/// without Valve.
+async fn plan_by<F, C>(mut count: C, from: i64, to: i64, target: u64) -> Result<Vec<Shard>>
+where
+    C: FnMut((i64, i64)) -> F,
+    F: Future<Output = Result<u64>>,
+{
     let mut shards = Vec::new();
     let mut pending = vec![(from, to)];
 
@@ -46,7 +62,7 @@ pub async fn plan(
         if start > end {
             continue;
         }
-        let expected = client.count(app_id, Some((start, end))).await?;
+        let expected = count((start, end)).await?;
 
         // An empty window yields no shard at all, so sparse history costs one probe rather
         // than a crawl that fetches nothing.
@@ -110,6 +126,96 @@ mod tests {
         assert!(is_disjoint(&[shard(start, mid, 1), shard(mid + 1, end, 1)]));
         // Every second in the original range still belongs to exactly one half.
         assert_eq!((mid - start + 1) + (end - (mid + 1) + 1), end - start + 1);
+    }
+
+    const DAY: i64 = MIN_WINDOW_SECS;
+
+    /// Plans over reviews posted at `times`, counting them the way Valve would, and says which
+    /// windows were asked about.
+    fn planned(times: &[i64], from: i64, to: i64, target: u64) -> (Vec<Shard>, Vec<(i64, i64)>) {
+        let mut asked = Vec::new();
+        let shards = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(plan_by(
+                |(start, end)| {
+                    asked.push((start, end));
+                    let held = times.iter().filter(|&&t| start <= t && t <= end).count();
+                    std::future::ready(Ok(held as u64))
+                },
+                from,
+                to,
+                target,
+            ))
+            .unwrap();
+        (shards, asked)
+    }
+
+    #[test]
+    fn a_window_over_the_target_is_halved_until_each_half_holds_few_enough() {
+        // Two reviews a day for eight days, and a target of one: halving goes all the way down
+        // to single days, which are kept over the target because no smaller window is tried.
+        let times: Vec<i64> = (0..8).flat_map(|day| [day * DAY, day * DAY + 5]).collect();
+        let (shards, _) = planned(&times, 0, 8 * DAY - 1, 1);
+        let days: Vec<Shard> = (0..8)
+            .map(|day| shard(day * DAY, (day + 1) * DAY - 1, 2))
+            .collect();
+        assert_eq!(shards, days);
+    }
+
+    #[test]
+    fn a_window_holding_exactly_the_target_is_kept_whole() {
+        let times = [0, DAY, 2 * DAY, 3 * DAY];
+        let (shards, asked) = planned(&times, 0, 4 * DAY, 4);
+        assert_eq!(shards, [shard(0, 4 * DAY, 4)]);
+        assert_eq!(asked, [(0, 4 * DAY)]);
+    }
+
+    #[test]
+    fn a_window_of_a_day_is_kept_however_many_it_holds() {
+        let (shards, asked) = planned(&[0, 1, 2], 0, DAY, 1);
+        assert_eq!(shards, [shard(0, DAY, 3)]);
+        assert_eq!(asked.len(), 1);
+    }
+
+    #[test]
+    fn a_window_just_over_a_day_is_still_halved() {
+        let (shards, _) = planned(&[0, DAY + 1], 0, DAY + 1, 1);
+        assert_eq!(
+            shards,
+            [shard(0, DAY / 2, 1), shard(DAY / 2 + 1, DAY + 1, 1)]
+        );
+    }
+
+    #[test]
+    fn an_empty_window_costs_one_probe_and_yields_no_shard() {
+        // Everything in the second half: the first half is asked about once and dropped.
+        let (shards, asked) = planned(&[5 * DAY, 6 * DAY], 0, 8 * DAY - 1, 1);
+        assert_eq!(
+            shards,
+            [
+                shard(4 * DAY, 6 * DAY - 1, 1),
+                shard(6 * DAY, 8 * DAY - 1, 1)
+            ]
+        );
+        assert!(asked.contains(&(0, 4 * DAY - 1)));
+        assert!(
+            !asked
+                .iter()
+                .any(|&(start, _)| (1..4 * DAY).contains(&start))
+        );
+    }
+
+    #[test]
+    fn a_range_of_one_second_is_a_window_and_a_backward_range_is_none() {
+        let (shards, _) = planned(&[7], 7, 7, 10);
+        assert_eq!(shards, [shard(7, 7, 1)]);
+        let (shards, asked) = planned(&[7], 8, 7, 10);
+        assert!(shards.is_empty());
+        assert!(
+            asked.is_empty(),
+            "nothing lies in a backward range to ask about"
+        );
     }
 
     #[test]
