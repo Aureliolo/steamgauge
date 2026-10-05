@@ -356,7 +356,14 @@ try {
       document.querySelector('[data-go="library"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
       var frame = document.querySelector('#library .table-wrap');
-      return frame.scrollWidth <= frame.clientWidth + 1;
+      var fits = frame.scrollWidth <= frame.clientWidth + 1;
+      // Another system's fonts set the same columns wider; text spaced out stands in for them.
+      document.querySelector('table.games').style.letterSpacing = '0.12em';
+      document.querySelector('[data-go="library"]').click();
+      await new Promise(function (done) { setTimeout(done, 250); });
+      fits = fits && frame.scrollWidth <= frame.clientWidth + 1;
+      document.querySelector('table.games').style.letterSpacing = '';
+      return fits;
     })()`);
     if (fits.result?.result?.value !== true) sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
   }

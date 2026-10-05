@@ -2664,79 +2664,79 @@ label.option:has(input:focus-visible) {
 
 /* Narrow windows: one column, less air. */
 
-/* Past the width the library's seven columns need, each game becomes a card: its name and
-   pills on top, its figures labelled beneath, and what moved across the foot. */
-@media (max-width: 1180px) {
-  table.games,
-  table.games thead,
-  table.games tbody {
-    display: block;
-  }
+/* When the library's seven columns do not fit its frame, each game becomes a card: its name and
+   pills on top, its figures labelled beneath, and what moved across the foot. Whether they fit
+   is measured, not guessed from the window's width, because the same columns are wider in one
+   system's fonts than another's. */
+table.games.cards,
+table.games.cards thead,
+table.games.cards tbody {
+  display: block;
+}
 
-  table.games tr {
-    display: grid;
-    grid-template-columns: 44px repeat(4, minmax(0, 1fr));
-    align-items: start;
-  }
+table.games.cards tr {
+  display: grid;
+  grid-template-columns: 44px repeat(4, minmax(0, 1fr));
+  align-items: start;
+}
 
-  table.games thead th:nth-child(n + 3) {
-    display: none;
-  }
+table.games.cards thead th:nth-child(n + 3) {
+  display: none;
+}
 
-  table.games thead th:nth-child(2) {
-    grid-column: 2 / -1;
-  }
+table.games.cards thead th:nth-child(2) {
+  grid-column: 2 / -1;
+}
 
-  table.games tbody tr {
-    padding: var(--s2) 0;
-    border-bottom: 1px solid var(--line);
-  }
+table.games.cards tbody tr {
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+}
 
-  table.games tbody tr:last-child {
-    border-bottom: 0;
-  }
+table.games.cards tbody tr:last-child {
+  border-bottom: 0;
+}
 
-  table.games tbody td {
-    padding-top: var(--s1);
-    padding-bottom: var(--s1);
-    border-bottom: 0;
-    text-align: left;
-  }
+table.games.cards tbody td {
+  padding-top: var(--s1);
+  padding-bottom: var(--s1);
+  border-bottom: 0;
+  text-align: left;
+}
 
-  table.games tbody td.tick {
-    grid-row: 1 / span 3;
-    padding-top: var(--s3);
-  }
+table.games.cards tbody td.tick {
+  grid-row: 1 / span 3;
+  padding-top: var(--s3);
+}
 
-  table.games tbody td:nth-child(2) {
-    grid-column: 2 / -1;
-  }
+table.games.cards tbody td:nth-child(2) {
+  grid-column: 2 / -1;
+}
 
-  table.games tbody td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    color: var(--ink-3);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
+table.games.cards tbody td[data-label]::before {
+  content: attr(data-label);
+  display: block;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
-  table.games tbody td.lately-cell {
-    grid-column: 2 / -1;
-  }
+table.games.cards tbody td.lately-cell {
+  grid-column: 2 / -1;
+}
 
-  table.games tbody td.lately-cell.calm {
-    display: none;
-  }
+table.games.cards tbody td.lately-cell.unmoved {
+  display: none;
+}
 
-  table.games td:last-child {
-    min-width: 0;
-  }
+table.games.cards td:last-child {
+  min-width: 0;
+}
 
-  .game-cell {
-    min-width: 0;
-  }
+table.games.cards .game-cell {
+  min-width: 0;
 }
 
 @media (max-width: 1080px) {

@@ -43,6 +43,21 @@ const STARTS_DESCENDING = new Set(['reviews', 'recommended', 'new', 'updated', '
 export function setUpLibrary({ openGame, openFinder, compare }) {
   page('library', el('library'), load);
 
+  /* A table when its columns fit the frame, cards when they do not: measured as drawn, since the
+     same columns are wider in one system's fonts than another's. */
+  const table = el('library-rows').closest('table');
+  const frame = table.parentElement;
+  let fitted = 0;
+  function fit() {
+    if (frame.clientWidth === 0) return;
+    fitted = frame.clientWidth;
+    table.classList.remove('cards');
+    table.classList.toggle('cards', frame.scrollWidth > frame.clientWidth + 1);
+  }
+  new ResizeObserver(() => {
+    if (frame.clientWidth !== fitted) fit();
+  }).observe(frame);
+
   el('library-add').addEventListener('click', openFinder);
   el('library-empty-add').addEventListener('click', openFinder);
   el('update-all').addEventListener('click', () => invoke('queue_updates', { appIds: null }));
@@ -184,6 +199,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
     el('library-none').hidden = shown.length > 0 || rows.length === 0;
     el('select-all').checked = shown.length > 0 && shown.every((row) => selected.has(row.app_id));
     drawSelection();
+    fit();
   }
 
   function drawTabs() {
@@ -304,7 +320,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
       labelled('Recommending', make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended))),
       labelled('Updated', make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000)))),
       labelled('Reading', make('td', null, reading)),
-      labelled('Moved lately', make('td', moved ? 'lately-cell' : 'lately-cell calm', lately)),
+      labelled('Moved lately', make('td', moved ? 'lately-cell' : 'lately-cell unmoved', lately)),
     );
     return tr;
   }
