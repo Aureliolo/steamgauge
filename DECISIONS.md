@@ -4897,6 +4897,12 @@ takes the answer only where it is a JPEG or a PNG of a sensible size from that s
 there, keeps it in the cache folder, and hands the window the bytes. The policy gains `blob:` for
 images and nothing else. A game the store has no picture for is asked again after a week.
 
+**Every width the window allows is drawn, not scrolled.** Below the width its seven columns
+need, the library draws each game as a card with its figures labelled beneath its name, rather
+than a table that scrolls sideways inside its frame; `tools/app-check` asks a sweep of widths
+from the narrowest window to a common laptop's whether the table fits. A job on the work board
+wraps inside the cockpit's narrow column instead of cutting a game's name to its first letter.
+
 ### A newer version is named, never installed, and no key exists to sign one (2026-10-03)
 
 The user chose a notice over an updater. At most once a day, behind the window, the app asks
