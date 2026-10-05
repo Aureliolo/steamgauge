@@ -25,8 +25,8 @@ Each system has an installer and a portable archive with the program in it:
 |---|---|---|
 | Windows 10 or 11, x64 | `steamgauge-<version>-windows-x64-setup.exe` | `steamgauge-<version>-x86_64-pc-windows-msvc.zip` |
 | macOS on Apple Silicon | `steamgauge-<version>-macos-arm64.dmg` | `steamgauge-<version>-aarch64-apple-darwin.tar.gz` |
-| Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>_amd64.deb` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>_amd64.deb` | `steamgauge-<version>-x86_64-linux-gnu.tar.gz` |
+| Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-linux-gnu.tar.gz` |
 
 Or install it with a package manager. Each takes a release's file only if it matches the hash
 the release is signed over.

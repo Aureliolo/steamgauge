@@ -54,7 +54,7 @@ extend-ignore-re = [
 [default.extend-identifiers]
 # Other projects' names, which are not ours to spell: serde's `Serialize`, sha2's `finalize`,
 # Node's and torch's `normalize`, torch's `synchronize`, scikit-learn's `analyzer`, the HTTP
-# `authorization` header and transformers' `DataCollatorForLanguageModeling`.
+# `authorization` header, transformers' `DataCollatorForLanguageModeling` and NSIS's `StrCpy`.
 Serialize = "Serialize"
 skip_serializing_if = "skip_serializing_if"
 finalize = "finalize"
@@ -63,6 +63,7 @@ synchronize = "synchronize"
 analyzer = "analyzer"
 authorization = "authorization"
 DataCollatorForLanguageModeling = "DataCollatorForLanguageModeling"
+StrCpy = "StrCpy"
 
 [default.extend-words]
 # A prefix this project hyphenates, as in mis-split and mis-cut.

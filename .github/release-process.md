@@ -93,8 +93,13 @@ publishes and packages:
 5. **install**, on each platform, installs that platform's installers the way a person would
    (the setup program silently, the disk image copied to Applications, the `.deb` through apt
    and the `.rpm` through dnf on Fedora), runs the installed program, which has to name the
-   version, and starts its window, which has to stay up (`tools/release/install-check.sh`). On
-   Windows it uninstalls again and checks the program is gone.
+   version, and starts its window, which has to stay up (`tools/release/install-check.sh`).
+   Each installer has to name its maker, licence and package exactly as the check writes them:
+   the `.deb`'s control fields, copyright file and changelog, the `.rpm`'s header, the app's
+   `Info.plist`, and on Windows the setup program's and the program's version details and the
+   entry in Apps. On Windows and Linux it first installs 0.1.2, whose packages are named
+   `steam-gauge` and whose setup program registers the publisher `Aurelio`, and the new
+   installer has to replace it. On Windows it uninstalls again and checks the program is gone.
 6. **attest** signs every file that ships through Sigstore, attests each platform's SBOM against
    its archive and its installers, and gathers the four signed attestations into one JSON Lines
    file. It is the only job with a token that can sign: see below.
@@ -139,12 +144,15 @@ none of them can pass for a release's.
   installed for the current user, fetching WebView2 if the machine lacks it),
   `steamgauge-X.Y.Z-macos-arm64.dmg` (macOS on Apple Silicon with CoreML), and
   `steamgauge_X.Y.Z_amd64.deb` and `steamgauge-X.Y.Z-1.x86_64.rpm` (Linux on x86-64 on the CPU,
-  each declaring WebKitGTK 4.1 so the package manager installs it).
-- One portable archive per platform holding the same program: `steamgauge-X.Y.Z-<target>.zip`
-  for Windows and `steamgauge-X.Y.Z-<target>.tar.gz` for the others. Each holds the binary,
-  `DirectML.dll` on Windows, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Linux
-  one needs WebKitGTK 4.1 installed.
-- An SPDX SBOM of each platform's program, `steamgauge-X.Y.Z-<target>.spdx.json`.
+  each the package `steamgauge`, declaring WebKitGTK 4.1 so the package manager installs it, and
+  replacing the `steam-gauge` package of 0.1.2 and earlier).
+- One portable archive per platform holding the same program: `steamgauge-X.Y.Z-<platform>.zip`
+  for Windows and `steamgauge-X.Y.Z-<platform>.tar.gz` for the others, where `<platform>` is the
+  Rust target without its placeholder vendor: `x86_64-pc-windows-msvc`, `aarch64-apple-darwin`
+  and `x86_64-linux-gnu` (`tools/release/names.sh`). Each holds the binary, `DirectML.dll` on
+  Windows, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Linux one needs WebKitGTK
+  4.1 installed.
+- An SPDX SBOM of each platform's program, `steamgauge-X.Y.Z-<platform>.spdx.json`.
 - `steamgauge.json`, the Scoop manifest, which `scoop install` reads by the release's address.
 - `SHA256SUMS`, over the installers, the archives, the SBOMs and the Scoop manifest.
 - A Sigstore build-provenance attestation over all of them, and an SBOM attestation tying each
@@ -249,9 +257,10 @@ brew install --cask aureliolo/steamgauge/steamgauge
   manifest is attached to every release, which is what the address above reads; this repository
   is also a bucket (`scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge`), which
   `scoop update` then follows.
-- **winget.** `Aureliolo.SteamGauge` installs the release's setup program, for the current user
-  and silently, under the product code `SteamGauge`, the name Tauri's setup program registers
-  its uninstall entry under, so winget recognises a copy installed from the release page too.
+- **winget.** `Aureliolo.SteamGauge`, published by `Aureliolo`, installs the release's setup
+  program, for the current user and silently, under the product code `SteamGauge`, the name
+  Tauri's setup program registers its uninstall entry under, with the publisher it registers
+  there, `Aurelio Amoroso`, so winget recognises a copy installed from the release page too.
 
 Every hash in them is one `SHA256SUMS` gives, after the release's attestation over that file
 has verified. Nothing in `Casks/` or `bucket/` is edited by hand: each release writes both and

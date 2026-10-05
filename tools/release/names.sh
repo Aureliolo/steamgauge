@@ -6,11 +6,18 @@
 
 : "${VERSION:?names.sh needs VERSION}"
 
+# What a target's archive, the folder inside it and its SBOM are named: the target without Rust's
+# placeholder vendor, which says nothing to someone choosing a download, so x86_64-linux-gnu and
+# not x86_64-unknown-linux-gnu. The build itself takes the full triple.
+stem() {
+  echo "steamgauge-${VERSION}-${1/-unknown-/-}"
+}
+
 # The portable archive for a target: a zip for Windows, which opens nothing else unaided.
 archive() {
   case "$1" in
-    *-windows-*) echo "steamgauge-${VERSION}-$1.zip" ;;
-    *) echo "steamgauge-${VERSION}-$1.tar.gz" ;;
+    *-windows-*) echo "$(stem "$1").zip" ;;
+    *) echo "$(stem "$1").tar.gz" ;;
   esac
 }
 

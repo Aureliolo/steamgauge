@@ -24,8 +24,8 @@
   },
   "bundle": {
     "active": true,
-    "publisher": "Aurelio",
-    "copyright": "Copyright Aurelio. Licensed under the Apache License 2.0.",
+    "publisher": "Aurelio Amoroso",
+    "copyright": "Copyright (c) 2026 Aurelio Amoroso",
     "category": "Utility",
     "shortDescription": "Finds out what players of a game think, from every Steam review.",
     "longDescription": "SteamGauge downloads a game's Steam reviews, reads every claim in them with a model on your own machine, and shows what players praise and criticise, with the reviews behind every figure.",

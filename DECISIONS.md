@@ -5027,6 +5027,53 @@ deploy to.
 **No apt or dnf repository**, the user's decision: Linux takes the release's `.deb` or `.rpm`,
 and the cask is macOS only.
 
+### Release names and package details say the same as the standard release setup (2026-10-05)
+
+The user held every file name and every field that says who makes the program to the same mature
+release setup, detail for detail.
+
+**Archives are named for the platform, not Rust's triple.** The Linux archive is
+`steamgauge-X.Y.Z-x86_64-linux-gnu.tar.gz`, not `x86_64-unknown-linux-gnu`: the placeholder
+vendor says nothing to someone choosing a download. The SBOM and the folder inside the archive
+follow the same name, from `stem` in `tools/release/names.sh`; the build and the notices keep the
+full triple. The Windows and macOS names carry no placeholder and stay as they were.
+
+**The Linux package is `steamgauge`.** Tauri's bundler names the `.deb` and `.rpm` package after
+the product name in kebab case, which made `SteamGauge` into `steam-gauge`, and it has no setting
+for the package name. So on Linux alone the product name is `steamgauge`
+(`crates/steamgauge-app/tauri.linux.conf.json`, which the build reads too, so the program and its
+packages agree on `/usr/lib/steamgauge`). That also names the menu entry `steamgauge.desktop`,
+and a copy of the bundler's own template for it keeps the menu showing `SteamGauge`. Both
+packages replace the `steam-gauge` of 0.1.2 and earlier: the `.deb` provides, conflicts with and
+replaces it, the `.rpm` provides and obsoletes it. The relations carry no version, because the
+bundler writes an `.rpm` relation as a bare name, a version inside it becoming part of the name,
+and nothing will ship as `steam-gauge` again.
+
+**The maker is Aurelio Amoroso, the copyright `Copyright (c) 2026 Aurelio Amoroso`.** The Cargo
+authors give the `.deb`'s maintainer, with the address; `bundle.publisher` gives the company in
+the program's version details on Windows and the publisher of its entry in Apps;
+`bundle.copyright` gives the copyright there, in the setup program and in the app's
+`Info.plist`. The program's version details also name `steamgauge.exe` as its original file name
+and `steamgauge` as its internal name (`[package.metadata.tauri-winres]`), which tauri-build does
+not set. winget publishes the package under the GitHub account, `Aureliolo`, and matches an
+installed copy by the publisher the setup program registers, `Aurelio Amoroso`. The `.deb`
+carries a machine-readable copyright file and a changelog entry pointing at the release's notes,
+signed by the maintainer Cargo names; the `.rpm` carries the licence under
+`/usr/share/licenses/steamgauge`, and both the README under `/usr/share/doc/steamgauge`.
+
+**What the `.rpm` cannot say.** Tauri's `.rpm` writer sets no vendor, no packager, no group and no
+changelog, and takes no setting for them. Giving them means building the Linux packages with
+another tool, as the standard setup does with nFPM, which would replace the bundler's choice
+recorded above; that is the user's call, not taken here.
+
+**A copy installed by 0.1.2 is replaced cleanly.** The Windows setup program keeps a copy's folder
+under `Software\<publisher>\SteamGauge` and hands it to the copy's uninstaller when replacing it
+from its window; 0.1.2 kept it under `Aurelio`. The installer hook carries that folder over to the
+publisher's key before the first page, and removes the old key once installed. The install check
+installs 0.1.2 first on Windows and Linux, by the digests in its signed checksums, and the new
+installer has to replace it; it then checks every field above, as written in
+`tools/release/install-check.sh`, on every pull request and before a release is signed.
+
 ### The core's tests are held to a floor of coverage and to their mutants (2026-10-03)
 
 Passing tests say nothing about how much of the crate they run, or whether they would notice it

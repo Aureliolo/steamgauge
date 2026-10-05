@@ -1,17 +1,59 @@
 #!/usr/bin/env bash
 # Installs what package.sh made the way a person would, then runs the installed program: it has
 # to name the version it was built as, and its window has to stay up. A package that installs and
-# then fails to start passes every other check in the release.
+# then fails to start passes every other check in the release. Each installer also has to say
+# who makes it, under which name and licence, exactly as written below, and on Windows and Linux
+# it has to replace a copy of 0.1.2, which was packaged and published under other names.
 #
 #   tools/release/install-check.sh <target> <version> <dir>
 #
 # The Linux run checks the .deb on this machine and the .rpm in a Fedora container
-# ($FEDORA_IMAGE), so both package formats are installed by their own package manager.
+# ($FEDORA_IMAGE, by install-check-fedora.sh), so both package formats are installed by their own
+# package manager.
+
+# A command whose output is compared is checked by the comparison: if it fails, what it printed
+# is not what was expected.
+# shellcheck disable=SC2312
 set -euo pipefail
 
 target="$1"
 version="$2"
 dir="$3"
+
+VERSION="${version}"
+# shellcheck source=tools/release/names.sh
+source "$(dirname "${BASH_SOURCE[0]}")/names.sh"
+listed="$(installers "${target}")"
+read -r -a installer_names <<< "${listed}"
+
+maintainer="Aurelio Amoroso <19254254+Aureliolo@users.noreply.github.com>"
+publisher="Aurelio Amoroso"
+copyright="Copyright (c) 2026 Aurelio Amoroso"
+homepage="https://github.com/Aureliolo/steamgauge"
+
+# The last release whose packages are named steam-gauge and whose Windows setup registers the
+# publisher "Aurelio", by the digests in its signed SHA256SUMS.
+previous=0.1.2
+previous_url="${homepage}/releases/download/v${previous}"
+previous_setup="steamgauge-${previous}-windows-x64-setup.exe"
+previous_setup_sha256=63f0551f6fc2945d9e47cab7dfa3016314996ed21d21af4dd2c77aae0cc4c44b
+previous_deb="steamgauge_${previous}_amd64.deb"
+previous_deb_sha256=d204b1aebbbe1fd42f5ad2dae442281a44237569dd9870c03144856ffc85ae97
+previous_rpm="steamgauge-${previous}-1.x86_64.rpm"
+previous_rpm_sha256=21a4b3c90475a294349e56002fe0628db1d34d0021fd5baaec12dc7fa5152bb3
+
+fetch_previous() {
+  curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "$3/$1" "${previous_url}/$1"
+  echo "$2  $3/$1" | sha256sum --check --strict
+}
+
+same() {
+  if [[ "$2" != "$3" ]]; then
+    echo "$1 is '$2', not '$3'." >&2
+    exit 1
+  fi
+  echo "$1: $2"
+}
 
 # Each step says what it is about to do and has four minutes to do it, so a step that waits on
 # something no one will ever answer fails as itself rather than as the job's timeout. A Windows
@@ -77,31 +119,63 @@ stays_up() {
   echo "The window stayed up."
 }
 
+# One value PowerShell reads, without the carriage return it ends its output with.
+powershell_value() {
+  local said
+  said="$(powershell -NoProfile -Command "$1")"
+  printf '%s' "${said%$'\r'}"
+}
+
+# The details Windows shows for a program under Properties, from its version resource.
+version_details() {
+  local file pair
+  file="$(cygpath -w "$1")"
+  shift
+  for pair in "$@"; do
+    same "$(basename "${file}")'s ${pair%%=*}" \
+      "$(powershell_value "(Get-Item -LiteralPath '${file}').VersionInfo.${pair%%=*}")" "${pair#*=}"
+  done
+}
+
 case "${target}" in
   x86_64-pc-windows-msvc)
+    setup="${dir}/${installer_names[0]}"
+    home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
+    folder="$(cygpath -w "${home}")"
+    version_details "${setup}" "ProductName=SteamGauge" "LegalCopyright=${copyright}"
     # `//S` reaches the setup program as `/S`: Git Bash takes a lone `/S` for a path and hands the
     # program `S:/`, which it does not know, so it opens its wizard and waits on it.
-    step "Installing silently" "${dir}/steamgauge-${version}-windows-x64-setup.exe" //S
-    home="$(cygpath -u "${LOCALAPPDATA:?}")/SteamGauge"
+    previous_dir="$(mktemp -d)"
+    fetch_previous "${previous_setup}" "${previous_setup_sha256}" "${previous_dir}"
+    step "Installing ${previous} silently" "${previous_dir}/${previous_setup}" //S
+    same "The folder ${previous} keeps under Software\\Aurelio" \
+      "$(powershell_value "(Get-Item 'HKCU:\\Software\\Aurelio\\SteamGauge').GetValue('')")" "${folder}"
+    step "Installing silently over it" "${setup}" //S
     ls -la "${home}"
     for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
       test -f "${home}/${file}" || { echo "The installer put no ${file} in ${home}." >&2; exit 1; }
     done
+    version_details "${home}/steamgauge.exe" "CompanyName=${publisher}" "FileDescription=SteamGauge" \
+      "InternalName=steamgauge" "LegalCopyright=${copyright}" "OriginalFilename=steamgauge.exe" \
+      "ProductName=SteamGauge" "ProductVersion=${version}"
     # A windowed program writes to a pipe it is given, which is what the command substitution
     # gives it.
     expect_version "${home}/steamgauge.exe"
     stays_up "${home}/steamgauge.exe"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
+    # What Apps and winget know the installed copy by, and the folder the next setup program
+    # replaces it from, kept under the publisher's name with nothing left under 0.1.2's.
+    entry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SteamGauge'
+    same "The entry in Apps' DisplayName" "$(powershell_value "(Get-ItemProperty '${entry}').DisplayName")" SteamGauge
+    same "The entry in Apps' Publisher" "$(powershell_value "(Get-ItemProperty '${entry}').Publisher")" "${publisher}"
+    same "The folder kept under Software\\${publisher}" \
+      "$(powershell_value "(Get-Item 'HKCU:\\Software\\${publisher}\\SteamGauge').GetValue('')")" "${folder}"
+    same "Whether Software\\Aurelio\\SteamGauge is left" \
+      "$(powershell_value "Test-Path 'HKCU:\\Software\\Aurelio\\SteamGauge'")" False
     # The uninstall a quiet uninstaller such as winget runs is the one the setup program
     # registered, so that is the one checked, and then run.
-    entry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SteamGauge'
-    quiet="$(powershell -NoProfile -Command "(Get-ItemProperty '${entry}').QuietUninstallString")"
-    quiet="${quiet%$'\r'}"
-    expected="\"$(cygpath -w "${home}")\\uninstall.exe\" /S"
-    if [[ "${quiet}" != "${expected}" ]]; then
-      echo "The setup program registered the quiet uninstall '${quiet}', not '${expected}'." >&2
-      exit 1
-    fi
+    same "The quiet uninstall the setup program registered" \
+      "$(powershell_value "(Get-ItemProperty '${entry}').QuietUninstallString")" "\"${folder}\\uninstall.exe\" /S"
     step "Uninstalling silently" "${home}/uninstall.exe" //S
     # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
     # the files are gone.
@@ -113,15 +187,11 @@ case "${target}" in
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
       exit 1
     fi
-    left="$(powershell -NoProfile -Command "Test-Path '${entry}'")"
-    if [[ "${left%$'\r'}" != False ]]; then
-      echo "Uninstalling left its entry in Apps behind." >&2
-      exit 1
-    fi
+    same "Whether uninstalling left its entry in Apps" "$(powershell_value "Test-Path '${entry}'")" False
     ;;
   aarch64-apple-darwin)
     mount="$(mktemp -d)"
-    hdiutil attach -nobrowse -readonly -mountpoint "${mount}" "${dir}/steamgauge-${version}-macos-arm64.dmg"
+    hdiutil attach -nobrowse -readonly -mountpoint "${mount}" "${dir}/${installer_names[0]}"
     mkdir -p "${HOME}/Applications"
     cp -R "${mount}/SteamGauge.app" "${HOME}/Applications/"
     hdiutil detach "${mount}"
@@ -129,29 +199,70 @@ case "${target}" in
     for file in LICENSE THIRD-PARTY-NOTICES.txt; do
       test -f "${app}/Contents/Resources/${file}" || { echo "The app carries no ${file}." >&2; exit 1; }
     done
+    for pair in "CFBundleName=SteamGauge" "CFBundleIdentifier=com.aureliolo.steamgauge" \
+      "CFBundleShortVersionString=${version}" "NSHumanReadableCopyright=${copyright}"; do
+      same "The app's ${pair%%=*}" \
+        "$(/usr/libexec/PlistBuddy -c "Print :${pair%%=*}" "${app}/Contents/Info.plist")" "${pair#*=}"
+    done
     expect_version "${app}/Contents/MacOS/steamgauge"
     stays_up "${app}/Contents/MacOS/steamgauge"
     ;;
   x86_64-unknown-linux-gnu)
-    deb="${dir}/steamgauge_${version}_amd64.deb"
+    deb="${dir}/${installer_names[0]}"
+    dpkg-deb --info "${deb}"
+    for pair in "Package=steamgauge" "Version=${version}" "Maintainer=${maintainer}" \
+      "Homepage=${homepage}" "Section=utils" "Priority=optional" "Provides=steam-gauge" \
+      "Conflicts=steam-gauge" "Replaces=steam-gauge"; do
+      same "The .deb's ${pair%%=*}" "$(dpkg-deb --field "${deb}" "${pair%%=*}")" "${pair#*=}"
+    done
+    # Read from the package rather than the system, which may be set to leave documentation out.
+    unpacked="$(mktemp -d)"
+    dpkg-deb --extract "${deb}" "${unpacked}"
+    for file in usr/bin/steamgauge usr/lib/steamgauge/LICENSE usr/lib/steamgauge/THIRD-PARTY-NOTICES.txt \
+      usr/share/applications/steamgauge.desktop usr/share/doc/steamgauge/copyright \
+      usr/share/doc/steamgauge/changelog.gz usr/share/doc/steamgauge/README.md; do
+      test -f "${unpacked}/${file}" || { echo "The .deb holds no /${file}." >&2; exit 1; }
+    done
+    same "The .deb's copyright file's format" "$(head -n 1 "${unpacked}/usr/share/doc/steamgauge/copyright")" \
+      "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/"
+    grep -qxF "Copyright: 2026 Aurelio Amoroso" "${unpacked}/usr/share/doc/steamgauge/copyright" \
+      || { echo "The .deb's copyright file does not name Aurelio Amoroso as the holder." >&2; exit 1; }
+    changelog="$(gzip -dc "${unpacked}/usr/share/doc/steamgauge/changelog.gz")"
+    same "The .deb's changelog's entry" "$(head -n 1 <<< "${changelog}")" \
+      "steamgauge (${version}) unstable; urgency=medium"
+    [[ "$(tail -n 1 <<< "${changelog}")" == " -- ${maintainer}  "* ]] \
+      || { echo "The .deb's changelog is not signed by ${maintainer}." >&2; exit 1; }
+    grep -qxF "Name=SteamGauge" "${unpacked}/usr/share/applications/steamgauge.desktop" \
+      || { echo "The .deb's menu entry does not call the program SteamGauge." >&2; exit 1; }
+
+    previous_dir="$(mktemp -d)"
+    fetch_previous "${previous_deb}" "${previous_deb_sha256}" "${previous_dir}"
+    sudo apt-get install -y "${previous_dir}/${previous_deb}"
+    # shellcheck disable=SC2016 # dpkg-query's own field syntax, not the shell's.
+    same "The status of ${previous}'s package" "$(dpkg-query --show --showformat='${db:Status-Status}' steam-gauge)" installed
     sudo apt-get install -y "./${deb}"
+    # shellcheck disable=SC2016 # dpkg-query's own field syntax, not the shell's.
+    if [[ "$(dpkg-query --show --showformat='${db:Status-Status}' steam-gauge 2>/dev/null || true)" == installed ]]; then
+      echo "Installing steamgauge left ${previous}'s steam-gauge installed beside it." >&2
+      exit 1
+    fi
     expect_version /usr/bin/steamgauge
     stays_up xvfb-run --auto-servernum /usr/bin/steamgauge
     # Stopping xvfb-run leaves the program it started running.
     pkill -x steamgauge || true
-    # Removed by the name the package declares, which the bundler takes from the product name.
-    package="$(dpkg-deb --field "${deb}" Package)"
-    sudo apt-get remove -y "${package}"
+    sudo apt-get remove -y steamgauge
     if [[ -e /usr/bin/steamgauge ]]; then
-      echo "Removing ${package} left /usr/bin/steamgauge behind." >&2
+      echo "Removing steamgauge left /usr/bin/steamgauge behind." >&2
       exit 1
     fi
-    docker run --rm -v "${PWD}/${dir}:/packages:ro" "${FEDORA_IMAGE:?}" bash -euo pipefail -c "
-      dnf install -y /packages/steamgauge-${version}-1.x86_64.rpm > /dev/null
-      said=\"\$(steamgauge --version)\"
-      echo \"\${said}\"
-      test \"\${said}\" = 'steamgauge ${version}'
-    "
+
+    fetch_previous "${previous_rpm}" "${previous_rpm_sha256}" "${previous_dir}"
+    docker run --rm --volume "${PWD}/${dir}:/packages:ro" --volume "${previous_dir}:/previous:ro" \
+      --volume "$(realpath "$(dirname "${BASH_SOURCE[0]}")/install-check-fedora.sh"):/install-check-fedora.sh:ro" \
+      --env VERSION="${version}" --env RPM="/packages/${installer_names[1]}" \
+      --env PREVIOUS="${previous}" --env PREVIOUS_RPM="/previous/${previous_rpm}" \
+      --env HOMEPAGE="${homepage}" \
+      "${FEDORA_IMAGE:?}" bash /install-check-fedora.sh
     ;;
   *)
     echo "No install check is defined for ${target}." >&2

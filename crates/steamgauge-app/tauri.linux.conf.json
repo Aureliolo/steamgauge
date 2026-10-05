@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "steamgauge",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "provides": ["steam-gauge"],
+        "conflicts": ["steam-gauge"],
+        "replaces": ["steam-gauge"],
+        "desktopTemplate": "linux/steamgauge.desktop",
+        "files": {
+          "/usr/share/doc/steamgauge/copyright": "linux/copyright",
+          "/usr/share/doc/steamgauge/README.md": "../../README.md"
+        }
+      },
+      "rpm": {
+        "provides": ["steam-gauge"],
+        "obsoletes": ["steam-gauge"],
+        "desktopTemplate": "linux/steamgauge.desktop",
+        "files": {
+          "/usr/share/doc/steamgauge/README.md": "../../README.md",
+          "/usr/share/licenses/steamgauge/LICENSE": "../../LICENSE"
+        }
+      }
+    }
+  }
+}

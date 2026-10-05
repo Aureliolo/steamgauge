@@ -8,7 +8,7 @@ edition = "2024"
 rust-version = "1.99.0"
 license = "Apache-2.0"
 repository = "https://github.com/Aureliolo/steamgauge"
-authors = ["Aurelio <19254254+Aureliolo@users.noreply.github.com>"]
+authors = ["Aurelio Amoroso <19254254+Aureliolo@users.noreply.github.com>"]
 publish = false
 
 [workspace.dependencies]

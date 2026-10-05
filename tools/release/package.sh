@@ -18,8 +18,14 @@ version="$3"
 notices="$4"
 out="$5"
 
+VERSION="${version}"
+# shellcheck source=tools/release/names.sh
+source "$(dirname "${BASH_SOURCE[0]}")/names.sh"
+
 release="target/${target}/release"
-name="steamgauge-${version}-${target}"
+name="$(stem "${target}")"
+listed="$(installers "${target}")"
+read -r -a installer_names <<< "${listed}"
 case "${target}" in
   *-windows-*) binary=steamgauge.exe bundles=nsis ;;
   *-apple-darwin) binary=steamgauge bundles=app,dmg ;;
@@ -63,7 +69,27 @@ resources="\"../../${payload}/LICENSE\": \"LICENSE\", \"../../${payload}/THIRD-P
 for library in ${libraries[@]+"${libraries[@]}"}; do
   resources="${resources}, \"../../${payload}/${library}\": \"${library}\""
 done
-config="{\"version\": \"${version}\", \"bundle\": {\"resources\": {${resources}}}}"
+linux=""
+if [[ "${target}" == *-linux-* ]]; then
+  # The .deb's changelog: one entry pointing at the release's notes, from the maintainer Cargo.toml
+  # names, dated by the commit packaged so the same commit writes the same file. The bundler
+  # installs it as /usr/share/doc/steamgauge/changelog.gz, the name for a version with no Debian
+  # revision.
+  maintainer="$(sed -n 's/^authors = \["\(.*\)"\]$/\1/p' Cargo.toml)"
+  if [[ -z "${maintainer}" ]]; then
+    echo "Cargo.toml names no single author to sign the changelog." >&2
+    exit 1
+  fi
+  dated="$(date -u -R -d "@${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}")"
+  printf '%s\n' \
+    "steamgauge (${version}) unstable; urgency=medium" \
+    "" \
+    "  * SteamGauge ${version}: https://github.com/Aureliolo/steamgauge/releases/tag/v${version}" \
+    "" \
+    " -- ${maintainer}  ${dated}" > "${payload}/changelog"
+  linux=", \"linux\": {\"deb\": {\"changelog\": \"../../${payload}/changelog\"}}"
+fi
+config="{\"version\": \"${version}\", \"bundle\": {\"resources\": {${resources}}${linux}}}"
 
 feature_args=()
 if [[ -n "${features}" ]]; then
@@ -84,15 +110,15 @@ only() {
 }
 bundle="${release}/bundle"
 case "${target}" in
-  x86_64-pc-windows-msvc)
-    cp "$(only "${bundle}/nsis/*-setup.exe")" "${out}/steamgauge-${version}-windows-x64-setup.exe"
+  *-windows-*)
+    cp "$(only "${bundle}/nsis/*-setup.exe")" "${out}/${installer_names[0]}"
     ;;
-  aarch64-apple-darwin)
-    cp "$(only "${bundle}/dmg/*.dmg")" "${out}/steamgauge-${version}-macos-arm64.dmg"
+  *-apple-darwin)
+    cp "$(only "${bundle}/dmg/*.dmg")" "${out}/${installer_names[0]}"
     ;;
-  x86_64-unknown-linux-gnu)
-    cp "$(only "${bundle}/deb/*.deb")" "${out}/steamgauge_${version}_amd64.deb"
-    cp "$(only "${bundle}/rpm/*.rpm")" "${out}/steamgauge-${version}-1.x86_64.rpm"
+  *-linux-*)
+    cp "$(only "${bundle}/deb/*.deb")" "${out}/${installer_names[0]}"
+    cp "$(only "${bundle}/rpm/*.rpm")" "${out}/${installer_names[1]}"
     ;;
   *)
     echo "No installer names are defined for ${target}." >&2

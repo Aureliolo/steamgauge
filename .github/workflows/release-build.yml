@@ -385,7 +385,8 @@ jobs:
           rm -rf dist
           bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${VERSION}" \
             "${RUNNER_TEMP}/notices/${TARGET}/THIRD-PARTY-NOTICES.txt" dist
-          cp "${RUNNER_TEMP}/crates.txt" "dist/steamgauge-${VERSION}-${TARGET}.crates"
+          source tools/release/names.sh
+          cp "${RUNNER_TEMP}/crates.txt" "dist/$(stem "${TARGET}").crates"
 
       # The bundler writes into target/ only; anything it left in the tree would mean the
       # packages are not the tagged commit.
@@ -443,7 +444,7 @@ jobs:
           set -euo pipefail
           source tools/release/names.sh
           expected="$(for target in ${TARGETS}; do
-            echo "dist/steamgauge-${VERSION}-${target}.crates"
+            echo "dist/$(stem "${target}").crates"
             for file in "$(archive "${target}")" $(installers "${target}"); do
               echo "dist/${file}"
               echo "dist/${file}.sha256"
@@ -468,7 +469,7 @@ jobs:
           source tools/release/names.sh
           failed=0
           for target in ${TARGETS}; do
-            name="steamgauge-${VERSION}-${target}"
+            name="$(stem "${target}")"
             unpacked="${RUNNER_TEMP}/notices/${target}"
             mkdir -p "${unpacked}"
             unpack "dist/$(archive "${target}")" "${unpacked}"
@@ -502,7 +503,7 @@ jobs:
           source tools/release/names.sh
           failed=0
           for target in ${TARGETS}; do
-            name="steamgauge-${VERSION}-${target}"
+            name="$(stem "${target}")"
             archive="dist/$(archive "${target}")"
             sbom="dist/${name}.spdx.json"
             input="${RUNNER_TEMP}/sbom/${target}"
@@ -686,10 +687,10 @@ jobs:
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
-            dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+            dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-linux-gnu.tar.gz
             dist/steamgauge_${{ needs.gate.outputs.version }}_amd64.deb
             dist/steamgauge-${{ needs.gate.outputs.version }}-1.x86_64.rpm
-          sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-unknown-linux-gnu.spdx.json
+          sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-linux-gnu.spdx.json
 
       - name: Attest the Windows SBOM
         id: sbom-windows
