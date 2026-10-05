@@ -88,7 +88,8 @@ const PROBE = `(async function () {
   check('a game new on Steam goes unlisted', /\\+1,520/.test($('#health-lists').textContent));
   check('a game read by an older reader goes unlisted', /Beta/.test($('#health-lists').textContent));
   check('the card in use goes unnamed', /RTX 4090/.test($('#machine-facts').textContent));
-  check('the share of the card goes unsaid', /50% of its time/.test($('#machine-reads').textContent));
+  check('the share of the card goes unsaid', /50%/.test($('#machine-facts').textContent));
+  check('reading on the card is explained as if it were the processor', !shown('machine-reads'));
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board does not say nothing is running', shown('cockpit-idle'));
   check('the cockpit does not fit its page', fits());
@@ -211,6 +212,7 @@ const PROBE = `(async function () {
     $('#compare-rows tr th').textContent === 'Story');
   check('a share of a subject\\'s reviews goes past the whole', !/\\d{3,}%/.test($('#compare-rows').textContent));
   check('a share in the comparison is not of the game\\'s own reviews', /20%/.test($('#compare-rows').textContent));
+  check('the comparison\\'s bars go unexplained', shown('compare-legend'));
   $('#compare-export').click();
   await pause();
   check('saving the comparison does not ask for a report of its games',
@@ -257,6 +259,20 @@ const PROBE = `(async function () {
   await pause(300);
   check('a read game does not show what people talk about',
     shown('topics') && document.querySelectorAll('#topic-rows tr').length === 2);
+  check('a language is not named as a person writes it', /English 75%/.test($('#languages').textContent));
+  check('a month\\'s bar is not held to a column\\'s width',
+    Number($('#timeline-svg .bar').getAttribute('width')) <= 56);
+  $('#game-store').click();
+  await pause();
+  check('a game\\'s store page does not open through the opener',
+    last('plugin:opener|open_url').args.url === 'https://store.steampowered.com/app/1/');
+  $('#topic-rows .subject').click();
+  await pause(300);
+  check('a subject does not show the points behind it', document.querySelectorAll('#quotes li').length === 2);
+  check('a count of points is not said in words', /^2 points about this/.test($('#evidence-lede').textContent));
+  check('a single page of points offers pages', !shown('paging'));
+  $('#back').click();
+  await pause(300);
   $('#game-back').click();
   await pause(250);
   check('the way back from a game does not lead to the library', shown('library'));
@@ -350,6 +366,9 @@ try {
     document.querySelector('[data-go="library"]').click();
     await pause(250);
     check('an empty library does not say so', shown('library-empty') && !shown('library-full'));
+    document.querySelector('[data-go="compare"]').click();
+    await pause(250);
+    check('an empty comparison explains bars it does not show', shown('compare-empty') && !shown('compare-legend'));
     var finder = document.getElementById('appid');
     document.getElementById('rail-add').click();
     await pause(200);

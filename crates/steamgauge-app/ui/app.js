@@ -21,6 +21,7 @@ import {
   showing,
   openOutside,
   bcp47,
+  language,
 } from './common.js';
 import { startWork, onWork, jobsFor, jobItem, active, queue, drawBrief } from './work.js';
 import { setUpCockpit } from './cockpit.js';
@@ -42,10 +43,10 @@ async function shelfGame(appId) {
   return held.games.find((game) => game.app_id === appId) ?? null;
 }
 
-function stageName(stage) {
-  if (stage === 'read') return 'Read';
-  if (stage === 'embedded') return 'Embedded';
-  return 'Downloaded';
+function stageTile(stage) {
+  if (stage === 'read') return ['Stage', 'Read', 'every point counted'];
+  if (stage === 'embedded') return ['Stage', 'Read', 'and ready for search by meaning'];
+  return ['Stage', 'Downloaded', 'not read yet'];
 }
 
 /* A game's page. `named` stands in for a game whose download has only just been asked for and
@@ -73,7 +74,7 @@ async function showGame(appId, named = null) {
           ['Held here', whole.format(game.reviews), 'reviews downloaded'],
           ['Steam reports', whole.format(game.valve_total), 'reviews in total'],
           ['Coverage', share.format(game.coverage), 'of what Steam serves'],
-          ['Stage', stageName(game.stage), null],
+          stageTile(game.stage),
         ],
   );
   el('game-facts').hidden = game === null;
@@ -146,9 +147,9 @@ async function drawReadCost(appId) {
   set(el('read-cost'), parts.join(' '));
 }
 
-function readGame(language = undefined) {
+function readGame(only = undefined) {
   if (chosen === null) return;
-  const wanted = language === undefined ? el('read-language').value || null : language;
+  const wanted = only === undefined ? el('read-language').value || null : only;
   queue({ kind: 'read', app_id: chosen, language: wanted });
 }
 
@@ -182,6 +183,9 @@ function drawTimeline(months) {
   const peak = months.reduce((best, month) => (month.reviews > best.reviews ? month : best));
   const tallest = Math.max(peak.reviews, 1);
   const step = CHART.width / months.length;
+  /* A bar no wider than a column of a busy year, so two months read as two months and not as
+     two walls; each sits centred on its month, where the line's point for it is. */
+  const bar = Math.max(Math.min(step * 0.82, 56), 0.5);
   const svg = el('timeline-svg');
   svg.replaceChildren();
   svg.setAttribute('aria-label', `Reviews per month from ${months[0].name} to ${months[months.length - 1].name}`);
@@ -191,9 +195,9 @@ function drawTimeline(months) {
     svg.append(
       shape('rect', {
         class: 'bar',
-        x: (index * step).toFixed(2),
+        x: (index * step + (step - bar) / 2).toFixed(2),
         y: (CHART.height - tall).toFixed(2),
-        width: Math.max(step * 0.82, 0.5).toFixed(2),
+        width: bar.toFixed(2),
         height: tall.toFixed(2),
       }),
     );
@@ -240,8 +244,13 @@ function drawTimeline(months) {
       `The line is the share of each month that recommended the game; the dashed line is half. ` +
       `Point at a month to read it.`,
   );
+  /* One column per month, so the first and last names sit under their own bars. */
+  const caption = figure.querySelector('figcaption');
+  caption.style.gridTemplateColumns = `repeat(${months.length}, minmax(0, 1fr))`;
+  caption.classList.toggle('dense', months.length > 12);
   set(el('timeline-first'), months[0].name);
   set(el('timeline-last'), months[months.length - 1].name);
+  el('timeline-last').style.gridColumn = String(months.length);
 }
 
 /* The languages of the whole capture, commonest first, so a reader knows what "reviews"
@@ -251,13 +260,13 @@ function drawLanguages(languages, corpus) {
   line.hidden = languages.length === 0;
   if (line.hidden) return;
   const shown = languages.slice(0, 8);
-  const named = shown.map((language) =>
-    language.share === null ? language.name : `${language.name} ${share.format(language.share)}`,
+  const named = shown.map((counted) =>
+    counted.share === null ? language(counted.name) : `${language(counted.name)} ${share.format(counted.share)}`,
   );
   const rest = languages.length - shown.length;
   set(
     line,
-    `Languages in the ${whole.format(corpus)} captured reviews: ${named.join(', ')}` +
+    `Languages in the ${whole.format(corpus)} reviews held: ${named.join(', ')}` +
       (rest > 0 ? `, and ${whole.format(rest)} more.` : '.'),
   );
 }
@@ -336,9 +345,9 @@ function drawTopics(found) {
 
   const parts = [`${whole.format(found.reviews)} reviews`];
   if (found.language) {
-    parts[0] = `${whole.format(found.reviews)} ${found.language} reviews of ${whole.format(
+    parts[0] = `${whole.format(found.reviews)} ${language(found.language)} reviews of the ${whole.format(
       found.corpus_reviews,
-    )} in the corpus`;
+    )} held`;
   }
   parts.push(`${whole.format(found.claims)} separate points`);
   if (found.positive_baseline !== null) {
@@ -536,20 +545,23 @@ async function openClaims(subject, from, narrowed = null) {
   }
 
   const sided = narrowed?.side === 'praise' ? 'praising' : 'complaining';
+  const points = `${whole.format(found.total)} ${found.total === 1 ? 'point' : 'points'}`;
+  const reviews = `${whole.format(subject.reviews)} ${subject.reviews === 1 ? 'review' : 'reviews'}`;
   set(
     el('evidence-lede'),
     narrowed === null
-      ? `${whole.format(found.total)} separate points about this, raised in ` +
-          `${whole.format(subject.reviews)} reviews. Each one is shown as it was written.`
+      ? `${points} about this, raised in ${reviews}. Each one is shown as it was written.`
       : narrowed.term
-        ? `${whole.format(found.total)} ${sided} points about this that say “${narrowed.term}”. ` +
-          'Each one is shown as it was written.'
-        : `${whole.format(found.total)} ${sided} points about this. Each one is shown as it was written.`,
+        ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this that ` +
+          `say “${narrowed.term}”. Each one is shown as it was written.`
+        : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this. ` +
+          'Each one is shown as it was written.',
   );
   drawClaims(found.claims);
 
   const upTo = from + found.claims.length;
-  set(el('paging-note'), `${whole.format(from + 1)} to ${whole.format(upTo)}`);
+  el('paging').hidden = found.total <= PER_PAGE;
+  set(el('paging-note'), `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.total)}`);
   el('earlier').disabled = from === 0;
   el('later').disabled = upTo >= found.total;
 }
@@ -737,6 +749,7 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
     return;
 
   if (found.claims === 0) {
+    el('paging').hidden = true;
     set(
       el('evidence-lede'),
       `No review counted here says “${query}”. Only the words typed are looked for, so a ` +
@@ -747,17 +760,16 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
   const of = found.share === null ? '' : `, ${share.format(found.share)} of the reviews counted,`;
   set(
     el('evidence-lede'),
-    `${whole.format(found.reviews)} reviews${of} say it, in ${whole.format(found.claims)} ` +
-      'separate points. Each one is shown as it was written, most helpful review first.',
+    `${whole.format(found.reviews)} ${found.reviews === 1 ? 'review' : 'reviews'}${of} ` +
+      `${found.reviews === 1 ? 'says' : 'say'} it, in ${whole.format(found.claims)} ` +
+      `${found.claims === 1 ? 'point' : 'points'}. Each one is shown as it was written, most helpful review first.`,
   );
   drawSaid(found, query, narrow);
   drawClaims(found.page);
 
   const upTo = from + found.page.length;
-  set(
-    el('paging-note'),
-    found.narrowed === 0 ? '' : `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.narrowed)}`,
-  );
+  el('paging').hidden = found.narrowed <= PER_PAGE;
+  set(el('paging-note'), `${whole.format(from + 1)} to ${whole.format(upTo)} of ${whole.format(found.narrowed)}`);
   el('earlier').disabled = from === 0;
   el('later').disabled = upTo >= found.narrowed;
 }
@@ -899,6 +911,9 @@ el('do-sweep').addEventListener('click', () => {
   if (chosen !== null) queue({ kind: 'update', app_id: chosen });
 });
 el('switch-language').addEventListener('click', () => readGame(readLanguage ? null : 'english'));
+el('game-store').addEventListener('click', () => {
+  if (chosen !== null) openOutside(`https://store.steampowered.com/app/${chosen}/`);
+});
 el('earlier').addEventListener('click', () => {
   if (reading) turnPage(Math.max(0, reading.from - PER_PAGE));
 });

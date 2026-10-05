@@ -283,6 +283,9 @@
           </div>
 
           <div class="empty" id="library-empty" hidden>
+            <span class="step-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="3" width="5.5" height="14" rx="1.5" /><rect x="11.5" y="3" width="5.5" height="14" rx="1.5" /></svg>
+            </span>
             <h3>Your library is empty</h3>
             <p>Add a game and SteamGauge downloads every review it has.</p>
             <button type="button" class="primary" id="library-empty-add">
@@ -344,6 +347,11 @@
               <div class="row">
                 <span id="game-verdict"></span>
                 <span class="quiet small" id="game-sub"></span>
+                <button type="button" class="link small" id="game-store">Store page</button>
+              </div>
+              <div class="sweep" id="sweep-actions">
+                <button type="button" class="quiet-button" id="do-sweep">Bring it up to date</button>
+                <span class="quiet small">Fetches what was written or edited since, and nothing already held.</span>
               </div>
             </header>
           </div>
@@ -361,10 +369,6 @@
                 </select>
               </label>
               <span class="quiet small" id="read-cost"></span>
-            </div>
-            <div class="row" id="sweep-actions">
-              <button type="button" class="quiet-button" id="do-sweep">Bring it up to date</button>
-              <span class="quiet small">Fetches what was written or edited since, and nothing already held.</span>
             </div>
           </div>
 
@@ -466,7 +470,7 @@
             </p>
           </div>
           <ol class="quotes" id="quotes"></ol>
-          <div class="row paging">
+          <div class="row paging" id="paging">
             <button type="button" class="quiet-button" id="earlier">Previous</button>
             <button type="button" class="quiet-button" id="later">Next</button>
             <span class="quiet small" id="paging-note"></span>
@@ -509,10 +513,13 @@
             </table>
           </div>
           <div class="empty" id="compare-empty" hidden>
+            <span class="step-icon">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 17V9M8 17V4M12 17v-6M16 17V7" /></svg>
+            </span>
             <h3>Nothing to compare yet</h3>
             <p id="compare-empty-says">Choose two or more read games above, or select them in the library.</p>
           </div>
-          <p class="footnote">
+          <p class="footnote" id="compare-legend" hidden>
             Each bar is the share of that game's reviews raising the subject, against the widest
             in the table. Its colours are the reviews that praise it, that do both, and that
             complain, in that order.

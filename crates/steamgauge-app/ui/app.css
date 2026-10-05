@@ -1345,6 +1345,11 @@ label.choice {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* A card's name runs to four words; it gets the panel's whole width. */
+.machine-panel .stat:first-child {
+  grid-column: 1 / -1;
+}
+
 .machine-panel .model-name {
   flex-wrap: wrap;
 }
@@ -1520,6 +1525,7 @@ label.choice {
 }
 
 .model .pill {
+  justify-self: start;
   height: auto;
   min-height: 22px;
   padding-top: 2px;
@@ -1569,7 +1575,7 @@ label.choice {
   color: var(--ink-2);
   font-family: 'Cascadia Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: var(--t-xs);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* The library. */
@@ -1927,6 +1933,18 @@ table.games td:last-child {
   margin-top: var(--s3);
 }
 
+.game-head .sweep {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+  margin-top: var(--s5);
+}
+
+.game-head .sweep[hidden] {
+  display: none;
+}
+
 .game-facts {
   margin-bottom: var(--s5);
 }
@@ -2044,11 +2062,24 @@ figure.timeline .hit:hover {
 }
 
 figure.timeline figcaption {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
   margin-top: var(--s2);
+  white-space: nowrap;
   color: var(--ink-3);
   font-size: var(--t-xs);
+}
+
+figure.timeline figcaption span {
+  justify-self: center;
+}
+
+/* Past a year a month's column is narrower than its name, which would hang off the chart. */
+figure.timeline figcaption.dense span:first-child {
+  justify-self: start;
+}
+
+figure.timeline figcaption.dense span:last-child {
+  justify-self: end;
 }
 
 .languages {

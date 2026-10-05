@@ -17,6 +17,7 @@ import {
   page,
   go,
   showing,
+  setPath,
 } from './common.js';
 import { onWork, jobItem, queue, active } from './work.js';
 
@@ -166,7 +167,7 @@ function attention(iconName, tone, title, games, describe, action, openGame) {
 }
 
 function drawHealth(found, openGame) {
-  set(el('library-at'), found.library);
+  setPath(el('library-at'), found.library);
 
   const lists = el('health-lists');
   lists.replaceChildren(
@@ -289,14 +290,14 @@ function drawMachine(found) {
     stat('Reader', machine.reader === 'standard' ? 'Standard' : 'Small'),
     stat('Card time', machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share)),
   );
+  /* On the card the figures above say it all; on the processor a person wants to know why. */
+  const reads = el('machine-reads');
+  reads.hidden = !machine.on_processor;
   set(
-    el('machine-reads'),
-    machine.on_processor
-      ? machine.reaches_card
-        ? `Reads on the processor with the ${machine.reader} reader: the card has too little memory for one.`
-        : `Reads on the processor with the ${machine.reader} reader.`
-      : `Reads on the graphics card with the ${machine.reader} reader, taking ` +
-          `${machine.gpu_share === 1 ? 'all of its time' : `${roundShare.format(machine.gpu_share)} of its time`}.`,
+    reads,
+    machine.reaches_card
+      ? 'Reads on the processor: no graphics card was found.'
+      : 'Reads on the processor: this build of SteamGauge does not use a graphics card.',
   );
 
   const list = el('models');
@@ -305,8 +306,8 @@ function drawMachine(found) {
     const where = model.here
       ? make('span', 'pill good', 'On this computer')
       : model.bytes_left > 0
-        ? make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed`)
-        : make('span', 'quiet small', 'Not published yet');
+        ? make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`)
+        : make('span', 'quiet small', 'Not published yet.');
     list.append(
       make(
         'li',

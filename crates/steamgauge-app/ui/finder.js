@@ -30,7 +30,7 @@ function searchAs(input, list, pick) {
           'result',
           art(listing.app_id),
           make('span', 'result-name', listing.name),
-          make('span', 'result-id', listing.app_id),
+          make('span', 'result-id', `App ${listing.app_id}`),
         );
         choice.type = 'button';
         choice.addEventListener('click', () => {

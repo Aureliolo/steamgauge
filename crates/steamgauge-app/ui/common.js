@@ -36,6 +36,14 @@ export function make(tag, className, ...children) {
   return node;
 }
 
+/* A folder shown so a line breaks after a separator, where a reader expects it, and nowhere
+   inside a name unless one name is wider than the line. */
+export function setPath(node, path) {
+  node.replaceChildren(
+    ...path.split(/(?<=[\\/])/).flatMap((part, index) => (index === 0 ? [part] : [document.createElement('wbr'), part])),
+  );
+}
+
 export function button(label, className, onClick) {
   const node = make('button', className, label);
   node.type = 'button';

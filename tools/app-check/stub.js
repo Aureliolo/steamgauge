@@ -338,7 +338,35 @@
       const picture = await new Promise((done) => canvas.toBlob(done, 'image/png'));
       return picture.arrayBuffer();
     },
-    claims_behind: () => ({ subject: 'performance', total: 1, from: 0, claims: [] }),
+    claims_behind: () => ({
+      subject: 'performance',
+      total: 2,
+      from: 0,
+      claims: [
+        {
+          claim: 'It runs smooth at 144 fps on a mid-range card.',
+          review: 'Great combat. It runs smooth at 144 fps on a mid-range card. The story drags in act two.',
+          language: 'english',
+          polarity: 'praise',
+          confidence: 0.94,
+          voted_up: true,
+          votes_up: 12,
+          created: 1_756_000_000,
+          url: 'https://steamcommunity.com/profiles/1/recommended/1/',
+        },
+        {
+          claim: 'The frame rate stutters in every town.',
+          review: 'The frame rate stutters in every town.',
+          language: 'english',
+          polarity: 'complaint',
+          confidence: 0.88,
+          voted_up: false,
+          votes_up: 0,
+          created: 1_757_000_000,
+          url: 'https://steamcommunity.com/profiles/2/recommended/1/',
+        },
+      ],
+    }),
     meaning_offer: () => ({
       status: 'none',
       on_card: true,
