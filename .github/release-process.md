@@ -78,9 +78,12 @@ publishes and packages:
    pages served from inside the binary, no developer tools) and the GPU backend that platform
    ships with, and checks the build left the tree as it found it. `tools/release/package.sh`
    then packs the portable archive (the binary, the runtime libraries beside it, the README,
-   the licence and the third-party notices) and has Tauri's bundler, pinned by version and
-   digest, package that same build into the platform's installers. It also records the crates
-   `cargo tree` resolves for that target and those features.
+   the licence and the third-party notices) and packages that same build into the platform's
+   installers: Tauri's bundler makes the Windows setup program and the macOS disk image, and
+   nFPM makes the `.deb` and the `.rpm` from the Linux archive's own files
+   (`tools/release/linux-packages.sh`, `tools/release/linux/nfpm.yaml`), with a man page
+   help2man writes from the program's `--help`. Both tools are pinned by version and digest. It
+   also records the crates `cargo tree` resolves for that target and those features.
 4. **sbom** first reads each archive's notices back against that crate list and the files the
    archive holds. Then it builds an SPDX SBOM of each archive: every file in it with its
    SHA-256, and every crate that build compiled, read from `Cargo.lock` cut down to exactly
@@ -95,9 +98,13 @@ publishes and packages:
    and the `.rpm` through dnf on Fedora), runs the installed program, which has to name the
    version, and starts its window, which has to stay up (`tools/release/install-check.sh`).
    Each installer has to name its maker, licence and package exactly as the check writes them:
-   the `.deb`'s control fields, copyright file and changelog, the `.rpm`'s header, the app's
-   `Info.plist`, and on Windows the setup program's and the program's version details and the
-   entry in Apps. On Windows and Linux it first installs 0.1.2, whose packages are named
+   the `.deb`'s control fields, files, copyright file and changelog, the `.rpm`'s header,
+   relations, files and changelog, the app's `Info.plist`, and on Windows the setup program's
+   and the program's version details and the entry in Apps. Before installing, Debian's lintian
+   (on Debian 13) and Fedora's rpmlint (`--strict`) have to pass the `.deb` and the `.rpm`, with
+   a warning failing as an error does; what each reports that is so by design is in
+   `tools/release/linux/lintian-overrides` and `tools/release/linux/rpmlint.toml`, each with its
+   reason. On Windows and Linux it first installs 0.1.2, whose packages are named
    `steam-gauge` and whose setup program registers the publisher `Aurelio`, and the new
    installer has to replace it. On Windows it uninstalls again and checks the program is gone.
 6. **attest** signs every file that ships through Sigstore, attests each platform's SBOM against
@@ -143,9 +150,10 @@ none of them can pass for a release's.
 - The installers: `steamgauge-X.Y.Z-windows-x64-setup.exe` (Windows on x86-64 with DirectML,
   installed for the current user, fetching WebView2 if the machine lacks it),
   `steamgauge-X.Y.Z-macos-arm64.dmg` (macOS on Apple Silicon with CoreML), and
-  `steamgauge_X.Y.Z_amd64.deb` and `steamgauge-X.Y.Z-1.x86_64.rpm` (Linux on x86-64 on the CPU,
-  each the package `steamgauge`, declaring WebKitGTK 4.1 so the package manager installs it, and
-  replacing the `steam-gauge` package of 0.1.2 and earlier).
+  `steamgauge_X.Y.Z-1_amd64.deb` and `steamgauge-X.Y.Z-1.x86_64.rpm` (Linux on x86-64 on the CPU,
+  each the package `steamgauge`, declaring the C library and WebKitGTK 4.1 so the package
+  manager installs what is missing, and replacing the `steam-gauge` package of 0.1.2 and
+  earlier).
 - One portable archive per platform holding the same program: `steamgauge-X.Y.Z-<platform>.zip`
   for Windows and `steamgauge-X.Y.Z-<platform>.tar.gz` for the others, where `<platform>` is the
   Rust target without its placeholder vendor: `x86_64-pc-windows-msvc`, `aarch64-apple-darwin`
@@ -385,6 +393,13 @@ exists.
 - **Expected exactly one file matching ...**, in the build job: Tauri's bundler wrote no
   installer of that kind, or more than one, usually after a tauri-cli upgrade changed its file
   names. Fix `tools/release/package.sh` on `main` and prepare the next version.
+- **... holds files the packages give no place** or **nFPM wrote no ...**, in the Linux build
+  job: the Linux archive gained a file `tools/release/linux/nfpm.yaml` does not install, or nFPM
+  named a package differently. Give the file its place, or fix the name, in
+  `tools/release/linux-packages.sh` on `main` and prepare the next version.
+- **lintian** or **rpmlint** failing, in the Linux install job: the package breaks a rule of
+  Debian's or Fedora's, named in the lines above. Fix the package; an override goes in
+  `tools/release/linux/` only with the reason the rule does not apply.
 - **... --version said ...**, **The installer put no ... in ...**, **The window exited within 20
   seconds of starting** or **Uninstalling left ... behind**, in an install job: an installer
   installs something that does not run, or does not run as it should, on its own system. That

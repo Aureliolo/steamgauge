@@ -123,7 +123,7 @@ prepared again: its vectors are in another space.
 |---|---|
 | Apache-2.0 | done |
 | Signed releases with provenance and an SBOM per archive | done, dry run passed, not yet run on a tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds each system's program with no cache, packs it into a portable archive and the system's installers, writes an SPDX SBOM of each program that is checked against its archive and the crates its build resolved, installs and runs every installer on its own system, and attests build provenance over every file and each SBOM against its archive and installers. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
-| A person installs it like any other program | done, not yet run on a tag: a setup program on Windows, a disk image on macOS, a `.deb` and an `.rpm` on Linux, made by Tauri's bundler from the build the release made; see below |
+| A person installs it like any other program | done, not yet run on a tag: a setup program on Windows, a disk image on macOS, a `.deb` and an `.rpm` on Linux, made from the build the release made, by Tauri's bundler on Windows and macOS and by nFPM on Linux; see below |
 | Releases cut by a button rather than a hand-made tag | done: prepare release, which only the owner can run, raises the version in a signed pull request opened by the packaging App, which merges itself when green; merging it tags, and the tag starts the release. The changelog is split by whether a pull request touched what ships, and the first release says it is the first |
 | Immutable release artefacts with checksums | done |
 | Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
@@ -4940,14 +4940,18 @@ bare `.tar.gz` per system: Windows 10 cannot open one without help, macOS has no
 in Applications, and on Linux WebKitGTK had to be found by hand. Each system now gets installers
 and keeps a portable archive: a per-user NSIS setup program on Windows that fetches WebView2
 where it is missing, a disk image on macOS, a `.deb` and an `.rpm` on Linux that declare
-WebKitGTK 4.1, and a `.zip` rather than a tarball for Windows. Tauri's bundler packages the build
-the release step made (`cargo tauri bundle`), so what is installed was compiled from the locked
-sources by the same step, not by a second build. The bundler is pinned by version and digest,
-and it checks the hashes of the NSIS tools it fetches. There is no AppImage: building one fetches
-tools from an unpinned "continuous" release.
+WebKitGTK 4.1, and a `.zip` rather than a tarball for Windows. Each installer packages the build
+the release step made, so what is installed was compiled from the locked sources by the same
+step, not by a second build. Tauri's bundler (`cargo tauri bundle`) makes the setup program and
+the disk image; it is pinned by version and digest, and it checks the hashes of the NSIS tools it
+fetches. nFPM makes the `.deb` and the `.rpm` from the Linux archive's own files, the owner's
+choice on 2026-10-05, so that the packages carry every field a Linux package has (see "Release
+names and package details" below). There is no AppImage: building one fetches tools from an
+unpinned "continuous" release.
 
-**The bundler stamps the program it packs** with the kind of package it is in, so the program
-inside an installer is not byte for byte the program in the archive. Each installer is therefore
+**Tauri's bundler stamps the program it packs** with the kind of package it is in, so the
+program inside the setup program or the disk image is not byte for byte the program in the
+archive; the `.deb` and the `.rpm` hold the archive's program unchanged. Each installer is therefore
 proved by installing it and running what it installed, on its own system, before anything is
 signed: the version it names, its window staying up, and on Windows uninstalling cleanly. The
 same check runs on every pull request (`packages.yml`). Each system's SBOM is attested against
@@ -5038,41 +5042,49 @@ vendor says nothing to someone choosing a download. The SBOM and the folder insi
 follow the same name, from `stem` in `tools/release/names.sh`; the build and the notices keep the
 full triple. The Windows and macOS names carry no placeholder and stay as they were.
 
-**The Linux package is `steamgauge`.** Tauri's bundler names the `.deb` and `.rpm` package after
-the product name in kebab case, which made `SteamGauge` into `steam-gauge`, and it has no setting
-for the package name. So on Linux alone the product name is `steamgauge`
-(`crates/steamgauge-app/tauri.linux.conf.json`, which the build reads too, so the program and its
-packages agree on `/usr/lib/steamgauge`). That also names the menu entry `steamgauge.desktop`,
-and a copy of the bundler's own template for it keeps the menu showing `SteamGauge`. Both
-packages replace the `steam-gauge` of 0.1.2 and earlier: the `.deb` provides, conflicts with and
-replaces it, the `.rpm` provides and obsoletes it. The relations carry no version, because the
-bundler writes an `.rpm` relation as a bare name, a version inside it becoming part of the name,
-and nothing will ship as `steam-gauge` again.
+**The Linux packages are built with nFPM, the owner's choice.** `tools/release/linux-packages.sh`
+lays the Linux archive's own files out and nFPM packs them by `tools/release/linux/nfpm.yaml`,
+so the `.deb` and the `.rpm` hold the archive's program byte for byte and say every field a
+package has: maintainer, vendor, homepage, licence, section, group, summary and description,
+the dependencies and the relations below, Debian's machine-readable copyright file, and one
+changelog entry pointing at the release's notes that nFPM writes as Debian's changelog and as
+the `.rpm`'s, both carrying the Debian revision `-1`, which is in the `.deb`'s file name too. The
+packages depend on the C library at the newest symbol version the program links (read from it
+with `objdump`), on WebKitGTK 4.1 and on GTK 3, which bring the rest of what it loads; the
+`.rpm` names each by its soname. They install the program in `/usr/bin`, a menu entry, the icon
+at 32, 128, 256 and 512 pixels each in the folder of its own size, a man page help2man writes
+from the program's `--help`, and the README and the third-party notices under
+`/usr/share/doc/steamgauge`; the `.rpm` keeps the licence in `/usr/share/licenses/steamgauge`,
+and the `.deb` gives it in its copyright file. Every file the archive carries has its place, and
+an archive with a file that has none is refused. Debian's lintian on Debian 13 and Fedora's
+rpmlint with `--strict` lint the packages on every pull request and before a release is signed,
+a warning failing as an error does; what either reports that is so by design is in
+`tools/release/linux/`, each with its reason.
+
+**The Linux package is `steamgauge`.** Both packages replace the `steam-gauge` of 0.1.2 and
+earlier. The `.deb` provides, conflicts with and replaces it. The `.rpm` obsoletes every
+`steam-gauge` below 0.1.3 and provides it at 0.1.3, a version no `steam-gauge` ever had, so that
+the package never obsoletes what it provides itself, whatever its own version.
 
 **The maker is Aurelio Amoroso, the copyright `Copyright (c) 2026 Aurelio Amoroso`.** The Cargo
-authors give the `.deb`'s maintainer, with the address; `bundle.publisher` gives the company in
+authors name him with the address, as `nfpm.yaml` does as the packages' maintainer and the
+`.rpm`'s packager, with Aurelio Amoroso as the vendor; `bundle.publisher` gives the company in
 the program's version details on Windows and the publisher of its entry in Apps;
 `bundle.copyright` gives the copyright there, in the setup program and in the app's
 `Info.plist`. The program's version details also name `steamgauge.exe` as its original file name
 and `steamgauge` as its internal name (`[package.metadata.tauri-winres]`), which tauri-build does
 not set. winget publishes the package under the GitHub account, `Aureliolo`, and matches an
-installed copy by the publisher the setup program registers, `Aurelio Amoroso`. The `.deb`
-carries a machine-readable copyright file and a changelog entry pointing at the release's notes,
-signed by the maintainer Cargo names; the `.rpm` carries the licence under
-`/usr/share/licenses/steamgauge`, and both the README under `/usr/share/doc/steamgauge`.
-
-**What the `.rpm` cannot say.** Tauri's `.rpm` writer sets no vendor, no packager, no group and no
-changelog, and takes no setting for them. Giving them means building the Linux packages with
-another tool, as the standard setup does with nFPM, which would replace the bundler's choice
-recorded above; that is the user's call, not taken here.
+installed copy by the publisher the setup program registers, `Aurelio Amoroso`. The `.deb`'s
+copyright file takes its holder from `LICENSE`.
 
 **A copy installed by 0.1.2 is replaced cleanly.** The Windows setup program keeps a copy's folder
 under `Software\<publisher>\SteamGauge` and hands it to the copy's uninstaller when replacing it
 from its window; 0.1.2 kept it under `Aurelio`. The installer hook carries that folder over to the
 publisher's key before the first page, and removes the old key once installed. The install check
 installs 0.1.2 first on Windows and Linux, by the digests in its signed checksums, and the new
-installer has to replace it; it then checks every field above, as written in
-`tools/release/install-check.sh`, on every pull request and before a release is signed.
+installer has to replace it; it then checks every field above and each package's whole file
+list, as written in `tools/release/install-check.sh` and `install-check-fedora.sh`, on every pull
+request and before a release is signed.
 
 ### The core's tests are held to a floor of coverage and to their mutants (2026-10-03)
 

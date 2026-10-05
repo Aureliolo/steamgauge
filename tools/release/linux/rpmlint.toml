@@ -1,0 +1,2 @@
+# What rpmlint reports about the .rpm that is so by design, each matched as narrowly as it can be.
+Filters = []

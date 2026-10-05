@@ -227,7 +227,7 @@ jobs:
             '| --- | --- | --- |' \
             "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-windows-x64-setup.exe\` | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.zip\` |" \
             "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-macos-arm64.dmg\` | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
-            "| Linux, x86-64: CPU only | \`steamgauge_${VERSION}_amd64.deb\`, \`steamgauge-${VERSION}-1.x86_64.rpm\` | \`steamgauge-${VERSION}-x86_64-linux-gnu.tar.gz\` (needs WebKitGTK 4.1) |" \
+            "| Linux, x86-64: CPU only | \`steamgauge_${VERSION}-1_amd64.deb\`, \`steamgauge-${VERSION}-1.x86_64.rpm\` | \`steamgauge-${VERSION}-x86_64-linux-gnu.tar.gz\` (needs WebKitGTK 4.1) |" \
             '' \
             'Or with a package manager:' \
             '' \

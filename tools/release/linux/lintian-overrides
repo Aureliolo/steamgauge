@@ -1,0 +1,2 @@
+# Built for SteamGauge's own releases rather than uploaded to Debian, so no ITP bug exists to close.
+steamgauge: initial-upload-closes-no-bugs [usr/share/doc/steamgauge/changelog.Debian.gz:1]

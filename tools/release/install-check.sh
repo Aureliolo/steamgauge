@@ -7,9 +7,9 @@
 #
 #   tools/release/install-check.sh <target> <version> <dir>
 #
-# The Linux run checks the .deb on this machine and the .rpm in a Fedora container
-# ($FEDORA_IMAGE, by install-check-fedora.sh), so both package formats are installed by their own
-# package manager.
+# The Linux run lints the .deb with lintian in a Debian container ($DEBIAN_IMAGE) and installs it
+# on this machine, and lints and installs the .rpm in a Fedora container ($FEDORA_IMAGE, by
+# install-check-fedora.sh), so both package formats are linted and installed by their own tools.
 
 # A command whose output is compared is checked by the comparison: if it fails, what it printed
 # is not what was expected.
@@ -45,6 +45,10 @@ previous_rpm_sha256=21a4b3c90475a294349e56002fe0628db1d34d0021fd5baaec12dc7fa515
 fetch_previous() {
   curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "$3/$1" "${previous_url}/$1"
   echo "$2  $3/$1" | sha256sum --check --strict
+}
+
+sorted_words() {
+  printf '%s\n' "$@" | LC_ALL=C sort | tr '\n' ' '
 }
 
 same() {
@@ -208,32 +212,54 @@ case "${target}" in
     stays_up "${app}/Contents/MacOS/steamgauge"
     ;;
   x86_64-unknown-linux-gnu)
+    # What both packages install, each adding its own: Debian's copyright file, changelog and
+    # lintian's notes, and the RPM's licence where Fedora keeps licences.
+    linux_files=(/usr/bin/steamgauge /usr/share/applications/steamgauge.desktop
+      /usr/share/doc/steamgauge/README.md /usr/share/doc/steamgauge/THIRD-PARTY-NOTICES.txt
+      /usr/share/icons/hicolor/{32x32,128x128,256x256,512x512}/apps/steamgauge.png
+      /usr/share/man/man1/steamgauge.1.gz)
     deb="${dir}/${installer_names[0]}"
     dpkg-deb --info "${deb}"
-    for pair in "Package=steamgauge" "Version=${version}" "Maintainer=${maintainer}" \
-      "Homepage=${homepage}" "Section=utils" "Priority=optional" "Provides=steam-gauge" \
-      "Conflicts=steam-gauge" "Replaces=steam-gauge"; do
-      same "The .deb's ${pair%%=*}" "$(dpkg-deb --field "${deb}" "${pair%%=*}")" "${pair#*=}"
+    for pair in "Package=steamgauge" "Version=${version}-1" "Architecture=amd64" \
+      "Maintainer=${maintainer}" "Homepage=${homepage}" "Section=utils" "Priority=optional" \
+      "Provides=steam-gauge" "Conflicts=steam-gauge" "Replaces=steam-gauge" \
+      "Description=Finds out what players of a game think, from every Steam review"; do
+      same "The .deb's ${pair%%=*}" "$(dpkg-deb --field "${deb}" "${pair%%=*}" | head -n 1)" "${pair#*=}"
     done
+    depends="$(dpkg-deb --field "${deb}" Depends)"
+    [[ "${depends}" =~ ^libc6\ \(\>=\ 2\.[0-9]+\),\ libwebkit2gtk-4\.1-0,\ libgtk-3-0$ ]] \
+      || { echo "The .deb depends on '${depends}', not the C library, WebKitGTK 4.1 and GTK 3." >&2; exit 1; }
+    echo "The .deb's Depends: ${depends}"
+    same "The .deb's files" \
+      "$(dpkg-deb --contents "${deb}" | awk '$1 ~ /^-/ { print $NF }' | sed 's|^\./|/|; s|^\([^/]\)|/\1|' | LC_ALL=C sort | tr '\n' ' ')" \
+      "$(sorted_words "${linux_files[@]}" /usr/share/doc/steamgauge/changelog.Debian.gz \
+        /usr/share/doc/steamgauge/copyright /usr/share/lintian/overrides/steamgauge)"
     # Read from the package rather than the system, which may be set to leave documentation out.
     unpacked="$(mktemp -d)"
     dpkg-deb --extract "${deb}" "${unpacked}"
-    for file in usr/bin/steamgauge usr/lib/steamgauge/LICENSE usr/lib/steamgauge/THIRD-PARTY-NOTICES.txt \
-      usr/share/applications/steamgauge.desktop usr/share/doc/steamgauge/copyright \
-      usr/share/doc/steamgauge/changelog.gz usr/share/doc/steamgauge/README.md; do
-      test -f "${unpacked}/${file}" || { echo "The .deb holds no /${file}." >&2; exit 1; }
-    done
-    same "The .deb's copyright file's format" "$(head -n 1 "${unpacked}/usr/share/doc/steamgauge/copyright")" \
+    doc="${unpacked}/usr/share/doc/steamgauge"
+    same "The .deb's copyright file's format" "$(head -n 1 "${doc}/copyright")" \
       "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/"
-    grep -qxF "Copyright: 2026 Aurelio Amoroso" "${unpacked}/usr/share/doc/steamgauge/copyright" \
+    grep -qxF "Copyright: 2026 Aurelio Amoroso" "${doc}/copyright" \
       || { echo "The .deb's copyright file does not name Aurelio Amoroso as the holder." >&2; exit 1; }
-    changelog="$(gzip -dc "${unpacked}/usr/share/doc/steamgauge/changelog.gz")"
+    grep -qxF "License: Apache-2.0" "${doc}/copyright" \
+      || { echo "The .deb's copyright file does not give the licence as Apache-2.0." >&2; exit 1; }
+    changelog="$(gzip -dc "${doc}/changelog.Debian.gz")"
     same "The .deb's changelog's entry" "$(head -n 1 <<< "${changelog}")" \
-      "steamgauge (${version}) unstable; urgency=medium"
+      "steamgauge (${version}-1) unstable; urgency=medium"
     [[ "$(tail -n 1 <<< "${changelog}")" == " -- ${maintainer}  "* ]] \
       || { echo "The .deb's changelog is not signed by ${maintainer}." >&2; exit 1; }
     grep -qxF "Name=SteamGauge" "${unpacked}/usr/share/applications/steamgauge.desktop" \
       || { echo "The .deb's menu entry does not call the program SteamGauge." >&2; exit 1; }
+
+    # Debian's own linter, at Debian's current release, where a warning fails as an error does.
+    docker run --rm --volume "${PWD}/${dir}:/packages:ro" "${DEBIAN_IMAGE:?}" bash -euo pipefail -c '
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get install --yes --no-install-recommends lintian > /dev/null
+      lintian --version
+      lintian --fail-on error,warning --display-info "/packages/$1"
+    ' _ "${installer_names[0]}"
 
     previous_dir="$(mktemp -d)"
     fetch_previous "${previous_deb}" "${previous_deb_sha256}" "${previous_dir}"
@@ -246,6 +272,7 @@ case "${target}" in
       echo "Installing steamgauge left ${previous}'s steam-gauge installed beside it." >&2
       exit 1
     fi
+    sudo dpkg --verify steamgauge
     expect_version /usr/bin/steamgauge
     stays_up xvfb-run --auto-servernum /usr/bin/steamgauge
     # Stopping xvfb-run leaves the program it started running.
@@ -257,11 +284,14 @@ case "${target}" in
     fi
 
     fetch_previous "${previous_rpm}" "${previous_rpm_sha256}" "${previous_dir}"
+    here="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
     docker run --rm --volume "${PWD}/${dir}:/packages:ro" --volume "${previous_dir}:/previous:ro" \
-      --volume "$(realpath "$(dirname "${BASH_SOURCE[0]}")/install-check-fedora.sh"):/install-check-fedora.sh:ro" \
+      --volume "${here}/install-check-fedora.sh:/install-check-fedora.sh:ro" \
+      --volume "${here}/linux/rpmlint.toml:/rpmlint.toml:ro" \
       --env VERSION="${version}" --env RPM="/packages/${installer_names[1]}" \
       --env PREVIOUS="${previous}" --env PREVIOUS_RPM="/previous/${previous_rpm}" \
-      --env HOMEPAGE="${homepage}" \
+      --env HOMEPAGE="${homepage}" --env MAINTAINER="${maintainer}" --env VENDOR="${publisher}" \
+      --env FILES="$(sorted_words "${linux_files[@]}" /usr/share/licenses/steamgauge/LICENSE)" \
       "${FEDORA_IMAGE:?}" bash /install-check-fedora.sh
     ;;
   *)

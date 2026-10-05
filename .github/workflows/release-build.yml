@@ -277,26 +277,30 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install the webview Tauri links against
+      # help2man writes the man page the Linux packages carry from the program's own --help.
+      - name: Install the webview Tauri links against, and help2man
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man
 
-      # Tauri's bundler, which turns the build into installers. The release archive for this
-      # system, refused unless it has the digest written here.
-      - name: Install tauri-cli (Linux)
+      # nFPM makes the .deb and the .rpm, Tauri's bundler the Windows setup program and the macOS
+      # disk image. Each is the tool's release archive for this system, refused unless it has the
+      # digest written here.
+      - name: Install nFPM (Linux)
         if: runner.os == 'Linux'
         env:
-          # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.1
-          TAURI_CLI_SHA256: 04ef3a9a2ed7b7dc479bef08ab40deee80065c99fc778f79ebce775eb72bbeff
+          # renovate: datasource=github-release-attachments depName=goreleaser/nfpm versioning=semver
+          NFPM_TAG: v2.47.0
+          NFPM_SHA256: 0660ca602b2d2d2ae4781a06c692b3eeb9d437ffea05b831d76e41f4a3188783
         run: |
           set -euo pipefail
-          archive="${RUNNER_TEMP}/cargo-tauri.tgz"
+          archive="${RUNNER_TEMP}/nfpm.tar.gz"
           curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${archive}" \
-            "https://github.com/tauri-apps/tauri/releases/download/${TAURI_CLI_TAG}/cargo-tauri-x86_64-unknown-linux-gnu.tgz"
-          echo "${TAURI_CLI_SHA256}  ${archive}" | sha256sum --check --strict
-          tar -xzf "${archive}" -C "${RUNNER_TEMP}" cargo-tauri
-          echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri" >> "${GITHUB_ENV}"
+            "https://github.com/goreleaser/nfpm/releases/download/${NFPM_TAG}/nfpm_${NFPM_TAG#v}_Linux_x86_64.tar.gz"
+          echo "${NFPM_SHA256}  ${archive}" | sha256sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/nfpm"
+          tar -xzf "${archive}" -C "${RUNNER_TEMP}/nfpm" nfpm
+          echo "${RUNNER_TEMP}/nfpm" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/nfpm/nfpm" --version
 
       - name: Install tauri-cli (Windows)
         if: runner.os == 'Windows'
@@ -605,7 +609,10 @@ jobs:
     permissions:
       contents: read # Reads the install check at the tag.
     env:
-      # The .rpm is installed by dnf on Fedora, pinned by digest so the check is the same each run.
+      # The .deb is linted on Debian and the .rpm linted and installed on Fedora, each pinned by
+      # digest so the check is the same each run.
+      # renovate: datasource=docker depName=debian
+      DEBIAN_IMAGE: debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
       # renovate: datasource=docker depName=fedora
       FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
@@ -688,7 +695,7 @@ jobs:
         with:
           subject-path: |
             dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-linux-gnu.tar.gz
-            dist/steamgauge_${{ needs.gate.outputs.version }}_amd64.deb
+            dist/steamgauge_${{ needs.gate.outputs.version }}-1_amd64.deb
             dist/steamgauge-${{ needs.gate.outputs.version }}-1.x86_64.rpm
           sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-x86_64-linux-gnu.spdx.json
 
