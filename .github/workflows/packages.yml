@@ -126,7 +126,8 @@ jobs:
           cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
 
       # The release packs the notices cargo-about writes, which CI's notices job checks on its
-      # own; any text stands in for them here, since it is the packaging under test.
+      # own; a text of its own stands in for them here, since it is the packaging under test. Not
+      # LICENSE: rpmlint refuses an .rpm carrying two identical files.
       - name: Package
         shell: bash
         env:
@@ -136,7 +137,9 @@ jobs:
           set -euo pipefail
           version="$(node tools/release/version.mjs check)"
           echo "VERSION=${version}" >> "${GITHUB_ENV}"
-          bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${version}" LICENSE dist
+          notices="${RUNNER_TEMP}/THIRD-PARTY-NOTICES.txt"
+          echo "The third-party notices of a release, which cargo-about writes when one is built." > "${notices}"
+          bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${version}" "${notices}" dist
 
       - name: Install and run
         shell: bash
