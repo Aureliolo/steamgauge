@@ -969,55 +969,45 @@ label.choice {
   border-top: 0;
 }
 
+/* The title takes what the actions leave and wraps inside it, so a job reads whole in the
+   cockpit's narrow column as well as on a game's wide page. */
 .job-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--s2);
+  gap: var(--s3);
+}
+
+.job-title {
+  display: grid;
   min-width: 0;
 }
 
 .job-name {
-  overflow: hidden;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .job-kind {
-  overflow: hidden;
   color: var(--ink-3);
   font-size: var(--t-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .job-actions {
   display: flex;
-  flex: none;
   align-items: center;
   gap: var(--s2);
-  margin-left: auto;
 }
 
 .job-wait {
   color: var(--ink-4);
-  font-size: var(--t-xs);
-}
-
-.job.queued {
-  padding: var(--s2) 0;
 }
 
 .work-line {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s3);
   color: var(--ink-3);
   font-size: var(--t-sm);
-}
-
-.work-line .num {
-  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .job-note {

@@ -129,7 +129,9 @@ const PROBE = `(async function () {
   check('a download does not say how long is left', /35 s left/.test(said));
   check('the bar is not filled to the share done',
     job && Math.abs(parseFloat(job.querySelector('.fill').style.width) - 27.7) < 0.2);
-  check('a waiting job is not drawn as waiting', /Waiting its turn/.test($('#cockpit-work').textContent));
+  check('a waiting job is not drawn as waiting', /waiting its turn/.test($('#cockpit-work .job.queued').textContent));
+  check('a job runs off the side of the cockpit\\'s column', Array.prototype.every.call(
+    document.querySelectorAll('#cockpit-work .job'), function (j) { return j.scrollWidth <= j.clientWidth + 1; }));
   check('a busy board still says nothing is running', !shown('cockpit-idle'));
   check('the rail does not show the running job',
     shown('rail-work') && /Alpha/.test($('#rail-work').textContent));
@@ -412,6 +414,20 @@ try {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
+      // The cockpit while work runs: a download with its pace, a read, one waiting and one done.
+      await evaluate(
+        "var at=Math.floor(Date.now()/1000);var job=function(id,kind,app,name,state,step,unit,done,total,rate,left,note){" +
+          "return {id:id,task:{kind:kind,app_id:app},name:name,state:state,step:step,unit:unit,done:done,total:total," +
+          "rate:rate,left:left,note:note,queued:at-600,started:state==='queued'?null:at-300,ended:state==='done'?at-60:null};};" +
+          "window.__stub.board([" +
+          "job(91,'update',1,'Alpha','running','Downloading','reviews',6200,21000,48,310,null)," +
+          "job(92,'read',2,'Beta','running','Reading','points',12000,18000,900,7,null)," +
+          "job(93,'read',3,'Gamma','queued','Waiting','points',0,null,null,null,null)," +
+          "job(94,'update',3,'Gamma','done','Done','reviews',900,900,null,null,'900 reviews downloaded.')]);" +
+          "document.querySelector('[data-go=\"cockpit\"]').click()",
+      );
+      await shoot(`working-${scheme}`);
+      await evaluate("window.__stub.board([])");
       await evaluate("document.querySelector('[data-go=\"library\"]').click()");
       await sleep(300);
       await evaluate(
