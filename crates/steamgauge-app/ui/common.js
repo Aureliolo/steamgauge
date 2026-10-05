@@ -104,7 +104,7 @@ export function tiles(list, entries) {
         'div',
         'tile',
         make('dt', null, term),
-        make('dd', 'tile-value', value),
+        make('dd', /\d/.test(value) ? 'tile-value' : 'tile-value word', value),
         under ? make('dd', 'tile-under', under) : null,
       ),
     ),

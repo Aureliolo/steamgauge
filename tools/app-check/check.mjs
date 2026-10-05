@@ -454,6 +454,12 @@ try {
         "var box=document.getElementById('appid');box.value='4';document.getElementById('lookup-form').requestSubmit()",
       );
       await shoot(`finder-${scheme}`);
+      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await sleep(300);
+      await evaluate(
+        "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click()",
+      );
+      await shoot(`game-unread-${scheme}`);
     }
     // The narrowest window the app allows, where a layout is first to give.
     await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });

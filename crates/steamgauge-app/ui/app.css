@@ -901,6 +901,14 @@ label.choice {
   line-height: 1.1;
 }
 
+/* A word is wider than a figure of the same weight; set at a figure's size it fills the tile. */
+.tile-value.word {
+  padding: 5px 0 4px;
+  font-size: var(--t-2xl);
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
 .tile-under {
   color: var(--ink-3);
   font-size: var(--t-sm);
@@ -1958,6 +1966,36 @@ table.games td:last-child {
 
 #game-note:empty {
   display: none;
+}
+
+.read-offer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s2) var(--s4);
+  align-items: start;
+  padding: var(--s6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.read-offer[hidden] {
+  display: none;
+}
+
+.read-offer .step-icon {
+  grid-row: 1 / span 2;
+  margin-bottom: 0;
+}
+
+.read-offer h3 {
+  font-size: var(--t-lg);
+}
+
+.read-offer .row {
+  grid-column: 2;
+  margin-top: var(--s3);
 }
 
 .topics {

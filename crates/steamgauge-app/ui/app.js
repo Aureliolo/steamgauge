@@ -112,12 +112,7 @@ async function loadTopics(appId) {
   } catch (failure) {
     panel.hidden = true;
     el('game-actions').hidden = false;
-    set(
-      el('game-note'),
-      String(failure).includes('not been read')
-        ? 'Downloaded but not read yet. Reading turns it into rates you can open.'
-        : String(failure),
-    );
+    set(el('game-note'), String(failure).includes('not been read') ? '' : String(failure));
     drawReadCost(appId);
   }
 }
@@ -143,7 +138,6 @@ async function drawReadCost(appId) {
   }
   const mine = offer.choices.find((choice) => choice.name === offer.reader);
   if (mine?.seconds) parts.push(`About ${duration(mine.seconds)} on this computer.`);
-  if (parts.length === 0) parts.push('Splits each review into the points it makes and counts them.');
   set(el('read-cost'), parts.join(' '));
 }
 

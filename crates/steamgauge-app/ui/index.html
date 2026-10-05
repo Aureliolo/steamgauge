@@ -359,16 +359,25 @@
           <div class="game-actions">
             <ul class="jobs" id="game-jobs"></ul>
             <p class="note" id="game-note" role="status" aria-live="polite"></p>
-            <div class="row" id="game-actions" hidden>
-              <button type="button" class="primary" id="do-read">Read every review</button>
-              <label class="choice">
-                in
-                <select id="read-language">
-                  <option value="english" selected>English only</option>
-                  <option value="">every language</option>
-                </select>
-              </label>
-              <span class="quiet small" id="read-cost"></span>
+            <div class="read-offer" id="game-actions" hidden>
+              <span class="step-icon">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 5h12M4 10h12M4 15h7" /></svg>
+              </span>
+              <div>
+                <h3>Not read yet</h3>
+                <p class="quiet">Reading splits every review into the points it makes and counts them under their subjects, on this computer.</p>
+              </div>
+              <div class="row">
+                <button type="button" class="primary" id="do-read">Read every review</button>
+                <label class="choice">
+                  in
+                  <select id="read-language">
+                    <option value="english" selected>English only</option>
+                    <option value="">every language</option>
+                  </select>
+                </label>
+                <span class="quiet small" id="read-cost"></span>
+              </div>
             </div>
           </div>
 
