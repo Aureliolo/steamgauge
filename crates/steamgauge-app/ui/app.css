@@ -977,6 +977,10 @@ label.choice {
   border-top: 0;
 }
 
+.jobs .job:last-child {
+  padding-bottom: 0;
+}
+
 /* The title takes what the actions leave and wraps inside it, so a job reads whole in the
    cockpit's narrow column as well as on a game's wide page. */
 .job-head {
@@ -1964,7 +1968,8 @@ table.games td:last-child {
   background: var(--surface);
 }
 
-#game-note:empty {
+#game-note:empty,
+#game-verdict:empty {
   display: none;
 }
 

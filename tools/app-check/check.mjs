@@ -292,6 +292,8 @@ const PROBE = `(async function () {
   check('downloading does not queue a download', called('queue').some(function (call) {
     return call.args.tasks.some(function (t) { return t.kind === 'download' && t.app_id === 4; }); }));
   check('a game being downloaded does not open on its page', shown('game') && /Delta/.test($('#game-name').textContent));
+  check('a game being downloaded does not say what its page will show', /once the reviews are downloaded/.test($('#game-note').textContent));
+  check('a game being downloaded is called not downloaded', !/Not downloaded/.test($('#game').textContent));
   return wrong;
 })()`;
 
@@ -454,6 +456,14 @@ try {
         "var box=document.getElementById('appid');box.value='4';document.getElementById('lookup-form').requestSubmit()",
       );
       await shoot(`finder-${scheme}`);
+      // The first thing after choosing a game: its page, with the download under way.
+      await evaluate(
+        "document.getElementById('start').click();var at=Math.floor(Date.now()/1000);" +
+          "window.__stub.board([{id:95,task:{kind:'download',app_id:4},name:'Delta',state:'running',step:'Downloading'," +
+          "unit:'reviews',done:2300,total:12000,rate:52,left:186,note:null,queued:at-60,started:at-45,ended:null}])",
+      );
+      await shoot(`downloading-${scheme}`);
+      await evaluate("window.__stub.board([])");
       await evaluate("document.querySelector('[data-go=\"library\"]').click()");
       await sleep(300);
       await evaluate(

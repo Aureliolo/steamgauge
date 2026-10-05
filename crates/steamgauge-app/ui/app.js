@@ -65,7 +65,7 @@ async function showGame(appId, named = null) {
   set(el('game-name'), game?.name ?? named ?? `App ${appId}`);
   art(appId, el('game-art'));
   el('game-verdict').replaceChildren(...[verdictPill(game?.verdict)].filter(Boolean));
-  set(el('game-sub'), game === null ? 'Not downloaded yet' : `App ${appId}`);
+  set(el('game-sub'), `App ${appId}`);
   tiles(
     el('game-facts'),
     game === null
@@ -78,7 +78,10 @@ async function showGame(appId, named = null) {
         ],
   );
   el('game-facts').hidden = game === null;
-  set(el('game-note'), '');
+  set(
+    el('game-note'),
+    game === null ? 'This page shows what players talk about once the reviews are downloaded and read.' : '',
+  );
   el('game-note').classList.remove('bad');
   el('sweep-actions').hidden = game === null;
   el('topics').hidden = true;
