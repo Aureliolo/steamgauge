@@ -1091,11 +1091,28 @@ label.choice {
   padding-right: var(--s3);
 }
 
+/* Three across or one beneath another; never two and an orphan. */
 .steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s4);
   list-style: none;
+}
+
+@media (max-width: 1080px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--s4);
+  }
+
+  .step .step-icon {
+    grid-row: 1 / span 2;
+    margin-bottom: 0;
+  }
 }
 
 .step {

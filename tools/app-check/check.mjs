@@ -480,6 +480,10 @@ try {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }
+    await load(`${page}?first`);
+    await sleep(400);
+    await evaluate(unroll);
+    await shoot("narrow-welcome");
   }
 
   socket.close();
