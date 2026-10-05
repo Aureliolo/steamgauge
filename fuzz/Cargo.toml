@@ -9,20 +9,27 @@ publish = false
 [package.metadata]
 cargo-fuzz = true
 
-# ort is named only for the features it adds to the core crate's ort, which no code here calls.
+# ort is named only for the features it adds to the core crate's ort, which no code here calls;
+# arbitrary and libloading only to pin them.
 [package.metadata.cargo-machete]
-ignored = ["ort"]
+ignored = ["ort", "arbitrary", "libloading"]
 
+# The harness keeps no lock file of its own: it builds on a copy of the product's, so it fuzzes
+# the versions the product ships. Every crate that copy lacks is one only the harness needs, and
+# each is pinned exactly here, which CI's deny job holds it to.
 [dependencies]
-libfuzzer-sys = "0.4.13"
+libfuzzer-sys = "=0.4.13"
+arbitrary = "=1.4.2"
 steamgauge-core = { path = "../crates/steamgauge-core" }
 # Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
 # newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
 # model, so nothing is ever loaded.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic"] }
+libloading = "=0.9.0"
 
 # A workspace of its own. The product's workspace never builds, tests, lints or ships this
-# crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have.
+# crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have. One
+# workspace would also unify features: the load-dynamic above would reach the product's ort.
 [workspace]
 members = ["."]
 

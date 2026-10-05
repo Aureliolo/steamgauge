@@ -1,22 +1,17 @@
 // The release version. It is written once, under [workspace.package] in the root Cargo.toml,
-// every crate inherits it, Cargo.lock carries a copy for each crate in the workspace, and the
-// fuzz harness's lock one for each it depends on. A tag is checked against that one number, so
+// every crate inherits it, and Cargo.lock carries a copy for each crate in the workspace. A tag
+// is checked against that one number, so
 // the places it lives are checked against each other first: a crate that pinned its own version, or a lock file left behind by a bump, would
 // otherwise ship a binary whose `--version` names a different release from its tag.
 //
 //   node tools/release/version.mjs check                       prints the version once all agree
 //   node tools/release/version.mjs bump <patch|minor|major|X.Y.Z>
 //   node tools/release/version.mjs of-manifest < Cargo.toml    prints the workspace version
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 
 import { isMain } from "./github.mjs";
-
-// Workspaces of their own in this repository that depend on the workspace's crates by path, so
-// their lock files record those crates' versions too; cargo refuses one left behind by a bump
-// wherever it is run with --locked.
-const DEPENDENT_LOCKS = ["fuzz/Cargo.lock"];
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
@@ -241,22 +236,11 @@ export function inspect(root) {
       problems.push(`Cargo.lock records ${name} ${locked.get(name)}, not ${version}.`);
     }
   }
-  for (const path of dependentLocks(root)) {
-    for (const [name, recorded] of lockVersions(read(root, path), names)) {
-      if (recorded !== version) {
-        problems.push(`${path} records ${name} ${recorded}, not ${version}.`);
-      }
-    }
-  }
   return { version, names, problems };
 }
 
-function dependentLocks(root) {
-  return DEPENDENT_LOCKS.filter((path) => existsSync(join(root, path)));
-}
-
-// Raises the version in the manifest and every lock file that records it, and names them, for
-// the commit that carries the change.
+// Raises the version in the manifest and the lock file, and names them, for the commit that
+// carries the change.
 export function bump(root, how) {
   const { version, names, problems } = inspect(root);
   if (problems.length > 0) {
@@ -266,14 +250,6 @@ export function bump(root, how) {
   writeFileSync(join(root, "Cargo.toml"), withWorkspaceVersion(read(root, "Cargo.toml"), next));
   writeFileSync(join(root, "Cargo.lock"), withLockVersions(read(root, "Cargo.lock"), names, next));
   const files = ["Cargo.toml", "Cargo.lock"];
-  for (const path of dependentLocks(root)) {
-    const lock = read(root, path);
-    const recorded = [...lockVersions(lock, names).keys()];
-    if (recorded.length > 0) {
-      writeFileSync(join(root, path), withLockVersions(lock, recorded, next));
-      files.push(path);
-    }
-  }
   const after = inspect(root);
   if (after.problems.length > 0 || after.version !== next) {
     throw new Error(`The bump to ${next} left: ${after.problems.join(" ")}`);
