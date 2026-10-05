@@ -36,6 +36,14 @@ export function make(tag, className, ...children) {
   return node;
 }
 
+/* A folder shown so a line breaks after a separator, where a reader expects it, and nowhere
+   inside a name unless one name is wider than the line. */
+export function setPath(node, path) {
+  node.replaceChildren(
+    ...path.split(/(?<=[\\/])/).flatMap((part, index) => (index === 0 ? [part] : [document.createElement('wbr'), part])),
+  );
+}
+
 export function button(label, className, onClick) {
   const node = make('button', className, label);
   node.type = 'button';
@@ -86,6 +94,78 @@ export function facts(list, entries) {
     if (under) dd.append(make('small', null, under));
     list.append(make('div', null, make('dt', null, term), dd));
   }
+}
+
+/* Large figures in cards: the term, the figure, and a line under it. */
+export function tiles(list, entries) {
+  list.replaceChildren(
+    ...entries.map(([term, value, under]) =>
+      make(
+        'div',
+        'tile',
+        make('dt', null, term),
+        make('dd', /\d/.test(value) ? 'tile-value' : 'tile-value word', value),
+        under ? make('dd', 'tile-under', under) : null,
+      ),
+    ),
+  );
+}
+
+/* Steam's verdict as a pill coloured by which way it leans. */
+export function verdictPill(verdict) {
+  if (!verdict) return null;
+  const leaning = /positive/i.test(verdict) ? 'good' : /negative/i.test(verdict) ? 'bad' : 'warn';
+  return make('span', `pill ${leaning}`, make('span', 'dot'), verdict);
+}
+
+/* A game's store picture. The core fetches each once and keeps it, and the window loads only a
+   few at a time, so a library of seventy games does not ask for seventy at once. */
+const pictures = new Map();
+const waitingForArt = [];
+let artInFlight = 0;
+const ART_AT_ONCE = 4;
+
+function nextArt() {
+  while (artInFlight < ART_AT_ONCE && waitingForArt.length > 0) {
+    const { appId, settle } = waitingForArt.shift();
+    artInFlight += 1;
+    invoke('art', { appId })
+      .then((bytes) => settle(URL.createObjectURL(new Blob([bytes]))))
+      .catch(() => settle(null))
+      .finally(() => {
+        artInFlight -= 1;
+        nextArt();
+      });
+  }
+}
+
+function artUrl(appId) {
+  if (!pictures.has(appId)) {
+    pictures.set(
+      appId,
+      new Promise((settle) => {
+        waitingForArt.push({ appId, settle });
+        nextArt();
+      }),
+    );
+  }
+  return pictures.get(appId);
+}
+
+/* The picture's frame, filled in when the picture arrives; a game with none keeps the frame. */
+export function art(appId, holder = make('span', 'art')) {
+  holder.replaceChildren();
+  holder.dataset.app = String(appId);
+  artUrl(appId).then((url) => {
+    if (!url || holder.dataset.app !== String(appId)) return;
+    const picture = make('img');
+    picture.alt = '';
+    picture.decoding = 'async';
+    picture.addEventListener('load', () => picture.classList.add('loaded'));
+    picture.src = url;
+    holder.replaceChildren(picture);
+  });
+  return holder;
 }
 
 /* Pages register what to do when they are shown; anything can ask to go to one. */

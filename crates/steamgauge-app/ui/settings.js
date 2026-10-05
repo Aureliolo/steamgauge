@@ -1,7 +1,7 @@
 /* How the app runs on this computer: how much of the graphics card it takes, which reader a
    computer without one uses, and what happens on its own. */
 
-import { invoke, el, set, make, roundShare, size, page } from './common.js';
+import { invoke, el, set, make, roundShare, size, page, setPath } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
@@ -57,7 +57,7 @@ export function setUpSettings() {
     el('search-every-game').checked = shown.search_every_game;
     el('check-steam').checked = shown.check_steam;
     el('check-newer-version').checked = shown.check_newer_version;
-    set(el('library-place'), shown.library);
+    setPath(el('library-place'), shown.library);
     set(
       el('reader-download'),
       offer.here

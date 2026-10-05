@@ -88,7 +88,8 @@ const PROBE = `(async function () {
   check('a game new on Steam goes unlisted', /\\+1,520/.test($('#health-lists').textContent));
   check('a game read by an older reader goes unlisted', /Beta/.test($('#health-lists').textContent));
   check('the card in use goes unnamed', /RTX 4090/.test($('#machine-facts').textContent));
-  check('the share of the card goes unsaid', /50% of its time/.test($('#machine-reads').textContent));
+  check('the share of the card goes unsaid', /50%/.test($('#machine-facts').textContent));
+  check('reading on the card is explained as if it were the processor', !shown('machine-reads'));
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board does not say nothing is running', shown('cockpit-idle'));
   check('the cockpit does not fit its page', fits());
@@ -128,7 +129,9 @@ const PROBE = `(async function () {
   check('a download does not say how long is left', /35 s left/.test(said));
   check('the bar is not filled to the share done',
     job && Math.abs(parseFloat(job.querySelector('.fill').style.width) - 27.7) < 0.2);
-  check('a waiting job is not drawn as waiting', /Waiting its turn/.test($('#cockpit-work').textContent));
+  check('a waiting job is not drawn as waiting', /waiting its turn/.test($('#cockpit-work .job.queued').textContent));
+  check('a job runs off the side of the cockpit\\'s column', Array.prototype.every.call(
+    document.querySelectorAll('#cockpit-work .job'), function (j) { return j.scrollWidth <= j.clientWidth + 1; }));
   check('a busy board still says nothing is running', !shown('cockpit-idle'));
   check('the rail does not show the running job',
     shown('rail-work') && /Alpha/.test($('#rail-work').textContent));
@@ -211,6 +214,7 @@ const PROBE = `(async function () {
     $('#compare-rows tr th').textContent === 'Story');
   check('a share of a subject\\'s reviews goes past the whole', !/\\d{3,}%/.test($('#compare-rows').textContent));
   check('a share in the comparison is not of the game\\'s own reviews', /20%/.test($('#compare-rows').textContent));
+  check('the comparison\\'s bars go unexplained', shown('compare-legend'));
   $('#compare-export').click();
   await pause();
   check('saving the comparison does not ask for a report of its games',
@@ -257,6 +261,20 @@ const PROBE = `(async function () {
   await pause(300);
   check('a read game does not show what people talk about',
     shown('topics') && document.querySelectorAll('#topic-rows tr').length === 2);
+  check('a language is not named as a person writes it', /English 75%/.test($('#languages').textContent));
+  check('a month\\'s bar is not held to a column\\'s width',
+    Number($('#timeline-svg .bar').getAttribute('width')) <= 56);
+  $('#game-store').click();
+  await pause();
+  check('a game\\'s store page does not open through the opener',
+    last('plugin:opener|open_url').args.url === 'https://store.steampowered.com/app/1/');
+  $('#topic-rows .subject').click();
+  await pause(300);
+  check('a subject does not show the points behind it', document.querySelectorAll('#quotes li').length === 2);
+  check('a count of points is not said in words', /^2 points about this/.test($('#evidence-lede').textContent));
+  check('a single page of points offers pages', !shown('paging'));
+  $('#back').click();
+  await pause(300);
   $('#game-back').click();
   await pause(250);
   check('the way back from a game does not lead to the library', shown('library'));
@@ -274,6 +292,8 @@ const PROBE = `(async function () {
   check('downloading does not queue a download', called('queue').some(function (call) {
     return call.args.tasks.some(function (t) { return t.kind === 'download' && t.app_id === 4; }); }));
   check('a game being downloaded does not open on its page', shown('game') && /Delta/.test($('#game-name').textContent));
+  check('a game being downloaded does not say what its page will show', /once the reviews are downloaded/.test($('#game-note').textContent));
+  check('a game being downloaded is called not downloaded', !/Not downloaded/.test($('#game').textContent));
   return wrong;
 })()`;
 
@@ -295,12 +315,23 @@ try {
   await send("Runtime.enable", {});
   await send("Network.enable", {});
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
-  await send("Page.reload", {});
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const ready = await evaluate("document.readyState === 'complete' && !!window.__stub");
-    if (ready.result?.result?.value === true) break;
-    await sleep(250);
-  }
+  // Opens `url` afresh. The page about to be left is marked first, because right after a
+  // navigation it can still answer as ready and be checked in place of the new one.
+  let loads = 0;
+  const load = async (url) => {
+    await evaluate("window.__left = true");
+    // A query of its own every time, so each load is a navigation and never a jump within the
+    // page that a reload could overtake.
+    loads += 1;
+    await send("Page.navigate", { url: `${url}${url.includes("?") ? "&" : "?"}load=${loads}` });
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const ready = await evaluate("document.readyState === 'complete' && !!window.__stub && !window.__left");
+      if (ready.result?.result?.value === true) return;
+      await sleep(250);
+    }
+    throw new Error(`${url} did not load`);
+  };
+  await load(page);
 
   const answer = await evaluate(PROBE);
   // The narrowest window the app allows, where the library's table is the first thing to
@@ -316,24 +347,161 @@ try {
     }
     return wrong;
   })()`);
+  // The library's table scrolls inside its own frame, so the page never shows it running off;
+  // every width from the narrowest to a common laptop's is asked whether the table fits.
+  const sideways = [];
+  for (const width of [760, 900, 1080, 1180, 1220, 1280, 1366]) {
+    await send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });
+    const fits = await evaluate(`(async function () {
+      document.querySelector('[data-go="library"]').click();
+      await new Promise(function (done) { setTimeout(done, 250); });
+      var frame = document.querySelector('#library .table-wrap');
+      var fits = frame.scrollWidth <= frame.clientWidth + 1;
+      // Another system's fonts set the same columns wider; text spaced out stands in for them.
+      document.querySelector('table.games').style.letterSpacing = '0.12em';
+      document.querySelector('[data-go="library"]').click();
+      await new Promise(function (done) { setTimeout(done, 250); });
+      fits = fits && frame.scrollWidth <= frame.clientWidth + 1;
+      document.querySelector('table.games').style.letterSpacing = '';
+      return fits;
+    })()`);
+    if (fits.result?.result?.value !== true) sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
+  }
+
+  // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  await load(`${page}?first`);
+  const first = await evaluate(`(async function () {
+    var wrong = [];
+    var check = function (claim, ok) { if (!ok) { wrong.push(claim); } };
+    var pause = function (ms) { return new Promise(function (done) { setTimeout(done, ms || 80); }); };
+    var shown = function (id) { return !document.getElementById(id).hidden; };
+    await pause(400);
+    check('an empty library is not welcomed', shown('cockpit-empty') && !shown('cockpit-full'));
+    var box = document.getElementById('welcome-query');
+    box.value = 'delta';
+    box.dispatchEvent(new Event('input'));
+    await pause(600);
+    var found = document.querySelectorAll('#welcome-results .result');
+    check('the welcome does not find a game by its name', found.length === 2 && /Delta/.test(found[0].textContent));
+    if (found.length > 0) { found[0].click(); await pause(300); }
+    check('choosing a game the welcome found does not offer it', shown('finder') && shown('found') &&
+      /Delta/.test(document.getElementById('found-name').textContent));
+    document.querySelector('[data-go="library"]').click();
+    await pause(250);
+    check('an empty library does not say so', shown('library-empty') && !shown('library-full'));
+    document.querySelector('[data-go="compare"]').click();
+    await pause(250);
+    check('an empty comparison explains bars it does not show', shown('compare-empty') && !shown('compare-legend'));
+    var finder = document.getElementById('appid');
+    document.getElementById('rail-add').click();
+    await pause(200);
+    finder.value = 'https://store.steampowered.com/app/4/Delta/';
+    document.getElementById('lookup-form').requestSubmit();
+    await pause(250);
+    var asked = window.__stub.calls.filter(function (call) { return call.command === 'look_up'; }).pop();
+    check('a store link is not read for its app ID', asked && asked.args.appId === 4);
+    return wrong;
+  })()`);
 
   if (shots) {
     await mkdir(shots, { recursive: true });
+    // Every page whole, rather than the window's height of it.
+    const unroll =
+      "document.body.style.overflow='visible';document.querySelector('.frame').style.height='auto';" +
+      "document.querySelector('.frame').style.minHeight='100vh';" +
+      "document.getElementById('stage').style.overflow='visible';";
+    const shoot = async (name) => {
+      await sleep(400);
+      const picture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+      await writeFile(join(shots, `${name}.png`), Buffer.from(picture.result.data, "base64"));
+    };
     for (const scheme of ["light", "dark"]) {
       await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
       await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+
+      await load(`${page}?first`);
+      await sleep(400);
+      await evaluate(unroll);
+      await shoot(`welcome-${scheme}`);
+      await evaluate(
+        "var box=document.getElementById('welcome-query');box.value='delta';box.dispatchEvent(new Event('input'))",
+      );
+      await shoot(`welcome-search-${scheme}`);
+
+      await load(page);
+      await sleep(400);
+      await evaluate(unroll);
       for (const name of ["cockpit", "library", "compare", "settings"]) {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
-        await sleep(350);
-        const picture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
-        await writeFile(join(shots, `${name}-${scheme}.png`), Buffer.from(picture.result.data, "base64"));
+        await shoot(`${name}-${scheme}`);
       }
+      // The cockpit while work runs: a download with its pace, a read, one waiting and one done.
+      await evaluate(
+        "var at=Math.floor(Date.now()/1000);var job=function(id,kind,app,name,state,step,unit,done,total,rate,left,note){" +
+          "return {id:id,task:{kind:kind,app_id:app},name:name,state:state,step:step,unit:unit,done:done,total:total," +
+          "rate:rate,left:left,note:note,queued:at-600,started:state==='queued'?null:at-300,ended:state==='done'?at-60:null};};" +
+          "window.__stub.board([" +
+          "job(91,'update',1,'Alpha','running','Downloading','reviews',6200,21000,48,310,null)," +
+          "job(92,'read',2,'Beta','running','Reading','points',12000,18000,900,7,null)," +
+          "job(93,'read',3,'Gamma','queued','Waiting','points',0,null,null,null,null)," +
+          "job(94,'update',3,'Gamma','done','Done','reviews',900,900,null,null,'900 reviews downloaded.')]);" +
+          "document.querySelector('[data-go=\"cockpit\"]').click()",
+      );
+      await shoot(`working-${scheme}`);
+      await evaluate("window.__stub.board([])");
+      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await sleep(300);
+      await evaluate(
+        "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
+      );
+      await shoot(`game-${scheme}`);
+      await evaluate("document.querySelector('#topic-rows .subject').click()");
+      await shoot(`evidence-${scheme}`);
+      await evaluate("document.getElementById('rail-add').click()");
+      await evaluate(
+        "var box=document.getElementById('appid');box.value='4';document.getElementById('lookup-form').requestSubmit()",
+      );
+      await shoot(`finder-${scheme}`);
+      // The first thing after choosing a game: its page, with the download under way.
+      await evaluate(
+        "document.getElementById('start').click();var at=Math.floor(Date.now()/1000);" +
+          "window.__stub.board([{id:95,task:{kind:'download',app_id:4},name:'Delta',state:'running',step:'Downloading'," +
+          "unit:'reviews',done:2300,total:12000,rate:52,left:186,note:null,queued:at-60,started:at-45,ended:null}])",
+      );
+      await shoot(`downloading-${scheme}`);
+      await evaluate("window.__stub.board([])");
+      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await sleep(300);
+      await evaluate(
+        "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click()",
+      );
+      await shoot(`game-unread-${scheme}`);
     }
+    // The narrowest window the app allows, where a layout is first to give.
+    await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
+    await load(page);
+    await sleep(400);
+    await evaluate(unroll);
+    for (const name of ["cockpit", "library", "settings"]) {
+      await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
+      await shoot(`narrow-${name}`);
+    }
+    await load(`${page}?first`);
+    await sleep(400);
+    await evaluate(unroll);
+    await shoot("narrow-welcome");
   }
 
   socket.close();
-  const fetched = asked.filter((url) => !url.startsWith(`http://127.0.0.1:${server.address().port}/`));
-  const broke = [answer, narrow].find((r) => r.result?.exceptionDetails);
+  // A data: or blob: address is the page's own memory, not a request that leaves the machine.
+  const fetched = asked.filter(
+    (url) =>
+      !url.startsWith(`http://127.0.0.1:${server.address().port}/`) &&
+      !url.startsWith("data:") &&
+      !url.startsWith("blob:"),
+  );
+  const broke = [answer, narrow, first].find((r) => r.result?.exceptionDetails);
   if (broke) {
     console.error("the window threw while being checked:");
     console.error(broke.result.exceptionDetails.exception?.description ?? broke.result.exceptionDetails.text);
@@ -342,7 +510,9 @@ try {
       .concat(threw.map((said) => `the window reported an error: ${said}`))
       .concat(fetched.length === 0 ? [] : [`the window fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(", ")}`])
       .concat(answer.result.result.value)
-      .concat(narrow.result.result.value);
+      .concat(narrow.result.result.value)
+      .concat(sideways)
+      .concat(first.result.result.value);
     if (wrong.length === 0) {
       console.log("the window behaves as it says it does");
       failed = false;

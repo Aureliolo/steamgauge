@@ -28,6 +28,19 @@ const BACKOFF_CAP: Duration = Duration::from_mins(5);
 pub const PATIENCE: Duration = Duration::from_mins(30);
 pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
 
+/// Where the store keeps the pictures of its apps.
+const ART: &str = "https://shared.akamai.steamstatic.com";
+/// A store header is about 50 KB; anything far larger, past 2 MiB, is not the picture that was
+/// asked for.
+const ART_LIMIT: usize = 2_097_152;
+
+/// A game the store lists under the words somebody typed.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Listing {
+    pub app_id: u32,
+    pub name: String,
+}
+
 /// How long to wait before asking again after the `refusals`-th refusal in a row, having waited
 /// `waited` already; `None` when that would run past `patience` and the request should fail.
 /// Valve's own Retry-After wins over any guess the client could make, and is never shortened.
@@ -86,6 +99,8 @@ pub struct SteamClient {
     http: reqwest::Client,
     /// The store's origin, [`STORE`] everywhere but a test.
     store: String,
+    /// Where the store's pictures are, [`ART`] everywhere but a test.
+    art: String,
     pace: Duration,
     next_slot: Arc<Mutex<Instant>>,
     notice: Option<Notice>,
@@ -128,6 +143,13 @@ impl SteamClient {
         self
     }
 
+    /// Asks a stand-in at `origin` for every picture it would ask the store's image servers for.
+    #[cfg(test)]
+    pub(crate) fn with_art(mut self, origin: &str) -> Self {
+        origin.clone_into(&mut self.art);
+        self
+    }
+
     /// # Errors
     ///
     /// Fails if the HTTP client cannot be constructed, which in practice means a missing or
@@ -144,6 +166,7 @@ impl SteamClient {
         Ok(Self {
             http,
             store: STORE.to_owned(),
+            art: ART.to_owned(),
             pace,
             next_slot: Arc::new(Mutex::new(Instant::now())),
             notice: None,
@@ -199,6 +222,98 @@ impl SteamClient {
         );
         let body: serde_json::Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
         crate::facts::headset_only_in(&body, app_id)
+    }
+
+    /// The games the store finds for the words somebody typed, in the store's order, so a game
+    /// can be added by its name rather than a number nobody knows by heart.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the store cannot be reached or answers with something other than a search.
+    pub async fn search(&self, words: &str) -> Result<Vec<Listing>> {
+        self.wait_turn().await;
+        let words =
+            percent_encoding::utf8_percent_encode(words.trim(), percent_encoding::NON_ALPHANUMERIC);
+        let url = format!(
+            "{}/api/storesearch/?term={words}&l=english&cc=US",
+            self.store
+        );
+        let body: Value = self
+            .http
+            .get(&url)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let items = body
+            .get("items")
+            .and_then(Value::as_array)
+            .ok_or(Error::MalformedPayload { field: "items" })?;
+        // Bundles and packages share the search; only an app has reviews of its own.
+        Ok(items
+            .iter()
+            .filter(|item| item.get("type").and_then(Value::as_str) == Some("app"))
+            .filter_map(|item| {
+                let app_id = u32::try_from(item.get("id")?.as_u64()?).ok()?;
+                let name = item.get("name")?.as_str()?.trim();
+                (!name.is_empty()).then(|| Listing {
+                    app_id,
+                    name: name.to_owned(),
+                })
+            })
+            .collect())
+    }
+
+    /// The store's wide header picture of an app, a JPEG or PNG, for the window to show beside
+    /// its name.
+    ///
+    /// Best effort, like [`Self::name`]: a game with no picture is shown without one. The
+    /// picture is asked for where the store keeps every app's, and where that has moved, at the
+    /// address the store's own details give, taken only when it points to that same app's
+    /// pictures on the same servers, so nothing the store says can send the client elsewhere.
+    pub async fn header_art(&self, app_id: u32) -> Option<Vec<u8>> {
+        let pictures = format!("{}/store_item_assets/steam/apps/{app_id}/", self.art);
+        if let Some(picture) = self.picture(&format!("{pictures}header.jpg")).await {
+            return Some(picture);
+        }
+        self.wait_turn().await;
+        let url = format!(
+            "{}/api/appdetails?appids={app_id}&filters=basic",
+            self.store
+        );
+        let body: Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
+        let named = body
+            .get(app_id.to_string())?
+            .get("data")?
+            .get("header_image")?
+            .as_str()?;
+        if !named.starts_with(&pictures) {
+            return None;
+        }
+        self.picture(named).await
+    }
+
+    /// The picture at `url`, where it is one: a JPEG or a PNG of a sensible size.
+    async fn picture(&self, url: &str) -> Option<Vec<u8>> {
+        let answer = self
+            .http
+            .get(url)
+            .send()
+            .await
+            .ok()?
+            .error_for_status()
+            .ok()?;
+        if answer
+            .content_length()
+            .is_some_and(|length| length > ART_LIMIT as u64)
+        {
+            return None;
+        }
+        let bytes = answer.bytes().await.ok()?;
+        let image =
+            bytes.starts_with(&[0xFF, 0xD8, 0xFF]) || bytes.starts_with(b"\x89PNG\r\n\x1a\n");
+        (image && bytes.len() <= ART_LIMIT).then(|| bytes.to_vec())
     }
 
     /// Fetches one page, retrying on throttling and transient server errors.
@@ -382,6 +497,132 @@ mod tests {
         let asked = &server.asked()[0];
         assert_eq!(asked.path(), "/api/appdetails");
         assert_eq!(asked.param("filters"), Some("basic"));
+    }
+
+    #[tokio::test]
+    async fn a_search_lists_the_apps_the_store_finds_in_its_order_and_nothing_else() {
+        let (server, client) = steam(|_| {
+            stand_in::Answer::json(&serde_json::json!({"total": 4, "items": [
+                {"type": "app", "id": 1_091_500, "name": " Cyberpunk 2077 "},
+                {"type": "sub", "id": 9, "name": "A bundle"},
+                {"type": "app", "id": 2_138_330, "name": "Cyberpunk 2077: Phantom Liberty"},
+                {"type": "app", "id": 7, "name": "  "},
+            ]}))
+        });
+        assert_eq!(
+            client.search("  cyberpunk & co ").await.unwrap(),
+            vec![
+                Listing {
+                    app_id: 1_091_500,
+                    name: "Cyberpunk 2077".to_owned()
+                },
+                Listing {
+                    app_id: 2_138_330,
+                    name: "Cyberpunk 2077: Phantom Liberty".to_owned()
+                },
+            ]
+        );
+        let asked = &server.asked()[0];
+        assert_eq!(asked.path(), "/api/storesearch/");
+        assert_eq!(asked.param("term"), Some("cyberpunk%20%26%20co"));
+        assert_eq!(asked.param("l"), Some("english"));
+    }
+
+    #[tokio::test]
+    async fn a_search_the_store_will_not_answer_says_so() {
+        let (_server, client) = steam(|_| stand_in::Answer::status(503));
+        assert!(client.search("anything").await.is_err());
+        let (_server, client) = steam(|_| stand_in::Answer::json(&serde_json::json!({})));
+        assert!(matches!(
+            client.search("anything").await,
+            Err(Error::MalformedPayload { field: "items" })
+        ));
+    }
+
+    const JPEG: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+    const PNG: &[u8] = b"\x89PNG\r\n\x1a\nrest";
+
+    /// A client of one stand-in serving both the store and its pictures.
+    fn art(
+        answer: impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static,
+    ) -> (stand_in::Server, SteamClient) {
+        let (server, client) = steam(answer);
+        let client = client.with_art(&server.origin());
+        (server, client)
+    }
+
+    #[tokio::test]
+    async fn a_header_is_fetched_from_where_the_store_keeps_every_apps() {
+        let (server, client) = art(|asked| {
+            if asked.path() == "/store_item_assets/steam/apps/7/header.jpg" {
+                stand_in::Answer::body(JPEG)
+            } else {
+                stand_in::Answer::status(404)
+            }
+        });
+        assert_eq!(client.header_art(7).await.as_deref(), Some(JPEG));
+        assert_eq!(
+            server.asked().len(),
+            1,
+            "the store's details were not needed"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_moved_header_is_found_through_the_stores_details_for_that_same_app() {
+        let (server, client) = art(|asked| match asked.path() {
+            "/api/appdetails" => {
+                let origin = asked.header("host").unwrap_or_default().to_owned();
+                stand_in::Answer::json(&serde_json::json!({"7": {"data": {
+                    "header_image": format!("http://{origin}/store_item_assets/steam/apps/7/abc/header.jpg?t=1")
+                }}}))
+            }
+            "/store_item_assets/steam/apps/7/abc/header.jpg" => stand_in::Answer::body(PNG),
+            _ => stand_in::Answer::status(404),
+        });
+        assert_eq!(client.header_art(7).await.as_deref(), Some(PNG));
+        assert_eq!(server.asked().len(), 3);
+    }
+
+    #[tokio::test]
+    async fn a_header_the_details_place_anywhere_else_is_not_fetched() {
+        let (server, client) = art(|asked| match asked.path() {
+            "/api/appdetails" => stand_in::Answer::json(&serde_json::json!({"7": {"data": {
+                "header_image": "https://elsewhere.example/store_item_assets/steam/apps/7/header.jpg"
+            }}})),
+            _ => stand_in::Answer::status(404),
+        });
+        assert_eq!(client.header_art(7).await, None);
+        assert_eq!(server.asked().len(), 2, "nothing was asked of elsewhere");
+    }
+
+    #[tokio::test]
+    async fn only_a_picture_of_a_sensible_size_is_taken_for_one() {
+        let (_server, client) = art(|asked| match asked.path() {
+            "/store_item_assets/steam/apps/1/header.jpg" => {
+                stand_in::Answer::body("<html>moved</html>")
+            }
+            "/store_item_assets/steam/apps/2/header.jpg" => {
+                let mut huge = JPEG.to_vec();
+                huge.resize(ART_LIMIT + 1, 0);
+                stand_in::Answer::body(huge)
+            }
+            "/store_item_assets/steam/apps/3/header.jpg" => stand_in::Answer::body(PNG),
+            "/store_item_assets/steam/apps/4/header.jpg" => {
+                let mut whole = JPEG.to_vec();
+                whole.resize(ART_LIMIT, 0);
+                stand_in::Answer::body(whole)
+            }
+            _ => stand_in::Answer::status(404),
+        });
+        assert_eq!(client.header_art(1).await, None);
+        assert_eq!(client.header_art(2).await, None);
+        assert_eq!(client.header_art(3).await.as_deref(), Some(PNG));
+        assert_eq!(
+            client.header_art(4).await.map(|picture| picture.len()),
+            Some(ART_LIMIT),
+            "a picture of exactly the limit is still a picture"
+        );
     }
 
     #[tokio::test]

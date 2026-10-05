@@ -98,6 +98,9 @@
     },
   ];
 
+  // Opened with ?first, the core of somebody who has just installed the app: nothing downloaded.
+  if (new URLSearchParams(location.search).has('first')) games.length = 0;
+
   let groups = [{ name: 'Rivals', app_ids: [2] }];
   let settings = {
     gpu_share: 0.5,
@@ -195,16 +198,16 @@
     open_report: () => null,
     overview: () => ({
       games: games.length,
-      read: 2,
-      reviews: 25_900,
-      claims: 78_000,
-      disk_bytes: 22_400_000_000,
+      read: games.length === 0 ? 0 : 2,
+      reviews: games.length === 0 ? 0 : 25_900,
+      claims: games.length === 0 ? 0 : 78_000,
+      disk_bytes: games.length === 0 ? 0 : 22_400_000_000,
       library: 'C:\\Users\\someone\\AppData\\Roaming\\com.aureliolo.steamgauge\\data',
-      not_read: [{ app_id: 3, name: 'Gamma' }],
-      older_reader: [{ app_id: 2, name: 'Beta' }],
-      new_on_steam: [{ app_id: 1, name: 'Alpha', new: 1_520 }],
-      checked: now - DAY,
-      moves: [
+      not_read: games.length === 0 ? [] : [{ app_id: 3, name: 'Gamma' }],
+      older_reader: games.length === 0 ? [] : [{ app_id: 2, name: 'Beta' }],
+      new_on_steam: games.length === 0 ? [] : [{ app_id: 1, name: 'Alpha', new: 1_520 }],
+      checked: games.length === 0 ? 0 : now - DAY,
+      moves: games.length === 0 ? [] : [
         {
           app_id: 1,
           name: 'Alpha',
@@ -217,7 +220,7 @@
           shift: shift(0.12, 0.31, 9.1),
         },
       ],
-      recommended: [
+      recommended: games.length === 0 ? [] : [
         { app_id: 1, name: 'Alpha', from: '2025-08', to: '2025-10', since: '2024-08', shift: shift(0.88, 0.8, -5.2) },
       ],
       machine: {
@@ -313,7 +316,57 @@
       verdict: 'Very Positive',
       held: false,
     }),
-    claims_behind: () => ({ subject: 'performance', total: 1, from: 0, claims: [] }),
+    find_games: ({ words }) =>
+      /delta/i.test(words)
+        ? [
+            { app_id: 4, name: 'Delta' },
+            { app_id: 5, name: 'Delta: The Expansion' },
+          ]
+        : [],
+    // A picture drawn here, so a game's art is shown without the window reaching anywhere.
+    art: async ({ appId }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 460;
+      canvas.height = 215;
+      const paint = canvas.getContext('2d');
+      const hue = (appId * 67) % 360;
+      const fill = paint.createLinearGradient(0, 0, 460, 215);
+      fill.addColorStop(0, `hsl(${hue} 55% 35%)`);
+      fill.addColorStop(1, `hsl(${(hue + 50) % 360} 60% 55%)`);
+      paint.fillStyle = fill;
+      paint.fillRect(0, 0, 460, 215);
+      const picture = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+      return picture.arrayBuffer();
+    },
+    claims_behind: () => ({
+      subject: 'performance',
+      total: 2,
+      from: 0,
+      claims: [
+        {
+          claim: 'It runs smooth at 144 fps on a mid-range card.',
+          review: 'Great combat. It runs smooth at 144 fps on a mid-range card. The story drags in act two.',
+          language: 'english',
+          polarity: 'praise',
+          confidence: 0.94,
+          voted_up: true,
+          votes_up: 12,
+          created: 1_756_000_000,
+          url: 'https://steamcommunity.com/profiles/1/recommended/1/',
+        },
+        {
+          claim: 'The frame rate stutters in every town.',
+          review: 'The frame rate stutters in every town.',
+          language: 'english',
+          polarity: 'complaint',
+          confidence: 0.88,
+          voted_up: false,
+          votes_up: 0,
+          created: 1_757_000_000,
+          url: 'https://steamcommunity.com/profiles/2/recommended/1/',
+        },
+      ],
+    }),
     meaning_offer: () => ({
       status: 'none',
       on_card: true,

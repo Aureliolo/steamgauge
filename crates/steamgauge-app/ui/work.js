@@ -92,26 +92,28 @@ function speed(job) {
    be done about it. */
 export function jobItem(job, { named = true } = {}) {
   const item = make('li', `job ${job.state}`);
-  const head = make(
-    'div',
-    'job-head',
-    named ? make('span', 'job-name', job.name) : null,
-    make('span', 'job-kind', taskName(job.task)),
-  );
-  const actions = make('span', 'job-actions');
+  /* A running job says so with its bar; a pill is for how a job ended. */
+  const ended = {
+    done: ['Done', 'good'],
+    failed: ['Failed', 'bad'],
+    stopped: ['Stopped', ''],
+  }[job.state];
+  const kind = make('span', 'job-kind', taskName(job.task));
+  if (job.state === 'queued') kind.append(make('span', 'job-wait', ' · waiting its turn'));
+  const actions = make('span', 'job-actions', ended ? make('span', `pill ${ended[1]}`, ended[0]) : null);
   if (job.state === 'running') {
     actions.append(button('Stop', 'quiet-button small', () => stop(job.id)));
   } else if (job.state === 'queued') {
-    actions.append(button('Take off the list', 'quiet-button small', () => stop(job.id)));
+    actions.append(button('Take off the list', 'ghost small', () => stop(job.id)));
   } else if (job.state === 'done' && job.task.kind === 'export') {
     actions.append(button('Open', 'quiet-button small', () => invoke('open_report', { id: job.id })));
   }
-  head.append(actions);
-  item.append(head);
+  item.append(
+    make('div', 'job-head', make('div', 'job-title', named ? make('span', 'job-name', job.name) : null, kind), actions),
+  );
 
   if (job.state === 'running') {
     const figures = [amount(job), speed(job), job.left === null ? '' : left(job.left)].filter(Boolean);
-    item.append(make('p', 'work-line', make('span', null, job.step), make('span', 'num', figures.join(' · '))));
     const fill = make('span', 'fill');
     if (job.total === null || job.total <= 0) {
       /* No total to divide by: a bar that invents a denominator is a bar that lies. */
@@ -120,9 +122,7 @@ export function jobItem(job, { named = true } = {}) {
     } else {
       fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
     }
-    item.append(make('div', 'track', fill));
-  } else if (job.state === 'queued') {
-    item.append(make('p', 'work-line', make('span', null, 'Waiting its turn')));
+    item.append(make('div', 'track', fill), make('p', 'work-line', [job.step, ...figures].join(' · ')));
   }
   if (job.note) item.append(make('p', job.state === 'failed' ? 'job-note bad' : 'job-note', job.note));
   return item;
