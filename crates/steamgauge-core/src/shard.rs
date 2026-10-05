@@ -211,7 +211,7 @@ mod tests {
         let (shards, _) = planned(&[7], 7, 7, 10);
         assert_eq!(shards, [shard(7, 7, 1)]);
         let (shards, asked) = planned(&[7], 8, 7, 10);
-        assert!(shards.is_empty());
+        assert_eq!(shards, [] as [Shard; 0]);
         assert!(
             asked.is_empty(),
             "nothing lies in a backward range to ask about"

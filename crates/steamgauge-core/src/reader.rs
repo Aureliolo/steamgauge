@@ -1227,7 +1227,7 @@ mod tests {
         // A reader that names no limit, and one naming zero, which is no answer to divide by.
         assert_eq!(pieces(256, None), vec![0..256]);
         assert_eq!(pieces(3, Some(0)), vec![0..1, 1..2, 2..3]);
-        assert!(pieces(0, Some(172)).is_empty());
+        assert_eq!(pieces(0, Some(172)), [] as [std::ops::Range<usize>; 0]);
     }
 
     #[test]

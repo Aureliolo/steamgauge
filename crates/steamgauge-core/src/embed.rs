@@ -1021,7 +1021,7 @@ mod tests {
         let vectors = embedder.embed(&texts(&["good", "bad game"])).unwrap();
         assert_eq!(vectors.len(), 2);
         assert!(vectors.iter().all(|vector| vector.len() == 384));
-        assert!(embedder.embed(&[]).unwrap().is_empty());
+        assert_eq!(embedder.embed(&[]).unwrap(), [] as [Vec<f32>; 0]);
     }
 
     #[test]

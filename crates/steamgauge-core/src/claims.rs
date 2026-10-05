@@ -1314,8 +1314,8 @@ mod tests {
 
     #[test]
     fn text_with_nothing_in_it_makes_no_claims() {
-        assert!(split("   \n\n  ").is_empty());
-        assert!(split("").is_empty());
+        assert_eq!(split("   \n\n  "), [] as [std::borrow::Cow<'_, str>; 0]);
+        assert_eq!(split(""), [] as [std::borrow::Cow<'_, str>; 0]);
     }
 
     /// Every case below was flagged by a labeller reading real reviews, which is the only
@@ -1529,8 +1529,14 @@ mod tests {
     /// cannot be read by anyone. A censored word inside a sentence leaves the sentence.
     #[test]
     fn a_claim_that_is_only_censorship_is_not_a_claim() {
-        assert!(split("\u{2665}\u{2665}\u{2665}\u{2665}").is_empty());
-        assert!(split("\u{2665}\u{2665}\u{2665}\u{2665}!").is_empty());
+        assert_eq!(
+            split("\u{2665}\u{2665}\u{2665}\u{2665}"),
+            [] as [std::borrow::Cow<'_, str>; 0]
+        );
+        assert_eq!(
+            split("\u{2665}\u{2665}\u{2665}\u{2665}!"),
+            [] as [std::borrow::Cow<'_, str>; 0]
+        );
         assert_eq!(
             split("This game is \u{2665}\u{2665}\u{2665}\u{2665} good.").len(),
             1,
