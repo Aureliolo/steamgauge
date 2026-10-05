@@ -284,19 +284,27 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
         )
       : make('span', 'faint', nothing);
 
+    /* A narrow window draws each row as a card, where a figure carries its column's name. */
+    const labelled = (label, cell) => {
+      cell.dataset.label = label;
+      return cell;
+    };
     tr.append(
       make('td', 'tick', tick),
       name,
-      make(
-        'td',
-        'num figure',
-        whole.format(row.reviews),
-        row.new_on_steam ? make('small', 'fresh', `+${whole.format(row.new_on_steam)} on Steam`) : null,
+      labelled(
+        'Reviews',
+        make(
+          'td',
+          'num figure',
+          whole.format(row.reviews),
+          row.new_on_steam ? make('small', 'fresh', `+${whole.format(row.new_on_steam)} on Steam`) : null,
+        ),
       ),
-      make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended)),
-      make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000))),
-      make('td', null, reading),
-      make('td', null, lately),
+      labelled('Recommending', make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended))),
+      labelled('Updated', make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000)))),
+      labelled('Reading', make('td', null, reading)),
+      labelled('Moved lately', make('td', moved ? 'lately-cell' : 'lately-cell calm', lately)),
     );
     return tr;
   }

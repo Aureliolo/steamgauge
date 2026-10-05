@@ -345,6 +345,19 @@ try {
     }
     return wrong;
   })()`);
+  // The library's table scrolls inside its own frame, so the page never shows it running off;
+  // every width from the narrowest to a common laptop's is asked whether the table fits.
+  const sideways = [];
+  for (const width of [760, 900, 1080, 1180, 1220, 1280, 1366]) {
+    await send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });
+    const fits = await evaluate(`(async function () {
+      document.querySelector('[data-go="library"]').click();
+      await new Promise(function (done) { setTimeout(done, 250); });
+      var frame = document.querySelector('#library .table-wrap');
+      return frame.scrollWidth <= frame.clientWidth + 1;
+    })()`);
+    if (fits.result?.result?.value !== true) sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
+  }
 
   // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
@@ -442,6 +455,15 @@ try {
       );
       await shoot(`finder-${scheme}`);
     }
+    // The narrowest window the app allows, where a layout is first to give.
+    await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
+    await load(page);
+    await sleep(400);
+    await evaluate(unroll);
+    for (const name of ["cockpit", "library", "settings"]) {
+      await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
+      await shoot(`narrow-${name}`);
+    }
   }
 
   socket.close();
@@ -462,6 +484,7 @@ try {
       .concat(fetched.length === 0 ? [] : [`the window fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(", ")}`])
       .concat(answer.result.result.value)
       .concat(narrow.result.result.value)
+      .concat(sideways)
       .concat(first.result.result.value);
     if (wrong.length === 0) {
       console.log("the window behaves as it says it does");
