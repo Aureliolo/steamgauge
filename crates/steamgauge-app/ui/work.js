@@ -92,17 +92,25 @@ function speed(job) {
    be done about it. */
 export function jobItem(job, { named = true } = {}) {
   const item = make('li', `job ${job.state}`);
+  const state = {
+    done: ['Done', 'good'],
+    failed: ['Failed', 'bad'],
+    stopped: ['Stopped', ''],
+    running: ['Running', 'accent'],
+  }[job.state];
   const head = make(
     'div',
     'job-head',
     named ? make('span', 'job-name', job.name) : null,
     make('span', 'job-kind', taskName(job.task)),
+    state ? make('span', `pill ${state[1]}`, state[0]) : null,
   );
   const actions = make('span', 'job-actions');
   if (job.state === 'running') {
     actions.append(button('Stop', 'quiet-button small', () => stop(job.id)));
   } else if (job.state === 'queued') {
-    actions.append(button('Take off the list', 'quiet-button small', () => stop(job.id)));
+    /* Waiting is one line: what it is, that it waits, and the way off the list. */
+    actions.append(make('span', 'job-wait', 'Waiting its turn'), button('Take off the list', 'ghost small', () => stop(job.id)));
   } else if (job.state === 'done' && job.task.kind === 'export') {
     actions.append(button('Open', 'quiet-button small', () => invoke('open_report', { id: job.id })));
   }
@@ -121,8 +129,6 @@ export function jobItem(job, { named = true } = {}) {
       fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
     }
     item.append(make('div', 'track', fill));
-  } else if (job.state === 'queued') {
-    item.append(make('p', 'work-line', make('span', null, 'Waiting its turn')));
   }
   if (job.note) item.append(make('p', job.state === 'failed' ? 'job-note bad' : 'job-note', job.note));
   return item;

@@ -2,7 +2,9 @@
 # British spelling everywhere: colour, behaviour, licence as the noun.
 locale = "en-gb"
 # Spellings that are not this project's, each matched whole so the prose around them is still
-# checked: CSS's own properties, values and media feature, the DOM's style property, and the
+# checked: CSS's own properties, values and media feature (transition lists, scroll-behavior,
+# optimizeLegibility, a background's position keyword included), the DOM's style property, the
+# canvas's addColorStop, and the
 # colour flags of actionlint, cargo and cargo-about; ClusterFuzzLite's input and LLVM's sanitiser
 # by their names, rustc's sanitiser flag, BinSkim's rule names and its analyse command; the
 # in-toto file extension; syft's catalogers; GitHub's artifact actions; ONNX's
@@ -15,6 +17,11 @@ extend-ignore-re = [
   '\b(?:[a-z]+-)*color(?:-[a-z]+)*\s*:',
   '\bcolor-mix\(',
   ':\s*center\b',
+  '\b(?:left|right|top|bottom) \d+px center\b',
+  '(?s)\btransition:[^;]*;',
+  '\bscroll-behavior\b',
+  '\boptimizeLegibility\b',
+  '\baddColorStop\b',
   'currentColor',
   'prefers-color-scheme',
   '\)\.(?:backgroundC|c)olor\b',

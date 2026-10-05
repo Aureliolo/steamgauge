@@ -44,7 +44,7 @@ pub mod time;
 #[cfg(test)]
 mod tiny_model;
 
-pub use api::{DEFAULT_PACE, Page, QuerySummary, SteamClient};
+pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;
 pub use crawl::{CrawlOptions, CrawlReport, Progress, StopReason, crawl};
 pub use embed::{DEFAULT_BATCH_SIZE, EmbedReport, Embedder, embed_corpus};

@@ -126,5 +126,7 @@ export function setUpCompare({ openGame }) {
       }),
     );
     el('compare-table').hidden = found.length === 0;
+    el('compare-wrap').hidden = found.length === 0;
+    el('compare-empty').hidden = found.length > 0;
   }
 }

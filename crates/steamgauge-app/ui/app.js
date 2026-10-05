@@ -13,7 +13,9 @@ import {
   nothing,
   size,
   duration,
-  facts,
+  tiles,
+  verdictPill,
+  art,
   page,
   go,
   showing,
@@ -26,6 +28,7 @@ import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
 import { setUpNewer } from './newer.js';
+import { setUpFinder, openFinder } from './finder.js';
 
 const PER_PAGE = 25;
 
@@ -59,21 +62,21 @@ async function showGame(appId, named = null) {
   const game = await shelfGame(appId);
   if (chosen !== appId) return;
   set(el('game-name'), game?.name ?? named ?? `App ${appId}`);
-  set(
-    el('game-sub'),
-    game === null ? 'Not downloaded yet' : game.verdict ? `${game.verdict} on Steam` : `App ${appId}`,
-  );
-  facts(
+  art(appId, el('game-art'));
+  el('game-verdict').replaceChildren(...[verdictPill(game?.verdict)].filter(Boolean));
+  set(el('game-sub'), game === null ? 'Not downloaded yet' : `App ${appId}`);
+  tiles(
     el('game-facts'),
     game === null
       ? []
       : [
           ['Held here', whole.format(game.reviews), 'reviews downloaded'],
-          ['Valve reports', whole.format(game.valve_total), 'reviews in total'],
-          ['Coverage', share.format(game.coverage), 'of what Valve serves'],
+          ['Steam reports', whole.format(game.valve_total), 'reviews in total'],
+          ['Coverage', share.format(game.coverage), 'of what Steam serves'],
           ['Stage', stageName(game.stage), null],
         ],
   );
+  el('game-facts').hidden = game === null;
   set(el('game-note'), '');
   el('game-note').classList.remove('bad');
   el('sweep-actions').hidden = game === null;
@@ -458,10 +461,14 @@ function drawTopics(found) {
       name.append(fixed);
     }
 
-    const rate = make('td', 'num rate', make('span', null, subject.rate === null ? nothing : share.format(subject.rate)));
     const bar = make('i', 'bar');
-    bar.style.transform = `scaleX(${widest > 0 ? (subject.rate ?? 0) / widest : 0})`;
-    rate.append(bar);
+    bar.style.width = `${widest > 0 ? (100 * (subject.rate ?? 0)) / widest : 0}%`;
+    const rate = make(
+      'td',
+      'rate',
+      make('span', 'rate-value', subject.rate === null ? nothing : share.format(subject.rate)),
+      make('span', 'rate-track', bar),
+    );
 
     const gauge = make('td', 'num');
     const factor = make('span');
@@ -474,18 +481,21 @@ function drawTopics(found) {
     }
     gauge.append(factor);
 
-    rows.append(
-      make(
-        'tr',
-        null,
-        name,
-        rate,
-        cell(whole.format(subject.praised), 'under'),
-        cell(whole.format(subject.criticised), 'over'),
-        cell(whole.format(subject.mixed), 'faint'),
-        gauge,
-      ),
+    const row = make(
+      'tr',
+      null,
+      name,
+      rate,
+      cell(whole.format(subject.praised), 'under'),
+      cell(whole.format(subject.criticised), 'over'),
+      cell(whole.format(subject.mixed), 'faint'),
+      gauge,
     );
+    /* The whole row opens the points behind it; the name stays the button a keyboard reaches. */
+    row.addEventListener('click', (event) => {
+      if (event.target !== open) openClaims(subject, 0);
+    });
+    rows.append(row);
   }
 }
 
@@ -860,69 +870,6 @@ function drawClaims(claims, list = el('quotes')) {
   }
 }
 
-function openFinder() {
-  go('finder');
-  el('found').hidden = true;
-  set(el('lookup-note'), '');
-  el('lookup-note').classList.remove('bad');
-  el('appid').value = '';
-  el('appid').focus();
-}
-
-let found = null;
-
-async function lookUp(event) {
-  event.preventDefault();
-  const appId = Number.parseInt(el('appid').value.trim(), 10);
-  const note = el('lookup-note');
-  note.classList.remove('bad');
-  if (!Number.isInteger(appId) || appId <= 0) {
-    note.classList.add('bad');
-    set(note, 'An app ID is the number in the store URL, digits only.');
-    return;
-  }
-
-  el('lookup').disabled = true;
-  set(note, 'Asking Steam...');
-  try {
-    found = await invoke('look_up', { appId });
-    set(note, '');
-    set(el('found-name'), found.name || `App ${found.app_id}`);
-    facts(el('found-facts'), [
-      ['Reviews', whole.format(found.reviews), 'Valve will serve'],
-      ['Positive', whole.format(found.positive), null],
-      ['Negative', whole.format(found.negative), null],
-      ['Verdict', found.verdict || 'None yet', null],
-    ]);
-    set(
-      el('found-note'),
-      found.held
-        ? 'Already in your library. Downloading again picks up where the last download stopped.'
-        : `About ${whole.format(Math.ceil(found.reviews / 100))} requests, paced so Valve is not leaned on.`,
-    );
-    const settings = await invoke('settings');
-    set(
-      el('found-then'),
-      settings.read_after_download
-        ? 'Once downloaded, every review is read. That can be changed in Settings.'
-        : 'Once downloaded, the game is ready to read from its page.',
-    );
-    el('found').hidden = false;
-  } catch (failure) {
-    note.classList.add('bad');
-    set(note, String(failure));
-  } finally {
-    el('lookup').disabled = false;
-  }
-}
-
-function start() {
-  if (!found) return;
-  const appId = found.app_id;
-  queue({ kind: 'download', app_id: appId });
-  openGame(appId, found.name || null);
-}
-
 function turnPage(from) {
   if (!reading) return;
   if (reading.query !== undefined) openSearch(reading.query, from, reading.narrow);
@@ -931,7 +878,7 @@ function turnPage(from) {
 
 page('game', el('game'));
 page('evidence', el('evidence'));
-page('finder', el('finder'));
+setUpFinder({ openGame });
 setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
@@ -941,10 +888,7 @@ setUpNewer();
 for (const link of document.querySelectorAll('[data-go]')) {
   link.addEventListener('click', () => go(link.dataset.go));
 }
-el('cockpit-add').addEventListener('click', openFinder);
-el('lookup-form').addEventListener('submit', lookUp);
-el('start').addEventListener('click', start);
-el('cancel').addEventListener('click', () => go('library'));
+el('rail-add').addEventListener('click', openFinder);
 el('game-back').addEventListener('click', () => go('library'));
 el('back').addEventListener('click', () => openGame(chosen));
 el('do-read').addEventListener('click', () => readGame());

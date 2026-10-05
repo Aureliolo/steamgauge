@@ -73,7 +73,9 @@ certificate authority, so its builds carry provenance only.
 
 The app makes requests to three places, and to nothing else:
 
-- **Steam**, for reviews, game names and review totals, and, when the app opens, how many
+- **Steam**, for reviews, game names and review totals, the store's search when a game is
+  found by its name, each game's store picture (fetched once from Steam's image servers and kept
+  on disk; the window itself never reaches the network), and, when the app opens, how many
   reviews each game in the library has now (at most every six hours; a setting turns it off).
 - **Hugging Face**, for the readers and the search models, each file fetched from a pinned
   commit and checked against its pinned length and SHA-256 before it is used, and, when the

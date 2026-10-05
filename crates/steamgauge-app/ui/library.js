@@ -13,6 +13,8 @@ import {
   day,
   nothing,
   language,
+  verdictPill,
+  art,
   page,
   go,
   showing,
@@ -42,6 +44,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   page('library', el('library'), load);
 
   el('library-add').addEventListener('click', openFinder);
+  el('library-empty-add').addEventListener('click', openFinder);
   el('update-all').addEventListener('click', () => invoke('queue_updates', { appIds: null }));
   el('library-filter').addEventListener('input', draw);
   el('library-sort').addEventListener('change', () => {
@@ -168,9 +171,12 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
     set(
       el('library-sub'),
       rows.length === 0
-        ? 'Nothing here yet. Add a game to download every review it has.'
+        ? 'Nothing here yet.'
         : `${whole.format(rows.length)} games, ${whole.format(rows.reduce((sum, row) => sum + row.reviews, 0))} reviews.`,
     );
+    el('library-empty').hidden = rows.length > 0;
+    el('library-full').hidden = rows.length === 0;
+    el('update-all').hidden = rows.length === 0;
     drawTabs();
     const shown = visible();
     const body = el('library-rows');
@@ -241,21 +247,28 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
       make(
         'div',
         'game-cell',
+        art(row.app_id),
         button(row.name, 'link game-link', () => openGame(row.app_id)),
-        make('span', 'quiet', row.verdict || `App ${row.app_id}`),
-        working ? make('span', 'busy', working.state === 'running' ? working.step : 'Waiting') : null,
-        ...row.groups.map((group) => make('span', 'tag', group)),
+        make(
+          'div',
+          'game-meta',
+          verdictPill(row.verdict),
+          working
+            ? make('span', 'pill accent busy', working.state === 'running' ? working.step : 'Waiting')
+            : null,
+          ...row.groups.map((group) => make('span', 'tag', group)),
+        ),
       ),
     );
 
     const reading = row.read
       ? make(
           'span',
-          row.read.current ? null : 'older',
-          row.read.current ? 'Read' : 'Read by an older reader',
+          row.read.current ? 'status' : 'status older',
+          row.read.current ? 'Read' : 'Older reader',
           make('small', null, row.read.language ? `${language(row.read.language)} only` : 'Every language'),
         )
-      : make('span', 'faint', 'Not read');
+      : make('span', 'status faint', 'Not read');
 
     const moved = row.recent?.moves?.[0];
     const lately = moved
@@ -274,10 +287,14 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
     tr.append(
       make('td', 'tick', tick),
       name,
-      make('td', 'num', whole.format(row.reviews)),
+      make(
+        'td',
+        'num figure',
+        whole.format(row.reviews),
+        row.new_on_steam ? make('small', 'fresh', `+${whole.format(row.new_on_steam)} on Steam`) : null,
+      ),
       make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended)),
-      make('td', 'num', row.new_on_steam ? `+${whole.format(row.new_on_steam)}` : nothing),
-      make('td', 'num', day.format(new Date((row.updated ?? row.downloaded) * 1000))),
+      make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000))),
       make('td', null, reading),
       make('td', null, lately),
     );

@@ -13,12 +13,13 @@ mod work;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
+    time::Duration,
 };
 
 use serde::Serialize;
 use steamgauge_core::{
-    DEFAULT_PACE, ReviewQuery, SteamClient, embed, reading_time::ReadingTimes, report,
+    DEFAULT_PACE, Listing, ReviewQuery, SteamClient, embed, reading_time::ReadingTimes, report,
 };
 use tauri::{AppHandle, Manager};
 
@@ -163,6 +164,58 @@ async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
         verdict: summary.review_score_desc,
         held,
     })
+}
+
+/// One client for everything the window asks the store between jobs, so a library's worth of
+/// pictures and a search typed at the same time share one pace rather than each setting its own.
+fn store() -> Result<&'static SteamClient, String> {
+    static STORE: OnceLock<SteamClient> = OnceLock::new();
+    if let Some(client) = STORE.get() {
+        return Ok(client);
+    }
+    let client = SteamClient::new(DEFAULT_PACE)
+        .map_err(text)?
+        .with_patience(Duration::from_secs(30));
+    Ok(STORE.get_or_init(|| client))
+}
+
+/// The games the store lists for the words typed into the box that adds one.
+#[tauri::command]
+async fn find_games(words: String) -> Result<Vec<Listing>, String> {
+    store()?.search(&words).await.map_err(text)
+}
+
+/// How long a game the store had no picture for waits before it is asked again.
+const ART_RETRY: Duration = Duration::from_hours(24 * 7);
+
+/// A game's header picture as raw bytes, kept in the cache folder after the first time, so the
+/// library draws from disk and the window itself never reaches the network. An empty file says
+/// the store had none when last asked.
+#[tauri::command]
+async fn art(app: AppHandle, app_id: u32) -> Result<tauri::ipc::Response, String> {
+    let folder = app.path().app_cache_dir().map_err(text)?.join("art");
+    let kept = folder.join(app_id.to_string());
+    if let Ok(found) = std::fs::metadata(&kept) {
+        if found.len() > 0 {
+            return std::fs::read(&kept)
+                .map(tauri::ipc::Response::new)
+                .map_err(text);
+        }
+        let recent = found
+            .modified()
+            .ok()
+            .and_then(|when| when.elapsed().ok())
+            .is_some_and(|since| since < ART_RETRY);
+        if recent {
+            return Err(format!("the store has no picture of app {app_id}"));
+        }
+    }
+    let picture = store()?.header_art(app_id).await;
+    std::fs::create_dir_all(&folder).map_err(text)?;
+    std::fs::write(&kept, picture.as_deref().unwrap_or_default()).map_err(text)?;
+    picture
+        .map(tauri::ipc::Response::new)
+        .ok_or_else(|| format!("the store has no picture of app {app_id}"))
 }
 
 /// One size somebody on a processor can choose, and about how long it would take them.
@@ -1130,6 +1183,8 @@ pub fn run() -> anyhow::Result<()> {
         .invoke_handler(tauri::generate_handler![
             library,
             look_up,
+            find_games,
+            art,
             reading,
             claims_behind,
             induced,

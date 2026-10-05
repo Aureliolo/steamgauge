@@ -112,7 +112,7 @@ The only way to remove the argument is to hold every review and count.
 
 ## What it does
 
-- Take one Steam app ID, or a whole list of them.
+- Find a game by its name, its app ID or its store link, or take a whole list of app IDs.
 - Download **every** review for those games, not a sample, and bring the capture up to date
   later without downloading it again.
 - Split each review into the points it makes and sort each point into a subject, with a
@@ -878,9 +878,10 @@ scripts or stylesheets fetched from anywhere, so reading a result is not a way o
 
 The app makes requests to three places, and to nothing else:
 
-- **Steam**, for the reviews of the games you add, their names and their totals, and, when the
-  app opens, how many reviews each game in the library has now: at most every six hours, one
-  request per game, and Settings turns it off.
+- **Steam**, for the reviews of the games you add, their names and their totals, the store's
+  search when you find a game by its name, and each game's store picture, fetched once and kept
+  on your disk; and, when the app opens, how many reviews each game in the library has now: at
+  most every six hours, one request per game, and Settings turns it off.
 - **Hugging Face**, for the readers and the search models. Each file is fetched once, from a
   pinned commit, and checked against its pinned length and SHA-256 before it is used; the
   pipeline's `embed` command fetches its encoder the same way. When the library is checked

@@ -4880,6 +4880,23 @@ library of seventy games tests thousands of shares, and at two standard errors d
 clear by chance; a corpus of a million reviews makes a fifth of a point significant, and nobody
 acts on that. The share recommending the game is held to the same rule.
 
+### A first visit is welcomed, a game is found by its name, and every page shares one system (2026-10-05)
+
+The user installed the first release, opened it and found no welcome, no guidance and a cockpit
+whose boxes sat at uneven heights with uneven gaps. An empty library now opens on a welcome: what
+the app does in three steps, that nothing is uploaded, and a search box. A game is found by its
+name through the store's own search, or by its app ID or store link pasted whole; a number
+nobody knows by heart was the only way in before. Every page is built from one scale of space,
+one of type and one palette, with the controls drawn to match rather than left to each system's
+defaults, and the cockpit is two columns that each flow on their own, what to act on beside
+what is happening, so no card is stretched to its neighbour's height.
+
+**A game's store picture is fetched by the core, not by the window.** The window's content policy
+keeps every network address out of the page; the core asks Steam's image servers once per game,
+takes the answer only where it is a JPEG or a PNG of a sensible size from that same app's folder
+there, keeps it in the cache folder, and hands the window the bytes. The policy gains `blob:` for
+images and nothing else. A game the store has no picture for is asked again after a week.
+
 ### A newer version is named, never installed, and no key exists to sign one (2026-10-03)
 
 The user chose a notice over an updater. At most once a day, behind the window, the app asks
