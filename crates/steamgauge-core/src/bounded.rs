@@ -105,7 +105,7 @@ mod tests {
         for index in 0..100_u32 {
             bounded.offer(index, index);
         }
-        assert!(bounded.take().is_empty());
+        assert_eq!(bounded.take(), [] as [u32; 0]);
     }
 
     #[test]

@@ -1115,7 +1115,7 @@ mod tests {
             .position(|s| *s == "licensing")
             .unwrap();
 
-        assert!(lines.margins(&[]).unwrap().is_empty());
+        assert_eq!(lines.margins(&[]).unwrap(), [] as [Option<(usize, f32)>; 0]);
         let found = lines
             .margins(&[vec![0.8, 0.0, 0.6], vec![0.0, 0.28, 0.96]])
             .unwrap();

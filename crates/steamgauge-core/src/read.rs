@@ -2603,8 +2603,14 @@ pub(crate) mod tests {
 
     #[test]
     fn neither_depth_invents_a_point_from_nothing() {
-        assert!(Depth::Shallow.claims_of("   \n  ").is_empty());
-        assert!(Depth::Deep.claims_of("   \n  ").is_empty());
+        assert_eq!(
+            Depth::Shallow.claims_of("   \n  "),
+            [] as [std::borrow::Cow<'_, str>; 0]
+        );
+        assert_eq!(
+            Depth::Deep.claims_of("   \n  "),
+            [] as [std::borrow::Cow<'_, str>; 0]
+        );
     }
 
     #[test]
@@ -2619,7 +2625,7 @@ pub(crate) mod tests {
         });
         let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
         assert_eq!(found.depth, Depth::Deep);
-        assert!(found.trained_on.is_empty());
+        assert_eq!(found.trained_on, "");
     }
 
     #[test]

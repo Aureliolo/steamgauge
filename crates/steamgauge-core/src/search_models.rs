@@ -422,7 +422,7 @@ mod tests {
             encoder.claims(&texts(&["good"])).unwrap()[0],
             "padding is the end token, which says nothing"
         );
-        assert!(encoder.claims(&[]).unwrap().is_empty());
+        assert_eq!(encoder.claims(&[]).unwrap(), [] as [Vec<f32>; 0]);
 
         let asked = PROMPTS
             .query
@@ -458,7 +458,7 @@ mod tests {
             counted,
             "each claim scored for its own goods, in order"
         );
-        assert!(reranker.score("bad", &[]).unwrap().is_empty());
+        assert_eq!(reranker.score("bad", &[]).unwrap(), [] as [f32; 0]);
     }
 
     #[test]
