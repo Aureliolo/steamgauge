@@ -30,8 +30,9 @@ pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
 
 /// Where the store keeps the pictures of its apps.
 const ART: &str = "https://shared.akamai.steamstatic.com";
-/// A store header is about 50 KB; anything far larger is not the picture that was asked for.
-const ART_LIMIT: usize = 2 * 1024 * 1024;
+/// A store header is about 50 KB; anything far larger, past 2 MiB, is not the picture that was
+/// asked for.
+const ART_LIMIT: usize = 2_097_152;
 
 /// A game the store lists under the words somebody typed.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
