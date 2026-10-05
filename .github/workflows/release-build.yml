@@ -485,8 +485,8 @@ jobs:
       - name: Install syft
         env:
           # renovate: datasource=github-release-attachments depName=anchore/syft versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          SYFT_TAG: v1.52.0
-          SYFT_SHA256: caeedb81fb0491615f1ebd1761e4145d41ee86dd2cc7bf80669f9f5ad9d6133d
+          SYFT_TAG: v1.54.0
+          SYFT_SHA256: 54a87372498168b2d033e876fd41fa4e8035b872699e525a57046e1f2f09c860
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/syft_${SYFT_TAG#v}_linux_amd64.tar.gz"
@@ -606,7 +606,7 @@ jobs:
     env:
       # The .rpm is installed by dnf on Fedora, pinned by digest so the check is the same each run.
       # renovate: datasource=docker depName=fedora
-      FEDORA_IMAGE: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+      FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
     steps:
       - name: Checkout
