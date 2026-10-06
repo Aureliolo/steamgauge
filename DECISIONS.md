@@ -5044,7 +5044,12 @@ because BinSkim found aws-lc's C compiled with warnings off; HTTP's TLS stays on
 `sigstore-trust-root` fetches through the client this crate makes, so neither Sigstore crate
 builds a TLS stack. aws-lc assembles with NASM on Windows x64, and `AWS_LC_SYS_PREBUILT_NASM`
 in `.cargo/config.toml` takes its objects pre-assembled from the same sources instead, as ring's
-are, so no build needs NASM.
+are, so no build needs NASM. The update is the core's default feature `self-update`, which the
+fuzz harness leaves off: it fuzzes what reads review text, and aws-lc's jitter entropy source,
+which refuses to compile at anything but `-O0`, is handed the harness's `-O1` there after its
+own `-O0` (aws-lc-sys 0.45.0) and the build stops. aws-lc's one licence file names
+every part and holder and carries each text, which `third-party/about.toml` points the notices
+at.
 
 **Not yet seen on a real machine.** No release has been updated through the window yet: the
 first is the release after this one. On macOS 13 and later, App Management may ask once whether

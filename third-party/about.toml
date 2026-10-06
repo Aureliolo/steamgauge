@@ -97,6 +97,24 @@ path = "LICENSE-BoringSSL"
 license = "Apache-2.0"
 checksum = "005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d"
 
+# aws-lc, compiled from source into the binary for Sigstore's verification. Its one LICENSE file
+# names every holder and part (BoringSSL's and AWS's own code under ISC or Apache-2.0, OpenSSL's
+# under Apache-2.0, fiat-crypto's under MIT, the jitter entropy source under the BSD licence AWS
+# elects for it) and carries each of those texts in full.
+[aws-lc-sys.clarify]
+license = "ISC AND Apache-2.0 AND MIT AND BSD-3-Clause"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+
+# The Rust side of aws-lc, under ISC, whose text with its holder ends the crate's LICENSE after
+# the Apache text it may also be had under.
+[aws-lc-rs.clarify]
+license = "ISC"
+[[aws-lc-rs.clarify.files]]
+path = "LICENSE"
+checksum = "b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7"
+
 # Oniguruma is compiled from the copy inside the crate, under its own BSD licence, which the
 # crate's MIT expression does not mention.
 [onig_sys.clarify]

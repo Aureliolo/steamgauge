@@ -20,7 +20,8 @@ ignored = ["ort", "arbitrary", "libloading"]
 [dependencies]
 libfuzzer-sys = "=0.4.13"
 arbitrary = "=1.4.2"
-steamgauge-core = { path = "../crates/steamgauge-core" }
+# Without the app's own update, which reads no stranger's text.
+steamgauge-core = { path = "../crates/steamgauge-core", default-features = false }
 # Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
 # newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
 # model, so nothing is ever loaded.

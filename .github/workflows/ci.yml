@@ -409,12 +409,15 @@ jobs:
         with:
           persist-credentials: false
       # The dash is built from its UTF-8 bytes, so this file holds none for the search to find and
-      # the pattern does not depend on the runner's locale.
+      # the pattern does not depend on the runner's locale. Two files are kept byte for byte as
+      # others wrote them: ONNX Runtime's notices, and a release's provenance as GitHub serves it,
+      # whose signed transparency log checkpoint has one.
       - name: Check for em dashes
         run: |
           set -euo pipefail
           em="$(printf '\342\200\224')"
-          if git grep -n -I -F -e "${em}" -- . ':(exclude)third-party/onnxruntime/ThirdPartyNotices.txt'; then
+          if git grep -n -I -F -e "${em}" -- . ':(exclude)third-party/onnxruntime/ThirdPartyNotices.txt' \
+            ':(exclude)crates/steamgauge-core/src/self_update/provenance-0.1.3.json'; then
             echo "::error::Em dashes are not used here; use a colon, semicolon, comma, full stop or brackets."
             exit 1
           fi
