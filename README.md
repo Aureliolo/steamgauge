@@ -25,8 +25,8 @@ Each system has an installer and a portable archive with the program in it:
 |---|---|---|
 | Windows 10 or 11, x64 | `steamgauge-<version>-windows-x64-setup.exe` | `steamgauge-<version>-x86_64-pc-windows-msvc.zip` |
 | macOS on Apple Silicon | `steamgauge-<version>-macos-arm64.dmg` | `steamgauge-<version>-aarch64-apple-darwin.tar.gz` |
-| Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>_amd64.deb` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux on x86-64, Debian and Ubuntu | `steamgauge_<version>-1_amd64.deb` | `steamgauge-<version>-x86_64-linux-gnu.tar.gz` |
+| Linux on x86-64, Fedora | `steamgauge-<version>-1.x86_64.rpm` | `steamgauge-<version>-x86_64-linux-gnu.tar.gz` |
 
 Or install it with a package manager. Each takes a release's file only if it matches the hash
 the release is signed over.
@@ -58,10 +58,11 @@ itself, and in PowerShell you add one, as in `steamgauge --help | Out-Host`.
 
 **macOS.** A Mac with Apple Silicon. Open the `.dmg` and drag SteamGauge into Applications.
 
-**Linux.** x86-64, and reading runs on the processor. The window needs WebKitGTK 4.1, which
-Ubuntu 22.04, Debian 12 and later carry. The `.deb` and the `.rpm` declare it, so the package
-manager installs it with SteamGauge (`sudo apt install ./steamgauge_<version>_amd64.deb`, or
-`sudo dnf install ./steamgauge-<version>-1.x86_64.rpm`). The portable archive needs it
+**Linux.** x86-64, and reading runs on the processor. The program needs glibc 2.39 or later
+(Ubuntu 24.04, Debian 13, Fedora 40 and later) and WebKitGTK 4.1 for its window. The `.deb` and
+the `.rpm` declare both, so the package manager installs what is missing with SteamGauge
+(`sudo apt install ./steamgauge_<version>-1_amd64.deb`, or
+`sudo dnf install ./steamgauge-<version>-1.x86_64.rpm`). The portable archive needs WebKitGTK
 installed already: `libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora.
 
 ### The first launch

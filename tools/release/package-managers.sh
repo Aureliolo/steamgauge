@@ -137,8 +137,10 @@ jq -n \
 
 # Written whole rather than raised with `wingetcreate update`, so every field is this script's
 # and none is carried over from whatever the last version in winget-pkgs said. The product code
-# is the key Tauri's setup program writes its uninstall entry under, its product name, so winget
-# knows an installed SteamGauge as this package.
+# is the key Tauri's setup program writes its uninstall entry under, its product name, and the
+# entry's publisher is the one that setup program writes there, tauri.conf.json's, so winget
+# knows an installed SteamGauge as this package. The package itself is published under the
+# GitHub account that releases it.
 manifest_version=1.12.0
 schema="https://aka.ms/winget-manifest"
 identifier=Aureliolo.SteamGauge
@@ -164,7 +166,7 @@ UpgradeBehavior: install
 ProductCode: SteamGauge
 AppsAndFeaturesEntries:
 - DisplayName: SteamGauge
-  Publisher: Aurelio
+  Publisher: Aurelio Amoroso
   ProductCode: SteamGauge
 InstallationMetadata:
   DefaultInstallLocation: '%LocalAppData%\\SteamGauge'
@@ -182,7 +184,7 @@ cat > "${out}/winget/${identifier}.locale.en-GB.yaml" << LOCALE
 PackageIdentifier: ${identifier}
 PackageVersion: ${version}
 PackageLocale: en-GB
-Publisher: Aurelio
+Publisher: Aureliolo
 PublisherUrl: https://github.com/Aureliolo
 PublisherSupportUrl: ${repository}/issues
 PackageName: SteamGauge

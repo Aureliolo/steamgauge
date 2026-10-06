@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SteamGauge
+Comment=Finds out what players of a game think, from every Steam review
+Keywords=Steam;reviews;games;players;
+Categories=Utility;
+Exec=steamgauge
+Icon=steamgauge
+StartupWMClass=steamgauge
+Terminal=false

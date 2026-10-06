@@ -5,8 +5,10 @@
 #   tools/release/package.sh <target> <features> <version> <notices> <out-dir>
 #
 # The binary must already be built for <target> with <features> (custom-protocol among them);
-# Tauri's bundler packages that build rather than making its own, so what is packaged is exactly
-# what the build step compiled from the locked sources. $CARGO_TAURI names the tauri-cli to use.
+# what is packaged is that build rather than one of its own, so it is exactly what the build step
+# compiled from the locked sources. Tauri's bundler makes the Windows setup program and the macOS
+# disk image ($CARGO_TAURI names the tauri-cli to use); nFPM makes the .deb and the .rpm from the
+# Linux archive itself (tools/release/linux-packages.sh).
 
 # pipefail makes a failing stage fail the pipeline it is in.
 # shellcheck disable=SC2312
@@ -18,12 +20,18 @@ version="$3"
 notices="$4"
 out="$5"
 
+VERSION="${version}"
+# shellcheck source=tools/release/names.sh
+source "$(dirname "${BASH_SOURCE[0]}")/names.sh"
+
 release="target/${target}/release"
-name="steamgauge-${version}-${target}"
+name="$(stem "${target}")"
+listed="$(installers "${target}")"
+read -r -a installer_names <<< "${listed}"
 case "${target}" in
   *-windows-*) binary=steamgauge.exe bundles=nsis ;;
   *-apple-darwin) binary=steamgauge bundles=app,dmg ;;
-  *-linux-*) binary=steamgauge bundles=deb,rpm ;;
+  *-linux-*) binary=steamgauge bundles="" ;;
   *)
     echo "No packaging is defined for ${target}." >&2
     exit 1
@@ -55,51 +63,52 @@ case "${target}" in
   *) (cd "${out}" && COPYFILE_DISABLE=1 tar -czf "${name}.tar.gz" "${name}") ;;
 esac
 
-# Resources are named relative to the directory tauri.conf.json is in, and land beside the
-# program on Windows and Linux and in the bundle's Resources on macOS.
-# The licence travels as a file rather than as the bundler's licence page, which would make the
-# disk image and the setup program ask a person to accept an Apache licence before installing.
-resources="\"../../${payload}/LICENSE\": \"LICENSE\", \"../../${payload}/THIRD-PARTY-NOTICES.txt\": \"THIRD-PARTY-NOTICES.txt\""
-for library in ${libraries[@]+"${libraries[@]}"}; do
-  resources="${resources}, \"../../${payload}/${library}\": \"${library}\""
-done
-config="{\"version\": \"${version}\", \"bundle\": {\"resources\": {${resources}}}}"
+if [[ -z "${bundles}" ]]; then
+  # Dated by the commit packaged, so the same commit builds the same packages.
+  SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}" \
+    bash "$(dirname "${BASH_SOURCE[0]}")/linux-packages.sh" "${version}" "${out}/${name}.tar.gz" "${out}"
+else
+  # Resources are named relative to the directory tauri.conf.json is in, and land beside the
+  # program on Windows and in the bundle's Resources on macOS.
+  # The licence travels as a file rather than as the bundler's licence page, which would make the
+  # disk image and the setup program ask a person to accept an Apache licence before installing.
+  resources="\"../../${payload}/LICENSE\": \"LICENSE\", \"../../${payload}/THIRD-PARTY-NOTICES.txt\": \"THIRD-PARTY-NOTICES.txt\""
+  for library in ${libraries[@]+"${libraries[@]}"}; do
+    resources="${resources}, \"../../${payload}/${library}\": \"${library}\""
+  done
+  config="{\"version\": \"${version}\", \"bundle\": {\"resources\": {${resources}}}}"
 
-feature_args=()
-if [[ -n "${features}" ]]; then
-  feature_args=(--features "${features}")
+  feature_args=()
+  if [[ -n "${features}" ]]; then
+    feature_args=(--features "${features}")
+  fi
+  "${CARGO_TAURI:?package.sh needs CARGO_TAURI}" bundle --ci --target "${target}" --bundles "${bundles}" \
+    --config "${config}" ${feature_args[@]+"${feature_args[@]}"}
+
+  # One file per installer, or the names below would silently pick one of several.
+  only() {
+    local found
+    found="$(compgen -G "$1" || true)"
+    if [[ -z "${found}" || "$(wc -l <<<"${found}")" -ne 1 ]]; then
+      echo "Expected exactly one file matching $1, found: ${found:-none}" >&2
+      exit 1
+    fi
+    printf '%s\n' "${found}"
+  }
+  bundle="${release}/bundle"
+  case "${target}" in
+    *-windows-*) cp "$(only "${bundle}/nsis/*-setup.exe")" "${out}/${installer_names[0]}" ;;
+    *) cp "$(only "${bundle}/dmg/*.dmg")" "${out}/${installer_names[0]}" ;;
+  esac
 fi
-"${CARGO_TAURI:?package.sh needs CARGO_TAURI}" bundle --ci --target "${target}" --bundles "${bundles}" --config "${config}" \
-  ${feature_args[@]+"${feature_args[@]}"}
+rm -rf "${payload}"
 
-# One file per installer, or the names below would silently pick one of several.
-only() {
-  local found
-  found="$(compgen -G "$1" || true)"
-  if [[ -z "${found}" || "$(wc -l <<<"${found}")" -ne 1 ]]; then
-    echo "Expected exactly one file matching $1, found: ${found:-none}" >&2
+for installer in "${installer_names[@]}"; do
+  if [[ ! -f "${out}/${installer}" ]]; then
+    echo "Packaging wrote no ${installer}." >&2
     exit 1
   fi
-  printf '%s\n' "${found}"
-}
-bundle="${release}/bundle"
-case "${target}" in
-  x86_64-pc-windows-msvc)
-    cp "$(only "${bundle}/nsis/*-setup.exe")" "${out}/steamgauge-${version}-windows-x64-setup.exe"
-    ;;
-  aarch64-apple-darwin)
-    cp "$(only "${bundle}/dmg/*.dmg")" "${out}/steamgauge-${version}-macos-arm64.dmg"
-    ;;
-  x86_64-unknown-linux-gnu)
-    cp "$(only "${bundle}/deb/*.deb")" "${out}/steamgauge_${version}_amd64.deb"
-    cp "$(only "${bundle}/rpm/*.rpm")" "${out}/steamgauge-${version}-1.x86_64.rpm"
-    ;;
-  *)
-    echo "No installer names are defined for ${target}." >&2
-    exit 1
-    ;;
-esac
-rm -rf "${payload}"
+done
 
 # BSD's sha256sum on macOS takes none of the GNU options, and shasum writes the same two-space
 # format GNU's --check reads.

@@ -9,6 +9,12 @@ repository.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+# The details Windows shows for steamgauge.exe under Properties that tauri-build does not set
+# from tauri.conf.json: it writes the product, file description, company, copyright and version.
+[package.metadata.tauri-winres]
+OriginalFilename = "steamgauge.exe"
+InternalName = "steamgauge"
+
 [[bin]]
 name = "steamgauge"
 path = "src/main.rs"
