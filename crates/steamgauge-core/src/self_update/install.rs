@@ -82,8 +82,19 @@ pub fn on_windows(program: &Path) -> Result<Install, String> {
 ///
 /// # Errors
 ///
-/// Says why a program outside a bundle, the portable archive's, is not updated from the window.
+/// Says why a program outside a bundle, the portable archive's, is not updated from the window,
+/// nor one macOS runs from the read-only copy it makes of an app opened where it was downloaded.
 pub fn on_macos(program: &Path) -> Result<Install, String> {
+    if program
+        .components()
+        .any(|part| part.as_os_str() == "AppTranslocation")
+    {
+        return Err(
+            "macOS runs this copy from a read-only place of its own, which it does until \
+             SteamGauge is moved into Applications"
+                .to_owned(),
+        );
+    }
     let macos = program
         .parent()
         .filter(|dir| dir.file_name() == Some("MacOS".as_ref()));
@@ -347,6 +358,11 @@ mod tests {
         ] {
             assert!(on_macos(Path::new(elsewhere)).is_err(), "{elsewhere}");
         }
+        let moved = on_macos(Path::new(
+            "/private/var/folders/xy/T/AppTranslocation/0A1B/d/SteamGauge.app/Contents/MacOS/steamgauge",
+        ))
+        .unwrap_err();
+        assert!(moved.contains("Applications"), "{moved}");
     }
 
     #[test]
