@@ -4963,6 +4963,16 @@ back to that one and waits on a window nobody asked for. A hook
 (`crates/steamgauge-app/installer-hooks.nsh`) adds the same uninstaller with `/S` as the quiet
 one, and the install check reads that registered command and runs it.
 
+**The Windows setup program replaces the program or stops.** Tauri's template copies the program
+over the installed one, and when that copy fails in a silent install it carries on and reports
+success: a pull request's install check found new libraries beside the old program, with a file
+held for a few seconds after the install before it (the job passed when run again). The Restart
+Manager check Tauri runs first closes a running SteamGauge but did not see that holder. The same
+hook closes a running SteamGauge itself, then waits up to a minute for the program to be
+writable, and past that stops with an error, so an update lands whole or not at all. The install
+check proves both on every pull request, with the program made read-only for ten seconds and then
+for longer than the setup waits.
+
 **On Windows the program is a windowed application.** As a console program it opened a console
 window beside the app for as long as it ran, which the user rejected outright: double-clicking
 shows the window and nothing else. The pipeline is the same binary given arguments, and as a

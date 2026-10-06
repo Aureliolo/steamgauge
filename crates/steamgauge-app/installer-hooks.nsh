@@ -17,6 +17,33 @@ Function CarryOverInstallFolder
   ${EndIf}
 FunctionEnd
 
+; Tauri's setup program copies the program over the installed one, and when that copy fails in a
+; silent install it carries on: the new libraries land beside the old program and the setup
+; reports success. A running SteamGauge is closed first, as Tauri's own check would; a file still
+; held after that, by a scanner reading a program just written or a process that has not yet let
+; go, is waited out for up to a minute, and one held longer stops the install with an error
+; rather than leaving two versions side by side.
+!macro NSIS_HOOK_PREINSTALL
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ${If} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+    StrCpy $R9 0
+    ${Do}
+      ClearErrors
+      FileOpen $R8 "$INSTDIR\${MAINBINARYNAME}.exe" a
+      ${IfNot} ${Errors}
+        FileClose $R8
+        ${Break}
+      ${EndIf}
+      IntOp $R9 $R9 + 1
+      ${If} $R9 >= 240
+        SetErrorLevel 5
+        Abort "$INSTDIR\${MAINBINARYNAME}.exe is held open by another program and cannot be replaced."
+      ${EndIf}
+      Sleep 250
+    ${Loop}
+  ${EndIf}
+!macroend
+
 ; A quiet uninstall (`winget uninstall --silent`, a management tool) runs QuietUninstallString and
 ; falls back to UninstallString, which opens the uninstaller's window and waits on it. Tauri's
 ; setup program writes only the latter. The folder a 0.1.2 or earlier copy kept under
