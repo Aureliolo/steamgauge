@@ -4971,6 +4971,18 @@ back to that one and waits on a window nobody asked for. A hook
 (`crates/steamgauge-app/installer-hooks.nsh`) adds the same uninstaller with `/S` as the quiet
 one, and the install check reads that registered command and runs it.
 
+**An upgrade installs in place, with no offer to uninstall first (2026-10-06).** Tauri's setup
+script meets an older copy with a page whose default runs the old uninstaller, and that
+uninstaller's page offers to delete the application data, which is the whole library. Nothing in
+`tauri.conf.json` changes it and the hooks file is read before the variables that page uses. So
+the setup program is built from `crates/steamgauge-app/installer.nsi`, Tauri's own script at the
+bundler the pinned tauri-cli uses plus the one change in `installer.patch`: an upgrade skips the
+page and installs over the older copy, as Tauri's updater does with `/UPDATE`.
+`tools/release/installer-template-check.sh` rebuilds the copy from upstream and the patch on every
+pull request, so a tauri-cli bump that moves Tauri's script fails until the copy is taken again,
+and the install check opens the setup program's window over 0.1.2, presses Next and reads the page
+it lands on.
+
 **The Windows setup program replaces the program or stops.** Tauri's template copies the program
 over the installed one, and when that copy fails in a silent install it carries on and reports
 success: a pull request's install check found new libraries beside the old program, with a file
