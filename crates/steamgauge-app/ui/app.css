@@ -5,35 +5,38 @@
   color-scheme: light dark;
 
   /* Neutrals, from the page behind everything to the ink on top. */
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f9fafb;
-  --sunken: #f1f3f6;
-  --line: #e4e7ec;
-  --line-strong: #d0d5dd;
-  --ink: #101828;
-  --ink-2: #344054;
-  --ink-3: #667085;
-  --ink-4: #98a2b3;
+  /* Warm neutrals, the paper and ink of the dial in the mark. */
+  --bg: #f7f4ef;
+  --surface: #fffdfa;
+  --surface-2: #faf7f2;
+  --sunken: #f2eee7;
+  --line: #e8e2d8;
+  --line-strong: #d7cfc3;
+  --ink: #1f1b17;
+  --ink-2: #3f3a34;
+  --ink-3: #6f675e;
+  --ink-4: #a39a8f;
 
-  --accent: #3a5ccc;
-  --accent-hover: #2f4fb8;
-  --accent-soft: #eef2fd;
-  --accent-line: #c7d3f6;
+  /* The mark's vermilion, darkened until white text on it reads at 5:1. */
+  --accent: #c43e0b;
+  --accent-hover: #a8350a;
+  --accent-soft: #fcede5;
+  --accent-line: #f3c6b0;
   --accent-ink: #ffffff;
 
-  /* Praise and complaint, and what the report calls under and over. */
+  /* Praise and complaint, and what the report calls under and over. Complaint is crimson rather
+     than red, so it never reads as the accent. */
   --good: #12756b;
   --good-soft: #e6f4f1;
-  --bad: #c2410c;
-  --bad-soft: #fdf0e9;
+  --bad: #be123c;
+  --bad-soft: #fdecf0;
   --warn: #a15c07;
   --warn-soft: #fdf5e6;
-  --mixed: #c4c9d2;
+  --mixed: #cbc3b8;
 
-  --shadow-1: 0 1px 2px rgb(16 24 40 / 0.05);
-  --shadow-2: 0 1px 3px rgb(16 24 40 / 0.08), 0 1px 2px rgb(16 24 40 / 0.04);
-  --shadow-3: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-1: 0 1px 2px rgb(43 39 34 / 0.05);
+  --shadow-2: 0 1px 3px rgb(43 39 34 / 0.08), 0 1px 2px rgb(43 39 34 / 0.04);
+  --shadow-3: 0 12px 32px -8px rgb(43 39 34 / 0.18), 0 4px 8px -4px rgb(43 39 34 / 0.06);
 
   /* Space: every gap, margin and padding is one of these. */
   --s1: 4px;
@@ -68,30 +71,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0e1015;
-    --surface: #15181f;
-    --surface-2: #191d25;
-    --sunken: #11141a;
-    --line: #252a34;
-    --line-strong: #343a46;
-    --ink: #eef0f4;
-    --ink-2: #c3c8d2;
-    --ink-3: #8f97a6;
-    --ink-4: #646c7a;
+    --bg: #12100e;
+    --surface: #1a1714;
+    --surface-2: #1f1b18;
+    --sunken: #151210;
+    --line: #2c2722;
+    --line-strong: #3b352f;
+    --ink: #f3eee6;
+    --ink-2: #cfc7bb;
+    --ink-3: #9a9186;
+    --ink-4: #6b635a;
 
-    --accent: #7c9cf5;
-    --accent-hover: #93aef8;
-    --accent-soft: #1b2440;
-    --accent-line: #2d3d6b;
-    --accent-ink: #0b1020;
+    --accent: #ff6b2c;
+    --accent-hover: #ff8552;
+    --accent-soft: #2e1a10;
+    --accent-line: #5a2c15;
+    --accent-ink: #1a0d05;
 
     --good: #4fc2b3;
     --good-soft: #10282a;
-    --bad: #f0915f;
-    --bad-soft: #2f1c14;
+    --bad: #fb7185;
+    --bad-soft: #301419;
     --warn: #e6b45c;
     --warn-soft: #2b2312;
-    --mixed: #4a5160;
+    --mixed: #4d463f;
 
     --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow-2: 0 1px 3px rgb(0 0 0 / 0.4);
@@ -241,9 +244,11 @@ code {
   padding: 0 var(--s2);
 }
 
+/* The mark is the app icon itself, a paper tile in both themes; on the light page the tile is
+   close to the ground, so a shadow keeps its edge. */
 .brand-mark,
 .hero-mark {
-  color: var(--accent);
+  filter: drop-shadow(0 1px 1.5px rgb(43 39 34 / 0.22));
 }
 
 .brand-mark {
