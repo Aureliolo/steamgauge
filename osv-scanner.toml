@@ -4,10 +4,6 @@
 # and fuzz/deny.toml ignore the RUSTSEC ones among these for cargo-deny, which has no expiry, and
 # CI's deny job holds them to the dates here.
 #
-# osv-scanner reads the osv-scanner.toml beside each lock file it finds and nothing above it, and
-# Scorecard scans that way, recursively and with no --config. fuzz/Cargo.lock therefore has its own
-# file, which carries the entries from here that reach the fuzz harness's graph, word for word.
-#
 # A recursive scan reads training/requirements.txt, whose floors it takes for versions, and not
 # the lock, whose name it does not recognise. The transformers entries match only when the lock
 # is named, and a named lock looks for this file beside itself unless told where it is:

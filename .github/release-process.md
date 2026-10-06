@@ -4,9 +4,8 @@
 
 Run **prepare release** from the Actions tab with `patch`, `minor` or `major`, or an exact
 version. Only the repository's owner can. It raises the version in `Cargo.toml`, under
-`[workspace.package]` where every crate takes it from, in the entry `Cargo.lock` keeps for each
-crate, and in the one `fuzz/Cargo.lock` keeps for the crate the fuzz harness builds on, on a
-`release/vX.Y.Z` branch with a signed commit, opens the pull request, sets it
+`[workspace.package]` where every crate takes it from, and in the entry `Cargo.lock` keeps for
+each crate, on a `release/vX.Y.Z` branch with a signed commit, opens the pull request, sets it
 to merge itself once its checks are green, and links it in the run summary. Everything after
 that is automatic.
 

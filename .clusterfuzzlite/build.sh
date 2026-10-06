@@ -21,6 +21,11 @@ export RUSTC_BOOTSTRAP=1
 export CFLAGS="-O1 -fno-omit-frame-pointer -gline-tables-only"
 export CXXFLAGS="${CFLAGS}"
 
+# The harness keeps no lock file: it builds on the product's, so it fuzzes the versions the
+# product ships, and cargo adds only the few crates the harness alone needs, each pinned exactly
+# in fuzz/Cargo.toml.
+cp Cargo.lock fuzz/Cargo.lock
+
 # Debug assertions on, so that an overflow in the offset arithmetic panics here rather than
 # wrapping silently as it would in the release binary.
 cargo fuzz build --release --debug-assertions

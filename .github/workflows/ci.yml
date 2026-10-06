@@ -233,9 +233,11 @@ jobs:
       # once a browser has run them.
       - run: node tools/app-check/check.mjs
 
-  # Advisories, yanked crates, licences and sources for both lock files: the product's and the
-  # fuzz harness's, which is a workspace of its own. --locked also refuses a lock file that has
-  # fallen behind its manifests, which nothing else here checks for the fuzz harness.
+  # Advisories, yanked crates, licences and sources for both graphs: the product's, and the fuzz
+  # harness's, which is a workspace of its own. The harness keeps no lock file; it builds on the
+  # product's, as .clusterfuzzlite/build.sh does, so it fuzzes the versions the product ships and
+  # cannot fall behind them. Cargo adds to that copy only what the harness alone needs, which
+  # fuzz/Cargo.toml pins exactly.
   deny:
     name: deny
     runs-on: ubuntu-24.04
@@ -273,7 +275,37 @@ jobs:
       - name: Check the product's graph
         run: cargo deny --workspace --locked check
       - name: Check the fuzz harness's graph
-        run: cargo deny --manifest-path fuzz/Cargo.toml --workspace --locked check
+        run: |
+          cp Cargo.lock fuzz/Cargo.lock
+          cargo deny --manifest-path fuzz/Cargo.toml --workspace check
+      - name: Hold the harness's own crates to their pins
+        shell: python
+        run: |
+          import sys
+          import tomllib
+          from pathlib import Path
+
+
+          def load(path):
+              return tomllib.loads(Path(path).read_text(encoding="utf-8"))
+
+
+          product = {(entry["name"], entry["version"]) for entry in load("Cargo.lock")["package"]}
+          pins = {
+              name: spec if isinstance(spec, str) else spec.get("version", "")
+              for name, spec in load("fuzz/Cargo.toml")["dependencies"].items()
+          }
+          wrong = [
+              f"The fuzz harness takes {entry['name']} {entry['version']}, which neither the product's"
+              " lock nor an exact pin in fuzz/Cargo.toml holds."
+              for entry in load("fuzz/Cargo.lock")["package"]
+              if "source" in entry
+              and (entry["name"], entry["version"]) not in product
+              and pins.get(entry["name"]) != f"={entry['version']}"
+          ]
+          for message in wrong:
+              print(f"::error::{message}")
+          sys.exit(1 if wrong else 0)
       # cargo-deny keeps no expiry for an ignored advisory, so each one it ignores is held to
       # the entry osv-scanner.toml keeps for it, whose ignoreUntil is the one date that counts.
       - name: Hold the ignored advisories to osv-scanner.toml
@@ -305,9 +337,6 @@ jobs:
           for advisory in sorted(kept):
               if advisory.startswith("RUSTSEC-") and advisory not in ignored:
                   wrong.append(f"osv-scanner.toml ignores {advisory}, which no deny.toml does.")
-          for entry in load("fuzz/osv-scanner.toml")["IgnoredVulns"]:
-              if kept.get(entry["id"]) != entry:
-                  wrong.append(f"fuzz/osv-scanner.toml's {entry['id']} is not osv-scanner.toml's.")
           for message in wrong:
               print(f"::error::{message}")
           sys.exit(1 if wrong else 0)

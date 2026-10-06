@@ -1,9 +1,0 @@
-# The entries of ../osv-scanner.toml that reach the fuzz harness's graph, copied word for word:
-# osv-scanner reads the file beside each lock file and nothing above it, so without this one a
-# recursive scan, Scorecard's included, reports them against fuzz/Cargo.lock. CI's deny job fails
-# when an entry here differs from the one it copies.
-
-[[IgnoredVulns]]
-id = "RUSTSEC-2024-0436"
-ignoreUntil = 2027-03-27
-reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."

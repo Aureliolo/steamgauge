@@ -80,6 +80,8 @@ target/
 # keeps out. The seeds the corpus starts from are fuzz/seeds/, and those are committed.
 fuzz/artifacts/
 fuzz/coverage/
+# The fuzz harness builds on a copy of the product's Cargo.lock, made where it is built.
+fuzz/Cargo.lock
 # What cargo-mutants and cargo-llvm-cov write beside the workspace when run by hand.
 mutants.out/
 mutants.out.old/
