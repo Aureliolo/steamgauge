@@ -98,7 +98,17 @@ else
   bundle="${release}/bundle"
   case "${target}" in
     *-windows-*) cp "$(only "${bundle}/nsis/*-setup.exe")" "${out}/${installer_names[0]}" ;;
-    *) cp "$(only "${bundle}/dmg/*.dmg")" "${out}/${installer_names[0]}" ;;
+    *)
+      cp "$(only "${bundle}/dmg/*.dmg")" "${out}/${installer_names[0]}"
+      # The bundle the disk image holds, alone in a tarball, which the app's own update unpacks
+      # in place of the one it runs from. Extended attributes stay out of it, as in the archive.
+      app="$(only "${bundle}/macos/*.app")"
+      if [[ "$(basename "${app}")" != SteamGauge.app ]]; then
+        echo "The bundler made $(basename "${app}"), not the SteamGauge.app the update replaces." >&2
+        exit 1
+      fi
+      (cd "$(dirname "${app}")" && COPYFILE_DISABLE=1 tar --no-xattrs -czf - SteamGauge.app) > "${out}/${installer_names[1]}"
+      ;;
   esac
 fi
 rm -rf "${payload}"

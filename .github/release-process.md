@@ -78,7 +78,8 @@ publishes and packages:
    ships with, and checks the build left the tree as it found it. `tools/release/package.sh`
    then packs the portable archive (the binary, the runtime libraries beside it, the README,
    the licence and the third-party notices) and packages that same build into the platform's
-   installers: Tauri's bundler makes the Windows setup program and the macOS disk image, and
+   installers: Tauri's bundler makes the Windows setup program and the macOS disk image, the app
+   bundle the disk image holds is also packed alone into a tarball for the app's own update, and
    nFPM makes the `.deb` and the `.rpm` from the Linux archive's own files
    (`tools/release/linux-packages.sh`, `tools/release/linux/nfpm.yaml`), with a man page
    help2man writes from the program's `--help`. Both tools are pinned by version and digest. It
@@ -95,7 +96,8 @@ publishes and packages:
 5. **install**, on each platform, installs that platform's installers the way a person would
    (the setup program silently, the disk image copied to Applications, the `.deb` through apt
    and the `.rpm` through dnf on Fedora), runs the installed program, which has to name the
-   version, and starts its window, which has to stay up (`tools/release/install-check.sh`).
+   version, and starts its window, which has to stay up (`tools/release/install-check.sh`). The
+   update's app tarball has to hold the disk image's app alone, byte for byte.
    Each installer has to name its maker, licence and package exactly as the check writes them:
    the `.deb`'s control fields, files, copyright file and changelog, the `.rpm`'s header,
    relations, files and changelog, the app's `Info.plist`, and on Windows the setup program's
@@ -107,13 +109,15 @@ publishes and packages:
    `steam-gauge` and whose setup program registers the publisher `Aurelio`, and the new
    installer has to replace it. On Windows it uninstalls again and checks the program is gone.
 6. **attest** signs every file that ships through Sigstore, attests each platform's SBOM against
-   its archive and its installers, and gathers the four signed attestations into one JSON Lines
-   file. It is the only job with a token that can sign: see below.
+   its archive and its installers, gathers the four signed attestations into one JSON Lines
+   file, and keeps the provenance alone beside it as well. It is the only job with a token that
+   can sign: see below.
 7. **verify**, in `release.yml`, rechecks the checksums and verifies every file against that
-   JSON Lines file the way a user would, naming `release-build.yml` at this tag as the builder.
-   It holds no token that can write.
+   JSON Lines file the way a user would, and against the provenance alone the way the app's own
+   update does, naming `release-build.yml` at this tag as the builder. It holds no token that
+   can write.
 8. **publish**, in `release.yml`, runs only on a tag. It checks the checksums once more and
-   creates the GitHub Release with all thirteen files in one call, because an immutable release
+   creates the GitHub Release with all fifteen files in one call, because an immutable release
    locks its files the moment it is published.
 9. **package managers (write)** downloads the published `SHA256SUMS` and `steamgauge.json`,
    verifies both against the release's attestation, and writes the Homebrew cask, the Scoop
@@ -148,7 +152,9 @@ none of them can pass for a release's.
 
 - The installers: `steamgauge-X.Y.Z-windows-x64-setup.exe` (Windows on x86-64 with DirectML,
   installed for the current user, fetching WebView2 if the machine lacks it),
-  `steamgauge-X.Y.Z-macos-arm64.dmg` (macOS on Apple Silicon with CoreML), and
+  `steamgauge-X.Y.Z-macos-arm64.dmg` (macOS on Apple Silicon with CoreML),
+  `steamgauge-X.Y.Z-macos-arm64.app.tar.gz` (the app in that disk image, alone in a tarball,
+  which the app's own update unpacks in place of the one it runs from), and
   `steamgauge_X.Y.Z-1_amd64.deb` and `steamgauge-X.Y.Z-1.x86_64.rpm` (Linux on x86-64 on the CPU,
   each the package `steamgauge`, declaring the C library and WebKitGTK 4.1 so the package
   manager installs what is missing, and replacing the `steam-gauge` package of 0.1.2 and
@@ -168,6 +174,9 @@ none of them can pass for a release's.
   They are stored on the repository and attached to the release as
   `steamgauge-X.Y.Z.intoto.jsonl`, which is also the file OpenSSF Scorecard looks for. The
   checksum file has no signature of its own beside it; the provenance is that signature.
+- `steamgauge-X.Y.Z.provenance.sigstore.json`, the provenance alone, which the app's own update
+  reads rather than the four megabytes of the JSON Lines file or GitHub's API, which answers
+  sixty unauthenticated questions an hour per address.
 
 Releases are immutable, so a published one cannot be edited or replaced.
 
@@ -255,7 +264,9 @@ brew install --cask aureliolo/steamgauge/steamgauge
   what ships for macOS is an app in a disk image: it installs `SteamGauge.app` from the `.dmg`
   on Apple Silicon with macOS 13 or later, and puts `steamgauge` on the `PATH` through a script
   that runs the program inside the app by its real path. A symlink would not do, because Tauri
-  on macOS refuses its own path when that passes through one. There is no cask for Linux, and
+  on macOS refuses its own path when that passes through one. The cask says `auto_updates`,
+  because the app updates itself in place, so `brew upgrade` leaves it to the app unless given
+  `--greedy`. There is no cask for Linux, and
   no apt or dnf repository either: Linux takes the release's `.deb` or `.rpm`.
 - **Scoop.** `bucket/steamgauge.json` installs the portable Windows archive, puts `steamgauge`
   on the `PATH` by adding its own folder there, and adds a Start menu shortcut for the window.
@@ -354,7 +365,7 @@ version, naming it, before it writes a branch.
 
 Re-running the release workflow on the tag is the first thing to try, and it is safe: the
 publish job asks what the tag already carries before acting, and passes when that is exactly
-the thirteen files, and package managers (main) picks its pull request up where it is. **tag
+the fifteen files, and package managers (main) picks its pull request up where it is. **tag
 release** can be run by hand too, and starts the release workflow again on a tag that already
 exists.
 
@@ -404,7 +415,7 @@ exists.
   installs something that does not run, or does not run as it should, on its own system. That
   is the failure the job exists for; nothing was signed or published.
 - **vX.Y.Z already has a release, and it carries ...**: the tag has a release with something
-  other than the thirteen files, which means an upload failed part way. A published release is
+  other than the fifteen files, which means an upload failed part way. A published release is
   not rewritten here, so look at what is attached before deciding anything.
 - **... does not hold exactly one SHA-256 for ...**, in package managers (write) or the sbom
   job: a file the cask or a manifest names is missing from `SHA256SUMS`, usually after its name

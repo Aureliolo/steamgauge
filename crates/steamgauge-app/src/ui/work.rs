@@ -134,7 +134,7 @@ pub struct Job {
 /// How fast a count is moving, smoothed so one slow batch does not swing the time left by
 /// minutes.
 #[derive(Debug, Clone)]
-struct Meter {
+pub(super) struct Meter {
     step: String,
     at: Instant,
     done: f64,
@@ -149,7 +149,7 @@ const SAMPLE: Duration = Duration::from_secs(1);
 const NEWEST: f64 = 0.3;
 
 impl Meter {
-    fn new(step: &str, done: f64, at: Instant) -> Self {
+    pub(super) fn new(step: &str, done: f64, at: Instant) -> Self {
         Self {
             step: step.to_owned(),
             at,
@@ -160,7 +160,7 @@ impl Meter {
 
     /// The rate after seeing `done` at `now`. A new step, or a count that went backwards,
     /// starts the measurement again.
-    fn note(&mut self, step: &str, done: f64, now: Instant) -> Option<f64> {
+    pub(super) fn note(&mut self, step: &str, done: f64, now: Instant) -> Option<f64> {
         if step != self.step || done < self.done {
             *self = Self::new(step, done, now);
             return None;
@@ -181,7 +181,7 @@ impl Meter {
 }
 
 /// Seconds to go, where there is a total and the count is moving.
-fn left(done: f64, total: Option<f64>, rate: Option<f64>) -> Option<f64> {
+pub(super) fn left(done: f64, total: Option<f64>, rate: Option<f64>) -> Option<f64> {
     let (total, rate) = (total?, rate?);
     (rate > 0.0).then(|| (total - done).max(0.0) / rate)
 }
@@ -191,7 +191,7 @@ const KEPT: usize = 30;
 
 /// How often a moving job is sent to the window. Faster than this repaints a bar no eye
 /// follows; slower makes a download look stuck.
-const EVERY: Duration = Duration::from_millis(250);
+pub(super) const EVERY: Duration = Duration::from_millis(250);
 
 #[derive(Default)]
 struct Board {

@@ -83,25 +83,30 @@ jobs:
         run: |
           set -euo pipefail
           bundle="dist/steamgauge-${VERSION}.intoto.jsonl"
+          provenance="dist/steamgauge-${VERSION}.provenance.sigstore.json"
           signer="${GITHUB_REPOSITORY}/.github/workflows/release-build.yml"
           # Given no stdin, since it is called inside a loop reading the checksum file.
           verify() {
-            gh attestation verify "$@" --bundle "${bundle}" \
+            gh attestation verify "$@" \
               --repo "${GITHUB_REPOSITORY}" --signer-workflow "${signer}" \
               --source-ref "${GITHUB_REF}" --deny-self-hosted-runners < /dev/null
           }
-          verify dist/SHA256SUMS
-          while read -r _ subject; do
-            verify "dist/${subject#\*}"
-          done < dist/SHA256SUMS
+          # Every file against the attestations as a person verifies them, and against the
+          # provenance published alone, which is what the app's own update reads.
+          for from in "${bundle}" "${provenance}"; do
+            verify dist/SHA256SUMS --bundle "${from}"
+            while read -r _ subject; do
+              verify "dist/${subject#\*}" --bundle "${from}"
+            done < dist/SHA256SUMS
+          done
           shopt -s nullglob
           packages=(dist/steamgauge-*.tar.gz dist/steamgauge-*.zip dist/steamgauge-*-setup.exe dist/steamgauge-*.dmg dist/steamgauge_*.deb dist/steamgauge-*.rpm)
-          if [[ "${#packages[@]}" -ne 7 ]]; then
-            echo "Expected three archives and four installers, found ${#packages[@]}: ${packages[*]}" >&2
+          if [[ "${#packages[@]}" -ne 8 ]]; then
+            echo "Expected three archives and five installers, found ${#packages[@]}: ${packages[*]}" >&2
             exit 1
           fi
           for package in "${packages[@]}"; do
-            verify "${package}" --predicate-type https://spdx.dev/Document/v2.3
+            verify "${package}" --bundle "${bundle}" --predicate-type https://spdx.dev/Document/v2.3
           done
 
       - name: Summarise
@@ -164,14 +169,14 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          assets=(dist/SHA256SUMS "dist/steamgauge-${VERSION}.intoto.jsonl")
+          assets=(dist/SHA256SUMS "dist/steamgauge-${VERSION}.intoto.jsonl" "dist/steamgauge-${VERSION}.provenance.sigstore.json")
           while read -r _ subject; do
             assets+=("dist/${subject#\*}")
           done < dist/SHA256SUMS
-          # Three archives, four installers, three SBOMs, the Scoop manifest, the checksums and
-          # the attestations.
-          if [[ "${#assets[@]}" -ne 13 ]]; then
-            echo "Expected thirteen files to publish, found ${#assets[@]}: ${assets[*]}" >&2
+          # Three archives, five installers, three SBOMs, the Scoop manifest, the checksums, the
+          # attestations and the provenance alone.
+          if [[ "${#assets[@]}" -ne 15 ]]; then
+            echo "Expected fifteen files to publish, found ${#assets[@]}: ${assets[*]}" >&2
             exit 1
           fi
 
@@ -190,7 +195,7 @@ jobs:
           # A release the tag already carries is taken as done, so the whole run can be re-run
           # after a later job fails. A published release is immutable and never rewritten here,
           # so the way to be idempotent about it is to confirm it is already right, and "already
-          # right" means these thirteen files and no others. Half a release is a third answer, and
+          # right" means these fifteen files and no others. Half a release is a third answer, and
           # it says which files are there.
           already_released() {
             if ! gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
@@ -199,12 +204,12 @@ jobs:
             have="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | LC_ALL=C sort)"
             want="$(printf '%s\n' "${assets[@]##*/}" | LC_ALL=C sort)"
             if [[ "${have}" == "${want}" ]]; then
-              echo "${GITHUB_REF_NAME} is released with all thirteen files."
+              echo "${GITHUB_REF_NAME} is released with all fifteen files."
               return 0
             fi
             echo "${GITHUB_REF_NAME} already has a release, and it carries:" >&2
             printf '%s\n' "${have}" >&2
-            echo "and not the thirteen files this job publishes. A published release is not" >&2
+            echo "and not the fifteen files this job publishes. A published release is not" >&2
             echo "rewritten here, so this needs a person." >&2
             exit 1
           }
@@ -228,6 +233,11 @@ jobs:
             "| Windows, x86-64: any DirectX 12 GPU through DirectML | \`steamgauge-${VERSION}-windows-x64-setup.exe\` | \`steamgauge-${VERSION}-x86_64-pc-windows-msvc.zip\` |" \
             "| macOS, Apple Silicon: CoreML | \`steamgauge-${VERSION}-macos-arm64.dmg\` | \`steamgauge-${VERSION}-aarch64-apple-darwin.tar.gz\` |" \
             "| Linux, x86-64: CPU only | \`steamgauge_${VERSION}-1_amd64.deb\`, \`steamgauge-${VERSION}-1.x86_64.rpm\` | \`steamgauge-${VERSION}-x86_64-linux-gnu.tar.gz\` (needs WebKitGTK 4.1) |" \
+            '' \
+            "A copy whose window offers **Update now** takes this release from there: it downloads the" \
+            "file for its system, \`steamgauge-${VERSION}-macos-arm64.app.tar.gz\` on macOS, and installs it" \
+            "only once \`steamgauge-${VERSION}.provenance.sigstore.json\` proves it was built here by the" \
+            'release workflow for this tag.' \
             '' \
             'Or with a package manager:' \
             '' \

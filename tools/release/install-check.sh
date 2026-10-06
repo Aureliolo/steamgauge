@@ -270,6 +270,15 @@ case "${target}" in
     done
     expect_version "${app}/Contents/MacOS/steamgauge"
     stays_up "${app}/Contents/MacOS/steamgauge"
+
+    # The app's own update unpacks this tarball in place of the bundle it runs from, so it holds
+    # that bundle alone, the disk image's byte for byte.
+    unpacked="$(mktemp -d)"
+    tar -xzf "${dir}/${installer_names[1]}" -C "${unpacked}"
+    same "What the update's tarball holds" "$(ls -A "${unpacked}")" SteamGauge.app
+    diff -r "${unpacked}/SteamGauge.app" "${app}" \
+      || { echo "The update's tarball holds another app than the disk image." >&2; exit 1; }
+    expect_version "${unpacked}/SteamGauge.app/Contents/MacOS/steamgauge"
     ;;
   x86_64-unknown-linux-gnu)
     # What both packages install, each adding its own: Debian's copyright file, changelog and

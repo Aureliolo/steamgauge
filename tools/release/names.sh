@@ -21,11 +21,13 @@ archive() {
   esac
 }
 
+# What installs the program on each system. On macOS the disk image is for a person and the app
+# bundle in a tarball for the app's own update, which replaces the bundle it runs from.
 installers() {
   case "$1" in
     x86_64-unknown-linux-gnu) echo "steamgauge_${VERSION}-1_amd64.deb steamgauge-${VERSION}-1.x86_64.rpm" ;;
     x86_64-pc-windows-msvc) echo "steamgauge-${VERSION}-windows-x64-setup.exe" ;;
-    aarch64-apple-darwin) echo "steamgauge-${VERSION}-macos-arm64.dmg" ;;
+    aarch64-apple-darwin) echo "steamgauge-${VERSION}-macos-arm64.dmg steamgauge-${VERSION}-macos-arm64.app.tar.gz" ;;
     *)
       echo "No installers are named for $1." >&2
       return 1
