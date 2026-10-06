@@ -5,6 +5,11 @@
 param([Parameter(Mandatory)][string]$Setup)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -Namespace Setup -Name Window -MemberDefinition @'
+[DllImport("user32.dll")] public static extern System.IntPtr GetParent(System.IntPtr window);
+[DllImport("user32.dll")] public static extern int GetDlgCtrlID(System.IntPtr control);
+[DllImport("user32.dll")] public static extern bool PostMessage(System.IntPtr window, uint message, System.IntPtr wParam, System.IntPtr lParam);
+'@
 $A = [System.Windows.Automation.AutomationElement]
 $Descendants = [System.Windows.Automation.TreeScope]::Descendants
 $Any = [System.Windows.Automation.Condition]::TrueCondition
@@ -23,19 +28,21 @@ try {
   if ($process.MainWindowHandle -eq 0) { throw 'The setup program showed no window within 90 seconds.' }
   Start-Sleep -Seconds 2
   $window = $A::FromHandle($process.MainWindowHandle)
-  # NSIS's buttons are plain Win32 ones, found by their text and pressed through the pattern
-  # every button offers.
-  $invoke = $null
+  $next = [System.IntPtr]::Zero
   foreach ($element in $window.FindAll($Descendants, $Any)) {
-    if ($element.Current.Name -notlike 'Next*') { continue }
-    $pattern = $null
-    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
-      $invoke = $pattern
+    if ($element.Current.Name -like 'Next*' -and $element.Current.NativeWindowHandle -ne 0) {
+      $next = [System.IntPtr]$element.Current.NativeWindowHandle
       break
     }
   }
-  if (-not $invoke) { throw ("The first page has no Next button to press. It shows:`n" + ((Texts $window) -join "`n")) }
-  $invoke.Invoke()
+  if ($next -eq [System.IntPtr]::Zero) { throw ("The first page has no Next button to press. It shows:`n" + ((Texts $window) -join "`n")) }
+  # NSIS's buttons are plain Win32 ones that UI Automation finds but offers no way to press, so
+  # the click is the message a button sends its dialog: WM_COMMAND with its ID and BN_CLICKED.
+  $WM_COMMAND = 0x0111
+  $id = [Setup.Window]::GetDlgCtrlID($next)
+  if (-not [Setup.Window]::PostMessage([Setup.Window]::GetParent($next), $WM_COMMAND, [System.IntPtr]$id, $next)) {
+    throw 'The Next button could not be pressed.'
+  }
   Start-Sleep -Seconds 3
   Texts $window
 } finally {
