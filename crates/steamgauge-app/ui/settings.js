@@ -1,28 +1,80 @@
-/* How the app runs on this computer: how much of the graphics card it takes, which reader a
-   computer without one uses, and what happens on its own. */
+/* How the app runs on this computer: which reader reads every review, how much of the graphics
+   card it takes, and what happens on its own. */
 
-import { invoke, el, set, make, roundShare, size, page, setPath } from './common.js';
+import { invoke, el, set, make, roundShare, size, page } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
+let options = null;
+
+const SIZE_TEXT = {
+  small: ['Small reader', 'Fast, and a little less accurate.'],
+  standard: ['Standard reader', 'The most accurate.'],
+};
+
+/* Card memory is sold in binary gigabytes: a 24 GB card reports 25.8 decimal ones. */
+const gib = (bytes) => `${Math.round(bytes / 2 ** 30)} GB`;
+
+/* Why this computer is recommended the reader it is, in one line. */
+export function reason(found) {
+  const recommended = found.sizes.find((one) => one.name === found.recommended);
+  const largest = found.sizes[found.sizes.length - 1];
+  if (found.on_processor) {
+    return found.reaches_card
+      ? 'No graphics card the reader can use was found, so reading runs on the processor, where the small reader is the quickest.'
+      : 'This build reads on the processor, where the small reader is the quickest.';
+  }
+  const card = `${found.card ?? 'The graphics card'}${found.card_bytes ? `, ${gib(found.card_bytes)}` : ''}`;
+  return recommended === largest
+    ? `${card}: the most accurate reader fits in its memory.`
+    : `${card}: the ${SIZE_TEXT[largest.name]?.[0].toLowerCase() ?? largest.name} needs ${gib(largest.needs)} of its memory, more than it can spare.`;
+}
+
+function sizeCard(found, option) {
+  const [title, about] = SIZE_TEXT[option.name] ?? [option.name, ''];
+  const input = make('input');
+  input.type = 'radio';
+  input.name = 'reader-size';
+  input.value = option.name;
+  input.checked = found.reads_with === option.name;
+  input.disabled = !option.runs_here || !option.published;
+
+  const pills = make(
+    'span',
+    'size-pills',
+    option.name === found.recommended ? make('span', 'pill accent', 'Recommended') : null,
+    option.bytes_left === 0 && option.published ? make('span', 'pill good', 'On this computer') : null,
+  );
+  const lines = [about];
+  if (!option.published) lines.push('Not published yet.');
+  else if (!option.runs_here) lines.push(`Needs ${gib(option.needs)} of card memory, more than this card can spare.`);
+  else if (option.bytes_left > 0) lines.push(`A ${size(option.bytes_left)} download, the first time it reads.`);
+  if (found.on_processor && option.times > 1.05) lines.push(`About ${Math.round(option.times)} times as long as the small reader.`);
+
+  const label = make(
+    'label',
+    `size-card${input.disabled ? ' off' : ''}`,
+    input,
+    make('span', 'size-body', make('span', 'size-title', make('strong', null, title), pills), make('span', 'size-about', lines.join(' '))),
+  );
+  return label;
+}
 
 export function setUpSettings() {
   page('settings', el('settings'), load);
-
   el('settings-form').addEventListener('change', save);
 
   async function load() {
-    let offer;
     try {
-      [shown, offer] = await Promise.all([invoke('settings'), invoke('read_offer', { appId: null, language: null })]);
+      [shown, options] = await Promise.all([invoke('settings'), invoke('reader_options')]);
     } catch (failure) {
       set(el('settings-note'), String(failure));
       return;
     }
-    draw(offer);
+    draw();
   }
 
-  function draw(offer) {
+  function draw() {
     const shares = el('gpu-share');
     shares.replaceChildren(
       ...shown.shares.map((value) => {
@@ -34,45 +86,26 @@ export function setUpSettings() {
         return make('label', 'option', input, value === 1 ? 'All of it' : roundShare.format(value));
       }),
     );
+    el('gpu-setting').hidden = options.on_processor;
 
-    /* Only where the computer reads on its processor is the size a person's choice: on a card,
-       the card's memory decides. */
-    el('reader-setting').hidden = offer.choices.length < 2;
-    el('reader-choice').replaceChildren(
-      ...offer.choices.map((choice, at) => {
-        const option = make(
-          'option',
-          null,
-          (at === 0 ? 'The fast reader' : 'The most accurate reader') +
-            (at === 0 ? '' : `, about ${Math.round(choice.times)} times as long`),
-        );
-        option.value = choice.name;
-        option.selected = (shown.reader ?? offer.choices[0].name) === choice.name;
-        return option;
-      }),
-    );
+    set(el('reader-machine'), reason(options));
+    el('reader-sizes').replaceChildren(...options.sizes.map((option) => sizeCard(options, option)));
 
     el('first-language').value = shown.language ?? '';
     el('read-after-download').checked = shown.read_after_download;
     el('search-every-game').checked = shown.search_every_game;
     el('check-steam').checked = shown.check_steam;
     el('check-newer-version').checked = shown.check_newer_version;
-    setPath(el('library-place'), shown.library);
-    set(
-      el('reader-download'),
-      offer.here
-        ? `The ${offer.reader} reader is on this computer.`
-        : offer.published
-          ? `The ${offer.reader} reader is a ${size(offer.download_bytes)} download, fetched the first time a game is read.`
-          : `The ${offer.reader} reader has not been published yet.`,
-    );
   }
 
   async function save() {
     const picked = el('gpu-share').querySelector('input:checked');
+    const reader = el('reader-sizes').querySelector('input:checked')?.value ?? null;
     const settings = {
       gpu_share: picked ? Number(picked.value) : shown.gpu_share,
-      reader: el('reader-setting').hidden ? shown.reader : el('reader-choice').value || null,
+      /* The recommended size is kept as no choice at all, so a better card later is taken up by
+         itself. */
+      reader: reader === options.recommended ? null : reader,
       language: el('first-language').value || null,
       check_steam: el('check-steam').checked,
       read_after_download: el('read-after-download').checked,
@@ -80,6 +113,9 @@ export function setUpSettings() {
     };
     try {
       shown = await invoke('save_settings', { settings, searchEveryGame: el('search-every-game').checked });
+      options = await invoke('reader_options');
+      draw();
+      el('settings-note').classList.remove('bad');
       set(el('settings-note'), 'Saved. Work already running keeps the settings it started with.');
       showNewer();
     } catch (failure) {

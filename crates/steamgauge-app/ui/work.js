@@ -49,6 +49,8 @@ export function taskName(task) {
       return 'Check against Steam';
     case 'export':
       return 'Save a report';
+    case 'fetch_reader':
+      return 'Download the reader';
     default:
       return task.kind;
   }

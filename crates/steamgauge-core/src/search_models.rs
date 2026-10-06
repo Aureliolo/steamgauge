@@ -121,7 +121,9 @@ const ENCODE_TOKENS: usize = 512;
 const RERANK_TOKENS: usize = 320;
 
 impl Model {
-    fn dir(self, cache_dir: &Path) -> PathBuf {
+    /// The folder this model's files are kept in.
+    #[must_use]
+    pub fn dir(self, cache_dir: &Path) -> PathBuf {
         cache_dir.join(self.name)
     }
 

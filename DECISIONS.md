@@ -4890,6 +4890,30 @@ instant and all or nothing; when the rename fails, the app keeps using the libra
 rather than opening on an empty one beside it. On macOS and Linux the two folders are one, and
 nothing moves. `STEAMGAUGE_DATA` still overrides both.
 
+### Storage has its own page, and the reader is chosen in Settings (2026-10-06)
+
+The user asked to see the space models and reviews take and which reader the app recommends.
+A Storage page shows each drive the app uses, the library by part, every game and every model
+by size. Each part is named by what removing it costs, which is what makes removing it safe to
+offer: search preparations are made again when needed and earlier downloads were replaced, so
+they go at once; a game's reads cost hours to redo and the whole game a fresh download, so those
+ask once more on the page. Nothing a running or waiting job uses can be removed, an earlier
+download is kept while a newer one is unfinished, and a removed game also leaves the crawl
+records and its groups, so a later download starts clean. Sizes are counted by walking the
+folders when the page opens: a game holds a few dozen files, so the walk takes milliseconds and
+a ledger kept beside every write would cost more than it saves.
+
+Settings names the graphics card found and the reader it is recommended with the reason, and
+offers every size as a choice. A size the card's memory cannot hold is shown but not offered,
+since it would stop part way through a read; on a processor every size can be chosen. The
+recommended size is saved as no choice at all, so a better card later is taken up by itself.
+
+A first visit offers the reader beside the welcome: the size recommended here, why, its download
+against the room left on the drive, and a button that fetches it as a job of its own. The
+download is the longest wait before a first read, and choosing and downloading a first game
+takes long enough to hide it. Later puts the offer away; the first read fetches the reader as
+before.
+
 ### A first visit is welcomed, a game is found by its name, and every page shares one system (2026-10-05)
 
 The user installed the first release, opened it and found no welcome, no guidance and a cockpit

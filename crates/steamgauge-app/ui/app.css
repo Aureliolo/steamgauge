@@ -30,6 +30,7 @@
   --good-soft: #e6f4f1;
   --bad: #be123c;
   --bad-soft: #fdecf0;
+  --bad-ink: #ffffff;
   --warn: #a15c07;
   --warn-soft: #fdf5e6;
   --mixed: #cbc3b8;
@@ -92,6 +93,7 @@
     --good-soft: #10282a;
     --bad: #fb7185;
     --bad-soft: #301419;
+    --bad-ink: #1f0a0f;
     --warn: #e6b45c;
     --warn-soft: #2b2312;
     --mixed: #4d463f;
@@ -452,7 +454,8 @@ h4 {
 
 button.primary,
 button.quiet-button,
-button.ghost {
+button.ghost,
+button.danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -503,6 +506,17 @@ button.ghost {
 button.ghost:hover:not(:disabled) {
   background: var(--sunken);
   color: var(--ink);
+}
+
+/* Removing something that costs hours to get back. */
+button.danger {
+  background: var(--bad);
+  color: var(--bad-ink);
+  box-shadow: var(--shadow-1);
+}
+
+button.danger:hover:not(:disabled) {
+  filter: brightness(0.92);
 }
 
 button.small {
@@ -1094,6 +1108,69 @@ label.choice {
 
 .examples .term {
   padding-right: var(--s3);
+}
+
+/* The reader before a first game: what it is, why, and its download. */
+.ready {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s3) var(--s4);
+  align-items: center;
+  padding: var(--s5) var(--s6);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.ready[hidden] {
+  display: none;
+}
+
+.ready .step-icon {
+  align-self: start;
+  margin-bottom: 0;
+}
+
+.ready-text {
+  display: grid;
+  gap: var(--s1);
+}
+
+.ready-text p {
+  font-size: var(--t-sm);
+}
+
+.ready-room {
+  color: var(--ink-2);
+}
+
+.ready-room.bad {
+  color: var(--bad);
+}
+
+.ready-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+.ready-job {
+  grid-column: 2 / -1;
+}
+
+.ready-job:empty {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .ready {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .ready-actions,
+  .ready-job {
+    grid-column: 2;
+  }
 }
 
 /* Three across or one beneath another; never two and an orphan. */
@@ -2663,8 +2740,297 @@ label.option:has(input:focus-visible) {
   outline-offset: 1px;
 }
 
-#settings-note:empty {
+#settings-note:empty,
+#storage-note:empty {
   display: none;
+}
+
+/* The reader: what this computer is and why it is recommended one size, then each size as a card
+   to choose, a size this card cannot hold shown but not offered. */
+
+.reader-machine {
+  padding: 0 var(--s6) var(--s3);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+.reader-sizes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s3);
+  padding: 0 var(--s6) var(--s5);
+}
+
+.size-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: border-color 120ms var(--ease), background 120ms var(--ease);
+}
+
+.size-card:hover:not(.off) {
+  border-color: var(--ink-4);
+}
+
+.size-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.size-card:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.size-card.off {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.size-card input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.size-body {
+  display: grid;
+  gap: var(--s1);
+}
+
+.size-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.size-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+
+.size-about {
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+/* Storage. Each part has its own colour, the same in the drive bar, the legend and every game's
+   bar; a part is a kind of file, not good or bad news, so none of them is green or red. */
+
+:root {
+  --part-reviews: #c43e0b;
+  --part-reads: #3f3a34;
+  --part-search: #0f766e;
+  --part-earlier: #b7a99a;
+  --part-partial: #d4a017;
+  --part-other: #e2d9cc;
+  --part-models: #7c5c3b;
+  --part-elsewhere: #cfc6ba;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --part-reviews: #ff6b2c;
+    --part-reads: #e8dfd3;
+    --part-search: #2dd4bf;
+    --part-earlier: #7d7268;
+    --part-partial: #f2c14e;
+    --part-other: #4a423a;
+    --part-models: #c79a6b;
+    --part-elsewhere: #4a433c;
+  }
+}
+
+.storage {
+  display: grid;
+  gap: var(--s5);
+}
+
+.storage > header {
+  margin-bottom: 0;
+}
+
+.drives {
+  display: grid;
+  gap: var(--s3);
+}
+
+.drive {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s5) var(--s6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.drive-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  align-items: baseline;
+}
+
+.drive-free {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.drive-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s5);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.drive-key > span {
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.drive-key .swatch {
+  width: 10px;
+  height: 10px;
+}
+
+.swatch.free {
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.room-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+.drive .room-bar {
+  height: 14px;
+}
+
+.room-bar span {
+  height: 100%;
+}
+
+.part-reviews { background: var(--part-reviews); }
+.part-reads { background: var(--part-reads); }
+.part-search { background: var(--part-search); }
+.part-earlier { background: var(--part-earlier); }
+.part-partial { background: var(--part-partial); }
+.part-other { background: var(--part-other); }
+.part-models { background: var(--part-models); }
+.part-elsewhere { background: var(--part-elsewhere); }
+
+.parts,
+.rooms {
+  display: grid;
+  list-style: none;
+}
+
+.part-row,
+.room {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 80px 200px;
+  gap: var(--s2) var(--s4);
+  align-items: center;
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+
+/* The same columns on every row, so sizes and actions line up down the list. */
+.room {
+  grid-template-columns: minmax(0, 1fr) 80px 200px;
+}
+
+.remove-choice {
+  width: 100%;
+}
+
+.parts li:first-child,
+.rooms li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.part-text,
+.room-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.room-name {
+  justify-self: start;
+  font-weight: 600;
+  text-align: left;
+}
+
+.part-size,
+.room-size {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.room-act,
+.remove {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.remove-question {
+  max-width: 28ch;
+  color: var(--bad);
+  font-size: var(--t-xs);
+  text-align: right;
+}
+
+.remove-actions {
+  display: flex;
+  gap: var(--s1);
+}
+
+.remove-choice {
+  height: 30px;
+  font-size: var(--t-sm);
+}
+
+.empty-line {
+  font-size: var(--t-sm);
+}
+
+.places {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--s4);
+}
+
+.places > div {
+  display: grid;
+  gap: var(--s1);
 }
 
 /* Narrow windows: one column, less air. */

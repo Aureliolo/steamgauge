@@ -20,6 +20,7 @@ import {
   setPath,
 } from './common.js';
 import { onWork, jobItem, queue, active } from './work.js';
+import { reason } from './settings.js';
 
 let overview = null;
 let busy = false;
@@ -68,8 +69,19 @@ export function setUpCockpit({ openGame, openSubject }) {
     el('cockpit-work').replaceChildren(...items);
     el('cockpit-idle').hidden = items.length > 0;
     el('clear-finished').hidden = finished.length === 0;
-    busy = all.length > 0;
+    /* Fetching the reader is part of the welcome, not a sign the library is under way. */
+    busy = all.some((job) => job.task.kind !== 'fetch_reader');
     if (overview) welcome(overview);
+    drawFetch(all.filter((job) => job.task.kind === 'fetch_reader').pop());
+  });
+  el('ready-fetch').addEventListener('click', () => queue({ kind: 'fetch_reader' }));
+  el('ready-later').addEventListener('click', () => {
+    try {
+      localStorage.setItem('reader-later', '1');
+    } catch {
+      /* Without storage the card only stays away until the app is opened again. */
+    }
+    el('welcome-ready').hidden = true;
   });
   el('clear-finished').addEventListener('click', () => invoke('clear_finished'));
   el('check-now').addEventListener('click', () => queue({ kind: 'check' }));
@@ -98,6 +110,59 @@ function welcome(found) {
   const first = found.games === 0 && !busy;
   el('cockpit-empty').hidden = !first;
   el('cockpit-full').hidden = first;
+  if (first) drawReady();
+}
+
+function laterChosen() {
+  try {
+    return localStorage.getItem('reader-later') === '1';
+  } catch {
+    return false;
+  }
+}
+
+/* The reader before a first game: what this computer has, the reader it reads with and why, and
+   the download against the room left, offered now so it runs while a first game is chosen. */
+async function drawReady() {
+  let found;
+  try {
+    found = await invoke('reader_options');
+  } catch {
+    el('welcome-ready').hidden = true;
+    return;
+  }
+  const chosen = found.sizes.find((one) => one.name === found.reads_with);
+  const fetching = el('ready-job').childElementCount > 0;
+  el('welcome-ready').hidden = !fetching && (!chosen || !chosen.published || chosen.bytes_left === 0 || laterChosen());
+  if (el('welcome-ready').hidden || fetching) return;
+
+  set(el('ready-title'), `The ${chosen.name} reader reads every review here`);
+  set(el('ready-why'), reason(found));
+  const short = found.free_bytes !== null && found.free_bytes < chosen.bytes_left * 1.1;
+  const room = el('ready-room');
+  room.classList.toggle('bad', short);
+  set(
+    room,
+    short
+      ? `It is a ${size(chosen.bytes_left)} download, and this drive has ${size(found.free_bytes)} free: make room first.`
+      : `A ${size(chosen.bytes_left)} download, once` +
+          (found.free_bytes === null ? '.' : `, with ${size(found.free_bytes)} free on this drive.`) +
+          ' It runs while you choose a first game.',
+  );
+  el('ready-fetch').disabled = short;
+  el('ready-actions').hidden = false;
+}
+
+/* The reader's download, drawn in the card that offered it. */
+function drawFetch(job) {
+  const holder = el('ready-job');
+  if (!job) {
+    holder.replaceChildren();
+    return;
+  }
+  el('welcome-ready').hidden = false;
+  el('ready-actions').hidden = true;
+  holder.replaceChildren(make('ul', 'jobs', jobItem(job, { named: false })));
 }
 
 function draw(found, { openGame, openSubject }) {

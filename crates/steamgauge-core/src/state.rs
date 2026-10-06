@@ -276,6 +276,24 @@ impl CrawlState {
         Ok(())
     }
 
+    /// Drops every crawl of a game and its shards, for a game whose files are removed: a
+    /// record left behind would have the next download resume into a folder that is gone.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the rows cannot be deleted.
+    pub fn forget(&self, app_id: u32) -> Result<()> {
+        let mut conn = self.lock();
+        let both = conn.transaction()?;
+        both.execute(
+            "DELETE FROM shard WHERE crawl_id IN (SELECT id FROM crawl WHERE app_id = ?1)",
+            params![app_id],
+        )?;
+        both.execute("DELETE FROM crawl WHERE app_id = ?1", params![app_id])?;
+        both.commit()?;
+        Ok(())
+    }
+
     fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
         // A poisoned lock means another thread panicked mid-statement; the connection
         // itself is still usable and losing the crawl over it would be worse.
@@ -324,6 +342,20 @@ mod tests {
                 expected: 20,
             },
         ]
+    }
+
+    #[test]
+    fn a_forgotten_game_has_nothing_to_resume_and_others_keep_theirs() {
+        let (state, _d) = state();
+        let gone = state.begin_crawl(7, 1000, "url", 30).unwrap();
+        state.record_shards(gone, &shards()).unwrap();
+        let kept = state.begin_crawl(8, 1000, "url", 30).unwrap();
+        state.record_shards(kept, &shards()).unwrap();
+
+        state.forget(7).unwrap();
+        assert!(state.resumable(7).unwrap().is_none());
+        assert!(state.pending_shards(gone).unwrap().is_empty());
+        assert_eq!(state.resumable(8).unwrap().unwrap().total_shards, 2);
     }
 
     #[test]

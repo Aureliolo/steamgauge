@@ -48,6 +48,9 @@ pub enum Task {
         app_ids: Vec<u32>,
         to: std::path::PathBuf,
     },
+    /// The reader this machine reads with, fetched ahead of a first read, so a first game's
+    /// reviews and the reader download at the same time.
+    FetchReader,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,19 +66,21 @@ const LANES: [Lane; 3] = [Lane::Network, Lane::Machine, Lane::Files];
 impl Task {
     fn lane(&self) -> Lane {
         match self {
-            Self::Download { .. } | Self::Update { .. } | Self::Check => Lane::Network,
+            Self::Download { .. } | Self::Update { .. } | Self::Check | Self::FetchReader => {
+                Lane::Network
+            }
             Self::Read { .. } | Self::Prepare { .. } => Lane::Machine,
             Self::Export { .. } => Lane::Files,
         }
     }
 
-    fn app_id(&self) -> Option<u32> {
+    pub(super) fn app_id(&self) -> Option<u32> {
         match self {
             Self::Download { app_id }
             | Self::Update { app_id }
             | Self::Read { app_id, .. }
             | Self::Prepare { app_id } => Some(*app_id),
-            Self::Check | Self::Export { .. } => None,
+            Self::Check | Self::Export { .. } | Self::FetchReader => None,
         }
     }
 }
@@ -209,6 +214,9 @@ pub struct Work {
 
 /// What a job is about, in words: the game's name where it has one on disk.
 fn name_of(app: &AppHandle, task: &Task) -> String {
+    if *task == Task::FetchReader {
+        return format!("The {} reader", reader_here(&Settings::load(app)).name);
+    }
     match task.app_id() {
         Some(app_id) => steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
             .map_or_else(|_| format!("App {app_id}"), |facts| facts.title()),
@@ -472,6 +480,7 @@ fn stopped_note(task: &Task) -> &'static str {
         Task::Prepare { .. } => "Stopped. What was done is kept, and preparing again carries on.",
         Task::Check => "Stopped.",
         Task::Export { .. } => "Stopped before the report was saved.",
+        Task::FetchReader => "Stopped. The first read fetches the reader instead.",
     }
 }
 
@@ -529,6 +538,12 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
                 Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
                 Task::Check => check(&app, id).await,
                 Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
+                Task::FetchReader => {
+                    let size = reader_here(&Settings::load(&app));
+                    fetch_reader(&app, id, size).await.map(|()| {
+                        Ended::said(format!("The {} reader is on this computer.", size.name))
+                    })
+                }
             }
         })
     };
@@ -663,16 +678,27 @@ async fn update(
 /// The reader size this machine reads with: the card decides where one is reached, and the
 /// person's choice counts where the machine reads on its processor.
 pub fn reader_here(settings: &Settings) -> &'static steamgauge_core::reader::Size {
-    use steamgauge_core::reader::{Size, fits, on_the_processor};
+    use steamgauge_core::reader::{Size, fits};
 
     let card = steamgauge_core::card::largest();
     let reaches = steamgauge_core::model::REACHES_A_CARD;
     settings
         .reader
         .as_deref()
-        .filter(|_| on_the_processor(card, reaches))
         .and_then(Size::named)
+        .filter(|chosen| runs_here(chosen, card, reaches))
         .unwrap_or_else(|| fits(card, reaches))
+}
+
+/// Whether a size can read on this machine: any size on a processor, and on a card only a size
+/// the card's memory holds, since a larger one would stop part way through a read.
+pub fn runs_here(
+    size: &steamgauge_core::reader::Size,
+    card: Option<steamgauge_core::card::Card>,
+    reaches: bool,
+) -> bool {
+    use steamgauge_core::reader::{fits, on_the_processor};
+    on_the_processor(card, reaches) || size.needs <= fits(card, reaches).needs
 }
 
 /// Downloads that add up across files: each file reports its own count from zero, and the bar

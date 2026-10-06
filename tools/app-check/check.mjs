@@ -233,7 +233,47 @@ const PROBE = `(async function () {
   $('#search-every-game').click();
   await pause(250);
   check('preparing every game for search is not saved', last('save_settings').args.searchEveryGame === true);
-  check('the library\\'s place goes unsaid', /AppData/.test($('#library-place').textContent));
+  var sizes = document.querySelectorAll('#reader-sizes input');
+  check('settings do not offer both readers', sizes.length === 2);
+  check('the recommended reader is not marked', /Recommended/.test($('#reader-sizes').textContent));
+  check('the reader in use is not the one chosen', $('#reader-sizes input:checked').value === 'standard');
+  check('the card behind the recommendation goes unnamed', /RTX 4090/.test($('#reader-machine').textContent));
+  check('a reader still to fetch does not say its size', /244 MB download/.test($('#reader-sizes').textContent));
+  sizes[0].click();
+  await pause(250);
+  check('choosing the small reader is not saved', last('save_settings').args.settings.reader === 'small');
+  $('#reader-sizes input[value="standard"]').click();
+  await pause(250);
+  check('the recommended reader is kept as a choice rather than as the default',
+    last('save_settings').args.settings.reader === null);
+
+  await go('storage');
+  await pause(250);
+  check('storage does not say what the app takes', /SteamGauge takes/.test($('#storage-sub').textContent));
+  check('storage does not draw the drive', document.querySelectorAll('#drives .drive').length === 1);
+  check('storage does not list every part of the library', document.querySelectorAll('#parts .part-row').length === 6);
+  check('storage does not list the games largest first',
+    document.querySelectorAll('#game-rooms .room').length === 3 &&
+    /Alpha/.test(document.querySelector('#game-rooms .room').textContent));
+  check('storage does not list the models', document.querySelectorAll('#model-rooms .room').length === 4);
+  check('the library\\'s place goes unsaid', /AppData/.test($('#storage-library').textContent));
+  var earlier = Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {
+    return /Earlier downloads/.test(row.textContent); });
+  earlier.querySelector('button').click();
+  await pause(250);
+  check('removing earlier downloads everywhere is not asked of the core',
+    last('free_room') && last('free_room').args.appId === null && last('free_room').args.what === 'earlier');
+  var reads = document.querySelector('#game-rooms .room select');
+  reads.value = 'reads';
+  reads.dispatchEvent(new Event('change'));
+  await pause(150);
+  check('removing a game\\'s reads does not ask first', /Hours|hours/.test($('#game-rooms').textContent) &&
+    document.querySelector('#game-rooms .room button.danger') !== null);
+  var before = called('free_room').length;
+  document.querySelector('#game-rooms .room button.ghost').click();
+  await pause(150);
+  check('keeping a game\\'s reads still removes them', called('free_room').length === before);
+  check('storage does not fit its page', fits());
   check('asking for a newer version is not on as it is by default', $('#check-newer-version').checked);
   $('#check-newer-version').click();
   await pause(250);
@@ -339,7 +379,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
   const narrow = await evaluate(`(async function () {
     var wrong = [];
-    for (var name of ['cockpit', 'library', 'compare', 'settings']) {
+    for (var name of ['cockpit', 'library', 'compare', 'storage', 'settings']) {
       document.querySelector('[data-go="' + name + '"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
       var stage = document.getElementById('stage');
@@ -378,6 +418,19 @@ try {
     var shown = function (id) { return !document.getElementById(id).hidden; };
     await pause(400);
     check('an empty library is not welcomed', shown('cockpit-empty') && !shown('cockpit-full'));
+    check('a first visit does not offer the reader', shown('welcome-ready'));
+    check('the reader on offer does not say its size and the room for it',
+      /1\.1 GB download/.test(document.getElementById('ready-room').textContent) &&
+      /182\.0 GB free/.test(document.getElementById('ready-room').textContent));
+    check('the reader on offer does not say why', /RTX 4090/.test(document.getElementById('ready-why').textContent));
+    document.getElementById('ready-fetch').click();
+    await pause(300);
+    var fetched = window.__stub.calls.filter(function (call) { return call.command === 'queue'; }).pop();
+    check('downloading the reader does not queue it',
+      fetched && fetched.args.tasks.some(function (t) { return t.kind === 'fetch_reader'; }));
+    check('the reader downloading takes the welcome away', shown('cockpit-empty'));
+    check('the reader downloading is not shown where it was offered',
+      document.querySelector('#ready-job .job') !== null && !shown('ready-actions'));
     var box = document.getElementById('welcome-query');
     box.value = 'delta';
     box.dispatchEvent(new Event('input'));
@@ -402,6 +455,19 @@ try {
     var asked = window.__stub.calls.filter(function (call) { return call.command === 'look_up'; }).pop();
     check('a store link is not read for its app ID', asked && asked.args.appId === 4);
     return wrong;
+  })()`);
+
+  await load(`${page}?first`);
+  const later = await evaluate(`(async function () {
+    var pause = function (ms) { return new Promise(function (done) { setTimeout(done, ms || 80); }); };
+    await pause(400);
+    document.getElementById('ready-later').click();
+    await pause(100);
+    var put = document.getElementById('welcome-ready').hidden;
+    var queued = window.__stub.calls.some(function (call) { return call.command === 'queue'; });
+    try { localStorage.removeItem('reader-later'); } catch (e) {}
+    return [].concat(put ? [] : ['the reader put off for later stays on offer'])
+      .concat(queued ? ['the reader put off for later is downloaded anyway'] : []);
   })()`);
 
   if (shots) {
@@ -432,7 +498,7 @@ try {
       await load(page);
       await sleep(400);
       await evaluate(unroll);
-      for (const name of ["cockpit", "library", "compare", "settings"]) {
+      for (const name of ["cockpit", "library", "compare", "storage", "settings"]) {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
@@ -483,7 +549,7 @@ try {
     await load(page);
     await sleep(400);
     await evaluate(unroll);
-    for (const name of ["cockpit", "library", "settings"]) {
+    for (const name of ["cockpit", "library", "storage", "settings"]) {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }
@@ -512,7 +578,8 @@ try {
       .concat(answer.result.result.value)
       .concat(narrow.result.result.value)
       .concat(sideways)
-      .concat(first.result.result.value);
+      .concat(first.result.result.value)
+      .concat(later.result.result.value);
     if (wrong.length === 0) {
       console.log("the window behaves as it says it does");
       failed = false;

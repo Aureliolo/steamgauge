@@ -548,6 +548,12 @@ impl Published {
     pub fn bytes_left(&self, dir: &Path) -> u64 {
         crate::model::bytes_left(self.files, dir)
     }
+
+    /// Every pinned file's length together: the whole download, whatever is already here.
+    #[must_use]
+    pub fn total_bytes(&self) -> u64 {
+        self.files.iter().map(|file| file.bytes).sum()
+    }
 }
 
 /// Fetches a published size into `dir` unless the copy there already matches its pins.
@@ -1636,6 +1642,20 @@ mod tests {
             release: "v1",
             files: files.leak(),
         }
+    }
+
+    #[test]
+    fn the_whole_download_counts_every_file() {
+        let files: Vec<crate::model::Asset> = STANDARD_FILES
+            .iter()
+            .zip([700, 40, 3])
+            .map(|(file, bytes)| crate::model::Asset { bytes, ..*file })
+            .collect();
+        let published = Published {
+            files: files.leak(),
+            ..pinned(COMMIT, ["", "", ""])
+        };
+        assert_eq!(published.total_bytes(), 743);
     }
 
     #[test]

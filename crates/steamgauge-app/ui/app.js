@@ -28,6 +28,7 @@ import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
+import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
 
@@ -45,7 +46,7 @@ async function shelfGame(appId) {
 
 function stageTile(stage) {
   if (stage === 'read') return ['Stage', 'Read', 'every point counted'];
-  if (stage === 'embedded') return ['Stage', 'Read', 'and ready for search by meaning'];
+  if (stage === 'embedded') return ['Stage', 'Downloaded', 'ready for search by meaning, not read yet'];
   return ['Stage', 'Downloaded', 'not read yet'];
 }
 
@@ -892,6 +893,7 @@ setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
 setUpSettings();
+setUpStorage({ openGame });
 setUpNewer();
 
 for (const link of document.querySelectorAll('[data-go]')) {

@@ -8,6 +8,7 @@
 mod cockpit;
 mod newer;
 mod settings;
+mod storage;
 mod work;
 
 use std::{
@@ -1231,6 +1232,10 @@ pub fn run() -> anyhow::Result<()> {
             work::open_report,
             settings::settings,
             settings::save_settings,
+            settings::reader_options,
+            storage::storage,
+            storage::free_room,
+            storage::remove_model,
             newer::newer_version,
             cockpit::overview,
             cockpit::games,

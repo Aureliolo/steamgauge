@@ -150,6 +150,20 @@ impl Groups {
     }
 }
 
+/// Takes a removed game out of every group, so no group names a game the library no longer has.
+pub fn drop_from_groups(dir: &Path, app_id: u32) -> std::io::Result<()> {
+    let mut groups = Groups::load(dir);
+    let before = groups.clone();
+    for group in &mut groups.groups {
+        group.app_ids.retain(|&id| id != app_id);
+    }
+    if groups == before {
+        return Ok(());
+    }
+    let bytes = serde_json::to_vec_pretty(&groups.tidied()).map_err(std::io::Error::other)?;
+    write_whole(&dir.join(GROUPS_FILE), &bytes)
+}
+
 /// Written beside its place and moved over it, so a file is never half one version.
 fn write_whole(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let partial = path.with_extension("partial");
@@ -427,21 +441,6 @@ pub struct Overview {
     pub jobs: Vec<work::Job>,
 }
 
-/// Every byte under the library, which is what a person deleting it would get back.
-fn disk_bytes(dir: &Path) -> u64 {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return 0;
-    };
-    entries
-        .filter_map(Result::ok)
-        .map(|entry| match entry.file_type() {
-            Ok(kind) if kind.is_dir() => disk_bytes(&entry.path()),
-            Ok(_) => entry.metadata().map_or(0, |found| found.len()),
-            Err(_) => 0,
-        })
-        .sum()
-}
-
 /// The moves the cockpit leads with, clearest first across every game.
 const MOVES_SHOWN: usize = 12;
 
@@ -512,7 +511,7 @@ fn overview_of(app: &AppHandle) -> Overview {
             .iter()
             .filter_map(|row| row.read.as_ref().map(|read| read.claims))
             .sum(),
-        disk_bytes: disk_bytes(&dir),
+        disk_bytes: super::storage::bytes_under(&dir),
         library: dir.display().to_string(),
         not_read: rows
             .iter()

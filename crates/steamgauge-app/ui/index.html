@@ -52,6 +52,12 @@
             </button>
           </li>
           <li>
+            <button type="button" data-go="storage">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="4" width="14" height="5" rx="1.5" /><rect x="3" y="11" width="14" height="5" rx="1.5" /><path d="M6 6.5h.01M6 13.5h.01" /></svg>
+              Storage
+            </button>
+          </li>
+          <li>
             <button type="button" data-go="settings">
               <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 6h9M15 6h2M3 14h2M8 14h9" /><circle cx="13.5" cy="6" r="1.8" /><circle cx="6.5" cy="14" r="1.8" /></svg>
               Settings
@@ -101,6 +107,22 @@
                 <ul class="results" id="welcome-results"></ul>
               </div>
             </div>
+
+            <section class="ready" id="welcome-ready" aria-labelledby="ready-title" hidden>
+              <span class="step-icon">
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="5" y="5" width="10" height="10" rx="2" /><path d="M8 2.5v2.5M12 2.5v2.5M8 15v2.5M12 15v2.5M2.5 8H5M2.5 12H5M15 8h2.5M15 12h2.5" /></svg>
+              </span>
+              <div class="ready-text">
+                <h3 id="ready-title">The reader reads every review here</h3>
+                <p class="quiet" id="ready-why"></p>
+                <p class="ready-room" id="ready-room"></p>
+              </div>
+              <div class="ready-actions" id="ready-actions">
+                <button type="button" class="primary" id="ready-fetch">Download it now</button>
+                <button type="button" class="ghost" id="ready-later">Later</button>
+              </div>
+              <div class="ready-job" id="ready-job"></div>
+            </section>
 
             <ol class="steps">
               <li class="step">
@@ -539,6 +561,47 @@
           </p>
         </section>
 
+        <section class="storage" id="storage" hidden>
+          <header class="page-head">
+            <div>
+              <h2>Storage</h2>
+              <p id="storage-sub">What SteamGauge keeps on this computer, and what removing each part costs.</p>
+            </div>
+          </header>
+          <div class="drives" id="drives"></div>
+          <section class="panel" aria-labelledby="parts-title">
+            <div class="panel-head">
+              <h3 id="parts-title">What the library holds</h3>
+            </div>
+            <ul class="parts" id="parts"></ul>
+          </section>
+          <section class="panel" aria-labelledby="game-rooms-title">
+            <div class="panel-head">
+              <h3 id="game-rooms-title">Games</h3>
+              <span class="quiet small">Largest first</span>
+            </div>
+            <ul class="rooms" id="game-rooms"></ul>
+            <p class="empty-line quiet" id="game-rooms-none" hidden>No game has been downloaded yet.</p>
+          </section>
+          <section class="panel" aria-labelledby="model-rooms-title">
+            <div class="panel-head">
+              <h3 id="model-rooms-title">Models</h3>
+            </div>
+            <ul class="rooms" id="model-rooms"></ul>
+          </section>
+          <div class="places">
+            <div>
+              <span class="quiet small">The library is kept in</span>
+              <p class="place" id="storage-library"></p>
+            </div>
+            <div>
+              <span class="quiet small">The models are kept in</span>
+              <p class="place" id="storage-models"></p>
+            </div>
+          </div>
+          <p class="note" id="storage-note" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="settings" id="settings" hidden>
           <header class="page-head">
             <div>
@@ -547,7 +610,12 @@
             </div>
           </header>
           <form id="settings-form">
-            <fieldset>
+            <fieldset id="reader-setting">
+              <legend>Reader</legend>
+              <p class="reader-machine" id="reader-machine"></p>
+              <div class="reader-sizes" id="reader-sizes" role="radiogroup" aria-label="Which reader reads every review"></div>
+            </fieldset>
+            <fieldset id="gpu-setting">
               <legend>Graphics card</legend>
               <div class="setting">
                 <div class="setting-text">
@@ -557,25 +625,12 @@
                 <div class="options" id="gpu-share" role="radiogroup" aria-label="How much of the graphics card to use"></div>
               </div>
             </fieldset>
-            <fieldset id="reader-setting" hidden>
-              <legend>Reader</legend>
-              <div class="setting">
-                <div class="setting-text">
-                  <strong>Which reader to use</strong>
-                  <span>This computer reads on its processor, where the most accurate reader takes several times as long.</span>
-                </div>
-                <div>
-                  <label class="sr" for="reader-choice">Reader</label>
-                  <select id="reader-choice"></select>
-                </div>
-              </div>
-            </fieldset>
             <fieldset>
               <legend>Reading</legend>
               <div class="setting">
                 <div class="setting-text">
                   <strong>A new game is read in</strong>
-                  <span id="reader-download"></span>
+                  <span>English only is quicker; every language reads every review Steam serves.</span>
                 </div>
                 <div>
                   <label class="sr" for="first-language">Language a new game is read in</label>
@@ -619,16 +674,6 @@
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>
-            </fieldset>
-            <fieldset>
-              <legend>Library</legend>
-              <div class="setting stacked">
-                <div class="setting-text">
-                  <strong>Where everything is kept</strong>
-                  <span>Reviews, readings and reports, on this computer.</span>
-                </div>
-                <p class="place" id="library-place"></p>
-              </div>
             </fieldset>
           </form>
           <p class="note" id="settings-note" role="status" aria-live="polite"></p>
