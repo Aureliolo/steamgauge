@@ -117,6 +117,8 @@
     running: '0.1.0',
     url: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0',
   };
+  // Where Update now stands: nothing under way, on a copy the window can update.
+  let update = { state: 'idle', why: null };
   let searchEveryGame = false;
   // What each game takes on disk, by part, and the models in the cache.
   let rooms = games.map((game, at) => ({
@@ -343,6 +345,13 @@
       return storage();
     },
     newer_version: () => (settings.check_newer_version ? newer : null),
+    update_state: () => update,
+    update_now: () => {
+      update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
+      send('update', update);
+      return null;
+    },
+    show_update_file: () => null,
     'plugin:opener|open_url': () => null,
     read_offer: ({ appId }) => ({
       reader: 'standard',
@@ -467,6 +476,11 @@
     hear: (release) => {
       newer = release;
       send('newer-version', release);
+    },
+    // The update moving on, as the core announces each step.
+    update: (progress) => {
+      update = progress;
+      send('update', progress);
     },
   };
 })();

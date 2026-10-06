@@ -10,3 +10,7 @@ rustflags = ["-C", "control-flow-guard"]
 [env]
 CFLAGS_x86_64_pc_windows_msvc = "/Qspectre /W3"
 CXXFLAGS_x86_64_pc_windows_msvc = "/Qspectre /W3"
+# aws-lc, which Sigstore's verification runs on, assembles with NASM on Windows x64. Its
+# objects pre-assembled from the same sources are used instead, so no build needs NASM
+# installed; where NASM is on the PATH, aws-lc uses it.
+AWS_LC_SYS_PREBUILT_NASM = "1"

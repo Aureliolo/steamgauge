@@ -9,6 +9,7 @@ mod cockpit;
 mod newer;
 mod settings;
 mod storage;
+mod update;
 mod work;
 
 use std::{
@@ -1206,7 +1207,9 @@ pub fn run() -> anyhow::Result<()> {
         .manage(LastSearch::default())
         .manage(Meaning::default())
         .manage(work::Work::default())
+        .manage(update::Updating::default())
         .setup(|app| {
+            update::tidy(app.handle());
             work::start(app.handle());
             cockpit::check_on_opening(app.handle());
             newer::check_in_background(app.handle());
@@ -1237,6 +1240,9 @@ pub fn run() -> anyhow::Result<()> {
             storage::free_room,
             storage::remove_model,
             newer::newer_version,
+            update::update_state,
+            update::update_now,
+            update::show_update_file,
             cockpit::overview,
             cockpit::games,
             cockpit::groups,

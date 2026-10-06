@@ -67,9 +67,18 @@
         <div class="rail-foot">
           <div class="rail-work" id="rail-work" hidden></div>
           <div class="rail-newer" id="newer-version" role="status" hidden>
-            <p class="newer-says"><span id="newer-name"></span> is out.</p>
+            <p class="newer-says" id="newer-says"></p>
             <p class="newer-running" id="newer-running"></p>
-            <button type="button" class="link small" id="newer-open">Download it from its release page</button>
+            <div class="newer-progress" id="newer-progress" aria-live="off" hidden>
+              <div class="track" id="newer-track" role="progressbar" aria-label="Update"><span class="fill" id="newer-fill"></span></div>
+              <p class="newer-step" id="newer-step"></p>
+            </div>
+            <p class="newer-why" id="newer-why" hidden></p>
+            <div class="newer-actions">
+              <button type="button" class="primary small" id="newer-update" hidden>Update now</button>
+              <button type="button" class="quiet-button small" id="newer-show" hidden>Show the downloaded file</button>
+              <button type="button" class="link small" id="newer-open">Open the release page</button>
+            </div>
           </div>
         </div>
       </nav>
@@ -670,7 +679,7 @@
               <label class="setting" for="check-newer-version">
                 <span class="setting-text">
                   <strong>Ask GitHub whether a newer SteamGauge is out</strong>
-                  <span>At most once a day, one request to SteamGauge's release page. Nothing is downloaded or installed: the window names a newer version and links to its page.</span>
+                  <span>At most once a day, one request to SteamGauge's release page. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>

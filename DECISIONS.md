@@ -128,7 +128,7 @@ prepared again: its vectors are in another space.
 | Immutable release artefacts with checksums | done |
 | Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
-| A newer version is named in the window and never installed by the app; no updater and no signing key | done 2026-10-03: at most once a day, a setting turns it off (below, "A newer version is named, never installed") |
+| A newer version is named in the window, and installed from it on request once its keyless build provenance verifies; no signing key anywhere | named since 2026-10-03, at most once a day, a setting turns it off (below, "A newer version is named, and no key exists to sign one"); installed since 2026-10-06 (below, "Update now installs what the release workflow built, and nothing else") |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
 
 ## Reference sets
@@ -4948,32 +4948,113 @@ from the narrowest window to a common laptop's whether the table fits, with its 
 as well, standing in for wider fonts. A job on the work board
 wraps inside the cockpit's narrow column instead of cutting a game's name to its first letter.
 
-### A newer version is named, never installed, and no key exists to sign one (2026-10-03)
+### A newer version is named, and no key exists to sign one (2026-10-03)
 
-The user chose a notice over an updater. At most once a day, behind the window, the app asks
+At most once a day, behind the window, the app asks
 `https://github.com/Aureliolo/steamgauge/releases/latest` with redirects not followed, reads
 the tag from the `Location` header, and compares it as a semantic version with the version it
 was built as (`newer_version` in the core). The answer and when it was asked are kept in
 `newer-version.json` in the app's configuration directory, so a restart within the day asks
 nothing; a question that fails, offline or otherwise, still counts as the day's and keeps the
-answer before it. When the release is newer, the rail names it and links to its page, which
-the window opens through the opener. A setting, on by default, turns the question off.
+answer before it. When the release is newer, the rail names it, links to its page, which the
+window opens through the opener, and offers Update now (the next entry). A setting, on by
+default, turns the question off, and with it the notice.
 
 **Keyless, so no signing key exists anywhere.** The Tauri updater was refused because it
 installs only what a long-lived private key signed, and that key would have to live in CI,
-where anyone who took it could push a build to every installed copy. Every other signature on
-a release is Sigstore's, keyless and tied to the workflow; the notice adds no key and installs
-nothing, and the person downloads the new installer and verifies it as they did the first.
+where anyone who took it could push a build to every installed copy. Every signature on a
+release is Sigstore's, keyless and tied to the workflow, and that signature is what the update
+checks, so the app adds no key.
 
-**No API, no token, no account.** The release page's redirect is one request that GitHub
-answers to anyone, and it carries nothing about the person or their library beyond the app's
-version. The tag is read only from a redirect to this repository's own release tags and only as a
-version, and the link the window opens is built from that version, never taken from the
-answer: the opener's capability allows exactly
+**The question needs no API, no token, no account.** The release page's redirect is one
+request that GitHub answers to anyone, and it carries nothing about the person or their library
+beyond the app's version. The tag is read only from a redirect to this repository's own release
+tags and only as a version, and the link the window opens is built from that version, never
+taken from the answer: the opener's capability allows exactly
 `https://github.com/Aureliolo/steamgauge/releases/tag/v[0-9]*` and denies, on GitHub, any URL
 with `..`, `%`, `?`, `#` or a further path segment, which a test reads back from the capability
 file. A pattern for a backslash was tried and denied every release page on Windows, where the
 opener's glob takes a backslash for a slash.
+
+### Update now installs what the release workflow built, and nothing else (2026-10-06)
+
+The owner asked for an update from the window, still with no long-lived key, and the Tauri
+updater was refused a second time for that key. **Update now** (`self_update` in the core,
+`ui/update.rs` in the app) downloads the release's file for the way this copy was installed,
+hashing it as it is written, verifies the release's SLSA build provenance over it with
+`sigstore-verify` 0.14 (the Sigstore organisation's Rust workspace, which runs Sigstore's own
+conformance suite in its CI), and only then installs it. Any failure installs nothing, says why
+in the rail, and offers the release page.
+
+**What the provenance must say.** The certificate chains to Fulcio, carries its SCT, and the
+signature is in Rekor; none of the three is skipped, and a result that skipped one is refused
+anyway. The certificate's subject is exactly
+`https://github.com/Aureliolo/steamgauge/.github/workflows/release-build.yml@refs/tags/v<X>`,
+with `<X>` the version being installed, and its issuer GitHub Actions' token service. Its
+claims name repository 1361019156 and owner 19254254, GitHub's numbers, which survive a rename
+and are not reused by a repository made later under the same name, the ref `refs/tags/v<X>`
+and a GitHub-hosted runner. The statement is `https://slsa.dev/provenance/v1` and has a subject
+whose name is the downloaded file's and whose SHA-256 is the one taken while downloading. `<X>`
+is strictly newer than the running version. The tag in the subject is what stops a rollback to
+an older release that is validly signed for its own tag. The real v0.1.3 provenance, as GitHub's
+attestations API answers it, is a test fixture: the real setup program's digest verifies
+against it offline, and each pin changed by one value (tag, workflow, repository, issuer,
+repository and owner numbers, runner, statement type, digest, file name, version) is refused.
+
+**Where the provenance comes from.** The release attaches it alone,
+`steamgauge-<X>.provenance.sigstore.json`, about thirteen kilobytes beside the four megabytes of
+the JSON Lines file, and served by the release download host, which costs no API allowance.
+GitHub's attestations API, which allows sixty unauthenticated questions an hour per address, is
+asked only for a release without that file, as every release before this entry is. Where a
+bundle came from carries no trust: it is verified either way.
+
+**The trusted root.** Sigstore's current root comes through its TUF repository, starting from
+the TUF root built into the crate and kept under the app's local data; offline, the cached
+metadata is verified again, and with none, the trusted root built into the crate is used. TUF
+comes first because an old copy whose built-in root could not verify a newer release could
+never update itself to the release that would fix that.
+
+**How each installation is updated.** Windows: only a copy beside the setup program's
+`uninstall.exe`, which is how the setup program and winget install it, runs the new setup
+program with `/P /UPDATE /R`, passive, over itself without uninstalling, and opening the new
+version; the app exits and the setup program's hook closes and waits for it as it does for any
+running copy. The file is written with no sharing, then held readable by others and writable by
+none from its hash to the setup program's start. Scoop and the portable archive are told how
+they update instead, since a setup program run over either would install a second copy.
+macOS: the release gains `steamgauge-<X>-macos-arm64.app.tar.gz`, the disk image's app alone,
+attested with the rest; the install check proves it is that app byte for byte. It is unpacked
+beside the installed app on the same disk, without extended attributes, so nothing is
+quarantined, and the two are exchanged in one `renamex_np` swap, falling back to two renames
+that restore the old app on failure; where this account cannot write there, the same exchange
+runs through `osascript` with administrator privileges. This follows the Tauri updater's
+install (`plugins/updater/src/updater.rs` in tauri-apps/plugins-workspace, Apache-2.0 or MIT).
+The Homebrew cask says `auto_updates`, so `brew upgrade` leaves the app to update itself.
+Linux: the program's owner is asked of `dpkg-query --search` and then `rpm --query --file`; a
+package is installed by `pkexec apt-get install --yes` or `pkexec dnf install --assumeyes`,
+which resolve its dependencies, and pkexec's 126 or 127, a prompt closed or missing, offers the
+verified package to install by hand. A portable archive in a folder this account can write has
+its files renamed into place, the program last.
+
+**What a release carries for it.** Fifteen files rather than thirteen: the app tarball and the
+provenance alone. The verify job checks every file against the JSON Lines file and against the
+provenance alone, which is how the app reads it.
+
+**Cryptography.** `sigstore-verify` runs on aws-lc-rs, which this crate had left for ring
+because BinSkim found aws-lc's C compiled with warnings off; HTTP's TLS stays on ring, and
+`sigstore-trust-root` fetches through the client this crate makes, so neither Sigstore crate
+builds a TLS stack. aws-lc assembles with NASM on Windows x64, and `AWS_LC_SYS_PREBUILT_NASM`
+in `.cargo/config.toml` takes its objects pre-assembled from the same sources instead, as ring's
+are, so no build needs NASM. The update is the core's default feature `self-update`, which the
+fuzz harness leaves off: it fuzzes what reads review text, and aws-lc's jitter entropy source,
+which refuses to compile at anything but `-O0`, is handed the harness's `-O1` there after its
+own `-O0` (aws-lc-sys 0.45.0) and the build stops. aws-lc's one licence file names
+every part and holder and carries each text, which `third-party/about.toml` points the notices
+at.
+
+**Not yet seen on a real machine.** No release has been updated through the window yet: the
+first is the release after this one. On macOS 13 and later, App Management may ask once whether
+SteamGauge may change apps, since an ad-hoc signed app has no team to match; whether it asks,
+and whether the administrator fallback is then needed, is unverified.
 
 ### A release is installers, and each is installed before it is signed (2026-10-03)
 

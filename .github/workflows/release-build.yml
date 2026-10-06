@@ -565,9 +565,9 @@ jobs:
           cp "${RUNNER_TEMP}/package-managers/bucket/steamgauge.json" dist/steamgauge.json
           (cd dist && sha256sum -- *) > "${RUNNER_TEMP}/SHA256SUMS"
           mv "${RUNNER_TEMP}/SHA256SUMS" dist/SHA256SUMS
-          # Three archives, four installers, three SBOMs and the Scoop manifest.
-          if [[ "$(wc -l < dist/SHA256SUMS)" -ne 11 ]]; then
-            echo "Expected three archives, four installers, three SBOMs and the Scoop manifest, found:" >&2
+          # Three archives, five installers, three SBOMs and the Scoop manifest.
+          if [[ "$(wc -l < dist/SHA256SUMS)" -ne 12 ]]; then
+            echo "Expected three archives, five installers, three SBOMs and the Scoop manifest, found:" >&2
             cat dist/SHA256SUMS >&2
             exit 1
           fi
@@ -715,13 +715,15 @@ jobs:
           subject-path: |
             dist/steamgauge-${{ needs.gate.outputs.version }}-aarch64-apple-darwin.tar.gz
             dist/steamgauge-${{ needs.gate.outputs.version }}-macos-arm64.dmg
+            dist/steamgauge-${{ needs.gate.outputs.version }}-macos-arm64.app.tar.gz
           sbom-path: dist/steamgauge-${{ needs.gate.outputs.version }}-aarch64-apple-darwin.spdx.json
 
       # The attestations are stored on the repository too, but only a verifier with GitHub's API
       # reaches them there. A copy beside the archives verifies from the file alone
       # (`gh attestation verify --bundle`), and it is the only form OpenSSF Scorecard counts as a
-      # signed release.
-      - name: Gather the signed attestations into one file
+      # signed release. The provenance is also published alone, about thirteen kilobytes, which
+      # is what the app's own update reads rather than spending GitHub's API allowance on it.
+      - name: Gather the signed attestations
         env:
           PROVENANCE: ${{ steps.provenance.outputs.bundle-path }}
           SBOM_LINUX: ${{ steps.sbom-linux.outputs.bundle-path }}
@@ -738,11 +740,21 @@ jobs:
             echo "Expected one provenance and three SBOM attestations, found ${lines} lines." >&2
             exit 1
           fi
+          provenance="attestations/steamgauge-${VERSION}.provenance.sigstore.json"
+          if [[ "$(wc -l < "${PROVENANCE}")" -ne 1 ]]; then
+            echo "Expected the provenance to be one bundle, found $(wc -l < "${PROVENANCE}") lines." >&2
+            exit 1
+          fi
+          jq -e '.dsseEnvelope.payload | @base64d | fromjson | .predicateType == "https://slsa.dev/provenance/v1"' \
+            "${PROVENANCE}" > /dev/null
+          cp "${PROVENANCE}" "${provenance}"
 
       - name: Upload the signed attestations
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: attestations
-          path: attestations/steamgauge-${{ needs.gate.outputs.version }}.intoto.jsonl
+          path: |
+            attestations/steamgauge-${{ needs.gate.outputs.version }}.intoto.jsonl
+            attestations/steamgauge-${{ needs.gate.outputs.version }}.provenance.sigstore.json
           if-no-files-found: error
           retention-days: 1

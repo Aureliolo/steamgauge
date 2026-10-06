@@ -57,7 +57,8 @@ mkdir -p "${out}/Casks" "${out}/bucket" "${out}/winget"
 # A cask rather than a formula: what ships for macOS is an app in a disk image, which a formula
 # cannot install. The command reaches PATH through a script that runs the program inside the app
 # by its real path. A symlink would not do: Tauri on macOS refuses its own path when that passes
-# through one, and it finds its own files from that path.
+# through one, and it finds its own files from that path. The app updates itself in place, which
+# `auto_updates` tells Homebrew, so `brew upgrade` leaves it to the app unless asked with --greedy.
 cat > "${out}/Casks/steamgauge.rb" << CASK
 # Written by tools/release/package-managers.sh for each release, from the release's own signed
 # checksums.
@@ -75,6 +76,7 @@ cask "steamgauge" do
     strategy :github_latest
   end
 
+  auto_updates true
   depends_on arch: :arm64
   depends_on macos: ">= :ventura"
 
