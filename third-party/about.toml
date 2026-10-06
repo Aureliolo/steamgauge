@@ -100,11 +100,25 @@ checksum = "005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d"
 # aws-lc, compiled from source into the binary for Sigstore's verification. Its one LICENSE file
 # names every holder and part (BoringSSL's and AWS's own code under ISC or Apache-2.0, OpenSSL's
 # under Apache-2.0, fiat-crypto's under MIT, the jitter entropy source under the BSD licence AWS
-# elects for it) and carries each of those texts in full.
+# elects for it) and carries each of those texts in full. cargo-about takes a file's text for a
+# licence only where the file names that licence alone, so the file is named once for each.
 [aws-lc-sys.clarify]
 license = "ISC AND Apache-2.0 AND MIT AND BSD-3-Clause"
 [[aws-lc-sys.clarify.files]]
 path = "LICENSE"
+license = "ISC"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "Apache-2.0"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "MIT"
+checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+[[aws-lc-sys.clarify.files]]
+path = "LICENSE"
+license = "BSD-3-Clause"
 checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
 
 # The Rust side of aws-lc, under ISC, whose text with its holder ends the crate's LICENSE after
