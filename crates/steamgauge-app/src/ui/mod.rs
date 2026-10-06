@@ -29,12 +29,43 @@ use tauri::{AppHandle, Manager};
 /// terminal and wrong for an icon: an application opened from a menu has no working
 /// directory worth writing gigabytes into.
 fn library_dir(app: &AppHandle) -> PathBuf {
-    if let Some(chosen) = std::env::var_os("STEAMGAUGE_DATA") {
-        return PathBuf::from(chosen);
+    static LIBRARY: OnceLock<PathBuf> = OnceLock::new();
+    LIBRARY
+        .get_or_init(|| {
+            if let Some(chosen) = std::env::var_os("STEAMGAUGE_DATA") {
+                return PathBuf::from(chosen);
+            }
+            let paths = app.path();
+            match (paths.app_data_dir(), paths.app_local_data_dir()) {
+                (Ok(roaming), Ok(local)) => {
+                    settle_library(&roaming.join("data"), &local.join("data"))
+                }
+                (_, Ok(local)) => local.join("data"),
+                _ => PathBuf::from("data"),
+            }
+        })
+        .clone()
+}
+
+/// The library belongs in the local app data folder: on Windows the roaming one travels with a
+/// roaming profile, which is no place for gigabytes of reviews. A library 0.1.3 or earlier made
+/// in the roaming folder moves once, by rename, which on one drive is instant and all or
+/// nothing; when it cannot, the library stays where it is and is used there, rather than the
+/// app opening on an empty library beside the full one. On macOS and Linux the two folders are
+/// one, and nothing moves.
+fn settle_library(roaming: &Path, local: &Path) -> PathBuf {
+    if roaming == local || local.exists() || !roaming.is_dir() {
+        return local.to_path_buf();
     }
-    app.path()
-        .app_data_dir()
-        .map_or_else(|_| PathBuf::from("data"), |dir| dir.join("data"))
+    let moved = local
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::rename(roaming, local));
+    if moved.is_ok() {
+        local.to_path_buf()
+    } else {
+        roaming.to_path_buf()
+    }
 }
 
 fn text(error: impl std::fmt::Display) -> String {
@@ -1212,4 +1243,83 @@ pub fn run() -> anyhow::Result<()> {
         ])
         .run(tauri::generate_context!())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::settle_library;
+    use std::path::PathBuf;
+
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("steamgauge-library-{name}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn a_first_start_keeps_the_library_in_the_local_folder() {
+        let scratch = Scratch::new("first");
+        let (roaming, local) = (scratch.0.join("Roaming/data"), scratch.0.join("Local/data"));
+        assert_eq!(settle_library(&roaming, &local), local);
+        assert!(!roaming.exists());
+    }
+
+    #[test]
+    fn a_library_in_the_roaming_folder_moves_whole_to_the_local_one() {
+        let scratch = Scratch::new("moves");
+        let (roaming, local) = (scratch.0.join("Roaming/data"), scratch.0.join("Local/data"));
+        std::fs::create_dir_all(roaming.join("appid=1")).unwrap();
+        std::fs::write(roaming.join("appid=1/reviews.parquet"), b"held").unwrap();
+        assert_eq!(settle_library(&roaming, &local), local);
+        assert_eq!(
+            std::fs::read(local.join("appid=1/reviews.parquet")).unwrap(),
+            b"held"
+        );
+        assert!(!roaming.exists());
+    }
+
+    #[test]
+    fn a_library_already_in_the_local_folder_is_left_beside_an_old_one() {
+        let scratch = Scratch::new("both");
+        let (roaming, local) = (scratch.0.join("Roaming/data"), scratch.0.join("Local/data"));
+        std::fs::create_dir_all(&roaming).unwrap();
+        std::fs::create_dir_all(&local).unwrap();
+        assert_eq!(settle_library(&roaming, &local), local);
+        assert!(roaming.exists());
+    }
+
+    #[test]
+    fn a_library_that_cannot_move_is_used_where_it_is() {
+        let scratch = Scratch::new("stuck");
+        let roaming = scratch.0.join("Roaming/data");
+        std::fs::create_dir_all(&roaming).unwrap();
+        // A file where the local folder's parent has to be, so the move cannot happen.
+        std::fs::write(scratch.0.join("Local"), b"").unwrap();
+        assert_eq!(
+            settle_library(&roaming, &scratch.0.join("Local/data")),
+            roaming
+        );
+        assert!(roaming.exists());
+    }
+
+    #[test]
+    fn one_folder_for_both_moves_nothing() {
+        let scratch = Scratch::new("same");
+        let both = scratch.0.join("data");
+        std::fs::create_dir_all(&both).unwrap();
+        assert_eq!(settle_library(&both, &both), both);
+        assert!(both.exists());
+    }
 }

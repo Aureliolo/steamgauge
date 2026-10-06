@@ -4880,6 +4880,16 @@ library of seventy games tests thousands of shares, and at two standard errors d
 clear by chance; a corpus of a million reviews makes a fifth of a point significant, and nobody
 acts on that. The share recommending the game is held to the same rule.
 
+### The library lives in the local app data folder (2026-10-06)
+
+The app keeps its library under Tauri's local app data folder,
+`%LOCALAPPDATA%\com.aureliolo.steamgauge\data` on Windows. The roaming folder it used before
+travels with a roaming Windows profile, and Microsoft's guidance puts large data in the local one.
+A library 0.1.3 or earlier made in the roaming folder moves once, by rename, which on one drive is
+instant and all or nothing; when the rename fails, the app keeps using the library where it is
+rather than opening on an empty one beside it. On macOS and Linux the two folders are one, and
+nothing moves. `STEAMGAUGE_DATA` still overrides both.
+
 ### A first visit is welcomed, a game is found by its name, and every page shares one system (2026-10-05)
 
 The user installed the first release, opened it and found no welcome, no guidance and a cockpit

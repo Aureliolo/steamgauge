@@ -202,7 +202,7 @@
       reviews: games.length === 0 ? 0 : 25_900,
       claims: games.length === 0 ? 0 : 78_000,
       disk_bytes: games.length === 0 ? 0 : 22_400_000_000,
-      library: 'C:\\Users\\someone\\AppData\\Roaming\\com.aureliolo.steamgauge\\data',
+      library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
       not_read: games.length === 0 ? [] : [{ app_id: 3, name: 'Gamma' }],
       older_reader: games.length === 0 ? [] : [{ app_id: 2, name: 'Beta' }],
       new_on_steam: games.length === 0 ? [] : [{ app_id: 1, name: 'Alpha', new: 1_520 }],
@@ -276,7 +276,7 @@
       ...settings,
       search_every_game: searchEveryGame,
       shares: [0.25, 0.5, 0.75, 1],
-      library: 'C:\\Users\\someone\\AppData\\Roaming\\com.aureliolo.steamgauge\\data',
+      library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
     }),
     save_settings: ({ settings: saved, searchEveryGame: every }) => {
       settings = saved;
