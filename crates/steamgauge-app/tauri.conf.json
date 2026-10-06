@@ -31,7 +31,7 @@
     "longDescription": "SteamGauge downloads a game's Steam reviews, reads every claim in them with a model on your own machine, and shows what players praise and criticise, with the reviews behind every figure.",
     "homepage": "https://github.com/Aureliolo/steamgauge",
     "license": "Apache-2.0",
-    "icon": ["icons/icon.ico", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
+    "icon": ["icons/icon.ico", "icons/icon.icns", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

@@ -4897,6 +4897,14 @@ takes the answer only where it is a JPEG or a PNG of a sensible size from that s
 there, keeps it in the cache folder, and hands the window the bytes. The policy gains `blob:` for
 images and nothing else. A game the store has no picture for is asked again after a week.
 
+**The mark is a pressure dial, and the app takes its colours (2026-10-06).** The user chose the
+dial from a hundred concepts: a round gauge with a grey zone and a vermilion needle on a paper
+tile. `crates/steamgauge-app/icons/icon.svg` is its source, and every icon file beside it is made
+from a 1024 pixel render of it with `cargo tauri icon`. The window and the exported report take
+its palette: warm neutrals, and the needle's vermilion as the accent, darkened to #c43e0b on
+light grounds so white text on it reads at 5.2:1. Complaint moves from orange to crimson
+(#be123c), so it never reads as the accent; praise stays green.
+
 **Every width the window allows is drawn, not scrolled.** When its seven columns do not fit
 its frame, the library draws each game as a card with its figures labelled beneath its name,
 rather than a table that scrolls sideways inside its frame. The fit is measured as drawn, not

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The source every icon file here is made from, with `cargo tauri icon` on a 1024 pixel PNG
+       of it: a pressure dial on a paper tile, inset from the edge as desktop icons are. -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#efe7da" />
+  <g transform="translate(512 512) scale(7.6) translate(-50 -50)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="50" cy="50" r="42" stroke="#2b2722" stroke-width="7" />
+    <path d="M30.91 69.09L25.96 74.04M24.08 57.56L17.36 59.51M23.64 44.16L16.81 42.64M29.7 32.2L24.44 27.58M40.77 24.63L38.37 18.05M54.11 23.31L55.17 16.4M66.44 28.58L70.7 23.03M74.71 39.13L81.12 36.31M76.9 52.35L83.87 52.96" stroke="#2b2722" stroke-width="3.5" />
+    <path d="M79.46 57.89A30.5 30.5 0 0 1 71.57 71.57" stroke="#9c9389" stroke-width="7" stroke-linecap="butt" />
+    <path d="M50 50L72.29 29.93" stroke="#d9480f" stroke-width="5" />
+    <circle cx="50" cy="50" r="7" fill="#2b2722" />
+    <circle cx="50" cy="50" r="2.5" fill="#efe7da" />
+  </g>
+</svg>
