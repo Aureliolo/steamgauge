@@ -23,11 +23,19 @@ try {
   if ($process.MainWindowHandle -eq 0) { throw 'The setup program showed no window within 90 seconds.' }
   Start-Sleep -Seconds 2
   $window = $A::FromHandle($process.MainWindowHandle)
-  $next = $window.FindAll($Descendants, $Any) |
-    Where-Object { $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $_.Current.Name -like 'Next*' } |
-    Select-Object -First 1
-  if (-not $next) { throw ("The first page has no Next button. It shows:`n" + ((Texts $window) -join "`n")) }
-  $next.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  # NSIS's buttons are plain Win32 ones, found by their text and pressed through the pattern
+  # every button offers.
+  $invoke = $null
+  foreach ($element in $window.FindAll($Descendants, $Any)) {
+    if ($element.Current.Name -notlike 'Next*') { continue }
+    $pattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+      $invoke = $pattern
+      break
+    }
+  }
+  if (-not $invoke) { throw ("The first page has no Next button to press. It shows:`n" + ((Texts $window) -join "`n")) }
+  $invoke.Invoke()
   Start-Sleep -Seconds 3
   Texts $window
 } finally {

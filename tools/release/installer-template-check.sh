@@ -13,12 +13,10 @@ if [[ ! "${cli}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "packages.yml does not name one tauri-cli version: '${cli}'." >&2
   exit 1
 fi
-for workflow in .github/workflows/release-build.yml; do
-  if ! grep -q "TAURI_CLI_TAG: tauri-cli-v${cli}$" "${workflow}"; then
-    echo "${workflow} does not build with tauri-cli ${cli}, as packages.yml does." >&2
-    exit 1
-  fi
-done
+if ! grep -q "TAURI_CLI_TAG: tauri-cli-v${cli}$" .github/workflows/release-build.yml; then
+  echo "release-build.yml does not build with tauri-cli ${cli}, as packages.yml does." >&2
+  exit 1
+fi
 
 # The bundler a tauri-cli release builds with is the exact version it requires.
 bundler="$(curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -A "steamgauge-ci (https://github.com/Aureliolo/steamgauge)" \
