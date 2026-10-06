@@ -99,7 +99,8 @@
   ];
 
   // Opened with ?first, the core of somebody who has just installed the app: nothing downloaded.
-  if (new URLSearchParams(location.search).has('first')) games.length = 0;
+  const first = new URLSearchParams(location.search).has('first');
+  if (first) games.length = 0;
 
   let groups = [{ name: 'Rivals', app_ids: [2] }];
   let settings = {
@@ -323,8 +324,9 @@
       reads_with: settings.reader ?? 'standard',
       sizes: [
         { name: 'small', download_bytes: 244_000_000, bytes_left: 244_000_000, published: true, needs: 1_278_214_144, runs_here: true, times: 1 },
-        { name: 'standard', download_bytes: 1_127_000_000, bytes_left: 0, published: true, needs: 4_294_967_296, runs_here: true, times: 6.2 },
+        { name: 'standard', download_bytes: 1_127_000_000, bytes_left: first ? 1_127_000_000 : 0, published: true, needs: 4_294_967_296, runs_here: true, times: 6.2 },
       ],
+      free_bytes: 182_000_000_000,
     }),
     storage: () => storage(),
     free_room: ({ appId, what }) => {

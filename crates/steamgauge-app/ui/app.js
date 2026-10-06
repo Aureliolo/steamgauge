@@ -46,7 +46,7 @@ async function shelfGame(appId) {
 
 function stageTile(stage) {
   if (stage === 'read') return ['Stage', 'Read', 'every point counted'];
-  if (stage === 'embedded') return ['Stage', 'Read', 'and ready for search by meaning'];
+  if (stage === 'embedded') return ['Stage', 'Downloaded', 'ready for search by meaning, not read yet'];
   return ['Stage', 'Downloaded', 'not read yet'];
 }
 

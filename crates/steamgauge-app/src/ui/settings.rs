@@ -165,6 +165,8 @@ pub struct ReaderOptions {
     pub recommended: &'static str,
     pub reads_with: &'static str,
     pub sizes: Vec<SizeOption>,
+    /// The room left on the drive the models are kept on, so a download can be weighed first.
+    pub free_bytes: Option<u64>,
 }
 
 #[tauri::command]
@@ -185,6 +187,11 @@ pub fn reader_options(app: AppHandle) -> ReaderOptions {
         reaches_card: reaches,
         recommended: fits(card, reaches).name,
         reads_with: super::work::reader_here(&Settings::load(&app)).name,
+        free_bytes: {
+            let cache = steamgauge_core::model::default_cache_dir();
+            let at = cache.ancestors().find(|dir| dir.exists()).unwrap_or(&cache);
+            fs4::available_space(at).ok()
+        },
         sizes: SIZES
             .iter()
             .map(|size| {

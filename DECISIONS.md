@@ -4908,6 +4908,12 @@ offers every size as a choice. A size the card's memory cannot hold is shown but
 since it would stop part way through a read; on a processor every size can be chosen. The
 recommended size is saved as no choice at all, so a better card later is taken up by itself.
 
+A first visit offers the reader beside the welcome: the size recommended here, why, its download
+against the room left on the drive, and a button that fetches it as a job of its own. The
+download is the longest wait before a first read, and choosing and downloading a first game
+takes long enough to hide it. Later puts the offer away; the first read fetches the reader as
+before.
+
 ### A first visit is welcomed, a game is found by its name, and every page shares one system (2026-10-05)
 
 The user installed the first release, opened it and found no welcome, no guidance and a cockpit

@@ -418,6 +418,19 @@ try {
     var shown = function (id) { return !document.getElementById(id).hidden; };
     await pause(400);
     check('an empty library is not welcomed', shown('cockpit-empty') && !shown('cockpit-full'));
+    check('a first visit does not offer the reader', shown('welcome-ready'));
+    check('the reader on offer does not say its size and the room for it',
+      /1\.1 GB download/.test(document.getElementById('ready-room').textContent) &&
+      /182\.0 GB free/.test(document.getElementById('ready-room').textContent));
+    check('the reader on offer does not say why', /RTX 4090/.test(document.getElementById('ready-why').textContent));
+    document.getElementById('ready-fetch').click();
+    await pause(300);
+    var fetched = window.__stub.calls.filter(function (call) { return call.command === 'queue'; }).pop();
+    check('downloading the reader does not queue it',
+      fetched && fetched.args.tasks.some(function (t) { return t.kind === 'fetch_reader'; }));
+    check('the reader downloading takes the welcome away', shown('cockpit-empty'));
+    check('the reader downloading is not shown where it was offered',
+      document.querySelector('#ready-job .job') !== null && !shown('ready-actions'));
     var box = document.getElementById('welcome-query');
     box.value = 'delta';
     box.dispatchEvent(new Event('input'));

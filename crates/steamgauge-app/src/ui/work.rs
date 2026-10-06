@@ -48,6 +48,9 @@ pub enum Task {
         app_ids: Vec<u32>,
         to: std::path::PathBuf,
     },
+    /// The reader this machine reads with, fetched ahead of a first read, so a first game's
+    /// reviews and the reader download at the same time.
+    FetchReader,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,7 +66,9 @@ const LANES: [Lane; 3] = [Lane::Network, Lane::Machine, Lane::Files];
 impl Task {
     fn lane(&self) -> Lane {
         match self {
-            Self::Download { .. } | Self::Update { .. } | Self::Check => Lane::Network,
+            Self::Download { .. } | Self::Update { .. } | Self::Check | Self::FetchReader => {
+                Lane::Network
+            }
             Self::Read { .. } | Self::Prepare { .. } => Lane::Machine,
             Self::Export { .. } => Lane::Files,
         }
@@ -75,7 +80,7 @@ impl Task {
             | Self::Update { app_id }
             | Self::Read { app_id, .. }
             | Self::Prepare { app_id } => Some(*app_id),
-            Self::Check | Self::Export { .. } => None,
+            Self::Check | Self::Export { .. } | Self::FetchReader => None,
         }
     }
 }
@@ -209,6 +214,9 @@ pub struct Work {
 
 /// What a job is about, in words: the game's name where it has one on disk.
 fn name_of(app: &AppHandle, task: &Task) -> String {
+    if *task == Task::FetchReader {
+        return format!("The {} reader", reader_here(&Settings::load(app)).name);
+    }
     match task.app_id() {
         Some(app_id) => steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
             .map_or_else(|_| format!("App {app_id}"), |facts| facts.title()),
@@ -472,6 +480,7 @@ fn stopped_note(task: &Task) -> &'static str {
         Task::Prepare { .. } => "Stopped. What was done is kept, and preparing again carries on.",
         Task::Check => "Stopped.",
         Task::Export { .. } => "Stopped before the report was saved.",
+        Task::FetchReader => "Stopped. The first read fetches the reader instead.",
     }
 }
 
@@ -529,6 +538,12 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
                 Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
                 Task::Check => check(&app, id).await,
                 Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
+                Task::FetchReader => {
+                    let size = reader_here(&Settings::load(&app));
+                    fetch_reader(&app, id, size).await.map(|()| {
+                        Ended::said(format!("The {} reader is on this computer.", size.name))
+                    })
+                }
             }
         })
     };

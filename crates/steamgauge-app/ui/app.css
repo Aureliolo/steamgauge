@@ -1110,6 +1110,69 @@ label.choice {
   padding-right: var(--s3);
 }
 
+/* The reader before a first game: what it is, why, and its download. */
+.ready {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s3) var(--s4);
+  align-items: center;
+  padding: var(--s5) var(--s6);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.ready[hidden] {
+  display: none;
+}
+
+.ready .step-icon {
+  align-self: start;
+  margin-bottom: 0;
+}
+
+.ready-text {
+  display: grid;
+  gap: var(--s1);
+}
+
+.ready-text p {
+  font-size: var(--t-sm);
+}
+
+.ready-room {
+  color: var(--ink-2);
+}
+
+.ready-room.bad {
+  color: var(--bad);
+}
+
+.ready-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+.ready-job {
+  grid-column: 2 / -1;
+}
+
+.ready-job:empty {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .ready {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .ready-actions,
+  .ready-job {
+    grid-column: 2;
+  }
+}
+
 /* Three across or one beneath another; never two and an orphan. */
 .steps {
   display: grid;

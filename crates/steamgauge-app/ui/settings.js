@@ -16,7 +16,7 @@ const SIZE_TEXT = {
 const gib = (bytes) => `${Math.round(bytes / 2 ** 30)} GB`;
 
 /* Why this computer is recommended the reader it is, in one line. */
-function reason(found) {
+export function reason(found) {
   const recommended = found.sizes.find((one) => one.name === found.recommended);
   const largest = found.sizes[found.sizes.length - 1];
   if (found.on_processor) {
