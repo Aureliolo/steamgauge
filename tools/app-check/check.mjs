@@ -457,6 +457,19 @@ try {
     return wrong;
   })()`);
 
+  await load(`${page}?first`);
+  const later = await evaluate(`(async function () {
+    var pause = function (ms) { return new Promise(function (done) { setTimeout(done, ms || 80); }); };
+    await pause(400);
+    document.getElementById('ready-later').click();
+    await pause(100);
+    var put = document.getElementById('welcome-ready').hidden;
+    var queued = window.__stub.calls.some(function (call) { return call.command === 'queue'; });
+    try { localStorage.removeItem('reader-later'); } catch (e) {}
+    return [].concat(put ? [] : ['the reader put off for later stays on offer'])
+      .concat(queued ? ['the reader put off for later is downloaded anyway'] : []);
+  })()`);
+
   if (shots) {
     await mkdir(shots, { recursive: true });
     // Every page whole, rather than the window's height of it.
@@ -565,7 +578,8 @@ try {
       .concat(answer.result.result.value)
       .concat(narrow.result.result.value)
       .concat(sideways)
-      .concat(first.result.result.value);
+      .concat(first.result.result.value)
+      .concat(later.result.result.value);
     if (wrong.length === 0) {
       console.log("the window behaves as it says it does");
       failed = false;
