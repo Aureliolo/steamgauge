@@ -92,12 +92,29 @@ commands that check a file against both.
 
 ### Upgrading
 
-When a newer version is out, the window names it under the menu and links to its release page;
-Settings turns the question off. Download the new installer and install it over the old one, as
-the first time; with a portable archive, the new program replaces the old one. With a package
-manager, upgrade through it: `winget upgrade Aureliolo.SteamGauge`, `scoop update steamgauge`
-or `brew upgrade --cask steamgauge`. Your library,
-your settings and the models already downloaded stay where they are.
+When a newer version is out, the window names it under the menu and offers **Update now**, which
+downloads the new release's file for this computer and installs it:
+
+- **Windows**: the setup program, which installs over this copy without asking anything, keeps
+  your shortcuts, and opens the new version when it is done.
+- **macOS**: the new app, put in place of the old one in a single step, and opened again.
+- **Linux**: the `.deb` or the `.rpm`, installed by the system's package manager once you give
+  your password; where no password prompt is available, or it is closed, the window offers the
+  downloaded package to install yourself. A portable archive unpacked into a folder of your own
+  has its files replaced.
+
+The file is installed only when the release's signed build provenance shows that SteamGauge's
+release workflow built it, for that version's tag, under the file's own name and with the
+SHA-256 it arrived with. Anything else stops the update with the reason and nothing installed,
+and the window offers the release page instead. [SECURITY.md](SECURITY.md#updates-from-the-window)
+lists every check.
+
+A copy Scoop installed, or a portable archive on Windows or macOS, is updated the way it was put
+there: `scoop update steamgauge`, or the new archive's program in place of the old one. winget
+and Homebrew install the same setup program and app the window updates, so the window updates
+those copies too; `winget upgrade Aureliolo.SteamGauge` and `brew upgrade --cask --greedy
+steamgauge` work as well. Settings turns the daily question off, and with it the notice. Your
+library, your settings and the models already downloaded stay where they are.
 
 ## The problem it solves
 
@@ -879,7 +896,7 @@ Nothing you download leaves your machine. The reading runs on a model on your ow
 a complete census needs no account and no key. Reports are the same: one file with no fonts,
 scripts or stylesheets fetched from anywhere, so reading a result is not a way of publishing it.
 
-The app makes requests to three places, and to nothing else:
+The app makes requests to four places, and to nothing else:
 
 - **Steam**, for the reviews of the games you add, their names and their totals, the store's
   search when you find a game by its name, and each game's store picture, fetched once and kept
@@ -892,7 +909,11 @@ The app makes requests to three places, and to nothing else:
   published, and fetches nothing from them.
 - **GitHub**, at most once a day, for whether a newer SteamGauge is out: one request to
   SteamGauge's release page, which names the newest version and nothing else. Settings turns
-  it off.
+  it off. When you choose **Update now**, the app downloads that release's file for this
+  computer and its build provenance from the release, and asks GitHub's attestations API for
+  the provenance only where the release does not carry it.
+- **Sigstore**, only during an update, for the current keys and certificates its signatures are
+  checked against, from its public TUF repository.
 
 A link in the window, to a review on Steam or to a release page, opens in your browser.
 

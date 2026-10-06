@@ -3,7 +3,8 @@
 ## Supported versions
 
 Only the latest release gets fixes. A fix ships as a new release, and the app names a newer
-release in its window when one is out (see [Network requests](#network-requests)).
+release in its window when one is out and offers to install it (see
+[Updates from the window](#updates-from-the-window)).
 
 ## Reporting a vulnerability
 
@@ -26,7 +27,8 @@ each system (the README's Install section lists them), an SPDX SBOM of each, the
 build provenance over every file, and each SBOM bound to the file it describes. The build and
 the signing both run in that one reusable workflow, which is SLSA Build Level 3, and the
 attestations are attached to the release as `steamgauge-<version>.intoto.jsonl` as well as
-stored on the repository, so they verify from the file alone. Releases are immutable and the
+stored on the repository, so they verify from the file alone; the build provenance is also
+attached alone, as `steamgauge-<version>.provenance.sigstore.json`. Releases are immutable and the
 `v*` tags cannot be moved or deleted. Each archive also carries `THIRD-PARTY-NOTICES.txt`, the
 licence of every crate compiled into the binary and of ONNX Runtime and, on Windows, DirectML,
 checked at release against the crates that build resolved and the files the archive holds. The
@@ -69,9 +71,53 @@ Windows builds are to carry a SignPath Foundation signature, which chains to a C
 trusts, once the project is enrolled; until then they carry provenance only. macOS has no free
 certificate authority, so its builds carry provenance only.
 
+## Updates from the window
+
+**Update now** installs a newer release with no signing key anywhere: what it checks is the
+release's Sigstore build provenance, which GitHub Actions signs keyless for each release run.
+It downloads the release's file for this computer (the setup program on Windows,
+`steamgauge-<version>-macos-arm64.app.tar.gz` on macOS, the `.deb`, the `.rpm` or the portable
+archive on Linux) into the app's own data folder, hashing it as it is written, and installs it
+only when all of these hold:
+
+- the version is newer than the one running;
+- the provenance's certificate chains to Sigstore's Fulcio, carries its certificate transparency
+  timestamp, and its signature is in Sigstore's transparency log, Rekor; none of these is
+  skipped;
+- the certificate was issued by GitHub Actions (`https://token.actions.githubusercontent.com`)
+  to exactly
+  `https://github.com/Aureliolo/steamgauge/.github/workflows/release-build.yml@refs/tags/v<version>`,
+  for the repository and owner by GitHub's numbers for them (1361019156 and 19254254), which
+  survive a rename and are not reused by a repository made later under the same name, at the
+  ref `refs/tags/v<version>`, on a GitHub-hosted runner;
+- the signed statement is SLSA provenance (`https://slsa.dev/provenance/v1`) and names the file
+  by its release name with the SHA-256 it arrived with.
+
+The tag in the certificate is the version being installed, so an older release, validly signed
+for its own tag, is refused as well as anything signed elsewhere. The provenance is read from
+the release's `steamgauge-<version>.provenance.sigstore.json`, and from GitHub's attestations
+API only where a release lacks that file; where it came from carries no trust, since it is
+verified either way. Sigstore's trusted root, the certificates and keys a signature is checked
+against, comes from Sigstore's TUF repository, starting from the TUF root built into the app;
+offline, the last root fetched is used, and before any was fetched, the trusted root built into
+the app.
+
+On Windows the file stays open, readable by others but not writable, from the moment it is
+hashed to the moment the setup program starts. On macOS the app is unpacked beside the
+installed one, on the same disk, and the two are exchanged in one step. On Linux the package
+manager installs the verified package, and a portable archive's files are renamed into place.
+Any failed check installs nothing, says why, and leaves the release page to download from; the
+commands under [Releases](#releases) verify such a download by hand.
+
+This protects against a download changed on the way or in storage, against TLS interception,
+and against a release published with a stolen token, since a valid signature needs the release
+workflow to have run at that version's tag, and every such signing is public in Rekor. It does
+not protect against the owner's GitHub account being taken over, or against a compromised
+build, both of which would produce a correctly signed release.
+
 ## Network requests
 
-The app makes requests to three places, and to nothing else:
+The app makes requests to four places, and to nothing else:
 
 - **Steam**, for reviews, game names and review totals, the store's search when a game is
   found by its name, each game's store picture (fetched once from Steam's image servers and kept
@@ -82,8 +128,13 @@ The app makes requests to three places, and to nothing else:
   library is checked against Steam, for whether newer releases of those models are published.
 - **GitHub**, at most once a day, for whether a newer release of SteamGauge is out: one request
   to the release page, whose redirect names the newest version. The redirect is not followed,
-  no API or token is involved, and a setting turns it off. Nothing is downloaded or installed
-  by the app; the link the window offers opens only a release page of this repository.
+  no token is involved, and a setting turns it off. Only when **Update now** is chosen does the
+  app download the release's file for this computer and its provenance, and ask the
+  attestations API where the release carries no provenance file. The link the window offers
+  opens only a release page of this repository.
+- **Sigstore**, only during an update, for its current trusted root from
+  `https://tuf-repo-cdn.sigstore.dev`, which is itself signed and checked against the TUF root
+  built into the app.
 
 ## Handling of data
 
