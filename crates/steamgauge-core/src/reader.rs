@@ -1645,6 +1645,20 @@ mod tests {
     }
 
     #[test]
+    fn the_whole_download_counts_every_file() {
+        let files: Vec<crate::model::Asset> = STANDARD_FILES
+            .iter()
+            .zip([700, 40, 3])
+            .map(|(file, bytes)| crate::model::Asset { bytes, ..*file })
+            .collect();
+        let published = Published {
+            files: files.leak(),
+            ..pinned(COMMIT, ["", "", ""])
+        };
+        assert_eq!(published.total_bytes(), 743);
+    }
+
+    #[test]
     fn a_pin_with_any_hash_missing_is_no_pin_at_all() {
         let hash: &'static str = "0".repeat(64).leak();
         assert!(
