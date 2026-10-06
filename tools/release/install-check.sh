@@ -176,6 +176,51 @@ case "${target}" in
       "$(powershell_value "(Get-Item 'HKCU:\\Software\\${publisher}\\SteamGauge').GetValue('')")" "${folder}"
     same "Whether Software\\Aurelio\\SteamGauge is left" \
       "$(powershell_value "Test-Path 'HKCU:\\Software\\Aurelio\\SteamGauge'")" False
+    # A setup program run over an install whose program cannot be written for a while, as when a
+    # scanner reads a program just written. Unwritable briefly, the setup waits and replaces it;
+    # past the setup's minute of patience, it stops with an error and copies nothing, rather than
+    # leaving new libraries beside the old program. The read-only flag stands in for the scanner:
+    # it refuses the write the same way, and the Restart Manager, which Tauri's setup asks to close
+    # whatever holds the program, cannot clear it. The installed program is marked first, so
+    # whether it was replaced can be told from its bytes.
+    program="${home}/steamgauge.exe"
+    shipped="$(sha256sum "${program}" | cut -d' ' -f1)"
+    hold() {
+      attrib +R "$(cygpath -w "${program}")"
+      (sleep "$1" && attrib -R "$(cygpath -w "${program}")") &
+      holder=$!
+    }
+    printf 'marked' >> "${program}"
+    hold 10
+    step "Installing silently over a program unwritable for ten seconds" "${setup}" //S
+    wait "${holder}"
+    if [[ "$(sha256sum "${program}" | cut -d' ' -f1)" != "${shipped}" ]]; then
+      echo "The setup program left the program it could not write at once unreplaced." >&2
+      exit 1
+    fi
+    echo "The setup program waited for the program to be writable and replaced it."
+    printf 'marked' >> "${program}"
+    marked="$(sha256sum "${program}" | cut -d' ' -f1)"
+    hold 90
+    echo "::group::Installing silently over a program unwritable past the setup's patience"
+    refused=0
+    "${setup}" //S || refused=$?
+    echo "::endgroup::"
+    wait "${holder}"
+    if [[ "${refused}" -eq 0 ]]; then
+      echo "The setup program reported success over a program it could not replace." >&2
+      exit 1
+    fi
+    if [[ "$(sha256sum "${program}" | cut -d' ' -f1)" != "${marked}" ]]; then
+      echo "The setup program changed the program it was refused, leaving a mixed install." >&2
+      exit 1
+    fi
+    echo "The setup program stopped with exit code ${refused} and left the install as it was."
+    step "Installing silently once nothing holds the program" "${setup}" //S
+    if [[ "$(sha256sum "${program}" | cut -d' ' -f1)" != "${shipped}" ]]; then
+      echo "The setup program did not replace the program once it was free." >&2
+      exit 1
+    fi
     # The uninstall a quiet uninstaller such as winget runs is the one the setup program
     # registered, so that is the one checked, and then run.
     same "The quiet uninstall the setup program registered" \
