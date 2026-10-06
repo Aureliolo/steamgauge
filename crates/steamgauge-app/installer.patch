@@ -1,0 +1,13 @@
+--- installer.nsi
++++ installer.nsi
+@@ -241,6 +241,10 @@
+     !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(chooseMaintenanceOption)"
+   ; Upgrading
+   ${ElseIf} $R0 = 1
++    ; SteamGauge: an upgrade installs over the older copy, as Tauri's own updater does with
++    ; /UPDATE, and this page is skipped. Its default runs the old uninstaller first, whose page
++    ; offers to delete the application data: the library of downloaded reviews and reads.
++    Abort
+     StrCpy $R1 "$(olderOrUnknownVersionInstalled)"
+     StrCpy $R2 "$(uninstallBeforeInstalling)"
+     StrCpy $R3 "$(dontUninstall)"

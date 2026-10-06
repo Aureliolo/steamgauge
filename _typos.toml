@@ -73,11 +73,13 @@ mis = "mis"
 # Hidden paths too: the workflows' comments are prose like any other.
 ignore-hidden = false
 # Git's own folder; the licence texts, which are legal wording that must not change by a letter;
-# and data: each run's record and model card under training/runs, the reference labels, claims
-# and figures, and the synthetic reviews the fuzzer starts from, which are in many languages.
+# Tauri's setup script, which is upstream's text kept identical but for one patch; and data: each
+# run's record and model card under training/runs, the reference labels, claims and figures, and
+# the synthetic reviews the fuzzer starts from, which are in many languages.
 extend-exclude = [
   ".git/",
   "LICENSE",
+  "crates/steamgauge-app/installer.nsi",
   "third-party/directml/",
   "third-party/onnxruntime/",
   "training/runs/*/",

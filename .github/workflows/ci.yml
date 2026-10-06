@@ -46,6 +46,9 @@ jobs:
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
+      # The Windows setup program's script is Tauri's at the pinned bundler plus one change; a
+      # tauri-cli bump that moves Tauri's script fails here until the copy is taken again.
+      - run: bash tools/release/installer-template-check.sh
 
   # The THIRD-PARTY-NOTICES.txt each release archive carries, written for all three the way the
   # release writes them, so that a crate under a licence third-party/about.toml does not accept,

@@ -154,6 +154,21 @@ case "${target}" in
     step "Installing ${previous} silently" "${previous_dir}/${previous_setup}" //S
     same "The folder ${previous} keeps under Software\\Aurelio" \
       "$(powershell_value "(Get-Item 'HKCU:\\Software\\Aurelio\\SteamGauge').GetValue('')")" "${folder}"
+    # A person upgrading opens the setup program's window. Past the welcome page it goes straight
+    # to where to install: Tauri's own script asks there whether to uninstall first, by default
+    # yes, and that runs the old uninstaller, whose page offers to delete the library.
+    echo "::group::Pressing Next in the setup program over ${previous}"
+    upgrade_page="$(powershell -NoProfile -File "$(cygpath -w tools/release/setup-next-page.ps1)" -Setup "$(cygpath -w "${setup}")" | tr -d '\r')"
+    echo "${upgrade_page}"
+    echo "::endgroup::"
+    if grep -qi "uninstall" <<<"${upgrade_page}"; then
+      echo "Upgrading ${previous} from the setup program's window offers to uninstall it first." >&2
+      exit 1
+    fi
+    if ! grep -q "Choose Install Location" <<<"${upgrade_page}"; then
+      echo "Past its welcome page, the setup program over ${previous} does not ask where to install." >&2
+      exit 1
+    fi
     step "Installing silently over it" "${setup}" //S
     ls -la "${home}"
     for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
