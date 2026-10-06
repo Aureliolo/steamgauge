@@ -157,7 +157,11 @@ pub fn verify(
             other => Refusal::Signature(other.to_string()),
         })?;
     // The policy never relaxes any of these; a result that skipped one is refused all the same.
-    if !(result.certificate_verified() && result.sct_verified() && result.tlog_verified()) {
+    if !every_check_ran([
+        result.certificate_verified(),
+        result.sct_verified(),
+        result.tlog_verified(),
+    ]) {
         return Err(Refusal::Signature(
             "the certificate, its timestamp or the transparency log went unchecked".to_owned(),
         ));
@@ -213,6 +217,11 @@ pub fn verify(
         });
     }
     Ok(())
+}
+
+/// Whether Sigstore checked the certificate, its timestamp and the transparency log, each.
+fn every_check_ran(checks: [bool; 3]) -> bool {
+    checks.into_iter().all(|ran| ran)
 }
 
 /// The trusted root as it ships inside this build, for when the current one cannot be fetched.
@@ -484,6 +493,16 @@ mod tests {
             check(&odd, &older(), &RELEASE_BUILD),
             Err(Refusal::Unreadable(_))
         ));
+    }
+
+    #[test]
+    fn a_result_that_skipped_any_check_is_not_taken() {
+        assert!(every_check_ran([true, true, true]));
+        for skipped in 0..3 {
+            let mut checks = [true; 3];
+            checks[skipped] = false;
+            assert!(!every_check_ran(checks), "check {skipped} skipped");
+        }
     }
 
     #[test]

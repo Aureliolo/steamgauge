@@ -64,17 +64,36 @@ pub fn client() -> reqwest::Result<reqwest::Client> {
     crate::http::builder()
         .user_agent(concat!("steamgauge/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() >= 10 {
-                attempt.error("too many redirects")
-            } else if attempt.url().scheme() == "https" {
-                attempt.follow()
-            } else {
-                attempt.stop()
+            match hop(attempt.previous().len(), attempt.url().scheme()) {
+                Hop::Follow => attempt.follow(),
+                Hop::Stop => attempt.stop(),
+                Hop::TooMany => attempt.error("too many redirects"),
             }
         }))
         .connect_timeout(PATIENCE)
         .read_timeout(PATIENCE)
         .build()
+}
+
+/// What is done with a redirect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Hop {
+    Follow,
+    /// The redirect itself is the answer, which a download takes for a failure.
+    Stop,
+    TooMany,
+}
+
+/// The redirect after `previous` others, to an address of `scheme`: followed to HTTPS, ten at
+/// most, as a browser would.
+fn hop(previous: usize, scheme: &str) -> Hop {
+    if previous >= 10 {
+        Hop::TooMany
+    } else if scheme == "https" {
+        Hop::Follow
+    } else {
+        Hop::Stop
+    }
 }
 
 /// What a download wrote.
@@ -337,6 +356,25 @@ mod tests {
             seen.last(),
             Some(&(body.len() as u64, Some(body.len() as u64)))
         );
+    }
+
+    #[test]
+    fn redirects_are_followed_to_https_alone_and_ten_at_most() {
+        assert_eq!(hop(0, "https"), Hop::Follow);
+        assert_eq!(hop(9, "https"), Hop::Follow);
+        assert_eq!(hop(10, "https"), Hop::TooMany);
+        assert_eq!(hop(0, "http"), Hop::Stop);
+        assert_eq!(hop(10, "http"), Hop::TooMany);
+    }
+
+    #[tokio::test]
+    async fn a_provenance_file_of_exactly_its_limit_is_read() {
+        let limit = usize::try_from(MOST_PROVENANCE).unwrap();
+        let server = stand_in::Server::new(move |_| stand_in::Answer::body(vec![b' '; limit]));
+        let bundles = provenance(&client().unwrap(), &origins(&server), &version(), "ab12")
+            .await
+            .unwrap();
+        assert_eq!(bundles.iter().map(String::len).collect::<Vec<_>>(), [limit]);
     }
 
     #[test]

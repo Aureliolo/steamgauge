@@ -149,6 +149,16 @@ pub fn stage_app(archive: impl Read, bundle: &Path) -> io::Result<StagedApp> {
 /// [`super::install::privileged_swap`] is what does it then. Anything else leaves `bundle` as
 /// it was.
 pub fn swap(staged: &StagedApp, bundle: &Path) -> io::Result<()> {
+    swap_by(exchange, staged, bundle)
+}
+
+/// [`swap`], exchanging the two by `exchange`, which a test makes fail the ways a file system
+/// can.
+fn swap_by(
+    exchange: impl FnOnce(&Path, &Path) -> io::Result<()>,
+    staged: &StagedApp,
+    bundle: &Path,
+) -> io::Result<()> {
     match exchange(staged.app(), bundle) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::PermissionDenied => return Err(error),
@@ -292,6 +302,65 @@ mod tests {
             "the previous app goes with the staging folder"
         );
         assert_eq!(names(dir.path()).unwrap(), ["SteamGauge.app"]);
+    }
+
+    #[test]
+    fn the_app_is_unpacked_on_the_disk_it_replaces() {
+        let dir = Dir::new();
+        let bundle = installed_app(dir.path(), b"old");
+        let beside = same_volume(&bundle).unwrap();
+        assert!(beside.is_absolute(), "{}", beside.display());
+        assert_eq!(
+            fs::metadata(&beside).unwrap().dev(),
+            fs::metadata(&bundle).unwrap().dev()
+        );
+        let staged = stage_app(app_archive(b"new").as_slice(), &bundle).unwrap();
+        assert!(staged.app().starts_with(&beside));
+    }
+
+    #[test]
+    fn the_replaced_app_is_marked_changed() {
+        let dir = Dir::new();
+        let bundle = installed_app(dir.path(), b"old");
+        let staged = stage_app(app_archive(b"new").as_slice(), &bundle).unwrap();
+        let long_ago = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        fs::File::open(staged.app())
+            .unwrap()
+            .set_modified(long_ago)
+            .unwrap();
+        swap(&staged, &bundle).unwrap();
+        assert!(fs::metadata(&bundle).unwrap().modified().unwrap() > long_ago);
+    }
+
+    #[test]
+    fn a_file_system_that_cannot_exchange_gets_two_renames() {
+        let dir = Dir::new();
+        let bundle = installed_app(dir.path(), b"old");
+        let staged = stage_app(app_archive(b"new").as_slice(), &bundle).unwrap();
+        swap_by(
+            |_, _| Err(io::Error::from(io::ErrorKind::Unsupported)),
+            &staged,
+            &bundle,
+        )
+        .unwrap();
+        assert_eq!(program_of(&bundle), b"new");
+        assert_eq!(program_of(&staged.backup()), b"old");
+    }
+
+    #[test]
+    fn a_permission_refused_is_left_to_the_privileged_swap() {
+        let dir = Dir::new();
+        let bundle = installed_app(dir.path(), b"old");
+        let staged = stage_app(app_archive(b"new").as_slice(), &bundle).unwrap();
+        let refused = swap_by(
+            |_, _| Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+            &staged,
+            &bundle,
+        )
+        .unwrap_err();
+        assert_eq!(refused.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(program_of(&bundle), b"old", "nothing was moved");
+        assert!(!staged.backup().exists());
     }
 
     #[test]
