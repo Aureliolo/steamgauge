@@ -69,7 +69,7 @@ impl Task {
         }
     }
 
-    fn app_id(&self) -> Option<u32> {
+    pub(super) fn app_id(&self) -> Option<u32> {
         match self {
             Self::Download { app_id }
             | Self::Update { app_id }
@@ -663,16 +663,27 @@ async fn update(
 /// The reader size this machine reads with: the card decides where one is reached, and the
 /// person's choice counts where the machine reads on its processor.
 pub fn reader_here(settings: &Settings) -> &'static steamgauge_core::reader::Size {
-    use steamgauge_core::reader::{Size, fits, on_the_processor};
+    use steamgauge_core::reader::{Size, fits};
 
     let card = steamgauge_core::card::largest();
     let reaches = steamgauge_core::model::REACHES_A_CARD;
     settings
         .reader
         .as_deref()
-        .filter(|_| on_the_processor(card, reaches))
         .and_then(Size::named)
+        .filter(|chosen| runs_here(chosen, card, reaches))
         .unwrap_or_else(|| fits(card, reaches))
+}
+
+/// Whether a size can read on this machine: any size on a processor, and on a card only a size
+/// the card's memory holds, since a larger one would stop part way through a read.
+pub fn runs_here(
+    size: &steamgauge_core::reader::Size,
+    card: Option<steamgauge_core::card::Card>,
+    reaches: bool,
+) -> bool {
+    use steamgauge_core::reader::{fits, on_the_processor};
+    on_the_processor(card, reaches) || size.needs <= fits(card, reaches).needs
 }
 
 /// Downloads that add up across files: each file reports its own count from zero, and the bar

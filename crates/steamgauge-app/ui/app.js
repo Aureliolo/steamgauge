@@ -28,6 +28,7 @@ import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
+import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
 
@@ -892,6 +893,7 @@ setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
 setUpSettings();
+setUpStorage({ openGame });
 setUpNewer();
 
 for (const link of document.querySelectorAll('[data-go]')) {

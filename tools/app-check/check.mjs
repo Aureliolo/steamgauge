@@ -233,7 +233,47 @@ const PROBE = `(async function () {
   $('#search-every-game').click();
   await pause(250);
   check('preparing every game for search is not saved', last('save_settings').args.searchEveryGame === true);
-  check('the library\\'s place goes unsaid', /AppData/.test($('#library-place').textContent));
+  var sizes = document.querySelectorAll('#reader-sizes input');
+  check('settings do not offer both readers', sizes.length === 2);
+  check('the recommended reader is not marked', /Recommended/.test($('#reader-sizes').textContent));
+  check('the reader in use is not the one chosen', $('#reader-sizes input:checked').value === 'standard');
+  check('the card behind the recommendation goes unnamed', /RTX 4090/.test($('#reader-machine').textContent));
+  check('a reader still to fetch does not say its size', /244 MB download/.test($('#reader-sizes').textContent));
+  sizes[0].click();
+  await pause(250);
+  check('choosing the small reader is not saved', last('save_settings').args.settings.reader === 'small');
+  $('#reader-sizes input[value="standard"]').click();
+  await pause(250);
+  check('the recommended reader is kept as a choice rather than as the default',
+    last('save_settings').args.settings.reader === null);
+
+  await go('storage');
+  await pause(250);
+  check('storage does not say what the app takes', /SteamGauge takes/.test($('#storage-sub').textContent));
+  check('storage does not draw the drive', document.querySelectorAll('#drives .drive').length === 1);
+  check('storage does not list every part of the library', document.querySelectorAll('#parts .part-row').length === 6);
+  check('storage does not list the games largest first',
+    document.querySelectorAll('#game-rooms .room').length === 3 &&
+    /Alpha/.test(document.querySelector('#game-rooms .room').textContent));
+  check('storage does not list the models', document.querySelectorAll('#model-rooms .room').length === 4);
+  check('the library\\'s place goes unsaid', /AppData/.test($('#storage-library').textContent));
+  var earlier = Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {
+    return /Earlier downloads/.test(row.textContent); });
+  earlier.querySelector('button').click();
+  await pause(250);
+  check('removing earlier downloads everywhere is not asked of the core',
+    last('free_room') && last('free_room').args.appId === null && last('free_room').args.what === 'earlier');
+  var reads = document.querySelector('#game-rooms .room select');
+  reads.value = 'reads';
+  reads.dispatchEvent(new Event('change'));
+  await pause(150);
+  check('removing a game\\'s reads does not ask first', /Hours|hours/.test($('#game-rooms').textContent) &&
+    document.querySelector('#game-rooms .room button.danger') !== null);
+  var before = called('free_room').length;
+  document.querySelector('#game-rooms .room button.ghost').click();
+  await pause(150);
+  check('keeping a game\\'s reads still removes them', called('free_room').length === before);
+  check('storage does not fit its page', fits());
   check('asking for a newer version is not on as it is by default', $('#check-newer-version').checked);
   $('#check-newer-version').click();
   await pause(250);
@@ -339,7 +379,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
   const narrow = await evaluate(`(async function () {
     var wrong = [];
-    for (var name of ['cockpit', 'library', 'compare', 'settings']) {
+    for (var name of ['cockpit', 'library', 'compare', 'storage', 'settings']) {
       document.querySelector('[data-go="' + name + '"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
       var stage = document.getElementById('stage');
@@ -432,7 +472,7 @@ try {
       await load(page);
       await sleep(400);
       await evaluate(unroll);
-      for (const name of ["cockpit", "library", "compare", "settings"]) {
+      for (const name of ["cockpit", "library", "compare", "storage", "settings"]) {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
@@ -483,7 +523,7 @@ try {
     await load(page);
     await sleep(400);
     await evaluate(unroll);
-    for (const name of ["cockpit", "library", "settings"]) {
+    for (const name of ["cockpit", "library", "storage", "settings"]) {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }

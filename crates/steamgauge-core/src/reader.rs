@@ -548,6 +548,12 @@ impl Published {
     pub fn bytes_left(&self, dir: &Path) -> u64 {
         crate::model::bytes_left(self.files, dir)
     }
+
+    /// Every pinned file's length together: the whole download, whatever is already here.
+    #[must_use]
+    pub fn total_bytes(&self) -> u64 {
+        self.files.iter().map(|file| file.bytes).sum()
+    }
 }
 
 /// Fetches a published size into `dir` unless the copy there already matches its pins.

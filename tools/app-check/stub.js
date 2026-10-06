@@ -117,6 +117,37 @@
     url: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0',
   };
   let searchEveryGame = false;
+  // What each game takes on disk, by part, and the models in the cache.
+  let rooms = games.map((game, at) => ({
+    app_id: game.app_id,
+    name: game.name,
+    parts: [
+      { reviews: 2_400_000_000, reads: 1_100_000_000, search: 3_900_000_000, earlier: 1_800_000_000, partial: 120_000_000, other: 0 },
+      { reviews: 640_000_000, reads: 300_000_000, search: 0, earlier: 0, partial: 0, other: 0 },
+      { reviews: 110_000_000, reads: 0, search: 0, earlier: 0, partial: 40_000_000, other: 0 },
+    ][at % 3],
+  }));
+  const models = [
+    { name: 'Game Review Reader (small)', key: 'small', role: 'reads every review', bytes: 0, used: false },
+    { name: 'Game Review Reader (standard)', key: 'standard', role: 'reads every review', bytes: 1_127_000_000, used: true },
+    { name: 'SteamGauge search encoder', key: 'search-encoder', role: 'finds what was said in other words', bytes: 1_310_000_000, used: true },
+    { name: 'SteamGauge search reranker', key: 'search-reranker', role: 'orders what it finds', bytes: 0, used: true },
+  ];
+  const storage = () => {
+    const total = (parts) => Object.values(parts).reduce((sum, bytes) => sum + bytes, 0);
+    const parts = { reviews: 0, reads: 0, search: 0, earlier: 0, partial: 0, other: 3_000_000 };
+    for (const room of rooms) for (const key of Object.keys(room.parts)) parts[key] += room.parts[key];
+    return {
+      library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
+      models: 'C:\\Users\\someone\\AppData\\Local\\steamgauge\\models',
+      drives: [{ name: 'C:', total: 1_000_000_000_000, free: 182_000_000_000, holds: ['library', 'models'] }],
+      parts,
+      games: rooms
+        .map((room) => ({ ...room, parts: { ...room.parts }, total: total(room.parts) }))
+        .sort((a, b) => b.total - a.total),
+      model_rooms: models.map((model) => ({ ...model })),
+    };
+  };
   let board = [];
   let nextJob = 100;
   const listeners = new Map();
@@ -282,6 +313,32 @@
       settings = saved;
       searchEveryGame = every;
       return answers.settings();
+    },
+    reader_options: () => ({
+      card: 'NVIDIA GeForce RTX 4090',
+      card_bytes: 25_769_803_776,
+      on_processor: false,
+      reaches_card: true,
+      recommended: 'standard',
+      reads_with: settings.reader ?? 'standard',
+      sizes: [
+        { name: 'small', download_bytes: 244_000_000, bytes_left: 244_000_000, published: true, needs: 1_278_214_144, runs_here: true, times: 1 },
+        { name: 'standard', download_bytes: 1_127_000_000, bytes_left: 0, published: true, needs: 4_294_967_296, runs_here: true, times: 6.2 },
+      ],
+    }),
+    storage: () => storage(),
+    free_room: ({ appId, what }) => {
+      const parts = { search: ['search'], earlier: ['earlier'], partial: ['partial'], reads: ['reads'] }[what] ?? Object.keys(rooms[0].parts);
+      for (const room of rooms) {
+        if (appId !== null && room.app_id !== appId) continue;
+        for (const part of parts) room.parts[part] = 0;
+      }
+      if (what === 'game') rooms = rooms.filter((room) => room.app_id !== appId);
+      return storage();
+    },
+    remove_model: ({ key }) => {
+      for (const model of models) if (model.key === key) model.bytes = 0;
+      return storage();
     },
     newer_version: () => (settings.check_newer_version ? newer : null),
     'plugin:opener|open_url': () => null,

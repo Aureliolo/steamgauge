@@ -52,7 +52,11 @@ export function button(label, className, onClick) {
 }
 
 export const size = (bytes) =>
-  bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+  bytes >= 1e12
+    ? `${(bytes / 1e12).toFixed(2)} TB`
+    : bytes >= 1e9
+      ? `${(bytes / 1e9).toFixed(1)} GB`
+      : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 
 export function duration(seconds) {
   if (seconds < 60) return 'under a minute';
