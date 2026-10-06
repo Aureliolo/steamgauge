@@ -379,9 +379,40 @@ code {
   color: var(--ink-3);
 }
 
-.rail-newer .link {
-  justify-self: start;
+.newer-progress {
+  display: grid;
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+
+.newer-step {
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.newer-why {
   margin-top: var(--s1);
+  color: var(--ink-2);
+  font-size: var(--t-xs);
+  overflow-wrap: anywhere;
+}
+
+.rail-newer.failed {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+.newer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  margin-top: var(--s2);
+}
+
+.newer-actions:not(:has(> :not([hidden]))) {
+  display: none;
 }
 
 /* The page. */

@@ -70,16 +70,19 @@ fn names(dir: &Path) -> io::Result<Vec<String>> {
 /// `target`.
 fn same_volume(target: &Path) -> io::Result<PathBuf> {
     let device = fs::symlink_metadata(target)?.dev();
-    [Some(std::env::temp_dir()), target.parent().map(Path::to_path_buf)]
-        .into_iter()
-        .flatten()
-        .find(|dir| fs::metadata(dir).is_ok_and(|found| found.dev() == device))
-        .ok_or_else(|| {
-            io::Error::other(format!(
-                "no folder on the same disk as {} to unpack the update into",
-                target.display()
-            ))
-        })
+    [
+        Some(std::env::temp_dir()),
+        target.parent().map(Path::to_path_buf),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|dir| fs::metadata(dir).is_ok_and(|found| found.dev() == device))
+    .ok_or_else(|| {
+        io::Error::other(format!(
+            "no folder on the same disk as {} to unpack the update into",
+            target.display()
+        ))
+    })
 }
 
 /// The new app, unpacked and ready to take the place of `bundle`.
@@ -120,7 +123,12 @@ pub fn stage_app(archive: impl Read, bundle: &Path) -> io::Result<StagedApp> {
         )));
     }
     let app = staging.path().join(super::install::APP);
-    if !app.join("Contents").join("MacOS").join("steamgauge").is_file() {
+    if !app
+        .join("Contents")
+        .join("MacOS")
+        .join("steamgauge")
+        .is_file()
+    {
         return Err(invalid(format!(
             "{} in the archive has no program",
             super::install::APP
@@ -246,7 +254,11 @@ mod tests {
     fn installed_app(dir: &Path, program: &[u8]) -> PathBuf {
         let bundle = dir.join("SteamGauge.app");
         fs::create_dir_all(bundle.join("Contents").join("MacOS")).unwrap();
-        fs::write(bundle.join("Contents").join("MacOS").join("steamgauge"), program).unwrap();
+        fs::write(
+            bundle.join("Contents").join("MacOS").join("steamgauge"),
+            program,
+        )
+        .unwrap();
         fs::write(bundle.join("Contents").join("old-only"), b"old").unwrap();
         bundle
     }
@@ -262,7 +274,10 @@ mod tests {
         let staged = stage_app(app_archive(b"new").as_slice(), &bundle).unwrap();
         swap(&staged, &bundle).unwrap();
         assert_eq!(program_of(&bundle), b"new");
-        assert!(!bundle.join("Contents").join("old-only").exists(), "nothing of the old app stays");
+        assert!(
+            !bundle.join("Contents").join("old-only").exists(),
+            "nothing of the old app stays"
+        );
         let mode = fs::metadata(&bundle).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o755, "every account can open it");
         let program_mode = fs::metadata(bundle.join("Contents").join("MacOS").join("steamgauge"))
@@ -272,7 +287,10 @@ mod tests {
         assert_ne!(program_mode & 0o111, 0, "the program can still be run");
         let staging = staged.staging.path().to_path_buf();
         drop(staged);
-        assert!(!staging.exists(), "the previous app goes with the staging folder");
+        assert!(
+            !staging.exists(),
+            "the previous app goes with the staging folder"
+        );
         assert_eq!(names(dir.path()).unwrap(), ["SteamGauge.app"]);
     }
 
@@ -314,7 +332,11 @@ mod tests {
         }
         assert_eq!(program_of(&bundle), b"old");
         let left: Vec<String> = names(dir.path()).unwrap();
-        assert_eq!(left, ["SteamGauge.app"], "no staging folder is left beside the app");
+        assert_eq!(
+            left,
+            ["SteamGauge.app"],
+            "no staging folder is left beside the app"
+        );
     }
 
     #[test]
@@ -344,10 +366,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read(dir.path().join("steamgauge")).unwrap(), b"new");
-        assert_eq!(fs::read(dir.path().join("README.md")).unwrap(), b"new readme");
+        assert_eq!(
+            fs::read(dir.path().join("README.md")).unwrap(),
+            b"new readme"
+        );
         assert_eq!(fs::read(dir.path().join("LICENSE")).unwrap(), b"licence");
         assert_eq!(fs::read(dir.path().join("notes.txt")).unwrap(), b"mine");
-        let mode = fs::metadata(dir.path().join("steamgauge")).unwrap().permissions().mode();
+        let mode = fs::metadata(dir.path().join("steamgauge"))
+            .unwrap()
+            .permissions()
+            .mode();
         assert_ne!(mode & 0o111, 0, "the program can still be run");
         assert_eq!(
             names(dir.path()).unwrap(),
@@ -361,13 +389,16 @@ mod tests {
         let dir = Dir::new();
         fs::write(dir.path().join("steamgauge"), b"old").unwrap();
         for (refused, top) in [
-            (linux_archive("steamgauge-0.1.0-x86_64-linux-gnu", b"new"), "steamgauge-0.2.0-x86_64-linux-gnu"),
             (
-                archive(&[("top/README.md", b"readme", 0o644)]),
-                "top",
+                linux_archive("steamgauge-0.1.0-x86_64-linux-gnu", b"new"),
+                "steamgauge-0.2.0-x86_64-linux-gnu",
             ),
+            (archive(&[("top/README.md", b"readme", 0o644)]), "top"),
             (
-                archive(&[("top/steamgauge", b"new", 0o755), ("top/lib/inner", b"x", 0o644)]),
+                archive(&[
+                    ("top/steamgauge", b"new", 0o755),
+                    ("top/lib/inner", b"x", 0o644),
+                ]),
                 "top",
             ),
         ] {

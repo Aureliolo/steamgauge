@@ -157,11 +157,13 @@ pub fn sha256_of(from: &mut impl std::io::Read) -> std::io::Result<String> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::with_capacity(64), |mut text, byte| {
-        use std::fmt::Write as _;
-        let _ = write!(text, "{byte:02x}");
-        text
-    })
+    bytes
+        .iter()
+        .fold(String::with_capacity(64), |mut text, byte| {
+            use std::fmt::Write as _;
+            let _ = write!(text, "{byte:02x}");
+            text
+        })
 }
 
 /// Every bundle the attestations API's answer carries in full. One it gives only as a link to
@@ -300,7 +302,9 @@ mod tests {
             github.attestations,
             format!(
                 "https://api.github.com/repos/{}/attestations",
-                env!("CARGO_PKG_REPOSITORY").strip_prefix("https://github.com/").unwrap()
+                env!("CARGO_PKG_REPOSITORY")
+                    .strip_prefix("https://github.com/")
+                    .unwrap()
             )
         );
         assert_eq!(
@@ -312,8 +316,8 @@ mod tests {
     #[tokio::test]
     async fn a_download_is_hashed_as_it_is_written_and_reports_its_progress() {
         let body = b"the setup program".repeat(1000);
-        let served = body.clone();
-        let server = stand_in::Server::new(move |_| stand_in::Answer::body(served.clone()));
+        let sent = body.clone();
+        let server = stand_in::Server::new(move |_| stand_in::Answer::body(sent.clone()));
         let mut written = Vec::new();
         let mut seen = Vec::new();
         let fetched = download(
@@ -329,7 +333,10 @@ mod tests {
         assert_eq!(fetched.bytes, body.len() as u64);
         assert_eq!(fetched.sha256, sha256_of(&mut body.as_slice()).unwrap());
         assert_eq!(seen.first(), Some(&(0, Some(body.len() as u64))));
-        assert_eq!(seen.last(), Some(&(body.len() as u64, Some(body.len() as u64))));
+        assert_eq!(
+            seen.last(),
+            Some(&(body.len() as u64, Some(body.len() as u64)))
+        );
     }
 
     #[test]
@@ -392,8 +399,11 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(matches!(failed, Failed::Status(status) if status.as_u16() == 302), "{failed}");
-        assert!(written.is_empty());
+        assert!(
+            matches!(failed, Failed::Status(status) if status.as_u16() == 302),
+            "{failed}"
+        );
+        assert_eq!(written, b"");
     }
 
     #[tokio::test]
@@ -410,13 +420,14 @@ mod tests {
         .await
         .unwrap_err();
         assert!(matches!(failed, Failed::Status(status) if status.as_u16() == 404));
-        assert!(written.is_empty());
+        assert_eq!(written, b"");
     }
 
     #[tokio::test]
     async fn the_release_s_own_provenance_file_is_taken_and_the_api_is_not_asked() {
         let server = stand_in::Server::new(|asked| {
-            if asked.path() == "/releases/download/v0.2.0/steamgauge-0.2.0.provenance.sigstore.json" {
+            if asked.path() == "/releases/download/v0.2.0/steamgauge-0.2.0.provenance.sigstore.json"
+            {
                 stand_in::Answer::body("{\"the\":\"bundle\"}")
             } else {
                 stand_in::Answer::status(404)
@@ -444,7 +455,10 @@ mod tests {
             .unwrap();
         assert_eq!(bundles, bundles_in_answer(answer.as_bytes()).unwrap());
         let asked = server.asked();
-        let api = asked.iter().find(|request| request.path() == "/attestations/sha256:ab12").unwrap();
+        let api = asked
+            .iter()
+            .find(|request| request.path() == "/attestations/sha256:ab12")
+            .unwrap();
         assert_eq!(api.param("predicate_type"), Some("provenance"));
         assert_eq!(api.header("x-github-api-version"), Some("2022-11-28"));
     }
@@ -506,7 +520,10 @@ mod tests {
             serde_json::to_value(embedded_root().unwrap()).unwrap()
         );
         assert!(
-            server.asked().iter().any(|asked| asked.path().starts_with("/tuf/")),
+            server
+                .asked()
+                .iter()
+                .any(|asked| asked.path().starts_with("/tuf/")),
             "the TUF repository is asked first"
         );
     }

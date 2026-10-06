@@ -14,7 +14,7 @@ use std::{
 use serde::Serialize;
 use steamgauge_core::{
     newer_version::Asked,
-    self_update::{self, Arrived, Install, Origins, RELEASE_BUILD},
+    self_update::{self, Arrived, Install, Origins, RELEASE_BUILD, Version},
 };
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -29,7 +29,9 @@ use super::{
 pub enum Progress {
     /// Nothing under way. `why` says why this copy is not updated from the window, where it is
     /// not.
-    Idle { why: Option<String> },
+    Idle {
+        why: Option<String>,
+    },
     Downloading {
         done: f64,
         total: Option<f64>,
@@ -39,7 +41,10 @@ pub enum Progress {
     Verifying,
     Installing,
     /// Nothing was installed. `file` is whether the verified file is there to be shown.
-    Failed { why: String, file: bool },
+    Failed {
+        why: String,
+        file: bool,
+    },
 }
 
 /// The update under way, if any, and the verified file a failed install leaves to be shown.
@@ -51,8 +56,10 @@ pub struct Updating {
 
 impl Updating {
     fn set(&self, app: &AppHandle, progress: Progress) {
-        *self.now.lock().unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some(progress.clone());
+        *self
+            .now
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(progress.clone());
         let _ = app.emit("update", progress);
     }
 
@@ -130,6 +137,10 @@ fn on_this_system(_program: &Path) -> Result<Install, String> {
 
 /// Where the update is now, or what keeps this copy from being updated from the window.
 #[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
 pub fn update_state(updating: tauri::State<'_, Updating>) -> Progress {
     updating.current().unwrap_or_else(|| Progress::Idle {
         why: installed().err(),
@@ -236,12 +247,12 @@ fn held(path: &Path) -> std::io::Result<File> {
 }
 
 async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
-    let running = semver::Version::parse(env!("CARGO_PKG_VERSION")).map_err(Stop::new)?;
+    let running = Version::parse(env!("CARGO_PKG_VERSION")).map_err(Stop::new)?;
     let config = app.path().app_config_dir().map_err(Stop::new)?;
     let release = Asked::load(&config)
         .newer_than(&running.to_string())
         .ok_or_else(|| Stop::new("no newer release is known"))?;
-    let version = semver::Version::parse(&release.version).map_err(Stop::new)?;
+    let version = Version::parse(&release.version).map_err(Stop::new)?;
     let install = installed().map_err(Stop::new)?;
     let name = install.asset(&version);
     let local = app.path().app_local_data_dir().map_err(Stop::new)?;
@@ -261,7 +272,9 @@ async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
     let fetched = {
         let mut file = for_download(&path).map_err(Stop::new)?;
         let mut meter = Meter::new("download", 0.0, Instant::now());
-        let mut sent = Instant::now().checked_sub(EVERY).unwrap_or_else(Instant::now);
+        let mut sent = Instant::now()
+            .checked_sub(EVERY)
+            .unwrap_or_else(Instant::now);
         let mut tell = |done: u64, total: Option<u64>| {
             let (done, total) = (bytes(done), total.map(bytes));
             let now = Instant::now();
@@ -294,7 +307,9 @@ async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
     let mut file = held(&path).map_err(Stop::new)?;
     let sha256 = self_update::sha256_of(&mut file).map_err(Stop::new)?;
     if sha256 != fetched.sha256 {
-        return Err(Stop::new("the file changed on disk after it was downloaded"));
+        return Err(Stop::new(
+            "the file changed on disk after it was downloaded",
+        ));
     }
     let root = self_update::trusted_root(&http, &origins, &local.join("sigstore-tuf"))
         .await
@@ -326,7 +341,7 @@ fn put_in_place(
     install: &Install,
     path: &Path,
     held: File,
-    version: &semver::Version,
+    version: &Version,
 ) -> Result<(), Stop> {
     match install {
         Install::WindowsSetup => {
@@ -375,9 +390,7 @@ fn put_in_place(
                 ))
             })?;
             if self_update::install::declined(status.code()) {
-                return Err(shown(
-                    "the password prompt was closed, so the package was not installed".to_owned(),
-                ));
+                return Err(shown("the password prompt was closed".to_owned()));
             }
             if !status.success() {
                 return Err(shown(format!("the package manager stopped with {status}")));

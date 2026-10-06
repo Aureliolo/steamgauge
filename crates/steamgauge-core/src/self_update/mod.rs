@@ -20,7 +20,7 @@ pub use fetch::{
 pub use install::{Install, Owner};
 pub use verify::{Arrived, Builder, RELEASE_BUILD, Refusal, verify};
 
-use semver::Version;
+pub use semver::Version;
 use sigstore_verify::trust_root::TrustedRoot;
 
 /// Whether any of `bundles` proves `arrived`, as [`verify`] decides for one. The refusal given

@@ -66,7 +66,9 @@ pub fn on_windows(program: &Path) -> Result<Install, String> {
         .components()
         .any(|part| part.as_os_str().eq_ignore_ascii_case("scoop"))
     {
-        return Err("Scoop installed this copy, and `scoop update steamgauge` updates it".to_owned());
+        return Err(
+            "Scoop installed this copy, so Scoop updates it: scoop update steamgauge".to_owned(),
+        );
     }
     Err(
         "this copy runs from a folder the setup program did not install it in, so it is updated \
@@ -82,7 +84,9 @@ pub fn on_windows(program: &Path) -> Result<Install, String> {
 ///
 /// Says why a program outside a bundle, the portable archive's, is not updated from the window.
 pub fn on_macos(program: &Path) -> Result<Install, String> {
-    let macos = program.parent().filter(|dir| dir.file_name() == Some("MacOS".as_ref()));
+    let macos = program
+        .parent()
+        .filter(|dir| dir.file_name() == Some("MacOS".as_ref()));
     let contents = macos
         .and_then(Path::parent)
         .filter(|dir| dir.file_name() == Some("Contents".as_ref()));
@@ -272,7 +276,9 @@ mod tests {
         assert_eq!(named(Install::Deb), "steamgauge_0.2.0-1_amd64.deb");
         assert_eq!(named(Install::Rpm), "steamgauge-0.2.0-1.x86_64.rpm");
         assert_eq!(
-            named(Install::LinuxArchive { dir: PathBuf::new() }),
+            named(Install::LinuxArchive {
+                dir: PathBuf::new()
+            }),
             "steamgauge-0.2.0-x86_64-linux-gnu.tar.gz"
         );
     }
@@ -354,7 +360,10 @@ mod tests {
     fn a_linux_archive_unpacked_into_a_folder_of_one_s_own_has_its_files_replaced() {
         let dir = Dir::new();
         let program = dir.path().join("steamgauge");
-        assert!(on_linux(&program, Owner::Nobody).is_err(), "no archive here");
+        assert!(
+            on_linux(&program, Owner::Nobody).is_err(),
+            "no archive here"
+        );
         for file in ARCHIVE_FILES {
             std::fs::write(dir.path().join(file), b"").unwrap();
         }
@@ -454,13 +463,22 @@ mod tests {
         assert_eq!(words[..2], ["/usr/bin/osascript", "-e"]);
         let script = &words[2];
         assert!(script.starts_with("do shell script \""), "{script}");
-        assert!(script.ends_with("\" with administrator privileges"), "{script}");
+        assert!(
+            script.ends_with("\" with administrator privileges"),
+            "{script}"
+        );
         assert!(
             script.contains(r#"'/Applications/Steam\"Gauge'\\''s.app'"#),
             "the bundle's quote and apostrophe are escaped: {script}"
         );
-        assert!(script.contains("renamex_np(argv[0], argv[1], 2)"), "{script}");
-        assert!(script.contains("swapped) rm -rf '/tmp/stage/SteamGauge.app';;"), "{script}");
+        assert!(
+            script.contains("renamex_np(argv[0], argv[1], 2)"),
+            "{script}"
+        );
+        assert!(
+            script.contains("swapped) rm -rf '/tmp/stage/SteamGauge.app';;"),
+            "{script}"
+        );
     }
 
     #[test]

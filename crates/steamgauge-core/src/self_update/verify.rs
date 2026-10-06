@@ -48,10 +48,7 @@ impl Builder {
     /// The certificate's subject for a build at the tag of `version`.
     #[must_use]
     pub fn identity(&self, version: &Version) -> String {
-        format!(
-            "{}/{}@refs/tags/v{version}",
-            self.repository, self.workflow
-        )
+        format!("{}/{}@refs/tags/v{version}", self.repository, self.workflow)
     }
 }
 
@@ -137,7 +134,8 @@ pub fn verify(
             running: running.to_string(),
         });
     }
-    let bundle = Bundle::from_json(bundle).map_err(|error| Refusal::Unreadable(error.to_string()))?;
+    let bundle =
+        Bundle::from_json(bundle).map_err(|error| Refusal::Unreadable(error.to_string()))?;
     let digest = Sha256Hash::from_hex(arrived.sha256)
         .map_err(|error| Refusal::Unreadable(error.to_string()))?;
     let verifier = Verifier::new(root).map_err(|error| Refusal::Signature(error.to_string()))?;
@@ -254,7 +252,13 @@ mod tests {
     }
 
     fn check(arrived: &Arrived<'_>, running: &Version, builder: &Builder) -> Result<(), Refusal> {
-        verify(&bundle(), arrived, running, builder, &embedded_root().unwrap())
+        verify(
+            &bundle(),
+            arrived,
+            running,
+            builder,
+            &embedded_root().unwrap(),
+        )
     }
 
     fn setup(version: &Version) -> Arrived<'_> {
@@ -285,9 +289,19 @@ mod tests {
     #[test]
     fn a_release_that_is_not_newer_than_the_running_one_is_refused_before_anything_is_read() {
         let release = release();
-        for running in [release.clone(), Version::new(0, 1, 4), Version::new(1, 0, 0)] {
+        for running in [
+            release.clone(),
+            Version::new(0, 1, 4),
+            Version::new(1, 0, 0),
+        ] {
             assert_eq!(
-                verify("not a bundle", &setup(&release), &running, &RELEASE_BUILD, &embedded_root().unwrap()),
+                verify(
+                    "not a bundle",
+                    &setup(&release),
+                    &running,
+                    &RELEASE_BUILD,
+                    &embedded_root().unwrap()
+                ),
                 Err(Refusal::NotNewer {
                     offered: "0.1.3".to_owned(),
                     running: running.to_string(),
@@ -295,7 +309,12 @@ mod tests {
             );
         }
         assert!(
-            check(&setup(&release), &Version::parse("0.1.3-rc.1").unwrap(), &RELEASE_BUILD).is_ok(),
+            check(
+                &setup(&release),
+                &Version::parse("0.1.3-rc.1").unwrap(),
+                &RELEASE_BUILD
+            )
+            .is_ok(),
             "a release is newer than its own pre-release"
         );
     }
@@ -319,7 +338,10 @@ mod tests {
         };
         assert!(matches!(
             check(&setup(&release), &older(), &other),
-            Err(Refusal::Claim { claim: "identity", .. })
+            Err(Refusal::Claim {
+                claim: "identity",
+                ..
+            })
         ));
     }
 
@@ -332,7 +354,10 @@ mod tests {
         };
         assert!(matches!(
             check(&setup(&release), &older(), &other),
-            Err(Refusal::Claim { claim: "identity", .. })
+            Err(Refusal::Claim {
+                claim: "identity",
+                ..
+            })
         ));
     }
 
@@ -345,7 +370,10 @@ mod tests {
         };
         assert!(matches!(
             check(&setup(&release), &older(), &other),
-            Err(Refusal::Claim { claim: "issuer", .. })
+            Err(Refusal::Claim {
+                claim: "issuer",
+                ..
+            })
         ));
     }
 
@@ -434,7 +462,13 @@ mod tests {
         let tampered = bundle().replacen("\"sig\":\"MEUCIEaf", "\"sig\":\"MEUCIEag", 1);
         assert_ne!(tampered, bundle());
         assert!(matches!(
-            verify(&tampered, &setup(&release), &older(), &RELEASE_BUILD, &embedded_root().unwrap()),
+            verify(
+                &tampered,
+                &setup(&release),
+                &older(),
+                &RELEASE_BUILD,
+                &embedded_root().unwrap()
+            ),
             Err(Refusal::Signature(_))
         ));
     }

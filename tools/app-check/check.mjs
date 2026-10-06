@@ -5,7 +5,7 @@
 // here with `stub.js` standing in for that bridge, every page can be opened and every control
 // pressed without a library, a model or a webview: the cockpit, the work board, the library's
 // sorting, grouping and selection, the comparison, the settings, a game's page, and the notice
-// that a newer version is out.
+// that a newer version is out with every state of its update.
 //
 //   node tools/app-check/check.mjs [--shots <folder>]
 //
@@ -108,6 +108,68 @@ const PROBE = `(async function () {
   check('a fresh answer does not reach the notice', /SteamGauge 0\\.3\\.0 is out/.test($('#newer-version').textContent));
   window.__stub.hear({ version: '0.2.0', running: '0.1.0', url: release });
   await pause();
+
+  var notice = function () { return $('#newer-version').textContent; };
+  var visible = function (id) { return !document.getElementById(id).hidden; };
+  check('a copy the window can update is not offered Update now', visible('newer-update') &&
+    /Update now/.test($('#newer-update').textContent));
+  $('#newer-update').click();
+  await pause();
+  check('Update now does not ask the core to update', called('update_now').length === 1);
+  check('an update under way still offers Update now', !visible('newer-update'));
+  check('a download that has not started says nothing about it', visible('newer-progress') &&
+    /Downloading 0\\.2\\.0/.test(notice()));
+  window.__stub.update({ state: 'downloading', done: 12e6, total: 48e6, rate: 3e6, left: 12 });
+  await pause();
+  check('the update\\'s download does not say how much of how much', /12 MB of 48 MB/.test($('#newer-step').textContent));
+  check('the update\\'s download does not say how fast', /3 MB\\/s/.test($('#newer-step').textContent));
+  check('the update\\'s download does not say how long is left', /10 s left/.test($('#newer-step').textContent));
+  check('the update\\'s bar is not filled to the share downloaded', parseFloat($('#newer-fill').style.width) === 25 &&
+    !$('#newer-fill').classList.contains('working') && $('#newer-track').getAttribute('aria-valuenow') === '25');
+  check('a download under way can be sent elsewhere', !visible('newer-open'));
+  window.__stub.update({ state: 'verifying' });
+  await pause();
+  check('checking the file is not said', /Checking 0\\.2\\.0/.test(notice()) &&
+    /release workflow/.test($('#newer-step').textContent));
+  check('a step with no total has a bar that invents one', $('#newer-fill').classList.contains('working') &&
+    !$('#newer-track').hasAttribute('aria-valuenow'));
+  window.__stub.update({ state: 'installing' });
+  await pause();
+  check('installing does not say the app closes and opens again',
+    /Installing 0\\.2\\.0/.test(notice()) && /opens again as 0\\.2\\.0/.test($('#newer-step').textContent));
+  window.__stub.update({ state: 'failed', why: 'its signature does not verify: the log has no entry', file: false });
+  await pause();
+  check('a failed update does not say nothing was installed and why',
+    /The update to 0\\.2\\.0 stopped/.test(notice()) &&
+    /Nothing was installed, because its signature does not verify: the log has no entry\\./.test($('#newer-why').textContent));
+  check('a failed update does not offer the release page', visible('newer-open') &&
+    /Open the release page/.test($('#newer-open').textContent));
+  check('a failed update cannot be tried again', visible('newer-update') && /Try again/.test($('#newer-update').textContent));
+  check('a failed update offers a file it never kept', !visible('newer-show'));
+  check('a failed update still shows its bar', !visible('newer-progress'));
+  $('#newer-open').click();
+  await pause();
+  check('the release page is not opened after a failed update',
+    last('plugin:opener|open_url') && last('plugin:opener|open_url').args.url === release);
+  $('#newer-update').click();
+  await pause();
+  check('trying again does not ask the core again', called('update_now').length === 2);
+  window.__stub.update({ state: 'failed', why: 'the password prompt was closed', file: true });
+  await pause();
+  check('a verified package left on disk is not offered', visible('newer-show'));
+  $('#newer-show').click();
+  await pause();
+  check('showing the downloaded file does not ask the core', called('show_update_file').length === 1);
+  window.__stub.update({ state: 'idle', why: 'scoop installed this copy, so Scoop updates it: scoop update steamgauge' });
+  await pause();
+  check('a copy the window does not update is offered Update now', !visible('newer-update'));
+  check('a copy the window does not update is not told why, as a sentence',
+    /^Scoop installed this copy.*scoop update steamgauge\\.$/.test($('#newer-why').textContent));
+  check('a copy the window does not update is not sent to its release page',
+    visible('newer-open') && /Download it from its release page/.test($('#newer-open').textContent));
+  window.__stub.update({ state: 'idle', why: null });
+  await pause();
+  check('the notice keeps an old reason once the copy can update', !visible('newer-why') && visible('newer-update'));
 
   window.__stub.board([
     { id: 1, task: { kind: 'read', app_id: 1, language: 'english' }, name: 'Alpha', state: 'running',
@@ -543,6 +605,38 @@ try {
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-unread-${scheme}`);
+
+      // The rail's notice through every state of Update now, close up.
+      await load(page);
+      const notice = async (name, progress) => {
+        await evaluate(`window.__stub.update(${JSON.stringify(progress)})`);
+        await sleep(400);
+        const box = await evaluate(
+          "JSON.stringify(document.getElementById('newer-version').closest('.rail-foot').getBoundingClientRect())",
+        );
+        const { x, y, width, height } = JSON.parse(box.result.result.value);
+        const clip = { x: Math.max(0, x - 12), y: Math.max(0, y - 12), width: width + 24, height: height + 24, scale: 2 };
+        const picture = await send("Page.captureScreenshot", { format: "png", clip });
+        await writeFile(join(shots, `update-${name}-${scheme}.png`), Buffer.from(picture.result.data, "base64"));
+      };
+      await notice("offered", { state: "idle", why: null });
+      await notice("downloading", { state: "downloading", done: 31e6, total: 52e6, rate: 4.2e6, left: 5 });
+      await notice("verifying", { state: "verifying" });
+      await notice("installing", { state: "installing" });
+      await notice("failed", {
+        state: "failed",
+        why: "its signature does not verify: the transparency log has no entry for it",
+        file: false,
+      });
+      await notice("declined", {
+        state: "failed",
+        why: "the password prompt was closed",
+        file: true,
+      });
+      await notice("elsewhere", {
+        state: "idle",
+        why: "Scoop installed this copy, so Scoop updates it: scoop update steamgauge",
+      });
     }
     // The narrowest window the app allows, where a layout is first to give.
     await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
