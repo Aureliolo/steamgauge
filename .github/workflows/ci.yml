@@ -27,14 +27,14 @@ jobs:
     permissions:
       contents: read # Reads the source it lints.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # The desktop shell is Tauri, which links against the system webview. On Linux that is
       # WebKitGTK, and without it the workspace does not build at all: the failure is
       # `glib-sys` failing its build script, which names nothing about Tauri.
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt --all -- --check
       # Deliberately not --all-features: the cuda and metal backends need vendor toolchains
       # the runners do not have, and the default set is what actually ships.
@@ -67,7 +67,7 @@ jobs:
         x86_64-pc-windows-msvc:directml
         aarch64-apple-darwin:coreml
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # As release-build.yml installs it, which says why the digest is the checksum file's.
@@ -124,10 +124,10 @@ jobs:
     permissions:
       contents: read # Reads the source it lints.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - shell: bash
         env:
           FEATURE: ${{ matrix.feature }}
@@ -153,12 +153,12 @@ jobs:
     permissions:
       contents: read # Reads the source it tests.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test --locked --workspace
 
   # The training scripts decide every figure the reader is quoted with, and their tests need
@@ -172,7 +172,7 @@ jobs:
     permissions:
       contents: read # Reads the training scripts and their lock.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -201,10 +201,10 @@ jobs:
     permissions:
       contents: read # Reads the source it builds the pages from.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # No system webview needed here: the example lives in the core crate, which is the
       # half of the workspace that knows nothing about a window.
       - run: cargo run --locked -p steamgauge-core --example sample-report -- report.html
@@ -248,7 +248,7 @@ jobs:
     permissions:
       contents: read # Reads the manifests, the lock files and the ignore lists.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # The archive's digest is read from the checksum file the release publishes beside it,
@@ -353,7 +353,7 @@ jobs:
     permissions:
       contents: read # Reads the manifests and the source it checks them against.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # As cargo-deny above, and for the same reason the checksum file's digest is the one pinned.
@@ -390,7 +390,7 @@ jobs:
     permissions:
       contents: read # Reads the files it checks.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Check spelling
@@ -405,7 +405,7 @@ jobs:
     permissions:
       contents: read # Reads the files it checks.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # The dash is built from its UTF-8 bytes, so this file holds none for the search to find and
@@ -430,7 +430,7 @@ jobs:
     permissions:
       contents: read # Reads the Markdown it lints.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Lint
@@ -445,7 +445,7 @@ jobs:
     permissions:
       contents: read # Reads the scripts it checks.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # A pinned release rather than the image's own, whose version moves with the image and
