@@ -7,6 +7,7 @@
   ],
   "extends": [
     "config:best-practices",
+    "helpers:pinGitHubActionDigestsToSemver",
     "group:all",
     "security:openssf-scorecard"
   ],

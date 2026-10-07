@@ -1,13 +1,66 @@
 --- installer.nsi
 +++ installer.nsi
-@@ -241,6 +241,10 @@
+@@ -165,9 +165,38 @@
+ !define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
+ !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
+
++; SteamGauge: an upgrade installs over the older copy where it is, as Tauri's own updater does
++; with /UPDATE, and past the welcome page it asks nothing: not whether to uninstall first, whose
++; default runs the old uninstaller and its offer to delete the library of downloaded reviews and
++; reads, and not where to install, which the older copy's own entry already says.
++Var Upgrading
++Function DetectUpgrade
++  StrCpy $Upgrading 0
++  ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
++  ${IfThen} $R0 == "" ${|} Return ${|}
++  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
++  Pop $R0
++  ${IfThen} $R0 = 1 ${|} StrCpy $Upgrading 1 ${|}
++FunctionEnd
++Function WelcomeShow
++  Call DetectUpgrade
++  ; With no licence page between, the welcome page's button is the one that starts installing.
++  !if "${LICENSE}" == ""
++    ${If} $Upgrading = 1
++      GetDlgItem $R0 $HWNDPARENT 1
++      SendMessage $R0 ${WM_SETTEXT} 0 "STR:$(^InstallBtn)"
++    ${EndIf}
++  !endif
++FunctionEnd
++Function SkipIfPassiveOrUpgrading
++  ${IfThen} $PassiveMode = 1 ${|} Abort ${|}
++  ${IfThen} $Upgrading = 1 ${|} Abort ${|}
++FunctionEnd
++
+ ; Installer pages, must be ordered as they appear
+ ; 1. Welcome Page
+ !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
++!define MUI_PAGE_CUSTOMFUNCTION_SHOW WelcomeShow
+ !insertmacro MUI_PAGE_WELCOME
+
+ ; 2. License Page (if defined)
+@@ -241,6 +270,8 @@
      !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(chooseMaintenanceOption)"
    ; Upgrading
    ${ElseIf} $R0 = 1
-+    ; SteamGauge: an upgrade installs over the older copy, as Tauri's own updater does with
-+    ; /UPDATE, and this page is skipped. Its default runs the old uninstaller first, whose page
-+    ; offers to delete the application data: the library of downloaded reviews and reads.
++    ; SteamGauge: see DetectUpgrade.
 +    Abort
      StrCpy $R1 "$(olderOrUnknownVersionInstalled)"
      StrCpy $R2 "$(uninstallBeforeInstalling)"
      StrCpy $R3 "$(dontUninstall)"
+@@ -386,13 +417,13 @@
+ FunctionEnd
+
+ ; 5. Choose install directory page
+-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
++!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassiveOrUpgrading
+ !insertmacro MUI_PAGE_DIRECTORY
+
+ ; 6. Start menu shortcut page
+ Var AppStartMenuFolder
+ !if "${STARTMENUFOLDER}" != ""
+-  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
++  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassiveOrUpgrading
+   !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${STARTMENUFOLDER}"
+ !else
+   !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
