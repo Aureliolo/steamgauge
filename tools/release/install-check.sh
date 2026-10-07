@@ -154,21 +154,28 @@ case "${target}" in
     step "Installing ${previous} silently" "${previous_dir}/${previous_setup}" //S
     same "The folder ${previous} keeps under Software\\Aurelio" \
       "$(powershell_value "(Get-Item 'HKCU:\\Software\\Aurelio\\SteamGauge').GetValue('')")" "${folder}"
-    # A person upgrading opens the setup program's window. Past the welcome page it goes straight
-    # to where to install: Tauri's own script asks there whether to uninstall first, by default
-    # yes, and that runs the old uninstaller, whose page offers to delete the library.
-    echo "::group::Pressing Next in the setup program over ${previous}"
-    upgrade_page="$(powershell -NoProfile -File "$(cygpath -w tools/release/setup-next-page.ps1)" -Setup "$(cygpath -w "${setup}")" | tr -d '\r')"
-    echo "${upgrade_page}"
+    # A person upgrading opens the setup program's window. Its welcome page's button installs, over
+    # the older copy where it is: Tauri's own script would ask next whether to uninstall first, by
+    # default yes, which runs the old uninstaller and its offer to delete the library, and then
+    # where to install, which the older copy's entry already says.
+    echo "::group::Upgrading ${previous} through the setup program's window"
+    upgrade="$(powershell -NoProfile -File "$(cygpath -w tools/release/setup-window-upgrade.ps1)" -Setup "$(cygpath -w "${setup}")" | tr -d '\r')"
+    echo "${upgrade}"
     echo "::endgroup::"
-    if grep -qi "uninstall" <<<"${upgrade_page}"; then
-      echo "Upgrading ${previous} from the setup program's window offers to uninstall it first." >&2
+    if ! grep -qx "Welcome button: Install" <<<"${upgrade}"; then
+      echo "The setup program's welcome page over ${previous} does not offer to install." >&2
       exit 1
     fi
-    if ! grep -q "Choose Install Location" <<<"${upgrade_page}"; then
-      echo "Past its welcome page, the setup program over ${previous} does not ask where to install." >&2
+    after_welcome="$(sed -n '/^--- Pressing Install$/,/^--- /p' <<<"${upgrade}")"
+    if ! grep -qE "^(Installing|Installation Complete)$" <<<"${after_welcome}"; then
+      echo "Pressing Install on the welcome page over ${previous} does not start installing." >&2
       exit 1
     fi
+    if grep -q "Choose Install Location" <<<"${upgrade}"; then
+      echo "Upgrading ${previous} through the setup program's window asks where to install." >&2
+      exit 1
+    fi
+    expect_version "${home}/steamgauge.exe"
     step "Installing silently over it" "${setup}" //S
     ls -la "${home}"
     for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do

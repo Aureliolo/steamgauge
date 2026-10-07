@@ -5086,17 +5086,22 @@ back to that one and waits on a window nobody asked for. A hook
 (`crates/steamgauge-app/installer-hooks.nsh`) adds the same uninstaller with `/S` as the quiet
 one, and the install check reads that registered command and runs it.
 
-**An upgrade installs in place, with no offer to uninstall first (2026-10-06).** Tauri's setup
-script meets an older copy with a page whose default runs the old uninstaller, and that
-uninstaller's page offers to delete the application data, which is the whole library. Nothing in
-`tauri.conf.json` changes it and the hooks file is read before the variables that page uses. So
-the setup program is built from `crates/steamgauge-app/installer.nsi`, Tauri's own script at the
-bundler the pinned tauri-cli uses plus the one change in `installer.patch`: an upgrade skips the
-page and installs over the older copy, as Tauri's updater does with `/UPDATE`.
+**An upgrade installs in place and asks nothing past the welcome page (2026-10-06).** Tauri's
+setup script meets an older copy with a page whose default runs the old uninstaller, and that
+uninstaller's page offers to delete the application data, which is the whole library; after it,
+the script asks where to install, though the older copy's entry already says. Nothing in
+`tauri.conf.json` changes either and the hooks file is read before the variables that page uses.
+So the setup program is built from `crates/steamgauge-app/installer.nsi`, Tauri's own script at
+the bundler the pinned tauri-cli uses plus the change in `installer.patch`: over an older copy,
+the welcome page's button reads Install and installs over that copy where it is, as Tauri's
+updater does with `/UPDATE`, with neither page shown. A first install still asks where to
+install, and the same version found again still offers to repair or uninstall.
 `tools/release/installer-template-check.sh` rebuilds the copy from upstream and the patch on every
 pull request, so a tauri-cli bump that moves Tauri's script fails until the copy is taken again,
-and the install check opens the setup program's window over 0.1.2, presses Next and reads the page
-it lands on.
+and the install check upgrades 0.1.2 through the setup program's window to its finish page,
+reading that the welcome page's button installs and that no page asks where.
+
+The setup program and its uninstaller carry the app's icon, the dial.
 
 **The Windows setup program replaces the program or stops.** Tauri's template copies the program
 over the installed one, and when that copy fails in a silent install it carries on and reports
