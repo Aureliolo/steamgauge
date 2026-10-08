@@ -824,6 +824,16 @@ try {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
+      // A comparison with games in it, as choosing two in the library opens it.
+      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await sleep(300);
+      // The table is drawn again after each tick, so each row is found afresh.
+      for (const row of [0, 1]) {
+        await evaluate(`document.querySelectorAll('#library-rows tr input')[${row}].click()`);
+        await sleep(150);
+      }
+      await evaluate("document.getElementById('selected-compare').click()");
+      await shoot(`compare-chosen-${scheme}`);
       // The cockpit's first card when nothing changed since the last look, and on a first look.
       await evaluate("document.querySelector('[data-go=\"cockpit\"]').click();window.__stub.lately('calm')");
       await shoot(`cockpit-since-calm-${scheme}`);

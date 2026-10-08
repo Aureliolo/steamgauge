@@ -454,7 +454,9 @@ function drawTopics(found) {
   set(
     el('topics-footnote'),
     `Mention rates count a review once for every subject it raises, however many times it ` +
-      `raises it, so they add up to more than 100% and are meant to. ` +
+      `raises it, so they add up to more than 100% and are meant to. In the most helpful is ` +
+      `how many times as often a subject comes up in the most helpful reviews, the ones Steam ` +
+      `shows a store visitor first, as in all of them. ` +
       (caveat.hidden
         ? `${share.format(unread)} of points name no subject the model would commit to, and ` +
           `${whole.format(found.silent_reviews)} reviews name none at all. Those are ` +

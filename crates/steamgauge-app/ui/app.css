@@ -2564,7 +2564,8 @@ figure.timeline .update-line.chosen {
   gap: var(--s3);
 }
 
-.who-head h4 {
+.who-head h4,
+.who > h4 {
   font-size: var(--t-lg);
   font-weight: 650;
 }
@@ -2583,15 +2584,6 @@ figure.timeline .update-line.chosen {
 .who > .quiet {
   font-size: var(--t-sm);
   line-height: 1.6;
-}
-
-.who-lead {
-  margin-bottom: var(--s2);
-  color: var(--ink-3);
-  font-size: var(--t-xs);
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .who-findings {
