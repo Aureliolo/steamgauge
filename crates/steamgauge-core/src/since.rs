@@ -667,19 +667,24 @@ mod tests {
     #[test]
     fn praise_is_compared_as_well_as_complaint_and_clearest_comes_first() {
         let mut now = reading(MID_MAY_2024, 1_650, 1_300, 120);
-        // Story praised by 200 of the 400 new reviews, against none of the year before; bugs
+        // Story praised by 200 of the 400 new reviews, against 10% of the year before; bugs
         // complained about by 60 of them, against 5%.
         now.subjects = serde_json::from_value(serde_json::json!([
             subject("bugs", 0, 120, 0),
             subject("story", 250, 0, 0)
         ]))
         .unwrap();
+        for month in &mut now.months {
+            month.praising[slot("story")] = 10;
+        }
         let found = since(&seen_at_march(), 1_900, Some(&now));
         assert_eq!(found.moves.len(), 2);
         assert_eq!(
             (found.moves[0].subject, found.moves[0].side),
             ("story", Side::Praise)
         );
+        assert!((found.moves[0].shift.before - 0.10).abs() < 1e-12);
+        assert!((found.moves[0].shift.recent - 0.50).abs() < 1e-12);
         assert_eq!(found.moves[1].subject, "bugs");
         assert!(found.moves[0].shift.z.abs() > found.moves[1].shift.z.abs());
     }
@@ -720,6 +725,10 @@ mod tests {
         assert!(!clear(&shift(0.0, 0.02, 3.99)));
         assert!(!clear(&shift(0.0, 0.019, 9.0)));
         assert!(!clear(&shift(0.019, 0.0, -9.0)));
+        assert!(
+            !clear(&shift(0.30, 0.31, 9.0)),
+            "a point between two large shares is a point"
+        );
     }
 
     #[test]
