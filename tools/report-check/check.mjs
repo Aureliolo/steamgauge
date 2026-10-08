@@ -309,7 +309,9 @@ const PROBE = `(function () {
   check('a difference does not say what it is set against',
     Array.prototype.every.call(differ, function (item) { return / against [0-9.]+% of /.test(item.textContent); }));
   check('a game read before reviewers were told apart does not say so',
-    /not counted when this game was read/.test(document.body.textContent));
+    Array.prototype.every.call(document.querySelectorAll('section.game'), function (game) {
+      return game.querySelector('table.who') !== null || /not counted when this game was read/.test(game.textContent);
+    }));
 
   // Printing: every fold open, every filtered row still gone.
   if (input) {
