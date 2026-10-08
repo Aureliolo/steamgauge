@@ -194,7 +194,7 @@ fn count(reviews: &[Dated], from: i64, to: i64) -> Counts {
         praising: vec![0; SHEET.len()],
         complaining: vec![0; SHEET.len()],
     };
-    for review in &reviews[start..end.max(start)] {
+    for review in &reviews[start..end] {
         counts.reviews += 1;
         counts.recommending += u64::from(review.recommends);
         for slot in 0..SHEET.len() {
@@ -560,6 +560,77 @@ mod tests {
     }
 
     #[test]
+    fn a_subject_is_ranked_by_its_clearest_change_and_then_by_how_much_it_is_raised() {
+        let side = |before: f64, after: f64, z: f64, change: bool| Compared {
+            before,
+            after,
+            z,
+            change,
+        };
+        let subject = |praise, complaint| Subject {
+            subject: "bugs",
+            label: "Bugs",
+            praise,
+            complaint,
+        };
+        // Ten standard errors that are half a point is not a change, and does not rank as one.
+        let ranked = subject(side(0.40, 0.405, 10.0, false), side(0.1, 0.2, -4.0, true));
+        assert!((ranked.clearest() - 4.0).abs() < 1e-12);
+        let both = subject(side(0.1, 0.3, 5.0, true), side(0.3, 0.1, -6.0, true));
+        assert!((both.clearest() - 6.0).abs() < 1e-12);
+        let neither = subject(side(0.1, 0.1, 0.0, false), side(0.2, 0.3, 2.0, false));
+        assert!(neither.clearest().abs() < 1e-12);
+        assert!((neither.raised() - 0.7).abs() < 1e-12);
+    }
+
+    #[test]
+    fn subjects_that_did_not_change_are_listed_most_raised_first() {
+        let posted = 100 * DAY;
+        let review = |created: i64, praise: u64| Dated {
+            created,
+            recommends: true,
+            praise,
+            complaint: 0,
+        };
+        let mut reviews = Vec::new();
+        for at in 0..200 {
+            let story = if at % 2 == 0 { bit("story") } else { 0 };
+            let both = bit("audio") | story;
+            reviews.push(review(posted - WINDOW + at, both));
+            reviews.push(review(posted + at, both));
+        }
+        reviews.sort_by_key(|one| one.created);
+        let found = around(&update("1", posted), &reviews, posted + WINDOW, &[]);
+        let order: Vec<&str> = found.subjects.iter().map(|s| s.subject).collect();
+        assert_eq!(order, ["audio", "story"]);
+    }
+
+    #[test]
+    fn a_subject_raised_on_one_side_only_is_listed() {
+        let posted = 100 * DAY;
+        let mut reviews: Vec<Dated> = (0..200)
+            .map(|at| Dated {
+                created: posted - WINDOW + at,
+                recommends: true,
+                praise: if at < 50 { bit("audio") } else { 0 },
+                complaint: 0,
+            })
+            .collect();
+        reviews.extend((0..200).map(|at| Dated {
+            created: posted + at,
+            recommends: true,
+            praise: 0,
+            complaint: 0,
+        }));
+        let found = around(&update("1", posted), &reviews, posted + WINDOW, &[]);
+        let audio = found.subjects.iter().find(|s| s.subject == "audio");
+        assert!(
+            audio.is_some_and(|audio| audio.praise.change && audio.praise.after.abs() < 1e-12),
+            "a subject nobody raises after an update is a change, not a gap"
+        );
+    }
+
+    #[test]
     fn a_window_holds_from_its_start_up_to_but_not_its_end() {
         let posted = 100 * DAY;
         let at = |created: i64| Dated {
@@ -686,13 +757,14 @@ mod tests {
 
     #[test]
     fn the_biggest_updates_are_the_most_reviewed_after_and_four_weeks_apart() {
+        let launched = MARCH;
         let arounds = [
-            after("launch", 0, 9_000, true),
-            after("hotfix", DAY, 8_000, true),
-            after("big", WINDOW, 7_000, true),
-            after("quiet", 3 * WINDOW, 500, true),
-            after("thin", 5 * WINDOW, 9_500, false),
-            after("small", 7 * WINDOW, 400, true),
+            after("launch", launched, 9_000, true),
+            after("hotfix", launched + DAY, 8_000, true),
+            after("big", launched + WINDOW, 7_000, true),
+            after("quiet", launched + 3 * WINDOW, 500, true),
+            after("thin", launched + 5 * WINDOW, 9_500, false),
+            after("small", launched + 7 * WINDOW, 400, true),
         ];
         let chosen: Vec<&str> = biggest(&arounds, 3)
             .iter()
@@ -732,6 +804,8 @@ mod tests {
         assert!((position(leap, &chart).unwrap() - 28.0 / 29.0).abs() < 1e-12);
         let april = MARCH + 40 * DAY;
         assert_eq!(position(april, &chart), Some(2.0), "a month with no column");
+        let may = MARCH + 75 * DAY;
+        assert!((position(may, &chart).unwrap() - (2.0 + 14.5 / 31.0)).abs() < 1e-12);
         assert_eq!(position(MARCH - 40 * DAY, &chart), None);
         assert_eq!(position(MARCH + 100 * DAY, &chart), None);
         assert_eq!(position(MARCH, &[]), None);

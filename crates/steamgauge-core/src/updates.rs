@@ -584,20 +584,21 @@ mod tests {
 
     #[test]
     fn an_update_posted_twice_within_a_week_is_one_update() {
+        let (first, week) = (1_700_000_000, 7 * 86_400);
         let kept = Announcements {
             asked: 0,
             posts: vec![
-                post("1", "Patch 1.2", 0),
-                post("2", "PATCH 1.2", REPOSTED_WITHIN),
-                post("3", "Patch 1.2", REPOSTED_WITHIN + 1),
-                post("4", "Patch 1.3", REPOSTED_WITHIN + 2),
-                post("5", "Sale", REPOSTED_WITHIN + 3),
+                post("1", "Patch 1.2", first),
+                post("2", "PATCH 1.2", first + week),
+                post("3", "Patch 1.2", first + week + 1),
+                post("4", "Patch 1.3", first + week + 2),
+                post("5", "Sale", first + week + 3),
             ],
         };
         let updates = kept.updates();
         let ids: Vec<&str> = updates.iter().map(|u| u.gid.as_str()).collect();
         assert_eq!(ids, ["1", "3", "4"]);
-        assert_eq!(updates[0].posted, 0);
+        assert_eq!(updates[0].posted, first);
         assert_eq!(updates[0].link, link("1"));
     }
 
