@@ -5012,8 +5012,9 @@ opens on what moved since their last visit, and a desktop notification can say w
 jumps. Every game in the library is a game followed; there is no second list to keep.
 
 **Keeping up to date is a setting, on by default.** It is what the app is for once a game is in
-the library, and it does only what **Bring up to date** already does: the update fetches what was
-written or edited since, and a game that had been read is read again in its language with the
+the library, and it does only what **Bring up to date** already does, as the same job: the update
+fetches what was written or edited since and the developer's posts for the timeline (the entry
+above), and a game that had been read is read again in its language with the
 reader in use, at the share of the card in Settings. It runs only while the app is open, as
 ordinary jobs on the board, with no service, no scheduled task and nothing that starts with the
 system. Steam is asked when the app opens and again while it stays open, still at most every six
