@@ -2265,8 +2265,31 @@ table.games td:last-child {
   gap: var(--s5);
 }
 
-.topics > h3 {
+/* The heading and the way to take its figures away share a line, and part in a narrow window. */
+.topics-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+}
+
+.topics-head h3 {
   font-size: var(--t-xl);
+}
+
+.export-data {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+
+#export-jobs:not([hidden]) {
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
 }
 
 .lede {

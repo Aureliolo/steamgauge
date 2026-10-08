@@ -434,7 +434,18 @@
           </div>
 
           <div class="topics" id="topics" hidden>
-            <h3>What people talk about</h3>
+            <div class="topics-head">
+              <h3>What people talk about</h3>
+              <div class="export-data">
+                <button type="button" class="quiet-button" id="export-data">
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" /></svg>
+                  Export data
+                </button>
+                <span class="quiet small">Every figure and point, as CSV and JSON</span>
+              </div>
+            </div>
+            <p class="note bad" id="export-note" role="status" aria-live="polite" hidden></p>
+            <ul class="jobs" id="export-jobs" hidden></ul>
             <p class="lede" id="topics-lede">
               <span id="topics-counted"></span>
               <button type="button" class="link" id="switch-language"></button>

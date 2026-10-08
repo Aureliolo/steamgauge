@@ -713,7 +713,7 @@ struct DrawnClaim {
 ///
 /// A set that exists and cannot be scored says why, rather than passing as no set: the
 /// difference is whether a reader is sent to label the game or to read it again.
-fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Measurement {
+pub(crate) fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Measurement {
     let Ok(labels) = std::fs::read(reference.join("labels.json")) else {
         return Measurement::Unlabelled;
     };

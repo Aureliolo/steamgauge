@@ -721,7 +721,7 @@ pub async fn export_report(app: AppHandle, app_ids: Vec<u32>) -> Result<Option<u
 }
 
 /// A game's name as a file name: what Windows, macOS and Linux all refuse in one is dropped.
-fn file_safe(name: &str) -> String {
+pub(super) fn file_safe(name: &str) -> String {
     let kept: String = name
         .chars()
         .filter(|c| {

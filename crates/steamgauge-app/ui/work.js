@@ -51,6 +51,8 @@ export function taskName(task) {
       return 'Check against Steam';
     case 'export':
       return 'Save a report';
+    case 'export_data':
+      return 'Export the data';
     case 'fetch_reader':
       return 'Download the reader';
     default:
@@ -113,6 +115,8 @@ export function jobItem(job, { named = true } = {}) {
     actions.append(button('Take off the list', 'ghost small', () => stop(job.id)));
   } else if (job.state === 'done' && job.task.kind === 'export') {
     actions.append(button('Open', 'quiet-button small', () => invoke('open_report', { id: job.id })));
+  } else if (job.state === 'done' && job.task.kind === 'export_data') {
+    actions.append(button('Open the folder', 'quiet-button small', () => invoke('open_report', { id: job.id })));
   }
   item.append(
     make('div', 'job-head', make('div', 'job-title', named ? make('span', 'job-name', job.name) : null, kind), actions),

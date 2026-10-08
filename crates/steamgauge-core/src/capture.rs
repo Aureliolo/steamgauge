@@ -498,7 +498,32 @@ pub struct Row {
 /// Fails if a shard cannot be read, or if the visitor does.
 pub fn for_each_row(snapshot: &Path, mut visit: impl FnMut(Row, &str) -> Result<()>) -> Result<()> {
     each_batch(snapshot, &ROW_COLUMNS, |batch, kept| {
-        rows_of(batch, kept, &mut visit)
+        rows_of(batch, kept, &mut |_, row, text| visit(row, text))
+    })
+}
+
+/// [`for_each_row`], with the Steam id of each review's writer beside it, which is what a link
+/// to the review on Steam is made from; empty where Steam did not say.
+///
+/// # Errors
+///
+/// Fails if a shard cannot be read, or if the visitor does.
+pub fn for_each_row_with_author(
+    snapshot: &Path,
+    mut visit: impl FnMut(Row, &str, &str) -> Result<()>,
+) -> Result<()> {
+    let mut columns = ROW_COLUMNS.to_vec();
+    columns.push("author_steamid");
+    each_batch(snapshot, &columns, |batch, kept| {
+        let authors = batch
+            .column_by_name("author_steamid")
+            .and_then(|column| column.as_any().downcast_ref::<StringArray>());
+        rows_of(batch, kept, &mut |at, row, text| {
+            let author = authors
+                .filter(|column| !column.is_null(at))
+                .map_or("", |column| column.value(at));
+            visit(row, author, text)
+        })
     })
 }
 
@@ -516,7 +541,7 @@ pub fn rows_kept<T: Send>(
     keep: impl Fn(Row, &str) -> Option<T> + Sync,
 ) -> Result<Vec<T>> {
     side_by_side(snapshot, &ROW_COLUMNS, |batch, kept, into| {
-        rows_of(batch, kept, &mut |row, text| {
+        rows_of(batch, kept, &mut |_, row, text| {
             into.extend(keep(row, text));
             Ok(())
         })
@@ -589,10 +614,12 @@ const ROW_COLUMNS: [&str; 10] = [
     "received_for_free",
 ];
 
+/// Hands `visit` each kept row of a batch with its position in the batch, so a caller that read
+/// a further column can find the row's value in it.
 fn rows_of(
     batch: &RecordBatch,
     kept: &Kept<'_>,
-    visit: &mut impl FnMut(Row, &str) -> Result<()>,
+    visit: &mut impl FnMut(usize, Row, &str) -> Result<()>,
 ) -> Result<()> {
     use arrow::array::{BooleanArray, Float64Array, UInt32Array};
 
@@ -656,6 +683,7 @@ fn rows_of(
         }
         let body = texts.value(row);
         visit(
+            row,
             Row {
                 recommendationid: ids.value(row).to_owned(),
                 helpfulness: if helpful.is_null(row) {

@@ -2431,7 +2431,7 @@ fn bcp47(steam: &str) -> Option<&'static str> {
 }
 
 /// What to call a Steam language on screen, falling back to whatever Steam called it.
-fn language_name(steam: &str) -> String {
+pub(crate) fn language_name(steam: &str) -> String {
     LANGUAGES
         .iter()
         .find(|(name, _, _)| *name == steam)

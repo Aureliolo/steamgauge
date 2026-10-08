@@ -55,10 +55,21 @@ extend-ignore-re = [
 ]
 
 [default.extend-identifiers]
-# Other projects' names, which are not ours to spell: serde's `Serialize`, sha2's `finalize`,
+# Other projects' names, which are not ours to spell: serde's `Serialize` and the serialiser's
+# own trait and methods a value is written through by hand, sha2's `finalize`,
 # Node's and torch's `normalize`, torch's `synchronize`, scikit-learn's `analyzer`, the HTTP
 # `authorization` header, transformers' `DataCollatorForLanguageModeling` and NSIS's `StrCpy`.
 Serialize = "Serialize"
+SerializeMap = "SerializeMap"
+Serializer = "Serializer"
+serialize = "serialize"
+serialize_map = "serialize_map"
+serialize_entry = "serialize_entry"
+serialize_str = "serialize_str"
+serialize_u64 = "serialize_u64"
+serialize_f64 = "serialize_f64"
+serialize_bool = "serialize_bool"
+serialize_none = "serialize_none"
 skip_serializing_if = "skip_serializing_if"
 finalize = "finalize"
 normalize = "normalize"
