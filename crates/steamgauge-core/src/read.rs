@@ -426,6 +426,10 @@ pub struct ReadReport {
     pub strict_languages: Vec<(String, u64)>,
     /// What was said month by month, oldest first.
     pub months: Vec<Month>,
+    /// Every subject counted again for each kind of reviewer, in the order of
+    /// [`crate::who::SEGMENTS`]. Empty on a reading counted before reviewers were told apart.
+    #[serde(default)]
+    pub who: Vec<crate::who::SegmentCount>,
     #[serde(skip)]
     pub elapsed: Duration,
 }
@@ -604,12 +608,14 @@ fn read_with(
 ///
 /// Fails if the capture, the readings or the reading are missing, if the readings were
 /// answered under other lines than the reader named, or if this build takes a review apart
-/// differently from the build that read it, so the answers no longer name its claims.
+/// differently from the build that read it, so the answers no longer name its claims; and
+/// stops, leaving the reading as it was, once `stop` is set.
 pub fn recount_corpus(
     out_dir: &Path,
     app_id: u32,
     top_helpful: usize,
     provenance: &crate::reader::Provenance,
+    stop: &AtomicBool,
     mut on_progress: impl FnMut(ReadProgress),
 ) -> Result<ReadReport> {
     let started = Instant::now();
@@ -658,7 +664,7 @@ pub fn recount_corpus(
     let counted = recount_rows(
         &snapshot,
         &replay,
-        &options,
+        (&options, stop),
         context,
         &stored,
         (RECOUNT_TELLS_EVERY, &mut on_progress),
@@ -711,7 +717,7 @@ const RECOUNT_TELLS_EVERY: u64 = 25_000;
 fn recount_rows(
     snapshot: &Path,
     replay: &Path,
-    options: &ReadOptions,
+    (options, stop): (&ReadOptions, &AtomicBool),
     context: bool,
     stored: &Stored,
     (every, on_progress): (u64, &mut impl FnMut(ReadProgress)),
@@ -720,6 +726,9 @@ fn recount_rows(
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
     let mut claims_seen: u64 = 0;
     crate::capture::for_each_row(snapshot, |row, text| {
+        if stop.load(Ordering::Relaxed) {
+            return Err(Error::Stopped);
+        }
         counting.note_corpus(&row);
         if options
             .language
@@ -1160,6 +1169,7 @@ struct Counting {
     tallies: Vec<Tally>,
     languages: HashMap<String, u64>,
     calendar: HashMap<String, Month>,
+    who: crate::who::Tally,
     top: crate::bounded::Smallest<std::cmp::Reverse<u64>, Vec<usize>>,
     rows: ReadingRows,
     said: crate::said::Said,
@@ -1190,6 +1200,7 @@ impl Counting {
             tallies: vec![Tally::default(); SHEET.len()],
             languages: HashMap::new(),
             calendar: HashMap::new(),
+            who: crate::who::Tally::new(),
             top: crate::bounded::Smallest::new(top_helpful),
             rows: ReadingRows::default(),
             said: crate::said::Said::new(SHEET.len()),
@@ -1207,6 +1218,46 @@ impl Counting {
     fn note_corpus(&mut self, row: &crate::capture::Row) {
         self.corpus_reviews += 1;
         *self.languages.entry(row.language.clone()).or_default() += 1;
+    }
+
+    /// A review added to the month it was written in and to every kind of reviewer its writer
+    /// is, which the claims it makes are then counted under too.
+    fn by_month_and_writer(
+        &mut self,
+        row: &crate::capture::Row,
+        verdict: &Verdict,
+    ) -> crate::who::Membership {
+        let label = crate::time::year_month(row.created);
+        let member = crate::who::Membership::of(&row.reviewer);
+        self.who.review(
+            member,
+            &crate::who::Reviewed {
+                recommended: row.voted_up,
+                month: &label,
+                claims: verdict.claims as u64,
+                subjects: &verdict.subjects,
+                praise: &verdict.praise,
+                complaint: &verdict.complaint,
+            },
+        );
+        let month = self.calendar.entry(label.clone()).or_insert_with(|| Month {
+            label,
+            reviews: 0,
+            positive: 0,
+            subjects: vec![0; SHEET.len()],
+            praising: vec![0; SHEET.len()],
+            complaining: vec![0; SHEET.len()],
+        });
+        month.reviews += 1;
+        if row.voted_up {
+            month.positive += 1;
+        }
+        for &subject in &verdict.subjects {
+            month.subjects[subject] += 1;
+            month.praising[subject] += u64::from(verdict.praise[subject]);
+            month.complaining[subject] += u64::from(verdict.complaint[subject]);
+        }
+        member
     }
 
     fn count(
@@ -1240,26 +1291,7 @@ impl Counting {
         if let Some(primary) = verdict.primary {
             self.tallies[primary].primary_reviews += 1;
         }
-        let month = self
-            .calendar
-            .entry(crate::time::year_month(row.created))
-            .or_insert_with(|| Month {
-                label: crate::time::year_month(row.created),
-                reviews: 0,
-                positive: 0,
-                subjects: vec![0; SHEET.len()],
-                praising: vec![0; SHEET.len()],
-                complaining: vec![0; SHEET.len()],
-            });
-        month.reviews += 1;
-        if row.voted_up {
-            month.positive += 1;
-        }
-        for &subject in &verdict.subjects {
-            month.subjects[subject] += 1;
-            month.praising[subject] += u64::from(verdict.praise[subject]);
-            month.complaining[subject] += u64::from(verdict.complaint[subject]);
-        }
+        let member = self.by_month_and_writer(row, &verdict);
 
         for &subject in &verdict.subjects {
             let tally = &mut self.tallies[subject];
@@ -1290,6 +1322,7 @@ impl Counting {
                     .chain(reading.also.iter())
                 {
                     self.tallies[subject].claims += 1;
+                    self.who.claim(member, subject);
                     self.said.note(subject, polarity, claim);
                 }
             }
@@ -1407,6 +1440,7 @@ impl Counting {
             unread_languages: unread,
             strict_languages: strict,
             months,
+            who: self.who.finish(),
             elapsed: Duration::default(),
         })
     }
@@ -1793,7 +1827,10 @@ pub(crate) mod tests {
                     "votes_up": match *id { "1" | "2" => 50, "4" => 20, "6" => 30, "7" => 40,
                                             _ => 10 },
                     "timestamp_created": 1_709_294_400 + days * 86_400,
-                    "author": {"steamid": format!("7656{id}")},
+                    // The first reviewer played an hour and a half, on a Deck; the rest fifty.
+                    "author": {"steamid": format!("7656{id}"),
+                               "playtime_at_review": if *id == "1" { 90 } else { 3_000 }},
+                    "primarily_steam_deck": *id == "1",
                 })
             })
             .collect();
@@ -2027,12 +2064,21 @@ pub(crate) mod tests {
             read.save(&snapshot.join("reading.json")).unwrap();
 
             let mut told = 0;
-            let again = recount_corpus(out.path(), 1, 2, &model.provenance, |_| told += 1).unwrap();
+            let again = recount_corpus(
+                out.path(),
+                1,
+                2,
+                &model.provenance,
+                &AtomicBool::new(false),
+                |_| told += 1,
+            )
+            .unwrap();
             assert_eq!(
                 told, 0,
                 "a corpus this small is counted before there is anything to tell"
             );
             assert_eq!(tallies(&again), tallies(&read));
+            assert_eq!(again.who, read.who);
             assert_eq!(
                 (
                     again.reviews,
@@ -2103,9 +2149,86 @@ pub(crate) mod tests {
         };
         let read = read_with(&mut model, 1, &options, |_| {}).unwrap();
         read.save(&snapshot.join("reading.json")).unwrap();
-        let again = recount_corpus(out.path(), 1, 2, &model.provenance, |_| {}).unwrap();
+        let again = recount_corpus(
+            out.path(),
+            1,
+            2,
+            &model.provenance,
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
         assert_eq!((again.reviews, again.corpus_reviews), (6, 7));
         assert_eq!(tallies(&again), tallies(&read));
+    }
+
+    #[test]
+    fn a_recount_asked_to_stop_stops_and_leaves_the_reading_as_it_was() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut model = Table::new(false);
+        let read = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        read.save(&snapshot.join("reading.json")).unwrap();
+        let before = std::fs::read(snapshot.join("reading.json")).unwrap();
+        let stopped = recount_corpus(
+            out.path(),
+            1,
+            2,
+            &model.provenance,
+            &AtomicBool::new(true),
+            |_| {},
+        );
+        assert!(matches!(stopped, Err(Error::Stopped)), "{stopped:?}");
+        assert_eq!(
+            std::fs::read(snapshot.join("reading.json")).unwrap(),
+            before
+        );
+        assert!(!snapshot.join("readings.recount.parquet").exists());
+    }
+
+    #[test]
+    fn every_subject_is_counted_again_for_each_kind_of_reviewer() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let report = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+        let kind = |id: &str| {
+            report
+                .who
+                .iter()
+                .find(|count| count.id == id)
+                .unwrap_or_else(|| panic!("no count of {id}"))
+        };
+        assert_eq!(
+            report
+                .who
+                .iter()
+                .map(|count| count.id.as_str())
+                .collect::<Vec<_>>(),
+            crate::who::SEGMENTS.map(|segment| segment.id)
+        );
+        let bugs = SHEET.iter().position(|c| c.id == "bugs").unwrap();
+        let (newcomer, deck) = (kind("under-2-hours"), kind("steam-deck"));
+        assert_eq!(
+            (newcomer.reviews, &newcomer.raised, &newcomer.months),
+            (deck.reviews, &deck.raised, &deck.months),
+            "the one reviewer under two hours played on a Deck"
+        );
+        assert_eq!((newcomer.reviews, newcomer.positive), (1, 0));
+        assert_eq!(newcomer.raised[bugs], 1);
+        assert_eq!(newcomer.criticised[bugs], 1);
+        assert_eq!(newcomer.claims_about[bugs], 1);
+        assert_eq!(newcomer.claims, 2);
+        assert_eq!(newcomer.months.len(), 1);
+        let rest = kind("30-to-100-hours");
+        assert_eq!(rest.reviews, report.reviews - 1);
+        assert_eq!(rest.positive, report.positive);
+        assert_eq!(kind("elsewhere").reviews, report.reviews - 1);
+        assert_eq!(kind("paid-for-it").reviews, report.reviews);
+        assert_eq!(kind("got-it-free").reviews, 0);
+        assert_eq!(
+            kind("after-release").claims + kind("early-access").claims,
+            report.claims
+        );
     }
 
     #[test]
@@ -2116,7 +2239,14 @@ pub(crate) mod tests {
         let read = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
         let recount = |reading: &ReadReport, provenance: &Provenance| {
             reading.save(&snapshot.join("reading.json")).unwrap();
-            recount_corpus(out.path(), 1, 2, provenance, |_| {})
+            recount_corpus(
+                out.path(),
+                1,
+                2,
+                provenance,
+                &AtomicBool::new(false),
+                |_| {},
+            )
         };
         assert!(recount(&read, &model.provenance).is_ok());
 
@@ -2148,7 +2278,7 @@ pub(crate) mod tests {
         let counted = recount_rows(
             &snapshot,
             &out.path().join("replay.parquet"),
-            &options(out.path()),
+            (&options(out.path()), &AtomicBool::new(false)),
             false,
             &Stored::new(),
             (2, &mut |progress: ReadProgress| {
@@ -2209,6 +2339,7 @@ pub(crate) mod tests {
                     voted_up: false,
                     language: language.to_owned(),
                     created: 0,
+                    reviewer: crate::who::Reviewer::default(),
                 });
             }
         }
@@ -2421,6 +2552,7 @@ pub(crate) mod tests {
                     voted_up: true,
                     language: "english".to_owned(),
                     created: 0,
+                    reviewer: crate::who::Reviewer::default(),
                 },
                 text: Arc::from(rejoined(&claims)),
                 spans,
@@ -2473,6 +2605,7 @@ pub(crate) mod tests {
                 language: "english".to_owned(),
                 // 15 March 2024.
                 created: 1_710_504_000,
+                reviewer: crate::who::Reviewer::default(),
             },
             text: Arc::from(rejoined(&claims)),
             spans,
@@ -2661,6 +2794,7 @@ pub(crate) mod tests {
             unread_languages: Vec::new(),
             strict_languages: Vec::new(),
             months: Vec::new(),
+            who: Vec::new(),
             elapsed: Duration::ZERO,
         };
         let ratio = found

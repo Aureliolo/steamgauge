@@ -31,6 +31,7 @@ import { setUpSettings } from './settings.js';
 import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
+import { setUpWho, drawWho, drawRecount } from './who.js';
 
 const PER_PAGE = 25;
 
@@ -100,6 +101,7 @@ function drawGameJobs() {
   const reading = mine.some((job) => active(job) && job.task.kind === 'read');
   el('do-read').disabled = reading;
   el('do-sweep').disabled = mine.some((job) => active(job) && job.task.kind === 'update');
+  drawRecount();
 }
 
 async function loadTopics(appId) {
@@ -110,6 +112,7 @@ async function loadTopics(appId) {
     drawTopics(counted);
     drawTimeline(counted.months);
     drawLanguages(counted.languages, counted.corpus_reviews);
+    drawWho(counted);
     panel.hidden = false;
     el('game-actions').hidden = true;
     loadInduced(appId);
@@ -510,16 +513,19 @@ let reading = null;
 
 /* `narrowed` is null for every point under the subject, or `{side, term}` for the points on
    one side, using one word from the strip where `term` is given. The same page function serves
-   both, so the strip is a filter on the evidence and not a second view of it. */
-async function openClaims(subject, from, narrowed = null) {
-  reading = { subject, from, narrowed };
+   both, so the strip is a filter on the evidence and not a second view of it. `who` is the kind
+   of reviewer whose reviews alone the points are drawn from, or null for everyone. */
+async function openClaims(subject, from, narrowed = null, who = null) {
+  reading = { subject, from, narrowed, who };
   go('evidence');
   set(el('evidence-name'), subject.label);
   set(el('evidence-lede'), 'Finding them...');
   el('said-strip').hidden = true;
   el('meaning').hidden = true;
   meaningFor = null;
-  drawTerms(subject, narrowed);
+  /* The words that stand out are counted over every review, so beside one kind's points they
+     would be someone else's figures. */
+  drawTerms(who === null ? subject : { ...subject, praised_terms: [], criticised_terms: [] }, narrowed);
   el('quotes').replaceChildren();
   el('earlier').disabled = true;
   el('later').disabled = true;
@@ -531,6 +537,7 @@ async function openClaims(subject, from, narrowed = null) {
       subject: subject.id,
       side: narrowed?.side ?? null,
       term: narrowed?.term ?? null,
+      who: who?.id ?? null,
       from,
       count: PER_PAGE,
     });
@@ -538,7 +545,12 @@ async function openClaims(subject, from, narrowed = null) {
     set(el('evidence-lede'), String(failure));
     return;
   }
-  if (reading?.subject?.id !== subject.id || reading.from !== from || reading.narrowed !== narrowed) {
+  if (
+    reading?.subject?.id !== subject.id ||
+    reading.from !== from ||
+    reading.narrowed !== narrowed ||
+    reading.who !== who
+  ) {
     return;
   }
 
@@ -547,13 +559,15 @@ async function openClaims(subject, from, narrowed = null) {
   const reviews = `${whole.format(subject.reviews)} ${subject.reviews === 1 ? 'review' : 'reviews'}`;
   set(
     el('evidence-lede'),
-    narrowed === null
-      ? `${points} about this, raised in ${reviews}. Each one is shown as it was written.`
-      : narrowed.term
-        ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this that ` +
-          `say “${narrowed.term}”. Each one is shown as it was written.`
-        : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this. ` +
-          'Each one is shown as it was written.',
+    who !== null
+      ? `${points} about this from ${who.phrase}, raised in ${reviews} of theirs. Each one is shown as it was written.`
+      : narrowed === null
+        ? `${points} about this, raised in ${reviews}. Each one is shown as it was written.`
+        : narrowed.term
+          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this that ` +
+            `say “${narrowed.term}”. Each one is shown as it was written.`
+          : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this. ` +
+            'Each one is shown as it was written.',
   );
   drawClaims(found.claims);
 
@@ -883,12 +897,13 @@ function drawClaims(claims, list = el('quotes')) {
 function turnPage(from) {
   if (!reading) return;
   if (reading.query !== undefined) openSearch(reading.query, from, reading.narrow);
-  else openClaims(reading.subject, from, reading.narrowed);
+  else openClaims(reading.subject, from, reading.narrowed, reading.who);
 }
 
 page('game', el('game'));
 page('evidence', el('evidence'));
 setUpFinder({ openGame });
+setUpWho({ openClaims, drawTimeline });
 setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });

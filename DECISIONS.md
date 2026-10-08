@@ -33,6 +33,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | **Build an overall picture of the game from those summaries** | done as a paragraph assembled from the counts: which subjects are raised most and by what share of reviews, which way each leans, and the words that stand out on each side. Every clause is a number with words around it, nothing is inferred, and a subject nobody raises is not mentioned. A written summary by a hosted model remains the upgrade |
 | **Click through from any number to the reviews behind it** | done in the app, every subject opens onto its claims a page at a time; the report quotes eight per subject |
 | Helpfulness bias ships as a column on every category | done |
+| **Every figure can be split by who wrote it**: time played, Steam Deck, early access, a free copy | done 2026-10-08: one kind of reviewer beside everyone else or another kind, the timeline and the evidence following; differences listed at four standard errors and two points, kinds under 100 reviews never shown (below) |
 | Irony and ratings that disagree with the text are flagged, not filed away | flagged on labelled reviews only |
 
 ## Models and setup
@@ -4879,6 +4880,58 @@ the gap spans three standard errors of a two-proportion test, and it is at least
 library of seventy games tests thousands of shares, and at two standard errors dozens would
 clear by chance; a corpus of a million reviews makes a fifth of a point significant, and nobody
 acts on that. The share recommending the game is held to the same rule.
+
+### Every figure can be split by who wrote it (2026-10-08)
+
+The user's decision: every figure and subject of a read game can be split by the reviewer, using
+what Steam records beside every review and the crawl already kept. A reading counts every subject
+again for each kind of reviewer (`who.rs`, `ReadReport::who`): reviews, the share recommending,
+reviews raising, praising, complaining about and doing both to each subject, claims about it, and
+reviews and recommendations per month. The game page chooses one kind and shows its table and its
+timeline beside everyone else, or beside another kind of the same question; every figure opens
+onto the points behind it from that kind's reviews alone. A reading counted before this has none
+of it, and "Count again" in the window, or `steamgauge recount`, adds it from the stored answers
+in a minute without the reader.
+
+**The questions, and the ones left out.** Time played when the review was written; whether it was
+played mostly on a Steam Deck; whether it was written during early access; whether the copy was
+received free. Each makes kinds that share no review, so any two of one question can be compared.
+Time played *now* and in the last two weeks are left out: Steam reports both as of the crawl, so
+they describe the reviewer today rather than what they knew when they wrote. A copy bought on
+Steam against one activated from a key is left out too: both were paid for, and nobody acts on
+the difference. Language already has its own control, and the share recommending is a figure,
+not a kind of reviewer. "Paid for it" means not ticked as free, keys included. The Deck flag
+exists only since the Deck shipped in 2022, so every earlier review is "mostly elsewhere".
+
+**The bands of time played**: under 2 hours, 2 to 10, 10 to 30, 30 to 100, 100 or more. The
+first is Steam's refund window, the one line in hours a reviewer's position actually changes at.
+The rest were read from the published dataset's 25,242 reviews of 69 games: a tenth were written
+under 1.7 hours, a quarter under 6.1, half under 20.4, three quarters under 66 and nine tenths
+under 220. Cut at 10, 30 and 100 the four bands after the refund window hold 23%, 25%, 23% and
+19% of reviewers, as even as round numbers allow, so a game of a few thousand reviews has
+hundreds in each. Bands cut per game at its own quarters were refused: the median per game runs
+from 2 hours to 600, and "the top quarter" would be 40 hours on one page and 900 on the next,
+which nobody can read across games. 10 to 50 and 50 to 100 put 36% in one band and 12% in the next
+and named nothing a reader recognises at 50.
+
+**What stands out between them is held to what moved's discipline.** A kind with fewer than 100
+reviews shows no figure, cannot be chosen, and is never compared, which is the recent window's
+floor. Each kind is set against everyone else of its question, and a question with two answers is
+tested once, since the second against the first is the first against the second. A difference is
+listed where it spans four standard errors of the pooled two-proportion test and two points. Four
+rather than what moved's three because of how many shares are tested: a game's eight comparisons
+test some four hundred shares (praise and complaint on 25 subjects, and the share recommending),
+where what moved tests about fifty; at three standard errors one would clear by chance on every
+game, at four fewer than one game in thirty shows one. The subject that says nothing about the
+game is not tested. Findings are the clearest first, as moves are. A share in the window carries
+the band its reviews allow (Wilson, 95%) drawn around its bar, so a kind of a few hundred reviews
+reads as the estimate it is. The report lists the twenty clearest under each game, and the table
+of kinds with their share recommending, coloured only where that gap clears the same bar.
+
+Not done, and why: the comparison is not made within each language the way the words that stand
+out are. A reading of every language whose kinds differ in language mix can show a difference
+that is partly the languages; the window's default reading is English alone, where this cannot
+arise.
 
 ### The library lives in the local app data folder (2026-10-06)
 

@@ -488,6 +488,7 @@ pub struct Row {
     pub voted_up: bool,
     pub language: String,
     pub created: i64,
+    pub reviewer: crate::who::Reviewer,
 }
 
 /// Streams every review with the fields a counting pass needs, and its text.
@@ -575,13 +576,17 @@ fn side_by_side<T: Send>(
 }
 
 /// The columns a [`Row`] and its text are made from.
-const ROW_COLUMNS: [&str; 6] = [
+const ROW_COLUMNS: [&str; 10] = [
     "review",
     "language",
     "weighted_vote_score",
     "votes_up",
     "voted_up",
     "timestamp_created",
+    "author_playtime_at_review",
+    "primarily_steam_deck",
+    "written_during_early_access",
+    "received_for_free",
 ];
 
 fn rows_of(
@@ -626,6 +631,24 @@ fn rows_of(
         .ok_or(Error::MalformedPayload {
             field: "timestamp_created",
         })?;
+    // Optional rather than required: a capture written by hand for a test, or by a build that
+    // never asked Steam for them, still counts, with its reviewers unknown.
+    let played = batch
+        .column_by_name("author_playtime_at_review")
+        .and_then(|column| column.as_any().downcast_ref::<UInt32Array>());
+    let flag = |name: &str| {
+        batch
+            .column_by_name(name)
+            .and_then(|column| column.as_any().downcast_ref::<BooleanArray>())
+    };
+    let (deck, early, free) = (
+        flag("primarily_steam_deck"),
+        flag("written_during_early_access"),
+        flag("received_for_free"),
+    );
+    let set = |column: Option<&BooleanArray>, row: usize| {
+        column.is_some_and(|column| !column.is_null(row) && column.value(row))
+    };
 
     for row in 0..batch.num_rows() {
         if texts.is_null(row) || texts.value(row).trim().is_empty() || !kept.row(row) {
@@ -655,6 +678,14 @@ fn rows_of(
                     0
                 } else {
                     created.value(row)
+                },
+                reviewer: crate::who::Reviewer {
+                    played_minutes: played
+                        .filter(|column| !column.is_null(row))
+                        .map(|column| column.value(row)),
+                    deck: set(deck, row),
+                    early_access: set(early, row),
+                    free: set(free, row),
                 },
             },
             body,
@@ -1194,6 +1225,89 @@ mod tests {
             ],
             "the rows that count, in the order the capture holds them"
         );
+    }
+
+    #[test]
+    fn a_row_says_who_wrote_it_as_far_as_steam_said() {
+        let scratch = Scratch::new("reviewer");
+        let mut told = review("1", "played it a lot", 1, 1);
+        told["author"] = json!({"steamid": "7", "playtime_at_review": 1234});
+        told["primarily_steam_deck"] = json!(true);
+        told["written_during_early_access"] = json!(true);
+        told["received_for_free"] = json!(true);
+        let mut denied = review("3", "said no to all of it", 1, 1);
+        denied["primarily_steam_deck"] = json!(false);
+        denied["written_during_early_access"] = json!(false);
+        denied["received_for_free"] = json!(false);
+        write(
+            &scratch.0.join("shard-0000.parquet"),
+            &[told, review("2", "said nothing about myself", 1, 1), denied],
+        );
+        let mut seen = Vec::new();
+        for_each_row(&scratch.0, |row, _| {
+            seen.push((row.recommendationid, row.reviewer));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            seen,
+            [
+                (
+                    "1".to_owned(),
+                    crate::who::Reviewer {
+                        played_minutes: Some(1234),
+                        deck: true,
+                        early_access: true,
+                        free: true,
+                    }
+                ),
+                ("2".to_owned(), crate::who::Reviewer::default()),
+                ("3".to_owned(), crate::who::Reviewer::default()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_capture_without_the_reviewer_columns_still_counts_with_its_reviewers_unknown() {
+        use arrow::array::{BooleanArray, Float64Array, UInt32Array};
+
+        let scratch = Scratch::new("no-reviewer");
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("recommendationid", DataType::Utf8, false),
+            Field::new("review", DataType::Utf8, true),
+            Field::new("language", DataType::Utf8, true),
+            Field::new("weighted_vote_score", DataType::Float64, true),
+            Field::new("votes_up", DataType::UInt32, true),
+            Field::new("voted_up", DataType::Boolean, true),
+            Field::new("timestamp_created", DataType::Int64, true),
+            Field::new("timestamp_updated", DataType::Int64, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(StringArray::from(vec!["1"])),
+                Arc::new(StringArray::from(vec!["fine"])),
+                Arc::new(StringArray::from(vec!["english"])),
+                Arc::new(Float64Array::from(vec![0.5])),
+                Arc::new(UInt32Array::from(vec![1])),
+                Arc::new(BooleanArray::from(vec![true])),
+                Arc::new(Int64Array::from(vec![1])),
+                Arc::new(Int64Array::from(vec![1])),
+            ],
+        )
+        .unwrap();
+        let file = File::create(scratch.0.join("shard-0000.parquet")).unwrap();
+        let mut writer = ArrowWriter::try_new(file, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        let mut seen = Vec::new();
+        for_each_row(&scratch.0, |row, _| {
+            seen.push(row.reviewer);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(seen, [crate::who::Reviewer::default()]);
     }
 
     #[test]

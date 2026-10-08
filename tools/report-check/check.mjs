@@ -297,6 +297,20 @@ const PROBE = `(function () {
     }
   }
 
+  // Who wrote the reviews: every kind of reviewer listed, a kind too few to count shown without a
+  // share, and every difference saying what it is set against.
+  check('no game says who wrote its reviews', document.querySelectorAll('table.who').length > 0);
+  var tooFew = document.querySelectorAll('table.who tr.too-few');
+  check('no kind of reviewer is too few to count', tooFew.length > 0);
+  check('a kind of reviewer too few to count is given a share',
+    Array.prototype.every.call(tooFew, function (row) { return !/%/.test(row.textContent); }));
+  var differ = document.querySelectorAll('ul.differ li');
+  check('nowhere do the kinds of reviewer differ', differ.length > 0);
+  check('a difference does not say what it is set against',
+    Array.prototype.every.call(differ, function (item) { return / against [0-9.]+% of /.test(item.textContent); }));
+  check('a game read before reviewers were told apart does not say so',
+    /not counted when this game was read/.test(document.body.textContent));
+
   // Printing: every fold open, every filtered row still gone.
   if (input) {
     input.value = 'price';

@@ -45,6 +45,7 @@ mod tempdir;
 pub mod time;
 #[cfg(test)]
 mod tiny_model;
+pub mod who;
 
 pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;

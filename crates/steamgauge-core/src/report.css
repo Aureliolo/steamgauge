@@ -1095,6 +1095,71 @@ button.more:hover {
   color: var(--over);
 }
 
+/* A frame as wide as the three columns inside it, rather than the page's width around them. */
+.scroll.fits {
+  width: fit-content;
+  max-width: 100%;
+}
+
+table.who {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  min-width: 22rem;
+}
+
+table.who th,
+table.who td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+table.who thead th {
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+table.who tbody th {
+  font-weight: 400;
+}
+
+table.who tr.split th {
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding-top: 1rem;
+}
+
+table.who .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+table.who tr.too-few th,
+table.who tr.too-few td {
+  color: var(--ink-faint);
+}
+
+h4:not(.side) {
+  font-size: 0.95rem;
+  margin: 1.5rem 0 0.4rem;
+}
+
+ul.differ {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+  max-width: var(--measure);
+}
+
+ul.differ li {
+  margin-bottom: 0.4rem;
+}
+
 ul.languages {
   list-style: none;
   margin: 0 0 1rem;
@@ -1244,7 +1309,8 @@ a {
   }
 
   h2,
-  h3 {
+  h3,
+  h4 {
     break-after: avoid;
   }
 }

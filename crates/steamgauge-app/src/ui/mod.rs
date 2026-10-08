@@ -10,6 +10,7 @@ mod newer;
 mod settings;
 mod storage;
 mod update;
+mod who;
 mod work;
 
 use std::{
@@ -405,6 +406,8 @@ struct Reading {
     months: Vec<MonthOut>,
     /// Commonest first, over the whole capture rather than the counted language.
     languages: Vec<Language>,
+    /// The kinds of reviewer, and where one says something more or less often than the rest.
+    who: who::Overview,
 }
 
 /// One month of the corpus, as the window draws it.
@@ -461,15 +464,44 @@ fn subject_row(
             _ => None,
         },
         positive: share_of(subject.positive_mentions, subject.mention_reviews),
-        corrected: measured
-            .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_CORRECT_A_ROW)
-            .and_then(|s| {
-                share_of(subject.claims, found.claims).and_then(|observed| s.corrected(observed))
-            }),
+        corrected: corrected_share(agreement, &subject.id, subject.claims, found.claims),
         found: measured.and_then(steamgauge_core::measure::SubjectAgreement::recall),
         praised_terms: said.map(|said| said.praised.clone()).unwrap_or_default(),
         criticised_terms: said.map(|said| said.criticised.clone()).unwrap_or_default(),
     }
+}
+
+/// What the share of claims about a subject would be with the model's measured errors taken out,
+/// where this game has labels enough to correct by and the model finds the subject better than
+/// chance.
+fn corrected_share(
+    agreement: Option<&steamgauge_core::ClaimAgreement>,
+    subject: &str,
+    claims: u64,
+    of_claims: u64,
+) -> Option<f64> {
+    agreement?
+        .subjects
+        .iter()
+        .find(|s| s.id == subject)
+        .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_CORRECT_A_ROW)
+        .and_then(|s| share_of(claims, of_claims).and_then(|observed| s.corrected(observed)))
+}
+
+/// Whether the reader learned from this game's labels, and how often it agrees with them where it
+/// did not. A game without them still renders; it just cannot say how often it is wrong, and the
+/// window says that instead. On a game it learned from the model reproduces its labels at 99%,
+/// and that figure would advertise its memory.
+fn measurement(dir: &Path, app_id: u32) -> (bool, Option<steamgauge_core::ClaimAgreement>) {
+    let reference = steamgauge_core::claimset::default_reference_dir(app_id);
+    let labelled = reference.join("labels.json").is_file();
+    let learned = labelled
+        && steamgauge_core::measure::role(app_id, steamgauge_core::measure::SPLIT_SEED)
+            == steamgauge_core::measure::Role::Train;
+    let agreement = (labelled && !learned)
+        .then(|| steamgauge_core::measure::agreement(dir, app_id, &reference).ok())
+        .flatten();
+    (learned, agreement)
 }
 
 /// What the reading pass wrote beside a snapshot's readings.
@@ -493,18 +525,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
     let found = read_report(&snapshot)?;
     let facts = report::crawl_facts(&dir, app_id).map_err(text)?;
 
-    // The measurement, where this game has labelled claims the model never trained on. A game
-    // without them still renders; it just cannot say how often it is wrong, and the window
-    // says that instead. On a game it learned from the model reproduces its labels at 99%,
-    // and that figure would advertise its memory.
-    let reference = steamgauge_core::claimset::default_reference_dir(app_id);
-    let labelled = reference.join("labels.json").is_file();
-    let learned = labelled
-        && steamgauge_core::measure::role(app_id, steamgauge_core::measure::SPLIT_SEED)
-            == steamgauge_core::measure::Role::Train;
-    let agreement = (labelled && !learned)
-        .then(|| steamgauge_core::measure::agreement(&dir, app_id, &reference).ok())
-        .flatten();
+    let (learned, agreement) = measurement(&dir, app_id);
     let subjects = found
         .subjects
         .iter()
@@ -563,6 +584,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
                 share: share_of(*reviews, found.corpus_reviews),
             })
             .collect(),
+        who: who::overview(&found),
     })
 }
 
@@ -676,17 +698,23 @@ type Filed = (steamgauge_core::claims::Span, String, f32);
 
 /// Every claim filed under a subject, most helpful review first, a page at a time.
 ///
-/// Narrowed to one side when `side` is given, and to the claims using a term when `term` is,
-/// which is how a word that stands out opens onto the reviews it was counted from. Off the
-/// window's thread, because a term is found by walking the whole capture, and a window that
-/// stops answering for that long is a window a person force-quits.
+/// Narrowed to one side when `side` is given, to the claims using a term when `term` is, which
+/// is how a word that stands out opens onto the reviews it was counted from, and to one kind of
+/// reviewer's reviews when `who` is. Off the window's thread, because a term or a kind of
+/// reviewer is found by walking the whole capture, and a window that stops answering for that
+/// long is a window a person force-quits.
 #[tauri::command]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a tauri command takes the window's arguments one by one"
+)]
 async fn claims_behind(
     app: AppHandle,
     app_id: u32,
     subject: String,
     side: Option<String>,
     term: Option<String>,
+    who: Option<String>,
     from: usize,
     count: usize,
 ) -> Result<ClaimsBehind, String> {
@@ -694,14 +722,23 @@ async fn claims_behind(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let _ = read_report(&snapshot)?;
+        let only = who
+            .as_deref()
+            .map(|kind| who::written_by(&snapshot, kind))
+            .transpose()?;
+        let narrowed = Narrowed {
+            subject: &subject,
+            side: side.as_deref(),
+            only: only.as_ref(),
+        };
 
         let (total, wanted) = match term
             .as_deref()
             .map(str::trim)
             .filter(|term| !term.is_empty())
         {
-            Some(term) => claims_using(&snapshot, &subject, side.as_deref(), term, from, count),
-            None => claims_under(&snapshot, &subject, side.as_deref(), from, count),
+            Some(term) => claims_using(&snapshot, &narrowed, term, from, count),
+            None => claims_under(&snapshot, &narrowed, from, count),
         }
         .map_err(text)?;
 
@@ -1107,11 +1144,37 @@ async fn search_by_meaning(
     .map_err(text)?
 }
 
+/// Which claims a page of evidence is drawn from: those on a subject, on one side of it where a
+/// side is named, in the reviews of one kind of reviewer where their ids are given.
+struct Narrowed<'a> {
+    subject: &'a str,
+    side: Option<&'a str>,
+    only: Option<&'a std::collections::HashSet<String>>,
+}
+
+impl Narrowed<'_> {
+    /// The polarity a stored reading takes on the subject, where it is one of the claims wanted.
+    fn polarity(
+        &self,
+        id: &str,
+        found: Option<&str>,
+        polarity: &str,
+        also: steamgauge_core::reader::Also,
+    ) -> Option<&'static str> {
+        if self.only.is_some_and(|only| !only.contains(id)) {
+            return None;
+        }
+        let polarity = steamgauge_core::read::polarity_on(self.subject, found, polarity, also)?;
+        self.side
+            .is_none_or(|side| side == polarity)
+            .then_some(polarity)
+    }
+}
+
 /// The page of claims under a subject, and how many there are, from the readings alone.
 fn claims_under(
     snapshot: &std::path::Path,
-    subject: &str,
-    side: Option<&str>,
+    narrowed: &Narrowed<'_>,
     from: usize,
     count: usize,
 ) -> steamgauge_core::Result<(u64, Vec<Wanted>)> {
@@ -1120,13 +1183,9 @@ fn claims_under(
     steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
         |id, at, found, confidence, polarity, also| {
-            let Some(polarity) = steamgauge_core::read::polarity_on(subject, found, polarity, also)
-            else {
+            let Some(polarity) = narrowed.polarity(id, found, polarity, also) else {
                 return;
             };
-            if side.is_some_and(|side| side != polarity) {
-                return;
-            }
             total += 1;
             if total > from as u64 && wanted.len() < count {
                 wanted.push((id.to_owned(), at, polarity.to_owned(), confidence));
@@ -1145,8 +1204,7 @@ fn claims_under(
 /// wait on a corpus of a million reviews.
 fn claims_using(
     snapshot: &std::path::Path,
-    subject: &str,
-    side: Option<&str>,
+    narrowed: &Narrowed<'_>,
     term: &str,
     from: usize,
     count: usize,
@@ -1155,13 +1213,9 @@ fn claims_using(
     steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
         |id, at, found, confidence, polarity, also| {
-            let Some(polarity) = steamgauge_core::read::polarity_on(subject, found, polarity, also)
-            else {
+            let Some(polarity) = narrowed.polarity(id, found, polarity, also) else {
                 return;
             };
-            if side.is_some_and(|side| side != polarity) {
-                return;
-            }
             filed
                 .entry(id.to_owned())
                 .or_default()
@@ -1221,6 +1275,7 @@ pub fn run() -> anyhow::Result<()> {
             find_games,
             art,
             reading,
+            who::who_wrote,
             claims_behind,
             induced,
             read_offer,

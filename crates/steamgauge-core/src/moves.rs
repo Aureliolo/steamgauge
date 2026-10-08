@@ -51,22 +51,12 @@ impl Shift {
         if of_before < ENOUGH_BEFORE || of_recent < ENOUGH_RECENT {
             return None;
         }
-        let share_before = hit_before as f64 / of_before as f64;
-        let share_recent = hit_recent as f64 / of_recent as f64;
-        let pooled = (hit_before + hit_recent) as f64 / (of_before + of_recent) as f64;
-        let spread =
-            (pooled * (1.0 - pooled) * (1.0 / of_before as f64 + 1.0 / of_recent as f64)).sqrt();
-        let z = if spread > 0.0 {
-            (share_recent - share_before) / spread
-        } else {
-            0.0
-        };
         Some(Self {
-            before: share_before,
-            recent: share_recent,
+            before: hit_before as f64 / of_before as f64,
+            recent: hit_recent as f64 / of_recent as f64,
             before_reviews: of_before,
             recent_reviews: of_recent,
-            z,
+            z: standard_errors_apart(before, recent),
         })
     }
 
@@ -74,6 +64,32 @@ impl Shift {
     #[must_use]
     pub fn clear(&self) -> bool {
         self.z.abs() >= CLEAR && (self.recent - self.before).abs() >= WORTH_SAYING
+    }
+}
+
+/// How many standard errors of the pooled share separate two shares, each given as the reviews
+/// it counts and the reviews it is a share of: positive where the second is the higher, and
+/// nothing where neither side holds a review or every review is on the same side.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "review counts are far below 2^53"
+)]
+pub(crate) fn standard_errors_apart(
+    (hit_first, of_first): (u64, u64),
+    (hit_second, of_second): (u64, u64),
+) -> f64 {
+    if of_first == 0 || of_second == 0 {
+        return 0.0;
+    }
+    let share_first = hit_first as f64 / of_first as f64;
+    let share_second = hit_second as f64 / of_second as f64;
+    let pooled = (hit_first + hit_second) as f64 / (of_first + of_second) as f64;
+    let spread =
+        (pooled * (1.0 - pooled) * (1.0 / of_first as f64 + 1.0 / of_second as f64)).sqrt();
+    if spread > 0.0 {
+        (share_second - share_first) / spread
+    } else {
+        0.0
     }
 }
 
@@ -315,6 +331,17 @@ mod tests {
         let spread = (0.18_f64 * 0.82 * (1.0 / 400.0 + 1.0 / 100.0)).sqrt();
         assert!((shift.z - 0.15 / spread).abs() < 1e-9, "z was {}", shift.z);
         assert!(shift.clear());
+    }
+
+    #[test]
+    fn a_share_of_no_reviews_is_no_distance_from_anything() {
+        for (first, second) in [((0, 0), (5, 10)), ((5, 10), (0, 0)), ((0, 0), (0, 0))] {
+            let apart = standard_errors_apart(first, second);
+            assert!(
+                apart.abs() < f64::EPSILON,
+                "{first:?} {second:?} gave {apart}"
+            );
+        }
     }
 
     #[test]

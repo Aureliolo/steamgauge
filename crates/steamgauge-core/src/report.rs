@@ -854,6 +854,7 @@ mod tests {
                 unread_languages: Vec::new(),
                 strict_languages: Vec::new(),
                 months: Vec::new(),
+                who: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
             },
             examples: Vec::new(),
