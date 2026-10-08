@@ -1316,9 +1316,11 @@ fn who_said_it(out: &mut String, app: &AppReport) {
                 escape(kind.label),
                 thousands(kind.reviews)
             );
+            // A kind carries a share against the rest only where both hold enough reviews, and a
+            // gap of no standard errors is never clear, so the sign alone says which way it leans.
             match kind.recommended {
-                Some(gap) if kind.enough => {
-                    let tone = match (gap.clear, gap.z > 0.0) {
+                Some(gap) => {
+                    let tone = match (gap.clear, gap.z.is_sign_positive()) {
                         (true, true) => " warmer",
                         (true, false) => " colder",
                         (false, _) => "",
