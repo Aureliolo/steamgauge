@@ -439,13 +439,47 @@
             </form>
             <p class="caveat" id="swept-caveat" hidden></p>
             <p class="caveat" id="topics-caveat" hidden></p>
+            <section class="who" id="who" aria-labelledby="who-title" hidden>
+              <div class="who-head">
+                <h4 id="who-title">Who wrote them</h4>
+                <div class="row who-pick" id="who-pick">
+                  <label class="choice">
+                    Show reviews by
+                    <select id="who-first"></select>
+                  </label>
+                  <label class="choice" id="who-beside" hidden>
+                    beside
+                    <select id="who-others"></select>
+                    <span class="who-fixed" id="who-others-fixed" hidden></span>
+                  </label>
+                  <button type="button" class="link small" id="who-everyone" hidden>Back to everyone</button>
+                </div>
+              </div>
+              <p class="quiet" id="who-note"></p>
+              <div class="who-differ" id="who-differ" hidden>
+                <p class="who-lead">Where they differ</p>
+                <ul class="who-findings" id="who-findings"></ul>
+                <button type="button" class="link small" id="who-more" hidden></button>
+              </div>
+              <p class="quiet" id="who-none" hidden>
+                No kind of reviewer praises, complains about or recommends anything more or less often
+                than everyone else by more than chance.
+              </p>
+              <div class="who-recount" id="who-recount" hidden>
+                <p class="quiet">
+                  Who wrote each review was not counted when this game was read. Counting again from what
+                  was read takes a minute or two and reads nothing again.
+                </p>
+                <button type="button" class="quiet-button" id="do-recount">Count again</button>
+              </div>
+            </section>
             <figure class="timeline" id="timeline" hidden>
               <p class="quiet" id="timeline-note"></p>
               <svg viewBox="0 0 1000 160" preserveAspectRatio="none" role="img" id="timeline-svg"></svg>
               <figcaption><span id="timeline-first"></span><span id="timeline-last"></span></figcaption>
             </figure>
             <p class="quiet languages" id="languages" hidden></p>
-            <div class="table-wrap">
+            <div class="table-wrap" id="counts-wrap">
               <table class="counts">
                 <thead>
                   <tr>
@@ -460,6 +494,20 @@
                 <tbody id="topic-rows"></tbody>
               </table>
             </div>
+            <div class="table-wrap" id="who-wrap" hidden>
+              <table class="counts compared who-table">
+                <thead>
+                  <tr id="who-head"></tr>
+                </thead>
+                <tbody id="who-rows"></tbody>
+              </table>
+            </div>
+            <p class="footnote" id="who-legend" hidden>
+              Every share is of that kind of reviewer's own reviews. The bar is how many raise the subject,
+              split into praise, both and complaint; the light band around it is where the share would
+              likely fall with more reviews like these. A mark under a figure is a gap too wide for chance
+              and at least two points wide.
+            </p>
             <p class="footnote" id="topics-footnote">
               Mention rates count a review once for every subject it raises, however many
               times it raises it, so they add up to more than 100% and are meant to. Every one

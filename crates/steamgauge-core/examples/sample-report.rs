@@ -22,6 +22,7 @@ use steamgauge_core::{
     report::{AppReport, CrawlFacts, Example, InducedEvidence, Measurement, Report},
     said::{SaidAbout, Term},
     taxonomy::SHEET,
+    who::{SEGMENTS, SegmentCount, SegmentMonth},
 };
 
 /// Four, because a table of two fits on a phone and a real one does not, and what happens to
@@ -143,6 +144,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
                 ("russian".to_owned(), reviews / 10),
             ],
             months: months(app_id),
+            who: who(app_id, reviews, &subjects, &months(app_id)),
             elapsed: std::time::Duration::from_secs(90),
         },
         examples: examples(app_id, &subjects),
@@ -384,6 +386,81 @@ fn agreement(app_id: u32) -> ClaimAgreement {
             agreed: answered / 8,
         },
     }
+}
+
+/// Every subject counted again for each kind of reviewer, in shares of the game's own counts.
+///
+/// Veterans complain about the amount of content and newcomers praise the tutorial far more than
+/// anybody else, so the page has findings to list; the Deck holds a dozen reviews, so it has a
+/// kind too small to say anything about. The unmeasured game was read before reviewers were told
+/// apart, which is a page that says so instead.
+fn who(
+    app_id: u32,
+    reviews: u64,
+    subjects: &[SubjectCount],
+    months: &[Month],
+) -> Vec<SegmentCount> {
+    if app_id == 11 {
+        return Vec::new();
+    }
+    let deck = 12;
+    let free = reviews / 25;
+    let early = reviews * 3 / 10;
+    // In thousandths of the game's reviews.
+    let share = |id: &str| match id {
+        "under-2-hours" => 110,
+        "2-to-10-hours" | "30-to-100-hours" => 230,
+        "10-to-30-hours" => 250,
+        "100-hours-or-more" => 180,
+        _ => 0,
+    };
+    let content = SHEET.iter().position(|c| c.id == "content").unwrap();
+    let tutorial = SHEET.iter().position(|c| c.id == "tutorial").unwrap();
+    SEGMENTS
+        .iter()
+        .map(|segment| {
+            let held = match segment.id {
+                "steam-deck" => deck,
+                "elsewhere" => reviews - deck,
+                "early-access" => early,
+                "after-release" => reviews - early,
+                "got-it-free" => free,
+                "paid-for-it" => reviews - free,
+                id => reviews * share(id) / 1_000,
+            };
+            let part = |count: u64| count * held / reviews;
+            let mut count = SegmentCount {
+                id: segment.id.to_owned(),
+                reviews: held,
+                positive: part(reviews * 7 / 10),
+                claims: held * 3,
+                raised: subjects.iter().map(|s| part(s.mention_reviews)).collect(),
+                praised: subjects.iter().map(|s| part(s.praised)).collect(),
+                criticised: subjects.iter().map(|s| part(s.criticised)).collect(),
+                mixed: subjects.iter().map(|s| part(s.mixed)).collect(),
+                recommending: subjects.iter().map(|s| part(s.positive_mentions)).collect(),
+                claims_about: subjects.iter().map(|s| part(s.claims)).collect(),
+                months: months
+                    .iter()
+                    .map(|month| SegmentMonth {
+                        label: month.label.clone(),
+                        reviews: part(month.reviews),
+                        positive: part(month.positive),
+                    })
+                    .collect(),
+            };
+            if segment.id == "100-hours-or-more" {
+                count.criticised[content] = held * 3 / 10;
+                count.raised[content] = count.raised[content].max(held * 4 / 10);
+            }
+            if segment.id == "under-2-hours" {
+                count.praised[tutorial] = held / 4;
+                count.raised[tutorial] = count.raised[tutorial].max(held * 3 / 10);
+                count.positive = held / 2;
+            }
+            count
+        })
+        .collect()
 }
 
 /// Subjects this game's own players raise that the sheet has no row for, with the reviews

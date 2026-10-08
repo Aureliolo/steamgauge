@@ -139,6 +139,12 @@ The only way to remove the argument is to hold every review and count.
   measured error and an honest "cannot tell".
 - Show, per subject, the words the praise uses and the complaints use, counted by reviewer.
 - Build a picture of the game in a paragraph from those counts.
+- Split every figure by who wrote it: how long they had played (under the two-hour refund
+  window, 2 to 10 hours, 10 to 30, 30 to 100, 100 or more), whether mostly on a Steam Deck,
+  whether during early access, and whether they got the game free. One kind of reviewer is shown
+  beside everyone else or beside another kind, with its timeline and the reviews behind each
+  figure, and the differences wider than chance are listed in plain sentences. A kind with fewer
+  than 100 reviews shows no figure at all.
 - Click through from any number, anywhere, to the actual reviews behind it.
 - Ask a game about anything, "Steam Deck" or "desync": what its reviewers said in those
   words, counted, and what they said in other words or other languages, found by meaning.

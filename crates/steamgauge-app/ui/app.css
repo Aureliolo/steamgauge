@@ -2249,6 +2249,161 @@ figure.timeline figcaption.dense span:last-child {
   font-size: var(--t-sm);
 }
 
+/* Who wrote them: a sentence with two choices in it, what the choice shows, and where the kinds
+   of reviewer differ. */
+
+.who {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.who-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.who-head h4 {
+  font-size: var(--t-lg);
+  font-weight: 650;
+}
+
+/* A select is as wide as its longest choice, and the longest here is a sentence. */
+.who-pick select {
+  max-width: 15rem;
+  text-overflow: ellipsis;
+}
+
+.who-fixed {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.who > .quiet {
+  font-size: var(--t-sm);
+  line-height: 1.6;
+}
+
+.who-lead {
+  margin-bottom: var(--s2);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.who-findings {
+  display: grid;
+  gap: var(--s2);
+  padding-left: var(--s5);
+  font-size: var(--t-sm);
+  line-height: 1.55;
+}
+
+.who-findings li .link {
+  margin-left: var(--s2);
+  white-space: nowrap;
+}
+
+.who-recount {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.who-recount .quiet {
+  flex: 1 1 320px;
+  font-size: var(--t-sm);
+}
+
+.who-table .who-name {
+  display: block;
+  color: var(--ink);
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+/* Two kinds and their subjects fit the narrowest window rather than scrolling inside it: the
+   headings wrap and a cell gives up width before the table runs off its frame. */
+.who-table {
+  table-layout: fixed;
+}
+
+.who-table thead th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.who-table thead th:first-child {
+  width: 26%;
+}
+
+.who-table .game-col {
+  min-width: 0;
+}
+
+.who-table td.cell {
+  min-width: 0;
+  vertical-align: top;
+}
+
+.who-table td small {
+  overflow-wrap: anywhere;
+}
+
+.who-table th .subject {
+  white-space: normal;
+}
+
+.who-table .corrected {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+}
+
+/* The bar sits inside the band of where its share would likely fall, so a short bar on a few
+   hundred reviews reads as the guess it is. */
+.who-track {
+  position: relative;
+  display: block;
+  margin: 6px 0;
+}
+
+.who-track .split {
+  margin: 0;
+}
+
+.who-track .range {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  min-width: 2px;
+  border: 1px solid var(--ink-4);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.who-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+
+.who-marks .pill {
+  font-size: 11px;
+}
+
 .counts td.num {
   width: 1%;
 }

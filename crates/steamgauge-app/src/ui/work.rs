@@ -39,6 +39,9 @@ pub enum Task {
         app_id: u32,
         language: Option<String>,
     },
+    /// A read game's answers added up again from disk, without the reader: how a reading made
+    /// before the window counted something comes to count it, in a minute rather than a read.
+    Recount { app_id: u32 },
     /// A read game made searchable by meaning.
     Prepare { app_id: u32 },
     /// How many reviews each game has on Steam now, and whether newer models are published.
@@ -70,7 +73,7 @@ impl Task {
                 Lane::Network
             }
             Self::Read { .. } | Self::Prepare { .. } => Lane::Machine,
-            Self::Export { .. } => Lane::Files,
+            Self::Export { .. } | Self::Recount { .. } => Lane::Files,
         }
     }
 
@@ -79,6 +82,7 @@ impl Task {
             Self::Download { app_id }
             | Self::Update { app_id }
             | Self::Read { app_id, .. }
+            | Self::Recount { app_id }
             | Self::Prepare { app_id } => Some(*app_id),
             Self::Check | Self::Export { .. } | Self::FetchReader => None,
         }
@@ -477,6 +481,7 @@ fn stopped_note(task: &Task) -> &'static str {
         }
         Task::Update { .. } => "Stopped. Updating again asks Steam again.",
         Task::Read { .. } => "Stopped. The reading from before is kept as it was.",
+        Task::Recount { .. } => "Stopped. The counts from before are kept as they were.",
         Task::Prepare { .. } => "Stopped. What was done is kept, and preparing again carries on.",
         Task::Check => "Stopped.",
         Task::Export { .. } => "Stopped before the report was saved.",
@@ -535,6 +540,7 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
                 Task::Download { app_id } => download(&app, id, app_id).await,
                 Task::Update { app_id } => update(&app, id, app_id, stop).await,
                 Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
+                Task::Recount { app_id } => recount(&app, id, app_id, stop).await,
                 Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
                 Task::Check => check(&app, id).await,
                 Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
@@ -874,6 +880,61 @@ async fn read(
         ended.then.push(Task::Prepare { app_id });
     }
     Ok(ended)
+}
+
+/// The reader on this computer that answered a reading, known by the lines it draws: a recount
+/// adds up what that reader declined, so no other reader will do.
+fn answering_reader(lines: &str) -> Option<steamgauge_core::reader::Provenance> {
+    steamgauge_core::reader::SIZES
+        .iter()
+        .filter_map(|size| steamgauge_core::reader::Provenance::load(&size.home()).ok())
+        .find(|provenance| provenance.lines_fingerprint == lines)
+}
+
+async fn recount(
+    app: &AppHandle,
+    id: u64,
+    app_id: u32,
+    stop: Arc<AtomicBool>,
+) -> Result<Ended, String> {
+    let out_dir = library_dir(app);
+    let snapshot = steamgauge_core::embed::latest_snapshot(&out_dir, app_id).map_err(text)?;
+    let earlier = super::read_report(&snapshot)?;
+    let provenance = answering_reader(&earlier.read_by_rule).ok_or_else(|| {
+        "the reader that read this game is no longer on this computer, so it has to be read again"
+            .to_owned()
+    })?;
+    let total = float(earlier.corpus_reviews);
+    tell(app, id, "Counting again", Unit::Reviews, 0.0, Some(total));
+    let telling = app.clone();
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        let report = steamgauge_core::read::recount_corpus(
+            &out_dir,
+            app_id,
+            steamgauge_core::read::ReadOptions::default().top_helpful,
+            &provenance,
+            &stop,
+            |progress| {
+                tell(
+                    &telling,
+                    id,
+                    "Counting again",
+                    Unit::Reviews,
+                    float(progress.reviews_walked),
+                    Some(total),
+                );
+            },
+        )
+        .map_err(text)?;
+        report.save(&snapshot.join("reading.json")).map_err(text)?;
+        Ok::<_, String>(report)
+    })
+    .await
+    .map_err(text)??;
+    Ok(Ended::said(format!(
+        "{} reviews counted again.",
+        thousands(report.reviews)
+    )))
 }
 
 async fn prepare(

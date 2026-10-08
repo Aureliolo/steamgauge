@@ -510,6 +510,7 @@ fn game(out: &mut String, app: &AppReport, several: bool) {
     in_short(out, app);
     over_time(out, app);
     categories(out, app);
+    who_said_it(out, app);
     induced(out, app);
     top_of_the_pile(out, app);
     languages(out, app);
@@ -1261,6 +1262,113 @@ fn verdict_cell(out: &mut String, category: &SubjectCount, baseline: Option<f64>
         "<td class=\"num verdict-share{tone}\" data-value=\"{share:.9}\">{}</td>",
         percent(share)
     );
+}
+
+/// Differences listed under a game before the rest are counted rather than shown. A large game
+/// clears the bar on dozens of them, and the clearest are the ones a reader acts on.
+const DIFFERENCES_SHOWN: usize = 20;
+
+/// Each kind of reviewer, how many of them there are and how many recommend the game, and every
+/// subject one kind praises or complains about more or less often than everyone else by more
+/// than chance.
+fn who_said_it(out: &mut String, app: &AppReport) {
+    use crate::who::{CLEAR, ENOUGH};
+
+    out.push_str("<h3>Who said it</h3>\n");
+    let listed = crate::who::kinds(&app.reading);
+    if listed.is_empty() {
+        out.push_str(
+            "<p class=\"note\">Who wrote each review was not counted when this game was read. \
+             Reading it again counts it.</p>\n",
+        );
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "<p class=\"note\">Steam records beside every review how long its writer had played, \
+         whether mostly on a Steam Deck, whether the game was in early access, and whether they \
+         got it free. Each kind of reviewer is set against everyone else, and a difference is \
+         listed only where it is {CLEAR:.0} times the gap chance alone typically makes and at \
+         least {:.0} points wide. A kind with fewer than {ENOUGH} reviews is not compared.</p>",
+        crate::moves::WORTH_SAYING * 100.0
+    );
+
+    out.push_str("<div class=\"scroll fits\">\n<table class=\"who\">\n<thead><tr>");
+    out.push_str(
+        "<th scope=\"col\">Who wrote it</th><th scope=\"col\" class=\"num\">Reviews</th>\
+         <th scope=\"col\" class=\"num\">Recommended</th></tr></thead>\n",
+    );
+    for split in &listed {
+        let _ = writeln!(
+            out,
+            "<tbody><tr class=\"split\"><th scope=\"colgroup\" colspan=\"3\">{}</th></tr>",
+            escape(split.label)
+        );
+        for kind in &split.kinds {
+            let _ = write!(
+                out,
+                "<tr{}><th scope=\"row\">{}</th><td class=\"num\">{}</td>",
+                if kind.enough {
+                    ""
+                } else {
+                    " class=\"too-few\""
+                },
+                escape(kind.label),
+                thousands(kind.reviews)
+            );
+            // A kind carries a share against the rest only where both hold enough reviews, and a
+            // gap of no standard errors is never clear, so the sign alone says which way it leans.
+            match kind.recommended {
+                Some(gap) => {
+                    let tone = match (gap.clear, gap.z.is_sign_positive()) {
+                        (true, true) => " warmer",
+                        (true, false) => " colder",
+                        (false, _) => "",
+                    };
+                    let _ = writeln!(
+                        out,
+                        "<td class=\"num verdict-share{tone}\">{}</td></tr>",
+                        percent(gap.share)
+                    );
+                }
+                _ => {
+                    let _ = writeln!(
+                        out,
+                        "<td class=\"num\">{}</td></tr>",
+                        nothing(if kind.enough {
+                            "too few others to set it against"
+                        } else {
+                            "too few to say"
+                        })
+                    );
+                }
+            }
+        }
+        out.push_str("</tbody>\n");
+    }
+    out.push_str("</table>\n</div>\n");
+
+    out.push_str("<h4>Where they differ</h4>\n");
+    let found = crate::who::findings(&app.reading);
+    if found.is_empty() {
+        out.push_str(
+            "<p class=\"note\">No kind of reviewer praises, complains about or recommends \
+             anything more or less often than everyone else by more than chance.</p>\n",
+        );
+        return;
+    }
+    out.push_str("<ul class=\"differ\">\n");
+    for finding in found.iter().take(DIFFERENCES_SHOWN) {
+        let _ = writeln!(out, "<li>{}</li>", escape(&finding.sentence));
+    }
+    out.push_str("</ul>\n");
+    if found.len() > DIFFERENCES_SHOWN {
+        let _ = writeln!(
+            out,
+            "<p class=\"note\">The {DIFFERENCES_SHOWN} widest beyond chance of {}.</p>",
+            thousands(found.len() as u64)
+        );
+    }
 }
 
 /// What this game's players talk about that no game shares.
@@ -2293,6 +2401,7 @@ mod tests {
                         calendar("2024-01", 400, 320, vec![40, 100]),
                         calendar("2024-02", 600, 380, vec![60, 300]),
                     ],
+                    who: Vec::new(),
                     elapsed: std::time::Duration::ZERO,
                 },
                 examples: vec![("bugs".to_owned(), vec![example])],
@@ -4069,6 +4178,183 @@ mod tests {
                  were read as Story"
             ),
             "{out}"
+        );
+    }
+
+    /// `reviews` reviews of one kind of reviewer, `positive` recommending, and `complaining`
+    /// of them complaining about every subject in `about`.
+    fn kind_of_reviewer(
+        id: &str,
+        reviews: u64,
+        positive: u64,
+        (about, complaining): (&[&str], u64),
+    ) -> crate::who::SegmentCount {
+        let per_subject = |of: u64| -> Vec<u64> {
+            SHEET
+                .iter()
+                .map(|category| if about.contains(&category.id) { of } else { 0 })
+                .collect()
+        };
+        crate::who::SegmentCount {
+            id: id.to_owned(),
+            reviews,
+            positive,
+            claims: reviews * 2,
+            raised: per_subject(complaining),
+            praised: vec![0; SHEET.len()],
+            criticised: per_subject(complaining),
+            mixed: vec![0; SHEET.len()],
+            recommending: vec![0; SHEET.len()],
+            claims_about: per_subject(complaining),
+            months: Vec::new(),
+        }
+    }
+
+    fn told_apart(counts: Vec<crate::who::SegmentCount>) -> String {
+        let mut report = sample_report("ordinary text");
+        let mut given: std::collections::HashMap<String, crate::who::SegmentCount> = counts
+            .into_iter()
+            .map(|count| (count.id.clone(), count))
+            .collect();
+        report.apps[0].reading.who = crate::who::SEGMENTS
+            .iter()
+            .map(|segment| {
+                given
+                    .remove(segment.id)
+                    .unwrap_or_else(|| kind_of_reviewer(segment.id, 0, 0, (&[], 0)))
+            })
+            .collect();
+        render(&report)
+    }
+
+    #[test]
+    fn a_game_read_before_reviewers_were_told_apart_says_so() {
+        let page = render(&sample_report("ordinary text"));
+        let section = between(&page, "<h3>Who said it</h3>", "<h3>");
+        assert!(
+            section.contains("not counted when this game was read"),
+            "{section}"
+        );
+        assert!(!section.contains("<table"));
+    }
+
+    #[test]
+    fn every_kind_of_reviewer_is_listed_and_one_too_small_carries_no_share() {
+        let page = told_apart(vec![
+            kind_of_reviewer("100-hours-or-more", 400, 360, (&["content"], 120)),
+            kind_of_reviewer("10-to-30-hours", 500, 450, (&["content"], 10)),
+            kind_of_reviewer("under-2-hours", 300, 120, (&[], 0)),
+            kind_of_reviewer("steam-deck", 12, 12, (&[], 0)),
+            kind_of_reviewer("elsewhere", 1_188, 918, (&[], 0)),
+            kind_of_reviewer("got-it-free", 150, 105, (&[], 0)),
+            kind_of_reviewer("paid-for-it", 1_050, 735, (&[], 0)),
+        ]);
+        let table = between(&page, "<table class=\"who\">", "</table>");
+        for split in crate::who::SPLITS {
+            assert!(
+                table.contains(split.label),
+                "{} is not in {table}",
+                split.label
+            );
+        }
+        let deck = between(
+            table,
+            "<tr class=\"too-few\"><th scope=\"row\">Mostly on a Steam Deck",
+            "</tr>",
+        );
+        assert!(
+            !deck.contains('%'),
+            "twelve reviews are given a share: {deck}"
+        );
+        assert!(deck.contains("too few to say"), "{deck}");
+        let elsewhere = between(table, "Mostly elsewhere</th>", "</tr>");
+        assert!(
+            elsewhere.contains("too few others to set it against") && !elsewhere.contains('%'),
+            "{elsewhere}"
+        );
+        let newcomers = between(table, "Under 2 hours</th>", "</tr>");
+        assert!(
+            newcomers.contains("verdict-share colder") && newcomers.contains("40.0%"),
+            "{newcomers}"
+        );
+        let veterans = between(table, "100 hours or more</th>", "</tr>");
+        assert!(
+            veterans.contains("verdict-share warmer\">90.0%"),
+            "{veterans}"
+        );
+        let free = between(table, "Got it free</th>", "</tr>");
+        assert!(
+            free.contains("verdict-share\">70.0%"),
+            "a share like everyone else's is not marked: {free}"
+        );
+        assert!(
+            between(&page, "100 hours or more</th>", "</tr>").contains("400"),
+            "the reviews are counted"
+        );
+
+        let differ = between(&page, "<ul class=\"differ\">", "</ul>");
+        assert!(
+            differ.contains(
+                "<li>Reviewers with 100 hours or more played complain about amount of content \
+                 in 30.0% of their reviews, against 1.2% of everyone else.</li>"
+            ),
+            "{differ}"
+        );
+        assert!(differ.contains("Reviewers with under 2 hours played recommend the game"));
+        assert!(!page.contains("widest beyond chance of"));
+        let note = between(&page, "<h3>Who said it</h3>", "<div class=\"scroll fits\">");
+        assert!(
+            note.contains(
+                "4 times the gap chance alone typically makes and at least 2 points wide"
+            ) && note.contains("fewer than 100 reviews is not compared"),
+            "{note}"
+        );
+    }
+
+    #[test]
+    fn as_many_differences_as_are_shown_are_shown_without_a_count_of_the_rest() {
+        let ten: Vec<&str> = SHEET
+            .iter()
+            .skip(6)
+            .take(10)
+            .map(|category| category.id)
+            .collect();
+        let page = told_apart(vec![
+            kind_of_reviewer("100-hours-or-more", 1_000, 900, (&ten, 500)),
+            kind_of_reviewer("10-to-30-hours", 1_000, 900, (&[], 0)),
+        ]);
+        let differ = between(&page, "<ul class=\"differ\">", "</ul>");
+        assert_eq!(differ.matches("<li>").count(), DIFFERENCES_SHOWN);
+        assert!(!page.contains("widest beyond chance of"));
+    }
+
+    #[test]
+    fn a_game_whose_reviewers_all_say_the_same_says_that() {
+        let page = told_apart(vec![
+            kind_of_reviewer("100-hours-or-more", 400, 360, (&["content"], 20)),
+            kind_of_reviewer("10-to-30-hours", 400, 360, (&["content"], 20)),
+        ]);
+        let section = between(&page, "<h4>Where they differ</h4>", "<h3>");
+        assert!(section.contains("No kind of reviewer praises"), "{section}");
+        assert!(!section.contains("<ul"));
+    }
+
+    #[test]
+    fn a_game_with_more_differences_than_a_reader_takes_in_lists_the_widest() {
+        let every: Vec<&str> = SHEET.iter().map(|category| category.id).collect();
+        let page = told_apart(vec![
+            kind_of_reviewer("100-hours-or-more", 1_000, 900, (&every, 500)),
+            kind_of_reviewer("10-to-30-hours", 1_000, 900, (&[], 0)),
+        ]);
+        let differ = between(&page, "<ul class=\"differ\">", "</ul>");
+        assert_eq!(differ.matches("<li>").count(), DIFFERENCES_SHOWN);
+        // Every subject but the one that says nothing about the game, from each side.
+        let found = 2 * (SHEET.len() - 1);
+        assert!(
+            page.contains(&format!(
+                "The {DIFFERENCES_SHOWN} widest beyond chance of {found}."
+            )),
+            "{differ}"
         );
     }
 }

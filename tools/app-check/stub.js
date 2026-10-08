@@ -36,6 +36,142 @@
     positive_mentions: praised,
   });
 
+  // A gap between two kinds of reviewer, marked as the core marks one.
+  const gap = (share, against, z) => ({
+    share,
+    against,
+    z,
+    clear: Math.abs(z) >= 4 && Math.abs(share - against) >= 0.02,
+  });
+
+  // The kinds of reviewer a read game was counted for, as the core lists them, and how a
+  // sentence names each.
+  const kind = (id, label, reviews, recommended) => ({ id, label, reviews, enough: reviews >= 100, recommended });
+  const kinds = () => [
+    {
+      id: 'played',
+      label: 'Time played when they wrote it',
+      kinds: [
+        kind('under-2-hours', 'Under 2 hours', 1_650, gap(0.62, 0.87, -14.2)),
+        kind('2-to-10-hours', '2 to 10 hours', 3_450, gap(0.83, 0.86, -2.1)),
+        kind('10-to-30-hours', '10 to 30 hours', 3_750, gap(0.88, 0.84, 3.0)),
+        kind('30-to-100-hours', '30 to 100 hours', 3_450, gap(0.9, 0.84, 5.3)),
+        kind('100-hours-or-more', '100 hours or more', 2_700, gap(0.91, 0.84, 6.1)),
+      ],
+    },
+    {
+      id: 'deck',
+      label: 'Where they played',
+      kinds: [kind('steam-deck', 'Mostly on a Steam Deck', 12, null), kind('elsewhere', 'Mostly elsewhere', 14_988, null)],
+    },
+    {
+      id: 'early-access',
+      label: 'When they wrote it',
+      kinds: [
+        kind('early-access', 'During early access', 4_500, gap(0.81, 0.87, -6.4)),
+        kind('after-release', 'After release', 10_500, gap(0.87, 0.81, 6.4)),
+      ],
+    },
+    {
+      id: 'copy',
+      label: 'How they got the game',
+      kinds: [kind('got-it-free', 'Got it free', 600, gap(0.86, 0.85, 0.7)), kind('paid-for-it', 'Paid for it', 14_400, gap(0.85, 0.86, -0.7))],
+    },
+  ];
+  const phrases = {
+    'under-2-hours': 'Reviewers with under 2 hours played',
+    '2-to-10-hours': 'Reviewers with 2 to 10 hours played',
+    '10-to-30-hours': 'Reviewers with 10 to 30 hours played',
+    '30-to-100-hours': 'Reviewers with 30 to 100 hours played',
+    '100-hours-or-more': 'Reviewers with 100 hours or more played',
+    'early-access': 'Reviewers writing during early access',
+    'after-release': 'Reviewers writing after release',
+    'got-it-free': 'Reviewers who got it free',
+    'paid-for-it': 'Reviewers who paid for it',
+  };
+  const finding = (segment, label, subject, said, found, sentence) => ({ segment, label, subject, said, gap: found, sentence });
+  const findings = () => [
+    finding(
+      '100-hours-or-more',
+      '100 hours or more',
+      'performance',
+      'complains',
+      gap(0.31, 0.12, 17.2),
+      'Reviewers with 100 hours or more played complain about performance in 31.0% of their reviews, against 12.0% of everyone else.',
+    ),
+    finding(
+      'under-2-hours',
+      'Under 2 hours',
+      null,
+      'recommends',
+      gap(0.62, 0.87, -14.2),
+      'Reviewers with under 2 hours played recommend the game in 62.0% of their reviews, against 87.0% of everyone else.',
+    ),
+    finding(
+      'under-2-hours',
+      'Under 2 hours',
+      'story',
+      'praises',
+      gap(0.21, 0.09, 8.1),
+      'Reviewers with under 2 hours played praise story and writing in 21.0% of their reviews, against 9.0% of everyone else.',
+    ),
+    finding(
+      'early-access',
+      'During early access',
+      'bugs',
+      'complains',
+      gap(0.18, 0.07, 7.7),
+      'Reviewers writing during early access complain about bugs and crashes in 18.0% of their reviews, against 7.0% of reviewers writing after release.',
+    ),
+    finding(
+      'early-access',
+      'During early access',
+      null,
+      'recommends',
+      gap(0.81, 0.87, -6.4),
+      'Reviewers writing during early access recommend the game in 81.0% of their reviews, against 87.0% of reviewers writing after release.',
+    ),
+    finding(
+      '30-to-100-hours',
+      '30 to 100 hours',
+      'content',
+      'complains',
+      gap(0.09, 0.05, 5.2),
+      'Reviewers with 30 to 100 hours played complain about amount of content in 9.0% of their reviews, against 5.0% of everyone else.',
+    ),
+    finding(
+      '2-to-10-hours',
+      '2 to 10 hours',
+      'tutorial',
+      'praises',
+      gap(0.06, 0.03, 4.4),
+      'Reviewers with 2 to 10 hours played praise tutorial and learning in 6.0% of their reviews, against 3.0% of everyone else.',
+    ),
+  ];
+  // One subject's figures among one side's reviews, with a band where its share would likely fall.
+  const figures = (raised, reviews, praised, criticised, mixed) => ({
+    raised,
+    rate: raised / reviews,
+    low: Math.max(0, raised / reviews - 0.025),
+    high: Math.min(1, raised / reviews + 0.025),
+    praised,
+    criticised,
+    mixed,
+    praising: (praised + mixed) / reviews,
+    complaining: (criticised + mixed) / reviews,
+    claims: raised * 2,
+  });
+  const head = (id, label, who, reviews, recommending) => ({
+    id,
+    label,
+    who,
+    reviews,
+    claims: reviews * 4,
+    recommending,
+    low: recommending - 0.02,
+    high: recommending + 0.02,
+  });
+
   const shift = (before, recent, z) => ({
     before,
     recent,
@@ -186,6 +322,70 @@
         { label: '2025-09', name: 'Sep 2025', reviews: 500, positive: 0.75 },
       ],
       languages: [{ name: 'english', reviews: 15_000, share: 0.75 }],
+      // Beta was read before reviewers were told apart.
+      who: appId === 1 ? { kinds: kinds(), findings: findings() } : { kinds: [], findings: [] },
+    };
+  };
+
+  // One kind of reviewer beside everyone else or beside another kind, as `who_wrote` answers.
+  const whoWrote = ({ these, others }) => {
+    const all = kinds().flatMap((split) => split.kinds.map((one) => ({ ...one, split: split.id })));
+    const first = all.find((one) => one.id === these);
+    if (!first || !first.enough) throw new Error(`${first?.label ?? these}: too few reviews to count`);
+    const second = others ? all.find((one) => one.id === others) : null;
+    const rest = all
+      .filter((one) => one.split === first.split && one.id !== first.id)
+      .reduce((sum, one) => sum + one.reviews, 0);
+    const against = second ? second.reviews : rest;
+    // Counts written for everyone else, scaled to whoever the first kind is set beside.
+    const scaled = (count) => Math.round((count * against) / 12_300);
+    return {
+      split: first.split,
+      these: head(first.id, first.label, phrases[first.id], first.reviews, 0.91),
+      others: second
+        ? head(second.id, second.label, phrases[second.id], second.reviews, 0.62)
+        : head('everyone-else', 'Everyone else', 'Everyone else', rest, 0.84),
+      recommended: gap(0.91, 0.84, 6.1),
+      subjects: [
+        {
+          id: 'performance',
+          label: 'Performance',
+          these: figures(1_000, first.reviews, 150, 700, 140),
+          others: figures(scaled(2_900), against, scaled(700), scaled(1_700), scaled(160)),
+          raised: gap(0.37, 0.24, 13.0),
+          praise: gap(0.107, 0.07, 3.1),
+          complaint: gap(0.31, 0.15, 17.2),
+          these_corrected: null,
+          others_corrected: null,
+        },
+        {
+          id: 'story',
+          label: 'Story and writing',
+          these: figures(400, first.reviews, 300, 50, 20),
+          others: figures(scaled(1_900), against, scaled(1_500), scaled(200), scaled(90)),
+          raised: gap(0.15, 0.15, 0.2),
+          praise: gap(0.12, 0.13, -0.9),
+          complaint: gap(0.026, 0.023, 0.8),
+          these_corrected: null,
+          others_corrected: null,
+        },
+        {
+          id: 'vr',
+          label: 'VR and headsets',
+          these: figures(0, first.reviews, 0, 0, 0),
+          others: figures(0, against, 0, 0, 0),
+          raised: gap(0, 0, 0),
+          praise: gap(0, 0, 0),
+          complaint: gap(0, 0, 0),
+          these_corrected: null,
+          others_corrected: null,
+        },
+      ],
+      months: [
+        { label: '2025-07', name: 'Jul 2025', reviews: 45, positive: 0.84 },
+        { label: '2025-08', name: 'Aug 2025', reviews: 60, positive: 0.9 },
+        { label: '2025-09', name: 'Sep 2025', reviews: 20, positive: null },
+      ],
     };
   };
 
@@ -374,6 +574,7 @@
       })),
     }),
     reading: ({ appId }) => reading(appId),
+    who_wrote: (args) => whoWrote(args),
     induced: () => [],
     look_up: ({ appId }) => ({
       app_id: appId,

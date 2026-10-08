@@ -1886,7 +1886,24 @@ fn read_one(
             thousands(subject.mixed),
         );
     }
+    print_differences(&report);
     Ok(())
+}
+
+/// Where one kind of reviewer says something more or less often than everyone else, by more
+/// than chance: what the report lists under "Who said it".
+fn print_differences(report: &steamgauge_core::read::ReadReport) {
+    if report.who.is_empty() {
+        return;
+    }
+    let found = steamgauge_core::who::findings(report);
+    println!("\nwhere reviewers differ");
+    if found.is_empty() {
+        println!("  nowhere by more than chance");
+    }
+    for finding in found {
+        println!("  {}", finding.sentence);
+    }
 }
 
 fn run_recount(
@@ -1908,6 +1925,7 @@ fn run_recount(
             app_id,
             top_helpful,
             &provenance,
+            &std::sync::atomic::AtomicBool::new(false),
             |progress| {
                 eprintln!("  {} reviews counted", thousands(progress.reviews_counted));
             },
@@ -1915,13 +1933,15 @@ fn run_recount(
         let path = snapshot.join("reading.json");
         report.save(&path)?;
         println!(
-            "app          {}\ncounted      {} reviews, {} claims, in {}\nwritten to   {}\n",
+            "app          {}\ncounted      {} reviews, {} claims, in {}\nwritten to   {}",
             report.app_id,
             thousands(report.reviews),
             thousands(report.claims),
             elapsed(report.elapsed),
             path.display()
         );
+        print_differences(&report);
+        println!();
     }
     Ok(())
 }

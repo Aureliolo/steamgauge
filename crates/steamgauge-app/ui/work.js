@@ -43,6 +43,8 @@ export function taskName(task) {
       return 'Bring up to date';
     case 'read':
       return task.language ? `Read the ${language(task.language)} reviews` : 'Read every review';
+    case 'recount':
+      return 'Count again';
     case 'prepare':
       return 'Prepare for search by meaning';
     case 'check':

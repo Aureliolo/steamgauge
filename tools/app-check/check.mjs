@@ -375,8 +375,76 @@ const PROBE = `(async function () {
   check('a subject does not show the points behind it', document.querySelectorAll('#quotes li').length === 2);
   check('a count of points is not said in words', /^2 points about this/.test($('#evidence-lede').textContent));
   check('a single page of points offers pages', !shown('paging'));
+  check('the points behind the whole game are narrowed to one kind of reviewer', last('claims_behind').args.who === null);
   $('#back').click();
   await pause(300);
+
+  check('a read game does not say who wrote its reviews', shown('who') && shown('who-pick') && !shown('who-recount'));
+  check('the kinds of reviewer are not offered under the questions that make them',
+    document.querySelectorAll('#who-first optgroup').length === 4);
+  check('a kind with too few reviews to count can be chosen', $('#who-first option[value="steam-deck"]').disabled);
+  check('where the kinds of reviewer differ is not listed',
+    shown('who-differ') && document.querySelectorAll('#who-findings li').length === 6 && shown('who-more'));
+  $('#who-more').click();
+  await pause();
+  check('the rest of where they differ does not come when asked for',
+    document.querySelectorAll('#who-findings li').length === 7 && !shown('who-more'));
+  $('#who-findings li .link').click();
+  await pause(300);
+  check('showing a kind does not ask for it beside everyone else',
+    last('who_wrote') && last('who_wrote').args.these === '100-hours-or-more' && last('who_wrote').args.others === null);
+  check('a kind chosen still shows the table of everyone', !shown('counts-wrap') && shown('who-wrap') && shown('who-legend'));
+  check('where they differ stays listed beside one kind', !shown('who-differ'));
+  check('a subject neither side raised is listed', document.querySelectorAll('#who-rows tr').length === 2);
+  check('the subjects are not in the order the first kind raises them',
+    /^Performance/.test($('#who-rows tr').textContent));
+  check('a gap wider than chance is not marked', /More complaints/.test($('#who-rows tr').textContent) &&
+    /Raised more/.test($('#who-rows tr').textContent));
+  check('a gap chance could make is marked', !/More praise/.test($('#who-rows tr').textContent) &&
+    document.querySelectorAll('#who-rows tr')[1].querySelector('.who-marks') === null);
+  check('a share is drawn without where it would likely fall', document.querySelectorAll('#who-rows .range').length === 4);
+  check('the timeline does not follow the kind chosen', /Aug 2025: 60 reviews/.test($('#timeline-svg').textContent));
+  check('the page does not say whose reviews it shows',
+    /Reviewers with 100 hours or more played wrote 2,700 of these reviews/.test($('#who-note').textContent) &&
+    /beside everyone else/.test($('#who-note').textContent));
+  $('#who-others').value = 'under-2-hours';
+  $('#who-others').dispatchEvent(new Event('change'));
+  await pause(300);
+  check('a second kind is not asked for beside the first', last('who_wrote').args.others === 'under-2-hours');
+  check('the second kind is not named over its column', /Under 2 hours/.test($('#who-head').textContent));
+  $('#who-first').value = 'got-it-free';
+  $('#who-first').dispatchEvent(new Event('change'));
+  await pause(300);
+  check('a question with two answers offers a choice of one',
+    !shown('who-others') && shown('who-others-fixed') && /paid for it/.test($('#who-others-fixed').textContent));
+  $('#who-first').value = '100-hours-or-more';
+  $('#who-first').dispatchEvent(new Event('change'));
+  await pause(300);
+  $('#who-rows .subject').click();
+  await pause(300);
+  check('the points behind a kind of reviewer are not narrowed to their reviews',
+    last('claims_behind').args.who === '100-hours-or-more');
+  check('the points behind a kind of reviewer do not say whose they are',
+    /from reviewers with 100 hours or more played/.test($('#evidence-lede').textContent));
+  check('words counted over every review are shown beside one kind', !shown('stands-out'));
+  $('#back').click();
+  await pause(400);
+  check('coming back from the points forgets the kind chosen',
+    shown('who-wrap') && $('#who-first').value === '100-hours-or-more');
+  $('#who-everyone').click();
+  await pause(300);
+  check('back to everyone does not bring back the whole game',
+    shown('counts-wrap') && !shown('who-wrap') && shown('who-differ') && /Aug 2025: 300 reviews/.test($('#timeline-svg').textContent));
+  $('#game-back').click();
+  await pause(250);
+  rows().filter(function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click();
+  await pause(300);
+  check('a game counted before reviewers were told apart does not offer to count it again',
+    shown('who') && shown('who-recount') && !shown('who-pick') && !shown('who-differ'));
+  $('#do-recount').click();
+  await pause();
+  check('counting again does not queue a recount of the game', called('queue').some(function (call) {
+    return call.args.tasks.some(function (t) { return t.kind === 'recount' && t.app_id === 2; }); }));
   $('#game-back').click();
   await pause(250);
   check('the way back from a game does not lead to the library', shown('library'));
@@ -446,6 +514,21 @@ try {
       await new Promise(function (done) { setTimeout(done, 250); });
       var stage = document.getElementById('stage');
       if (stage.scrollWidth > stage.clientWidth + 1) wrong.push('the ' + name + ' runs off the side of the narrowest window');
+    }
+    document.querySelector('[data-go="library"]').click();
+    await new Promise(function (done) { setTimeout(done, 250); });
+    Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) {
+      return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click();
+    await new Promise(function (done) { setTimeout(done, 400); });
+    var first = document.getElementById('who-first');
+    first.value = '100-hours-or-more';
+    first.dispatchEvent(new Event('change'));
+    await new Promise(function (done) { setTimeout(done, 300); });
+    var stage = document.getElementById('stage');
+    if (stage.scrollWidth > stage.clientWidth + 1) wrong.push('one kind of reviewer runs off the side of the narrowest window');
+    var frame = document.getElementById('who-wrap');
+    if (frame.hidden || frame.scrollWidth > frame.clientWidth + 1) {
+      wrong.push('one kind of reviewer beside everyone else needs scrolling sideways in the narrowest window');
     }
     return wrong;
   })()`);
@@ -584,6 +667,15 @@ try {
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-${scheme}`);
+      await evaluate(
+        "var first=document.getElementById('who-first');first.value='100-hours-or-more';first.dispatchEvent(new Event('change'))",
+      );
+      await shoot(`game-who-${scheme}`);
+      await evaluate(
+        "var others=document.getElementById('who-others');others.value='under-2-hours';others.dispatchEvent(new Event('change'))",
+      );
+      await shoot(`game-who-beside-${scheme}`);
+      await evaluate("document.getElementById('who-everyone').click()");
       await evaluate("document.querySelector('#topic-rows .subject').click()");
       await shoot(`evidence-${scheme}`);
       await evaluate("document.getElementById('rail-add').click()");
@@ -605,6 +697,12 @@ try {
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-unread-${scheme}`);
+      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await sleep(300);
+      await evaluate(
+        "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click()",
+      );
+      await shoot(`game-recount-${scheme}`);
 
       // The rail's notice through every state of Update now, close up.
       await load(page);
@@ -647,6 +745,16 @@ try {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }
+    await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+    await sleep(300);
+    await evaluate(
+      "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
+    );
+    await shoot("narrow-game");
+    await evaluate(
+      "var first=document.getElementById('who-first');first.value='100-hours-or-more';first.dispatchEvent(new Event('change'))",
+    );
+    await shoot("narrow-game-who");
     await load(`${page}?first`);
     await sleep(400);
     await evaluate(unroll);
