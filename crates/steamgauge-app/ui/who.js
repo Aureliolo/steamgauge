@@ -191,6 +191,7 @@ function drawFindings() {
   );
   el('who-differ').hidden = !counted || !everyone || findings.length === 0;
   el('who-none').hidden = !counted || !everyone || findings.length > 0;
+  el('who-found').hidden = el('who-differ').hidden && el('who-none').hidden;
   el('who-more').hidden = !everyone || showingAll || findings.length <= FINDINGS_SHOWN;
   set(el('who-more'), `Show ${whole.format(findings.length - FINDINGS_SHOWN)} more`);
 }
@@ -259,6 +260,7 @@ function drawBeside(view) {
   el('topics-footnote').hidden = true;
   el('who-wrap').hidden = false;
   el('who-legend').hidden = false;
+  el('who-found').hidden = true;
   el('who-differ').hidden = true;
   el('who-none').hidden = true;
   el('who-more').hidden = true;

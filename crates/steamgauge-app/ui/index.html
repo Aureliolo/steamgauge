@@ -473,15 +473,6 @@
                 </div>
               </div>
               <p class="quiet" id="who-note"></p>
-              <div class="who-differ" id="who-differ" hidden>
-                <p class="who-lead">Where they differ</p>
-                <ul class="who-findings" id="who-findings"></ul>
-                <button type="button" class="link small" id="who-more" hidden></button>
-              </div>
-              <p class="quiet" id="who-none" hidden>
-                No kind of reviewer praises, complains about or recommends anything more or less often
-                than everyone else by more than chance.
-              </p>
               <div class="who-recount" id="who-recount" hidden>
                 <p class="quiet">
                   Who wrote each review was not counted when this game was read. Counting again from what
@@ -490,12 +481,64 @@
                 <button type="button" class="quiet-button" id="do-recount">Count again</button>
               </div>
             </section>
+            <p class="quiet languages" id="languages" hidden></p>
+            <div class="table-wrap" id="counts-wrap">
+              <table class="counts">
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Mention rate</th>
+                    <th scope="col" class="num">Praised</th>
+                    <th scope="col" class="num">Criticised</th>
+                    <th scope="col" class="num">Mixed</th>
+                    <th
+                      scope="col"
+                      class="num"
+                      title="How much more often the subject comes up in the most helpful reviews, the ones Steam shows a store visitor first, than in all of them"
+                    >
+                      In the most helpful
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="topic-rows"></tbody>
+              </table>
+            </div>
+            <div class="table-wrap" id="who-wrap" hidden>
+              <table class="counts compared who-table">
+                <thead>
+                  <tr id="who-head"></tr>
+                </thead>
+                <tbody id="who-rows"></tbody>
+              </table>
+            </div>
+            <p class="footnote" id="who-legend" hidden>
+              Every share is of that kind of reviewer's own reviews. The bar is how many raise the subject,
+              split into praise, both and complaint; the light band around it is where the share would
+              likely fall with more reviews like these. A mark under a figure is a gap too wide for chance
+              and at least two points wide.
+            </p>
+            <p class="footnote" id="topics-footnote">
+              Mention rates count a review once for every subject it raises, however many
+              times it raises it, so they add up to more than 100% and are meant to. Every one
+              of them opens.
+            </p>
             <figure class="timeline" id="timeline" hidden>
               <p class="quiet" id="timeline-note"></p>
               <svg viewBox="0 0 1000 160" preserveAspectRatio="none" role="img" id="timeline-svg"></svg>
               <div class="update-strip" id="update-strip" hidden></div>
               <figcaption><span id="timeline-first"></span><span id="timeline-last"></span></figcaption>
             </figure>
+            <section class="who" id="who-found" aria-labelledby="who-found-title" hidden>
+              <h4 id="who-found-title">Where kinds of reviewer differ</h4>
+              <div class="who-differ" id="who-differ" hidden>
+                <ul class="who-findings" id="who-findings"></ul>
+                <button type="button" class="link small" id="who-more" hidden></button>
+              </div>
+              <p class="quiet" id="who-none" hidden>
+                No kind of reviewer praises, complains about or recommends anything more or less often
+                than everyone else by more than chance.
+              </p>
+            </section>
             <section class="around" id="around" aria-labelledby="around-title" hidden>
               <div class="around-head">
                 <div>
@@ -533,41 +576,6 @@
                 <p class="footnote" id="around-footnote"></p>
               </div>
             </section>
-            <p class="quiet languages" id="languages" hidden></p>
-            <div class="table-wrap" id="counts-wrap">
-              <table class="counts">
-                <thead>
-                  <tr>
-                    <th scope="col">Subject</th>
-                    <th scope="col">Mention rate</th>
-                    <th scope="col" class="num">Praised</th>
-                    <th scope="col" class="num">Criticised</th>
-                    <th scope="col" class="num">Mixed</th>
-                    <th scope="col" class="num">At the top</th>
-                  </tr>
-                </thead>
-                <tbody id="topic-rows"></tbody>
-              </table>
-            </div>
-            <div class="table-wrap" id="who-wrap" hidden>
-              <table class="counts compared who-table">
-                <thead>
-                  <tr id="who-head"></tr>
-                </thead>
-                <tbody id="who-rows"></tbody>
-              </table>
-            </div>
-            <p class="footnote" id="who-legend" hidden>
-              Every share is of that kind of reviewer's own reviews. The bar is how many raise the subject,
-              split into praise, both and complaint; the light band around it is where the share would
-              likely fall with more reviews like these. A mark under a figure is a gap too wide for chance
-              and at least two points wide.
-            </p>
-            <p class="footnote" id="topics-footnote">
-              Mention rates count a review once for every subject it raises, however many
-              times it raises it, so they add up to more than 100% and are meant to. Every one
-              of them opens.
-            </p>
             <div class="induced" id="induced" hidden>
               <h3>What this game's players talk about that others' do not</h3>
               <p class="quiet">
