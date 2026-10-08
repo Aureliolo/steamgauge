@@ -1428,6 +1428,26 @@ mod tests {
     }
 
     #[test]
+    fn a_file_and_the_export_are_dated_by_the_clock() {
+        let since = |when: std::time::SystemTime| {
+            i64::try_from(
+                when.duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            )
+            .unwrap()
+        };
+        let out = crate::tempdir::Dir::new();
+        let file = out.path().join("reading.json");
+        std::fs::write(&file, "{}").unwrap();
+        let written = since(std::fs::metadata(&file).unwrap().modified().unwrap());
+        assert_eq!(modified(&file), written);
+        assert_eq!(modified(&out.path().join("missing.json")), 0);
+        let clock = since(std::time::SystemTime::now());
+        assert!((unix_now() - clock).abs() <= 5, "now is now");
+    }
+
+    #[test]
     fn each_kind_of_cell_is_written_its_own_way() {
         assert_eq!(decimal(0.25), "0.25");
         assert_eq!(decimal(1.0), "1");
