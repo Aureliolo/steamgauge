@@ -619,14 +619,21 @@ mod tests {
         reviews.extend((0..200).map(|at| Dated {
             created: posted + at,
             recommends: true,
-            praise: 0,
-            complaint: 0,
+            praise: if at < 50 { bit("story") } else { 0 },
+            complaint: if at >= 150 { bit("bugs") } else { 0 },
         }));
         let found = around(&update("1", posted), &reviews, posted + WINDOW, &[]);
         let audio = found.subjects.iter().find(|s| s.subject == "audio");
         assert!(
             audio.is_some_and(|audio| audio.praise.change && audio.praise.after.abs() < 1e-12),
             "a subject nobody raises after an update is a change, not a gap"
+        );
+        let mut listed: Vec<&str> = found.subjects.iter().map(|s| s.subject).collect();
+        listed.sort_unstable();
+        assert_eq!(
+            listed,
+            ["audio", "bugs", "story"],
+            "praised only before, complained about only after, and praised only after"
         );
     }
 
