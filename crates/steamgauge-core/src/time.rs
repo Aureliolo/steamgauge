@@ -45,6 +45,16 @@ pub fn day(unix: i64) -> String {
     format!("{day} {name} {year}")
 }
 
+/// A timestamp as the day a spreadsheet reads as a date, `2023-11-14`, or none where Steam
+/// gave no time.
+#[must_use]
+pub fn iso_day(unix: i64) -> Option<String> {
+    (unix > 0).then(|| {
+        let (year, month, day) = civil(unix);
+        format!("{year:04}-{month:02}-{day:02}")
+    })
+}
+
 const SHORT: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
@@ -98,6 +108,15 @@ mod tests {
         // The last second of a month must not already be the next one.
         assert_eq!(day(1_709_251_199), "29 February 2024");
         assert_eq!(day(1_709_251_200), "1 March 2024");
+    }
+
+    #[test]
+    fn a_day_for_a_spreadsheet_is_year_month_day_and_nothing_where_there_is_no_time() {
+        assert_eq!(iso_day(1_700_000_000).as_deref(), Some("2023-11-14"));
+        assert_eq!(iso_day(1_709_251_200).as_deref(), Some("2024-03-01"));
+        assert_eq!(iso_day(1).as_deref(), Some("1970-01-01"));
+        assert_eq!(iso_day(0), None);
+        assert_eq!(iso_day(-5), None);
     }
 
     /// The algorithm's corrections for the four-year, hundred-year and four-hundred-year cycles

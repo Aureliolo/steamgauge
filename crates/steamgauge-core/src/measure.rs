@@ -222,6 +222,37 @@ impl ClaimAgreement {
         #[expect(clippy::cast_precision_loss, reason = "at most a few dozen subjects")]
         (!scored.is_empty()).then(|| scored.iter().sum::<f64>() / scored.len() as f64)
     }
+
+    fn subject(&self, id: &str) -> Option<&SubjectAgreement> {
+        self.subjects.iter().find(|subject| subject.id == id)
+    }
+
+    /// Of the labelled claims about a subject, the share the reader found, where enough are
+    /// labelled for the figure to mean anything. A subject it misses most of has a rate that is
+    /// a floor rather than a count.
+    #[must_use]
+    pub fn found(&self, id: &str) -> Option<f64> {
+        self.subject(id)
+            .filter(|subject| subject.labelled >= ENOUGH_TO_JUDGE_A_ROW)
+            .and_then(SubjectAgreement::recall)
+    }
+
+    /// What `claims` of `of_claims` about a subject would be with the reader's measured errors
+    /// taken out, where enough are labelled to correct by and the reader finds the subject better
+    /// than chance.
+    #[must_use]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "claim counts are far below 2^53"
+    )]
+    pub fn corrected_share(&self, id: &str, claims: u64, of_claims: u64) -> Option<f64> {
+        let subject = self
+            .subject(id)
+            .filter(|subject| subject.labelled >= ENOUGH_TO_CORRECT_A_ROW)?;
+        (of_claims > 0)
+            .then(|| claims as f64 / of_claims as f64)
+            .and_then(|observed| subject.corrected(observed))
+    }
 }
 
 /// 95% Wilson score interval for a proportion.
@@ -1036,6 +1067,47 @@ mod tests {
             subjects,
             beyond_the_first: Beyond::default(),
         }
+    }
+
+    #[test]
+    fn a_subject_is_judged_and_corrected_only_where_enough_of_it_is_labelled() {
+        let labelled = |labelled| SubjectAgreement {
+            seen: 500,
+            ..subject(labelled, labelled, labelled * 7 / 10)
+        };
+        let judged = game(vec![labelled(ENOUGH_TO_JUDGE_A_ROW)]);
+        assert_eq!(judged.found("gameplay"), Some(0.7));
+        assert_eq!(judged.found("story"), None, "a subject nobody labelled");
+        let thin = game(vec![labelled(ENOUGH_TO_JUDGE_A_ROW - 1)]);
+        assert_eq!(thin.found("gameplay"), None);
+
+        // Seventy found of a hundred, and ten filed here of the four hundred about anything
+        // else: 22% observed is 20% corrected, as above.
+        let corrected = |labelled| {
+            game(vec![SubjectAgreement {
+                id: "gameplay",
+                label: "Gameplay",
+                labelled,
+                read: labelled * 7 / 10 + (500 - labelled) / 10,
+                agreed: labelled * 7 / 10,
+                seen: 500,
+                mistaken_for: None,
+            }])
+        };
+        let enough = corrected(100);
+        let share = enough.corrected_share("gameplay", 22, 100).unwrap();
+        assert!((share - 0.2).abs() < 1e-9, "got {share}");
+        assert_eq!(enough.corrected_share("gameplay", 22, 0), None);
+        assert_eq!(enough.corrected_share("story", 22, 100), None);
+        assert!(
+            corrected(ENOUGH_TO_CORRECT_A_ROW)
+                .corrected_share("gameplay", 22, 100)
+                .is_some()
+        );
+        assert_eq!(
+            corrected(ENOUGH_TO_CORRECT_A_ROW - 1).corrected_share("gameplay", 22, 100),
+            None
+        );
     }
 
     #[test]

@@ -12,6 +12,7 @@ pub mod claimset;
 pub mod crawl;
 pub mod diverse;
 pub mod embed;
+pub mod export;
 pub mod facts;
 pub mod gold;
 pub mod html;

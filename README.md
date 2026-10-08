@@ -158,6 +158,17 @@ classifier is measured to get wrong, in a single file you can open from disk, se
 or print. It fetches nothing, because a corpus that never left your machine should not start
 leaving it the moment somebody looks at it.
 
+A read game's data also exports for a spreadsheet or your own analysis: "Export data" on its
+page, or `steamgauge export-data <app id> --to <folder>`, makes a folder of CSV and JSON files.
+`subjects` holds every subject's mention rate, praise, complaints and both, for everyone and for
+each kind of reviewer; `months` the timeline; `points` every point read, with its subject, side,
+the reader's sureness, its exact words and the review it came from (link, day, language,
+recommendation, time played, Steam Deck, early access, free copy, helpful votes); `updates` the
+game's updates. A `README.txt` says what every column holds, which reader read the game and how
+far its figures can be trusted. A figure the app does not show as a number is left empty, with
+the reason in a column beside it. The CSV opens in Excel with every language's letters intact,
+and a review that starts like a formula is written so a spreadsheet shows it rather than runs it.
+
 The app reads with the largest reader your graphics card has room for. Without a card it
 starts with the fast one and offers the most accurate beside it, saying how long each takes on
 that computer.

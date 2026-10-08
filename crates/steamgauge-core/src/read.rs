@@ -1853,6 +1853,34 @@ pub(crate) mod tests {
         snapshot
     }
 
+    /// These reviews of `app_id` under `out`, as Steam's API serves them, read by the table at the
+    /// default options with the reading saved beside them.
+    pub(crate) fn read_these(out: &Path, app_id: u32, reviews: &[serde_json::Value]) -> PathBuf {
+        let snapshot = out
+            .join(format!("appid={app_id}"))
+            .join(format!("snapshot={CRAWLED}"));
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), app_id)
+                .unwrap();
+        writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        std::fs::write(
+            snapshot.join("crawl.json"),
+            serde_json::json!({
+                "app_id": app_id, "name": "Test Game", "review_score_desc": "Mixed",
+                "rows_unique": reviews.len(), "valve_total_reviews": reviews.len(),
+                "coverage": 1.0, "snapshot_unix": CRAWLED, "shards": 1,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        read_with(&mut Table::new(false), app_id, &options(out), |_| {})
+            .unwrap()
+            .save(&snapshot.join("reading.json"))
+            .unwrap();
+        snapshot
+    }
+
     pub(crate) fn options(out: &Path) -> ReadOptions {
         ReadOptions {
             out_dir: out.to_path_buf(),

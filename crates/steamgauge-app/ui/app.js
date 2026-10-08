@@ -89,6 +89,7 @@ async function showGame(appId, named = null) {
     game === null ? 'This page shows what players talk about once the reviews are downloaded and read.' : '',
   );
   el('game-note').classList.remove('bad');
+  el('export-note').hidden = true;
   el('sweep-actions').hidden = game === null;
   el('topics').hidden = true;
   el('game-actions').hidden = true;
@@ -104,12 +105,21 @@ async function seeGame(appId) {
   if (still() && document.visibilityState === 'visible') invoke('looked', { appId }).catch(() => {});
 }
 
-/* The work on the shown game: what is running or waiting, and the last thing that finished. */
+/* What is running or waiting, and the last of it that finished. */
+const current = (jobs) => jobs.filter(active).concat(jobs.filter((job) => !active(job)).slice(0, 1));
+
+/* The work on the shown game. Saving its data is shown under the button that asked for it, the
+   rest at the top of the page. */
 function drawGameJobs() {
   if (chosen === null) return;
   const mine = jobsFor(chosen);
-  const shown = mine.filter(active).concat(mine.filter((job) => !active(job)).slice(0, 1));
+  const exporting = mine.filter((job) => job.task.kind === 'export_data');
+  const shown = current(mine.filter((job) => job.task.kind !== 'export_data'));
   el('game-jobs').replaceChildren(...shown.map((job) => jobItem(job, { named: false })));
+  const exports = current(exporting);
+  el('export-jobs').replaceChildren(...exports.map((job) => jobItem(job, { named: false })));
+  el('export-jobs').hidden = exports.length === 0;
+  el('export-data').disabled = exporting.some(active);
   const reading = mine.some((job) => active(job) && job.task.kind === 'read');
   el('do-read').disabled = reading;
   el('do-sweep').disabled = mine.some((job) => active(job) && job.task.kind === 'update');
@@ -159,6 +169,26 @@ async function drawReadCost(appId) {
   const mine = offer.choices.find((choice) => choice.name === offer.reader);
   if (mine?.seconds) parts.push(`About ${duration(mine.seconds)} on this computer.`);
   set(el('read-cost'), parts.join(' '));
+}
+
+/* The core opens the system's save dialog, so the page never names a path; what it writes runs
+   as a job, drawn under the button. */
+async function exportData() {
+  if (chosen === null) return;
+  const appId = chosen;
+  const note = el('export-note');
+  note.hidden = true;
+  el('export-data').disabled = true;
+  try {
+    await invoke('export_data', { appId });
+  } catch (failure) {
+    if (appId === chosen) {
+      set(note, String(failure));
+      note.hidden = false;
+    }
+  }
+  el('export-data').disabled = false;
+  drawGameJobs();
 }
 
 function readGame(only = undefined) {
@@ -938,6 +968,7 @@ el('rail-add').addEventListener('click', openFinder);
 el('game-back').addEventListener('click', () => go('library'));
 el('back').addEventListener('click', () => openGame(chosen));
 el('do-read').addEventListener('click', () => readGame());
+el('export-data').addEventListener('click', exportData);
 el('read-language').addEventListener('change', () => {
   if (chosen !== null) drawReadCost(chosen);
 });

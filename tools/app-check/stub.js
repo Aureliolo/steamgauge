@@ -333,6 +333,8 @@
   };
   let board = [];
   let nextJob = 100;
+  // What saving a game's data is refused with, or null where it is not.
+  let refusal = null;
   const listeners = new Map();
   const calls = [];
 
@@ -627,6 +629,11 @@
         };
       }),
     export_report: ({ appIds }) => queued({ kind: 'export', app_ids: appIds, to: 'C:\\report.html' }),
+    // The core asks where in the system's dialog; a refusal stands in for a name already taken.
+    export_data: ({ appId }) => {
+      if (refusal) throw new Error(refusal);
+      return queued({ kind: 'export_data', app_id: appId, to: 'C:\\Alpha - SteamGauge data' });
+    },
     settings: () => ({
       ...settings,
       search_every_game: searchEveryGame,
@@ -818,6 +825,9 @@
     update: (progress) => {
       update = progress;
       send('update', progress);
+    },
+    refuse: (why) => {
+      refusal = why;
     },
   };
 })();

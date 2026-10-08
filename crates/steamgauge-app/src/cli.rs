@@ -1,7 +1,7 @@
 use std::{
     io::{IsTerminal, Write},
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
@@ -819,6 +819,34 @@ enum Command {
         seed: u64,
     },
 
+    /// Write a read game's data as CSV and JSON, for a spreadsheet or your own analysis.
+    ///
+    /// Makes a new folder at --to, the same files the window's "Export data" saves:
+    /// subjects.csv and .json (every subject's mention rate, praise, complaints and both, the
+    /// share of points and its corrected share, for everyone and for each kind of reviewer),
+    /// months.csv and .json (reviews, the share recommending and each subject, month by month),
+    /// points.csv and .json (every point read, with its subject, side, sureness and words, and
+    /// the review it is in: its id, link, day, language, verdict, time played, Steam Deck, early
+    /// access, free copy and helpful votes), updates.csv and .json (the game's updates on Steam),
+    /// and a README.txt saying what every column holds, which reader read the game, when, and how
+    /// far its figures can be trusted. A figure the window does not show as a number is left
+    /// empty, and a column says why.
+    ///
+    /// The CSV is UTF-8 with a byte order mark, comma-separated with a CRLF after each row, a
+    /// field in double quotes where it must be. A text that starts like a spreadsheet formula
+    /// (=, +, -, @, a tab or a carriage return) carries a ' before it in the CSV; the JSON holds
+    /// it as written.
+    ExportData {
+        /// Steam app ID of a read game.
+        app_id: u32,
+        /// Directory holding the captures and their readings.
+        #[arg(short, long, default_value = "data")]
+        out: PathBuf,
+        /// The folder to make. Refused where anything is there already.
+        #[arg(long)]
+        to: PathBuf,
+    },
+
     /// Write the category sheet labellers work from, generated from the taxonomy.
     ///
     /// Separate from `sample-claims` because a boundary rule can change without anything
@@ -921,6 +949,7 @@ pub async fn run() -> Result<()> {
             examples,
             seed,
         } => run_report(&app_ids, &out, &to, examples, seed),
+        Command::ExportData { app_id, out, to } => run_export_data(app_id, &out, &to),
         other => encoder_work(other).await,
     }
 }
@@ -1004,7 +1033,10 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::ExportTraining { .. }
         | Command::ExportReviewFacts { .. }
         | Command::ExportPool { .. }
-        | Command::Report { .. } => unreachable!("run answers every command that needs no encoder"),
+        | Command::Report { .. }
+        | Command::ExportData { .. } => {
+            unreachable!("run answers every command that needs no encoder")
+        }
     }
 }
 
@@ -1283,6 +1315,39 @@ fn run_report(
     println!(
         "\nSelf-contained: open it from disk, send it as one file, print it. Nothing in it is\n\
          fetched from anywhere, and no review left this machine to produce it."
+    );
+    Ok(())
+}
+
+fn run_export_data(app_id: u32, out: &std::path::Path, to: &std::path::Path) -> Result<()> {
+    let mut told = Instant::now();
+    let exported = steamgauge_core::export::game(
+        out,
+        app_id,
+        to,
+        &std::sync::atomic::AtomicBool::new(false),
+        |walked, of| {
+            if told.elapsed() >= Duration::from_secs(2) {
+                eprintln!(
+                    "  points    {} of {} reviews walked",
+                    thousands(walked),
+                    thousands(of)
+                );
+                told = Instant::now();
+            }
+        },
+    )?;
+    println!("data        {}", exported.folder.display());
+    println!("  points     {}", thousands(exported.points));
+    if exported.left_out > 0 {
+        println!(
+            "  left out   {} points of reviews edited since they were read",
+            thousands(exported.left_out)
+        );
+    }
+    println!(
+        "\nsubjects, months, points and updates, each as .csv and .json, and a README.txt saying\n\
+         what every column holds."
     );
     Ok(())
 }

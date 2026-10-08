@@ -6,6 +6,7 @@
 //! one of them is calling the wrong function.
 
 mod cockpit;
+mod data_export;
 mod game_updates;
 mod newer;
 mod settings;
@@ -447,9 +448,6 @@ fn subject_row(
 ) -> Subject {
     let rate = share_of(subject.mention_reviews, found.reviews);
     let top_rate = share_of(subject.top_mention_reviews, found.top_helpful);
-    let measured = agreement
-        .and_then(|found| found.subjects.iter().find(|s| s.id == subject.id))
-        .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_JUDGE_A_ROW);
     let said = found.said.iter().find(|said| said.subject == subject.id);
     Subject {
         id: subject.id.clone(),
@@ -467,7 +465,7 @@ fn subject_row(
         },
         positive: share_of(subject.positive_mentions, subject.mention_reviews),
         corrected: corrected_share(agreement, &subject.id, subject.claims, found.claims),
-        found: measured.and_then(steamgauge_core::measure::SubjectAgreement::recall),
+        found: agreement.and_then(|measured| measured.found(&subject.id)),
         praised_terms: said.map(|said| said.praised.clone()).unwrap_or_default(),
         criticised_terms: said.map(|said| said.criticised.clone()).unwrap_or_default(),
     }
@@ -482,12 +480,7 @@ fn corrected_share(
     claims: u64,
     of_claims: u64,
 ) -> Option<f64> {
-    agreement?
-        .subjects
-        .iter()
-        .find(|s| s.id == subject)
-        .filter(|s| s.labelled >= steamgauge_core::measure::ENOUGH_TO_CORRECT_A_ROW)
-        .and_then(|s| share_of(claims, of_claims).and_then(|observed| s.corrected(observed)))
+    agreement?.corrected_share(subject, claims, of_claims)
 }
 
 /// Whether the reader learned from this game's labels, and how often it agrees with them where it
@@ -1297,6 +1290,7 @@ pub fn run() -> anyhow::Result<()> {
             search_by_meaning,
             game_updates::game_updates,
             game_updates::before_after,
+            data_export::export_data,
             work::work,
             work::queue,
             work::stop_job,

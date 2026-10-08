@@ -514,6 +514,37 @@ const PROBE = `(async function () {
   await pause();
   check('a game\\'s store page does not open through the opener',
     last('plugin:opener|open_url').args.url === 'https://store.steampowered.com/app/1/');
+
+  check('a read game cannot export its data', shown('export-jobs') === false && !$('#export-data').disabled);
+  $('#export-data').click();
+  await pause();
+  check('exporting the data does not ask the core for this game\\'s',
+    last('export_data') && last('export_data').args.appId === 1);
+  check('the data being written is not shown under the button',
+    shown('export-jobs') && /Export the data/.test($('#export-jobs').textContent));
+  check('the data being written is shown at the top of the page as well',
+    !/Export the data/.test($('#game-jobs').textContent));
+  check('the data can be asked for again while it is being written', $('#export-data').disabled);
+  window.__stub.board([{ id: 77, task: { kind: 'export_data', app_id: 1, to: 'C:\\\\Alpha data' }, name: 'Alpha',
+    state: 'done', step: 'Writing the points', unit: 'reviews', done: 25900, total: 25900, rate: null, left: null,
+    note: 'Saved 78,000 points and the figures in C:\\\\Alpha data.', queued: 0, started: 0, ended: 0 }]);
+  await pause();
+  var folder = Array.prototype.find.call(document.querySelectorAll('#export-jobs button'), function (b) {
+    return b.textContent === 'Open the folder'; });
+  check('saved data cannot be opened', folder !== undefined);
+  check('the data cannot be exported again once it is saved', !$('#export-data').disabled);
+  if (folder) { folder.click(); await pause(); }
+  check('opening the saved data does not name its job to the core',
+    last('open_report') && last('open_report').args.id === 77);
+  window.__stub.refuse('C:\\\\Alpha - SteamGauge data is there already; choose a name nothing has yet');
+  $('#export-data').click();
+  await pause();
+  check('a refused export goes unsaid', shown('export-note') && /is there already/.test($('#export-note').textContent));
+  check('a refused export leaves the button off', !$('#export-data').disabled);
+  window.__stub.refuse(null);
+  window.__stub.board([]);
+  await pause();
+  check('the game page with its data saved does not fit its page', fits());
   $('#topic-rows .subject').click();
   await pause(300);
   check('a subject does not show the points behind it', document.querySelectorAll('#quotes li').length === 2);
@@ -685,6 +716,10 @@ try {
     Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) {
       return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click();
     await new Promise(function (done) { setTimeout(done, 400); });
+    var exportBox = document.getElementById('export-data').getBoundingClientRect();
+    if (exportBox.width === 0 || exportBox.right > document.getElementById('stage').getBoundingClientRect().right + 1) {
+      wrong.push('the way to export a game\\'s data is out of sight in the narrowest window');
+    }
     var first = document.getElementById('who-first');
     first.value = '100-hours-or-more';
     first.dispatchEvent(new Event('change'));
@@ -794,6 +829,16 @@ try {
 
   if (shots) {
     await mkdir(shots, { recursive: true });
+    // Alpha's data being written, or written, as the board would hold it.
+    const exporting = (state) =>
+      "var at=Math.floor(Date.now()/1000);window.__stub.board([{id:96,task:{kind:'export_data',app_id:1," +
+      "to:'C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data'},name:'Alpha',state:'" + state + "'," +
+      "step:'Writing the points',unit:'reviews',done:" + (state === "done" ? 25900 : 9400) + ",total:25900," +
+      "rate:" + (state === "done" ? "null" : 4100) + ",left:" + (state === "done" ? "null" : 4) + ",note:" +
+      (state === "done"
+        ? "'Saved 78,000 points and the figures in C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data.'"
+        : "null") +
+      ",queued:at-10,started:at-5,ended:" + (state === "done" ? "at" : "null") + "}])";
     // Every page whole, rather than the window's height of it.
     const unroll =
       "document.body.style.overflow='visible';document.querySelector('.frame').style.height='auto';" +
@@ -860,6 +905,12 @@ try {
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-${scheme}`);
+      // A game's data being written, and then saved, under the button that asked for it.
+      await evaluate(exporting("running"));
+      await shoot(`game-export-${scheme}`);
+      await evaluate(exporting("done"));
+      await shoot(`game-export-done-${scheme}`);
+      await evaluate("window.__stub.board([])");
       await evaluate(
         "var choice=document.getElementById('update-choice');choice.value='1840000000000005';choice.dispatchEvent(new Event('change'))",
       );
@@ -952,6 +1003,9 @@ try {
       "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
     );
     await shoot("narrow-game");
+    await evaluate(exporting("done"));
+    await shoot("narrow-game-export");
+    await evaluate("window.__stub.board([])");
     await evaluate(
       "var choice=document.getElementById('update-choice');choice.value='1840000000000002';choice.dispatchEvent(new Event('change'))",
     );

@@ -16,6 +16,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | The UI is first class, not a wrapper over the pipeline, and has to be good enough to look at | the window crawls, reads, shows the counts with their measured error, opens every row onto its claims and every word that stands out onto the claims that use it, draws the timeline, lists the languages, shows the induced subjects, and switches which language is counted without re-crawling |
 | Results also export as one self-contained HTML page that fetches nothing | done |
 | The app keeps the games in the library up to date while it is open, and the cockpit opens on what moved since the last look | done 2026-10-08: updates and reads as the app's own jobs, giving way to the person's; new reviews tested against the year before at four standard errors and two points; a notification, off by default (below) |
+| **A read game's data exports for spreadsheets and anyone's own analysis** (the owner, 2026-10-08) | done: "Export data" on the game page and `steamgauge export-data` write the same folder of CSV and JSON with a README.txt, by the page's rules (the section below) |
 | Name: **SteamGauge**, binary `steamgauge` | done 2026-09-11, renamed from `steam-review-census`. A census counts heads; this reads opinions, and "to gauge opinion" is the phrase for it. `gauge` alone was left to ThoughtWorks' test framework and npm's progress bar |
 
 ## What the analysis does
@@ -5084,6 +5085,56 @@ the plugin would add to the capabilities file, and the file is unchanged. Window
 by the app's identifier, which the installer sets on its Start menu shortcut, as the plugin does; a
 click is heard while the notification is on screen, and one clicked later in the notification
 centre opens nothing.
+
+### A read game's data exports as CSV and JSON, by the page's rules (2026-10-08)
+
+The owner's decision: a person can take a read game's data into a spreadsheet or their own
+analysis. "Export data" on the game page and `steamgauge export-data <app id> --to <folder>` call
+one function (`export::game`) and write the same files: `subjects`, `months`, `points` and
+`updates`, each as `.csv` and `.json`, and a `README.txt` naming every column, the reader, the day
+it read the game, the day the reviews were downloaded to, and the page's own words on how far the
+figures can be trusted.
+
+**A folder, not a zip.** A spreadsheet opens a CSV straight from a folder; opened from inside a
+zip, Windows hands Excel a read-only copy in a temporary folder, and what someone saves there is
+lost. A zip would also bring an archive writer into the binary for files people unpack at once.
+The folder is written as `<name>.partial` beside where it goes and renamed only once every file is
+whole, so a stopped or failed export leaves nothing that looks finished; a name already taken, or
+a `.partial` left behind, is refused rather than written into.
+
+**The figures are the page's, and so are its silences.** A kind of reviewer with fewer than 100
+reviews has its row with every figure empty and `withheld` saying why; such a kind has no months.
+A month under 30 reviews carries no share recommending. The corrected share appears only where the
+page shows one, and a subject the reader is measured to find in under a quarter of its labelled
+points is marked `rate_is_a_floor`, as the page marks it. `in_the_most_helpful` is everyone's
+alone, as the reading counts it. The corrected share and the measured recall are
+`ClaimAgreement::corrected_share` and `ClaimAgreement::found`, which the window and the export
+both call. A point is one row per subject it is filed under, with `first_subject` saying
+which the reader named first; a declined point is one row with no subject and no side; a point's
+side is praise, complaint or neutral, since "mixed" is a review doing both. A point is written
+only where its review still cuts it at the bytes it was read at; one edited since is left out,
+counted in the README, and still counted in the figures, as the page counts it.
+
+**CSV.** RFC 4180 through the `csv` crate, already in the tree under `arrow`: a comma between
+fields, a CRLF after every row, a field quoted only where it holds a comma, a quote or a line
+break. UTF-8 with a byte order mark, because Excel needs it: Excel 16.0.20430 on this machine
+(Windows code page 1252) opened a field of French, Japanese and Russian without the mark with
+every letter outside ASCII turned into two or three others (`é` came out as `Ã©`), and with it
+as written. The tests read every file back through the `csv` crate's
+own reader, which skips the mark, and compare it cell by cell with the JSON.
+Shares are decimals from 0 to 1 to six places, so one review in a million is not written as none.
+
+**Formula injection.** Reviews are written by strangers, and the same test showed Excel running
+`=1+1` from a CSV as a formula. Any text field starting with `=`, `+`, `-`, `@`, a tab or a
+carriage return is written with a `'` before it, the standard defence; Excel then shows `'=1+1` as
+text. The JSON holds every text as written. The splitter already takes a leading `+` or `-` for a
+list's bullet, so a point starts with `=` or `@` at most, but an update's title can start with
+anything, and both are tested.
+
+**The save dialog is opened by the core**, through `rfd` as the report's already is, not by
+Tauri's dialog plugin: the window gets no permission to choose or write a path at all, which is
+narrower than the plugin's narrowest. It names the new folder, and the writing runs as a job on
+the files lane, holding the game so no read or update rewrites it mid-export.
 
 ### The library lives in the local app data folder (2026-10-06)
 

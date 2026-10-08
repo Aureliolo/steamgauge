@@ -56,6 +56,9 @@ pub enum Task {
         app_ids: Vec<u32>,
         to: std::path::PathBuf,
     },
+    /// A read game's figures and points, written as CSV and JSON into a new folder where the
+    /// person chose.
+    ExportData { app_id: u32, to: std::path::PathBuf },
     /// The reader this machine reads with, fetched ahead of a first read, so a first game's
     /// reviews and the reader download at the same time.
     FetchReader,
@@ -78,7 +81,7 @@ impl Task {
                 Lane::Network
             }
             Self::Read { .. } | Self::Prepare { .. } => Lane::Machine,
-            Self::Export { .. } | Self::Recount { .. } => Lane::Files,
+            Self::Export { .. } | Self::ExportData { .. } | Self::Recount { .. } => Lane::Files,
         }
     }
 
@@ -88,7 +91,8 @@ impl Task {
             | Self::Update { app_id }
             | Self::Read { app_id, .. }
             | Self::Recount { app_id }
-            | Self::Prepare { app_id } => Some(*app_id),
+            | Self::Prepare { app_id }
+            | Self::ExportData { app_id, .. } => Some(*app_id),
             Self::Check | Self::Export { .. } | Self::FetchReader => None,
         }
     }
@@ -552,11 +556,15 @@ impl Work {
         background
     }
 
-    /// Where a finished report was saved. Only a report this app wrote can be opened from the
-    /// window, never a path the window names.
+    /// Where a finished report or a game's data was saved. Only what this app wrote can be opened
+    /// from the window, never a path the window names.
     fn saved(&self, id: u64) -> Option<std::path::PathBuf> {
         self.lock().jobs.iter().find_map(|job| match &job.task {
-            Task::Export { to, .. } if job.id == id && job.state == State::Done => Some(to.clone()),
+            Task::Export { to, .. } | Task::ExportData { to, .. }
+                if job.id == id && job.state == State::Done =>
+            {
+                Some(to.clone())
+            }
             _ => None,
         })
     }
@@ -573,6 +581,7 @@ fn stopped_note(task: &Task) -> &'static str {
         Task::Prepare { .. } => "Stopped. What was done is kept, and preparing again carries on.",
         Task::Check => "Stopped.",
         Task::Export { .. } => "Stopped before the report was saved.",
+        Task::ExportData { .. } => "Stopped. Nothing was saved.",
         Task::FetchReader => "Stopped. The first read fetches the reader instead.",
     }
 }
@@ -640,6 +649,7 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
                 Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
                 Task::Check => check(&app, id).await,
                 Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
+                Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
                 Task::FetchReader => {
                     let size = reader_here(&Settings::load(&app));
                     fetch_reader(&app, id, size).await.map(|()| {
@@ -1226,6 +1236,46 @@ async fn export(
     .await
     .map_err(text)??;
     Ok(Ended::said(format!("Saved as {}.", to.display())))
+}
+
+async fn export_data(
+    app: &AppHandle,
+    id: u64,
+    app_id: u32,
+    to: std::path::PathBuf,
+    stop: Arc<AtomicBool>,
+) -> Result<Ended, String> {
+    let dir = library_dir(app);
+    tell(app, id, "Writing the data", Unit::Reviews, 0.0, None);
+    let telling = app.clone();
+    let exported = tauri::async_runtime::spawn_blocking(move || {
+        steamgauge_core::export::game(&dir, app_id, &to, &stop, |walked, of| {
+            tell(
+                &telling,
+                id,
+                "Writing the points",
+                Unit::Reviews,
+                float(walked),
+                Some(float(of)),
+            );
+        })
+        .map_err(text)
+    })
+    .await
+    .map_err(text)??;
+    let left_out = if exported.left_out > 0 {
+        format!(
+            " {} points of reviews edited since they were read are left out.",
+            thousands(exported.left_out)
+        )
+    } else {
+        String::new()
+    };
+    Ok(Ended::said(format!(
+        "Saved {} points and the figures in {}.{left_out}",
+        thousands(exported.points),
+        exported.folder.display()
+    )))
 }
 
 /// A count with thousands separated, as the window would print it.
