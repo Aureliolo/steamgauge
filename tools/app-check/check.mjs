@@ -3,9 +3,10 @@
 //
 // The window is plain HTML and modules that talk to the core through `window.__TAURI__`. Served
 // here with `stub.js` standing in for that bridge, every page can be opened and every control
-// pressed without a library, a model or a webview: the cockpit, the work board, the library's
-// sorting, grouping and selection, the comparison, the settings, a game's page, and the notice
-// that a newer version is out with every state of its update.
+// pressed without a library, a model or a webview: the cockpit and what changed since the last
+// look, the work board, the library's sorting, grouping and selection, the comparison, the
+// settings, a game's page, and the notice that a newer version is out with every state of its
+// update.
 //
 //   node tools/app-check/check.mjs [--shots <folder>]
 //
@@ -93,6 +94,41 @@ const PROBE = `(async function () {
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board does not say nothing is running', shown('cockpit-idle'));
   check('the cockpit does not fit its page', fits());
+
+  check('the cockpit does not say what changed since the last look',
+    document.querySelectorAll('#since-games .since-game').length === 3 && !shown('since-calm'));
+  check('the games that moved since do not come first', /Alpha/.test($('#since-games .since-game').textContent) &&
+    $('#since-games .since-game').classList.contains('moved'));
+  check('a complaint that rose since is not marked as bad news', $('#since-games .since-move.complaint.up') !== null);
+  check('praise that fell since is not marked as bad news', $('#since-games .since-move.praise.down') !== null);
+  check('a share recommending that fell since is not shown', $('#since-games .since-move.recommended.down') !== null);
+  check('the new reviews are not counted', /1,520 new reviews/.test($('#since-games').textContent));
+  check('what the new reviews are set against goes unsaid',
+    /Of the 1,140 new reviews read, against \\S+ 2024 to \\S+ 2025\\./.test($('#since-games').textContent) && shown('since-how'));
+  check('a game whose new reviews are not read yet does not say so', /260 new reviews/.test($('#since-games').textContent) &&
+    /not read yet/.test($('#since-games').textContent));
+  check('when the cockpit was last looked at goes unsaid', /^You last looked on /.test($('#since-when').textContent));
+  check('looking at the cockpit is not recorded', called('looked').some(function (call) { return call.args.appId === null; }));
+  check('a subject that moved since is not named in the middle of a sentence', /Praise for\\s*story and writing/.test($('#since-games').textContent));
+  window.__stub.lately('calm');
+  await pause(250);
+  check('a cockpit with nothing changed since does not say so plainly',
+    $('#since-games').children.length === 0 && shown('since-calm') &&
+    /^Nothing has changed since you last looked\\.$/.test($('#since-calm-text').textContent) && !shown('since-how'));
+  window.__stub.lately('first');
+  await pause(250);
+  check('a first look claims to know when the last one was', $('#since-when').textContent === '' &&
+    /Nothing to compare with yet/.test($('#since-calm-text').textContent));
+  window.__stub.lately('moved');
+  await pause(250);
+  $('#since-games .since-game .link').click();
+  await pause(300);
+  check('a game that changed since does not open from the card', shown('game') && /Alpha/.test($('#game-name').textContent));
+  await go('cockpit');
+  window.__stub.send('open-game', 2);
+  await pause(300);
+  check('a notification clicked does not open the game it named', shown('game') && /Beta/.test($('#game-name').textContent));
+  await go('cockpit');
 
   var release = 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0';
   check('a newer version kept from the last question is not announced at opening', shown('newer-version'));
@@ -308,6 +344,25 @@ const PROBE = `(async function () {
   await pause(250);
   check('the recommended reader is kept as a choice rather than as the default',
     last('save_settings').args.settings.reader === null);
+  check('keeping games up to date is not on as it is by default', $('#keep-up-to-date').checked && !$('#keep-up-to-date').disabled);
+  check('a notification is on before anyone asked for one', !$('#notify-moves').checked);
+  $('#notify-moves').click();
+  await pause(250);
+  check('asking for notifications is not saved', last('save_settings').args.settings.notify_moves === true &&
+    last('save_settings').args.settings.keep_up_to_date === true);
+  $('#keep-up-to-date').click();
+  await pause(250);
+  check('turning off keeping games up to date is not saved', last('save_settings').args.settings.keep_up_to_date === false);
+  $('#keep-up-to-date').click();
+  await pause(250);
+  $('#check-steam').click();
+  await pause(250);
+  check('keeping games up to date can be chosen without Steam\\'s counts to go by',
+    last('save_settings').args.settings.check_steam === false && $('#keep-up-to-date').disabled);
+  $('#check-steam').click();
+  await pause(250);
+  check('asking Steam again does not let games be kept up to date', !$('#keep-up-to-date').disabled);
+  check('settings do not fit their page', fits());
 
   await go('storage');
   await pause(250);
@@ -351,6 +406,7 @@ const PROBE = `(async function () {
   rows().filter(function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click();
   await pause(300);
   check('a game page does not open', shown('game'));
+  check('a game whose page was never seen claims a last look', !shown('game-since'));
   check('a first read does not say what it will fetch', /1\\.1 GB download/.test($('#read-cost').textContent));
   $('#do-read').click();
   await pause();
@@ -363,6 +419,16 @@ const PROBE = `(async function () {
   await pause(300);
   check('a read game does not show what people talk about',
     shown('topics') && document.querySelectorAll('#topic-rows tr').length === 2);
+  check('a game\\'s page does not say what changed since it was last seen', shown('game-since') &&
+    /^Since you last looked, on .*: 1,520 new reviews\\.$/.test($('#game-since p').textContent) &&
+    $('#game-since .since-move.complaint.up') !== null && $('#game-since').classList.contains('moved'));
+  check('looking at a game\\'s page is not recorded', called('looked').some(function (call) { return call.args.appId === 1; }));
+  $('#game-since .since-move .link').click();
+  await pause(300);
+  check('a subject that moved since does not open onto its points', shown('evidence') &&
+    last('claims_behind') && last('claims_behind').args.subject === 'performance');
+  $('#back').click();
+  await pause(300);
   check('a language is not named as a person writes it', /English 75%/.test($('#languages').textContent));
   check('a month\\'s bar is not held to a column\\'s width',
     Number($('#timeline-svg .bar').getAttribute('width')) <= 56);
@@ -531,6 +597,9 @@ const PROBE = `(async function () {
   await pause(300);
   check('a game counted before reviewers were told apart does not offer to count it again',
     shown('who') && shown('who-recount') && !shown('who-pick') && !shown('who-differ'));
+  check('a game with nothing new since it was last seen does not say so plainly', shown('game-since') &&
+    /^Nothing new since you last looked, on .*\\.$/.test($('#game-since').textContent) &&
+    !$('#game-since').classList.contains('moved'));
   $('#do-recount').click();
   await pause();
   check('counting again does not queue a recount of the game', called('queue').some(function (call) {
@@ -755,6 +824,12 @@ try {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
+      // The cockpit's first card when nothing changed since the last look, and on a first look.
+      await evaluate("document.querySelector('[data-go=\"cockpit\"]').click();window.__stub.lately('calm')");
+      await shoot(`cockpit-since-calm-${scheme}`);
+      await evaluate("window.__stub.lately('first')");
+      await shoot(`cockpit-since-first-${scheme}`);
+      await evaluate("window.__stub.lately('moved')");
       // The cockpit while work runs: a download with its pace, a read, one waiting and one done.
       await evaluate(
         "var at=Math.floor(Date.now()/1000);var job=function(id,kind,app,name,state,step,unit,done,total,rate,left,note){" +

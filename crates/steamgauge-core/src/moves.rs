@@ -134,14 +134,14 @@ pub struct Recent {
 }
 
 /// A month label as a count of months, so windows can be stepped through.
-fn index_of(label: &str) -> Option<i64> {
+pub(crate) fn index_of(label: &str) -> Option<i64> {
     let (year, month) = label.split_once('-')?;
     let year: i64 = year.parse().ok()?;
     let month: i64 = month.parse().ok()?;
     (1..=12).contains(&month).then_some(year * 12 + month - 1)
 }
 
-fn label_of(index: i64) -> String {
+pub(crate) fn label_of(index: i64) -> String {
     format!(
         "{:04}-{:02}",
         index.div_euclid(12),

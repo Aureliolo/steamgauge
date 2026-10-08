@@ -104,6 +104,8 @@ export function jobItem(job, { named = true } = {}) {
   }[job.state];
   const kind = make('span', 'job-kind', taskName(job.task));
   if (job.state === 'queued') kind.append(make('span', 'job-wait', ' · waiting its turn'));
+  /* A waiting job of the app's own says so in its note. */
+  else if (job.background) kind.append(make('span', 'job-wait', ' · started by the app'));
   const actions = make('span', 'job-actions', ended ? make('span', `pill ${ended[1]}`, ended[0]) : null);
   if (job.state === 'running') {
     actions.append(button('Stop', 'quiet-button small', () => stop(job.id)));

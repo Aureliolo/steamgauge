@@ -33,6 +33,7 @@ import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
 import { setUpWho, drawWho, drawRecount } from './who.js';
 import { setUpUpdates, loadUpdates, markUpdates } from './updates.js';
+import { drawSinceLine } from './since.js';
 
 const PER_PAGE = 25;
 
@@ -81,6 +82,8 @@ async function showGame(appId, named = null) {
         ],
   );
   el('game-facts').hidden = game === null;
+  if (game === null) el('game-since').hidden = true;
+  else seeGame(appId);
   set(
     el('game-note'),
     game === null ? 'This page shows what players talk about once the reviews are downloaded and read.' : '',
@@ -91,6 +94,14 @@ async function showGame(appId, named = null) {
   el('game-actions').hidden = true;
   drawGameJobs();
   if (game !== null) loadTopics(appId);
+}
+
+/* What changed since the game's page was last seen, then this look recorded, where somebody can
+   see the window. */
+async function seeGame(appId) {
+  const still = () => chosen === appId && showing() === 'game';
+  await drawSinceLine(appId, openSubject, still);
+  if (still() && document.visibilityState === 'visible') invoke('looked', { appId }).catch(() => {});
 }
 
 /* The work on the shown game: what is running or waiting, and the last thing that finished. */
@@ -958,6 +969,9 @@ listen('library', ({ payload }) => {
   if (showing() === 'game') showGame(chosen);
   if (showing() === 'evidence' && meaningFor && !el('meaning').hidden) drawMeaning(meaningFor.query);
 });
+
+/* A desktop notification clicked: the game it named. */
+listen('open-game', ({ payload }) => openGame(payload));
 
 drawBrief(el('rail-work'));
 el('rail-work').addEventListener('click', () => go('cockpit'));

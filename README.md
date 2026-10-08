@@ -162,13 +162,21 @@ The app reads with the largest reader your graphics card has room for. Without a
 starts with the fast one and offers the most accurate beside it, saying how long each takes on
 that computer.
 
-The desktop app opens on a cockpit: everything running, with its speed and time left; the
-library's state, including the games Steam has new reviews for and the games read by an older
-reader; what moved in the last three months across every game, where the change is wider than
-chance; and which reader and models this computer uses. The library lists every game, sorted
-and grouped as you like, and updates, reads, compares or reports on any selection of them. Work
-runs in the background, downloads beside reads, and how much of the graphics card a read may
-take is a setting.
+The desktop app opens on a cockpit: what changed since you last looked, game by game, with the
+subjects whose share in the new reviews differs from the year before by more than chance;
+everything running, with its speed and time left; the library's state, including the games Steam
+has new reviews for and the games read by an older reader; what moved in the last three months
+across every game, where the change is wider than chance; and which reader and models this
+computer uses. Each game's page says what changed since you last looked at it. The library lists
+every game, sorted and grouped as you like, and updates, reads, compares or reports on any
+selection of them. Work runs in the background, downloads beside reads, and how much of the
+graphics card a read may take is a setting.
+
+While the app is open, it brings a game up to date by itself once Steam has a hundredth more
+reviews of it than the library holds, and reads the new reviews with the reader in use. That work
+gives way to anything you start, and stops when the app closes; Settings turns it off. A desktop
+notification, off until you turn it on, names a game and a subject when such an update finds the
+subject moved, and clicking it opens the game.
 
 ### What a percentage means here
 
@@ -910,8 +918,9 @@ The app makes requests to four places, and to nothing else:
 
 - **Steam**, for the reviews of the games you add, their names and their totals, the store's
   search when you find a game by its name, and each game's store picture, fetched once and kept
-  on your disk; and, when the app opens, how many reviews each game in the library has now: at
-  most every six hours, one request per game, and Settings turns it off.
+  on your disk; and, when the app opens and while it stays open, how many reviews each game in the
+  library has now: at most every six hours, one request per game, and Settings turns it off. The
+  updates the app makes by itself fetch only what was written or edited since.
 - **Hugging Face**, for the readers and the search models. Each file is fetched once, from a
   pinned commit, and checked against its pinned length and SHA-256 before it is used; the
   pipeline's `embed` command fetches its encoder the same way. When the library is checked

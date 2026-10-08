@@ -15,6 +15,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Compiled binary for Windows, Linux and macOS; the user downloads it, double-clicks it, and works entirely in the UI | built and packaged into installers for all three by the release workflow, DirectML on Windows and CoreML on Apple Silicon; the reader is fetched by checksum on first use |
 | The UI is first class, not a wrapper over the pipeline, and has to be good enough to look at | the window crawls, reads, shows the counts with their measured error, opens every row onto its claims and every word that stands out onto the claims that use it, draws the timeline, lists the languages, shows the induced subjects, and switches which language is counted without re-crawling |
 | Results also export as one self-contained HTML page that fetches nothing | done |
+| The app keeps the games in the library up to date while it is open, and the cockpit opens on what moved since the last look | done 2026-10-08: updates and reads as the app's own jobs, giving way to the person's; new reviews tested against the year before at four standard errors and two points; a notification, off by default (below) |
 | Name: **SteamGauge**, binary `steamgauge` | done 2026-09-11, renamed from `steam-review-census`. A census counts heads; this reads opinions, and "to gauge opinion" is the phrase for it. `gauge` alone was left to ThoughtWorks' test framework and npm's progress bar |
 
 ## What the analysis does
@@ -5003,6 +5004,86 @@ few reviews either side.
 **The report** marks every update on its chart, sets out the four the most reviews followed, no
 two within 28 days of each other so a launch and its week of hotfixes are one moment, and lists
 every update with what changed across it.
+
+### The app keeps its games up to date, and opens on what moved since the last look (2026-10-08)
+
+The owner's decision: the app keeps the games a person follows up to date by itself, the cockpit
+opens on what moved since their last visit, and a desktop notification can say when a subject
+jumps. Every game in the library is a game followed; there is no second list to keep.
+
+**Keeping up to date is a setting, on by default.** It is what the app is for once a game is in
+the library, and it does only what **Bring up to date** already does, as the same job: the update
+fetches what was written or edited since and the developer's posts for the timeline (the entry
+above), and a game that had been read is read again in its language with the
+reader in use, at the share of the card in Settings. It runs only while the app is open, as
+ordinary jobs on the board, with no service, no scheduled task and nothing that starts with the
+system. Steam is asked when the app opens and again while it stays open, still at most every six
+hours (the open app looks at whether six hours have passed every ten minutes, which reads two
+small files). The switch needs that question on, since Steam's counts are what say which games
+have new reviews.
+
+**A game is updated once Steam has a hundredth more reviews than the library holds of it**, and at
+least one. An update reads the whole game again, so this keeps the card from re-reading a game
+for less than a hundredth of it: a game of 50,000 reviews waits for 500, and a small one, cheap to
+read, is kept up to date review by review. A fixed 100 was refused because a game of 500,000
+reviews gaining 100 a day would be re-read daily for a fifth of a per cent of it.
+
+**The app's own work never runs beside the person's.** A job carries whether the app started it
+(the check, the updates, and whatever follows them). While any job the person started waits or
+runs, on any lane, none of the app's own starts; a person starting one stops every running job
+of the app's own where it can stop, and puts it back to wait rather than ending it. A read
+stopped this way keeps the reading it was replacing and starts again from the beginning, and an
+update asks Steam again from its watermark. A task the person asks for that the app had already
+put on the board becomes theirs. The board shows which jobs the app started.
+
+**What is kept of a look.** When the cockpit is seen, every game as it stands; when a game's page is
+seen, that game: when, the reviews the library held, and its reading's counts (reviews,
+recommending, praising and complaining about each subject, by subject id, with the reader, the
+lines, the language and the depth that made them). The record is `last-seen.json` in the library,
+beside the library's other records, so it follows a library `STEAMGAUGE_DATA` moves. It is written
+whole beside its place, flushed to the disk and moved over the old one, so a crash leaves either
+the record before or the one after; a record that cannot be read is a first visit, never a
+failure. What the window compares with is the record as it stood when the app opened: a look in
+this visit becomes the next visit's starting point, and the card keeps saying what moved while it
+is read. A removed game leaves no look behind.
+
+**What moved since is the new reviews against the year before.** The reviews read since a look are
+the reading now less the reading seen, which holds only where both asked the same question: the
+same reader, lines, language and depth, so the reviews they share were answered alike. A game read
+again any other way, or read for the first time since, is named as such and not compared. Their
+share recommending the game, and praising and complaining about each subject, is set against the
+twelve months before the month the seen capture ends in; that month is left out of both sides,
+since its earlier reviews were already counted and its later ones are among the new. The floors
+are what moved's: 100 new reviews read, 300 in the year before. The bar is who wrote it's: four
+standard errors of the pooled two-proportion test and two points. The new reviews are a later kind
+of reviewer, and a person looks again and again: every look at every game tests some fifty shares,
+and at three standard errors a library of ten games each gathering a few hundred reviews would
+show about one change chance made on every look (500 tests at 0.27% each), at four about one look
+in thirty (at 0.006% each). The
+subject that says nothing about the game is not tested. A review edited since is counted where its
+new answers put it, which can move a count by one either way; a count that fell gained nothing.
+
+The cockpit's first card lists every game with something since the last look: the ones that moved
+first, clearest first, then by new reviews, each linking to its game and every subject to its
+points. Nothing changed says so, and a first visit says there is nothing to compare with yet. A
+game's page carries its own line, against its page's last look, or the cockpit's where the page was
+never opened.
+
+**The notification is off by default**: it interrupts whatever the person is doing, which they
+choose. When an update the app made by itself has been read, and a subject moved since the most
+recent look at that game, one notification names the game and the clearest such subject; one that
+named a subject is not repeated until the game is looked at again. Clicking it brings the window
+forward on the game.
+
+**It is sent with notify-rust, not Tauri's notification plugin.** The plugin wraps the same crate
+and, on desktop, uses only a notification's title, body, icon and sound: the click is dropped on
+Windows, macOS and Linux alike, and the click is the point. notify-rust 4.18 returns it on all
+three (a toast's activation on Windows, the default action on Linux, the click on macOS). It is
+sent from the core's side, so the window gains no permission at all, which is narrower than any
+the plugin would add to the capabilities file, and the file is unchanged. Windows names the sender
+by the app's identifier, which the installer sets on its Start menu shortcut, as the plugin does; a
+click is heard while the notification is on screen, and one clicked later in the notification
+centre opens nothing.
 
 ### The library lives in the local app data folder (2026-10-06)
 

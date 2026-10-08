@@ -202,6 +202,9 @@ pub struct Row {
     /// What moved lately, where the game has been read with months to compare.
     pub recent: Option<steamgauge_core::moves::Recent>,
     pub groups: Vec<String>,
+    /// The reading itself, for what moved since a look; the window is sent what it needs of it.
+    #[serde(skip)]
+    pub report: Option<steamgauge_core::read::ReadReport>,
 }
 
 /// The run id of the reader this machine would read with now, where one is on it.
@@ -250,14 +253,15 @@ pub fn rows(app: &AppHandle) -> Vec<Row> {
                     .get(&game.app_id)
                     .map(|now| now.saturating_sub(facts.valve_total_reviews)),
                 recent: reading.as_ref().and_then(steamgauge_core::moves::recent),
-                read: reading.map(|reading| Read {
+                read: reading.as_ref().map(|reading| Read {
                     current: current.as_deref() == Some(reading.read_with.as_str()),
                     reader: reading.reader.clone(),
                     recommended: share(reading.positive, reading.reviews),
-                    language: reading.language,
+                    language: reading.language.clone(),
                     reviews: reading.reviews,
                     claims: reading.claims,
                 }),
+                report: reading,
                 groups: groups
                     .groups
                     .iter()
@@ -437,6 +441,8 @@ pub struct Overview {
     pub checked: i64,
     pub moves: Vec<GameMove>,
     pub recommended: Vec<GameShift>,
+    /// What moved since the person last looked at the cockpit.
+    pub since: super::since::Lately,
     pub machine: Machine,
     pub jobs: Vec<work::Job>,
 }
@@ -527,6 +533,7 @@ fn overview_of(app: &AppHandle) -> Overview {
         checked: SteamTotals::load(&dir).checked,
         moves,
         recommended,
+        since: super::since::lately(app, &rows),
         machine: machine(app),
         jobs: app.state::<work::Work>().jobs(),
     }
@@ -539,20 +546,60 @@ pub async fn overview(app: AppHandle) -> Result<Overview, String> {
         .map_err(text)
 }
 
-/// How long the library's counts from Steam are taken as current before opening the app asks
-/// again.
+/// How long the library's counts from Steam are taken as current before the app asks again.
 const CHECK_EVERY: i64 = 6 * 60 * 60;
 
-/// Asks Steam about the library on opening, where the person wants that and it has not been
-/// asked lately.
-pub fn check_on_opening(app: &AppHandle) {
+/// How often the open app looks at whether the counts have aged past [`CHECK_EVERY`]. Asking
+/// whether is a read of two small files; asking Steam is what the six hours are for.
+pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
+
+/// Asks Steam about the library, on opening and while the app stays open, where the person
+/// wants that and it has not been asked lately. The question is the app's own, so it waits for
+/// the person's work.
+pub fn check_when_due(app: &AppHandle) {
     let dir = library_dir(app);
     if Settings::load(app).check_steam
         && super::now_unix() - SteamTotals::load(&dir).checked > CHECK_EVERY
         && !super::shelf(&dir).games.is_empty()
     {
         app.state::<work::Work>()
-            .queue(app, work::Task::Check, None);
+            .queue_background(app, work::Task::Check);
+    }
+}
+
+/// Whether a game Steam has `new` reviews for that the library does not is brought up to date by
+/// itself, given the `held` reviews the library has of it. An update reads the whole game again,
+/// so it waits until Steam has a hundredth more than the library holds: the card is never spent
+/// re-reading a game for less than a hundredth of it, and a small game, cheap to read, is kept
+/// up to date review by review.
+pub(super) fn due(held: u64, new: u64) -> bool {
+    new > 0 && new >= held / 100
+}
+
+/// Brings every game with enough new reviews on Steam up to date as work of the app's own, from
+/// what Steam last said, where the person wants that. The update reads the game again where it
+/// had been read, in the language it was read in.
+pub fn keep_up_to_date(app: &AppHandle) {
+    let settings = Settings::load(app);
+    if !(settings.check_steam && settings.keep_up_to_date) {
+        return;
+    }
+    let dir = library_dir(app);
+    let totals = SteamTotals::load(&dir);
+    let work = app.state::<work::Work>();
+    for game in super::shelf(&dir).games {
+        let new = totals
+            .games
+            .get(&game.app_id)
+            .map_or(0, |now| now.saturating_sub(game.valve_total));
+        if due(game.reviews, new) {
+            work.queue_background(
+                app,
+                work::Task::Update {
+                    app_id: game.app_id,
+                },
+            );
+        }
     }
 }
 
@@ -738,6 +785,20 @@ mod tests {
             "nothing pinned, nothing newer"
         );
         assert_eq!(releases.newer("someone/else", "v1"), None);
+    }
+
+    #[test]
+    fn a_game_is_brought_up_to_date_once_steam_has_a_hundredth_more() {
+        assert!(!due(0, 0));
+        assert!(!due(50_000, 0));
+        assert!(due(0, 1));
+        assert!(
+            due(150, 1),
+            "a small game is kept up to date review by review"
+        );
+        assert!(!due(50_000, 499));
+        assert!(due(50_000, 500));
+        assert!(due(50_000, 4_000));
     }
 
     #[test]
