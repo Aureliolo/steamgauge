@@ -95,6 +95,10 @@ export function setUpSettings() {
     el('read-after-download').checked = shown.read_after_download;
     el('search-every-game').checked = shown.search_every_game;
     el('check-steam').checked = shown.check_steam;
+    el('keep-up-to-date').checked = shown.keep_up_to_date;
+    /* Without Steam's counts there is nothing to tell which games have new reviews. */
+    el('keep-up-to-date').disabled = !shown.check_steam;
+    el('notify-moves').checked = shown.notify_moves;
     el('check-newer-version').checked = shown.check_newer_version;
   }
 
@@ -108,6 +112,8 @@ export function setUpSettings() {
       reader: reader === options.recommended ? null : reader,
       language: el('first-language').value || null,
       check_steam: el('check-steam').checked,
+      keep_up_to_date: el('keep-up-to-date').checked,
+      notify_moves: el('notify-moves').checked,
       read_after_download: el('read-after-download').checked,
       check_newer_version: el('check-newer-version').checked,
     };

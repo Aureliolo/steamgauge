@@ -175,6 +175,22 @@
 
             <div class="panels">
               <div class="column main">
+              <section class="panel since-panel" aria-labelledby="since-title">
+                <div class="panel-head">
+                  <h3 id="since-title">Since you last looked</h3>
+                  <span class="since-when" id="since-when"></span>
+                </div>
+                <ul class="since" id="since-games"></ul>
+                <p class="calm" id="since-calm">
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7" /><path d="m7 10 2 2 4-4" /></svg>
+                  <span id="since-calm-text"></span>
+                </p>
+                <p class="checked" id="since-how" hidden>
+                  New reviews are set against the twelve months before you last looked, and a change is
+                  shown where it is wider than the number of reviews can explain.
+                </p>
+              </section>
+
               <section class="panel attention-panel" aria-labelledby="health-title">
                 <div class="panel-head">
                   <h3 id="health-title">Needs attention</h3>
@@ -390,6 +406,7 @@
               </div>
             </header>
           </div>
+          <div class="since-line" id="game-since" role="status" hidden></div>
           <dl class="tiles game-facts" id="game-facts"></dl>
           <div class="game-actions">
             <ul class="jobs" id="game-jobs"></ul>
@@ -754,10 +771,27 @@
               <legend>Steam</legend>
               <label class="setting" for="check-steam">
                 <span class="setting-text">
-                  <strong>Ask Steam how many reviews each game has when the app opens</strong>
-                  <span>At most every six hours, one request per game.</span>
+                  <strong>Ask Steam how many reviews each game has</strong>
+                  <span>When the app opens, and again while it stays open: at most every six hours, one request per game.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-steam" />
+              </label>
+              <label class="setting" for="keep-up-to-date">
+                <span class="setting-text">
+                  <strong>Bring games with new reviews up to date by themselves</strong>
+                  <span id="keep-up-to-date-about">Once Steam has a hundredth more reviews of a game than the library holds, the app downloads them and reads the game again with the reader and the share of the graphics card chosen on this page. It waits while any work you started runs, stops when the app is closed, and needs the question above.</span>
+                </span>
+                <input type="checkbox" class="switch" id="keep-up-to-date" />
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>Notifications</legend>
+              <label class="setting" for="notify-moves">
+                <span class="setting-text">
+                  <strong>Tell me when a subject moves</strong>
+                  <span>One desktop notification when a game the app brought up to date by itself has new reviews that praise or complain about a subject more or less often than the year before, by more than chance. Clicking it opens the game.</span>
+                </span>
+                <input type="checkbox" class="switch" id="notify-moves" />
               </label>
             </fieldset>
             <fieldset>

@@ -394,6 +394,7 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
                 state.forget(app_id).map_err(std::io::Error::other)?;
             }
             super::cockpit::drop_from_groups(library, app_id)?;
+            super::since::forget(library, app_id).map_err(std::io::Error::other)?;
         }
         Removal::Earlier => {
             // A crawl still running or interrupted writes into the newest folder, which may not

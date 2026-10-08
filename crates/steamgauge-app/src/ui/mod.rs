@@ -9,6 +9,7 @@ mod cockpit;
 mod game_updates;
 mod newer;
 mod settings;
+mod since;
 mod storage;
 mod update;
 mod who;
@@ -1263,11 +1264,21 @@ pub fn run() -> anyhow::Result<()> {
         .manage(Meaning::default())
         .manage(work::Work::default())
         .manage(update::Updating::default())
+        .manage(since::Baseline::default())
         .setup(|app| {
             update::tidy(app.handle());
+            since::remember(app.handle());
             work::start(app.handle());
-            cockpit::check_on_opening(app.handle());
+            cockpit::check_when_due(app.handle());
             newer::check_in_background(app.handle());
+            // The library is kept up to date only while the app is open: this loop ends with it.
+            let open = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(cockpit::LOOK_AGAIN_EVERY).await;
+                    cockpit::check_when_due(&open);
+                }
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1308,7 +1319,9 @@ pub fn run() -> anyhow::Result<()> {
             cockpit::compare,
             cockpit::export_report,
             cockpit::queue_reads,
-            cockpit::queue_updates
+            cockpit::queue_updates,
+            since::looked,
+            since::since_last_look
         ])
         .run(tauri::generate_context!())?;
     Ok(())

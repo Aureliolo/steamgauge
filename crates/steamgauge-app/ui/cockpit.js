@@ -21,6 +21,7 @@ import {
 } from './common.js';
 import { onWork, jobItem, queue, active } from './work.js';
 import { reason } from './settings.js';
+import { drawSinceCard } from './since.js';
 
 let overview = null;
 let busy = false;
@@ -101,6 +102,10 @@ export function setUpCockpit({ openGame, openSubject }) {
       return;
     }
     draw(overview, { openGame, openSubject });
+    /* Only a cockpit somebody can see has been looked at: a window behind others redraws too. */
+    if (overview.games > 0 && document.visibilityState === 'visible') {
+      invoke('looked', { appId: null }).catch(() => {});
+    }
   }
 }
 
@@ -174,6 +179,7 @@ function draw(found, { openGame, openSubject }) {
           `${whole.format(found.read)} read.`,
   );
   welcome(found);
+  drawSinceCard(found.since, { openGame, openSubject });
   drawTiles(found);
   drawHealth(found, openGame);
   drawMoves(found, { openGame, openSubject });

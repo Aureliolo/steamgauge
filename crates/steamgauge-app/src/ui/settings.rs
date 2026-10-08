@@ -14,6 +14,10 @@ pub const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is one switch in Settings; no two of them name one state"
+)]
 pub struct Settings {
     /// The share of the card's time a read or a preparation may take, one of [`SHARES`].
     pub gpu_share: f64,
@@ -22,8 +26,14 @@ pub struct Settings {
     pub reader: Option<String>,
     /// The language a first reading counts, or none for every language.
     pub language: Option<String>,
-    /// Whether opening the app asks Steam how many reviews each game has now.
+    /// Whether the app asks Steam how many reviews each game has now, on opening and while open.
     pub check_steam: bool,
+    /// Whether a game Steam has enough new reviews for is brought up to date and read again by
+    /// itself while the app is open.
+    pub keep_up_to_date: bool,
+    /// Whether an update the app made by itself that finds a subject moved says so in a desktop
+    /// notification.
+    pub notify_moves: bool,
     /// Whether a downloaded game is read as soon as the download finishes.
     pub read_after_download: bool,
     /// Whether the app asks GitHub, at most once a day, whether a newer `SteamGauge` is out.
@@ -37,6 +47,8 @@ impl Default for Settings {
             reader: None,
             language: Some("english".to_owned()),
             check_steam: true,
+            keep_up_to_date: true,
+            notify_moves: false,
             read_after_download: true,
             check_newer_version: true,
         }
@@ -127,6 +139,8 @@ pub fn save_settings(
 ) -> Result<Shown, String> {
     settings.checked().save(&app)?;
     super::newer::check_in_background(&app);
+    super::cockpit::check_when_due(&app);
+    super::cockpit::keep_up_to_date(&app);
     let library = super::library_dir(&app);
     std::fs::create_dir_all(&library).map_err(|e| e.to_string())?;
     steamgauge_core::meaning::Choice {
@@ -242,6 +256,11 @@ mod tests {
         let loaded: Settings = serde_json::from_str(r#"{"gpu_share": 0.5}"#).unwrap();
         assert!(loaded.check_newer_version);
         assert!(loaded.check_steam);
+        assert!(loaded.keep_up_to_date);
+        assert!(
+            !loaded.notify_moves,
+            "a notification is something a person asks for"
+        );
     }
 
     #[test]

@@ -37,6 +37,7 @@ pub mod search_models;
 pub mod self_update;
 pub mod serve;
 pub mod shard;
+pub mod since;
 #[cfg(test)]
 mod stand_in;
 pub mod state;

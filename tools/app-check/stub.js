@@ -234,6 +234,48 @@
     },
   ];
 
+  // What changed in a game since a look, as `since::Since` serialises it.
+  const since = (fields) => ({
+    looked: now - 2 * DAY,
+    new: 0,
+    read_new: 0,
+    standing: 'nothing',
+    from: null,
+    to: null,
+    recommended: null,
+    moves: [],
+    ...fields,
+  });
+  const alphaSince = () =>
+    since({
+      new: 1_520,
+      read_new: 1_140,
+      standing: 'compared',
+      from: '2024-09',
+      to: '2025-08',
+      recommended: shift(0.86, 0.79, -5.6),
+      moves: [
+        { subject: 'performance', label: 'Performance', side: 'complaint', shift: shift(0.12, 0.24, 9.4) },
+        { subject: 'story', label: 'Story and writing', side: 'praise', shift: shift(0.2, 0.14, -4.5) },
+      ],
+    });
+  // The cockpit's first card in each of its states: things moved, nothing did, and a first look.
+  const lately = {
+    moved: () => ({
+      looked: now - 2 * DAY,
+      games: [
+        { app_id: 1, name: 'Alpha', ...alphaSince() },
+        { app_id: 2, name: 'Beta', ...since({ new: 260, standing: 'unread' }) },
+        { app_id: 3, name: 'Gamma', ...since({ new: 35, standing: 'unread' }) },
+      ],
+    }),
+    calm: () => ({ looked: now - 2 * DAY, games: [] }),
+    first: () => ({ looked: null, games: [] }),
+  };
+  let latelyShown = 'moved';
+  // Each game's own line: Alpha moved, Beta has nothing new, and Gamma's page was never seen.
+  const sinceLastLook = { 1: alphaSince, 2: () => since({}), 3: () => null };
+
   // Opened with ?first, the core of somebody who has just installed the app: nothing downloaded.
   const first = new URLSearchParams(location.search).has('first');
   if (first) games.length = 0;
@@ -244,6 +286,8 @@
     reader: null,
     language: 'english',
     check_steam: true,
+    keep_up_to_date: true,
+    notify_moves: false,
     read_after_download: true,
     check_newer_version: true,
   };
@@ -484,6 +528,7 @@
       queued: now,
       started: null,
       ended: null,
+      background: false,
     };
     board = [...board, job];
     send('work', board);
@@ -532,6 +577,7 @@
       recommended: games.length === 0 ? [] : [
         { app_id: 1, name: 'Alpha', from: '2025-08', to: '2025-10', since: '2024-08', shift: shift(0.88, 0.8, -5.2) },
       ],
+      since: games.length === 0 ? lately.first() : lately[latelyShown](),
       machine: {
         card: 'NVIDIA GeForce RTX 4090',
         card_bytes: 25_769_803_776,
@@ -649,6 +695,8 @@
       })),
     }),
     reading: ({ appId }) => reading(appId),
+    looked: () => null,
+    since_last_look: ({ appId }) => (sinceLastLook[appId] ?? (() => null))(),
     who_wrote: (args) => whoWrote(args),
     induced: () => [],
     // Alpha's developer posts updates; Beta was never asked about; anything else posted none.
@@ -760,6 +808,11 @@
     hear: (release) => {
       newer = release;
       send('newer-version', release);
+    },
+    // The cockpit's first card in another state, announced as a finished job would be.
+    lately: (state) => {
+      latelyShown = state;
+      send('library', null);
     },
     // The update moving on, as the core announces each step.
     update: (progress) => {

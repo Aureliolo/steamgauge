@@ -9,9 +9,14 @@
 //! The window is a view of this board. It asks for the board once and is sent it again whenever
 //! a job moves, so leaving a page and coming back loses nothing, and a job keeps running
 //! whichever page is open.
+//!
+//! Some jobs the app starts by itself: asking Steam about the library, and keeping its games up
+//! to date. Those never run beside work the person started. While any of theirs waits or runs,
+//! nothing of the app's own starts, and one of its own already running is stopped where it can
+//! stop and waits again until theirs is done.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -133,6 +138,8 @@ pub struct Job {
     pub queued: i64,
     pub started: Option<i64>,
     pub ended: Option<i64>,
+    /// Started by the app rather than by the person, and so stepping aside for their work.
+    pub background: bool,
 }
 
 /// How fast a count is moving, smoothed so one slow batch does not swing the time left by
@@ -204,7 +211,71 @@ struct Board {
     meters: HashMap<u64, Meter>,
     stops: HashMap<u64, Arc<AtomicBool>>,
     aborts: HashMap<u64, tokio::task::AbortHandle>,
+    /// Jobs of the app's own told to stop for the person's work, which wait again rather than
+    /// ending.
+    yielding: HashSet<u64>,
     sent: Option<Instant>,
+}
+
+/// What a job of the app's own says while it waits.
+const WAITS_FOR_YOURS: &str = "Started by the app, and gives way to any work you start.";
+
+impl Board {
+    /// Adds a task to wait its turn, or hands back the same task already waiting or running. A
+    /// task the person asks for is theirs, even where the app had put it there first.
+    fn put(&mut self, task: Task, name: String, background: bool, at: i64) -> u64 {
+        if let Some(same) = self
+            .jobs
+            .iter_mut()
+            .find(|job| job.task == task && matches!(job.state, State::Queued | State::Running))
+        {
+            if same.background && !background {
+                same.background = false;
+                if same.state == State::Queued {
+                    same.note = None;
+                }
+            }
+            return same.id;
+        }
+        self.next += 1;
+        self.jobs.push(Job {
+            id: self.next,
+            task,
+            name,
+            state: State::Queued,
+            step: "Waiting".to_owned(),
+            unit: Unit::Reviews,
+            done: 0.0,
+            total: None,
+            rate: None,
+            left: None,
+            note: background.then(|| WAITS_FOR_YOURS.to_owned()),
+            queued: at,
+            started: None,
+            ended: None,
+            background,
+        });
+        self.next
+    }
+}
+
+impl Job {
+    /// Back to waiting, as a job of the app's own stopped for the person's work.
+    fn wait_again(&mut self) {
+        self.state = State::Queued;
+        "Waiting".clone_into(&mut self.step);
+        self.done = 0.0;
+        self.total = None;
+        self.started = None;
+        self.ended = None;
+        self.note = Some(WAITS_FOR_YOURS.to_owned());
+    }
+}
+
+/// Whether a job is dropped where it stands when stopped: a crawl records each window only once
+/// it is whole and resumes from those, and a check writes nothing until it ends.
+fn droppable(task: &Task) -> bool {
+    matches!(task, Task::Download { .. } | Task::Check)
 }
 
 /// The board and a bell for each lane.
@@ -245,41 +316,48 @@ impl Work {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// Puts a task on the board, unless the same task is already waiting or running.
+    /// Puts a task the person asked for on the board, unless the same task is already waiting or
+    /// running, which then becomes theirs.
     pub fn queue(&self, app: &AppHandle, task: Task, name: Option<String>) -> u64 {
+        self.queue_as(app, task, name, false)
+    }
+
+    /// Puts a task the app starts by itself on the board, to wait behind the person's work.
+    pub fn queue_background(&self, app: &AppHandle, task: Task) -> u64 {
+        self.queue_as(app, task, None, true)
+    }
+
+    fn queue_as(&self, app: &AppHandle, task: Task, name: Option<String>, background: bool) -> u64 {
         let lane = task.lane();
-        let id =
-            {
-                let mut board = self.lock();
-                if let Some(same) = board.jobs.iter().find(|job| {
-                    job.task == task && matches!(job.state, State::Queued | State::Running)
-                }) {
-                    return same.id;
-                }
-                board.next += 1;
-                let id = board.next;
-                let name = name.unwrap_or_else(|| name_of(app, &task));
-                board.jobs.push(Job {
-                    id,
-                    task,
-                    name,
-                    state: State::Queued,
-                    step: "Waiting".to_owned(),
-                    unit: Unit::Reviews,
-                    done: 0.0,
-                    total: None,
-                    rate: None,
-                    left: None,
-                    note: None,
-                    queued: now_unix(),
-                    started: None,
-                    ended: None,
-                });
-                id
-            };
+        let name = name.unwrap_or_else(|| name_of(app, &task));
+        let id = self.lock().put(task, name, background, now_unix());
+        if !background {
+            self.make_way();
+        }
         self.bell(lane).notify_one();
         self.send(app, true);
         id
+    }
+
+    /// Stops every job of the app's own that is running, to wait again once the person's work
+    /// is done.
+    fn make_way(&self) {
+        let mut board = self.lock();
+        let running: Vec<(u64, bool)> = board
+            .jobs
+            .iter()
+            .filter(|job| job.background && job.state == State::Running)
+            .map(|job| (job.id, droppable(&job.task)))
+            .collect();
+        for (id, droppable) in running {
+            board.yielding.insert(id);
+            if let Some(stop) = board.stops.get(&id) {
+                stop.store(true, Ordering::Relaxed);
+            }
+            if droppable && let Some(abort) = board.aborts.get(&id) {
+                abort.abort();
+            }
+        }
     }
 
     /// Stops a job: a waiting one never starts, and a running one is told to stop where it
@@ -298,7 +376,7 @@ impl Work {
             let droppable = board
                 .jobs
                 .iter()
-                .any(|job| job.id == id && matches!(job.task, Task::Download { .. } | Task::Check));
+                .any(|job| job.id == id && droppable(&job.task));
             if droppable && let Some(abort) = board.aborts.get(&id) {
                 abort.abort();
             }
@@ -348,9 +426,14 @@ impl Work {
             .filter(|job| job.state == State::Running)
             .filter_map(|job| job.task.app_id())
             .collect();
+        let theirs = board
+            .jobs
+            .iter()
+            .any(|job| !job.background && matches!(job.state, State::Queued | State::Running));
         let job = board.jobs.iter_mut().find(|job| {
             job.state == State::Queued
                 && job.task.lane() == lane
+                && !(job.background && theirs)
                 && job
                     .task
                     .app_id()
@@ -359,6 +442,7 @@ impl Work {
         job.state = State::Running;
         job.started = Some(now_unix());
         "Starting".clone_into(&mut job.step);
+        job.note = None;
         let (id, task) = (job.id, job.task.clone());
         let stop = Arc::new(AtomicBool::new(false));
         board.stops.insert(id, Arc::clone(&stop));
@@ -406,8 +490,9 @@ impl Work {
         self.send(app, true);
     }
 
-    fn finish(&self, app: &AppHandle, id: u64, ended: &Result<Ended, String>) {
-        let game = {
+    /// Records how a job ended, and says whether the app had started it by itself.
+    fn finish(&self, app: &AppHandle, id: u64, ended: &Result<Ended, String>) -> bool {
+        let (game, background) = {
             let mut board = self.lock();
             board.meters.remove(&id);
             board.aborts.remove(&id);
@@ -415,11 +500,13 @@ impl Work {
                 .stops
                 .remove(&id)
                 .is_some_and(|stop| stop.load(Ordering::Relaxed));
+            let yielded = board.yielding.remove(&id);
             if let Some(job) = board.jobs.iter_mut().find(|job| job.id == id) {
                 job.ended = Some(now_unix());
                 job.rate = None;
                 job.left = None;
                 match ended {
+                    Err(_) if yielded => job.wait_again(),
                     Ok(ended) => {
                         job.state = State::Done;
                         job.note = Some(ended.note.clone());
@@ -451,7 +538,7 @@ impl Work {
                 .jobs
                 .iter()
                 .find(|job| job.id == id)
-                .and_then(|job| job.task.app_id())
+                .map_or((None, false), |job| (job.task.app_id(), job.background))
         };
         self.send(app, true);
         // Which game changed on disk, so a page showing another one is left as it is.
@@ -462,6 +549,7 @@ impl Work {
         for lane in LANES {
             self.bell(lane).notify_one();
         }
+        background
     }
 
     /// Where a finished report was saved. Only a report this app wrote can be opened from the
@@ -517,12 +605,20 @@ pub fn start(app: &AppHandle) {
                     continue;
                 };
                 app.state::<Work>().send(&app, true);
+                let read = match task {
+                    Task::Read { app_id, .. } => Some(app_id),
+                    _ => None,
+                };
                 let ended = run(&app, id, task, stop).await;
                 let work = app.state::<Work>();
-                work.finish(&app, id, &ended);
+                let background = work.finish(&app, id, &ended);
                 if let Ok(ended) = ended {
+                    // What follows a job is started by whoever started the job.
                     for then in ended.then {
-                        work.queue(&app, then, None);
+                        work.queue_as(&app, then, None, background);
+                    }
+                    if background && let Some(app_id) = read {
+                        super::since::after_background_read(&app, app_id);
                     }
                 }
             }
@@ -1100,6 +1196,7 @@ async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {
     );
     let releases = super::cockpit::Releases::fetch().await;
     releases.save(app).map_err(text)?;
+    super::cockpit::keep_up_to_date(app);
     Ok(Ended::said("Checked every game against Steam."))
 }
 
@@ -1132,7 +1229,7 @@ async fn export(
 }
 
 /// A count with thousands separated, as the window would print it.
-fn thousands(count: u64) -> String {
+pub(super) fn thousands(count: u64) -> String {
     let digits = count.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
     for (at, digit) in digits.chars().enumerate() {
@@ -1246,51 +1343,141 @@ mod tests {
         assert_eq!(across.add("reader.json", 2), 532);
     }
 
+    fn read(app_id: u32) -> Task {
+        Task::Read {
+            app_id,
+            language: None,
+        }
+    }
+
+    /// Puts a task on a board, as the person or as the app.
+    fn put(work: &Work, task: Task, background: bool) -> u64 {
+        work.lock().put(task, String::new(), background, 0)
+    }
+
+    fn job(work: &Work, id: u64) -> Job {
+        work.jobs().into_iter().find(|job| job.id == id).unwrap()
+    }
+
     #[test]
     fn a_read_and_an_update_of_one_game_never_run_at_once() {
         let work = Work::default();
+        put(&work, Task::Update { app_id: 7 }, false);
+        assert!(work.take(Lane::Network).is_some());
+        put(&work, read(7), false);
+        let other = put(&work, read(8), false);
+        let (id, _, _) = work.take(Lane::Machine).unwrap();
+        assert_eq!(id, other, "the read of the game being updated waits");
+        assert!(work.take(Lane::Machine).is_none());
+    }
+
+    #[test]
+    fn the_apps_own_work_waits_while_the_persons_waits_or_runs() {
+        let work = Work::default();
+        let own = put(&work, read(8), true);
+        let theirs = put(&work, Task::Download { app_id: 9 }, false);
+        assert!(
+            work.take(Lane::Machine).is_none(),
+            "a download the person asked for is waiting, so the app's read does not start"
+        );
+        let (id, _, _) = work.take(Lane::Network).unwrap();
+        assert_eq!(id, theirs);
+        assert!(
+            work.take(Lane::Machine).is_none(),
+            "nor while it runs, on another lane"
+        );
+        work.lock().jobs.iter_mut().for_each(|job| {
+            if job.id == theirs {
+                job.state = State::Done;
+            }
+        });
+        let (id, _, _) = work.take(Lane::Machine).unwrap();
+        assert_eq!(id, own, "once theirs is done, the app's starts");
+    }
+
+    #[test]
+    fn the_apps_own_work_runs_when_the_person_has_none() {
+        let work = Work::default();
+        let check = put(&work, Task::Check, true);
+        let update = put(&work, Task::Update { app_id: 7 }, true);
+        assert_eq!(work.take(Lane::Network).map(|(id, _, _)| id), Some(check));
+        assert_eq!(job(&work, check).note, None, "running, it waits on nothing");
+        assert_eq!(work.take(Lane::Network).map(|(id, _, _)| id), Some(update));
+    }
+
+    #[test]
+    fn the_app_says_its_own_work_is_waiting_for_the_persons() {
+        let work = Work::default();
+        let own = put(&work, Task::Update { app_id: 7 }, true);
+        let theirs = put(&work, Task::Update { app_id: 8 }, false);
+        assert_eq!(job(&work, own).note.as_deref(), Some(WAITS_FOR_YOURS));
+        assert!(job(&work, own).background);
+        assert_eq!(job(&work, theirs).note, None);
+        assert!(!job(&work, theirs).background);
+    }
+
+    #[test]
+    fn a_task_the_person_asks_for_becomes_theirs() {
+        let work = Work::default();
+        let own = put(&work, Task::Update { app_id: 7 }, true);
+        assert_eq!(put(&work, Task::Update { app_id: 7 }, false), own);
+        let now = job(&work, own);
+        assert!(!now.background);
+        assert_eq!(now.note, None);
+        assert_eq!(
+            put(&work, Task::Update { app_id: 7 }, true),
+            own,
+            "and the app asking again does not take it back"
+        );
+        assert!(!job(&work, own).background);
+        assert_eq!(work.jobs().len(), 1);
+    }
+
+    #[test]
+    fn the_person_asking_for_work_stops_the_apps_own_and_only_that() {
+        let work = Work::default();
+        let own = put(&work, read(8), true);
+        let (_, _, own_stop) = work.take(Lane::Machine).unwrap();
+        let theirs = put(&work, Task::Update { app_id: 9 }, false);
+        let (_, _, their_stop) = work.take(Lane::Network).unwrap();
+        work.make_way();
+        assert!(own_stop.load(Ordering::Relaxed));
+        assert!(!their_stop.load(Ordering::Relaxed));
+        let board = work.lock();
+        assert!(board.yielding.contains(&own));
+        assert!(!board.yielding.contains(&theirs));
+    }
+
+    #[test]
+    fn a_job_that_stepped_aside_waits_again_from_the_start() {
+        let work = Work::default();
+        let own = put(&work, read(8), true);
+        work.take(Lane::Machine).unwrap();
         {
             let mut board = work.lock();
-            for (id, task, state) in [
-                (1, Task::Update { app_id: 7 }, State::Running),
-                (
-                    2,
-                    Task::Read {
-                        app_id: 7,
-                        language: None,
-                    },
-                    State::Queued,
-                ),
-                (
-                    3,
-                    Task::Read {
-                        app_id: 8,
-                        language: None,
-                    },
-                    State::Queued,
-                ),
-            ] {
-                board.jobs.push(Job {
-                    id,
-                    task,
-                    name: String::new(),
-                    state,
-                    step: String::new(),
-                    unit: Unit::Reviews,
-                    done: 0.0,
-                    total: None,
-                    rate: None,
-                    left: None,
-                    note: None,
-                    queued: 0,
-                    started: None,
-                    ended: None,
-                });
-            }
+            let job = board.jobs.iter_mut().find(|job| job.id == own).unwrap();
+            job.done = 500.0;
+            job.total = Some(900.0);
+            job.ended = Some(5);
+            job.wait_again();
         }
-        let (id, _, _) = work.take(Lane::Machine).unwrap();
-        assert_eq!(id, 3, "the read of the game being updated waits");
-        assert!(work.take(Lane::Machine).is_none());
+        let again = job(&work, own);
+        assert_eq!(again.state, State::Queued);
+        assert!(again.done.abs() < f64::EPSILON);
+        assert_eq!(
+            (again.total, again.started, again.ended),
+            (None, None, None)
+        );
+        assert_eq!(again.note.as_deref(), Some(WAITS_FOR_YOURS));
+        assert_eq!(work.take(Lane::Machine).map(|(id, _, _)| id), Some(own));
+    }
+
+    #[test]
+    fn only_a_download_and_a_check_are_dropped_where_they_stand() {
+        assert!(droppable(&Task::Download { app_id: 1 }));
+        assert!(droppable(&Task::Check));
+        assert!(!droppable(&Task::Update { app_id: 1 }));
+        assert!(!droppable(&read(1)));
     }
 
     #[test]

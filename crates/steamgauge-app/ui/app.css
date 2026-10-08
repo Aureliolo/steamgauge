@@ -1650,6 +1650,133 @@ label.choice {
   color: var(--good);
 }
 
+/* Since you last looked: a game per row, what moved in its new reviews beneath it. */
+.since-when {
+  color: var(--ink-4);
+  font-size: var(--t-xs);
+  text-align: right;
+}
+
+.since {
+  display: grid;
+  gap: var(--s3);
+  list-style: none;
+}
+
+.since-game {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+
+.since-game.moved {
+  border-left: 3px solid var(--accent);
+}
+
+.since-game.more {
+  border-style: dashed;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+.since-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s2);
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+.since-head .link {
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+.since-new {
+  color: var(--ink-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.since-moves {
+  display: grid;
+  gap: var(--s1);
+  list-style: none;
+}
+
+.since-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: var(--t-sm);
+}
+
+.since-move .side {
+  color: var(--ink-3);
+}
+
+.since-figures {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  margin-left: auto;
+}
+
+.since-figures .move-from {
+  font-size: var(--t-sm);
+}
+
+.since-figures .move-to {
+  font-size: var(--t-md);
+}
+
+.since-move.complaint.up .move-to,
+.since-move.praise.down .move-to,
+.since-move.recommended.down .move-to {
+  color: var(--bad);
+}
+
+.since-move.complaint.down .move-to,
+.since-move.praise.up .move-to,
+.since-move.recommended.up .move-to {
+  color: var(--good);
+}
+
+.since-against {
+  color: var(--ink-4);
+  font-size: var(--t-xs);
+}
+
+.since-line {
+  display: grid;
+  gap: var(--s2);
+  margin-bottom: var(--s5);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+.since-line.moved {
+  border-left: 3px solid var(--accent);
+}
+
+.since-line strong {
+  color: var(--ink);
+}
+
+.since-line .since-moves {
+  max-width: 560px;
+}
+
 .machine {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
