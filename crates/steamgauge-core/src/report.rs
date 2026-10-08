@@ -183,6 +183,8 @@ pub struct AppReport {
     /// What this game's players talk about that the sheet has no row for, where a reading
     /// has induced any, with the reviews behind each.
     pub induced: Vec<InducedEvidence>,
+    /// The game's updates as its developer posted them, each with its subjects either side.
+    pub updates: crate::before_after::Updates,
 }
 
 /// One induced subject with the reviews that earned it, fetched so the page can quote them.
@@ -546,6 +548,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         &snapshot,
         options.examples,
     )?;
+    let updates = crate::before_after::of_game(&options.out_dir, &snapshot, &reading)?;
     Ok(AppReport {
         crawl,
         reading,
@@ -554,6 +557,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         agreement,
         ceiling,
         induced,
+        updates,
     })
 }
 
@@ -862,6 +866,7 @@ mod tests {
             agreement: Measurement::Unlabelled,
             ceiling: None,
             induced: Vec::new(),
+            updates: crate::before_after::Updates::default(),
         }
     }
 

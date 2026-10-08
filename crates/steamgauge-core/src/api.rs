@@ -30,6 +30,8 @@ pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
 
 /// Where the store keeps the pictures of its apps.
 const ART: &str = "https://shared.akamai.steamstatic.com";
+/// Steam's public web API, which lists what a developer posts on a game's page.
+const API: &str = "https://api.steampowered.com";
 /// A store header is about 50 KB; anything far larger, past 2 MiB, is not the picture that was
 /// asked for.
 const ART_LIMIT: usize = 2_097_152;
@@ -101,6 +103,8 @@ pub struct SteamClient {
     store: String,
     /// Where the store's pictures are, [`ART`] everywhere but a test.
     art: String,
+    /// Steam's web API, [`API`] everywhere but a test.
+    api: String,
     pace: Duration,
     next_slot: Arc<Mutex<Instant>>,
     notice: Option<Notice>,
@@ -150,6 +154,13 @@ impl SteamClient {
         self
     }
 
+    /// Asks a stand-in at `origin` everything it would ask Steam's web API.
+    #[cfg(test)]
+    pub(crate) fn with_api(mut self, origin: &str) -> Self {
+        origin.clone_into(&mut self.api);
+        self
+    }
+
     /// # Errors
     ///
     /// Fails if the HTTP client cannot be constructed, which in practice means a missing or
@@ -167,6 +178,7 @@ impl SteamClient {
             http,
             store: STORE.to_owned(),
             art: ART.to_owned(),
+            api: API.to_owned(),
             pace,
             next_slot: Arc::new(Mutex::new(Instant::now())),
             notice: None,
@@ -323,7 +335,44 @@ impl SteamClient {
     /// Returns [`Error::Throttled`] if Valve keeps refusing for longer than the client's
     /// patience, and [`Error::NoSuchCorpus`] if it answers `success: 0`.
     pub async fn fetch(&self, query: &ReviewQuery, app_id: u32) -> Result<Page> {
-        let url = query.url_at(&self.store);
+        let page: Page = self
+            .patient(&query.url_at(&self.store))
+            .await?
+            .json()
+            .await?;
+        if page.success != 1 {
+            return Err(Error::NoSuchCorpus { app_id });
+        }
+        Ok(page)
+    }
+
+    /// One page of what the developer posted on a game's Steam page, newest first, as Steam's
+    /// news API answers: only the developer's own announcements, and of each only its first
+    /// character of text, since nothing of a post's text is kept. `before` asks for what was
+    /// posted at or before that time, which is how an older page is reached.
+    ///
+    /// # Errors
+    ///
+    /// Fails as [`Self::fetch`] does, and where the answer is not JSON.
+    pub async fn announcements(
+        &self,
+        app_id: u32,
+        before: Option<i64>,
+        count: u32,
+    ) -> Result<Value> {
+        let before = before.map_or_else(String::new, |at| format!("&enddate={at}"));
+        let url = format!(
+            "{}/ISteamNews/GetNewsForApp/v2/?appid={app_id}&count={count}&maxlength=1&feeds={}\
+             &format=json{before}",
+            self.api,
+            crate::updates::FEED
+        );
+        Ok(self.patient(&url).await?.json().await?)
+    }
+
+    /// Asks for `url` at the client's pace until Steam answers with success, waiting out
+    /// refusals and server errors for as long as the client's patience allows.
+    async fn patient(&self, url: &str) -> Result<reqwest::Response> {
         let mut attempt = 0;
         let mut waited = Duration::ZERO;
 
@@ -331,15 +380,11 @@ impl SteamClient {
             attempt += 1;
             self.wait_turn().await;
 
-            let response = self.http.get(&url).send().await?;
+            let response = self.http.get(url).send().await?;
             let status = response.status();
 
             if status.is_success() {
-                let page: Page = response.json().await?;
-                if page.success != 1 {
-                    return Err(Error::NoSuchCorpus { app_id });
-                }
-                return Ok(page);
+                return Ok(response);
             }
 
             let retryable = status.as_u16() == 429 || status.is_server_error();

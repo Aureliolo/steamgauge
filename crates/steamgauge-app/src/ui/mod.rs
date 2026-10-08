@@ -6,6 +6,7 @@
 //! one of them is calling the wrong function.
 
 mod cockpit;
+mod game_updates;
 mod newer;
 mod settings;
 mod storage;
@@ -1283,6 +1284,8 @@ pub fn run() -> anyhow::Result<()> {
             meaning_offer,
             choose_meaning,
             search_by_meaning,
+            game_updates::game_updates,
+            game_updates::before_after,
             work::work,
             work::queue,
             work::stop_job,

@@ -35,6 +35,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Helpfulness bias ships as a column on every category | done |
 | **Every figure can be split by who wrote it**: time played, Steam Deck, early access, a free copy | done 2026-10-08: one kind of reviewer beside everyone else or another kind, the timeline and the evidence following; differences listed at four standard errors and two points, kinds under 100 reviews never shown (below) |
 | Irony and ratings that disagree with the text are flagged, not filed away | flagged on labelled reviews only |
+| **A game's own updates on its timeline, and each subject before and after one** (the owner, 2026-10-08) | done: the game page and the report mark every update its developer posted on Steam, and either shows each subject's praise and complaints in the 28 days before an update against the 28 days after, held to the rule of what moved lately (the section below) |
 
 ## Models and setup
 
@@ -64,6 +65,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Watermark top-up so a re-crawl does not re-pull old reviews | superseded by the sweep below, which finds arrivals and edits in one walk. The top-up wrote a new snapshot holding only the new reviews, and every pass read the newest snapshot, so a topped-up game counted only what had arrived since |
 | **Periodic sweep by last-edit date**, to catch reviews edited since the crawl | done: `steamgauge sweep`, and "Bring it up to date" in the window. One walk in `updated` order, newest first, stopping a day past the watermark (the crawl, or the last sweep). Rows land in `sweep-<unix>.parquet` beside the crawl's shards, never over them, and `newest.json` records which copy of each swept id counts; every reader of the capture goes through one walker that skips the rest. The readings record when the capture last changed, and the page and the window say so when a sweep has landed since they were made |
 | Valve's default filters overridden, because they hide 17.3% of negative reviews against 9.6% of positive | done |
+| A game's announcements from Steam's news API, titles and dates only, kept beside its reviews | done: asked whenever a game is downloaded or brought up to date, and read from disk after; the rule for which are updates is in the section on updates below |
 
 ### Searching by meaning: chosen on judged results (2026-09-30)
 
@@ -4932,6 +4934,75 @@ Not done, and why: the comparison is not made within each language the way the w
 out are. A reading of every language whose kinds differ in language mix can show a difference
 that is partly the languages; the window's default reading is English alone, where this cannot
 arise.
+
+### A game's updates are on its timeline, and each subject is compared either side of one (2026-10-08)
+
+The owner's decision: a game's own updates appear on its review timeline, and each subject can be
+compared before and after an update.
+
+**Where they come from.** Steam's public news API, `ISteamNews/GetNewsForApp/v2` on
+api.steampowered.com, which needs no key, asked only for `steam_community_announcements`: the
+developer's own posts, where the same API's other feeds are press articles about the game. One
+request for a thousand posts holds a game's whole history (Rust's 968 came in one); a full page
+is followed by the page before its oldest post, twenty at most. A post's text is asked for at the
+one character the API will not go below, and nothing of it is kept: `announcements.json` in the
+game's folder holds each post's id, title, time, and whether Steam marks it as patch notes, with
+titles cut to one line of printable text. It is asked for again whenever the game is downloaded or
+brought up to date, by the window's jobs and by `steamgauge crawl` and `sweep`; a refusal leaves
+what was kept and is said on the job rather than failing it. Everything after that reads the disk.
+
+**Which posts are updates.** Read against the full histories of eight games (Helldivers 2,
+Baldur's Gate 3, Counter-Strike 2, Stardew Valley, Valheim, Hades, Terraria and Rust; 2,191
+posts), Steam's patch notes mark is neither enough nor right on its own: Terraria marks two of its
+146 posts, Helldivers 2 left "Devoid of Liberty: 7.1.0" unmarked, and Valheim marks every public
+test, which only players who opt in ever run. So a post is an update where Steam marks it as patch
+notes, or its title names a patch, a hotfix, an update, a changelog or release notes, or carries a
+version number (digits either side of a dot, never a price or a share). Neither counts where the
+title says the post is not live for every player (a public test, a test server or branch, a stress
+test, a playtest, a beta, experimental, PTR, a delay, upcoming, incoming, coming, a sneak peek, a
+preview, a roadmap, a release or launch date, revealed, a pre-patch) or is another kind of post (a
+sale, a discount, a share off, a free weekend, a bundle, pre-orders, merchandise, a community,
+development, progress or status update, the state of the game, an update's history or its news).
+The same title posted again within a week is one update. What the rule still gets wrong, seen in
+those histories: a content update named only by its name ("Into the Unjust - Out Now!") is missed,
+and a post about another platform's update or an account change titled as an update is taken.
+`updates::is_update` is the rule and its tests are the titles.
+
+**The link** to a post is made from its id alone, as
+`store.steampowered.com/news/externalpost/steam_community_announcements/<id>`, which Steam's store
+sends on to the post on the game's own page. The address the API hands back is on a content
+server; it is never opened, and the window's opener does not allow it. The store is already
+allowed, so the allow-list is unchanged, and a test holds both.
+
+**28 days either side, split at the second it was posted.** Four whole weeks, so each window holds
+every day of the week four times and neither leans on an extra weekend; close to the thirty days
+Steam's own recent reviews cover, which players already read as lately; and short enough that a
+game patched monthly has most of each window to itself. The reading's months could not do it: a
+patch posted on the 3rd puts its first weeks of reaction in the month it was posted, which a monthly
+comparison has to drop or mix with the weeks before. So the capture's own times and the readings'
+own answers are joined review by review when an update is chosen (the window keeps the last game
+walked, and a large game's walk takes seconds); nothing is recounted, and every reading already on
+disk carries it.
+
+**The rule is what moved lately's.** A share is compared only where each window holds 100 reviews,
+the floor the shorter window of what moved lately is held to, since here the two are the same
+length; a difference is a change only where it spans three standard errors of a two-proportion
+test and two points. An update compares 53 shares, the recommending share and each of 26
+subjects' praise and complaints, so at three standard errors about 0.14 would clear by chance on
+an update chosen, and under one across the four the report sets out. Below the floor nothing is
+compared, the counts are shown, and the page says why. Other updates posted within the four weeks
+either side are counted and said, because the windows hold their effects too; an update the
+capture holds fewer than 28 days after says how many it holds. A change happened across the
+update, and both the page and the report say that alone does not make the update the reason.
+
+**With one kind of reviewer chosen** (the section above), the marks sit on that kind's timeline
+and an update is counted over that kind's reviews alone, and the page says which reviewers it
+counted. The floors and the rule are the same, so a small kind says more often that it has too
+few reviews either side.
+
+**The report** marks every update on its chart, sets out the four the most reviews followed, no
+two within 28 days of each other so a launch and its week of hotfixes are one moment, and lists
+every update with what changed across it.
 
 ### The library lives in the local app data folder (2026-10-06)
 

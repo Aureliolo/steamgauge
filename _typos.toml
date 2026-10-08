@@ -49,6 +49,9 @@ extend-ignore-re = [
   '(?s)const FILLER: &str = ".*?";',
   '"(?:performans|erros|trama|som|commandes|controles|tutoriel|tutoriales)"',
   'Stunden bis zum Ende der Kampagne',
+  # Developers' post titles quoted as Steam lists them, in their spelling.
+  '"Optimizing Liberty - Incoming Patch: 27th May"',
+  'Steam Deck Optimization Release Notes',
 ]
 
 [default.extend-identifiers]
@@ -87,4 +90,6 @@ extend-exclude = [
   "reference/induced/",
   "reference/*.json",
   "fuzz/seeds/",
+  # A recorded answer of Steam's news API, kept as Steam sent it.
+  "crates/steamgauge-core/src/news-553850.json",
 ]

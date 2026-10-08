@@ -42,13 +42,23 @@ pub struct Shift {
 }
 
 impl Shift {
+    fn of(before: (u64, u64), recent: (u64, u64)) -> Option<Self> {
+        Self::between(before, recent, (ENOUGH_BEFORE, ENOUGH_RECENT))
+    }
+
+    /// Two shares as (reviews saying it, reviews) in each window, compared only where each
+    /// window holds the reviews `enough` asks of it, earlier window first.
     #[expect(
         clippy::cast_precision_loss,
         reason = "review counts are far below 2^53"
     )]
-    fn of(before: (u64, u64), recent: (u64, u64)) -> Option<Self> {
+    pub(crate) fn between(
+        before: (u64, u64),
+        recent: (u64, u64),
+        enough: (u64, u64),
+    ) -> Option<Self> {
         let ((hit_before, of_before), (hit_recent, of_recent)) = (before, recent);
-        if of_before < ENOUGH_BEFORE || of_recent < ENOUGH_RECENT {
+        if of_before < enough.0 || of_recent < enough.1 {
             return None;
         }
         Some(Self {

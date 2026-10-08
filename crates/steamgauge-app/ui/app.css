@@ -2245,6 +2245,173 @@ figure.timeline figcaption.dense span:last-child {
   justify-self: end;
 }
 
+/* An update is a moment, so a dashed line in ink rather than another series in colour; the one
+   chosen takes the accent. */
+figure.timeline .update-line {
+  stroke: var(--ink-4);
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+figure.timeline .update-line.chosen {
+  stroke: var(--accent);
+  stroke-dasharray: none;
+  stroke-width: 2;
+}
+
+/* The markers that choose an update, under the chart at the same places as its lines. Updates
+   too close to tell apart share one marker that says how many it holds. */
+.update-strip {
+  position: relative;
+  height: 22px;
+  margin-top: var(--s2);
+}
+
+.update-mark {
+  position: absolute;
+  top: 2px;
+  display: grid;
+  place-items: center;
+  min-width: 12px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1.5px solid var(--ink-3);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.update-mark.one {
+  width: 12px;
+  height: 12px;
+  top: 5px;
+  padding: 0;
+}
+
+.update-mark:hover {
+  border-color: var(--accent);
+}
+
+.update-mark.chosen {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.update-mark:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.around {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.around-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+}
+
+.around-head .quiet {
+  margin-top: var(--s1);
+  font-size: var(--t-sm);
+}
+
+.around-head select {
+  max-width: min(420px, 100%);
+}
+
+.around-head label.choice {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.around-body {
+  display: grid;
+  gap: var(--s3);
+}
+
+.around-update {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+}
+
+.around-update strong {
+  font-size: var(--t-lg);
+}
+
+.around-counts,
+.around-summary {
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+.around-summary .worse {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.around-summary .better {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.around-recommended {
+  color: var(--ink-2);
+  font-size: var(--t-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.around-table td.num {
+  width: 1%;
+  font-variant-numeric: tabular-nums;
+}
+
+.around .was {
+  color: var(--ink-3);
+  font-weight: 450;
+}
+
+.around .arrow {
+  margin: 0 var(--s1);
+  color: var(--ink-4);
+}
+
+.around .now {
+  color: var(--ink-2);
+}
+
+.around .changed .now {
+  font-weight: 700;
+}
+
+.around .changed.worse .now {
+  color: var(--bad);
+}
+
+.around .changed.better .now {
+  color: var(--good);
+}
+
 .languages {
   font-size: var(--t-sm);
 }

@@ -64,6 +64,14 @@ export function drawRecount() {
   el('do-recount').disabled = jobsFor(reading.app_id).some((job) => active(job) && job.task.kind === 'recount');
 }
 
+/* The kind of reviewer the page shows, as its id and the label it is listed under, or null for
+   everyone. */
+export function chosenKind() {
+  if (!reading || !choice.these) return null;
+  const found = kindOf(choice.these);
+  return found ? { id: found.kind.id, label: found.kind.label } : null;
+}
+
 function kindOf(id) {
   for (const split of reading.who.kinds) {
     const kind = split.kinds.find((one) => one.id === id);

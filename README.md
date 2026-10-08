@@ -146,6 +146,10 @@ The only way to remove the argument is to hold every review and count.
   figure, and the differences wider than chance are listed in plain sentences. A kind with fewer
   than 100 reviews shows no figure at all.
 - Click through from any number, anywhere, to the actual reviews behind it.
+- Mark a game's own updates on its review timeline, named, dated and linked to their posts on
+  Steam, and show each subject's praise and complaints in the 28 days before an update against
+  the 28 days after. A difference is called a change only where it is wider than chance and at
+  least two points, and an update with too few reviews either side says so instead.
 - Ask a game about anything, "Steam Deck" or "desync": what its reviewers said in those
   words, counted, and what they said in other words or other languages, found by meaning.
 

@@ -15,6 +15,7 @@
 use std::path::PathBuf;
 
 use steamgauge_core::{
+    before_after::{Dated, Updates, around},
     capture::CapturedReview,
     induced::Induced,
     measure::{ClaimAgreement, SubjectAgreement},
@@ -22,6 +23,7 @@ use steamgauge_core::{
     report::{AppReport, CrawlFacts, Example, InducedEvidence, Measurement, Report},
     said::{SaidAbout, Term},
     taxonomy::SHEET,
+    updates::Update,
     who::{SEGMENTS, SegmentCount, SegmentMonth},
 };
 
@@ -174,6 +176,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             model_agreed_on_the_clear: 299,
         }),
         induced: induced(app_id),
+        updates: updates(app_id),
     }
 }
 
@@ -283,7 +286,7 @@ fn months(app_id: u32) -> Vec<Month> {
                 100 + u64::from(app_id % 7) * 20 + which * 13
             };
             Month {
-                label: format!("2024-{:02}", which % 12 + 1),
+                label: format!("{}-{:02}", 2023 + which / 12, which % 12 + 1),
                 reviews,
                 positive: reviews * 2 / 3,
                 subjects: SHEET
@@ -492,4 +495,101 @@ fn induced(app_id: u32) -> Vec<InducedEvidence> {
             })
             .collect(),
     }]
+}
+
+/// Midnight on 1 January 2023, where the fixture's calendar starts.
+const NEW_YEAR_2023: i64 = 1_672_531_200;
+const DAY: i64 = 86_400;
+
+/// The first game's updates over the two years of its calendar, each with the four weeks either
+/// side counted from reviews made up for it. Between them they draw every way an update can
+/// read: one that moved a complaint and the share recommending the game, one that moved praise,
+/// one that moved nothing, two pairs posted days apart, one with too few reviews before it to
+/// compare, and one the capture holds only days after. The second game was never asked about,
+/// and the rest were asked and posted nothing that reads as an update.
+fn updates(app_id: u32) -> Updates {
+    match app_id {
+        7 => {}
+        11 => return Updates::default(),
+        _ => {
+            return Updates {
+                asked: Some(1_759_400_000),
+                around: Vec::new(),
+            };
+        }
+    }
+    // (day of the calendar, title), each posted at three in the afternoon.
+    let posted: [(i64, &str); 7] = [
+        (72, "Patch 1.1"),
+        (74, "Hotfix 1.1.1"),
+        (262, "The 1.2 Update"),
+        (429, "The Big Update: 1.3"),
+        (526, "Patch 1.4: Performance"),
+        (528, "Hotfix 1.4.1"),
+        (719, "Patch 1.5"),
+    ];
+    let updates: Vec<Update> = posted
+        .iter()
+        .enumerate()
+        .map(|(which, (day, title))| {
+            let gid = format!("18440000000000{which:02}");
+            Update {
+                link: steamgauge_core::updates::link(&gid),
+                gid,
+                title: (*title).to_owned(),
+                posted: NEW_YEAR_2023 + day * DAY + 15 * 3_600,
+            }
+        })
+        .collect();
+    let big = updates[3].posted;
+    let faster = updates[4].posted;
+    let after = |start: i64, at: i64| at >= start && at < start + 28 * DAY;
+    let slot = |id: &str| {
+        SHEET
+            .iter()
+            .position(|row| row.id == id)
+            .expect("a subject on the sheet")
+    };
+    let (bugs, story, performance) = (slot("bugs"), slot("story"), slot("performance"));
+
+    // Eight reviews a day, none in August 2023, two a day that September.
+    let mut reviews = Vec::new();
+    for day in 0..731_i64 {
+        let per_day = match day {
+            212..=242 => 0,
+            243..=272 => 2,
+            _ => 8,
+        };
+        for one in 0..per_day {
+            let created = NEW_YEAR_2023 + day * DAY + one * 3_000;
+            let turn = (day * 8 + one) % 20;
+            let soured = after(big, created);
+            let mut praise = 0_u64;
+            let mut complaint = 0_u64;
+            if turn % 5 == 0 {
+                praise |= 1 << story;
+            }
+            if turn % 4 == 0 || (after(faster, created) && turn % 2 == 0) {
+                praise |= 1 << performance;
+            }
+            if turn % 10 == 0 || (soured && turn % 10 < 3) {
+                complaint |= 1 << bugs;
+            }
+            reviews.push(Dated {
+                created,
+                recommends: turn % 10 < if soured { 5 } else { 7 },
+                praise,
+                complaint,
+                kinds: steamgauge_core::who::Membership::default(),
+            });
+        }
+    }
+    let held = NEW_YEAR_2023 + 731 * DAY;
+    Updates {
+        asked: Some(1_759_400_000),
+        around: updates
+            .iter()
+            .map(|update| around(update, &reviews, held, &updates))
+            .collect(),
+    }
 }

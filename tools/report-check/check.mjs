@@ -258,6 +258,52 @@ const PROBE = `(function () {
       Math.max.apply(null, Object.keys(drawn).map(Number)) >= chart.height * 0.9);
   }
 
+  // An update is a moment on the chart, and the page promises each one is named under it, with
+  // its post on Steam and what changed across it. A marker drawn off the chart, or one with no
+  // update listed for it, is a line nobody can read.
+  var markers = document.querySelectorAll('figure.timeline line.update');
+  check('the timeline marks no update', markers.length > 0);
+  Array.prototype.forEach.call(markers, function (marker) {
+    var svg = marker.ownerSVGElement.getBoundingClientRect();
+    var line = marker.getBoundingClientRect();
+    check('an update is drawn off its chart',
+      line.left >= svg.left - 1 && line.right <= svg.right + 1 && line.height >= svg.height * 0.9);
+  });
+  var timelines = document.querySelectorAll('figure.timeline');
+  Array.prototype.forEach.call(timelines, function (figure) {
+    var section = figure.closest('section.game');
+    var marked = figure.querySelectorAll('line.update').length;
+    var listed = section.querySelectorAll('ol.updates-list li').length;
+    check('an update on the chart is not in the list under it', marked <= listed);
+  });
+  var listedUpdates = document.querySelectorAll('ol.updates-list li');
+  check('no update is listed', listedUpdates.length > 0);
+  check('an update is listed without its date, its post on Steam and what changed across it',
+    Array.prototype.every.call(listedUpdates, function (item) {
+      var post = item.querySelector('a[href^="https://store.steampowered.com/news/externalpost/steam_community_announcements/"]');
+      return item.querySelector('.when') && post && post.textContent.trim().length > 0 &&
+        item.querySelector('.said') && item.querySelector('.said').textContent.trim().length > 0;
+    }));
+  var findings = document.querySelectorAll('.update-around');
+  check('no update is set out before and after', findings.length > 0);
+  check('an update set out is not one of those listed', Array.prototype.every.call(findings, function (one) {
+    var href = one.querySelector('h4 a').getAttribute('href');
+    return Array.prototype.some.call(one.closest('section.game').querySelectorAll('ol.updates-list a'),
+      function (a) { return a.getAttribute('href') === href; });
+  }));
+  check('an update set out does not say how many reviews either side it rests on',
+    Array.prototype.every.call(findings, function (one) {
+      return /\\d+ reviews in the 28 days before, \\d+ in /.test(one.textContent);
+    }));
+  var changes = document.querySelectorAll('.update-around li.change');
+  check('no change across an update is shown', changes.length > 0);
+  check('a change across an update is shown without the share on each side',
+    Array.prototype.every.call(changes, function (li) {
+      return /from \\d+\\.\\d% to \\d+\\.\\d%/.test(li.textContent);
+    }));
+  check('an update that changed nothing does not say so',
+    Array.prototype.some.call(findings, function (one) { return /Nothing changed beyond chance/.test(one.textContent); }));
+
   // A long review is clipped with a control to see the rest of it.
   var more = document.querySelector('[data-expands-text]');
   check('no long review offers the rest of itself', Boolean(more));

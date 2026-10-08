@@ -32,6 +32,7 @@ import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
 import { setUpWho, drawWho, drawRecount } from './who.js';
+import { setUpUpdates, loadUpdates, markUpdates } from './updates.js';
 
 const PER_PAGE = 25;
 
@@ -111,6 +112,7 @@ async function loadTopics(appId) {
     if (counted.app_id !== chosen) return;
     drawTopics(counted);
     drawTimeline(counted.months);
+    loadUpdates(appId);
     drawLanguages(counted.languages, counted.corpus_reviews);
     drawWho(counted);
     panel.hidden = false;
@@ -179,7 +181,10 @@ function shape(name, attributes) {
 function drawTimeline(months) {
   const figure = el('timeline');
   figure.hidden = months.length < 2;
-  if (figure.hidden) return;
+  if (figure.hidden) {
+    markUpdates(months);
+    return;
+  }
 
   const peak = months.reduce((best, month) => (month.reviews > best.reviews ? month : best));
   const tallest = Math.max(peak.reviews, 1);
@@ -252,6 +257,7 @@ function drawTimeline(months) {
   set(el('timeline-first'), months[0].name);
   set(el('timeline-last'), months[months.length - 1].name);
   el('timeline-last').style.gridColumn = String(months.length);
+  markUpdates(months);
 }
 
 /* The languages of the whole capture, commonest first, so a reader knows what "reviews"
@@ -910,6 +916,7 @@ setUpCompare({ openGame });
 setUpSettings();
 setUpStorage({ openGame });
 setUpNewer();
+setUpUpdates();
 
 for (const link of document.querySelectorAll('[data-go]')) {
   link.addEventListener('click', () => go(link.dataset.go));

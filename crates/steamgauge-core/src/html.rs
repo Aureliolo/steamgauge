@@ -509,6 +509,7 @@ fn game(out: &mut String, app: &AppReport, several: bool) {
     headline(out, app);
     in_short(out, app);
     over_time(out, app);
+    updates(out, app);
     categories(out, app);
     who_said_it(out, app);
     induced(out, app);
@@ -767,9 +768,23 @@ fn over_time(out: &mut String, app: &AppReport) {
             line.join(" ")
         );
     }
+    update_marks(out, app, step);
+    month_targets(out, months, step);
 
-    // Last, and the full height of the chart: a quiet month is a bar one pixel tall, which is
-    // nothing to aim at. These are what the pointer actually finds.
+    let _ = writeln!(
+        out,
+        // The two ends of the axis sit at the two ends of the caption, and read as one word
+        // to anything that hears the page rather than seeing it.
+        "</svg>\n<figcaption><span>{}</span><span class=\"read-aloud\"> to </span>\
+         <span>{}</span></figcaption>\n</figure>",
+        escape(&first),
+        escape(&last)
+    );
+}
+
+/// Last, and the full height of the chart: a quiet month is a bar one pixel tall, which is
+/// nothing to aim at. These are what the pointer actually finds.
+fn month_targets(out: &mut String, months: &[Month], step: f64) {
     for (index, month) in months.iter().enumerate() {
         #[expect(
             clippy::cast_precision_loss,
@@ -788,16 +803,195 @@ fn over_time(out: &mut String, app: &AppReport) {
                 .map_or_else(|| "no".to_owned(), percent)
         );
     }
+}
+
+/// A line down the chart where each update was posted, `step` wide a month. Drawn under the
+/// pointer's targets, so a month stays readable where an update falls in it; the list under the
+/// chart names each one.
+fn update_marks(out: &mut String, app: &AppReport, step: f64) {
+    for around in &app.updates.around {
+        let Some(at) = crate::before_after::position(around.update.posted, &app.reading.months)
+        else {
+            continue;
+        };
+        let _ = writeln!(
+            out,
+            "<line class=\"update\" x1=\"{0:.2}\" y1=\"0\" x2=\"{0:.2}\" y2=\"{HEIGHT:.0}\" />",
+            at * step
+        );
+    }
+}
+
+/// Updates whose four weeks either side the page sets out; the rest are listed.
+const UPDATES_COMPARED: usize = 4;
+
+/// The updates the developer posted, and what changed across the biggest of them.
+fn updates(out: &mut String, app: &AppReport) {
+    use crate::before_after::{ENOUGH, WINDOW_DAYS, biggest};
+
+    out.push_str("<h3>Around its updates</h3>\n");
+    let Some(asked) = app.updates.asked else {
+        out.push_str(
+            "<p class=\"note\">Steam has not been asked for the updates this game's developer \
+             posted. Bringing the game up to date asks.</p>\n",
+        );
+        return;
+    };
+    let around = &app.updates.around;
+    if around.is_empty() {
+        let _ = writeln!(
+            out,
+            "<p class=\"note\">Nothing this game's developer had posted on Steam by {} reads as \
+             an update.</p>",
+            crate::time::day(asked)
+        );
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "<p class=\"note\">The dashed lines on the chart are the {} updates this game's developer \
+         posted on Steam by {}: posts Steam marks as patch notes, and posts whose titles name a \
+         patch, a hotfix, an update or a version. Below, the biggest of them by the reviews that \
+         followed, each with the {WINDOW_DAYS} days before it against the {WINDOW_DAYS} days \
+         after. A change is a share that moved further than chance would move it, three \
+         standard errors and at least two points, and a share is compared only where each side \
+         holds at least {ENOUGH} reviews. A change happened across the update; that alone does \
+         not make the update the reason for it.</p>",
+        thousands(around.len() as u64),
+        crate::time::day(asked)
+    );
+    let chosen = biggest(around, UPDATES_COMPARED);
+    if chosen.is_empty() {
+        let _ = writeln!(
+            out,
+            "<p class=\"note\">None of them has {ENOUGH} reviews on each side, so none is \
+             compared.</p>"
+        );
+    }
+    for one in chosen {
+        update_findings(out, one);
+    }
 
     let _ = writeln!(
         out,
-        // The two ends of the axis sit at the two ends of the caption, and read as one word
-        // to anything that hears the page rather than seeing it.
-        "</svg>\n<figcaption><span>{}</span><span class=\"read-aloud\"> to </span>\
-         <span>{}</span></figcaption>\n</figure>",
-        escape(&first),
-        escape(&last)
+        "<details class=\"every-update\">\n<summary>Every update ({})</summary>\n\
+         <ol class=\"updates-list\">",
+        thousands(around.len() as u64)
     );
+    for one in around.iter().rev() {
+        let said = if one.enough {
+            match changes_of(one) {
+                0 => "nothing changed beyond chance".to_owned(),
+                1 => "1 change".to_owned(),
+                many => format!("{many} changes"),
+            }
+        } else {
+            "too few reviews either side to compare".to_owned()
+        };
+        let _ = writeln!(
+            out,
+            "<li><span class=\"when\">{}</span> <span>{} <span class=\"said\">{said}</span></span></li>",
+            crate::time::day(one.update.posted),
+            steam_post(&one.update)
+        );
+    }
+    out.push_str("</ol>\n</details>\n");
+}
+
+/// The changes across an update, the share recommending the game among them.
+fn changes_of(one: &crate::before_after::Around) -> usize {
+    one.changes + usize::from(one.recommended.is_some_and(|share| share.change))
+}
+
+/// An update's title, linked to its post on Steam.
+fn steam_post(update: &crate::updates::Update) -> String {
+    format!(
+        "<a href=\"{}\" rel=\"noopener noreferrer\" target=\"_blank\">{}</a>",
+        escape(&update.link),
+        escape(&update.title)
+    )
+}
+
+/// One update's four weeks either side, as sentences: a share is said only where it changed.
+fn update_findings(out: &mut String, one: &crate::before_after::Around) {
+    use crate::before_after::WINDOW_DAYS;
+
+    out.push_str("<div class=\"update-around\">\n");
+    let _ = writeln!(
+        out,
+        "<h4>{} <span class=\"when\">{}</span></h4>",
+        steam_post(&one.update),
+        crate::time::day(one.update.posted)
+    );
+    let after = if one.after_whole {
+        format!("the {WINDOW_DAYS} days after")
+    } else {
+        let days = (one.after.to - one.after.from) / 86_400;
+        format!("the {days} days after it that the capture holds")
+    };
+    let nearby = match one.nearby {
+        0 => String::new(),
+        1 => " One other update was posted within these weeks, and they hold its effect too."
+            .to_owned(),
+        many => format!(
+            " {many} other updates were posted within these weeks, and they hold their effects \
+             too."
+        ),
+    };
+    let _ = writeln!(
+        out,
+        "<p class=\"note\">{} reviews in the {WINDOW_DAYS} days before, {} in {after}.{nearby}</p>",
+        thousands(one.before.reviews),
+        thousands(one.after.reviews)
+    );
+    if changes_of(one) == 0 {
+        out.push_str(
+            "<p class=\"note\">Nothing changed beyond chance: not the share recommending the \
+             game, and not the praise or complaints of any subject.</p>\n</div>\n",
+        );
+        return;
+    }
+    out.push_str("<ul class=\"changes\">\n");
+    let moved = |share: &crate::before_after::Compared| {
+        format!(
+            "{} from {} to {}",
+            if share.after > share.before {
+                "rose"
+            } else {
+                "fell"
+            },
+            percent(share.before),
+            percent(share.after)
+        )
+    };
+    if let Some(share) = one.recommended.filter(|share| share.change) {
+        let _ = writeln!(
+            out,
+            "<li class=\"change\"><strong>Recommending the game</strong>: {} of reviews</li>",
+            moved(&share)
+        );
+    }
+    for subject in &one.subjects {
+        for (side, share) in [
+            ("praise", subject.praise),
+            ("complaints", subject.complaint),
+        ] {
+            if share.change {
+                let _ = writeln!(
+                    out,
+                    "<li class=\"change {}\"><strong>{}</strong>: {side} {} of reviews</li>",
+                    if (side == "praise") == (share.after > share.before) {
+                        "better"
+                    } else {
+                        "worse"
+                    },
+                    escape(subject.label),
+                    moved(&share)
+                );
+            }
+        }
+    }
+    out.push_str("</ul>\n</div>\n");
 }
 
 fn categories(out: &mut String, app: &AppReport) {
@@ -2409,6 +2603,7 @@ mod tests {
                 agreement: crate::report::Measurement::Unlabelled,
                 ceiling: None,
                 induced: Vec::new(),
+                updates: crate::before_after::Updates::default(),
             }],
         }
     }
@@ -2473,6 +2668,239 @@ mod tests {
 
     fn month(label: &str, reviews: u64, bugs: u64) -> crate::read::Month {
         calendar(label, reviews, reviews / 2, vec![0, bugs])
+    }
+
+    /// 15 January 2024 at midday, halfway through the first month of the sample's calendar.
+    const MID_JANUARY: i64 = 1_705_320_000;
+
+    fn compared(before: f64, after: f64, change: bool) -> crate::before_after::Compared {
+        crate::before_after::Compared {
+            before,
+            after,
+            z: if after > before { 4.0 } else { -4.0 },
+            change,
+        }
+    }
+
+    /// An update posted at `posted`, with `reviews` either side, the share recommending the game
+    /// and complaints and praise of bugs as given.
+    fn update_at(
+        gid: &str,
+        posted: i64,
+        reviews: u64,
+        recommended: crate::before_after::Compared,
+        bugs: (crate::before_after::Compared, crate::before_after::Compared),
+    ) -> crate::before_after::Around {
+        let enough = reviews >= crate::before_after::ENOUGH;
+        let subjects = if enough {
+            vec![crate::before_after::Subject {
+                subject: "bugs",
+                label: "Bugs <and> crashes",
+                praise: bugs.0,
+                complaint: bugs.1,
+            }]
+        } else {
+            Vec::new()
+        };
+        crate::before_after::Around {
+            update: crate::updates::Update {
+                gid: gid.to_owned(),
+                title: format!("Patch {gid} <b>"),
+                posted,
+                link: crate::updates::link(gid),
+            },
+            before: crate::before_after::Window {
+                from: posted - 28 * 86_400,
+                to: posted,
+                reviews,
+            },
+            after: crate::before_after::Window {
+                from: posted,
+                to: posted + 28 * 86_400,
+                reviews,
+            },
+            after_whole: true,
+            enough,
+            recommended: enough.then_some(recommended),
+            changes: usize::from(bugs.0.change) + usize::from(bugs.1.change),
+            subjects,
+            nearby: 0,
+        }
+    }
+
+    fn with_updates(asked: Option<i64>, around: Vec<crate::before_after::Around>) -> String {
+        let mut report = sample_report("ordinary text");
+        report.apps[0].updates = crate::before_after::Updates { asked, around };
+        render(&report)
+    }
+
+    /// The part of a page from its updates' heading to the table after them.
+    fn updates_part(page: &str) -> &str {
+        let from = page.find("Around its updates").unwrap();
+        let to = page[from..].find("What players talk about").unwrap();
+        &page[from..from + to]
+    }
+
+    #[test]
+    fn an_update_is_marked_where_it_falls_on_the_chart_and_only_there() {
+        let steady = compared(0.7, 0.7, false);
+        let page = with_updates(
+            Some(1),
+            vec![
+                update_at("1", MID_JANUARY, 50, steady, (steady, steady)),
+                update_at("2", MID_JANUARY - 40 * 86_400, 50, steady, (steady, steady)),
+            ],
+        );
+        // Two months over a thousand units, and midday on the 15th is 14.5 of January's 31 days
+        // into the first of them.
+        assert!(
+            page.contains(
+                "<line class=\"update\" x1=\"233.87\" y1=\"0\" x2=\"233.87\" y2=\"160\" />"
+            ),
+            "{}",
+            &page[page.find("<line class=\"update\"").unwrap_or(0)..][..120]
+        );
+        assert_eq!(
+            page.matches("<line class=\"update\"").count(),
+            1,
+            "an update before the first month has nowhere on the chart to go"
+        );
+        assert_eq!(
+            updates_part(&page).matches("<li>").count(),
+            2,
+            "and is still listed"
+        );
+    }
+
+    #[test]
+    fn a_game_never_asked_about_or_with_no_update_says_which() {
+        let never = with_updates(None, Vec::new());
+        assert!(updates_part(&never).contains("Steam has not been asked"));
+        let none = with_updates(Some(1_700_000_000), Vec::new());
+        assert!(
+            updates_part(&none).contains("Nothing this game's developer had posted on Steam by 14 November 2023 reads as an update.")
+        );
+        assert!(!none.contains("class=\"update\""));
+    }
+
+    #[test]
+    fn the_biggest_updates_are_set_out_with_what_changed_and_the_rest_listed() {
+        let steady = compared(0.7, 0.7, false);
+        let mut thin = update_at(
+            "thin",
+            MID_JANUARY - 86_400 * 200,
+            10,
+            steady,
+            (steady, steady),
+        );
+        thin.after.reviews = 99_999;
+        let mut partial = update_at(
+            "partial",
+            MID_JANUARY + 86_400 * 90,
+            300,
+            compared(0.8, 0.6, true),
+            (compared(0.3, 0.1, true), compared(0.1, 0.2, true)),
+        );
+        partial.after_whole = false;
+        partial.after.to = partial.after.from + 9 * 86_400 + 3_600;
+        partial.nearby = 2;
+        let mut quiet = update_at("quiet", MID_JANUARY, 400, steady, (steady, steady));
+        quiet.nearby = 1;
+        let better = update_at(
+            "better",
+            MID_JANUARY + 86_400 * 40,
+            500,
+            compared(0.6, 0.7, false),
+            (compared(0.1, 0.3, true), compared(0.3, 0.1, true)),
+        );
+        let page = with_updates(Some(1), vec![thin, quiet, better, partial]);
+        let part = updates_part(&page);
+
+        assert!(part.contains("are the 4 updates"));
+        assert_eq!(part.matches("<div class=\"update-around\">").count(), 3);
+        assert!(!part.contains("<h4><a href=\"https://store.steampowered.com/news/externalpost/steam_community_announcements/thin\""));
+        assert!(
+            part.contains("Patch quiet &lt;b&gt;"),
+            "a title is text, not markup"
+        );
+        assert!(part.contains("Bugs &lt;and&gt; crashes"));
+        assert!(part.contains(
+            "400 reviews in the 28 days before, 400 in the 28 days after. One other update was \
+             posted within these weeks, and they hold its effect too."
+        ));
+        assert!(part.contains("Nothing changed beyond chance"));
+        assert!(part.contains(
+            "300 reviews in the 28 days before, 300 in the 9 days after it that the capture \
+             holds. 2 other updates were posted within these weeks, and they hold their effects \
+             too."
+        ));
+        assert!(part.contains(
+            "<li class=\"change\"><strong>Recommending the game</strong>: fell from 80.0% to \
+             60.0% of reviews</li>"
+        ));
+        assert!(
+            !part.contains("from 60.0% to 70.0%"),
+            "a share that did not change is not said"
+        );
+        assert!(part.contains(
+            "<li class=\"change worse\"><strong>Bugs &lt;and&gt; crashes</strong>: praise fell \
+             from 30.0% to 10.0% of reviews</li>"
+        ));
+        assert!(part.contains(
+            "<li class=\"change worse\"><strong>Bugs &lt;and&gt; crashes</strong>: complaints \
+             rose from 10.0% to 20.0% of reviews</li>"
+        ));
+        assert!(part.contains(
+            "<li class=\"change better\"><strong>Bugs &lt;and&gt; crashes</strong>: praise rose \
+             from 10.0% to 30.0% of reviews</li>"
+        ));
+        assert!(part.contains(
+            "<li class=\"change better\"><strong>Bugs &lt;and&gt; crashes</strong>: complaints \
+             fell from 30.0% to 10.0% of reviews</li>"
+        ));
+
+        let listed: Vec<&str> = part
+            .split("<span class=\"said\">")
+            .skip(1)
+            .map(|rest| &rest[..rest.find("</span>").unwrap()])
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                "3 changes",
+                "2 changes",
+                "nothing changed beyond chance",
+                "too few reviews either side to compare"
+            ],
+            "newest first, and the share recommending the game counts as a change"
+        );
+        assert!(part.contains("rel=\"noopener noreferrer\" target=\"_blank\""));
+    }
+
+    #[test]
+    fn an_update_with_one_change_says_one() {
+        let steady = compared(0.7, 0.7, false);
+        let one = update_at(
+            "one",
+            MID_JANUARY,
+            400,
+            steady,
+            (steady, compared(0.1, 0.2, true)),
+        );
+        let part_of = with_updates(Some(1), vec![one]);
+        assert!(updates_part(&part_of).contains("<span class=\"said\">1 change</span>"));
+    }
+
+    #[test]
+    fn updates_with_too_few_reviews_anywhere_are_listed_and_none_set_out() {
+        let steady = compared(0.7, 0.7, false);
+        let page = with_updates(
+            Some(1),
+            vec![update_at("1", MID_JANUARY, 99, steady, (steady, steady))],
+        );
+        let part = updates_part(&page);
+        assert!(part.contains("None of them has 100 reviews on each side, so none is compared."));
+        assert!(!part.contains("update-around"));
     }
 
     #[test]

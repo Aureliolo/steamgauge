@@ -107,6 +107,19 @@ mod tests {
     }
 
     #[test]
+    fn an_update_opens_on_steams_store_and_the_news_apis_own_address_is_not_allowed() {
+        assert!(may_open(&steamgauge_core::updates::link(
+            "1844751498220713"
+        )));
+        // The address Steam's news API names for a post is on a content server; the window
+        // never opens it, and the allow-list does not reach it.
+        assert!(!may_open(
+            "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/\
+             1844751498220713"
+        ));
+    }
+
+    #[test]
     fn steam_pages_may_still_be_opened() {
         assert!(may_open(
             "https://steamcommunity.com/profiles/76561197960287930/recommended/1/"

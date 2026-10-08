@@ -140,7 +140,8 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Download every review Valve will serve for an app into an immutable Parquet capture.
+    /// Download every review Valve will serve for an app into an immutable Parquet capture, and
+    /// the titles and dates of what its developer has posted on Steam.
     Crawl {
         /// Steam app ID, as it appears in the store URL.
         app_id: u32,
@@ -169,7 +170,8 @@ enum Command {
     /// so this is a few pages rather than a crawl. Nothing already captured is overwritten:
     /// an edited review is held in both forms, and every pass that reads the capture counts
     /// the newer one. Read the corpus again afterwards, since the readings describe the
-    /// capture as it was.
+    /// capture as it was. What the developer has posted on Steam is asked for again too, so the
+    /// report marks the game's newest updates.
     Sweep {
         /// Steam app ID, as it appears in the store URL.
         app_id: u32,
@@ -3662,6 +3664,7 @@ async fn run_crawl(app_id: u32, options: &CrawlOptions, pace: Duration) -> Resul
     }
 
     print_report(&report);
+    refresh_updates(&client, app_id, &options.out_dir).await;
     Ok(())
 }
 
@@ -3717,12 +3720,32 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
     }
     println!("  elapsed      {}", elapsed(report.elapsed));
     println!("  capture      {}", report.dir.display());
+    refresh_updates(&client, app_id, out).await;
     if report.rows > 0 {
         println!(
             "\nThe readings describe the capture as it was. Read it again to count what arrived."
         );
     }
     Ok(())
+}
+
+/// Asks Steam for what the game's developer has posted and keeps it beside the reviews. Best
+/// effort: reviews already fetched are the job, and a game whose updates Steam will not list
+/// keeps whatever was kept before.
+async fn refresh_updates(client: &steamgauge_core::SteamClient, app_id: u32, out: &Path) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            i64::try_from(since.as_secs()).unwrap_or(i64::MAX)
+        });
+    match steamgauge_core::updates::refresh(client, app_id, out, now).await {
+        Ok(kept) => println!(
+            "  updates      {} of the developer's {} posts on Steam",
+            thousands(kept.updates().len() as u64),
+            thousands(kept.posts.len() as u64)
+        ),
+        Err(error) => println!("  updates      not asked again: {error}"),
+    }
 }
 
 fn print_report(report: &CrawlReport) {
