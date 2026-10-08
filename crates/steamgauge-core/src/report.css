@@ -525,6 +525,95 @@ figure.timeline figcaption {
   padding-top: 0.35rem;
 }
 
+/* Dashed and in ink, so an update reads as a moment on the chart rather than another series. */
+figure.timeline .update {
+  stroke: var(--ink-soft);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.update-around {
+  max-width: var(--measure);
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.update-around h4 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.update-around .note {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.when {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+ul.changes {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+ul.changes li {
+  margin: 0.15rem 0;
+}
+
+ul.changes li::marker {
+  color: var(--ink-faint);
+}
+
+ul.changes .better strong {
+  color: var(--under);
+}
+
+ul.changes .worse strong {
+  color: var(--over);
+}
+
+details.every-update {
+  max-width: var(--measure);
+  margin: 0 0 1.5rem;
+}
+
+details.every-update summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+ol.updates-list {
+  margin: 0.5rem 0 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+ol.updates-list li {
+  padding: 0.3rem 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+ol.updates-list .when {
+  display: inline-block;
+  min-width: 9.5rem;
+}
+
+ol.updates-list .said {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+
 .scroll {
   overflow-x: auto;
   border: 1px solid var(--line);

@@ -3,6 +3,7 @@
 //! Nothing here is stable yet. See the repository README for what is being built.
 
 pub mod api;
+pub mod before_after;
 mod bounded;
 pub mod capture;
 pub mod card;
@@ -45,6 +46,7 @@ mod tempdir;
 pub mod time;
 #[cfg(test)]
 mod tiny_model;
+pub mod updates;
 pub mod who;
 
 pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
