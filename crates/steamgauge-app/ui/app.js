@@ -32,6 +32,7 @@ import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpFinder, openFinder } from './finder.js';
 import { setUpWho, drawWho, drawRecount } from './who.js';
+import { setUpUpdates, loadUpdates } from './updates.js';
 
 const PER_PAGE = 25;
 
@@ -111,6 +112,7 @@ async function loadTopics(appId) {
     if (counted.app_id !== chosen) return;
     drawTopics(counted);
     drawTimeline(counted.months);
+    loadUpdates(appId, counted.months.length);
     drawLanguages(counted.languages, counted.corpus_reviews);
     drawWho(counted);
     panel.hidden = false;
@@ -910,6 +912,7 @@ setUpCompare({ openGame });
 setUpSettings();
 setUpStorage({ openGame });
 setUpNewer();
+setUpUpdates();
 
 for (const link of document.querySelectorAll('[data-go]')) {
   link.addEventListener('click', () => go(link.dataset.go));

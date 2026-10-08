@@ -476,8 +476,46 @@
             <figure class="timeline" id="timeline" hidden>
               <p class="quiet" id="timeline-note"></p>
               <svg viewBox="0 0 1000 160" preserveAspectRatio="none" role="img" id="timeline-svg"></svg>
+              <div class="update-strip" id="update-strip" hidden></div>
               <figcaption><span id="timeline-first"></span><span id="timeline-last"></span></figcaption>
             </figure>
+            <section class="around" id="around" aria-labelledby="around-title" hidden>
+              <div class="around-head">
+                <div>
+                  <h3 id="around-title">Before and after an update</h3>
+                  <p class="quiet" id="around-lede"></p>
+                </div>
+                <label class="choice" id="around-choose">
+                  Update
+                  <select id="update-choice"></select>
+                </label>
+              </div>
+              <p class="quiet" id="around-state" role="status" aria-live="polite"></p>
+              <div class="around-body" id="around-body" hidden>
+                <div class="around-update">
+                  <strong id="around-name"></strong>
+                  <span class="quiet" id="around-when"></span>
+                  <button type="button" class="link small" id="around-steam">On Steam</button>
+                </div>
+                <p class="around-counts" id="around-counts"></p>
+                <p class="caveat" id="around-thin" hidden></p>
+                <p class="around-summary" id="around-summary"></p>
+                <p class="around-recommended" id="around-recommended"></p>
+                <div class="table-wrap" id="around-table-wrap">
+                  <table class="around-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Subject</th>
+                        <th scope="col" class="num">Praised it</th>
+                        <th scope="col" class="num">Complained about it</th>
+                      </tr>
+                    </thead>
+                    <tbody id="around-rows"></tbody>
+                  </table>
+                </div>
+                <p class="footnote" id="around-footnote"></p>
+              </div>
+            </section>
             <p class="quiet languages" id="languages" hidden></p>
             <div class="table-wrap" id="counts-wrap">
               <table class="counts">

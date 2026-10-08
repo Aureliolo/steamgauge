@@ -317,10 +317,7 @@
       measured: null,
       learned: false,
       frozen: { games: 10, claims: 5_080, coverage: 0.98, accuracy: 0.78 },
-      months: [
-        { label: '2025-08', name: 'Aug 2025', reviews: 300, positive: 0.8 },
-        { label: '2025-09', name: 'Sep 2025', reviews: 500, positive: 0.75 },
-      ],
+      months: calendar,
       languages: [{ name: 'english', reviews: 15_000, share: 0.75 }],
       // Beta was read before reviewers were told apart.
       who: appId === 1 ? { kinds: kinds(), findings: findings() } : { kinds: [], findings: [] },
@@ -386,6 +383,83 @@
         { label: '2025-08', name: 'Aug 2025', reviews: 60, positive: 0.9 },
         { label: '2025-09', name: 'Sep 2025', reviews: 20, positive: null },
       ],
+    };
+  };
+
+  // Fourteen months, September 2024 to October 2025, as a reading draws them.
+  const calendar = Array.from({ length: 14 }, (_, at) => {
+    const month = new Date(Date.UTC(2024, 8 + at, 15));
+    return {
+      label: `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`,
+      name: month.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+      reviews: 300 + ((at * 137) % 500),
+      positive: 0.72 + ((at * 7) % 10) / 100,
+    };
+  });
+
+  // Alpha's updates as the core places them on that calendar: one before it starts, one alone,
+  // three posted within days of each other, one with too few reviews either side, and one the
+  // download holds only nine days after.
+  const posted = (year, month, day) => Date.UTC(year, month - 1, day, 12) / 1000;
+  const at = (year, month, day) => {
+    const column = (year - 2024) * 12 + (month - 9);
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return column + (day - 0.5) / days;
+  };
+  const alphaUpdates = [
+    { gid: '1840000000000000', title: 'Early Access Patch 0.9', posted: posted(2024, 6, 1), at: null },
+    { gid: '1840000000000001', title: 'Patch 1.1', posted: posted(2024, 11, 12), at: at(2024, 11, 12) },
+    { gid: '1840000000000002', title: 'The Winter Update 1.2', posted: posted(2025, 1, 14), at: at(2025, 1, 14) },
+    { gid: '1840000000000003', title: 'Hotfix 1.2.1', posted: posted(2025, 1, 16), at: at(2025, 1, 16) },
+    { gid: '1840000000000004', title: 'Hotfix 1.2.2', posted: posted(2025, 1, 17), at: at(2025, 1, 17) },
+    { gid: '1840000000000005', title: 'Patch 1.3', posted: posted(2025, 6, 3), at: at(2025, 6, 3) },
+    { gid: '1840000000000006', title: 'Patch 1.4: Performance and Stability', posted: posted(2025, 9, 30), at: at(2025, 9, 30) },
+  ].map((update) => ({
+    ...update,
+    link: `https://store.steampowered.com/news/externalpost/steam_community_announcements/${update.gid}`,
+  }));
+
+  const compared = (before, after, change) => ({ before, after, z: change ? (after > before ? 4.2 : -4.2) : 0.6, change });
+  const side = (subject, label, praise, complaint) => ({ subject, label, praise, complaint });
+  const steady = [
+    side('performance', 'Performance', compared(0.22, 0.23, false), compared(0.14, 0.13, false)),
+    side('story', 'Story', compared(0.3, 0.31, false), compared(0.05, 0.05, false)),
+  ];
+  // What changed across each of Alpha's updates, by its id.
+  const across = {
+    '1840000000000002': {
+      reviews: [1_840, 2_960],
+      nearby: 2,
+      recommended: compared(0.84, 0.71, true),
+      subjects: [
+        side('bugs', 'Bugs and crashes', compared(0.04, 0.03, false), compared(0.08, 0.19, true)),
+        side('performance', 'Performance', compared(0.22, 0.31, true), compared(0.14, 0.13, false)),
+        side('story', 'Story', compared(0.3, 0.31, false), compared(0.05, 0.05, false)),
+      ],
+    },
+    '1840000000000003': { reviews: [1_900, 2_700], nearby: 2, recommended: compared(0.83, 0.72, true), subjects: steady },
+    '1840000000000004': { reviews: [2_050, 2_400], nearby: 2, recommended: compared(0.81, 0.73, true), subjects: steady },
+    '1840000000000001': { reviews: [980, 1_020], nearby: 0, recommended: compared(0.82, 0.83, false), subjects: steady },
+    '1840000000000005': { reviews: [64, 41], nearby: 0, recommended: null, subjects: [] },
+    '1840000000000006': { reviews: [1_200, 410], nearby: 0, recommended: compared(0.8, 0.79, false), subjects: steady, days: 9 },
+  };
+  const beforeAfter = (appId, gid) => {
+    const update = alphaUpdates.find((one) => one.gid === gid);
+    const found = across[gid];
+    if (appId !== 1 || !update || !found) throw new Error(`no update ${gid} is kept for app ${appId}`);
+    const window = 28 * DAY;
+    const after = found.days ? found.days * DAY : window;
+    const enough = found.reviews[0] >= 100 && found.reviews[1] >= 100;
+    return {
+      update: { gid: update.gid, title: update.title, posted: update.posted, link: update.link },
+      before: { from: update.posted - window, to: update.posted, reviews: found.reviews[0] },
+      after: { from: update.posted, to: update.posted + after, reviews: found.reviews[1] },
+      after_whole: !found.days,
+      enough,
+      recommended: found.recommended,
+      subjects: found.subjects,
+      changes: found.subjects.reduce((sum, one) => sum + one.praise.change + one.complaint.change, 0),
+      nearby: found.nearby,
     };
   };
 
@@ -576,6 +650,14 @@
     reading: ({ appId }) => reading(appId),
     who_wrote: (args) => whoWrote(args),
     induced: () => [],
+    // Alpha's developer posts updates; Beta was never asked about; anything else posted none.
+    game_updates: ({ appId }) => ({
+      asked: appId === 2 ? null : now - DAY,
+      updates: appId === 1 ? alphaUpdates : [],
+      window_days: 28,
+      enough: 100,
+    }),
+    before_after: ({ appId, gid }) => beforeAfter(appId, gid),
     look_up: ({ appId }) => ({
       app_id: appId,
       name: 'Delta',

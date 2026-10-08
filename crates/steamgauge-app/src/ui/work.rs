@@ -624,7 +624,19 @@ async fn download(app: &AppHandle, id: u64, app_id: u32) -> Result<Ended, String
     })
     .await
     .map_err(text)?;
-    let mut ended = Ended::said(format!("{} reviews downloaded.", thousands(report.unique)));
+    tell(
+        app,
+        id,
+        "Asking Steam for its updates",
+        Unit::Pages,
+        0.0,
+        None,
+    );
+    let mut ended = Ended::said(format!(
+        "{} reviews downloaded.{}",
+        thousands(report.unique),
+        refresh_updates(&client, app_id, &out_dir).await
+    ));
     let settings = Settings::load(app);
     if settings.read_after_download {
         ended.then.push(Task::Read {
@@ -657,14 +669,23 @@ async fn update(
     })
     .await
     .map_err(text)?;
+    tell(
+        app,
+        id,
+        "Asking Steam for its updates",
+        Unit::Pages,
+        0.0,
+        None,
+    );
+    let updates = refresh_updates(&client, app_id, &out_dir).await;
     let since = steamgauge_core::time::day(swept.watermark);
     if swept.rows == 0 {
         return Ok(Ended::said(format!(
-            "Nothing was written or edited since {since}."
+            "Nothing was written or edited since {since}.{updates}"
         )));
     }
     let mut ended = Ended::said(format!(
-        "{} new and {} edited since {since}.",
+        "{} new and {} edited since {since}.{updates}",
         thousands(swept.new),
         thousands(swept.edited)
     ));
@@ -679,6 +700,20 @@ async fn update(
         });
     }
     Ok(ended)
+}
+
+/// Asks Steam for what the game's developer has posted and keeps it beside the reviews. The
+/// reviews are the job: where Steam will not list the posts, what was kept before stays and the
+/// job says so in a sentence of its own, which is empty when all went well.
+async fn refresh_updates(
+    client: &steamgauge_core::SteamClient,
+    app_id: u32,
+    out_dir: &std::path::Path,
+) -> String {
+    match steamgauge_core::updates::refresh(client, app_id, out_dir, now_unix()).await {
+        Ok(_) => String::new(),
+        Err(error) => format!(" Steam did not list its updates: {error}."),
+    }
 }
 
 /// The reader size this machine reads with: the card decides where one is reached, and the

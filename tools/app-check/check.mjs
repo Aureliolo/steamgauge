@@ -366,6 +366,84 @@ const PROBE = `(async function () {
   check('a language is not named as a person writes it', /English 75%/.test($('#languages').textContent));
   check('a month\\'s bar is not held to a column\\'s width',
     Number($('#timeline-svg .bar').getAttribute('width')) <= 56);
+
+  // Alpha's seven updates: one posted before its first month, one alone, three within four
+  // days of each other, one with too few reviews either side, one held only nine days after.
+  check('the timeline does not draw each update it holds a month for',
+    document.querySelectorAll('#timeline-svg .update-line').length === 6);
+  var lines = Array.prototype.slice.call(document.querySelectorAll('#timeline-svg .update-line'));
+  var hits = Array.prototype.slice.call(document.querySelectorAll('#timeline-svg .hit'));
+  check('an update is drawn over the months it should sit under',
+    lines.every(function (line) { return hits.every(function (hit) {
+      return line.compareDocumentPosition(hit) & Node.DOCUMENT_POSITION_FOLLOWING; }); }));
+  var marks = function () { return Array.prototype.slice.call(document.querySelectorAll('#update-strip .update-mark')); };
+  check('updates days apart are not one mark that says how many it holds',
+    marks().length === 4 && marks().some(function (m) { return m.textContent === '3'; }));
+  check('a mark is not named for the update it chooses', marks().every(function (m) {
+    return (m.getAttribute('aria-label') || '').length > 0; }));
+  check('a mark is not where its update falls under the chart', (function () {
+    var strip = $('#update-strip').getBoundingClientRect();
+    return marks().every(function (m) {
+      var box = m.getBoundingClientRect();
+      return box.left >= strip.left - 1 && box.right <= strip.right + 1;
+    });
+  })());
+  check('the updates cannot be chosen from a list, newest first',
+    document.querySelectorAll('#update-choice option').length === 8 &&
+    /Patch 1\\.4/.test($('#update-choice option:nth-child(2)').textContent));
+  check('the updates are not introduced', /7 updates its developer posted on Steam/.test($('#around-lede').textContent));
+  marks().filter(function (m) { return m.textContent === '3'; })[0].click();
+  await pause(250);
+  check('a mark for three updates does not choose the newest of them',
+    last('before_after') && last('before_after').args.gid === '1840000000000004' &&
+    $('#update-choice').value === '1840000000000004');
+  check('the chosen update is not marked on the chart',
+    $('#timeline-svg .update-line.chosen') && $('#timeline-svg .update-line.chosen').dataset.gid === '1840000000000004' &&
+    $('#update-strip .update-mark.chosen') !== null);
+  var pick = function (gid) {
+    var select = $('#update-choice');
+    select.value = gid;
+    select.dispatchEvent(new Event('change'));
+    return pause(250);
+  };
+  await pick('1840000000000002');
+  check('choosing an update does not show what changed across it', shown('around-body'));
+  check('an update does not say how many reviews either side it rests on',
+    /1,840 reviews in the 28 days before, 2,960 in the 28 days after/.test($('#around-counts').textContent));
+  check('the updates sharing its weeks go unmentioned', /2 other updates were posted within these weeks/.test($('#around-counts').textContent));
+  check('a change across an update is not said with both shares',
+    /complaints about bugs and crashes rose from 8% to 19%/.test($('#around-summary').textContent) &&
+    /the share recommending the game fell from 84% to 71%/.test($('#around-summary').textContent));
+  check('a complaint that rose is not marked as bad news',
+    Array.prototype.some.call(document.querySelectorAll('#around-summary .worse'), function (w) {
+      return /complaints about bugs/.test(w.textContent); }));
+  check('praise that rose is not marked as good news', $('#around-summary .better') !== null &&
+    /praise of performance/.test($('#around-summary .better').textContent));
+  check('every subject is not shown before and after', document.querySelectorAll('#around-rows tr').length === 3);
+  check('the changes are not marked in the table', document.querySelectorAll('#around-rows .changed').length === 2);
+  check('a share within chance is marked as a change',
+    !/changed/.test(document.querySelectorAll('#around-rows tr')[2].innerHTML));
+  check('the share recommending the game is not shown either side',
+    shown('around-recommended') && /84%\\s*→\\s*71%/.test($('#around-recommended').textContent) &&
+    $('#around-recommended .changed.worse') !== null);
+  check('the rule a change is held to goes unsaid', /three standard errors/.test($('#around-footnote').textContent));
+  $('#around-steam').click();
+  await pause();
+  check('an update\\'s post does not open on Steam through the opener',
+    last('plugin:opener|open_url').args.url ===
+      'https://store.steampowered.com/news/externalpost/steam_community_announcements/1840000000000002');
+  await pick('1840000000000005');
+  check('an update with too few reviews either side does not say so', shown('around-thin') &&
+    /Too few reviews/.test($('#around-thin').textContent));
+  check('an update with too few reviews either side still shows shares',
+    document.getElementById('around-table-wrap').hidden && document.getElementById('around-summary').hidden);
+  check('an update with too few reviews does not say how few', /64 reviews in the 28 days before, 41 in/.test($('#around-counts').textContent));
+  await pick('1840000000000006');
+  check('an update held only days after does not say how many', /the 9 days since/.test($('#around-counts').textContent));
+  check('an update that changed nothing does not say so', /Nothing changed beyond chance/.test($('#around-summary').textContent));
+  await pick('');
+  check('choosing no update leaves one shown', !shown('around-body') && $('#update-strip .update-mark.chosen') === null);
+  check('the game page with an update chosen does not fit its page', fits());
   $('#game-store').click();
   await pause();
   check('a game\\'s store page does not open through the opener',
@@ -448,6 +526,12 @@ const PROBE = `(async function () {
   $('#game-back').click();
   await pause(250);
   check('the way back from a game does not lead to the library', shown('library'));
+  rows().filter(function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click();
+  await pause(300);
+  check('a game Steam was never asked about does not say how to ask',
+    shown('around') && /has not been asked/.test($('#around-lede').textContent) &&
+    $('#around-choose').hidden && document.getElementById('update-strip').hidden);
+  await go('library');
 
   $('#library-add').click();
   await pause();
@@ -530,6 +614,18 @@ try {
     if (frame.hidden || frame.scrollWidth > frame.clientWidth + 1) {
       wrong.push('one kind of reviewer beside everyone else needs scrolling sideways in the narrowest window');
     }
+    var choice = document.getElementById('update-choice');
+    choice.value = '1840000000000002';
+    choice.dispatchEvent(new Event('change'));
+    await new Promise(function (done) { setTimeout(done, 250); });
+    var stage = document.getElementById('stage');
+    if (stage.scrollWidth > stage.clientWidth + 1) wrong.push('a game\\'s update runs off the side of the narrowest window');
+    var marks = Array.prototype.slice.call(document.querySelectorAll('#update-strip .update-mark'));
+    var overlap = marks.some(function (mark, index) {
+      var next = marks[index + 1];
+      return next && mark.getBoundingClientRect().right > next.getBoundingClientRect().left;
+    });
+    if (overlap) wrong.push('two marks under the chart overlap in the narrowest window');
     return wrong;
   })()`);
   // The library's table scrolls inside its own frame, so the page never shows it running off;
@@ -668,6 +764,14 @@ try {
       );
       await shoot(`game-${scheme}`);
       await evaluate(
+        "var choice=document.getElementById('update-choice');choice.value='1840000000000005';choice.dispatchEvent(new Event('change'))",
+      );
+      await shoot(`game-update-thin-${scheme}`);
+      await evaluate(
+        "var choice=document.getElementById('update-choice');choice.value='1840000000000002';choice.dispatchEvent(new Event('change'))",
+      );
+      await shoot(`game-update-${scheme}`);
+      await evaluate(
         "var first=document.getElementById('who-first');first.value='100-hours-or-more';first.dispatchEvent(new Event('change'))",
       );
       await shoot(`game-who-${scheme}`);
@@ -751,6 +855,10 @@ try {
       "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
     );
     await shoot("narrow-game");
+    await evaluate(
+      "var choice=document.getElementById('update-choice');choice.value='1840000000000002';choice.dispatchEvent(new Event('change'))",
+    );
+    await shoot("narrow-game-update");
     await evaluate(
       "var first=document.getElementById('who-first');first.value='100-hours-or-more';first.dispatchEvent(new Event('change'))",
     );

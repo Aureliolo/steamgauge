@@ -598,15 +598,21 @@ ol.updates-list {
   font-size: 0.9rem;
 }
 
+/* A date column beside the title where there is room for one, the date over the title where
+   there is not. */
 ol.updates-list li {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 0 0.75rem;
   padding: 0.3rem 0;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
 
-ol.updates-list .when {
-  display: inline-block;
-  min-width: 9.5rem;
+@media (max-width: 32rem) {
+  ol.updates-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 ol.updates-list .said {

@@ -890,7 +890,7 @@ fn updates(out: &mut String, app: &AppReport) {
         };
         let _ = writeln!(
             out,
-            "<li><span class=\"when\">{}</span> {} <span class=\"said\">{said}</span></li>",
+            "<li><span class=\"when\">{}</span> <span>{} <span class=\"said\">{said}</span></span></li>",
             crate::time::day(one.update.posted),
             steam_post(&one.update)
         );
