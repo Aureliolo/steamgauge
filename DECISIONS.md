@@ -4995,6 +4995,11 @@ either side are counted and said, because the windows hold their effects too; an
 capture holds fewer than 28 days after says how many it holds. A change happened across the
 update, and both the page and the report say that alone does not make the update the reason.
 
+**With one kind of reviewer chosen** (the section above), the marks sit on that kind's timeline
+and an update is counted over that kind's reviews alone, and the page says which reviewers it
+counted. The floors and the rule are the same, so a small kind says more often that it has too
+few reviews either side.
+
 **The report** marks every update on its chart, sets out the four the most reviews followed, no
 two within 28 days of each other so a launch and its week of hotfixes are one moment, and lists
 every update with what changed across it.

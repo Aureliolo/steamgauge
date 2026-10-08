@@ -580,6 +580,7 @@ fn updates(app_id: u32) -> Updates {
                 recommends: turn % 10 < if soured { 5 } else { 7 },
                 praise,
                 complaint,
+                kinds: steamgauge_core::who::Membership::default(),
             });
         }
     }

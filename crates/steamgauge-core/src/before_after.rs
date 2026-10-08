@@ -19,6 +19,7 @@ use crate::{
     reader::Polarity,
     taxonomy::SHEET,
     updates::Update,
+    who::Membership,
 };
 
 /// Days in each window. Four whole weeks, so each window holds every day of the week four times
@@ -41,6 +42,18 @@ pub struct Dated {
     pub recommends: bool,
     pub praise: u64,
     pub complaint: u64,
+    /// The kinds of reviewer its writer is, so one kind's reviews can be compared alone.
+    pub kinds: Membership,
+}
+
+/// The reviews one kind of reviewer wrote, by its place in [`crate::who::SEGMENTS`].
+#[must_use]
+pub fn written_by(reviews: &[Dated], kind: usize) -> Vec<Dated> {
+    reviews
+        .iter()
+        .filter(|review| review.kinds.positions().any(|at| at == kind))
+        .copied()
+        .collect()
 }
 
 /// Every review a game's reading counted, oldest first, with the sides its stored answers take.
@@ -57,12 +70,19 @@ pub fn dated_reviews(snapshot: &Path, language: Option<&str>) -> Result<Vec<Date
     let written = crate::capture::rows_kept(snapshot, |row, _| {
         language
             .is_none_or(|wanted| wanted == row.language)
-            .then_some((row.recommendationid, row.created, row.voted_up))
+            .then(|| {
+                (
+                    row.recommendationid,
+                    row.created,
+                    row.voted_up,
+                    Membership::of(&row.reviewer),
+                )
+            })
     })?;
     let at: HashMap<&str, usize> = written
         .iter()
         .enumerate()
-        .map(|(index, (id, _, _))| (id.as_str(), index))
+        .map(|(index, (id, ..))| (id.as_str(), index))
         .collect();
     let mut sides = vec![(0_u64, 0_u64); written.len()];
     let slot_of = |name: &str| SHEET.iter().position(|row| row.id == name);
@@ -88,12 +108,15 @@ pub fn dated_reviews(snapshot: &Path, language: Option<&str>) -> Result<Vec<Date
     let mut dated: Vec<Dated> = written
         .iter()
         .zip(sides)
-        .map(|((_, created, recommends), (praise, complaint))| Dated {
-            created: *created,
-            recommends: *recommends,
-            praise,
-            complaint,
-        })
+        .map(
+            |((_, created, recommends, kinds), (praise, complaint))| Dated {
+                created: *created,
+                recommends: *recommends,
+                praise,
+                complaint,
+                kinds: *kinds,
+            },
+        )
         .collect();
     dated.sort_by_key(|review| review.created);
     Ok(dated)
@@ -363,14 +386,7 @@ pub fn position(at: i64, months: &[Month]) -> Option<f64> {
     }
     let column = months.partition_point(|month| month.label < label);
     let through = if months[column].label == label {
-        let (year, month, day) = crate::time::civil(at);
-        let into_day = at.rem_euclid(86_400);
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "a day of a month and a second of a day are both far below 2^53"
-        )]
-        let elapsed = f64::from(day - 1) + into_day as f64 / 86_400.0;
-        elapsed / f64::from(days_in(year, month))
+        through_month(at)
     } else {
         0.0
     };
@@ -380,6 +396,19 @@ pub fn position(at: i64, months: &[Month]) -> Option<f64> {
     )]
     let column = column as f64;
     Some(column + through)
+}
+
+/// How far through its month a moment falls, from 0 at the first second to just under 1.
+#[must_use]
+pub fn through_month(at: i64) -> f64 {
+    let (year, month, day) = crate::time::civil(at);
+    let into_day = at.rem_euclid(86_400);
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a day of a month and a second of a day are both far below 2^53"
+    )]
+    let elapsed = f64::from(day - 1) + into_day as f64 / 86_400.0;
+    elapsed / f64::from(days_in(year, month))
 }
 
 fn days_in(year: i64, month: u8) -> u8 {
@@ -428,6 +457,7 @@ mod tests {
                 recommends: false,
                 praise: bit("audio"),
                 complaint: bit("bugs"),
+                kinds: reviews[0].kinds,
             }
         );
         assert_eq!(
@@ -493,6 +523,7 @@ mod tests {
                 recommends: at < recommending,
                 praise: bit("story"),
                 complaint: if at < complaining { bit("bugs") } else { 0 },
+                kinds: Membership::default(),
             })
             .collect()
     }
@@ -591,6 +622,7 @@ mod tests {
             recommends: true,
             praise,
             complaint: 0,
+            kinds: Membership::default(),
         };
         let mut reviews = Vec::new();
         for at in 0..200 {
@@ -606,6 +638,40 @@ mod tests {
     }
 
     #[test]
+    fn one_kind_of_reviewer_is_compared_over_its_own_reviews_alone() {
+        let kind = |id: &str| {
+            crate::who::SEGMENTS
+                .iter()
+                .position(|segment| segment.id == id)
+                .unwrap()
+        };
+        let free = Membership::of(&crate::who::Reviewer {
+            free: true,
+            ..crate::who::Reviewer::default()
+        });
+        let paid = Membership::of(&crate::who::Reviewer::default());
+        let reviews: Vec<Dated> = (0..5)
+            .map(|at| Dated {
+                created: at,
+                recommends: true,
+                praise: 0,
+                complaint: 0,
+                kinds: if at < 2 { free } else { paid },
+            })
+            .collect();
+        let created = |kept: Vec<Dated>| kept.iter().map(|one| one.created).collect::<Vec<_>>();
+        assert_eq!(created(written_by(&reviews, kind("got-it-free"))), [0, 1]);
+        assert_eq!(
+            created(written_by(&reviews, kind("paid-for-it"))),
+            [2, 3, 4]
+        );
+        assert_eq!(
+            created(written_by(&reviews, kind("steam-deck"))),
+            [] as [i64; 0]
+        );
+    }
+
+    #[test]
     fn a_subject_raised_on_one_side_only_is_listed() {
         let posted = 100 * DAY;
         let mut reviews: Vec<Dated> = (0..200)
@@ -614,6 +680,7 @@ mod tests {
                 recommends: true,
                 praise: if at < 50 { bit("audio") } else { 0 },
                 complaint: 0,
+                kinds: Membership::default(),
             })
             .collect();
         reviews.extend((0..200).map(|at| Dated {
@@ -621,6 +688,7 @@ mod tests {
             recommends: true,
             praise: if at < 50 { bit("story") } else { 0 },
             complaint: if at >= 150 { bit("bugs") } else { 0 },
+            kinds: Membership::default(),
         }));
         let found = around(&update("1", posted), &reviews, posted + WINDOW, &[]);
         let audio = found.subjects.iter().find(|s| s.subject == "audio");
@@ -645,6 +713,7 @@ mod tests {
             recommends: true,
             praise: 0,
             complaint: 0,
+            kinds: Membership::default(),
         };
         let reviews = vec![
             at(posted - WINDOW - 1),

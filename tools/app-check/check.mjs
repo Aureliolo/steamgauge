@@ -482,6 +482,14 @@ const PROBE = `(async function () {
     document.querySelectorAll('#who-rows tr')[1].querySelector('.who-marks') === null);
   check('a share is drawn without where it would likely fall', document.querySelectorAll('#who-rows .range').length === 4);
   check('the timeline does not follow the kind chosen', /Aug 2025: 60 reviews/.test($('#timeline-svg').textContent));
+  // That kind's timeline runs from July to September 2025, which holds one of Alpha's updates.
+  check('the updates are not marked on one kind\\'s timeline',
+    document.querySelectorAll('#timeline-svg .update-line').length === 1 &&
+    document.querySelectorAll('#update-strip .update-mark').length === 1);
+  await pick('1840000000000006');
+  check('an update is not counted over the kind of reviewer chosen, and does not say so',
+    last('before_after').args.kind === '100-hours-or-more' &&
+    /Counted over one kind of reviewer alone, 100 hours or more/.test($('#around-counts').textContent));
   check('the page does not say whose reviews it shows',
     /Reviewers with 100 hours or more played wrote 2,700 of these reviews/.test($('#who-note').textContent) &&
     /beside everyone else/.test($('#who-note').textContent));
@@ -512,7 +520,11 @@ const PROBE = `(async function () {
   $('#who-everyone').click();
   await pause(300);
   check('back to everyone does not bring back the whole game',
-    shown('counts-wrap') && !shown('who-wrap') && shown('who-differ') && /Aug 2025: 300 reviews/.test($('#timeline-svg').textContent));
+    shown('counts-wrap') && !shown('who-wrap') && shown('who-differ') && /Aug 2025: 307 reviews/.test($('#timeline-svg').textContent));
+  check('back to everyone does not count the update on show over every reviewer again',
+    last('before_after').args.kind === null && /^Counted over every reviewer/.test($('#around-counts').textContent) &&
+    document.querySelectorAll('#timeline-svg .update-line').length === 6);
+  await pick('');
   $('#game-back').click();
   await pause(250);
   rows().filter(function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click();

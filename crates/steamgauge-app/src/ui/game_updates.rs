@@ -12,6 +12,7 @@ use serde::Serialize;
 use steamgauge_core::{
     before_after::{self, Around, Dated},
     embed, updates,
+    who::SEGMENTS,
 };
 use tauri::AppHandle;
 
@@ -24,8 +25,10 @@ pub struct UpdateOut {
     title: String,
     posted: i64,
     link: String,
-    /// Where it falls on the timeline, in months from its left edge; none off the months drawn.
-    at: Option<f64>,
+    /// The month it was posted in, as `2024-02`, and how far through it, so it can be placed on
+    /// whichever months the timeline draws: everyone's, or one kind of reviewer's.
+    month: String,
+    through: f64,
 }
 
 /// A game's updates, oldest first.
@@ -38,20 +41,14 @@ pub struct GameUpdates {
     enough: u64,
 }
 
-/// The updates kept for a game, placed on the months its reading drew.
+/// The updates kept for a game.
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
 pub fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
-    let dir = library_dir(&app);
-    let kept = updates::kept(&dir, app_id);
-    let months = embed::latest_snapshot(&dir, app_id)
-        .ok()
-        .and_then(|snapshot| read_report(&snapshot).ok())
-        .map(|reading| reading.months)
-        .unwrap_or_default();
+    let kept = updates::kept(&library_dir(&app), app_id);
     GameUpdates {
         asked: kept.as_ref().map(|kept| kept.asked),
         updates: kept
@@ -59,7 +56,8 @@ pub fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
             .unwrap_or_default()
             .into_iter()
             .map(|update| UpdateOut {
-                at: before_after::position(update.posted, &months),
+                month: steamgauge_core::time::year_month(update.posted),
+                through: before_after::through_month(update.posted),
                 gid: update.gid,
                 title: update.title,
                 posted: update.posted,
@@ -98,10 +96,16 @@ fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<Vec<Dated>>, Str
     Ok(reviews)
 }
 
-/// Each subject in the four weeks before one of a game's updates against the four weeks after.
-/// Off the window's thread, because the first choice on a game walks its capture.
+/// Each subject in the four weeks before one of a game's updates against the four weeks after,
+/// over every reviewer or, where `kind` names one, over that kind's reviews alone. Off the
+/// window's thread, because the first choice on a game walks its capture.
 #[tauri::command]
-pub async fn before_after(app: AppHandle, app_id: u32, gid: String) -> Result<Around, String> {
+pub async fn before_after(
+    app: AppHandle,
+    app_id: u32,
+    gid: String,
+    kind: Option<String>,
+) -> Result<Around, String> {
     let dir = library_dir(&app);
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
@@ -115,7 +119,17 @@ pub async fn before_after(app: AppHandle, app_id: u32, gid: String) -> Result<Ar
             .ok_or_else(|| format!("no update {gid} is kept for app {app_id}"))?;
         let reviews = dated(&snapshot, reading.language.as_deref())?;
         let held = before_after::held_until(&reading, &reviews);
-        Ok(before_after::around(update, &reviews, held, &all))
+        Ok(match kind.filter(|kind| !kind.is_empty()) {
+            None => before_after::around(update, &reviews, held, &all),
+            Some(kind) => {
+                let at = SEGMENTS
+                    .iter()
+                    .position(|segment| segment.id == kind)
+                    .ok_or_else(|| format!("no kind of reviewer is called {kind}"))?;
+                let theirs = before_after::written_by(&reviews, at);
+                before_after::around(update, &theirs, held, &all)
+            }
+        })
     })
     .await
     .map_err(text)?

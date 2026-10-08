@@ -3,41 +3,68 @@
    what it is told. Titles come from Steam and are always set as text. */
 
 import { invoke, el, set, make, whole, day, openOutside } from './common.js';
+import { chosenKind } from './who.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const CHART_WIDTH = 1000;
 /* Markers closer than this share of the chart's width are one marker: at the narrowest window
    two of them would otherwise overlap. */
 const TOO_CLOSE = 2.4;
+const NOTE = ' The dashed lines are its updates; a mark under the chart chooses one.';
+const NONE = { asked: null, updates: [], window_days: 28, enough: 100 };
 
 const tenth = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
 
 let game = null;
-let listed = { asked: null, updates: [], window_days: 28, enough: 100 };
+let listed = NONE;
 let chosen = null;
+/* The months the timeline last drew, by label: everyone's, or one kind of reviewer's. */
+let drawn = [];
+/* The kind of reviewer the update on show was counted over, or null for every reviewer. */
+let countedOver = null;
 
 const dated = (unix) => day.format(new Date(unix * 1000));
 
-/* The updates kept for a game, marked on the timeline drawn from `months` columns. */
-export async function loadUpdates(appId, months) {
+/* The updates kept for a game, marked on whichever months the timeline draws. An update chosen on
+   the same game stays chosen, so coming back from the points behind a figure comes back to it. */
+export async function loadUpdates(appId) {
+  const kept = game === appId ? chosen : null;
   game = appId;
   chosen = null;
-  const section = el('around');
-  const strip = el('update-strip');
-  section.hidden = true;
-  strip.hidden = true;
+  listed = NONE;
+  el('around').hidden = true;
+  drawMarks();
+  let found;
   try {
-    listed = await invoke('game_updates', { appId });
+    found = await invoke('game_updates', { appId });
   } catch {
     return;
   }
   if (game !== appId) return;
-  section.hidden = false;
+  listed = found;
+  el('around').hidden = false;
   el('around-body').hidden = true;
   set(el('around-state'), '');
   drawLede();
   drawChoices();
-  drawMarks(months);
+  drawMarks();
+  if (kept !== null && listed.updates.some((update) => update.gid === kept)) choose(kept);
+}
+
+/* Called whenever the timeline is drawn, with the months it drew. A timeline of one kind of
+   reviewer is redrawn when the kind changes, and an update on show is counted again over it. */
+export function markUpdates(months) {
+  drawn = months.length < 2 ? [] : months.map((month) => month.label);
+  drawMarks();
+  if (chosen !== null && (chosenKind()?.id ?? null) !== countedOver) choose(chosen);
+}
+
+/* Where an update falls on the months drawn, in columns from the left edge: its month's column
+   and how far through it, or where the next column starts when its month has none. */
+function columnOf(update) {
+  if (drawn.length === 0 || update.month < drawn[0] || update.month > drawn[drawn.length - 1]) return null;
+  const column = drawn.findIndex((label) => label >= update.month);
+  return drawn[column] === update.month ? column + update.through : column;
 }
 
 function drawLede() {
@@ -71,14 +98,18 @@ function drawChoices() {
 }
 
 /* Lines on the chart where each update falls, and under it the markers that choose one. */
-function drawMarks(months) {
+function drawMarks() {
   const svg = el('timeline-svg');
   for (const old of svg.querySelectorAll('.update-line')) old.remove();
   const strip = el('update-strip');
   strip.replaceChildren();
-  const placed = listed.updates.filter((update) => update.at !== null);
-  if (months < 2 || placed.length === 0) return;
+  strip.hidden = true;
+  const placed = listed.updates
+    .map((update) => ({ ...update, at: columnOf(update) }))
+    .filter((update) => update.at !== null);
+  if (placed.length === 0) return;
 
+  const months = drawn.length;
   const step = CHART_WIDTH / months;
   const firstTarget = svg.querySelector('.hit');
   for (const update of placed) {
@@ -119,7 +150,9 @@ function drawMarks(months) {
     strip.append(mark);
   }
   strip.hidden = false;
-  el('timeline-note').append(' The dashed lines are its updates; a mark under the chart chooses one.');
+  markChosen();
+  const note = el('timeline-note');
+  if (!note.textContent.endsWith(NOTE)) note.append(NOTE);
 }
 
 function markChosen() {
@@ -144,10 +177,12 @@ async function choose(gid) {
     return;
   }
   const appId = game;
+  const kind = chosenKind();
+  countedOver = kind?.id ?? null;
   set(el('around-state'), 'Counting the reviews either side…');
   let found;
   try {
-    found = await invoke('before_after', { appId, gid });
+    found = await invoke('before_after', { appId, gid, kind: countedOver });
   } catch (failure) {
     if (appId === game && chosen === gid) {
       body.hidden = true;
@@ -155,9 +190,9 @@ async function choose(gid) {
     }
     return;
   }
-  if (appId !== game || chosen !== gid) return;
+  if (appId !== game || chosen !== gid || countedOver !== (kind?.id ?? null)) return;
   set(el('around-state'), '');
-  drawAround(found);
+  drawAround(found, kind);
   body.hidden = false;
 }
 
@@ -187,7 +222,7 @@ function sentence(name, compared, worse) {
   );
 }
 
-function drawAround(found) {
+function drawAround(found, kind) {
   const { window_days: days, enough } = listed;
   const { update, before, after } = found;
   set(el('around-name'), update.title);
@@ -196,7 +231,11 @@ function drawAround(found) {
   steam.onclick = () => openOutside(update.link);
 
   const afterDays = Math.floor((after.to - after.from) / 86_400);
-  let counts =
+  /* Said first, because the same update reads differently over one kind of reviewer. */
+  let counts = kind
+    ? `Counted over one kind of reviewer alone, ${kind.label.toLowerCase()}, as chosen above: `
+    : 'Counted over every reviewer: ';
+  counts +=
     after.to === after.from
       ? `${whole.format(before.reviews)} reviews in the ${days} days before. It was posted after these reviews were ` +
         `downloaded; bringing the game up to date fetches what followed.`

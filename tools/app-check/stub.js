@@ -397,27 +397,26 @@
     };
   });
 
-  // Alpha's updates as the core places them on that calendar: one before it starts, one alone,
-  // three posted within days of each other, one with too few reviews either side, and one the
-  // download holds only nine days after.
-  const posted = (year, month, day) => Date.UTC(year, month - 1, day, 12) / 1000;
-  const at = (year, month, day) => {
-    const column = (year - 2024) * 12 + (month - 9);
-    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    return column + (day - 0.5) / days;
-  };
+  // Alpha's updates as the core sends them, each with its month and how far through it: one
+  // before the calendar starts, one alone, three posted within days of each other, one with too
+  // few reviews either side, and one the download holds only nine days after.
+  const posting = (gid, title, year, month, day) => ({
+    gid,
+    title,
+    posted: Date.UTC(year, month - 1, day, 12) / 1000,
+    month: `${year}-${String(month).padStart(2, '0')}`,
+    through: (day - 0.5) / new Date(Date.UTC(year, month, 0)).getUTCDate(),
+    link: `https://store.steampowered.com/news/externalpost/steam_community_announcements/${gid}`,
+  });
   const alphaUpdates = [
-    { gid: '1840000000000000', title: 'Early Access Patch 0.9', posted: posted(2024, 6, 1), at: null },
-    { gid: '1840000000000001', title: 'Patch 1.1', posted: posted(2024, 11, 12), at: at(2024, 11, 12) },
-    { gid: '1840000000000002', title: 'The Winter Update 1.2', posted: posted(2025, 1, 14), at: at(2025, 1, 14) },
-    { gid: '1840000000000003', title: 'Hotfix 1.2.1', posted: posted(2025, 1, 16), at: at(2025, 1, 16) },
-    { gid: '1840000000000004', title: 'Hotfix 1.2.2', posted: posted(2025, 1, 17), at: at(2025, 1, 17) },
-    { gid: '1840000000000005', title: 'Patch 1.3', posted: posted(2025, 6, 3), at: at(2025, 6, 3) },
-    { gid: '1840000000000006', title: 'Patch 1.4: Performance and Stability', posted: posted(2025, 9, 30), at: at(2025, 9, 30) },
-  ].map((update) => ({
-    ...update,
-    link: `https://store.steampowered.com/news/externalpost/steam_community_announcements/${update.gid}`,
-  }));
+    posting('1840000000000000', 'Early Access Patch 0.9', 2024, 6, 1),
+    posting('1840000000000001', 'Patch 1.1', 2024, 11, 12),
+    posting('1840000000000002', 'The Winter Update 1.2', 2025, 1, 14),
+    posting('1840000000000003', 'Hotfix 1.2.1', 2025, 1, 16),
+    posting('1840000000000004', 'Hotfix 1.2.2', 2025, 1, 17),
+    posting('1840000000000005', 'Patch 1.3', 2025, 6, 3),
+    posting('1840000000000006', 'Patch 1.4: Performance and Stability', 2025, 9, 30),
+  ];
 
   const compared = (before, after, change) => ({ before, after, z: change ? (after > before ? 4.2 : -4.2) : 0.6, change });
   const side = (subject, label, praise, complaint) => ({ subject, label, praise, complaint });
@@ -443,17 +442,19 @@
     '1840000000000005': { reviews: [64, 41], nearby: 0, recommended: null, subjects: [] },
     '1840000000000006': { reviews: [1_200, 410], nearby: 0, recommended: compared(0.8, 0.79, false), subjects: steady, days: 9 },
   };
-  const beforeAfter = (appId, gid) => {
+  // One kind of reviewer wrote a sixth of the reviews either side.
+  const beforeAfter = (appId, gid, kind) => {
     const update = alphaUpdates.find((one) => one.gid === gid);
     const found = across[gid];
     if (appId !== 1 || !update || !found) throw new Error(`no update ${gid} is kept for app ${appId}`);
     const window = 28 * DAY;
     const after = found.days ? found.days * DAY : window;
-    const enough = found.reviews[0] >= 100 && found.reviews[1] >= 100;
+    const reviews = kind ? found.reviews.map((count) => Math.round(count / 6)) : found.reviews;
+    const enough = reviews[0] >= 100 && reviews[1] >= 100;
     return {
       update: { gid: update.gid, title: update.title, posted: update.posted, link: update.link },
-      before: { from: update.posted - window, to: update.posted, reviews: found.reviews[0] },
-      after: { from: update.posted, to: update.posted + after, reviews: found.reviews[1] },
+      before: { from: update.posted - window, to: update.posted, reviews: reviews[0] },
+      after: { from: update.posted, to: update.posted + after, reviews: reviews[1] },
       after_whole: !found.days,
       enough,
       recommended: found.recommended,
@@ -657,7 +658,7 @@
       window_days: 28,
       enough: 100,
     }),
-    before_after: ({ appId, gid }) => beforeAfter(appId, gid),
+    before_after: ({ appId, gid, kind }) => beforeAfter(appId, gid, kind),
     look_up: ({ appId }) => ({
       app_id: appId,
       name: 'Delta',
