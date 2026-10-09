@@ -1,0 +1,8 @@
+# `uses: $/<path>` loads an action from this repository at the workflow's own commit, where
+# `./<path>` loads whatever is in the workspace when the step runs; GitHub runs the first and
+# zizmor's self-repository audit asks for it. actionlint does not know the form yet and reads it
+# as a remote action with no ref, so that one message, and only for this form, is not an error.
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'specifying action "\$/\.github/actions/[^"]+" in invalid format because ref is missing'
