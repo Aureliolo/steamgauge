@@ -56,7 +56,7 @@ jobs:
         run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: ./.github/actions/onnx-runtime
+      - uses: $/.github/actions/onnx-runtime
 
       # The release archive, refused unless it matches the digest written here.
       - name: Install cargo-mutants
@@ -141,7 +141,7 @@ jobs:
         run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: ./.github/actions/onnx-runtime
+      - uses: $/.github/actions/onnx-runtime
 
       - name: Install cargo-mutants
         env:
