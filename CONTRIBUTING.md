@@ -47,7 +47,7 @@ message says which, and `third-party/README.md` says what to do. Accepting anoth
 decision about what the binary may contain, so make it in the pull request that needs it, in
 `deny.toml` and `fuzz/deny.toml` as well, which hold every other crate to the same list.
 
-Not `--all-features`: the cuda and metal backends need vendor toolchains, and the default set
+Not `--all-features`: the cuda and coreml backends need vendor toolchains, and the default set
 is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,
 which is the platform `training/requirements.lock` is resolved for. Clippy warnings fail the
 build. Run pytest from inside `training/`: given a path from elsewhere on Windows it walks every
