@@ -1,0 +1,14 @@
+extends: existence
+message: "'%s' claims an authority it does not name; name the source or the figure."
+level: error
+ignorecase: true
+tokens:
+  - experts (say|agree|believe)
+  - studies (show|have shown|suggest)
+  - research (shows|has shown|suggests)
+  - (many|some) (people )?(say|believe|argue)
+  - it is (widely|generally|commonly) (known|believed|accepted)
+  - widely regarded
+  - industry[- ]leading
+  - trusted by
+  - loved by

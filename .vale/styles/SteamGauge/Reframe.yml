@@ -1,0 +1,11 @@
+extends: existence
+message: "'%s' frames the thing against something it is not; say what it is."
+level: error
+ignorecase: true
+tokens:
+  - not just .{1,40}?, but
+  - isn't just
+  - is not just
+  - more than just
+  - it's not about .{1,40}?, it's about
+  - not only .{1,40}? but also

@@ -87,6 +87,16 @@ side is added to the stub in the same change.
 node tools/app-check/check.mjs
 ```
 
+The words a person reads are held to plain prose by [Vale](https://vale.sh) with the style in
+`.vale/`: no inflated praise, filler, chatbot asides, unnamed authorities, or a thing framed
+against what it is not. It reads the README and SECURITY, the report pages, and every page of
+the window as its check renders it with `--pages`; reviews quoted from players are left out.
+
+```sh
+node tools/app-check/check.mjs --pages pages
+vale README.md SECURITY.md training/README.md reference/README.md report.html pages
+```
+
 ### One build directory
 
 `target/`, and nothing beside it. The gates above build test binaries under `target/debug` and

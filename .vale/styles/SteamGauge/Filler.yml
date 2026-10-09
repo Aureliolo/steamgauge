@@ -1,0 +1,20 @@
+extends: existence
+message: "'%s' takes words and says nothing; cut it."
+level: error
+ignorecase: true
+tokens:
+  - in order to
+  - it is worth noting
+  - it's worth noting
+  - it should be noted
+  - needless to say
+  - at the end of the day
+  - when it comes to
+  - the fact that
+  - a wide (range|variety) of
+  - first and foremost
+  - last but not least
+  - each and every
+  - (might|may|could) potentially
+  - could possibly
+  - very unique
