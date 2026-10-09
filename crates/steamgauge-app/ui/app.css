@@ -37,7 +37,9 @@
   --warn-soft: #fdf5e6;
   --mixed: #cbc3b8;
 
-  --shadow-1: 0 1px 2px rgb(43 39 34 / 0.05);
+  /* A card at rest lies flat on the page, framed by its line; a shadow says something is raised,
+     chosen or floating above the rest. */
+  --shadow-1: none;
   --shadow-2: 0 1px 3px rgb(43 39 34 / 0.08), 0 1px 2px rgb(43 39 34 / 0.04);
   --shadow-3: 0 12px 32px -8px rgb(43 39 34 / 0.18), 0 4px 8px -4px rgb(43 39 34 / 0.06);
 
@@ -61,10 +63,10 @@
   --t-2xl: 26px;
   --t-3xl: 34px;
 
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-xl: 16px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
 
   --rail: 236px;
   --page: 1180px;
@@ -100,7 +102,7 @@
     --warn-soft: #2b2312;
     --mixed: #4d463f;
 
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-1: none;
     --shadow-2: 0 1px 3px rgb(0 0 0 / 0.4);
     --shadow-3: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.4);
   }
@@ -864,13 +866,6 @@ label.choice {
   color: var(--accent);
 }
 
-.pill .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
 /* Figures: a term over a value, with a line under it. */
 
 .stats {
@@ -1099,11 +1094,8 @@ label.choice {
   padding: var(--s9) var(--s8);
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 20px;
-  background:
-    radial-gradient(120% 120% at 100% 0%, var(--accent-soft) 0%, transparent 55%),
-    var(--surface);
-  box-shadow: var(--shadow-2);
+  border-radius: var(--r-xl);
+  background: var(--surface);
 }
 
 .hero-mark {
@@ -1206,41 +1198,6 @@ label.choice {
   }
 }
 
-/* Three across or one beneath another; never two and an orphan. */
-.steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s4);
-  list-style: none;
-}
-
-@media (max-width: 1080px) {
-  .steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .step {
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: var(--s4);
-  }
-
-  .step .step-icon {
-    grid-row: 1 / span 2;
-    margin-bottom: 0;
-  }
-}
-
-.step {
-  display: grid;
-  align-content: start;
-  gap: var(--s2);
-  padding: var(--s5);
-  border: 1px solid var(--line);
-  border-radius: var(--r-xl);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-
 .step-icon {
   display: grid;
   place-items: center;
@@ -1260,15 +1217,6 @@ label.choice {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.step h3 {
-  font-size: var(--t-md);
-}
-
-.step p {
-  color: var(--ink-3);
-  font-size: var(--t-sm);
 }
 
 .promise {
@@ -1674,10 +1622,6 @@ label.choice {
   background: var(--surface-2);
 }
 
-.since-game.moved {
-  border-left: 3px solid var(--accent);
-}
-
 .since-game.more {
   border-style: dashed;
   background: transparent;
@@ -1765,10 +1709,6 @@ label.choice {
   background: var(--surface);
   color: var(--ink-2);
   font-size: var(--t-sm);
-}
-
-.since-line.moved {
-  border-left: 3px solid var(--accent);
 }
 
 .since-line strong {
@@ -2304,15 +2244,14 @@ table.games td:last-child {
   margin-left: var(--s1);
 }
 
+/* The game's verdict in a sentence, set as the section's lead rather than boxed. */
 .in-short {
-  padding: var(--s5) var(--s6);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 var(--r-lg) var(--r-lg) 0;
-  background: var(--surface);
+  max-width: 62ch;
   color: var(--ink);
-  font-size: var(--t-lg);
-  line-height: 1.6;
-  box-shadow: var(--shadow-1);
+  font-size: var(--t-xl);
+  font-weight: 550;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
 }
 
 .search {
