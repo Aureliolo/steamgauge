@@ -14,6 +14,7 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings          # not --all-features: cuda/metal need vendor toolchains
 cargo test --workspace
 cargo build --release -p steamgauge-app --features directml   # always; without it reads run on CPU
+bash -c "cd tools && npm ci --ignore-scripts"   # once: axe-core, which both browser checks below run on every page
 cargo run -p steamgauge-core --example sample-report -- report.html && node tools/report-check/check.mjs report.html
 node tools/app-check/check.mjs [--shots <folder>]   # the window against a stand-in core; look at the shots
 uvx ruff@0.15.2 check training && uvx ruff@0.15.2 format --check training   # pipx is not installed here; the venv's ruff is a different version

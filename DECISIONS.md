@@ -5136,6 +5136,21 @@ Tauri's dialog plugin: the window gets no permission to choose or write a path a
 narrower than the plugin's narrowest. It names the new folder, and the writing runs as a job on
 the files lane, holding the game so no read or update rewrites it mid-export.
 
+### Every page is held to WCAG 2.2 AA, and the faintest ink is still readable (2026-10-09)
+
+Both browser checks run axe-core against WCAG 2.2 at levels A and AA: the window at every page
+and state it already walks, light and dark and at its narrowest, and the report light, dark and
+at phone width. A finding fails the check like any other broken promise. axe-core is injected
+through the DevTools protocol, so the pages run under the security policy they ship with, and it
+is the one package `tools/` installs, pinned with its hash by `tools/package-lock.json` and
+installed with no scripts run.
+
+Its first run found one fault behind every finding: the faintest ink, used for dates, sources and
+secondary figures, read at 2.5 to 3:1 where small text needs 4.5:1. That ink is now the lightest
+shade of the same warm grey that reaches 4.5:1 on every surface in both themes, and the next ink
+up moved a step darker to stay distinct from it. A model not downloaded was faded to 70%, which
+took its text below the same line; it is marked by a dashed frame instead.
+
 ### The library lives in the local app data folder (2026-10-06)
 
 The app keeps its library under Tauri's local app data folder,

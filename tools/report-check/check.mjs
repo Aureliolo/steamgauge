@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { audit } from "../accessibility.mjs";
 import { connect, debuggerUrl, open, sleep } from "../chrome.mjs";
 
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong
@@ -623,6 +624,7 @@ try {
 
   const fetched = asked.filter((url) => url !== page);
   const answer = await evaluate(PROBE);
+  const unreachable = await audit(evaluate, "light");
   await send("Emulation.setDeviceMetricsOverride", {
     width: 420,
     height: 900,
@@ -630,7 +632,14 @@ try {
     mobile: false,
   });
   const phone = await evaluate(ON_A_PHONE);
+  unreachable.push(...(await audit(evaluate, "on a phone")));
   await send("Emulation.clearDeviceMetricsOverride", {});
+  await send("Emulation.setEmulatedMedia", {
+    media: "screen",
+    features: [{ name: "prefers-color-scheme", value: "dark" }],
+  });
+  unreachable.push(...(await audit(evaluate, "dark")));
+  await send("Emulation.setEmulatedMedia", { media: "screen" });
   const ink = await evaluate(CONTRAST);
   await send("Emulation.setEmulatedMedia", {
     media: "print",
@@ -663,7 +672,8 @@ try {
       .concat(phone.result.result.value)
       .concat(ink.result.result.value)
       .concat(paper.result.result.value)
-      .concat(quiet.result.result.value.map((claim) => `${claim}, with scripting off`));
+      .concat(quiet.result.result.value.map((claim) => `${claim}, with scripting off`))
+      .concat(unreachable);
     if (wrong.length === 0) {
       console.log(`the report behaves as it says it does: ${page}`);
       failed = false;

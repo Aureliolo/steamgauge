@@ -14,8 +14,10 @@
   --line-strong: #d7cfc3;
   --ink: #1f1b17;
   --ink-2: #3f3a34;
-  --ink-3: #6f675e;
-  --ink-4: #a39a8f;
+  /* The faintest ink is still text, so it reads at 4.5:1 on every surface, as WCAG asks of small
+     text; the third ink stays a clear step darker than it. */
+  --ink-3: #5f584f;
+  --ink-4: #736c64;
 
   /* The mark's vermilion, darkened until white text on it reads at 5:1. */
   --accent: #c43e0b;
@@ -80,8 +82,8 @@
     --line-strong: #3b352f;
     --ink: #f3eee6;
     --ink-2: #cfc7bb;
-    --ink-3: #9a9186;
-    --ink-4: #6b635a;
+    --ink-3: #aaa196;
+    --ink-4: #8c847c;
 
     --accent: #ff6b2c;
     --accent-hover: #ff8552;
@@ -1812,8 +1814,10 @@ label.choice {
   font-size: var(--t-sm);
 }
 
+/* Marked by its frame rather than faded: fading takes the text below a readable contrast. */
 .model.unused {
-  opacity: 0.7;
+  border-style: dashed;
+  background: var(--surface-2);
 }
 
 .model-name {
