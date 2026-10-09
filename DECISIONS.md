@@ -5151,6 +5151,17 @@ shade of the same warm grey that reaches 4.5:1 on every surface in both themes, 
 up moved a step darker to stay distinct from it. A model not downloaded was faded to 70%, which
 took its text below the same line; it is marked by a dashed frame instead.
 
+### The words a person reads are checked for plain prose (2026-10-09)
+
+Vale, with a style kept in `.vale/`, fails CI on inflated praise ("seamless", "powerful"), filler
+("in order to"), chatbot asides ("feel free to"), authorities nobody names ("studies show") and a
+thing framed against what it is not ("not just ..., but"). It reads what people read as they read
+it: the README and SECURITY, the three report pages CI renders, and every page and state of the
+window as its check renders it, since most of the window's words are written by its scripts and
+the report's by Rust. Reviews quoted from players are their words and are left out by the class
+that shows them, `claim` in the report and `said` in the window. DECISIONS and code comments are
+reasoning for whoever works on the project, and are not checked. Its first run found nothing.
+
 ### The library lives in the local app data folder (2026-10-06)
 
 The app keeps its library under Tauri's local app data folder,

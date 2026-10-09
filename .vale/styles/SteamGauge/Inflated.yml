@@ -1,0 +1,40 @@
+extends: existence
+message: "'%s' praises without saying anything; say what it does."
+level: error
+ignorecase: true
+tokens:
+  - seamless(ly)?
+  - robust(ly)?
+  - leverag(e|es|ed|ing)
+  - empower(s|ed|ing)?
+  - unlock(s|ed|ing)?
+  - elevat(e|es|ed|ing)
+  - delv(e|es|ed|ing)
+  - cutting[- ]edge
+  - state[- ]of[- ]the[- ]art
+  - game[- ]chang(er|ing)
+  - revolutionar(y|ise|ize)
+  - effortless(ly)?
+  - supercharg(e|es|ed|ing)
+  - unleash(es|ed|ing)?
+  - harness(es|ed|ing)? the
+  - holistic(ally)?
+  - synerg(y|ies|istic)
+  - best[- ]in[- ]class
+  - world[- ]class
+  - next[- ]generation
+  - innovative
+  - blazing(ly)? fast
+  - lightning[- ]fast
+  - tapestry
+  - testament to
+  - pivotal
+  - vibrant
+  - ever[- ]evolving
+  - in today's
+  - realm of
+  - landscape of
+  - journey
+  - powerful
+  - streamlin(e|es|ed|ing)
+  - comprehensive

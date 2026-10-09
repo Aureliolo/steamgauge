@@ -33,6 +33,10 @@ const TYPES = {
 
 const shotsAt = process.argv.indexOf("--shots");
 const shots = shotsAt === -1 ? null : resolve(process.argv[shotsAt + 1]);
+// `--pages` keeps each stop's page as rendered, so the words the window shows, most of them
+// written by its scripts, can be checked as prose.
+const pagesAt = process.argv.indexOf("--pages");
+const pages = pagesAt === -1 ? null : resolve(process.argv[pagesAt + 1]);
 
 // The window's own files, with the stand-in loaded ahead of its script. Nothing outside the
 // window's folder is served.
@@ -836,6 +840,7 @@ try {
   const unreachable = [];
   {
     if (shots) await mkdir(shots, { recursive: true });
+    if (pages) await mkdir(pages, { recursive: true });
     // Alpha's data being written, or written, as the board would hold it.
     const exporting = (state) =>
       "var at=Math.floor(Date.now()/1000);window.__stub.board([{id:96,task:{kind:'export_data',app_id:1," +
@@ -854,6 +859,11 @@ try {
     const shoot = async (name) => {
       await sleep(400);
       unreachable.push(...(await audit(evaluate, name)));
+      // The words are the same in either scheme, so one copy is kept.
+      if (pages && !name.endsWith("-dark")) {
+        const html = await evaluate("document.documentElement.outerHTML");
+        await writeFile(join(pages, `${name}.html`), `<!doctype html>\n${html.result.result.value}`);
+      }
       if (!shots) return;
       const picture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
       await writeFile(join(shots, `${name}.png`), Buffer.from(picture.result.data, "base64"));

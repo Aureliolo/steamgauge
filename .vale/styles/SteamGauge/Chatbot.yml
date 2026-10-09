@@ -1,0 +1,19 @@
+extends: existence
+message: "'%s' talks to the reader instead of telling them something; cut it."
+level: error
+ignorecase: true
+tokens:
+  - hope (this|it) helps
+  - let me know if
+  - feel free to
+  - happy to help
+  - great question
+  - let's dive
+  - dive (in|into)
+  - here's the thing
+  - without further ado
+  - buckle up
+  - look no further
+  - in this (section|article|guide), we
+  - we're excited to
+  - we are excited to

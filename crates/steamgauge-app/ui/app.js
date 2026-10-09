@@ -368,7 +368,7 @@ function steamLink(url) {
 /* A review shown whole, with the facts about it and the way back to Steam, and no reading:
    the model that counts the table never read it, so a confidence here would be invented. */
 function quoteItem(review) {
-  const body = make('p', null, review.review);
+  const body = make('p', 'said', review.review);
   body.lang = bcp47(review.language);
   const byline = make(
     'div',
@@ -910,7 +910,7 @@ function drawTerms(subject, narrowed) {
 function drawClaims(claims, list = el('quotes')) {
   list.replaceChildren();
   for (const found of claims) {
-    const body = make('p');
+    const body = make('p', 'said');
     body.lang = bcp47(found.language);
     /* The claim is shown inside the review it came from, so a reader can see whether it was
        cut in the right place rather than taking the split on trust. */
