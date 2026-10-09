@@ -13,7 +13,9 @@ tokens:
   - cutting[- ]edge
   - state[- ]of[- ]the[- ]art
   - game[- ]chang(er|ing)
-  - revolutionar(y|ise|ize)
+  - revolutionary
+  - revolutionise[sd]?
+  - revolutionize[sd]?
   - effortless(ly)?
   - supercharg(e|es|ed|ing)
   - unleash(es|ed|ing)?
