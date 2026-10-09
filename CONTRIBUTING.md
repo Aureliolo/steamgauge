@@ -59,9 +59,15 @@ markup stays exactly right. A fourth gate therefore drives the page in a real br
 times: on a desktop window, at 420 pixels where the tables are wider than the screen, under
 print media with the machine asking for a dark one, and again with the script cut out, which
 is what a reader with scripting off is served. It needs Chrome and Node, and nothing else: no
-corpus, no model, no network.
+corpus, no model, no network beyond installing axe-core once.
+
+Both browser checks also hold every page to WCAG 2.2 at levels A and AA through axe-core, light
+and dark and at the narrowest width: contrast, labels, names, structure and keyboard reach. A
+finding fails the check like any broken promise. axe-core is the one package `tools/` installs,
+pinned by its lock file:
 
 ```sh
+(cd tools && npm ci --ignore-scripts)
 cargo run -p steamgauge-core --example sample-report -- report.html
 node tools/report-check/check.mjs report.html
 ```
@@ -72,9 +78,10 @@ it does, change the check with it.
 
 The desktop app's window is held to the same bar. `tools/app-check` serves it in headless
 Chrome with `stub.js` standing in for the core, answering every command from fixtures shaped as
-the Rust side sends them, and presses every page's controls. `--shots <folder>` saves each page,
-light and dark, for a person to look at. A command or a field added on the Rust side is added
-to the stub in the same change.
+the Rust side sends them, and presses every page's controls. It then walks every page and state,
+light and dark and at the narrowest window, checking each for accessibility; `--shots <folder>`
+saves a picture of each stop for a person to look at. A command or a field added on the Rust
+side is added to the stub in the same change.
 
 ```sh
 node tools/app-check/check.mjs

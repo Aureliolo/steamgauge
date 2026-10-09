@@ -205,6 +205,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # axe-core, which checks every page and state of the report and the window against WCAG
+      # 2.2 at levels A and AA, at the version and hash the lock file pins, with no install
+      # scripts run.
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tools
       # No system webview needed here: the example lives in the core crate, which is the
       # half of the workspace that knows nothing about a window.
       - run: cargo run --locked -p steamgauge-core --example sample-report -- report.html

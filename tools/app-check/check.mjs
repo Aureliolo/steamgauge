@@ -10,7 +10,9 @@
 //
 //   node tools/app-check/check.mjs [--shots <folder>]
 //
-// `--shots` saves a picture of every page, light and dark, for a person to look at.
+// Every page and state is then walked light and dark and at the narrowest window, and each stop
+// is held to WCAG 2.2 A and AA by axe-core (`npm ci` in tools/ first). `--shots` saves a picture
+// of every stop for a person to look at.
 //
 // Chrome is found through CHROME_PATH, or in the usual places on each platform.
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -18,6 +20,7 @@ import { createServer } from "node:http";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { audit } from "../accessibility.mjs";
 import { connect, debuggerUrl, open, sleep } from "../chrome.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -827,8 +830,12 @@ try {
       .concat(queued ? ['the reader put off for later is downloaded anyway'] : []);
   })()`);
 
-  if (shots) {
-    await mkdir(shots, { recursive: true });
+  // A walk through every page and state, light and dark, wide and at the narrowest window, each
+  // one checked for what a screen reader, a keyboard or weaker eyes would find wrong with it,
+  // and pictured when --shots asks.
+  const unreachable = [];
+  {
+    if (shots) await mkdir(shots, { recursive: true });
     // Alpha's data being written, or written, as the board would hold it.
     const exporting = (state) =>
       "var at=Math.floor(Date.now()/1000);window.__stub.board([{id:96,task:{kind:'export_data',app_id:1," +
@@ -846,6 +853,8 @@ try {
       "document.getElementById('stage').style.overflow='visible';";
     const shoot = async (name) => {
       await sleep(400);
+      unreachable.push(...(await audit(evaluate, name)));
+      if (!shots) return;
       const picture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
       await writeFile(join(shots, `${name}.png`), Buffer.from(picture.result.data, "base64"));
     };
@@ -961,6 +970,8 @@ try {
       const notice = async (name, progress) => {
         await evaluate(`window.__stub.update(${JSON.stringify(progress)})`);
         await sleep(400);
+        unreachable.push(...(await audit(evaluate, `update-${name}-${scheme}`)));
+        if (!shots) return;
         const box = await evaluate(
           "JSON.stringify(document.getElementById('newer-version').closest('.rail-foot').getBoundingClientRect())",
         );
@@ -1040,7 +1051,8 @@ try {
       .concat(narrow.result.result.value)
       .concat(sideways)
       .concat(first.result.result.value)
-      .concat(later.result.result.value);
+      .concat(later.result.result.value)
+      .concat(unreachable);
     if (wrong.length === 0) {
       console.log("the window behaves as it says it does");
       failed = false;

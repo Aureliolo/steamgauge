@@ -1,0 +1,9 @@
+{
+  "name": "steamgauge-tools",
+  "private": true,
+  "description": "What the browser checks under tools/ load into the pages they check.",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "axe-core": "4.14.0"
+  }
+}
