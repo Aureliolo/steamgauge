@@ -36,7 +36,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt --all -- --check
-      # Deliberately not --all-features: the cuda and metal backends need vendor toolchains
+      # Deliberately not --all-features: the cuda and coreml backends need vendor toolchains
       # the runners do not have, and the default set is what actually ships.
       # --locked everywhere here, as the release build has it: a pull request that leaves
       # Cargo.lock behind its manifests fails now, not at a tag that cannot be taken back.

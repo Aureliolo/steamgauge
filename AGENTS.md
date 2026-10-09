@@ -11,15 +11,20 @@ or anything a reported number depends on. `CONTRIBUTING.md` says what is held to
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings          # not --all-features: cuda/metal need vendor toolchains
+cargo clippy --all-targets -- -D warnings          # not --all-features: cuda/coreml need vendor toolchains
 cargo test --workspace
 cargo build --release -p steamgauge-app --features directml   # always; without it reads run on CPU
 bash -c "cd tools && npm ci --ignore-scripts"   # once: axe-core, which both browser checks below run on every page
 cargo run -p steamgauge-core --example sample-report -- report.html && node tools/report-check/check.mjs report.html
 node tools/app-check/check.mjs [--shots <folder>]   # the window against a stand-in core; look at the shots
-uvx ruff@0.15.2 check training && uvx ruff@0.15.2 format --check training   # pipx is not installed here; the venv's ruff is a different version
+r="ruff@$(sed -n 's/.*pipx run ruff==\([0-9.]*\) check.*/\1/p' .github/workflows/ci.yml)"; uvx "$r" check training && uvx "$r" format --check training   # the ruff ci.yml pins; the venv's is another
 bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside training/, never by path
 ```
+
+The repository is public, so CI runs the slow checks on every pull request: the browser checks,
+the install checks on three systems, coverage and mutation testing. Run the fast gates above
+before pushing; run a browser check locally only while changing the window or the report it
+drives, and read CI for the rest.
 
 ## Gotchas
 
@@ -39,10 +44,11 @@ bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside train
   workspace, app or release build beside training.
 - A training queue imports `training/train.py` and `claimdata.py` from disk at each launch. While
   one runs, never stash, checkout, rebase or edit them in this tree; use a worktree. Before
-  launching one, `grep -B1 "^def evaluate" training/train.py` must show `@torch.no_grad()`:
-  without it the first validation pass allocates over 30 GB and the run dies.
-- After any commit under `training/runs/`, read `git show --stat HEAD`: a 17 MB `tokenizer.json`
-  has reached a commit twice by two different paths.
+  launching one, run the Python tests: `test_evaluate.py` holds `evaluate` to `@torch.no_grad()`,
+  without which the first validation pass allocates over 30 GB and the run dies.
+- A run's tokenizer (17 MB, reproducible from the backbone named in `run.json`) never enters a
+  commit; `.gitignore` covers both copies. After any commit under `training/runs/`, read
+  `git show --stat HEAD` to confirm none did.
 - A claim is the byte span it covers, everywhere; nothing carries a version stamp. A splitter
   change costs a full library re-read of about five hours.
 - Quote the frozen games, never validation. A change is an improvement only when it clears the
