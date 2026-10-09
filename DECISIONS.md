@@ -127,11 +127,11 @@ prepared again: its vectors are in another space.
 | Decided | State |
 |---|---|
 | Apache-2.0 | done |
-| Signed releases with provenance and an SBOM per archive | done, dry run passed, not yet run on a tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds each system's program with no cache, packs it into a portable archive and the system's installers, writes an SPDX SBOM of each program that is checked against its archive and the crates its build resolved, installs and runs every installer on its own system, and attests build provenance over every file and each SBOM against its archive and installers. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
-| A person installs it like any other program | done, not yet run on a tag: a setup program on Windows, a disk image on macOS, a `.deb` and an `.rpm` on Linux, made from the build the release made, by Tauri's bundler on Windows and macOS and by nFPM on Linux; see below |
+| Signed releases with provenance and an SBOM per archive | done, on every release since the first tag: `release-build.yml` is a reusable workflow, so the Sigstore certificate names its steps (SLSA Build Level 3). It gates on the tag, the version, a signed commit on `main` and the CI checks, builds each system's program with no cache, packs it into a portable archive and the system's installers, writes an SPDX SBOM of each program that is checked against its archive and the crates its build resolved, installs and runs every installer on its own system, and attests build provenance over every file and each SBOM against its archive and installers. No cosign signature beside `SHA256SUMS`: the provenance covers it. `.github/release-process.md` |
+| A person installs it like any other program | done, on every release since the first tag: a setup program on Windows, a disk image on macOS, a `.deb` and an `.rpm` on Linux, made from the build the release made, by Tauri's bundler on Windows and macOS and by nFPM on Linux; see below |
 | Releases cut by a button rather than a hand-made tag | done: prepare release, which only the owner can run, raises the version in a signed pull request opened by the packaging App, which merges itself when green; merging it tags, and the tag starts the release. The changelog is split by whether a pull request touched what ships, and the first release says it is the first |
 | Immutable release artefacts with checksums | done |
-| Every archive carries the notices its licences ask for | done, not yet run on a tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
+| Every archive carries the notices its licences ask for | done, on every release since the first tag: `THIRD-PARTY-NOTICES.txt` beside `LICENSE`, written by cargo-about (held at 0.8.4; the 0.9 builds cannot fetch) per target and feature from `Cargo.lock`, with the licence texts of ONNX Runtime 1.28.0 and, on Windows, DirectML 1.15.4 kept in `third-party/`. Refused, in CI on every pull request and again at release, for a licence `third-party/about.toml` does not accept or a crate whose only text would be SPDX's template; at release each archive's notices are read back against the crates its build resolved and the files it holds. DirectML's licence lets the DLL travel only inside an application for Windows, never on its own, and unmodified: `third-party/README.md` |
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
 | A newer version is named in the window, and installed from it on request once its keyless build provenance verifies; no signing key anywhere | named since 2026-10-03, at most once a day, a setting turns it off (below, "A newer version is named, and no key exists to sign one"); installed since 2026-10-06 (below, "Update now installs what the release workflow built, and nothing else") |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
@@ -5357,10 +5357,11 @@ own `-O0` (aws-lc-sys 0.45.0) and the build stops. aws-lc's one licence file nam
 every part and holder and carries each text, which `third-party/about.toml` points the notices
 at.
 
-**Not yet seen on a real machine.** No release has been updated through the window yet: the
-first is the release after this one. On macOS 13 and later, App Management may ask once whether
-SteamGauge may change apps, since an ad-hoc signed app has no team to match; whether it asks,
-and whether the administrator fallback is then needed, is unverified.
+**Seen on Windows, not yet on macOS or Linux.** On 2026-10-07 a Windows install of 0.1.4
+updated itself to 0.1.5 through the window: Apps named the new version and the update folder
+was left empty. On macOS 13 and later, App Management may ask once whether SteamGauge may change
+apps, since an ad-hoc signed app has no team to match; whether it asks, and whether the
+administrator fallback is then needed, is unverified, as is an update on Linux.
 
 ### A release is installers, and each is installed before it is signed (2026-10-03)
 
