@@ -232,16 +232,16 @@ jobs:
       # every figure that can be called accuracy rather than agreement will rest on it. A
       # shortcut that does nothing or an answer that does not survive a reload would be found
       # after somebody had read a thousand claims, which is exactly too late.
-      - run: cargo run --locked -p steamgauge-core --example sample-gold -- gold.html
-      - run: node tools/gold-check/check.mjs gold.html
+      - run: cargo run --locked -p steamgauge-core --example sample-gold -- sample-gold.html
+      - run: node tools/gold-check/check.mjs sample-gold.html
       # And again as it is actually run. A POST that silently does nothing looks exactly like
       # one that worked, so the promise that every answer is on disk before the next question
       # is drawn is the one worth a browser to check.
-      - run: node tools/gold-check/served.mjs gold.html
+      - run: node tools/gold-check/served.mjs sample-gold.html
       # The other kind of question the page asks: whether a reader's other subject would also
       # do, answered yes or no and kept apart from the gold answer it sits beside.
-      - run: cargo run --locked -p steamgauge-core --example sample-gold -- accept.html --acceptable
-      - run: node tools/gold-check/acceptable.mjs accept.html
+      - run: cargo run --locked -p steamgauge-core --example sample-gold -- sample-acceptable-gold.html --acceptable
+      - run: node tools/gold-check/acceptable.mjs sample-acceptable-gold.html
       # The desktop app's window, every page of it, against a stand-in for the core: the work
       # board, the library's grouping and selection, the comparison and the settings exist only
       # once a browser has run them.
