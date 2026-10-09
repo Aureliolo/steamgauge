@@ -80,8 +80,8 @@ The desktop app's window is held to the same bar. `tools/app-check` serves it in
 Chrome with `stub.js` standing in for the core, answering every command from fixtures shaped as
 the Rust side sends them, and presses every page's controls. It then walks every page and state,
 light and dark and at the narrowest window, checking each for accessibility; `--shots <folder>`
-saves a picture of each stop for a person to look at. A command or a field added on the Rust side is added
-to the stub in the same change.
+saves a picture of each stop for a person to look at. A command or a field added on the Rust
+side is added to the stub in the same change.
 
 ```sh
 node tools/app-check/check.mjs
