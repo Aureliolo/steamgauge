@@ -1,0 +1,52 @@
+name: ONNX Runtime
+description: >-
+  Puts the prebuilt ONNX Runtime the build links on the runner before the build starts, from the
+  Actions cache or, failing that, from its maker's CDN through tools/onnx-runtime.sh, which tries
+  the download again when it is cut short. ort-sys checks the archive's SHA-256 as it downloads
+  but trusts a folder it finds already in place, so the release build, which takes nothing from a
+  cache, does not use this and wraps its own build in the script instead.
+
+inputs:
+  features:
+    description: The cargo features the job builds with; the ONNX Runtime backend among them chooses the archive.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - id: where
+      shell: bash
+      env:
+        FEATURES: ${{ inputs.features }}
+      run: |
+        set -euo pipefail
+        case "${RUNNER_OS}" in
+          Windows) dir="${LOCALAPPDATA}\\ort.pyke.io" ;;
+          macOS) dir="${HOME}/Library/Caches/ort.pyke.io" ;;
+          *) dir="${XDG_CACHE_HOME:-${HOME}/.cache}/ort.pyke.io" ;;
+        esac
+        version="$(awk '/^name = "ort-sys"$/ {getline; gsub(/version = |"/, ""); print; exit}' Cargo.lock)"
+        backend="$(tr ', ' '\n\n' <<<"${FEATURES}" | sed 's#.*/##' | grep -xE 'directml|coreml|cuda|webgpu' || true)"
+        {
+          echo "dir=${dir}"
+          echo "version=${version}"
+          echo "backend=${backend:-cpu}"
+          echo "core=${backend:+steamgauge-core/${backend}}"
+        } >> "${GITHUB_OUTPUT}"
+    - id: cached
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.where.outputs.dir }}
+        key: onnx-runtime-${{ runner.os }}-${{ steps.where.outputs.version }}-${{ steps.where.outputs.backend }}
+    # A check runs ort-sys's build script, which is where the download happens; what it compiles
+    # besides is reused by the job's own build after it.
+    - if: steps.cached.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CORE: ${{ steps.where.outputs.core }}
+      run: |
+        set -euo pipefail
+        args=(cargo check --locked -p steamgauge-core --lib)
+        [[ -n "${CORE}" ]] && args+=(--features "${CORE}")
+        bash tools/onnx-runtime.sh "${args[@]}"
