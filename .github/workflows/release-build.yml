@@ -119,7 +119,7 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Lint
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: bash tools/onnx-runtime.sh cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
       - name: Test the release tools
@@ -344,7 +344,8 @@ jobs:
         run: |
           set -euo pipefail
           rustup target add "${TARGET}"
-          cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+          bash tools/onnx-runtime.sh \
+            cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
 
           # The crates this build compiled, for the SBOM: what `cargo tree` resolves for this
           # target and these features, rather than every crate any platform could want.

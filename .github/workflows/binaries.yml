@@ -85,7 +85,8 @@ jobs:
         run: |
           set -euo pipefail
           rustup target add "${TARGET}"
-          cargo build --locked --release --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+          bash tools/onnx-runtime.sh \
+            cargo build --locked --release --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
 
       # The NuGet package, refused unless it has the digest written above.
       - name: Install BinSkim

@@ -5173,6 +5173,19 @@ without a dot beside it. The first visit drops three numbered cards that repeate
 above them. Cards rest flat on the page, framed by a line with tighter corners; a shadow is kept
 for what is chosen, raised or floating, and the welcome's card loses its corner glow.
 
+### ONNX Runtime is on the runner before the build needs it (2026-10-09)
+
+ort-sys fetches the prebuilt ONNX Runtime from its maker's CDN inside its build script, once and
+with no retry, and a pull request's Windows install check failed when that connection dropped
+partway ("Peer disconnected"). Every build of the core does that fetch, the release's included.
+`tools/onnx-runtime.sh` runs a cargo command and runs it again, up to five times, while what
+failed is that download; with the library already in place under the folder named by its hash, a
+failure is a real one and is returned at once. CI jobs restore the library from the Actions cache
+first and warm it through the script only on a miss (`.github/actions/onnx-runtime`). The release
+build and the packaging checks take nothing from a cache, because ort-sys checks the archive's
+SHA-256 as it downloads but trusts a folder it finds already in place; they wrap their own build
+in the script and fetch afresh every time.
+
 ### The library lives in the local app data folder (2026-10-06)
 
 The app keeps its library under Tauri's local app data folder,

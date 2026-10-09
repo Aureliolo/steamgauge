@@ -123,7 +123,8 @@ jobs:
         run: |
           set -euo pipefail
           rustup target add "${TARGET}"
-          cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+          bash tools/onnx-runtime.sh \
+            cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
 
       # The release packs the notices cargo-about writes, which CI's notices job checks on its
       # own; a text of its own stands in for them here, since it is the packaging under test. Not

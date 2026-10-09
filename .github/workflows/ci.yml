@@ -35,6 +35,7 @@ jobs:
       # `glib-sys` failing its build script, which names nothing about Tauri.
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: $/.github/actions/onnx-runtime
       - run: cargo fmt --all -- --check
       # Deliberately not --all-features: the cuda and coreml backends need vendor toolchains
       # the runners do not have, and the default set is what actually ships.
@@ -128,6 +129,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: $/.github/actions/onnx-runtime
+        with:
+          features: ${{ matrix.feature }}
       - shell: bash
         env:
           FEATURE: ${{ matrix.feature }}
@@ -159,6 +163,7 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: $/.github/actions/onnx-runtime
       - run: cargo test --locked --workspace
 
   # The training scripts decide every figure the reader is quoted with, and their tests need
@@ -205,6 +210,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: $/.github/actions/onnx-runtime
       # axe-core, which checks every page and state of the report and the window against WCAG
       # 2.2 at levels A and AA, at the version and hash the lock file pins, with no install
       # scripts run.
