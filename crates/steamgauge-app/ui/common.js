@@ -119,7 +119,7 @@ export function tiles(list, entries) {
 export function verdictPill(verdict) {
   if (!verdict) return null;
   const leaning = /positive/i.test(verdict) ? 'good' : /negative/i.test(verdict) ? 'bad' : 'warn';
-  return make('span', `pill ${leaning}`, make('span', 'dot'), verdict);
+  return make('span', `pill ${leaning}`, verdict);
 }
 
 /* A game's store picture. The core fetches each once and keeps it, and the window loads only a

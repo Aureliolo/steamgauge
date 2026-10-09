@@ -5162,6 +5162,17 @@ the report's by Rust. Reviews quoted from players are their words and are left o
 that shows them, `claim` in the report and `said` in the window. DECISIONS and code comments are
 reasoning for whoever works on the project, and are not checked. Its first run found nothing.
 
+### The window carries no decoration a template would (2026-10-09)
+
+The user went through a list of patterns that mark a page as made from a template, found several
+in the window, and approved this pass from a before and after. A game's verdict in a sentence is
+the section's lead, set larger, rather than a box with a coloured stripe down its left edge; the
+cards of what moved since the last look lose the same stripe, since the figures in them are
+already coloured by which way they moved. The rating pill shows Steam's rating in its colour
+without a dot beside it. The first visit drops three numbered cards that repeated the paragraph
+above them. Cards rest flat on the page, framed by a line with tighter corners; a shadow is kept
+for what is chosen, raised or floating, and the welcome's card loses its corner glow.
+
 ### The library lives in the local app data folder (2026-10-06)
 
 The app keeps its library under Tauri's local app data folder,
