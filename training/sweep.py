@@ -28,6 +28,9 @@ from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# The committed record of what ships, so the page says the same on every machine whatever
+# reader happens to be installed on it.
+SIZES = HERE.parent / "reference" / "reader-sizes.json"
 
 # Everything `train.py` records that describes the configuration rather than the outcome, and
 # for each the behaviour a run that predates the setting had. The seed is not here: it is not
@@ -215,7 +218,13 @@ def table(found: list[dict], against: dict | None) -> None:
     print("+- is the sampling interval on one model's answers, not the spread between runs")
 
 
-def index(found: list[dict], shipped: str | None, to: Path) -> None:
+def shipped_runs(sizes: Path) -> dict[str, str]:
+    """Each shipping run by the size the app offers it as."""
+    with sizes.open(encoding="utf-8") as handle:
+        return {size["run"]: size["name"] for size in json.load(handle)["sizes"] if size["ships"]}
+
+
+def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
     """Every run there is, on one page, so `ls` is not the only way to find out what was tried.
 
     Written rather than printed because the question it answers is asked by somebody opening
@@ -270,7 +279,7 @@ def index(found: list[dict], shipped: str | None, to: Path) -> None:
         "|---|---|---|---:|---|---:|---:|---:|",
     ]
     for name, backbone, changed, labels, fingerprint, coverage, accuracy, macro in rows:
-        mark = f"**{name}** (ships)" if name == shipped else name
+        mark = f"**{name}** (ships as {shipped[name]})" if name in shipped else name
         head = (
             f"| {mark} | {backbone or '?'} | {changed} | {labels or '?'} | "
             f"`{fingerprint[:8] or '?'}` | "
@@ -391,12 +400,7 @@ def main() -> None:
         raise SystemExit(f"no runs under {arguments.runs}")
 
     if arguments.index:
-        card = HERE.parent / "models" / "game-review-reader" / "reader.json"
-        shipped = None
-        if card.is_file():
-            with card.open(encoding="utf-8") as handle:
-                shipped = json.load(handle).get("run_id")
-        index(found, shipped, arguments.runs / "README.md")
+        index(found, shipped_runs(SIZES), arguments.runs / "README.md")
         return
 
     fingerprint = arguments.fingerprint

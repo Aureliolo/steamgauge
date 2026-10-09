@@ -17,8 +17,12 @@ points of coverage, so a gap smaller than that is not a finding.
 | amb05 | gte-multilingual-base | ambiguous weight 0.5 | 12523 | `8d9da611` | 66.4% | 75.0% | 0.632 |
 | amb05cut05 | gte-multilingual-base | ambiguous weight 0.5, split wrong weight 0.5 | 12523 | `8d9da611` | 66.1% | 75.1% | 0.632 |
 | bakeoff-Alibaba-NLP-gte-multilingual-base | gte-multilingual-base | no context | 5494 | `f06e7881` | 34.1% | 75.5% | 0.449 |
+| bakeoff-EuroBERT-EuroBERT-610m | EuroBERT-610m | epochs 10 | 32443 | `3957afe4` | 70.9% | 75.5% | 0.546 |
 | bakeoff-intfloat-multilingual-e5-base | multilingual-e5-base | no context | 5494 | `f06e7881` | 32.1% | 75.2% | 0.423 |
+| bakeoff-intfloat-multilingual-e5-large-instruct | multilingual-e5-large-instruct | the usual settings | 32443 | `3957afe4` | 89.9% | 75.0% | 0.607 |
+| bakeoff-jhu-clsp-mmBERT-base | mmBERT-base | epochs 10 | 32443 | `3957afe4` | 72.2% | 75.2% | 0.525 |
 | bakeoff-microsoft-mdeberta-v3-base | mdeberta-v3-base | no context | 5494 | `f06e7881` | 16.1% | 76.0% | 0.276 |
+| bakeoff-nomic-ai-nomic-embed-text-v2-moe | nomic-embed-text-v2-moe | epochs 10 | 32443 | `3957afe4` | 67.9% | 75.4% | 0.545 |
 | bakeoff-xlm-roberta-base | xlm-roberta-base | no context | 5494 | `f06e7881` | 23.4% | 75.6% | 0.375 |
 | bal03 | gte-multilingual-base | balance 0.3 | 12523 | `8d9da611` | 55.2% | 75.2% | 0.612 |
 | bal05 | gte-multilingual-base | balance 0.5 | 12523 | `8d9da611` | 47.2% | 75.7% | 0.605 |
@@ -54,6 +58,21 @@ points of coverage, so a gap smaller than that is not a finding.
 | cv-e5-29006-2 | multilingual-e5-large | fold 2 | 27096 | `2871969f` | 82.0% | 75.1% | 0.689 |
 | cv-e5-29006-3 | multilingual-e5-large | fold 3 | 27724 | `2871969f` | 84.9% | 75.1% | 0.658 |
 | cv-e5-29006-4 | multilingual-e5-large | fold 4 | 26204 | `2871969f` | 79.0% | 75.0% | 0.662 |
+| cv-licensed-0 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0, fold 0 | 30842 | `d0767412` | 95.7% | 75.0% | 0.720 |
+| cv-licensed-1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0, fold 1 | 29898 | `d0767412` | 99.4% | 75.0% | 0.717 |
+| cv-licensed-2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0, fold 2 | 27107 | `d0767412` | 96.4% | 75.2% | 0.717 |
+| cv-licensed-3 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0, fold 3 | 30378 | `d0767412` | 99.1% | 75.1% | 0.736 |
+| cv-licensed-4 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0, fold 4 | 30367 | `d0767412` | 99.7% | 75.0% | 0.732 |
+| cv-person-rules-small-0 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 0 | 33246 | `ee81c9ae` | 75.4% | 75.1% | 0.662 |
+| cv-person-rules-small-1 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 1 | 31475 | `ee81c9ae` | 80.0% | 75.0% | 0.660 |
+| cv-person-rules-small-2 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 2 | 31656 | `ee81c9ae` | 76.1% | 75.5% | 0.661 |
+| cv-person-rules-small-3 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 3 | 32757 | `ee81c9ae` | 82.0% | 75.2% | 0.678 |
+| cv-person-rules-small-4 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 4 | 32174 | `ee81c9ae` | 80.7% | 75.0% | 0.649 |
+| cv-person-rules-standard-0 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 0 | 33246 | `ee81c9ae` | 98.1% | 75.0% | 0.736 |
+| cv-person-rules-standard-1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 1 | 31475 | `ee81c9ae` | 100.0% | 75.3% | 0.749 |
+| cv-person-rules-standard-2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 2 | 31656 | `ee81c9ae` | 97.6% | 75.1% | 0.737 |
+| cv-person-rules-standard-3 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 3 | 32757 | `ee81c9ae` | 100.0% | 75.4% | 0.752 |
+| cv-person-rules-standard-4 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0, fold 4 | 32174 | `ee81c9ae` | 100.0% | 75.1% | 0.727 |
 | cv5-0 | multilingual-e5-large | learning rate 3e-5, fold 0 | 11889 | `8d9da611` | 99.6% | 75.0% | 0.716 |
 | cv5-1 | multilingual-e5-large | learning rate 3e-5, fold 1 | 12175 | `8d9da611` | 80.4% | 75.3% | 0.580 |
 | cv5-2 | multilingual-e5-large | learning rate 3e-5, fold 2 | 11530 | `8d9da611` | 73.9% | 75.2% | 0.642 |
@@ -64,7 +83,7 @@ points of coverage, so a gap smaller than that is not a finding.
 | e5-27681 | multilingual-e5-large | the usual settings | 27681 | `8a01195c` | 88.6% | 75.1% | 0.649 |
 | e5-27881 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 86.8% | 75.2% | 0.625 |
 | e5-27881-weighted | multilingual-e5-large | language balance 0.3 | 27881 | `8887cdbc` | 87.5% | 75.0% | 0.631 |
-| **e5-29006** (ships) | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 90.3% | 75.0% | 0.646 |
+| e5-29006 | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 90.3% | 75.0% | 0.646 |
 | e5-29006-distil-s1 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 89.8% | 75.2% | 0.647 |
 | e5-29006-ema-s1 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 88.4% | 75.0% | 0.642 |
 | e5-29006-ema-s2 | multilingual-e5-large | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 87.6% | 75.1% | 0.621 |
@@ -76,8 +95,22 @@ points of coverage, so a gap smaller than that is not a finding.
 | e5-29006-s3 | multilingual-e5-large | the usual settings | 29006 | `2871969f` | 89.0% | 75.0% | 0.643 |
 | e5inst-distil-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.2% | 75.2% | 0.653 |
 | e5inst-ema-29006 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9 | 29006 | `2871969f` | 92.0% | 75.0% | 0.634 |
+| e5inst-fresh | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32502 | `7b203755` | 92.0% | 75.1% | 0.652 |
+| e5inst-fresh-errorreg | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, error reg 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32502 | `7b203755` | 92.6% | 75.1% | 0.651 |
+| e5inst-fresh-second | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, second weight 0.5, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32502 | `7b203755` | 91.9% | 75.2% | 0.653 |
+| e5inst-fresh-soup | multilingual-e5-large-instruct | no epochs, no batch size, no learning rate | 32502 | `7b203755` | 92.7% | 75.1% | 0.651 |
+| e5inst-pool-e5ensemble-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32443 | `3957afe4` | 92.3% | 75.1% | 0.637 |
+| **e5inst-pool-person-rules-s1** (ships as standard) | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0 | 36017 | `ee81c9ae` | 97.4% | 75.0% | 0.682 |
+| e5inst-pool-qwen4b-headset-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0 | 36038 | `1a14a584` | 99.0% | 75.1% | 0.673 |
+| e5inst-pool-qwen4b-licensed-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32838 | `d0767412` | 97.9% | 75.1% | 0.657 |
+| e5inst-pool-qwen4b-licensed-s2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32838 | `d0767412` | 95.3% | 75.2% | 0.620 |
+| e5inst-pool-qwen4b-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32443 | `3957afe4` | 97.2% | 75.1% | 0.663 |
+| e5inst-pool-qwen4b-s2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 32443 | `3957afe4` | 96.5% | 75.1% | 0.625 |
 | e5inst-pool-rdrop-s1 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.9% | 75.2% | 0.656 |
 | e5inst-pool-rdrop-s2 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 92.0% | 75.1% | 0.655 |
+| e5inst-pool-rdrop-s3 | multilingual-e5-large-instruct | epochs 10, ema 0.999, llrd 0.9, rdrop 1.0, pool pool.jsonl, pool weight 1.0, pool temperature 1.0 | 29006 | `2871969f` | 91.7% | 75.1% | 0.657 |
+| e5inst-pool-rdrop-soup | multilingual-e5-large-instruct | no epochs, no batch size, no learning rate | 29006 | `2871969f` | 93.1% | 75.2% | 0.645 |
+| e5inst-pool-rdrop-soup-greedy | multilingual-e5-large-instruct | no epochs, no batch size, no learning rate | 29006 | `2871969f` | 93.9% | 75.1% | 0.645 |
 | e5large | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.9% | 75.1% | 0.669 |
 | e5large-ep3 | multilingual-e5-large | epochs 3 | 12523 | `8d9da611` | 78.2% | 75.3% | 0.656 |
 | e5large-instruct | multilingual-e5-large-instruct | learning rate 3e-5 | 12523 | `8d9da611` | 83.2% | 75.2% | 0.671 |
@@ -89,6 +122,8 @@ points of coverage, so a gap smaller than that is not a finding.
 | e5large-prefix-s2 | multilingual-e5-large | learning rate 3e-5, prefix True | 12523 | `8d9da611` | 85.3% | 75.1% | 0.670 |
 | e5large-prefix-s3 | multilingual-e5-large | learning rate 3e-5, prefix True | 12523 | `8d9da611` | 86.4% | 75.0% | 0.659 |
 | e5large-s2 | multilingual-e5-large | the usual settings | 12523 | `8d9da611` | 84.1% | 75.3% | 0.662 |
+| **e5small-pool-person-rules-s1** (ships as small) | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0 | 36017 | `ee81c9ae` | 72.9% | 75.5% | 0.584 |
+| e5small-pool-qwen4b-headset-s1 | multilingual-e5-small | epochs 10, learning rate 1e-4, ema 0.999, llrd 0.9, rdrop 1.0, pool pool-with-headset.jsonl, pool weight 1.0, pool temperature 1.0 | 36038 | `1a14a584` | 75.8% | 75.3% | 0.568 |
 | e5tapt-29006 | tapt-e5 | the usual settings | 29006 | `2871969f` | 84.8% | 75.1% | 0.621 |
 | english-only | multilingual-e5-large | the usual settings | 19661 | `a286e500` | 89.9% | 75.0% | 0.661 |
 | ep12 | gte-multilingual-base | epochs 12 | 12523 | `8d9da611` | 67.3% | 75.1% | 0.617 |
@@ -118,6 +153,8 @@ points of coverage, so a gap smaller than that is not a finding.
 | pilot-xlmr | xlm-roberta-base | batch size 16, no context | 430 | `6bc3a9a4` | - | - | - |
 | pol02 | gte-multilingual-base | polarity weight 0.2 | 12523 | `8d9da611` | 63.3% | 75.0% | 0.620 |
 | pol10 | gte-multilingual-base | polarity weight 1.0 | 12523 | `8d9da611` | 59.7% | 75.3% | 0.627 |
+| qwen3-4b-lora-person-rules | Qwen3-Embedding-4B | epochs 3, learning rate 1e-4, pooling last | 36017 | `ee81c9ae` | 97.9% | 75.1% | 0.690 |
+| qwen3-4b-lora-teacher | Qwen3-Embedding-4B | epochs 3, learning rate 1e-4, pooling last | 32443 | `3957afe4` | 99.7% | 75.1% | 0.646 |
 | qwen3e06-29006 | Qwen3-Embedding-0.6B | the usual settings | 29006 | `2871969f` | 77.4% | 75.1% | 0.616 |
 | qwen3e06-last-29006 | Qwen3-Embedding-0.6B | learning rate 1e-5, pooling last | 29006 | `2871969f` | 82.0% | 75.1% | 0.612 |
 | seed-2 | multilingual-e5-large | the usual settings | 27881 | `8887cdbc` | 88.1% | 75.1% | 0.637 |
