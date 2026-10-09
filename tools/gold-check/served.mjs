@@ -11,15 +11,15 @@
 // The server here stands in for the Rust one, which is unit tested separately. What is being
 // checked is the page's half of the contract.
 //
-//   cargo run -p steamgauge-core --example sample-gold -- gold.html
-//   node tools/gold-check/served.mjs gold.html
+//   cargo run -p steamgauge-core --example sample-gold -- sample-gold.html
+//   node tools/gold-check/served.mjs sample-gold.html
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 
 import { connect, debuggerUrl, open, sleep } from "./chrome.mjs";
 
-const file = resolve(process.argv[2] ?? "gold.html");
+const file = resolve(process.argv[2] ?? "sample-gold.html");
 const page = await readFile(file, "utf8");
 
 let held = [];

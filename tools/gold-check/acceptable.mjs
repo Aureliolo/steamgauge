@@ -2,8 +2,8 @@
 // it promises: each question asks whether a reader's other subject would also do, answered yes
 // or no from the keyboard or the mouse, kept, and exported with the subject it was about.
 //
-//   cargo run -p steamgauge-core --example sample-gold -- accept.html --acceptable
-//   node tools/gold-check/acceptable.mjs accept.html
+//   cargo run -p steamgauge-core --example sample-gold -- sample-acceptable-gold.html --acceptable
+//   node tools/gold-check/acceptable.mjs sample-acceptable-gold.html
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -68,7 +68,7 @@ const RELOADED = `(function () {
   return at === 3 ? [] : ['a reload starts at question ' + at + ' rather than the first unanswered one'];
 })()`;
 
-const file = resolve(process.argv[2] ?? "accept.html");
+const file = resolve(process.argv[2] ?? "sample-acceptable-gold.html");
 const page = pathToFileURL(file).href;
 const chrome = await open(page, { prefix: "steamgauge-acceptable-check-" });
 

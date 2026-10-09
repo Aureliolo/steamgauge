@@ -7,8 +7,8 @@
 //! its review so that marking the wrong copy would show. With `--acceptable`, a page of the
 //! other kind: questions asking whether a reader's other answer would also do.
 //!
-//! cargo run -p steamgauge-core --example sample-gold -- gold.html
-//! cargo run -p steamgauge-core --example sample-gold -- accept.html --acceptable
+//! cargo run -p steamgauge-core --example sample-gold -- sample-gold.html
+//! cargo run -p steamgauge-core --example sample-gold -- sample-acceptable-gold.html --acceptable
 
 use steamgauge_core::gold::{Answered, GoldDraw, Question, render};
 
@@ -74,7 +74,9 @@ fn acceptability() -> Vec<Question> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    let to = args.next().unwrap_or_else(|| "gold.html".into());
+    // gold.html at the repository's root is the page a person is answering, and git ignores it;
+    // a sample written there with no name given would replace their answers.
+    let to = args.next().unwrap_or_else(|| "sample-gold.html".into());
     if args.next().as_deref() == Some("--acceptable") {
         let found = GoldDraw {
             split: 3,

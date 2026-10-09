@@ -375,7 +375,7 @@ const NARROW = `(function () {
   return wrong;
 })()`;
 
-const file = resolve(process.argv[2] ?? "gold.html");
+const file = resolve(process.argv[2] ?? "sample-gold.html");
 const page = pathToFileURL(file).href;
 
 const chrome = await open(page, { prefix: "steamgauge-gold-check-" });
