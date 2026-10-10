@@ -97,23 +97,25 @@
                 </p>
               </div>
               <div class="hero-search">
-                <form class="searchbox large" id="welcome-form" role="search" autocomplete="off">
-                  <svg aria-hidden="true" focusable="false"><use href="#icon-search" /></svg>
-                  <label class="sr" for="welcome-query">Find a game on Steam</label>
-                  <input
-                    type="search"
-                    id="welcome-query"
-                    placeholder="A game's name, app ID or store link"
-                    spellcheck="false"
-                  />
-                </form>
+                <div class="drops">
+                  <form class="searchbox large" id="welcome-form" role="search" autocomplete="off">
+                    <svg aria-hidden="true" focusable="false"><use href="#icon-search" /></svg>
+                    <label class="sr" for="welcome-query">Find a game on Steam</label>
+                    <input
+                      type="search"
+                      id="welcome-query"
+                      placeholder="A game's name, app ID or store link"
+                      spellcheck="false"
+                    />
+                  </form>
+                  <ul class="results" id="welcome-results"></ul>
+                </div>
                 <p class="examples" id="welcome-examples">
                   <span>Try</span>
                   <button type="button" class="term" data-example="Hades II">Hades II</button>
                   <button type="button" class="term" data-example="Cyberpunk 2077">Cyberpunk 2077</button>
                   <button type="button" class="term" data-example="Baldur's Gate 3">Baldur's Gate 3</button>
                 </p>
-                <ul class="results" id="welcome-results"></ul>
               </div>
             </div>
 
@@ -219,7 +221,10 @@
                   <p class="machine-reads" id="machine-reads"></p>
                   <ul class="models" id="models"></ul>
                   <p class="checked" id="models-checked"></p>
-                  <p class="place" id="library-at"></p>
+                  <div class="held-at">
+                    <p class="label">Library folder</p>
+                    <p class="place" id="library-at"></p>
+                  </div>
                 </div>
               </section>
               </div>
@@ -579,7 +584,7 @@
         <section class="evidence" id="evidence" hidden>
           <button type="button" class="back" id="back">
             <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" /></svg>
-            All subjects
+            <span id="back-name">The game</span>
           </button>
           <h2 id="evidence-name"></h2>
           <p class="lede" id="evidence-lede"></p>
