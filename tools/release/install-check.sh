@@ -277,6 +277,8 @@ case "${target}" in
       same "The app's ${pair%%=*}" \
         "$(/usr/libexec/PlistBuddy -c "Print :${pair%%=*}" "${app}/Contents/Info.plist")" "${pair#*=}"
     done
+    # Sealed ad hoc: no identity, but every file of the bundle is what the build wrote.
+    codesign --verify --deep --strict "${app}"
     expect_version "${app}/Contents/MacOS/steamgauge"
     stays_up "${app}/Contents/MacOS/steamgauge"
 

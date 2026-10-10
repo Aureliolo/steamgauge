@@ -5382,6 +5382,19 @@ release is the fix. The command came in 0.1.8, so 0.1.9 is the first release it 
 until then the check skips with a notice. The `.rpm` is left to the `.deb`'s run: both go
 through the same pkexec path, and a Fedora runner is not offered.
 
+**First run, 0.1.8 to 0.1.9 (2026-10-11).** The update itself worked on all four: on Windows
+the setup program installed 0.1.9 after the copy closed, on Linux pkexec installed the `.deb`,
+and on macOS the app was exchanged in place with no App Management prompt on the runner, and
+started as 0.1.9. What failed was the check (the version read with the step's log lines around
+it, a Windows path that made `sha256sum` prefix its hash with a backslash, apt lists older than
+the mirror, the archive run without the libraries the `.deb` depends on) and one fact about the
+app: it had never been sealed. Tauri built the bundle with no signing identity, so only the
+binary carried the linker's ad-hoc signature and `codesign --verify --strict` refused the
+bundle, the disk image's as much as the update's. The bundle is now signed ad hoc
+(`signingIdentity: "-"`), which needs no certificate and changes no Gatekeeper prompt but seals
+every file in it, and the install check verifies the disk image's app as the update check
+verifies the updated one.
+
 **Claude Code and other programs steer the app through its MCP server (2026-10-10).** The user
 asked for SteamGauge to be steerable from Claude Code and any other Model Context Protocol
 client, with everything the window can do. The open app is the server, because it owns the work
