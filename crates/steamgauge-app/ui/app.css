@@ -301,7 +301,7 @@ code {
   color: var(--ink);
 }
 
-.nav button[aria-current='page'] {
+.nav button[aria-current] {
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -875,7 +875,8 @@ label.choice {
 }
 
 .stat dt,
-.facts dt {
+.facts dt,
+.held-at .label {
   color: var(--ink-3);
   font-size: var(--t-xs);
   font-weight: 600;
@@ -1092,7 +1093,6 @@ label.choice {
   display: grid;
   gap: var(--s6);
   padding: var(--s9) var(--s8);
-  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
   background: var(--surface);
@@ -1119,6 +1119,20 @@ label.choice {
 
 .hero-search {
   max-width: 640px;
+}
+
+/* Matches drop over what is below the box, straight under it, so nothing moves as they come. */
+.drops {
+  position: relative;
+}
+
+.drops .results {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  right: 0;
+  left: 0;
+  margin-top: var(--s1);
 }
 
 .examples {
@@ -1769,6 +1783,11 @@ label.choice {
 
 .newer {
   color: var(--accent);
+}
+
+.held-at {
+  display: grid;
+  gap: var(--s1);
 }
 
 .place {

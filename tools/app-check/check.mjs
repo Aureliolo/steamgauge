@@ -98,6 +98,8 @@ const PROBE = `(async function () {
   check('the card in use goes unnamed', /RTX 4090/.test($('#machine-facts').textContent));
   check('the share of the card goes unsaid', /50%/.test($('#machine-facts').textContent));
   check('reading on the card is explained as if it were the processor', !shown('machine-reads'));
+  check('the library\\'s folder is shown without saying what it is',
+    $('#library-at').previousElementSibling.textContent === 'Library folder' && $('#library-at').textContent !== '');
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board does not say nothing is running', shown('cockpit-idle'));
   check('the cockpit does not fit its page', fits());
@@ -131,6 +133,9 @@ const PROBE = `(async function () {
   $('#since-games .since-game .link').click();
   await pause(300);
   check('a game that changed since does not open from the card', shown('game') && /Alpha/.test($('#game-name').textContent));
+  check('a game\\'s page does not mark the library it belongs to in the rail',
+    $('[data-go="library"]').getAttribute('aria-current') === 'true' &&
+    !$('[data-go="cockpit"]').hasAttribute('aria-current'));
   await go('cockpit');
   window.__stub.send('open-game', 2);
   await pause(300);
@@ -434,6 +439,9 @@ const PROBE = `(async function () {
   await pause(300);
   check('a subject that moved since does not open onto its points', shown('evidence') &&
     last('claims_behind') && last('claims_behind').args.subject === 'performance');
+  check('a subject\\'s page does not name the game it goes back to', $('#back').textContent.trim() === 'Alpha');
+  check('a subject\\'s page leaves the rail with no place marked',
+    $('[data-go="library"]').getAttribute('aria-current') === 'true');
   $('#back').click();
   await pause(300);
   check('a language is not named as a person writes it', /English 75%/.test($('#languages').textContent));
@@ -796,11 +804,16 @@ try {
     check('the reader downloading is not shown where it was offered',
       document.querySelector('#ready-job .job') !== null && !shown('ready-actions'));
     var box = document.getElementById('welcome-query');
+    var examplesAt = document.getElementById('welcome-examples').getBoundingClientRect().top;
     box.value = 'delta';
     box.dispatchEvent(new Event('input'));
     await pause(600);
     var found = document.querySelectorAll('#welcome-results .result');
     check('the welcome does not find a game by its name', found.length === 2 && /Delta/.test(found[0].textContent));
+    var under = document.getElementById('welcome-results').getBoundingClientRect().top -
+      box.getBoundingClientRect().bottom;
+    check('the welcome\\'s matches do not drop straight under the box, over what follows',
+      under >= 0 && under < 24 && document.getElementById('welcome-examples').getBoundingClientRect().top === examplesAt);
     if (found.length > 0) { found[0].click(); await pause(300); }
     check('choosing a game the welcome found does not offer it', shown('finder') && shown('found') &&
       /Delta/.test(document.getElementById('found-name').textContent));

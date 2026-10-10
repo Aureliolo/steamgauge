@@ -66,7 +66,9 @@ function openGame(appId, named = null) {
 async function showGame(appId, named = null) {
   const game = await shelfGame(appId);
   if (chosen !== appId) return;
-  set(el('game-name'), game?.name ?? named ?? `App ${appId}`);
+  const name = game?.name ?? named ?? `App ${appId}`;
+  set(el('game-name'), name);
+  set(el('back-name'), name);
   art(appId, el('game-art'));
   el('game-verdict').replaceChildren(...[verdictPill(game?.verdict)].filter(Boolean));
   set(el('game-sub'), `App ${appId}`);
@@ -949,8 +951,8 @@ function turnPage(from) {
   else openClaims(reading.subject, from, reading.narrowed, reading.who);
 }
 
-page('game', el('game'));
-page('evidence', el('evidence'));
+page('game', el('game'), null, 'library');
+page('evidence', el('evidence'), null, 'library');
 setUpFinder({ openGame });
 setUpWho({ openClaims, drawTimeline });
 setUpCockpit({ openGame, openSubject });

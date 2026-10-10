@@ -172,19 +172,22 @@ export function art(appId, holder = make('span', 'art')) {
   return holder;
 }
 
-/* Pages register what to do when they are shown; anything can ask to go to one. */
+/* Pages register what to do when they are shown; anything can ask to go to one. A page with no
+   place of its own in the sidebar, a game's, names the one it is reached from, which stays marked
+   while it is open. */
 const pages = new Map();
 let current = null;
 
-export function page(name, node, onShow) {
-  pages.set(name, { node, onShow });
+export function page(name, node, onShow, under = name) {
+  pages.set(name, { node, onShow, under });
 }
 
 export function go(name, ...args) {
   for (const [other, { node }] of pages) node.hidden = other !== name;
   current = name;
+  const marked = pages.get(name)?.under ?? name;
   for (const link of document.querySelectorAll('[data-go]')) {
-    if (link.dataset.go === name) link.setAttribute('aria-current', 'page');
+    if (link.dataset.go === marked) link.setAttribute('aria-current', marked === name ? 'page' : 'true');
     else link.removeAttribute('aria-current');
   }
   el('stage').scrollTop = 0;
