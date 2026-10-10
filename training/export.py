@@ -765,8 +765,6 @@ def languages_of(paths, data):
     The fold files carry the review and claim index for exactly this: the logits know nothing
     about language and the label set knows nothing about the model.
     """
-    import claimdata
-
     parts = [np.load(path, allow_pickle=False) for path in sorted(paths)]
     review_ids = np.concatenate([part["review_id"] for part in parts])
     claim_index = np.concatenate([part["claim_index"] for part in parts])

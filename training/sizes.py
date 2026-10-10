@@ -53,8 +53,10 @@ def table(sizes: dict) -> str:
     """The sizes as a Markdown table, with what each column was measured on beneath it."""
     measured = sizes["measured"]
     rows = [
-        "| Reader | Parameters | Download | Accuracy at 80% coverage | Accuracy at 90% "
-        "coverage | GPU memory | One large game on the GPU | One small game on the CPU |",
+        (
+            "| Reader | Parameters | Download | Accuracy at 80% coverage | Accuracy at 90% "
+            "coverage | GPU memory | One large game on the GPU | One small game on the CPU |"
+        ),
         "|---|---|---|---|---|---|---|---|",
     ]
     for size in sizes["sizes"]:

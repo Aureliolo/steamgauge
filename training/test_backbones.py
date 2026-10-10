@@ -10,8 +10,7 @@ from pathlib import Path
 
 import pytest
 
-import backbones
-from backbones import BACKBONES, COMMIT, UnpinnedBackbone, load, pinning
+from backbones import BACKBONES, COMMIT, DECIDED, Backbone, UnpinnedBackbone, load, pinning
 
 HERE = Path(__file__).resolve().parent
 
@@ -90,7 +89,7 @@ def test_every_revision_is_a_full_commit():
 
 
 def test_remote_code_is_off_unless_asked_for():
-    assert backbones.Backbone("0" * 40).remote_code is False
+    assert Backbone("0" * 40).remote_code is False
 
 
 def test_remote_code_is_on_only_for_the_architectures_transformers_does_not_ship():
@@ -138,7 +137,7 @@ def test_nothing_is_fetched_except_through_the_table(path):
         if called_name(call) in {"from_pretrained", "snapshot_download", "hf_hub_download"}
         or (
             called_name(call) not in WRITES
-            and any(keyword.arg in backbones.DECIDED for keyword in call.keywords)
+            and any(keyword.arg in DECIDED for keyword in call.keywords)
         )
     ]
     assert not stray, "load through backbones.load instead: " + ", ".join(stray)

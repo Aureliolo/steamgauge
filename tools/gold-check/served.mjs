@@ -114,7 +114,7 @@ try {
     );
   }
   if (held.length && held[0].polarity !== "complaint") {
-    wrong.push(`the posted answer says polarity ${held[0].polarity}, not the one pressed`);
+    wrong.push(`the posted answer says polarity ${JSON.stringify(held[0].polarity)}, not the one pressed`);
   }
   if (pressed.kept !== "saved") {
     wrong.push(`the header says ${JSON.stringify(pressed.kept)} rather than saved`);
