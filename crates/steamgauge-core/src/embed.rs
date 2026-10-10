@@ -293,9 +293,9 @@ pub fn embed_corpus(
     let unique_texts = counts.len() as u64;
 
     let path = snapshot.join(vectors_file(unit));
-    // Written aside and renamed at the end. An interrupted run used to leave an empty
-    // embeddings.parquet behind, which reads as a finished artefact and fails confusingly
-    // everywhere downstream; a partial file under its own name cannot be mistaken for one.
+    // Written aside and renamed at the end. An empty embeddings.parquet left by an interrupted
+    // run would read as a finished artefact and fail confusingly everywhere downstream; a
+    // partial file under its own name cannot be mistaken for one.
     let partial = snapshot.join(format!("{}.partial", vectors_file(unit)));
     let schema = embedding_schema(embedder.dimensions());
     // A row group is buffered whole before it reaches the disk, and the default holds a

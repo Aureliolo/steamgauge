@@ -304,10 +304,10 @@ fn the_heading_and_its_answer(piece: &str) -> String {
 /// boxes are the review; the blank ones are the ones somebody else would have ticked, and
 /// the heading above them is what says whether ticking one was praise or a complaint.
 ///
-/// Drawings are not handled here. Braille art and hands made of brackets used to come through
-/// this path, on the grounds that both arrive as a column of lines, but a picture has no
-/// answer in it to hang the rest of the review on: every paragraph came back glued into one
-/// claim. They fall out on their own now, having no word and no number in them.
+/// Drawings are not handled here. Braille art and hands made of brackets arrive as a column of
+/// lines too, but a picture has no answer in it to hang the rest of the review on, and taking
+/// one here would glue every paragraph into one claim. They fall out on their own, having no
+/// word and no number in them.
 ///
 /// `None` where the review is not one, which is all but one in five hundred and fifty.
 fn a_filled_in_template(text: &str) -> Option<Vec<(usize, usize)>> {

@@ -230,15 +230,21 @@ def dataset_card(
             "| `subject` | What the claim is about. |",
             "| `polarity` | `praise`, `complaint` or `neutral`. |",
             "| `also` | Further subjects the claim is about, each with its own polarity. |",
-            "| `ironic` | The claim means the opposite of what it says; `polarity` is what it "
-            "means. |",
-            "| `confidence` | The labeller's confidence in the subject: `high`, `medium` or "
-            "`low`. |",
+            (
+                "| `ironic` | The claim means the opposite of what it says; `polarity` is what it "
+                "means. |"
+            ),
+            (
+                "| `confidence` | The labeller's confidence in the subject: `high`, `medium` or "
+                "`low`. |"
+            ),
             "| `ambiguous` | The category rules do not settle which subject the claim is about. |",
             "| `split_wrong` | The claim is cut in the wrong place. |",
             "| `produced_by` | The model that wrote the label, or `a person`. |",
-            "| `taxonomy` | The category sheet the label was written against: a hash of the "
-            "sheet, or `core-5` or `core-6`. Null where it was not recorded. |",
+            (
+                "| `taxonomy` | The category sheet the label was written against: a hash of the "
+                "sheet, or `core-5` or `core-6`. Null where it was not recorded. |"
+            ),
             "| `subset` | How the claim was drawn (below). |",
             "",
             "`subset`:",
@@ -274,8 +280,10 @@ def dataset_card(
             "game's name" + (f": {by}." if by else "."),
             *twice,
             "",
-            "The category sheet is [`taxonomy.rs`](https://github.com/Aureliolo/steamgauge/blob/"
-            "main/crates/steamgauge-core/src/taxonomy.rs) in the SteamGauge repository.",
+            (
+                "The category sheet is [`taxonomy.rs`](https://github.com/Aureliolo/steamgauge/blob/"
+                "main/crates/steamgauge-core/src/taxonomy.rs) in the SteamGauge repository."
+            ),
             "",
             "## Licence",
             "",

@@ -432,9 +432,9 @@ fn most_overstated(out: &mut String, report: &Report) {
 
 /// The one finding only a table of several games can carry.
 ///
-/// Every game's own section opens with a sentence; this one opened with a grid and left the
-/// reader to find the interesting row. What a cross-game view is for is the subject that
-/// belongs to one game and not the others, so that is what it now says.
+/// What a cross-game view is for is the subject that belongs to one game and not the others,
+/// so it says that in a sentence, as each game's own section does, rather than leaving the
+/// reader a grid to search.
 fn widest_apart(out: &mut String, report: &Report) {
     let rate = |app: &AppReport, id: &str| {
         app.reading
