@@ -52,23 +52,27 @@ step() {
   echo "::endgroup::"
 }
 
+# Sets `said` to what a copy answers to --version. Run in place rather than inside `$(...)`,
+# which would take the step's log lines for part of the answer.
 said_version() {
   local answer
   answer="$(mktemp)"
   # The inner shell expands its own arguments, handed to it after the script.
   # shellcheck disable=SC2016
   step "Asking $1 for its version" bash -c '"$1" --version > "$2"' _ "$1" "${answer}"
-  cat "${answer}"
+  said="$(cat "${answer}")"
 }
 
 # The file, refused unless it is the one the previous release's signed SHA256SUMS names.
 verified() {
   local want got
   want="$(awk -v name="$1" '$2 == name { print $1 }' "${dir}/SHA256SUMS")"
+  # Read from standard input: given a name with a backslash in it, as every Windows path has,
+  # sha256sum escapes the name and starts its line with a backslash of its own.
   if command -v sha256sum > /dev/null; then
-    got="$(sha256sum "${dir}/$1" | cut -d ' ' -f 1)"
+    got="$(sha256sum < "${dir}/$1" | cut -d ' ' -f 1)"
   else
-    got="$(shasum -a 256 "${dir}/$1" | cut -d ' ' -f 1)"
+    got="$(shasum -a 256 < "${dir}/$1" | cut -d ' ' -f 1)"
   fi
   if [[ -z "${want}" || "${got}" != "${want}" ]]; then
     echo "$1 is not the file the ${previous} release's SHA256SUMS names." >&2
@@ -78,7 +82,8 @@ verified() {
 }
 
 updated() {
-  same "What the installed copy says before the update" "$(said_version "$1")" "steamgauge ${previous}"
+  said_version "$1"
+  same "What the installed copy says before the update" "${said}" "steamgauge ${previous}"
   step "Updating it with steamgauge update" "$1" update
 }
 
@@ -103,7 +108,8 @@ case "${kind}" in
       tasklist //FI "IMAGENAME eq steamgauge-${version}-windows-x64-setup.exe" | grep -qi setup || break
       sleep 2
     done
-    same "What the installed copy says after the update" "$(said_version "${program}")" "steamgauge ${version}"
+    said_version "${program}"
+    same "What the installed copy says after the update" "${said}" "steamgauge ${version}"
     ;;
   macos-app)
     image="$(verified "steamgauge-${previous}-macos-arm64.dmg")"
@@ -115,8 +121,8 @@ case "${kind}" in
     updated "${app}/Contents/MacOS/steamgauge"
     same "The app's CFBundleShortVersionString" \
       "$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "${app}/Contents/Info.plist")" "${version}"
-    same "What the installed app says after the update" \
-      "$(said_version "${app}/Contents/MacOS/steamgauge")" "steamgauge ${version}"
+    said_version "${app}/Contents/MacOS/steamgauge"
+    same "What the installed app says after the update" "${said}" "steamgauge ${version}"
     codesign --verify --deep --strict "${app}"
     same "What the update left in Applications" "$(find /Applications -maxdepth 1 -iname '*steamgauge*' | sort)" "${app}"
     if xattr -p com.apple.quarantine "${app}" > /dev/null 2>&1; then
@@ -126,6 +132,9 @@ case "${kind}" in
     ;;
   linux-deb)
     package="$(verified "steamgauge_${previous}-1_amd64.deb")"
+    # The runner's package lists are as old as its image, and a mirror drops a version once a
+    # newer one replaces it, so the lists are read again before anything is installed.
+    sudo apt-get update
     sudo apt-get install -y "${package}"
     # The update installs the package through pkexec, which on a desktop asks for a password;
     # here a polkit rule answers yes for this account alone, so everything else is as it is there.
@@ -139,7 +148,8 @@ case "${kind}" in
     sudo systemctl restart polkit
     updated /usr/bin/steamgauge
     same "The version dpkg names" "$(dpkg-query --show --showformat '${Version}' steamgauge)" "${version}-1"
-    same "What the installed copy says after the update" "$(said_version /usr/bin/steamgauge)" "steamgauge ${version}"
+    said_version /usr/bin/steamgauge
+    same "What the installed copy says after the update" "${said}" "steamgauge ${version}"
     ;;
   linux-archive)
     archive="$(verified "steamgauge-${previous}-x86_64-linux-gnu.tar.gz")"
@@ -147,7 +157,8 @@ case "${kind}" in
     tar -xzf "${archive}" -C "${apps}"
     folder="${apps}/steamgauge-${previous}-x86_64-linux-gnu"
     updated "${folder}/steamgauge"
-    same "What the unpacked copy says after the update" "$(said_version "${folder}/steamgauge")" "steamgauge ${version}"
+    said_version "${folder}/steamgauge"
+    same "What the unpacked copy says after the update" "${said}" "steamgauge ${version}"
     same "What the update left beside it" "$(ls -A "${apps}")" "steamgauge-${previous}-x86_64-linux-gnu"
     ;;
   *)
