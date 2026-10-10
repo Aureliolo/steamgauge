@@ -287,6 +287,21 @@ jobs:
           echo "The release could not be created in three attempts." >&2
           exit 1
 
+  # A copy of the release before this one, installed each way a person installs it, updated to
+  # this one by `steamgauge update`, the path Update now takes. Only once the release is
+  # published, since that is all an update can fetch; a failure here means copies cannot reach
+  # this release from inside themselves, and the next release is the fix.
+  update-check:
+    name: update check
+    if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag'
+    needs: publish
+    permissions:
+      contents: read # Reads the tagged workflow and the published releases.
+    # `./` as for release-build.yml above.
+    uses: ./.github/workflows/update-check.yml # zizmor: ignore[self-repository]
+    with:
+      tag: ${{ github.ref_name }}
+
   # The cask, the Scoop manifest and the winget manifests for this release, from the checksums as
   # published, verified against the release's attestation the way a person's download would be.
   package-managers-write:

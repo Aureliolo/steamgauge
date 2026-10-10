@@ -5361,7 +5361,26 @@ at.
 updated itself to 0.1.5 through the window: Apps named the new version and the update folder
 was left empty. On macOS 13 and later, App Management may ask once whether SteamGauge may change
 apps, since an ad-hoc signed app has no team to match; whether it asks, and whether the
-administrator fallback is then needed, is unverified, as is an update on Linux.
+administrator fallback is then needed, is unverified, as is an update on Linux. Both are what
+the update check below answers, from the first release it can run on.
+
+**Every release is updated to from the one before, on each system (2026-10-10).** Update now
+runs in `crates/steamgauge-app/src/update.rs`, which the window and `steamgauge update` both
+call: the command asks the release page for the newest version itself, writes its progress to
+the terminal, and leaves the window closed afterwards, so a setup program it starts installs
+without `/R`. Once a release is published, `update-check.yml` installs the release before it
+the way a person does, the setup program on Windows, the app from the disk image into
+`/Applications` on macOS, the `.deb` and the portable archive on Linux, runs that copy's
+`steamgauge update`, and requires this release to be installed afterwards and to say so to
+`--version`; on macOS the updated app has to verify with `codesign` and carry no quarantine.
+On Linux pkexec is answered by a polkit rule for the runner's account in place of the desktop's
+password prompt, and nothing else differs. It cannot run before publishing: the update fetches
+only what the release download host serves and verifies it against the provenance published
+with it, and a test-only origin in the shipped program would be a way in that the window never
+needs. So a failure says copies cannot reach this release from inside themselves, and the next
+release is the fix. The command came in 0.1.8, so 0.1.9 is the first release it updates to;
+until then the check skips with a notice. The `.rpm` is left to the `.deb`'s run: both go
+through the same pkexec path, and a Fedora runner is not offered.
 
 ### A release is installers, and each is installed before it is signed (2026-10-03)
 

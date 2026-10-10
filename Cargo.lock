@@ -5240,6 +5240,7 @@ version = "0.1.7"
 dependencies = [
  "anyhow",
  "clap",
+ "dirs",
  "fs4",
  "glob",
  "notify-rust",

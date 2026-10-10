@@ -73,7 +73,8 @@ certificate authority, so its builds carry provenance only.
 
 ## Updates from the window
 
-**Update now** installs a newer release with no signing key anywhere: what it checks is the
+**Update now**, and `steamgauge update`, which runs the same code from a terminal, installs a
+newer release with no signing key anywhere: what it checks is the
 release's Sigstore build provenance, which GitHub Actions signs keyless for each release run.
 It downloads the release's file for this computer (the setup program on Windows,
 `steamgauge-<version>-macos-arm64.app.tar.gz` on macOS, the `.deb`, the `.rpm` or the portable

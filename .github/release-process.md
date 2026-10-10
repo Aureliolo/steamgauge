@@ -119,23 +119,31 @@ publishes and packages:
 8. **publish**, in `release.yml`, runs only on a tag. It checks the checksums once more and
    creates the GitHub Release with all fifteen files in one call, because an immutable release
    locks its files the moment it is published.
-9. **package managers (write)** downloads the published `SHA256SUMS` and `steamgauge.json`,
+9. **update check** (`update-check.yml`) installs the release before this one each way a person
+   installs it, the setup program on Windows, the app from the disk image on macOS, the `.deb`
+   and the portable archive on Linux, and updates each with `steamgauge update`, the path Update
+   now takes in the window. Each has to be this release afterwards and say so to `--version`.
+   It runs only once the release is published, since that is all an update can fetch, so a
+   failure is fixed by the next release. A release before the first with `steamgauge update`
+   is updated only from its window, and is skipped with a notice. It can also be dispatched by
+   hand for any published release.
+10. **package managers (write)** downloads the published `SHA256SUMS` and `steamgauge.json`,
    verifies both against the release's attestation, and writes the Homebrew cask, the Scoop
    manifest and the winget manifests from those checksums with
    `tools/release/package-managers.sh` at the tag. The Scoop manifest it writes has to be the
    release's own byte for byte. While the winget job is off, its run summary gives the command
    that submits the first version by hand (see [Package managers](#package-managers)).
-10. **package managers** (`package-managers.yml`) installs each of them as a person would and
+11. **package managers** (`package-managers.yml`) installs each of them as a person would and
     runs what it installed: the cask with Homebrew on Apple Silicon macOS, the Scoop manifest by
     the release's address and as a bucket, and the winget manifests with `winget install
     --manifest`, the last two on Windows. winget comes from its own pinned release, because
     the runner image's lags the manifest schema and warns over every header. Each installed
     program has to say `steamgauge X.Y.Z` to `--version` and keep its window up for 20 seconds,
     and each uninstall has to remove it.
-11. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
+12. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
     `main`, as the packaging App, and merges it once every check has passed; a check that fails,
     or anything else that keeps it from merging, fails the job with the reason.
-12. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program the
+13. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program the
     winget manifests name against the release, its attestation and its hash, and submits the
     manifests with Microsoft's `wingetcreate` to `microsoft/winget-pkgs`, where Microsoft's
     checks and moderators merge them.
@@ -424,6 +432,11 @@ exists.
   **Uninstalling left ... behind**, in a package managers job: Homebrew, Scoop or winget installs
   something that does not run on its own system. The release is out, and nothing has reached
   `main` or `winget-pkgs`; fix it on `main` and release the next version.
+- **Updating it with steamgauge update** failing, or **What the installed copy says after the
+  update** or **The version ... names** naming the previous version, in an update check job: a
+  copy of the release before cannot update itself to this one. The command's output says which
+  step stopped it: the download, the provenance, or the install. Copies of the previous release
+  will fail the same way from their window, so fix it on `main` and release the next version.
 - **The packaging App is not set up**, in package managers (main): the `packages` environment
   lacks `PACKAGING_APP_CLIENT_ID` or `PACKAGING_APP_KEY` (see
   [Setting them up, once](#setting-them-up-once)). Add them and re-run the job.
