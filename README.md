@@ -191,6 +191,14 @@ gives way to anything you start, and stops when the app closes; Settings turns i
 notification, off until you turn it on, names a game and a subject when such an update finds the
 subject moved, and clicking it opens the game.
 
+Claude Code, or any other program that speaks the Model Context Protocol, can steer the app:
+`claude mcp add steamgauge -- steamgauge mcp` adds it to Claude Code. Every tool is something
+the window can do, from finding, downloading and reading a game to searching its reviews,
+exporting, changing settings and removing things, and the window shows each one done. The open
+app answers; where it is not running, it opens with its window hidden and closes once the program
+is finished with it and its work is done. It listens only on a local socket that no other user
+and no other machine can reach.
+
 ### What a percentage means here
 
 The headline figure for a category is a **mention rate**: the share of all reviews in the

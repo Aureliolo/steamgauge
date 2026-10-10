@@ -856,6 +856,15 @@ enum Command {
     /// afterwards.
     Update,
 
+    /// Steer the app from Claude Code or any other Model Context Protocol client, which starts
+    /// this command and speaks to it on standard input and output.
+    ///
+    /// Every tool is something the window can do, and the person sees it done there. The open
+    /// app answers, over a local socket only this user can reach; where it is not running it is
+    /// opened with its window hidden, and closes once the last client has gone and its work is
+    /// done. Add it to Claude Code with `claude mcp add steamgauge -- steamgauge mcp`.
+    Mcp,
+
     /// Write the category sheet labellers work from, generated from the taxonomy.
     ///
     /// Separate from `sample-claims` because a boundary rule can change without anything
@@ -960,6 +969,7 @@ pub async fn run() -> Result<()> {
         } => run_report(&app_ids, &out, &to, examples, seed),
         Command::ExportData { app_id, out, to } => run_export_data(app_id, &out, &to),
         Command::Update => run_update().await,
+        Command::Mcp => crate::mcp::bridge().await,
         other => encoder_work(other).await,
     }
 }
@@ -1045,7 +1055,8 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::ExportPool { .. }
         | Command::Report { .. }
         | Command::ExportData { .. }
-        | Command::Update => {
+        | Command::Update
+        | Command::Mcp => {
             unreachable!("run answers every command that needs no encoder")
         }
     }

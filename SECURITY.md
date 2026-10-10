@@ -116,6 +116,25 @@ workflow to have run at that version's tag, and every such signing is public in 
 not protect against the owner's GitHub account being taken over, or against a compromised
 build, both of which would produce a correctly signed release.
 
+## Steering from other programs
+
+`steamgauge mcp` lets Claude Code, or any other program that speaks the Model Context Protocol,
+steer the app. Every tool there is something the window can do, including removing games and
+models, changing settings and updating the app, so a client is trusted as the person is: any
+program that can start `steamgauge mcp` as you can already run the app and its commands as you.
+
+The open app listens on no network port. On Windows it listens on a named pipe whose name is
+drawn at random each time the app opens and written only into the app's local data folder, which
+is yours: another user's program can neither find the pipe nor take its name first to stand in
+for the app. Pipes refuse connections from other machines, and Windows gives other users read
+access to a pipe at most, which cannot send a request. On macOS and Linux it listens on a socket
+file in a folder only you may enter, inside the app's data folder.
+
+Tools that remove something are marked destructive and tools that only look are marked
+read-only, so a client that asks before acting knows which to ask about. What the tools return
+includes reviews, written by strangers: a client that takes text in a tool's answer for
+instructions can be steered by a review.
+
 ## Network requests
 
 The app makes requests to four places, and to nothing else:

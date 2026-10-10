@@ -31,7 +31,7 @@ use tokio::sync::Notify;
 use super::{library_dir, now_unix, settings::Settings, text};
 
 /// What a job is asked to do.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Task {
     /// Every review of a game, resuming where an earlier download stopped.

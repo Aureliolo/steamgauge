@@ -5382,6 +5382,26 @@ release is the fix. The command came in 0.1.8, so 0.1.9 is the first release it 
 until then the check skips with a notice. The `.rpm` is left to the `.deb`'s run: both go
 through the same pkexec path, and a Fedora runner is not offered.
 
+**Claude Code and other programs steer the app through its MCP server (2026-10-10).** The user
+asked for SteamGauge to be steerable from Claude Code and any other Model Context Protocol
+client, with everything the window can do. The open app is the server, because it owns the work
+board, the library and the window: a second process reading the same library would race the
+app's own jobs. `steamgauge mcp` is what a client starts; it joins standard input and output to
+the app's local socket and, where the app is not running, opens it with the window hidden
+(`--without-window`), which closes once no client is connected, the window is still hidden and
+no job is left. Closing the window while a client is connected hides it instead, and the app is
+now single-instance, so a person opening it while a client has it hidden gets that copy forward.
+Every tool calls the function the window's command calls, under the command's own name, and a
+test reads the command registration to fail on any command without a tool; `show` puts a page
+in front of the person, and anything that changes something has the page on screen draw itself
+again. The socket is a named pipe on Windows and a socket file elsewhere. Restricting the pipe
+to the user with a security descriptor of their own needs Windows calls the workspace forbids
+as unsafe code, so the pipe's name is drawn at random at each start and written only into the
+user's local data folder: another user can neither find it nor create it first, Windows' default
+pipe security gives other users read access at most, which sends nothing, and pipes refuse other
+machines. Elsewhere the socket sits in a folder of mode 700. A loopback HTTP endpoint for clients
+that only speak HTTP is the other option the user chose, off until switched on.
+
 ### A release is installers, and each is installed before it is signed (2026-10-03)
 
 Measured against a mature release setup the user named as the standard, the releases shipped a

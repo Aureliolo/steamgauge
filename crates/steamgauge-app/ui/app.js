@@ -1008,6 +1008,26 @@ listen('library', ({ payload }) => {
 /* A desktop notification clicked: the game it named. */
 listen('open-game', ({ payload }) => openGame(payload));
 
+/* A program steering the app through its MCP server asked to show the person a page. */
+listen('show', async ({ payload }) => {
+  const { page: name, app_id: appId, app_ids: appIds, subject, side, query } = payload;
+  if (name === 'game') openGame(appId);
+  else if (name === 'subject') openSubject(appId, subject, side ?? null);
+  else if (name === 'search') {
+    await openGame(appId);
+    openSearch(query, 0);
+  } else if (name === 'compare') go('compare', appIds);
+  else if (name === 'finder') openFinder();
+  else go(name);
+});
+
+/* It changed something: the page on screen is drawn again from what is there now. */
+listen('steered', () => {
+  const now = showing();
+  if (now === 'game' && chosen !== null) showGame(chosen);
+  else if (['cockpit', 'library', 'settings', 'storage'].includes(now)) go(now);
+});
+
 drawBrief(el('rail-work'));
 el('rail-work').addEventListener('click', () => go('cockpit'));
 startWork();

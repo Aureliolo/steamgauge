@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager};
 /// The shares of the graphics card a person can give the app's reading and preparing.
 pub const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq)]
 #[serde(default)]
 #[expect(
     clippy::struct_excessive_bools,

@@ -348,12 +348,16 @@ pub async fn storage(app: AppHandle) -> Storage {
 }
 
 /// What a person can ask to have removed from a game.
-#[derive(Debug, Clone, Copy, serde::Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Removal {
+    /// Its readings, which a read makes again.
     Reads,
+    /// Its preparation for search by meaning.
     Search,
+    /// Its earlier downloads, kept from before its newest one.
     Earlier,
+    /// What work stopped part way left: a download, a read or a recount.
     Partial,
     /// The whole game: every file, its crawl records and its place in groups.
     Game,
