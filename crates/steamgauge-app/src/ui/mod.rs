@@ -9,6 +9,7 @@ mod cockpit;
 mod data_export;
 mod game_updates;
 mod mcp;
+mod mcp_http;
 mod newer;
 mod settings;
 mod since;
@@ -1273,9 +1274,11 @@ pub fn run(without_window: bool) -> anyhow::Result<()> {
         .manage(update::Updating::default())
         .manage(since::Baseline::default())
         .manage(mcp::Clients::default())
+        .manage(mcp_http::Http::default())
         .on_window_event(mcp::on_window_event)
         .setup(move |app| {
             mcp::start(app.handle(), without_window);
+            mcp_http::follow(app.handle());
             update::tidy(app.handle());
             since::remember(app.handle());
             work::start(app.handle());
@@ -1316,6 +1319,7 @@ pub fn run(without_window: bool) -> anyhow::Result<()> {
             settings::settings,
             settings::save_settings,
             settings::reader_options,
+            settings::new_http_token,
             storage::storage,
             storage::free_room,
             storage::remove_model,

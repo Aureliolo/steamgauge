@@ -654,6 +654,12 @@ fn entries() -> Vec<Entry> {
             },
         ),
         tool(
+            "new_http_token",
+            Changes,
+            "Draws a new token for the HTTP server, shutting out every client that holds the old one, and returns the settings with it.",
+            |app, Nothing {}| off_thread_trying(move || settings::new_http_token(app)),
+        ),
+        tool(
             "reader_options",
             Looks,
             "The reader sizes this machine can read with, what each costs to download, and the room left for them.",
@@ -730,9 +736,26 @@ fn entries() -> Vec<Entry> {
 
 static TOOLS: LazyLock<Vec<Entry>> = LazyLock::new(entries);
 
+/// One client's server: what it answers is the app's, so every client is served the same app.
 #[derive(Clone)]
-struct Server {
+pub(super) struct Server {
     app: AppHandle,
+}
+
+impl Server {
+    pub(super) fn new(app: AppHandle) -> Self {
+        Self { app }
+    }
+}
+
+/// The command that adds this copy to Claude Code, naming it by its own path, which no
+/// installer puts on the search path everywhere.
+pub fn claude_command() -> String {
+    let program = std::env::current_exe().map_or_else(
+        |_| "steamgauge".to_owned(),
+        |path| path.display().to_string(),
+    );
+    format!("claude mcp add steamgauge -- \"{program}\" mcp")
 }
 
 impl ServerHandler for Server {
@@ -867,8 +890,7 @@ fn needed(app: &AppHandle, opened: Instant) -> bool {
     shown || clients.any() || waiting || working
 }
 
-#[cfg(any(windows, test))]
-fn hex(bytes: &[u8]) -> String {
+pub(super) fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     bytes.iter().fold(String::new(), |mut spelled, byte| {
         let _ = write!(spelled, "{byte:02x}");
@@ -923,7 +945,7 @@ async fn serve(app: AppHandle, stream: Stream) {
     let clients = app.state::<Clients>();
     clients.open.fetch_add(1, Ordering::SeqCst);
     clients.ever.store(true, Ordering::SeqCst);
-    if let Ok(running) = (Server { app: app.clone() }).serve(stream).await {
+    if let Ok(running) = Server::new(app.clone()).serve(stream).await {
         let _ = running.waiting().await;
     }
     clients.open.fetch_sub(1, Ordering::SeqCst);

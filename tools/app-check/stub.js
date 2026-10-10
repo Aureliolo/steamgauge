@@ -290,7 +290,11 @@
     notify_moves: false,
     read_after_download: true,
     check_newer_version: true,
+    answer_over_http: false,
+    http_port: 47800,
   };
+  // The token the HTTP server answers with, drawn again by New token.
+  let httpToken = '0f'.repeat(32);
   // The answer the core kept from the last day's question.
   let newer = {
     version: '0.2.0',
@@ -639,10 +643,21 @@
       search_every_game: searchEveryGame,
       shares: [0.25, 0.5, 0.75, 1],
       library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
+      claude_command: 'claude mcp add steamgauge -- "C:\\Users\\someone\\AppData\\Local\\SteamGauge\\steamgauge.exe" mcp',
+      // Port 47801 stands in for one another program holds.
+      http: !settings.answer_over_http
+        ? { address: null, token: null, problem: null }
+        : settings.http_port === 47801
+          ? { address: null, token: null, problem: 'Nothing answers on port 47801: another program has it; choose another port' }
+          : { address: `http://127.0.0.1:${settings.http_port}/mcp`, token: httpToken, problem: null },
     }),
     save_settings: ({ settings: saved, searchEveryGame: every }) => {
       settings = saved;
       searchEveryGame = every;
+      return answers.settings();
+    },
+    new_http_token: () => {
+      httpToken = 'a1'.repeat(32);
       return answers.settings();
     },
     reader_options: () => ({

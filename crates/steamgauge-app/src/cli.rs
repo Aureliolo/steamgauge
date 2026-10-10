@@ -862,7 +862,7 @@ enum Command {
     /// Every tool is something the window can do, and the person sees it done there. The open
     /// app answers, over a local socket only this user can reach; where it is not running it is
     /// opened with its window hidden, and closes once the last client has gone and its work is
-    /// done. Add it to Claude Code with `claude mcp add steamgauge -- steamgauge mcp`.
+    /// done. Settings shows the command that adds this copy to Claude Code.
     Mcp,
 
     /// Write the category sheet labellers work from, generated from the taxonomy.

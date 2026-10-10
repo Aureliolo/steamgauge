@@ -27,7 +27,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tauri = { version = "2.12.1", features = [] }
 tauri-plugin-opener = "2.7.0"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
 # Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
 # notification plugin wraps this crate and drops the click on every desktop system.
 notify-rust = "4.18.2"
@@ -37,11 +37,18 @@ fs4 = "1.1.0"
 dirs = "7.0.0"
 # The Model Context Protocol server Claude Code and other clients steer the app through, on a
 # local socket (a named pipe on Windows) that only this user can reach.
-rmcp = { version = "3.5.1", default-features = false, features = ["server"] }
+rmcp = { version = "3.5.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
 interprocess = { version = "2.4.5", features = ["tokio"] }
 schemars = "1.2.2"
 base64 = "0.23.1"
 getrandom = "0.4.3"
+# The same server over HTTP on 127.0.0.1, for clients that connect no other way: off until it is
+# switched on in Settings, and every request carries a token.
+hyper = { version = "1.11.1", features = ["server", "http1"] }
+hyper-util = { version = "0.1.21", features = ["tokio"] }
+http-body-util = "0.1.5"
+bytes = "1.12.1"
+tokio-util = "0.7.19"
 # One app per user, so a client and the person share one library, one work board and one window.
 tauri-plugin-single-instance = "2.5.3"
 
