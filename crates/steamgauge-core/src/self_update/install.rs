@@ -178,11 +178,14 @@ pub fn writable(dir: &Path) -> bool {
 
 /// Runs the setup program as the in-app update runs it: passive, so it shows its progress and
 /// asks nothing; as an update, so it installs over this copy without uninstalling it and leaves
-/// its shortcuts where they are; and starting the new program when done.
+/// its shortcuts where they are; and, where `reopen`, starting the new program when done.
 #[must_use]
-pub fn setup_command(setup: &Path) -> Command {
+pub fn setup_command(setup: &Path, reopen: bool) -> Command {
     let mut command = Command::new(setup);
-    command.args(["/P", "/UPDATE", "/R"]);
+    command.args(["/P", "/UPDATE"]);
+    if reopen {
+        command.arg("/R");
+    }
     command
 }
 
@@ -416,10 +419,14 @@ mod tests {
     }
 
     #[test]
-    fn the_setup_program_runs_passive_as_an_update_and_starts_the_new_program() {
+    fn the_setup_program_runs_passive_as_an_update_and_starts_the_new_program_when_asked() {
         assert_eq!(
-            texts(&setup_command(Path::new("setup.exe"))),
+            texts(&setup_command(Path::new("setup.exe"), true)),
             ["setup.exe", "/P", "/UPDATE", "/R"]
+        );
+        assert_eq!(
+            texts(&setup_command(Path::new("setup.exe"), false)),
+            ["setup.exe", "/P", "/UPDATE"]
         );
     }
 

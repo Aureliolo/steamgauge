@@ -1,0 +1,121 @@
+name: update check
+
+# Each way a person installs SteamGauge, from the release before this one, updated to this one by
+# `steamgauge update`, which runs what Update now runs in the window. Called by the release once
+# it is published, because an update fetches only what the release download host serves and
+# verifies it against the published provenance; run by hand for any published release.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The published release to update to
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The published release to update to, as v<version>
+        type: string
+        required: true
+
+permissions: {}
+
+# Its own group: called by the release, `github.workflow` is the release's name.
+concurrency:
+  group: update-check-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  # The first release with `steamgauge update`. A copy older than it is updated only from its
+  # window, so the release after it is the first one this updates to.
+  FIRST_UPDATER: 0.1.8
+
+jobs:
+  update:
+    name: update (${{ matrix.kind }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Renovate reads a runner out of `runs-on:` but not out of a matrix, so each of these
+        # carries its own line for it, as in release-build.yml.
+        include:
+          - kind: windows-setup
+            # renovate: datasource=github-runners depName=windows
+            runner: windows-2025
+            file: steamgauge-{}-windows-x64-setup.exe
+          - kind: macos-app
+            # renovate: datasource=github-runners depName=macos
+            runner: macos-26
+            file: steamgauge-{}-macos-arm64.dmg
+          - kind: linux-deb
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+            file: steamgauge_{}-1_amd64.deb
+          - kind: linux-archive
+            # renovate: datasource=github-runners depName=ubuntu
+            runner: ubuntu-24.04
+            file: steamgauge-{}-x86_64-linux-gnu.tar.gz
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read # Reads the script and the published releases.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find the release before it
+        id: previous
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          listed="$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --exclude-pre-releases \
+            --limit 1000 --json tagName --jq '.[].tagName | ltrimstr("v")')"
+          if ! grep -qxF "${version}" <<< "${listed}"; then
+            echo "::error::${TAG} is not a published release."
+            exit 1
+          fi
+          previous="$(sort -V <<< "${listed}" | awk -v version="${version}" '$0 == version { print before; exit } { before = $0 }')"
+          if [[ -z "${previous}" ]]; then
+            echo "::notice::${TAG} is the first release, so there is nothing to update from."
+            echo "check=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "$(printf '%s\n' "${FIRST_UPDATER}" "${previous}" | sort -V | head -n 1)" != "${FIRST_UPDATER}" ]]; then
+            echo "::notice::${previous} has no steamgauge update, which came in ${FIRST_UPDATER}; the release after ${FIRST_UPDATER} is the first this updates to."
+            echo "check=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          {
+            echo "check=true"
+            echo "previous=${previous}"
+            echo "version=${version}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Download the release before it
+        if: steps.previous.outputs.check == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS: ${{ steps.previous.outputs.previous }}
+          FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/previous"
+          gh release download "v${PREVIOUS}" --repo "${GITHUB_REPOSITORY}" --dir "${RUNNER_TEMP}/previous" \
+            --pattern SHA256SUMS --pattern "${FILE//\{\}/${PREVIOUS}}"
+
+      - name: Update it to this release
+        if: steps.previous.outputs.check == 'true'
+        shell: bash
+        env:
+          KIND: ${{ matrix.kind }}
+          PREVIOUS: ${{ steps.previous.outputs.previous }}
+          VERSION: ${{ steps.previous.outputs.version }}
+        run: bash tools/release/update-check.sh "${KIND}" "${PREVIOUS}" "${VERSION}" "${RUNNER_TEMP}/previous"

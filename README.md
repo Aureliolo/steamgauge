@@ -109,6 +109,8 @@ SHA-256 it arrived with. Anything else stops the update with the reason and noth
 and the window offers the release page instead. [SECURITY.md](SECURITY.md#updates-from-the-window)
 lists every check.
 
+`steamgauge update` does the same from a terminal, without opening the window afterwards.
+
 A copy Scoop installed, or a portable archive on Windows or macOS, is updated the way it was put
 there: `scoop update steamgauge`, or the new archive's program in place of the old one. winget
 and Homebrew install the same setup program and app the window updates, so the window updates

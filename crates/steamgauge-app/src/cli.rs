@@ -847,6 +847,15 @@ enum Command {
         to: PathBuf,
     },
 
+    /// Update this copy to the newest release, as Update now does in the window.
+    ///
+    /// The release's file for the way this copy was installed is downloaded and installed once
+    /// its build provenance verifies; nothing is installed otherwise. A setup program installs
+    /// over this copy after it exits, a package is installed by its manager after the system's
+    /// password prompt, and an app or a folder is replaced in place. The window is not opened
+    /// afterwards.
+    Update,
+
     /// Write the category sheet labellers work from, generated from the taxonomy.
     ///
     /// Separate from `sample-claims` because a boundary rule can change without anything
@@ -950,6 +959,7 @@ pub async fn run() -> Result<()> {
             seed,
         } => run_report(&app_ids, &out, &to, examples, seed),
         Command::ExportData { app_id, out, to } => run_export_data(app_id, &out, &to),
+        Command::Update => run_update().await,
         other => encoder_work(other).await,
     }
 }
@@ -1034,7 +1044,8 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::ExportReviewFacts { .. }
         | Command::ExportPool { .. }
         | Command::Report { .. }
-        | Command::ExportData { .. } => {
+        | Command::ExportData { .. }
+        | Command::Update => {
             unreachable!("run answers every command that needs no encoder")
         }
     }
@@ -1349,6 +1360,62 @@ fn run_export_data(app_id: u32, out: &std::path::Path, to: &std::path::Path) -> 
         "\nsubjects, months, points and updates, each as .csv and .json, and a README.txt saying\n\
          what every column holds."
     );
+    Ok(())
+}
+
+/// Asks for the newest release itself rather than reading what the window last heard, so a copy
+/// whose window has never opened is updated too.
+async fn run_update() -> Result<()> {
+    use steamgauge_core::{newer_version, self_update::Version};
+
+    use crate::update::{self, Folders, Step, Then};
+
+    let running = Version::parse(env!("CARGO_PKG_VERSION"))?;
+    let latest = newer_version::latest(newer_version::LATEST)
+        .await?
+        .as_deref()
+        .and_then(newer_version::version);
+    let Some(version) = latest.filter(|latest| latest.cmp_precedence(&running).is_gt()) else {
+        println!("SteamGauge {running} is the newest release");
+        return Ok(());
+    };
+    let local = dirs::data_local_dir()
+        .ok_or_else(|| anyhow::anyhow!("this system names no folder for the app's local data"))?
+        .join(update::IDENTIFIER);
+
+    println!("update      {running} to {version}");
+    let mut told = Instant::now();
+    let mut tell = |step: Step| match step {
+        Step::Downloading { done, total } => {
+            if told.elapsed() >= Duration::from_secs(2) || total == Some(done) {
+                match total {
+                    Some(total) => eprintln!(
+                        "  download  {} of {} bytes",
+                        thousands(done),
+                        thousands(total)
+                    ),
+                    None => eprintln!("  download  {} bytes", thousands(done)),
+                }
+                told = Instant::now();
+            }
+        }
+        Step::Verifying => println!("  verifying its build provenance"),
+        Step::Installing => println!("  installing"),
+    };
+    match update::run(&Folders::under(&local), &version, false, &mut tell).await {
+        Ok(Then::Exit) => {
+            println!("\nThe setup program is installing {version} once this copy has closed.");
+        }
+        Ok(Then::Restart) => println!("\n{version} is installed and runs from the next start."),
+        Err(stop) => match stop.file {
+            Some(file) => anyhow::bail!(
+                "{}. Nothing was installed; the verified file is {}",
+                stop.why,
+                file.display()
+            ),
+            None => anyhow::bail!("{}. Nothing was installed", stop.why),
+        },
+    }
     Ok(())
 }
 

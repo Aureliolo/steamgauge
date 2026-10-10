@@ -10,6 +10,7 @@
 
 mod cli;
 mod ui;
+mod update;
 
 /// Enough for the argument parser to build itself without inlining. Every subcommand and every
 /// argument is a nested builder call, so an unoptimised build walks far deeper than Windows
