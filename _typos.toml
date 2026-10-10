@@ -58,7 +58,7 @@ extend-ignore-re = [
 # Other projects' names, which are not ours to spell: serde's `Serialize` and the serialiser's
 # own trait and methods a value is written through by hand, sha2's `finalize`,
 # Node's and torch's `normalize`, torch's `synchronize`, scikit-learn's `analyzer`, the HTTP
-# `authorization` header, transformers' `DataCollatorForLanguageModeling` and NSIS's `StrCpy`.
+# `Authorization` header in each of the cases it is written in and its 401 status, transformers' `DataCollatorForLanguageModeling` and NSIS's `StrCpy`.
 Serialize = "Serialize"
 SerializeMap = "SerializeMap"
 Serializer = "Serializer"
@@ -76,6 +76,9 @@ normalize = "normalize"
 synchronize = "synchronize"
 analyzer = "analyzer"
 authorization = "authorization"
+Authorization = "Authorization"
+AUTHORIZATION = "AUTHORIZATION"
+UNAUTHORIZED = "UNAUTHORIZED"
 DataCollatorForLanguageModeling = "DataCollatorForLanguageModeling"
 StrCpy = "StrCpy"
 

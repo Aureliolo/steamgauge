@@ -609,7 +609,8 @@ button.link.small {
 /* Fields. */
 
 input[type='search'],
-input[type='text'] {
+input[type='text'],
+input[type='number'] {
   width: 100%;
   height: var(--control);
   padding: 0 var(--s3);
@@ -621,7 +622,8 @@ input[type='text'] {
 }
 
 input[type='search']:focus,
-input[type='text']:focus {
+input[type='text']:focus,
+input[type='number']:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
   outline: none;
@@ -3151,6 +3153,30 @@ legend + .setting {
 
 .setting.stacked {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Something to paste elsewhere: shown whole, wrapped anywhere, with its copy button beside it. */
+.copyable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.copyable code {
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding: var(--s2) var(--s3);
+  overflow-wrap: anywhere;
+}
+
+#http-port {
+  width: 7.5rem;
+}
+
+#http-problem {
+  margin: 0;
+  padding: 0 var(--s6) var(--s4);
 }
 
 .options {

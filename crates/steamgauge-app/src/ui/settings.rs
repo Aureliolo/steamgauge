@@ -38,7 +38,14 @@ pub struct Settings {
     pub read_after_download: bool,
     /// Whether the app asks GitHub, at most once a day, whether a newer `SteamGauge` is out.
     pub check_newer_version: bool,
+    /// Whether programs on this computer that connect to an MCP server over HTTP may steer the
+    /// app, with the token Settings shows, on 127.0.0.1 and `http_port`.
+    pub answer_over_http: bool,
+    pub http_port: u16,
 }
+
+/// The port the HTTP server answers on until another is chosen.
+pub const HTTP_PORT: u16 = 47_800;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -51,6 +58,8 @@ impl Default for Settings {
             notify_moves: false,
             read_after_download: true,
             check_newer_version: true,
+            answer_over_http: false,
+            http_port: HTTP_PORT,
         }
     }
 }
@@ -86,6 +95,10 @@ impl Settings {
         self.reader = self
             .reader
             .filter(|name| steamgauge_core::reader::Size::named(name).is_some());
+        // The ports below 1024 are the system's to give out.
+        if self.http_port < 1024 {
+            self.http_port = HTTP_PORT;
+        }
         self
     }
 
@@ -114,6 +127,10 @@ pub struct Shown {
     pub shares: [f64; 4],
     /// Where the library is, so a person knows where the gigabytes went.
     pub library: String,
+    /// What adds this copy to Claude Code.
+    pub claude_command: String,
+    /// How a client reaches the HTTP server, where it answers.
+    pub http: super::mcp_http::Reach,
 }
 
 #[tauri::command]
@@ -128,7 +145,16 @@ pub fn settings(app: AppHandle) -> Shown {
         search_every_game: steamgauge_core::meaning::Choice::load(&library).every_game,
         shares: SHARES,
         library: library.display().to_string(),
+        claude_command: super::mcp::claude_command(),
+        http: super::mcp_http::reach(&app),
     }
+}
+
+/// A new token for the HTTP server, which shuts out whoever held the old one.
+#[tauri::command]
+pub fn new_http_token(app: AppHandle) -> Result<Shown, String> {
+    super::mcp_http::new_token(&app)?;
+    Ok(settings(app))
 }
 
 #[tauri::command]
@@ -138,6 +164,7 @@ pub fn save_settings(
     search_every_game: bool,
 ) -> Result<Shown, String> {
     settings.checked().save(&app)?;
+    super::mcp_http::follow(&app);
     super::newer::check_in_background(&app);
     super::cockpit::check_when_due(&app);
     super::cockpit::keep_up_to_date(&app);
@@ -261,6 +288,26 @@ mod tests {
             !loaded.notify_moves,
             "a notification is something a person asks for"
         );
+        assert!(
+            !loaded.answer_over_http,
+            "a port other programs can reach is something a person asks for"
+        );
+        assert_eq!(loaded.http_port, HTTP_PORT);
+    }
+
+    #[test]
+    fn a_port_the_system_gives_out_is_not_taken() {
+        let checked = |http_port| {
+            Settings {
+                http_port,
+                ..Settings::default()
+            }
+            .checked()
+            .http_port
+        };
+        assert_eq!(checked(80), HTTP_PORT);
+        assert_eq!(checked(0), HTTP_PORT);
+        assert_eq!(checked(52_000), 52_000);
     }
 
     #[test]

@@ -5399,8 +5399,17 @@ to the user with a security descriptor of their own needs Windows calls the work
 as unsafe code, so the pipe's name is drawn at random at each start and written only into the
 user's local data folder: another user can neither find it nor create it first, Windows' default
 pipe security gives other users read access at most, which sends nothing, and pipes refuse other
-machines. Elsewhere the socket sits in a folder of mode 700. A loopback HTTP endpoint for clients
-that only speak HTTP is the other option the user chose, off until switched on.
+machines. Elsewhere the socket sits in a folder of mode 700. No installer puts `steamgauge` on
+the search path everywhere (the Windows setup and the macOS app do not), so Settings shows the
+`claude mcp add` command with the running copy's own path.
+
+The same tools answer over HTTP on 127.0.0.1 for clients that connect no other way, off until
+Settings switches it on, at port 47800 unless another is chosen. A loopback port is open to
+every program on the machine, browsers included, so it takes what the socket's folder gave
+for free from three checks: a 256-bit bearer token kept in the local data folder and compared in
+constant time, refusal of any request with an `Origin` header, and refusal of any `Host` but
+`127.0.0.1` or `localhost` at that port, against DNS rebinding. It serves while the app is open
+and does not keep a hidden app open: a client that needs the app started is the stdio one.
 
 ### A release is installers, and each is installed before it is signed (2026-10-03)
 

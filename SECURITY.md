@@ -130,6 +130,19 @@ for the app. Pipes refuse connections from other machines, and Windows gives oth
 access to a pipe at most, which cannot send a request. On macOS and Linux it listens on a socket
 file in a folder only you may enter, inside the app's data folder.
 
+Settings can also have the open app answer the same tools over HTTP, for a program that connects
+no other way. It is off until switched on. It listens on 127.0.0.1 alone, at the port chosen, so
+no other machine reaches it; but every program on this computer can reach a port there, a web
+page in a browser among them, so three checks stand in for the socket's folder:
+
+- every request has to carry a token, 256 bits drawn at random, in its `Authorization` header;
+  the token is kept in the app's local data folder, compared in constant time, and replaced with
+  **New token**, which shuts out whoever held the old one;
+- a request carrying an `Origin` header is refused, which is every request a browser sends on a
+  web page's behalf;
+- a request whose `Host` is not `127.0.0.1` or `localhost` at that port is refused, which is how a
+  web page that had its own name point at 127.0.0.1 would arrive.
+
 Tools that remove something are marked destructive and tools that only look are marked
 read-only, so a client that asks before acting knows which to ask about. What the tools return
 includes reviews, written by strangers: a client that takes text in a tool's answer for

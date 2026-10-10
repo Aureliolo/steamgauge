@@ -64,6 +64,30 @@ export function setUpSettings() {
   page('settings', el('settings'), load);
   el('settings-form').addEventListener('change', save);
 
+  for (const copier of el('settings').querySelectorAll('[data-copies]')) {
+    copier.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(el(copier.dataset.copies).textContent);
+        set(copier, 'Copied');
+      } catch {
+        set(copier, 'Select it to copy');
+      }
+      setTimeout(() => set(copier, 'Copy'), 2000);
+    });
+  }
+
+  el('new-http-token').addEventListener('click', async () => {
+    try {
+      shown = await invoke('new_http_token');
+      draw();
+      el('settings-note').classList.remove('bad');
+      set(el('settings-note'), 'A new token. Programs with the old one are shut out.');
+    } catch (failure) {
+      el('settings-note').classList.add('bad');
+      set(el('settings-note'), String(failure));
+    }
+  });
+
   async function load() {
     try {
       [shown, options] = await Promise.all([invoke('settings'), invoke('reader_options')]);
@@ -100,6 +124,15 @@ export function setUpSettings() {
     el('keep-up-to-date').disabled = !shown.check_steam;
     el('notify-moves').checked = shown.notify_moves;
     el('check-newer-version').checked = shown.check_newer_version;
+
+    set(el('claude-command'), shown.claude_command);
+    el('answer-over-http').checked = shown.answer_over_http;
+    el('http-port').value = String(shown.http_port);
+    el('http-reach').hidden = !shown.http.address;
+    set(el('http-address'), shown.http.address ?? '');
+    set(el('http-token'), shown.http.token ?? '');
+    el('http-problem').hidden = !shown.http.problem;
+    set(el('http-problem'), shown.http.problem ?? '');
   }
 
   async function save() {
@@ -116,6 +149,8 @@ export function setUpSettings() {
       notify_moves: el('notify-moves').checked,
       read_after_download: el('read-after-download').checked,
       check_newer_version: el('check-newer-version').checked,
+      answer_over_http: el('answer-over-http').checked,
+      http_port: Number.parseInt(el('http-port').value, 10) || shown.http_port,
     };
     try {
       shown = await invoke('save_settings', { settings, searchEveryGame: el('search-every-game').checked });

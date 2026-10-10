@@ -434,6 +434,31 @@ const PROBE = `(async function () {
   check('turning the question back on does not bring the notice back',
     last('save_settings').args.settings.check_newer_version === true && shown('newer-version'));
 
+  await go('settings');
+  check('Settings does not say how to add SteamGauge to Claude Code',
+    /^claude mcp add steamgauge -- ".*steamgauge\\.exe" mcp$/.test($('#claude-command').textContent));
+  check('answering over HTTP is on before anyone asked for it', !$('#answer-over-http').checked && !shown('http-reach'));
+  $('#answer-over-http').click();
+  await pause(250);
+  check('switching on HTTP is not saved', last('save_settings').args.settings.answer_over_http === true);
+  check('switched on, the address and token go unshown', shown('http-reach') &&
+    $('#http-address').textContent === 'http://127.0.0.1:47800/mcp' && $('#http-token').textContent === '0f'.repeat(32));
+  $('#new-http-token').click();
+  await pause(250);
+  check('a new token is not shown once drawn', called('new_http_token').length === 1 && $('#http-token').textContent === 'a1'.repeat(32));
+  $('#http-port').value = '47801';
+  $('#http-port').dispatchEvent(new Event('change', { bubbles: true }));
+  await pause(250);
+  check('a port another program holds goes unsaid', last('save_settings').args.settings.http_port === 47801 &&
+    shown('http-problem') && /another program has it/.test($('#http-problem').textContent) && !shown('http-reach'));
+  $('#http-port').value = '47800';
+  $('#http-port').dispatchEvent(new Event('change', { bubbles: true }));
+  $('#answer-over-http').click();
+  await pause(250);
+  check('switched off, the token is still shown', !shown('http-reach') && !shown('http-problem') &&
+    last('save_settings').args.settings.answer_over_http === false);
+  check('Settings does not fit its page', fits());
+
   await go('library');
   rows().filter(function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click();
   await pause(300);

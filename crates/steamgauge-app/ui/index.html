@@ -804,6 +804,55 @@
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>
             </fieldset>
+            <fieldset id="steering">
+              <legend>Other programs</legend>
+              <div class="setting stacked">
+                <div class="setting-text">
+                  <strong>Steer SteamGauge from Claude Code</strong>
+                  <span>Claude Code, and any other program that speaks the Model Context Protocol, can do anything this window can, and you see it done here. This command adds SteamGauge to Claude Code:</span>
+                </div>
+                <div class="copyable">
+                  <code id="claude-command"></code>
+                  <button type="button" class="quiet-button small" data-copies="claude-command">Copy</button>
+                </div>
+              </div>
+              <label class="setting" for="answer-over-http">
+                <span class="setting-text">
+                  <strong>Answer programs that connect over HTTP</strong>
+                  <span>For a program that cannot start SteamGauge itself. It answers on this computer only, while the app is open, and only a request that carries its token, which shows here once it is on.</span>
+                </span>
+                <input type="checkbox" class="switch" id="answer-over-http" />
+              </label>
+              <div class="setting">
+                <div class="setting-text">
+                  <strong>Port</strong>
+                  <span>On 127.0.0.1, the address only programs on this computer reach.</span>
+                </div>
+                <div>
+                  <label class="sr" for="http-port">Port the HTTP server answers on</label>
+                  <input type="number" id="http-port" min="1024" max="65535" step="1" />
+                </div>
+              </div>
+              <div class="setting stacked" id="http-reach" hidden>
+                <div class="setting-text">
+                  <strong>Address</strong>
+                </div>
+                <div class="copyable">
+                  <code id="http-address"></code>
+                  <button type="button" class="quiet-button small" data-copies="http-address">Copy</button>
+                </div>
+                <div class="setting-text">
+                  <strong>Token</strong>
+                  <span>Sent in each request's <code>Authorization</code> header after <code>Bearer</code>. A new token shuts out every program that has the old one.</span>
+                </div>
+                <div class="copyable">
+                  <code id="http-token"></code>
+                  <button type="button" class="quiet-button small" data-copies="http-token">Copy</button>
+                  <button type="button" class="quiet-button small" id="new-http-token">New token</button>
+                </div>
+              </div>
+              <p class="note bad" id="http-problem" role="status" hidden></p>
+            </fieldset>
           </form>
           <p class="note" id="settings-note" role="status" aria-live="polite"></p>
         </section>
