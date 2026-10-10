@@ -249,9 +249,11 @@ case "${target}" in
       "$(powershell_value "(Get-ItemProperty '${entry}').QuietUninstallString")" "\"${folder}\\uninstall.exe\" /S"
     step "Uninstalling silently" "${home}/uninstall.exe" //S
     # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
-    # the files are gone.
+    # the files are gone; and it removes the files before the entry in Apps, so both are waited
+    # for, or the entry is read in the moment between them.
     for _ in $(seq 60); do
-      [[ -e "${home}/steamgauge.exe" ]] || break
+      listed="$(powershell_value "Test-Path '${entry}'")"
+      [[ -e "${home}/steamgauge.exe" || "${listed}" != False ]] || break
       sleep 2
     done
     if [[ -e "${home}/steamgauge.exe" ]]; then
