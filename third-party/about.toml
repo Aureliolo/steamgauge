@@ -24,6 +24,8 @@ accepted = [
     # webpki-root-certs: the Mozilla root store, as data.
     "CDLA-Permissive-2.0",
     "Apache-2.0 WITH LLVM-exception",
+    # interprocess's recvmsg and doctest-file: use without conditions, not even a notice.
+    "0BSD",
 ]
 
 # What `cargo tree -e normal,build` lists for an archive, which is what the release checks the

@@ -107,12 +107,12 @@ impl Releases {
 }
 
 /// The groups a person sorts their games into.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 pub struct Groups {
     pub groups: Vec<Group>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 pub struct Group {
     pub name: String,
     pub app_ids: Vec<u32>,

@@ -9,6 +9,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod cli;
+mod mcp;
 mod ui;
 mod update;
 
@@ -19,7 +20,11 @@ mod update;
 const CLI_STACK: usize = 32 * 1024 * 1024;
 
 fn main() -> anyhow::Result<()> {
-    if std::env::args_os().nth(1).is_some() {
+    let first = std::env::args_os().nth(1);
+    if first.as_deref() == Some(mcp::WITHOUT_WINDOW.as_ref()) {
+        return ui::run(true);
+    }
+    if first.is_some() {
         // The window has to stay on the main thread; the pipeline does not, so only it moves.
         return std::thread::Builder::new()
             .stack_size(CLI_STACK)
@@ -28,5 +33,5 @@ fn main() -> anyhow::Result<()> {
             .join()
             .map_err(|_| anyhow::anyhow!("the command panicked"))?;
     }
-    ui::run()
+    ui::run(false)
 }

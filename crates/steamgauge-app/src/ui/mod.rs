@@ -8,6 +8,7 @@
 mod cockpit;
 mod data_export;
 mod game_updates;
+mod mcp;
 mod newer;
 mod settings;
 mod since;
@@ -230,13 +231,15 @@ const ART_RETRY: Duration = Duration::from_hours(24 * 7);
 /// the store had none when last asked.
 #[tauri::command]
 async fn art(app: AppHandle, app_id: u32) -> Result<tauri::ipc::Response, String> {
+    art_bytes(&app, app_id).await.map(tauri::ipc::Response::new)
+}
+
+async fn art_bytes(app: &AppHandle, app_id: u32) -> Result<Vec<u8>, String> {
     let folder = app.path().app_cache_dir().map_err(text)?.join("art");
     let kept = folder.join(app_id.to_string());
     if let Ok(found) = std::fs::metadata(&kept) {
         if found.len() > 0 {
-            return std::fs::read(&kept)
-                .map(tauri::ipc::Response::new)
-                .map_err(text);
+            return std::fs::read(&kept).map_err(text);
         }
         let recent = found
             .modified()
@@ -250,9 +253,7 @@ async fn art(app: AppHandle, app_id: u32) -> Result<tauri::ipc::Response, String
     let picture = store()?.header_art(app_id).await;
     std::fs::create_dir_all(&folder).map_err(text)?;
     std::fs::write(&kept, picture.as_deref().unwrap_or_default()).map_err(text)?;
-    picture
-        .map(tauri::ipc::Response::new)
-        .ok_or_else(|| format!("the store has no picture of app {app_id}"))
+    picture.ok_or_else(|| format!("the store has no picture of app {app_id}"))
 }
 
 /// One size somebody on a processor can choose, and about how long it would take them.
@@ -1246,19 +1247,35 @@ fn claims_using(
     Ok((total, wanted))
 }
 
+/// Opens the app, with its window shown unless `without_window`, which is how it is opened for
+/// a client of its MCP server alone.
+///
 /// # Errors
 ///
 /// Fails if the webview cannot be created, which on Linux means the system webview is
 /// missing and on Windows means `WebView2` is not installed.
-pub fn run() -> anyhow::Result<()> {
+pub fn run(without_window: bool) -> anyhow::Result<()> {
     tauri::Builder::default()
+        // First, so a second copy hands over before it starts anything of its own. Opened by a
+        // person it brings the window forward; opened for a client it only lets the client in.
+        .plugin(tauri_plugin_single_instance::init(|app, arguments, _| {
+            if !arguments
+                .iter()
+                .any(|argument| argument == crate::mcp::WITHOUT_WINDOW)
+            {
+                mcp::bring_forward(app);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .manage(LastSearch::default())
         .manage(Meaning::default())
         .manage(work::Work::default())
         .manage(update::Updating::default())
         .manage(since::Baseline::default())
-        .setup(|app| {
+        .manage(mcp::Clients::default())
+        .on_window_event(mcp::on_window_event)
+        .setup(move |app| {
+            mcp::start(app.handle(), without_window);
             update::tidy(app.handle());
             since::remember(app.handle());
             work::start(app.handle());

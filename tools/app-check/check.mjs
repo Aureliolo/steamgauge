@@ -142,6 +142,26 @@ const PROBE = `(async function () {
   check('a notification clicked does not open the game it named', shown('game') && /Beta/.test($('#game-name').textContent));
   await go('cockpit');
 
+  window.__stub.send('show', { page: 'library' });
+  await pause(300);
+  check('a client asking to show the library does not get it', shown('library') &&
+    $('[data-go="library"]').getAttribute('aria-current') === 'page');
+  window.__stub.send('show', { page: 'game', app_id: 2 });
+  await pause(300);
+  check('a client asking to show a game does not get its page', shown('game') && /Beta/.test($('#game-name').textContent));
+  window.__stub.send('show', { page: 'subject', app_id: 1, subject: 'story', side: 'praise' });
+  await pause(400);
+  check('a client asking to show a subject does not get its reviews', shown('evidence') &&
+    $('#evidence-name').textContent === 'Story');
+  window.__stub.send('show', { page: 'settings' });
+  await pause(300);
+  check('a client asking to show the settings does not get them', shown('settings'));
+  var asked = called('settings').length;
+  window.__stub.send('steered', null);
+  await pause(300);
+  check('a change a client made is not drawn on the page showing', called('settings').length === asked + 1);
+  await go('cockpit');
+
   var release = 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.2.0';
   check('a newer version kept from the last question is not announced at opening', shown('newer-version'));
   check('the notice does not name the newer version', /SteamGauge 0\\.2\\.0 is out/.test($('#newer-version').textContent));
