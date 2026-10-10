@@ -76,12 +76,12 @@ jobs:
           set -euo pipefail
           version="${TAG#v}"
           listed="$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --exclude-pre-releases \
-            --limit 1000 --json tagName --jq '.[].tagName')"
-          if ! grep -qx "v${version}" <<< "${listed}"; then
+            --limit 1000 --json tagName --jq '.[].tagName | ltrimstr("v")')"
+          if ! grep -qxF "${version}" <<< "${listed}"; then
             echo "::error::${TAG} is not a published release."
             exit 1
           fi
-          previous="$(sed 's/^v//' <<< "${listed}" | sort -V | awk -v version="${version}" '$0 == version { print before; exit } { before = $0 }')"
+          previous="$(sort -V <<< "${listed}" | awk -v version="${version}" '$0 == version { print before; exit } { before = $0 }')"
           if [[ -z "${previous}" ]]; then
             echo "::notice::${TAG} is the first release, so there is nothing to update from."
             echo "check=false" >> "${GITHUB_OUTPUT}"
