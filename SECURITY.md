@@ -69,7 +69,9 @@ certificate authority has been paid.
 
 Windows builds are to carry a SignPath Foundation signature, which chains to a CA Windows
 trusts, once the project is enrolled; until then they carry provenance only. macOS has no free
-certificate authority, so its builds carry provenance only.
+certificate authority, so its builds carry provenance only. The macOS app is sealed ad hoc, with
+no identity at all: `codesign --verify --deep --strict` on it says no file in the bundle has
+changed since the build, and nothing about who built it, which is what provenance answers.
 
 ## Updates from the window
 

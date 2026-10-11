@@ -153,6 +153,9 @@ case "${kind}" in
     ;;
   linux-archive)
     archive="$(verified "steamgauge-${previous}-x86_64-linux-gnu.tar.gz")"
+    # What the .deb names as its dependencies, which a person running the archive has installed.
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-0 libgtk-3-0
     apps="$(mktemp -d)"
     tar -xzf "${archive}" -C "${apps}"
     folder="${apps}/steamgauge-${previous}-x86_64-linux-gnu"
