@@ -410,8 +410,8 @@ const SMALL_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
-        sha256: "c513b0ff44451f41755edb83bf7c1615c9ba22eb67403bce1185e49c62731d7e",
-        bytes: 2_176,
+        sha256: "857a5c6f12bd736d516a6e0e8ee1cddc643bd71def9276152c19c8de30350a1c",
+        bytes: 2_068,
     },
 ];
 const STANDARD_FILES: [crate::model::Asset; 3] = [
@@ -430,8 +430,8 @@ const STANDARD_FILES: [crate::model::Asset; 3] = [
     crate::model::Asset {
         remote: "reader.json",
         local: "reader.json",
-        sha256: "ec4d27b7e791a1ea7e5dccb02183a16cc0cb405d71bf281327cc60857879bbf1",
-        bytes: 2_183,
+        sha256: "ad8ac3836eb45eed07ec20eb2e6ca77f8a1acbb2c0f1ff38dc3be4c5f6af0a0e",
+        bytes: 2_075,
     },
 ];
 
@@ -447,8 +447,8 @@ pub const SIZES: &[Size] = &[
         processor_seconds: 36.0,
         published: Published {
             repository: "Aureliolo/game-review-reader-small",
-            revision: "7cc57fb55dfee066b8e0ce2370d98afb05a753ab",
-            release: "v1",
+            revision: "cdaef258b8a2d848e131a5d355f676d11d8b34b4",
+            release: "v2",
             hub: crate::model::HUB,
             files: &SMALL_FILES,
         },
@@ -460,8 +460,8 @@ pub const SIZES: &[Size] = &[
         processor_seconds: 284.9,
         published: Published {
             repository: "Aureliolo/game-review-reader",
-            revision: "91d3912188d772f60008c084bf9af80020e404bc",
-            release: "v1",
+            revision: "c50298ecb7bc5dd5be74fe5af9f0a5a7daf9c696",
+            release: "v2",
             hub: crate::model::HUB,
             files: &STANDARD_FILES,
         },

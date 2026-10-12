@@ -58,8 +58,8 @@ pub struct Model {
 pub const ENCODER: Model = Model {
     name: "search-encoder",
     repository: "Aureliolo/steamgauge-search-encoder",
-    revision: "c09c77b972e610a01a628e91395b427193f455fa",
-    release: "v1",
+    revision: "16bca4a1475978f6caedd42043cfc2b9662d459e",
+    release: "v2",
     hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
@@ -78,8 +78,8 @@ pub const ENCODER: Model = Model {
 pub const RERANKER: Model = Model {
     name: "search-reranker",
     repository: "Aureliolo/steamgauge-search-reranker",
-    revision: "977b6ea57a5559c7931f55f1351ee8e795d4cb4e",
-    release: "v1",
+    revision: "501b54dfdea76af2b4b1a8ad2981514e54de7bc0",
+    release: "v2",
     hub: model::HUB,
     graph: Asset {
         remote: "model.onnx",
