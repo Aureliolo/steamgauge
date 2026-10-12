@@ -1,0 +1,3898 @@
+[
+ {
+  "id": "0000",
+  "app_id": 1809540,
+  "review_id": "167220320",
+  "claim_index": 3,
+  "subject": "accessibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0001",
+  "app_id": 1809540,
+  "review_id": "199179105",
+  "claim_index": 0,
+  "subject": "tutorial",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0002",
+  "app_id": 1274570,
+  "review_id": "108079378",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0003",
+  "app_id": 1222670,
+  "review_id": "135194287",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0004",
+  "app_id": 1222670,
+  "review_id": "141006350",
+  "claim_index": 5,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0005",
+  "app_id": 214490,
+  "review_id": "83579712",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0006",
+  "app_id": 2881650,
+  "review_id": "164734070",
+  "claim_index": 0,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0007",
+  "app_id": 774361,
+  "review_id": "230863019",
+  "claim_index": 0,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0008",
+  "app_id": 774361,
+  "review_id": "206364789",
+  "claim_index": 0,
+  "subject": "gameplay",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0009",
+  "app_id": 2881650,
+  "review_id": "162065562",
+  "claim_index": 51,
+  "subject": "bugs",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0010",
+  "app_id": 920210,
+  "review_id": "171917952",
+  "claim_index": 0,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0011",
+  "app_id": 2881650,
+  "review_id": "162065562",
+  "claim_index": 20,
+  "subject": "compatibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0012",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 3,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0013",
+  "app_id": 920210,
+  "review_id": "154003506",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0014",
+  "app_id": 1809540,
+  "review_id": "182146247",
+  "claim_index": 1,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0015",
+  "app_id": 774361,
+  "review_id": "150261449",
+  "claim_index": 2,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0016",
+  "app_id": 920210,
+  "review_id": "113646879",
+  "claim_index": 1,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0017",
+  "app_id": 1222670,
+  "review_id": "167291934",
+  "claim_index": 9,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0018",
+  "app_id": 1222670,
+  "review_id": "132904154",
+  "claim_index": 18,
+  "subject": "price",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0019",
+  "app_id": 920210,
+  "review_id": "129570365",
+  "claim_index": 13,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0020",
+  "app_id": 774361,
+  "review_id": "58082299",
+  "claim_index": 4,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0021",
+  "app_id": 214490,
+  "review_id": "32221460",
+  "claim_index": 3,
+  "subject": "performance",
+  "polarity": "praise"
+ },
+ {
+  "id": "0022",
+  "app_id": 1222670,
+  "review_id": "229396848",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0023",
+  "app_id": 1222670,
+  "review_id": "125672844",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0024",
+  "app_id": 1222670,
+  "review_id": "96240702",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0025",
+  "app_id": 620980,
+  "review_id": "147781991",
+  "claim_index": 1,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0026",
+  "app_id": 1057090,
+  "review_id": "104766938",
+  "claim_index": 1,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0027",
+  "app_id": 920210,
+  "review_id": "113420470",
+  "claim_index": 18,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0028",
+  "app_id": 1222670,
+  "review_id": "135511235",
+  "claim_index": 4,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0029",
+  "app_id": 1466860,
+  "review_id": "165269954",
+  "claim_index": 8,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0030",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 6,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0031",
+  "app_id": 774361,
+  "review_id": "182968060",
+  "claim_index": 0,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0032",
+  "app_id": 214490,
+  "review_id": "220818239",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0033",
+  "app_id": 214490,
+  "review_id": "34545630",
+  "claim_index": 2,
+  "subject": "vr",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0034",
+  "app_id": 920210,
+  "review_id": "178709827",
+  "claim_index": 4,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0035",
+  "app_id": 620980,
+  "review_id": "188154808",
+  "claim_index": 0,
+  "subject": "vr",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0036",
+  "app_id": 214490,
+  "review_id": "142410719",
+  "claim_index": 2,
+  "subject": "tutorial",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0037",
+  "app_id": 214490,
+  "review_id": "33408167",
+  "claim_index": 5,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0038",
+  "app_id": 1222670,
+  "review_id": "132083614",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0039",
+  "app_id": 1466860,
+  "review_id": "101777927",
+  "claim_index": 7,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0040",
+  "app_id": 1466860,
+  "review_id": "155647901",
+  "claim_index": 3,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0041",
+  "app_id": 920210,
+  "review_id": "113423049",
+  "claim_index": 3,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0042",
+  "app_id": 1222670,
+  "review_id": "132904154",
+  "claim_index": 16,
+  "subject": "price",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0043",
+  "app_id": 1057090,
+  "review_id": "64973373",
+  "claim_index": 2,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0044",
+  "app_id": 1274570,
+  "review_id": "208158701",
+  "claim_index": 0,
+  "subject": "community",
+  "polarity": "praise"
+ },
+ {
+  "id": "0045",
+  "app_id": 774361,
+  "review_id": "92471244",
+  "claim_index": 5,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0046",
+  "app_id": 1466860,
+  "review_id": "191401460",
+  "claim_index": 0,
+  "subject": "community",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0047",
+  "app_id": 920210,
+  "review_id": "202537736",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0048",
+  "app_id": 774361,
+  "review_id": "170084218",
+  "claim_index": 6,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0049",
+  "app_id": 214490,
+  "review_id": "34545630",
+  "claim_index": 4,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0050",
+  "app_id": 920210,
+  "review_id": "114864965",
+  "claim_index": 1,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0051",
+  "app_id": 1222670,
+  "review_id": "180615825",
+  "claim_index": 4,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0052",
+  "app_id": 1466860,
+  "review_id": "133172306",
+  "claim_index": 18,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0053",
+  "app_id": 1809540,
+  "review_id": "184038216",
+  "claim_index": 3,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0054",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 4,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0055",
+  "app_id": 774361,
+  "review_id": "65722628",
+  "claim_index": 67,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0056",
+  "app_id": 214490,
+  "review_id": "12457241",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0057",
+  "app_id": 1809540,
+  "review_id": "220760956",
+  "claim_index": 0,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0058",
+  "app_id": 1809540,
+  "review_id": "166608041",
+  "claim_index": 5,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0059",
+  "app_id": 1809540,
+  "review_id": "170969628",
+  "claim_index": 0,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0060",
+  "app_id": 920210,
+  "review_id": "113956482",
+  "claim_index": 0,
+  "subject": "content",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0061",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 10,
+  "subject": "atmosphere",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0062",
+  "app_id": 1809540,
+  "review_id": "185595972",
+  "claim_index": 20,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0063",
+  "app_id": 1466860,
+  "review_id": "107305342",
+  "claim_index": 0,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0064",
+  "app_id": 620980,
+  "review_id": "96840928",
+  "claim_index": 4,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0065",
+  "app_id": 1222670,
+  "review_id": "132904154",
+  "claim_index": 4,
+  "subject": "graphics",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0066",
+  "app_id": 1057090,
+  "review_id": "134449121",
+  "claim_index": 0,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0067",
+  "app_id": 774361,
+  "review_id": "216455266",
+  "claim_index": 4,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0068",
+  "app_id": 620980,
+  "review_id": "42304807",
+  "claim_index": 5,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0069",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 14,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0070",
+  "app_id": 2881650,
+  "review_id": "162050825",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0071",
+  "app_id": 774361,
+  "review_id": "91944448",
+  "claim_index": 62,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0072",
+  "app_id": 214490,
+  "review_id": "21005955",
+  "claim_index": 1,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0073",
+  "app_id": 1809540,
+  "review_id": "166262997",
+  "claim_index": 9,
+  "subject": "accessibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0074",
+  "app_id": 214490,
+  "review_id": "140129620",
+  "claim_index": 2,
+  "subject": "performance",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0075",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 21,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0076",
+  "app_id": 920210,
+  "review_id": "113424830",
+  "claim_index": 8,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0077",
+  "app_id": 1057090,
+  "review_id": "64871547",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0078",
+  "app_id": 920210,
+  "review_id": "117149774",
+  "claim_index": 7,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0079",
+  "app_id": 620980,
+  "review_id": "67563106",
+  "claim_index": 1,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0080",
+  "app_id": 920210,
+  "review_id": "113420470",
+  "claim_index": 13,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0081",
+  "app_id": 1222670,
+  "review_id": "219183600",
+  "claim_index": 11,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0082",
+  "app_id": 1274570,
+  "review_id": "144815469",
+  "claim_index": 2,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0083",
+  "app_id": 774361,
+  "review_id": "106863233",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0084",
+  "app_id": 214490,
+  "review_id": "25128455",
+  "claim_index": 11,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0085",
+  "app_id": 920210,
+  "review_id": "178193596",
+  "claim_index": 7,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0086",
+  "app_id": 1466860,
+  "review_id": "131134631",
+  "claim_index": 1,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0087",
+  "app_id": 620980,
+  "review_id": "85790695",
+  "claim_index": 1,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0088",
+  "app_id": 620980,
+  "review_id": "109281469",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0089",
+  "app_id": 1222670,
+  "review_id": "79126891",
+  "claim_index": 29,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0090",
+  "app_id": 214490,
+  "review_id": "33110785",
+  "claim_index": 10,
+  "subject": "story",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0091",
+  "app_id": 1222670,
+  "review_id": "132904154",
+  "claim_index": 25,
+  "subject": "content",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0092",
+  "app_id": 920210,
+  "review_id": "113420470",
+  "claim_index": 8,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0093",
+  "app_id": 1809540,
+  "review_id": "177036325",
+  "claim_index": 7,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0094",
+  "app_id": 1057090,
+  "review_id": "162984987",
+  "claim_index": 0,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0095",
+  "app_id": 1222670,
+  "review_id": "120840609",
+  "claim_index": 1,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0096",
+  "app_id": 1057090,
+  "review_id": "125247497",
+  "claim_index": 0,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0097",
+  "app_id": 1809540,
+  "review_id": "175966190",
+  "claim_index": 4,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0098",
+  "app_id": 774361,
+  "review_id": "106863233",
+  "claim_index": 11,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0099",
+  "app_id": 1222670,
+  "review_id": "149018409",
+  "claim_index": 3,
+  "subject": "content",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0100",
+  "app_id": 1809540,
+  "review_id": "182756344",
+  "claim_index": 11,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0101",
+  "app_id": 620980,
+  "review_id": "49707484",
+  "claim_index": 1,
+  "subject": "mods",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0102",
+  "app_id": 920210,
+  "review_id": "115700615",
+  "claim_index": 1,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0103",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 44,
+  "subject": "controls",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0104",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 49,
+  "subject": "performance",
+  "polarity": "praise"
+ },
+ {
+  "id": "0105",
+  "app_id": 1057090,
+  "review_id": "68336737",
+  "claim_index": 2,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0106",
+  "app_id": 920210,
+  "review_id": "129570365",
+  "claim_index": 4,
+  "subject": "story",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0107",
+  "app_id": 920210,
+  "review_id": "115870346",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0108",
+  "app_id": 920210,
+  "review_id": "113419942",
+  "claim_index": 11,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0109",
+  "app_id": 920210,
+  "review_id": "214434155",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0110",
+  "app_id": 1222670,
+  "review_id": "79126891",
+  "claim_index": 12,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0111",
+  "app_id": 214490,
+  "review_id": "57710424",
+  "claim_index": 2,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0112",
+  "app_id": 620980,
+  "review_id": "77723248",
+  "claim_index": 2,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0113",
+  "app_id": 2881650,
+  "review_id": "162756872",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0114",
+  "app_id": 214490,
+  "review_id": "98568307",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0115",
+  "app_id": 620980,
+  "review_id": "77723248",
+  "claim_index": 3,
+  "subject": "updates",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0116",
+  "app_id": 620980,
+  "review_id": "187535497",
+  "claim_index": 6,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0117",
+  "app_id": 2881650,
+  "review_id": "192820771",
+  "claim_index": 4,
+  "subject": "updates",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0118",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 2,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0119",
+  "app_id": 1274570,
+  "review_id": "114606396",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0120",
+  "app_id": 1222670,
+  "review_id": "83974161",
+  "claim_index": 8,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0121",
+  "app_id": 1466860,
+  "review_id": "160235951",
+  "claim_index": 3,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0122",
+  "app_id": 1274570,
+  "review_id": "137180365",
+  "claim_index": 1,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0123",
+  "app_id": 1466860,
+  "review_id": "121493643",
+  "claim_index": 10,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0124",
+  "app_id": 1466860,
+  "review_id": "103151704",
+  "claim_index": 14,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0125",
+  "app_id": 1466860,
+  "review_id": "101777927",
+  "claim_index": 18,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0126",
+  "app_id": 214490,
+  "review_id": "14198899",
+  "claim_index": 5,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0127",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 15,
+  "subject": "updates",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0128",
+  "app_id": 1466860,
+  "review_id": "136831542",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0129",
+  "app_id": 1222670,
+  "review_id": "120857342",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0130",
+  "app_id": 1466860,
+  "review_id": "165269954",
+  "claim_index": 1,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0131",
+  "app_id": 920210,
+  "review_id": "125366041",
+  "claim_index": 3,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0132",
+  "app_id": 774361,
+  "review_id": "57770770",
+  "claim_index": 0,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0133",
+  "app_id": 620980,
+  "review_id": "41910010",
+  "claim_index": 0,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0134",
+  "app_id": 1809540,
+  "review_id": "197545108",
+  "claim_index": 11,
+  "subject": "accessibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0135",
+  "app_id": 1222670,
+  "review_id": "109255941",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0136",
+  "app_id": 920210,
+  "review_id": "113487577",
+  "claim_index": 3,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0137",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 41,
+  "subject": "accessibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0138",
+  "app_id": 214490,
+  "review_id": "21005955",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0139",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 53,
+  "subject": "audio",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0140",
+  "app_id": 214490,
+  "review_id": "50909492",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0141",
+  "app_id": 1222670,
+  "review_id": "150136183",
+  "claim_index": 1,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0142",
+  "app_id": 1466860,
+  "review_id": "102519660",
+  "claim_index": 2,
+  "subject": "community",
+  "polarity": "praise"
+ },
+ {
+  "id": "0143",
+  "app_id": 920210,
+  "review_id": "113730461",
+  "claim_index": 5,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0144",
+  "app_id": 620980,
+  "review_id": "187535497",
+  "claim_index": 4,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0145",
+  "app_id": 214490,
+  "review_id": "78247046",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0146",
+  "app_id": 1274570,
+  "review_id": "141695067",
+  "claim_index": 1,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0147",
+  "app_id": 920210,
+  "review_id": "113404112",
+  "claim_index": 13,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0148",
+  "app_id": 920210,
+  "review_id": "115096203",
+  "claim_index": 5,
+  "subject": "audio",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0149",
+  "app_id": 2881650,
+  "review_id": "220781987",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0150",
+  "app_id": 1222670,
+  "review_id": "138071178",
+  "claim_index": 0,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0151",
+  "app_id": 774361,
+  "review_id": "102687472",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0152",
+  "app_id": 214490,
+  "review_id": "92550030",
+  "claim_index": 12,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0153",
+  "app_id": 920210,
+  "review_id": "113419942",
+  "claim_index": 9,
+  "subject": "compatibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0154",
+  "app_id": 774361,
+  "review_id": "122441644",
+  "claim_index": 2,
+  "subject": "updates",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0155",
+  "app_id": 1274570,
+  "review_id": "119528578",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0156",
+  "app_id": 214490,
+  "review_id": "60618705",
+  "claim_index": 1,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0157",
+  "app_id": 1274570,
+  "review_id": "99844945",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0158",
+  "app_id": 920210,
+  "review_id": "156408959",
+  "claim_index": 0,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0159",
+  "app_id": 920210,
+  "review_id": "113872673",
+  "claim_index": 2,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0160",
+  "app_id": 2881650,
+  "review_id": "181274134",
+  "claim_index": 1,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0161",
+  "app_id": 1809540,
+  "review_id": "166608041",
+  "claim_index": 6,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0162",
+  "app_id": 1222670,
+  "review_id": "167291934",
+  "claim_index": 11,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0163",
+  "app_id": 1274570,
+  "review_id": "221963056",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0164",
+  "app_id": 1466860,
+  "review_id": "101777927",
+  "claim_index": 3,
+  "subject": "language",
+  "polarity": "praise"
+ },
+ {
+  "id": "0165",
+  "app_id": 1466860,
+  "review_id": "102288701",
+  "claim_index": 2,
+  "subject": "mods",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0166",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 53,
+  "subject": "language",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0167",
+  "app_id": 1057090,
+  "review_id": "72871111",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0168",
+  "app_id": 1809540,
+  "review_id": "196022141",
+  "claim_index": 6,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0169",
+  "app_id": 1466860,
+  "review_id": "101883864",
+  "claim_index": 4,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0170",
+  "app_id": 1274570,
+  "review_id": "171132860",
+  "claim_index": 1,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0171",
+  "app_id": 620980,
+  "review_id": "86318216",
+  "claim_index": 0,
+  "subject": "vr",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0172",
+  "app_id": 214490,
+  "review_id": "25128455",
+  "claim_index": 18,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0173",
+  "app_id": 1222670,
+  "review_id": "149018409",
+  "claim_index": 6,
+  "subject": "updates",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0174",
+  "app_id": 1222670,
+  "review_id": "234107851",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0175",
+  "app_id": 920210,
+  "review_id": "118195822",
+  "claim_index": 32,
+  "subject": "performance",
+  "polarity": "praise"
+ },
+ {
+  "id": "0176",
+  "app_id": 1809540,
+  "review_id": "193733874",
+  "claim_index": 7,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0177",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 24,
+  "subject": "gameplay",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0178",
+  "app_id": 774361,
+  "review_id": "65722628",
+  "claim_index": 15,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0179",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 37,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0180",
+  "app_id": 1274570,
+  "review_id": "105160439",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0181",
+  "app_id": 774361,
+  "review_id": "85716999",
+  "claim_index": 4,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0182",
+  "app_id": 1466860,
+  "review_id": "113487436",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0183",
+  "app_id": 920210,
+  "review_id": "183430717",
+  "claim_index": 2,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0184",
+  "app_id": 214490,
+  "review_id": "92550030",
+  "claim_index": 19,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0185",
+  "app_id": 1809540,
+  "review_id": "186516056",
+  "claim_index": 2,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0186",
+  "app_id": 1222670,
+  "review_id": "132904154",
+  "claim_index": 8,
+  "subject": "audio",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0187",
+  "app_id": 1222670,
+  "review_id": "173442444",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0188",
+  "app_id": 774361,
+  "review_id": "65722628",
+  "claim_index": 39,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0189",
+  "app_id": 1222670,
+  "review_id": "186467282",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0190",
+  "app_id": 1057090,
+  "review_id": "64856177",
+  "claim_index": 3,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0191",
+  "app_id": 620980,
+  "review_id": "163338520",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0192",
+  "app_id": 1222670,
+  "review_id": "167291934",
+  "claim_index": 7,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0193",
+  "app_id": 620980,
+  "review_id": "116991728",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0194",
+  "app_id": 214490,
+  "review_id": "16658846",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0195",
+  "app_id": 620980,
+  "review_id": "110738536",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0196",
+  "app_id": 1222670,
+  "review_id": "221679109",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0197",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 37,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0198",
+  "app_id": 1809540,
+  "review_id": "190509477",
+  "claim_index": 14,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0199",
+  "app_id": 920210,
+  "review_id": "113424830",
+  "claim_index": 3,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0200",
+  "app_id": 2881650,
+  "review_id": "162266767",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0201",
+  "app_id": 1057090,
+  "review_id": "134698098",
+  "claim_index": 2,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0202",
+  "app_id": 920210,
+  "review_id": "129570365",
+  "claim_index": 12,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0203",
+  "app_id": 920210,
+  "review_id": "143240171",
+  "claim_index": 1,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0204",
+  "app_id": 920210,
+  "review_id": "113416280",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0205",
+  "app_id": 214490,
+  "review_id": "115603843",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0206",
+  "app_id": 1222670,
+  "review_id": "87466043",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0207",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 24,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0208",
+  "app_id": 920210,
+  "review_id": "113450811",
+  "claim_index": 1,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0209",
+  "app_id": 920210,
+  "review_id": "113880638",
+  "claim_index": 1,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0210",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 42,
+  "subject": "accessibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0211",
+  "app_id": 214490,
+  "review_id": "18699546",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0212",
+  "app_id": 1222670,
+  "review_id": "170334716",
+  "claim_index": 11,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0213",
+  "app_id": 1274570,
+  "review_id": "206910012",
+  "claim_index": 0,
+  "subject": "community",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0214",
+  "app_id": 1222670,
+  "review_id": "145246161",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0215",
+  "app_id": 1057090,
+  "review_id": "111172503",
+  "claim_index": 3,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0216",
+  "app_id": 214490,
+  "review_id": "78621636",
+  "claim_index": 0,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0217",
+  "app_id": 1809540,
+  "review_id": "166375271",
+  "claim_index": 6,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0218",
+  "app_id": 1222670,
+  "review_id": "229633389",
+  "claim_index": 0,
+  "subject": "updates",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0219",
+  "app_id": 1809540,
+  "review_id": "167718780",
+  "claim_index": 1,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0220",
+  "app_id": 620980,
+  "review_id": "69808440",
+  "claim_index": 4,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0221",
+  "app_id": 1466860,
+  "review_id": "101863842",
+  "claim_index": 3,
+  "subject": "graphics",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0222",
+  "app_id": 1466860,
+  "review_id": "121041040",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0223",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 51,
+  "subject": "performance",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0224",
+  "app_id": 1222670,
+  "review_id": "125881955",
+  "claim_index": 7,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0225",
+  "app_id": 2881650,
+  "review_id": "181274134",
+  "claim_index": 0,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0226",
+  "app_id": 920210,
+  "review_id": "178193596",
+  "claim_index": 13,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0227",
+  "app_id": 1809540,
+  "review_id": "166375271",
+  "claim_index": 5,
+  "subject": "gameplay",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0228",
+  "app_id": 1466860,
+  "review_id": "102420659",
+  "claim_index": 31,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0229",
+  "app_id": 2881650,
+  "review_id": "193271499",
+  "claim_index": 0,
+  "subject": "price",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0230",
+  "app_id": 1466860,
+  "review_id": "138077427",
+  "claim_index": 4,
+  "subject": "mods",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0231",
+  "app_id": 920210,
+  "review_id": "157139078",
+  "claim_index": 0,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0232",
+  "app_id": 214490,
+  "review_id": "142410719",
+  "claim_index": 5,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0233",
+  "app_id": 214490,
+  "review_id": "18039218",
+  "claim_index": 13,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0234",
+  "app_id": 1809540,
+  "review_id": "182756344",
+  "claim_index": 6,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0235",
+  "app_id": 920210,
+  "review_id": "116341355",
+  "claim_index": 2,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0236",
+  "app_id": 920210,
+  "review_id": "114858911",
+  "claim_index": 1,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0237",
+  "app_id": 1222670,
+  "review_id": "79126891",
+  "claim_index": 36,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0238",
+  "app_id": 774361,
+  "review_id": "230082583",
+  "claim_index": 0,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0239",
+  "app_id": 1222670,
+  "review_id": "112466319",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0240",
+  "app_id": 214490,
+  "review_id": "196006109",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0241",
+  "app_id": 214490,
+  "review_id": "33110785",
+  "claim_index": 18,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0242",
+  "app_id": 1057090,
+  "review_id": "151170992",
+  "claim_index": 1,
+  "subject": "accessibility",
+  "polarity": "praise"
+ },
+ {
+  "id": "0243",
+  "app_id": 1057090,
+  "review_id": "78456171",
+  "claim_index": 2,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0244",
+  "app_id": 214490,
+  "review_id": "78621636",
+  "claim_index": 1,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0245",
+  "app_id": 1222670,
+  "review_id": "142594325",
+  "claim_index": 0,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0246",
+  "app_id": 920210,
+  "review_id": "113618978",
+  "claim_index": 0,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0247",
+  "app_id": 920210,
+  "review_id": "114240895",
+  "claim_index": 0,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0248",
+  "app_id": 214490,
+  "review_id": "25128455",
+  "claim_index": 8,
+  "subject": "graphics",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0249",
+  "app_id": 920210,
+  "review_id": "160039637",
+  "claim_index": 2,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0250",
+  "app_id": 214490,
+  "review_id": "18039218",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0251",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 24,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0252",
+  "app_id": 1222670,
+  "review_id": "221679109",
+  "claim_index": 1,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0253",
+  "app_id": 920210,
+  "review_id": "116124627",
+  "claim_index": 0,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0254",
+  "app_id": 1466860,
+  "review_id": "139653273",
+  "claim_index": 2,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0255",
+  "app_id": 1809540,
+  "review_id": "185595972",
+  "claim_index": 6,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0256",
+  "app_id": 920210,
+  "review_id": "129892723",
+  "claim_index": 5,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0257",
+  "app_id": 1222670,
+  "review_id": "120840609",
+  "claim_index": 0,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0258",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 33,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0259",
+  "app_id": 214490,
+  "review_id": "146139457",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0260",
+  "app_id": 214490,
+  "review_id": "31149747",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0261",
+  "app_id": 920210,
+  "review_id": "155090363",
+  "claim_index": 1,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0262",
+  "app_id": 1466860,
+  "review_id": "212355242",
+  "claim_index": 2,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0263",
+  "app_id": 1057090,
+  "review_id": "130632808",
+  "claim_index": 1,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0264",
+  "app_id": 1057090,
+  "review_id": "68336737",
+  "claim_index": 0,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0265",
+  "app_id": 920210,
+  "review_id": "113424387",
+  "claim_index": 3,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0266",
+  "app_id": 1809540,
+  "review_id": "200357752",
+  "claim_index": 0,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0267",
+  "app_id": 920210,
+  "review_id": "129892723",
+  "claim_index": 0,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0268",
+  "app_id": 920210,
+  "review_id": "113880638",
+  "claim_index": 2,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0269",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 56,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0270",
+  "app_id": 920210,
+  "review_id": "151465279",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0271",
+  "app_id": 1057090,
+  "review_id": "67064663",
+  "claim_index": 1,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0272",
+  "app_id": 1057090,
+  "review_id": "130632808",
+  "claim_index": 2,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0273",
+  "app_id": 920210,
+  "review_id": "113445385",
+  "claim_index": 7,
+  "subject": "genre",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0274",
+  "app_id": 214490,
+  "review_id": "57710424",
+  "claim_index": 6,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0275",
+  "app_id": 1222670,
+  "review_id": "160869737",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0276",
+  "app_id": 1466860,
+  "review_id": "102438569",
+  "claim_index": 3,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0277",
+  "app_id": 620980,
+  "review_id": "80618353",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0278",
+  "app_id": 620980,
+  "review_id": "41862579",
+  "claim_index": 2,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0279",
+  "app_id": 2881650,
+  "review_id": "169441523",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0280",
+  "app_id": 1222670,
+  "review_id": "170624479",
+  "claim_index": 1,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0281",
+  "app_id": 920210,
+  "review_id": "113424387",
+  "claim_index": 4,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0282",
+  "app_id": 1466860,
+  "review_id": "165269954",
+  "claim_index": 2,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0283",
+  "app_id": 620980,
+  "review_id": "212526456",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0284",
+  "app_id": 920210,
+  "review_id": "113398011",
+  "claim_index": 2,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0285",
+  "app_id": 1222670,
+  "review_id": "83974161",
+  "claim_index": 7,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0286",
+  "app_id": 1274570,
+  "review_id": "93372331",
+  "claim_index": 1,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0287",
+  "app_id": 774361,
+  "review_id": "216455266",
+  "claim_index": 3,
+  "subject": "tutorial",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0288",
+  "app_id": 920210,
+  "review_id": "115096203",
+  "claim_index": 12,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0289",
+  "app_id": 1222670,
+  "review_id": "171011012",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0290",
+  "app_id": 774361,
+  "review_id": "58808470",
+  "claim_index": 13,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0291",
+  "app_id": 1809540,
+  "review_id": "225704319",
+  "claim_index": 2,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0292",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 8,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0293",
+  "app_id": 774361,
+  "review_id": "55264733",
+  "claim_index": 3,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0294",
+  "app_id": 620980,
+  "review_id": "102787797",
+  "claim_index": 3,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0295",
+  "app_id": 920210,
+  "review_id": "171348725",
+  "claim_index": 0,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0296",
+  "app_id": 1222670,
+  "review_id": "219183600",
+  "claim_index": 7,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0297",
+  "app_id": 1809540,
+  "review_id": "167601779",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0298",
+  "app_id": 620980,
+  "review_id": "187535497",
+  "claim_index": 14,
+  "subject": "monetisation",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0299",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 32,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0300",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 19,
+  "subject": "gameplay",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0301",
+  "app_id": 214490,
+  "review_id": "73088991",
+  "claim_index": 0,
+  "subject": "language",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0302",
+  "app_id": 774361,
+  "review_id": "198519427",
+  "claim_index": 2,
+  "subject": "language",
+  "polarity": "praise"
+ },
+ {
+  "id": "0303",
+  "app_id": 1222670,
+  "review_id": "156137714",
+  "claim_index": 1,
+  "subject": "tutorial",
+  "polarity": "praise"
+ },
+ {
+  "id": "0304",
+  "app_id": 1809540,
+  "review_id": "166608041",
+  "claim_index": 8,
+  "subject": "accessibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0305",
+  "app_id": 1466860,
+  "review_id": "103151704",
+  "claim_index": 16,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0306",
+  "app_id": 1222670,
+  "review_id": "76008551",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "praise"
+ },
+ {
+  "id": "0307",
+  "app_id": 920210,
+  "review_id": "113398011",
+  "claim_index": 5,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0308",
+  "app_id": 1222670,
+  "review_id": "79890660",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0309",
+  "app_id": 774361,
+  "review_id": "179121077",
+  "claim_index": 1,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0310",
+  "app_id": 920210,
+  "review_id": "117149774",
+  "claim_index": 31,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0311",
+  "app_id": 1274570,
+  "review_id": "93372331",
+  "claim_index": 4,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0312",
+  "app_id": 1809540,
+  "review_id": "170028166",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0313",
+  "app_id": 774361,
+  "review_id": "231434925",
+  "claim_index": 2,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0314",
+  "app_id": 774361,
+  "review_id": "150261449",
+  "claim_index": 1,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0315",
+  "app_id": 920210,
+  "review_id": "113404112",
+  "claim_index": 1,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0316",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 7,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0317",
+  "app_id": 2881650,
+  "review_id": "178063433",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0318",
+  "app_id": 214490,
+  "review_id": "12510745",
+  "claim_index": 0,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0319",
+  "app_id": 1057090,
+  "review_id": "98161523",
+  "claim_index": 6,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0320",
+  "app_id": 1222670,
+  "review_id": "206539963",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0321",
+  "app_id": 774361,
+  "review_id": "117843087",
+  "claim_index": 3,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0322",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 52,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0323",
+  "app_id": 920210,
+  "review_id": "113445385",
+  "claim_index": 3,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0324",
+  "app_id": 1809540,
+  "review_id": "181474236",
+  "claim_index": 6,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0325",
+  "app_id": 1222670,
+  "review_id": "219183600",
+  "claim_index": 14,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0326",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 9,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0327",
+  "app_id": 920210,
+  "review_id": "113536787",
+  "claim_index": 3,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0328",
+  "app_id": 774361,
+  "review_id": "111933280",
+  "claim_index": 5,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0329",
+  "app_id": 1809540,
+  "review_id": "170969628",
+  "claim_index": 8,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0330",
+  "app_id": 920210,
+  "review_id": "113416280",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0331",
+  "app_id": 1057090,
+  "review_id": "64856177",
+  "claim_index": 2,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0332",
+  "app_id": 1222670,
+  "review_id": "224294176",
+  "claim_index": 1,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0333",
+  "app_id": 214490,
+  "review_id": "15112803",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0334",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 52,
+  "subject": "language",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0335",
+  "app_id": 774361,
+  "review_id": "194642320",
+  "claim_index": 1,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0336",
+  "app_id": 2881650,
+  "review_id": "180103291",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0337",
+  "app_id": 620980,
+  "review_id": "50015345",
+  "claim_index": 0,
+  "subject": "updates",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0338",
+  "app_id": 920210,
+  "review_id": "117149774",
+  "claim_index": 2,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0339",
+  "app_id": 1466860,
+  "review_id": "138077427",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0340",
+  "app_id": 1222670,
+  "review_id": "179345851",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0341",
+  "app_id": 2881650,
+  "review_id": "162065562",
+  "claim_index": 56,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0342",
+  "app_id": 920210,
+  "review_id": "117149774",
+  "claim_index": 18,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0343",
+  "app_id": 214490,
+  "review_id": "57710424",
+  "claim_index": 7,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0344",
+  "app_id": 920210,
+  "review_id": "113487577",
+  "claim_index": 6,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0345",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 51,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0346",
+  "app_id": 920210,
+  "review_id": "123030169",
+  "claim_index": 3,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0347",
+  "app_id": 774361,
+  "review_id": "106863233",
+  "claim_index": 3,
+  "subject": "tutorial",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0348",
+  "app_id": 214490,
+  "review_id": "13305168",
+  "claim_index": 2,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0349",
+  "app_id": 1809540,
+  "review_id": "199959220",
+  "claim_index": 39,
+  "subject": "accessibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0350",
+  "app_id": 920210,
+  "review_id": "115096203",
+  "claim_index": 9,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0351",
+  "app_id": 1274570,
+  "review_id": "174647427",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0352",
+  "app_id": 774361,
+  "review_id": "74845662",
+  "claim_index": 1,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0353",
+  "app_id": 774361,
+  "review_id": "213846515",
+  "claim_index": 1,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0354",
+  "app_id": 2881650,
+  "review_id": "162065562",
+  "claim_index": 18,
+  "subject": "compatibility",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0355",
+  "app_id": 1057090,
+  "review_id": "215192964",
+  "claim_index": 2,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0356",
+  "app_id": 214490,
+  "review_id": "13305168",
+  "claim_index": 3,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0357",
+  "app_id": 774361,
+  "review_id": "91944448",
+  "claim_index": 67,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0358",
+  "app_id": 1466860,
+  "review_id": "102519660",
+  "claim_index": 4,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0359",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 42,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0360",
+  "app_id": 214490,
+  "review_id": "233175391",
+  "claim_index": 32,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0361",
+  "app_id": 920210,
+  "review_id": "113730461",
+  "claim_index": 4,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0362",
+  "app_id": 920210,
+  "review_id": "113424830",
+  "claim_index": 0,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0363",
+  "app_id": 1809540,
+  "review_id": "187396497",
+  "claim_index": 3,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0364",
+  "app_id": 1222670,
+  "review_id": "232925088",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0365",
+  "app_id": 920210,
+  "review_id": "113880638",
+  "claim_index": 3,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0366",
+  "app_id": 774361,
+  "review_id": "231434925",
+  "claim_index": 17,
+  "subject": "graphics",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0367",
+  "app_id": 1274570,
+  "review_id": "154717608",
+  "claim_index": 0,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0368",
+  "app_id": 1466860,
+  "review_id": "102519660",
+  "claim_index": 6,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0369",
+  "app_id": 214490,
+  "review_id": "68348962",
+  "claim_index": 2,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0370",
+  "app_id": 214490,
+  "review_id": "120757183",
+  "claim_index": 5,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0371",
+  "app_id": 214490,
+  "review_id": "34545630",
+  "claim_index": 3,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0372",
+  "app_id": 920210,
+  "review_id": "134485451",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0373",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 4,
+  "subject": "gameplay",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0374",
+  "app_id": 1809540,
+  "review_id": "197378545",
+  "claim_index": 1,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0375",
+  "app_id": 214490,
+  "review_id": "34545630",
+  "claim_index": 5,
+  "subject": "vr",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0376",
+  "app_id": 920210,
+  "review_id": "162918180",
+  "claim_index": 12,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0377",
+  "app_id": 1809540,
+  "review_id": "170458932",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0378",
+  "app_id": 920210,
+  "review_id": "113409851",
+  "claim_index": 4,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0379",
+  "app_id": 620980,
+  "review_id": "231796074",
+  "claim_index": 0,
+  "subject": "language",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0380",
+  "app_id": 774361,
+  "review_id": "111270321",
+  "claim_index": 6,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0381",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 1,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0382",
+  "app_id": 2881650,
+  "review_id": "162056604",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0383",
+  "app_id": 620980,
+  "review_id": "165909331",
+  "claim_index": 1,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0384",
+  "app_id": 920210,
+  "review_id": "138234189",
+  "claim_index": 1,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0385",
+  "app_id": 1222670,
+  "review_id": "174693870",
+  "claim_index": 7,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0386",
+  "app_id": 774361,
+  "review_id": "65722628",
+  "claim_index": 61,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0387",
+  "app_id": 620980,
+  "review_id": "41865996",
+  "claim_index": 1,
+  "subject": "vr",
+  "polarity": "praise"
+ },
+ {
+  "id": "0388",
+  "app_id": 1809540,
+  "review_id": "166375271",
+  "claim_index": 3,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0389",
+  "app_id": 774361,
+  "review_id": "122441644",
+  "claim_index": 3,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0390",
+  "app_id": 1057090,
+  "review_id": "85563047",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0391",
+  "app_id": 774361,
+  "review_id": "99151972",
+  "claim_index": 2,
+  "subject": "controls",
+  "polarity": "praise"
+ },
+ {
+  "id": "0392",
+  "app_id": 920210,
+  "review_id": "113487577",
+  "claim_index": 2,
+  "subject": "audio",
+  "polarity": "praise"
+ },
+ {
+  "id": "0393",
+  "app_id": 1222670,
+  "review_id": "129824576",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0394",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 15,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0395",
+  "app_id": 2881650,
+  "review_id": "162239813",
+  "claim_index": 0,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0396",
+  "app_id": 1466860,
+  "review_id": "121493643",
+  "claim_index": 4,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0397",
+  "app_id": 774361,
+  "review_id": "186320405",
+  "claim_index": 0,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0398",
+  "app_id": 774361,
+  "review_id": "106863233",
+  "claim_index": 10,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0399",
+  "app_id": 774361,
+  "review_id": "65722628",
+  "claim_index": 7,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0400",
+  "app_id": 774361,
+  "review_id": "192341476",
+  "claim_index": 7,
+  "subject": "gameplay",
+  "polarity": "praise"
+ },
+ {
+  "id": "0401",
+  "app_id": 1274570,
+  "review_id": "202087818",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0402",
+  "app_id": 1222670,
+  "review_id": "83974161",
+  "claim_index": 1,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0403",
+  "app_id": 1222670,
+  "review_id": "135511235",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0404",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 18,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0405",
+  "app_id": 1222670,
+  "review_id": "190738888",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0406",
+  "app_id": 1057090,
+  "review_id": "217406178",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0407",
+  "app_id": 920210,
+  "review_id": "113872673",
+  "claim_index": 3,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0408",
+  "app_id": 774361,
+  "review_id": "208571645",
+  "claim_index": 2,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0409",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 4,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0410",
+  "app_id": 920210,
+  "review_id": "169318211",
+  "claim_index": 8,
+  "subject": "monetisation",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0411",
+  "app_id": 920210,
+  "review_id": "114434581",
+  "claim_index": 8,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0412",
+  "app_id": 774361,
+  "review_id": "160795994",
+  "claim_index": 1,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0413",
+  "app_id": 920210,
+  "review_id": "116402589",
+  "claim_index": 0,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0414",
+  "app_id": 1057090,
+  "review_id": "74237745",
+  "claim_index": 0,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0415",
+  "app_id": 2881650,
+  "review_id": "164534617",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0416",
+  "app_id": 774361,
+  "review_id": "60784877",
+  "claim_index": 0,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0417",
+  "app_id": 2881650,
+  "review_id": "200248738",
+  "claim_index": 1,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0418",
+  "app_id": 620980,
+  "review_id": "42352669",
+  "claim_index": 5,
+  "subject": "mods",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0419",
+  "app_id": 920210,
+  "review_id": "113653539",
+  "claim_index": 7,
+  "subject": "multiplayer",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0420",
+  "app_id": 774361,
+  "review_id": "55235818",
+  "claim_index": 0,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0421",
+  "app_id": 920210,
+  "review_id": "115096203",
+  "claim_index": 2,
+  "subject": "audio",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0422",
+  "app_id": 2881650,
+  "review_id": "163384170",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ },
+ {
+  "id": "0423",
+  "app_id": 920210,
+  "review_id": "113779660",
+  "claim_index": 0,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0424",
+  "app_id": 1466860,
+  "review_id": "102027080",
+  "claim_index": 3,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0425",
+  "app_id": 1466860,
+  "review_id": "101784633",
+  "claim_index": 0,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0426",
+  "app_id": 1466860,
+  "review_id": "105596110",
+  "claim_index": 0,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0427",
+  "app_id": 1222670,
+  "review_id": "143217651",
+  "claim_index": 0,
+  "subject": "community",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0428",
+  "app_id": 774361,
+  "review_id": "92471244",
+  "claim_index": 2,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0429",
+  "app_id": 1222670,
+  "review_id": "205182248",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0430",
+  "app_id": 1274570,
+  "review_id": "139653376",
+  "claim_index": 1,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0431",
+  "app_id": 1466860,
+  "review_id": "153850513",
+  "claim_index": 1,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0432",
+  "app_id": 214490,
+  "review_id": "13305168",
+  "claim_index": 11,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0433",
+  "app_id": 1809540,
+  "review_id": "213412941",
+  "claim_index": 1,
+  "subject": "difficulty",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0434",
+  "app_id": 774361,
+  "review_id": "117843087",
+  "claim_index": 2,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0435",
+  "app_id": 1809540,
+  "review_id": "196022141",
+  "claim_index": 10,
+  "subject": "story",
+  "polarity": "praise"
+ },
+ {
+  "id": "0436",
+  "app_id": 214490,
+  "review_id": "47559042",
+  "claim_index": 0,
+  "subject": "story",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0437",
+  "app_id": 1222670,
+  "review_id": "170334716",
+  "claim_index": 5,
+  "subject": "updates",
+  "polarity": "praise"
+ },
+ {
+  "id": "0438",
+  "app_id": 1466860,
+  "review_id": "185643854",
+  "claim_index": 0,
+  "subject": "community",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0439",
+  "app_id": 774361,
+  "review_id": "55264733",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0440",
+  "app_id": 1466860,
+  "review_id": "101931168",
+  "claim_index": 4,
+  "subject": "verdict",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0441",
+  "app_id": 620980,
+  "review_id": "45192903",
+  "claim_index": 3,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0442",
+  "app_id": 1809540,
+  "review_id": "196022141",
+  "claim_index": 12,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0443",
+  "app_id": 214490,
+  "review_id": "15114770",
+  "claim_index": 35,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0444",
+  "app_id": 1057090,
+  "review_id": "86228511",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0445",
+  "app_id": 1222670,
+  "review_id": "167291934",
+  "claim_index": 4,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0446",
+  "app_id": 1222670,
+  "review_id": "79126891",
+  "claim_index": 37,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0447",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 49,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0448",
+  "app_id": 920210,
+  "review_id": "134061630",
+  "claim_index": 2,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0449",
+  "app_id": 1222670,
+  "review_id": "94729393",
+  "claim_index": 6,
+  "subject": "price",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0450",
+  "app_id": 1809540,
+  "review_id": "195569031",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0451",
+  "app_id": 1222670,
+  "review_id": "150858397",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0452",
+  "app_id": 1809540,
+  "review_id": "182756344",
+  "claim_index": 7,
+  "subject": "gameplay",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0453",
+  "app_id": 920210,
+  "review_id": "114171131",
+  "claim_index": 0,
+  "subject": "graphics",
+  "polarity": "praise"
+ },
+ {
+  "id": "0454",
+  "app_id": 1222670,
+  "review_id": "150506643",
+  "claim_index": 5,
+  "subject": "policy",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0455",
+  "app_id": 920210,
+  "review_id": "126089842",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0456",
+  "app_id": 214490,
+  "review_id": "176785960",
+  "claim_index": 1,
+  "subject": "licensing",
+  "polarity": "praise"
+ },
+ {
+  "id": "0457",
+  "app_id": 1057090,
+  "review_id": "88084942",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0458",
+  "app_id": 620980,
+  "review_id": "45205324",
+  "claim_index": 3,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0459",
+  "app_id": 214490,
+  "review_id": "14198899",
+  "claim_index": 4,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0460",
+  "app_id": 1057090,
+  "review_id": "150206659",
+  "claim_index": 1,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0461",
+  "app_id": 214490,
+  "review_id": "19387614",
+  "claim_index": 9,
+  "subject": "content",
+  "polarity": "praise"
+ },
+ {
+  "id": "0462",
+  "app_id": 1274570,
+  "review_id": "146771078",
+  "claim_index": 0,
+  "subject": "price",
+  "polarity": "praise"
+ },
+ {
+  "id": "0463",
+  "app_id": 1466860,
+  "review_id": "185643854",
+  "claim_index": 1,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0464",
+  "app_id": 1466860,
+  "review_id": "102027080",
+  "claim_index": 1,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0465",
+  "app_id": 214490,
+  "review_id": "74378737",
+  "claim_index": 0,
+  "subject": "atmosphere",
+  "polarity": "praise"
+ },
+ {
+  "id": "0466",
+  "app_id": 1466860,
+  "review_id": "102027080",
+  "claim_index": 2,
+  "subject": "performance",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0467",
+  "app_id": 774361,
+  "review_id": "200951284",
+  "claim_index": 0,
+  "subject": "verdict",
+  "polarity": "praise"
+ },
+ {
+  "id": "0468",
+  "app_id": 620980,
+  "review_id": "147781991",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "praise"
+ },
+ {
+  "id": "0469",
+  "app_id": 214490,
+  "review_id": "19387614",
+  "claim_index": 8,
+  "subject": "difficulty",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0470",
+  "app_id": 620980,
+  "review_id": "95333280",
+  "claim_index": 0,
+  "subject": "mods",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0471",
+  "app_id": 1222670,
+  "review_id": "149041686",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0472",
+  "app_id": 1809540,
+  "review_id": "196022141",
+  "claim_index": 5,
+  "subject": "difficulty",
+  "polarity": "praise"
+ },
+ {
+  "id": "0473",
+  "app_id": 920210,
+  "review_id": "113445385",
+  "claim_index": 13,
+  "subject": "licensing",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0474",
+  "app_id": 920210,
+  "review_id": "113424387",
+  "claim_index": 10,
+  "subject": "content",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0475",
+  "app_id": 1466860,
+  "review_id": "160235951",
+  "claim_index": 12,
+  "subject": "audio",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0476",
+  "app_id": 2881650,
+  "review_id": "227058183",
+  "claim_index": 0,
+  "subject": "offtopic",
+  "polarity": "neutral"
+ },
+ {
+  "id": "0477",
+  "app_id": 1057090,
+  "review_id": "188589808",
+  "claim_index": 0,
+  "subject": "compatibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0478",
+  "app_id": 1057090,
+  "review_id": "75282351",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0479",
+  "app_id": 1466860,
+  "review_id": "154415060",
+  "claim_index": 0,
+  "subject": "monetisation",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0480",
+  "app_id": 1466860,
+  "review_id": "109076482",
+  "claim_index": 1,
+  "subject": "genre",
+  "polarity": "praise"
+ },
+ {
+  "id": "0481",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 50,
+  "subject": "controls",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0482",
+  "app_id": 1057090,
+  "review_id": "66465597",
+  "claim_index": 12,
+  "subject": "tutorial",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0483",
+  "app_id": 1466860,
+  "review_id": "102420659",
+  "claim_index": 33,
+  "subject": "accessibility",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0484",
+  "app_id": 920210,
+  "review_id": "113424830",
+  "claim_index": 12,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0485",
+  "app_id": 1222670,
+  "review_id": "219183600",
+  "claim_index": 15,
+  "subject": "bugs",
+  "polarity": "complaint"
+ },
+ {
+  "id": "0486",
+  "app_id": 1274570,
+  "review_id": "93372331",
+  "claim_index": 0,
+  "subject": "multiplayer",
+  "polarity": "praise"
+ }
+]

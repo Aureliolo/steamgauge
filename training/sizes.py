@@ -50,7 +50,11 @@ def _memory(mib: int | None) -> str:
 
 
 def table(sizes: dict) -> str:
-    """The sizes as a Markdown table, with what each column was measured on beneath it."""
+    """The sizes that ship as a Markdown table, with what each column was measured on beneath it.
+
+    A size that does not ship stays in the data file for the record but is left off the table:
+    a figure for a model nobody can download is a figure nobody can check.
+    """
     measured = sizes["measured"]
     rows = [
         (
@@ -60,9 +64,11 @@ def table(sizes: dict) -> str:
         "|---|---|---|---|---|---|---|---|",
     ]
     for size in sizes["sizes"]:
-        name = size["name"] if size["ships"] else f"*{size['name']}* (not published)"
+        if not size["ships"]:
+            continue
         rows.append(
-            f"| {name} | {_parameters(size['parameters'])} | {_download(size['download_mib'])} "
+            f"| {size['name']} | {_parameters(size['parameters'])} "
+            f"| {_download(size['download_mib'])} "
             f"| {_share(size['right_at_80'])} | {_share(size['right_at_90'])} "
             f"| {_memory(size['card_mib'])} | {_seconds(size['card_seconds'])} "
             f"| {_seconds(size['processor_seconds'])} |"
