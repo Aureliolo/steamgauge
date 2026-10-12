@@ -65,4 +65,12 @@ gold page it drives, and read CI for the rest.
 - `tools/app-check/stub.js` stands in for the core when the window is checked, answering from
   fixtures shaped as the Rust side sends them. A command or field added on the Rust side is
   added to the stub in the same change, or the check tests a window the app no longer has.
-- Nothing is named by an incremented number, and names say what the thing is.
+- Nothing is named by an incremented number, and names say plainly what the thing is, never a
+  metaphor.
+- Public texts (the README, model and dataset cards, release notes) state what the product is
+  and does now, in plain present tense: no history of how it got here and no comparison with
+  what it replaced, which belong in `DECISIONS.md`. No figure in them rests on a library or
+  capture nobody else can check.
+- None of the maintainer's other projects is named anywhere in this repository: files,
+  comments, commit messages, pull requests. A pattern borrowed from one is described as this
+  repository's own choice.
