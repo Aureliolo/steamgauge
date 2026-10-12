@@ -554,7 +554,7 @@ fn ends_on_a_comma(piece: &str) -> bool {
 /// since a comma inside either is that thing's own.
 ///
 /// Every part has to name a thing and say something about it, which in a script with spaces
-/// is two words. Weight alone let one long word through, and the frozen sets show what that
+/// is two words. Weight alone let one long word through, and the held-out sets show what that
 /// cuts: "The gameplay, however, is rudimentary" into three, "Strepitoso, immenso,
 /// coinvolgente!" into three verdicts of one word each, and "Amazing story, soundtrack,
 /// gameplay" into one point and two bare nouns that have lost the adjective they shared.
@@ -1695,7 +1695,7 @@ mod tests {
         assert_eq!(claims.len(), 3, "got {claims:?}");
     }
 
-    /// Each of these was one labelled claim in a frozen game that the list rule cut into
+    /// Each of these was one labelled claim in a held-out game that the list rule cut into
     /// pieces no labeller would call a point: a sentence with an adverb set off by commas, a
     /// verdict of three adjectives, and a list whose one adjective belongs to every noun in it.
     #[test]
@@ -1857,7 +1857,7 @@ mod tests {
         );
     }
 
-    /// Found in a frozen game's labels: "Parts I liked:" stood alone as a claim about nothing,
+    /// Found in a held-out game's labels: "Parts I liked:" stood alone as a claim about nothing,
     /// because the boundary that ended it was the line break and the bullet on the next line
     /// was run over as though it were an emoticon, leaving the heading ending in a dash that
     /// no rule read as introducing anything. Fixed, the heading still had only "Art." under

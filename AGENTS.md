@@ -59,9 +59,9 @@ gold page it drives, and read CI for the rest.
   `git show --stat HEAD` to confirm none did.
 - A claim is the byte span it covers, everywhere; nothing carries a version stamp. A splitter
   change costs a full library re-read of about five hours.
-- Quote the frozen games (`sweep.py --frozen`), never validation. A change is an improvement only
-  when it clears the seed spread `training/sweep.py` prints beside it. `sweep.py --index` writes
-  `training/runs/README.md`; never edit it by hand.
+- Quote the held-out games (`sweep.py --held-out`), never validation. A change is an improvement
+  only when it clears the seed spread `training/sweep.py` prints beside it. `sweep.py --index`
+  writes `training/runs/README.md`; never edit it by hand.
 - `tools/app-check/stub.js` stands in for the core when the window is checked, answering from
   fixtures shaped as the Rust side sends them. A command or field added on the Rust side is
   added to the stub in the same change, or the check tests a window the app no longer has.

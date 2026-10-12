@@ -7,8 +7,8 @@
 //!
 //! Two draws, because they answer different questions:
 //!
-//! - **Blind.** A random sample of frozen claims with no answer shown, which is the only kind
-//!   of reading that produces an accuracy figure rather than a ratification. Every frozen claim
+//! - **Blind.** A random sample of held-out claims with no answer shown, which is the only kind
+//!   of reading that produces an accuracy figure rather than a ratification. Every held-out claim
 //!   is a candidate: whether a second labeller happened to reach it is a fact about scheduling,
 //!   and a sample that depends on it is a sample of the schedule. Some of what it draws will be
 //!   claims both labellers already answered the same way, in their true proportion, and scoring
@@ -80,7 +80,7 @@ pub struct GoldDraw {
     /// counted so the page can say what share of the set was never in question.
     pub agreed: usize,
     /// How many of the blind sample are claims both labellers already answered the same way.
-    /// Not a separate draw: a sample over every frozen claim contains them in their true
+    /// Not a separate draw: a sample over every held-out claim contains them in their true
     /// proportion, and scoring them apart afterwards is what tests the assumption the rest of
     /// the set rests on, that two labellers agreeing means both were right.
     pub settled: usize,
@@ -110,7 +110,7 @@ pub struct GoldDraw {
     /// corpus, and the figure it produces has to say so.
     pub languages: Vec<String>,
     /// Which boundaries the disagreements were narrowed to, empty for all of them. Only the
-    /// splits are aimed; the blind sample stays a random sample of the frozen games, because
+    /// splits are aimed; the blind sample stays a random sample of the held-out games, because
     /// aiming it would make the accuracy figure a fact about the boundaries that were chosen.
     pub boundaries: Vec<(String, String)>,
     /// Disagreements left out because they fall on a boundary that was not asked for.
@@ -147,13 +147,13 @@ impl GoldDraw {
 
 /// Which games' disagreements to put in front of a person.
 ///
-/// The blind sample is always frozen, because that is what makes it a measurement. The splits
+/// The blind sample is always held out, because that is what makes it a measurement. The splits
 /// measure nothing: they settle a boundary, and a boundary settled on one game is settled for
 /// every game, so they may be drawn from anywhere.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Splits {
     None,
-    Frozen,
+    HeldOut,
     Everywhere,
 }
 
@@ -174,7 +174,7 @@ pub struct Asked<'a> {
 
 /// Where a claim is, so the blind draw and the disagreements cannot both take the same one.
 type At = (u32, String, u16);
-/// A frozen claim that could be asked blind: its draw order, where it is, whether both
+/// A held-out claim that could be asked blind: its draw order, where it is, whether both
 /// labellers answered it the same way, and the question itself.
 type Candidate = ([u8; 32], At, bool, Question);
 /// A disagreement: where it is, whether either labeller hedged, and the question.
@@ -343,9 +343,9 @@ pub fn still_cut(cut: Option<&crate::claimset::CutSpans>, label: &ClaimLabel) ->
 
 /// Draws the claims a person should read.
 ///
-/// Frozen because a gold figure has to be about games that chose nothing: a person adjudicating
-/// the games the model trained on would produce a number that flatters every part of the chain
-/// at once.
+/// Held-out games because a gold figure has to be about games that chose nothing: a person
+/// adjudicating the games the model trained on would produce a number that flatters every part
+/// of the chain at once.
 ///
 /// # Errors
 ///
@@ -380,14 +380,14 @@ pub fn draw(
         else {
             continue;
         };
-        let frozen = role(app_id, SPLIT_SEED) == Role::Frozen;
-        if !frozen && splits != Splits::Everywhere {
+        let held_out = role(app_id, SPLIT_SEED) == Role::HeldOut;
+        if !held_out && splits != Splits::Everywhere {
             continue;
         }
         let Some((drawn, first, second)) = read_set(&dir, reading)? else {
             continue;
         };
-        found.games += usize::from(frozen);
+        found.games += usize::from(held_out);
         let (cut, around, twice) = indexed(captures, app_id, &drawn, &first, &second);
 
         for label in &first {
@@ -450,12 +450,12 @@ pub fn draw(
                 ));
             }
 
-            // Every frozen claim is a candidate, whether or not a second labeller reached it and
+            // Every held-out claim is a candidate, whether or not a second labeller reached it and
             // whether or not the two agreed. Drawing only from claims nobody read twice made the
             // sample a fact about where the second pass had got to. Drawing only from the ones
             // they agreed on is worse in a quieter way: those are the easy claims, and an
             // accuracy figure over them alone is the flattering half of the corpus.
-            if !frozen {
+            if !held_out {
                 continue;
             }
             blind.push((
@@ -854,7 +854,7 @@ mod tests {
         }
     }
 
-    /// A reference set on disk: one frozen game and one training game, each with three claims.
+    /// A reference set on disk: one held-out game and one training game, each with three claims.
     /// The second labeller reads two of them, agreeing on one and differing on the other, and
     /// never sees the third, which is therefore the only one left to read blind.
     fn a_reference_set(root: &Path) {
@@ -900,31 +900,31 @@ mod tests {
     }
 
     #[test]
-    fn a_blind_draw_is_frozen_games_only_and_a_split_can_come_from_anywhere() {
-        // 214490 is frozen and 296970 trains, both pinned in DECISIONS.md.
-        assert_eq!(role(214_490, SPLIT_SEED), Role::Frozen);
-        assert_ne!(role(296_970, SPLIT_SEED), Role::Frozen);
+    fn a_blind_draw_is_held_out_games_only_and_a_split_can_come_from_anywhere() {
+        // 214490 is held out and 296970 trains, both pinned in DECISIONS.md.
+        assert_eq!(role(214_490, SPLIT_SEED), Role::HeldOut);
+        assert_ne!(role(296_970, SPLIT_SEED), Role::HeldOut);
 
         let root = std::env::temp_dir().join(format!("steamgauge-gold-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (frozen_only, counts) = draw(
+        let (held_out_only, counts) = draw(
             &root,
             &root.join("no-captures"),
-            &asking(100, Splits::Frozen),
+            &asking(100, Splits::HeldOut),
         )
         .unwrap();
         assert!(
-            frozen_only
+            held_out_only
                 .iter()
                 .all(|question| question.app_id == 214_490),
             "a training game reached a draw that measures the model"
         );
         assert_eq!(
             counts.blind, 3,
-            "the blind sample is every frozen claim, whether or not a second labeller reached \
+            "the blind sample is every held-out claim, whether or not a second labeller reached \
              it and whether or not the two agreed"
         );
         assert_eq!(
@@ -934,13 +934,13 @@ mod tests {
         );
         assert_eq!(
             counts.split, 0,
-            "a blind sample large enough to take every frozen claim leaves the frozen game no \
+            "a blind sample large enough to take every held-out claim leaves the held-out game no \
              disagreement to show, because the same claim cannot be asked both ways"
         );
         assert_eq!(counts.agreed, 1);
         assert_eq!(
             counts.games, 1,
-            "only the frozen game counts as a game read"
+            "only the held-out game counts as a game read"
         );
 
         let (everywhere, wider) = draw(
@@ -951,7 +951,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             wider.split, 1,
-            "the training game's disagreement was left out; the frozen game's own went into the \
+            "the training game's disagreement was left out; the held-out game's own went into the \
              blind sample instead, which takes what it needs before the disagreements are cut"
         );
         assert_eq!(
@@ -1020,7 +1020,7 @@ mod tests {
     fn the_blind_sample_does_not_depend_on_where_the_second_labelling_got_to() {
         // Drawing blind only from claims nobody had read twice made the accuracy figure a
         // figure about whichever games the second pass had not reached. In the real set that
-        // was four of the ten frozen games, 486 of 1,000 claims from one of them, and
+        // was four of the ten held-out games, 486 of 1,000 claims from one of them, and
         // finishing those four would have emptied the sample entirely. Coverage of the second
         // reading is a fact about scheduling; it must not decide what a person is asked.
         let root = std::env::temp_dir().join(format!("steamgauge-blind-{}", std::process::id()));
@@ -1028,8 +1028,8 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        // 214490 is frozen and its second labelling covers two of three claims. 1274570 is
-        // also frozen and has no second labelling at all.
+        // 214490 is held out and its second labelling covers two of three claims. 1274570 is
+        // also held out and has no second labelling at all.
         let bare = root.join("1274570");
         std::fs::create_dir_all(&bare).unwrap();
         std::fs::copy(
@@ -1048,7 +1048,7 @@ mod tests {
             questions.iter().map(|question| question.app_id).collect();
         assert!(
             asked.contains(&214_490) && asked.contains(&1_274_570),
-            "a frozen game was left out of the blind sample because a second labeller had              reached it, which makes the sample a fact about scheduling"
+            "a held-out game was left out of the blind sample because a second labeller had              reached it, which makes the sample a fact about scheduling"
         );
         assert_eq!(
             counts.settled, 1,
@@ -1072,7 +1072,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        // blind_wanted of 0 keeps the frozen game's disagreement out of the blind sample, so it
+        // blind_wanted of 0 keeps the held-out game's disagreement out of the blind sample, so it
         // stays a split and the ordering has something to order.
         let (questions, counts) = draw(
             &root,
@@ -1098,14 +1098,14 @@ mod tests {
         // Claims two labellers agreed on are the easy ones. If the disagreements are taken for
         // the split pool before the blind sample is drawn, the sample is left with nothing but
         // agreed claims and the accuracy figure is the flattering half of the corpus. Once
-        // every frozen game had been read twice that is exactly what happened: 1,000 of 1,000
+        // every held-out game had been read twice that is exactly what happened: 1,000 of 1,000
         // blind claims were agreed ones.
         let root = std::env::temp_dir().join(format!("steamgauge-bias-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        // One claim short of the three the frozen game has, so the draw has to choose.
+        // One claim short of the three the held-out game has, so the draw has to choose.
         let (questions, counts) = draw(
             &root,
             &root.join("no-captures"),
@@ -1176,8 +1176,12 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) =
-            draw(&root, &root.join("no-captures"), &asking(0, Splits::Frozen)).unwrap();
+        let (questions, counts) = draw(
+            &root,
+            &root.join("no-captures"),
+            &asking(0, Splits::HeldOut),
+        )
+        .unwrap();
         assert_eq!(counts.split, 2);
         assert_eq!(
             counts.contested_sure, 1,
@@ -1381,7 +1385,7 @@ mod tests {
         std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
 
         let drawn = serde_json::json!([{
-            "id": "r1", "app_id": 214_490, "language": "english", "subset": "frozen",
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "held-out",
             "claims": [
                 {"index": 0, "start": 0, "end": 18, "text": "\u{2610} Worth the price"},
                 {"index": 1, "start": 19, "end": 34, "text": "\u{2611} Runs badly"}
@@ -1392,7 +1396,7 @@ mod tests {
         let label = |index: u16, subject: &str| {
             serde_json::json!({
                 "review_id": "r1", "index": index, "app_id": 214_490,
-                "language": "english", "subset": "frozen", "start": 0, "end": 9,
+                "language": "english", "subset": "held-out", "start": 0, "end": 9,
                 "taxonomy": "a-sheet", "produced_by": "one",
                 "subject": subject, "polarity": "praise", "ironic": false,
                 "confidence": "high", "ambiguous": false, "split_wrong": false
@@ -1412,7 +1416,7 @@ mod tests {
         let (questions, counts) = draw(
             &root,
             &root.join("no-captures"),
-            &asking(10, Splits::Frozen),
+            &asking(10, Splits::HeldOut),
         )
         .unwrap();
         assert_eq!(counts.declined, 1, "the blank option was not held back");
@@ -1584,7 +1588,7 @@ mod tests {
                 &root.path().join("no-captures"),
                 &Asked {
                     languages: asked,
-                    ..asking(100, Splits::Frozen)
+                    ..asking(100, Splits::HeldOut)
                 },
             )
             .unwrap()
@@ -1602,7 +1606,7 @@ mod tests {
         let set = root.path().join("214490");
         std::fs::create_dir_all(&set).unwrap();
         let drawn = serde_json::json!([{
-            "id": "r1", "app_id": 214_490, "language": "english", "subset": "frozen",
+            "id": "r1", "app_id": 214_490, "language": "english", "subset": "held-out",
             "claims": [
                 {"index": 0, "start": 0, "end": 9, "text": "Runs badly"},
                 {"index": 1, "start": 10, "end": 20,
@@ -1613,7 +1617,7 @@ mod tests {
         let label = |index: u16| {
             serde_json::json!({
                 "review_id": "r1", "index": index, "app_id": 214_490,
-                "language": "english", "subset": "frozen", "start": 0, "end": 9,
+                "language": "english", "subset": "held-out", "start": 0, "end": 9,
                 "taxonomy": "a-sheet", "produced_by": "one",
                 "subject": "performance", "polarity": "praise", "ironic": false,
                 "confidence": "high", "ambiguous": false, "split_wrong": false
@@ -1629,7 +1633,7 @@ mod tests {
             &root.path().join("no-captures"),
             &Asked {
                 languages: &["english".to_owned()],
-                ..asking(10, Splits::Frozen)
+                ..asking(10, Splits::HeldOut)
             },
         )
         .unwrap();

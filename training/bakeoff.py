@@ -151,10 +151,10 @@ def main():
                         pooling.get(backbone, "mean"),
                         "--run-id",
                         f"bakeoff-{backbone.replace('/', '-')}",
-                        # The frozen games stay unread. Four candidates measured on them and
+                        # The held-out games stay unread. Four candidates measured on them and
                         # then a winner reported from them is a winner reported by the thing
                         # that chose it.
-                        "--no-frozen",
+                        "--no-held-out",
                         *(["--context"] if args.context else []),
                     ]
                 )
@@ -196,7 +196,7 @@ def main():
         "know, which\nis the whole of what lets it abstain. `answers` is the share of claims "
         f"it will commit to\nat {args.min_accuracy:.0%} accuracy, and `at` is what it actually "
         "scores on those.\n\nEvery figure is from the validation games, which is what they are "
-        "for. The frozen games\nwere not read: a set that chooses between models cannot also "
+        "for. The held-out games\nwere not read: a set that chooses between models cannot also "
         "say how the chosen one does.\nTrain the winner on its own to get that number."
     )
     print(f"\nwritten to {table}")

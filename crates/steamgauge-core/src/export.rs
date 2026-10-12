@@ -26,7 +26,7 @@ use crate::{
     html::{language_name, percent, thousands},
     measure::ClaimAgreement,
     read::{Month, ReadReport},
-    reader::{Frozen, Polarity, Reading},
+    reader::{HeldOut, Polarity, Reading},
     report::Measurement,
     taxonomy::{Category, SHEET},
     updates::Update,
@@ -98,11 +98,7 @@ pub fn game(
     };
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let reading = snapshot.join("reading.json");
-    let report: ReadReport = serde_json::from_slice(&std::fs::read(&reading).map_err(|_| {
-        Error::NoClassifications {
-            path: reading.clone(),
-        }
-    })?)?;
+    let report = ReadReport::load(&snapshot)?;
     let facts = crate::report::crawl_facts(out_dir, app_id)?;
     let measurement = crate::report::agreement_for(
         app_id,
@@ -981,7 +977,7 @@ fn write_points(
 }
 
 /// How far the figures can be trusted, in the words the game page uses.
-fn trust(measurement: &Measurement, frozen: Option<Frozen>) -> String {
+fn trust(measurement: &Measurement, held_out: Option<HeldOut>) -> String {
     match measurement {
         Measurement::Measured(found) => match (found.rate(), found.interval()) {
             (Some(rate), Some((low, high))) => {
@@ -1017,29 +1013,29 @@ fn trust(measurement: &Measurement, frozen: Option<Frozen>) -> String {
             "This game's labelled claims are in the model's training set, so how often it agrees \
              with them says how well it remembers them, not how it reads, and nothing here is \
              scored against them.",
-            frozen,
+            held_out,
         ),
         Measurement::Unlabelled => unmeasured(
             "Nobody has labelled this game's claims, so how often the model is wrong here has \
              not been measured.",
-            frozen,
+            held_out,
         ),
     }
 }
 
-fn unmeasured(why: &str, frozen: Option<Frozen>) -> String {
-    frozen.map_or_else(
+fn unmeasured(why: &str, held_out: Option<HeldOut>) -> String {
+    held_out.map_or_else(
         || format!("{why} Treat every rate as provisional."),
-        |frozen| {
+        |held_out| {
             format!(
                 "{why} What is measured is {} games it had never seen, over {} labelled claims: \
                  it answers {} of them and names the same subject a separate labeller did {} of \
                  the time when it does. Expect this game to be near that, and treat every rate \
                  as provisional.",
-                frozen.games,
-                thousands(u64::from(frozen.claims)),
-                percent(frozen.coverage),
-                percent(frozen.accuracy)
+                held_out.games,
+                thousands(u64::from(held_out.claims)),
+                percent(held_out.coverage),
+                percent(held_out.accuracy)
             )
         },
     )
@@ -1064,7 +1060,7 @@ fn readme(game: &Game<'_>, written: Written) -> String {
     let _ = writeln!(out, "\nWhat was read\n");
     out.push_str(&what_was_read(game, written));
     let _ = writeln!(out, "\nHow far to trust it\n");
-    let _ = writeln!(out, "{}", trust(game.measurement, game.report.frozen));
+    let _ = writeln!(out, "{}", trust(game.measurement, game.report.held_out));
     let _ = writeln!(
         out,
         "These are a census, not a survey: every review Steam serves was counted, so there is \
@@ -2185,7 +2181,7 @@ mod tests {
 
     #[test]
     fn how_far_to_trust_it_is_said_as_the_game_page_says_it() {
-        let frozen = Frozen {
+        let held_out = HeldOut {
             games: 8,
             claims: 1_234,
             coverage: 0.8,
@@ -2194,7 +2190,7 @@ mod tests {
         };
         let measured = trust(
             &Measurement::Measured(Box::new(agreement(Vec::new()))),
-            Some(frozen),
+            Some(held_out),
         );
         assert!(measured.starts_with(
             "Where this game has been labelled, the model named the same subject a separate \
@@ -2223,7 +2219,7 @@ mod tests {
             None,
         );
         assert!(unscored.contains("measured against them: its labels cannot be read. Treat"));
-        let learned = trust(&Measurement::Learned, Some(frozen));
+        let learned = trust(&Measurement::Learned, Some(held_out));
         assert!(learned.starts_with("This game's labelled claims are in the model's training set"));
         assert!(learned.contains(
             "What is measured is 8 games it had never seen, over 1,234 labelled claims: it \

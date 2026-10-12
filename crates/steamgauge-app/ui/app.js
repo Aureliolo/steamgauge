@@ -446,7 +446,7 @@ function drawTopics(found) {
      opinion with decimal places, and a game nobody has labelled is told so rather than
      shown the same table with nothing missing from it. */
   const measured = found.measured;
-  const frozen = found.frozen;
+  const heldOut = found.held_out;
   /* Why this game carries no figure of its own: nobody has labelled it, or the model learned
      from its labels, in which case agreeing with them would measure memory. */
   const why = found.learned
@@ -457,15 +457,15 @@ function drawTopics(found) {
       `not been measured.`;
   const trust =
     measured === null
-      ? frozen
+      ? heldOut
         ? /* Most games anyone opens are in exactly this position, and saying only that
              nothing is measured invites the reader to distrust everything or to trust
              everything. The model does have a measurement; it is about other games, and the
              wording has to say so. */
-          `${why} What is measured is ${frozen.games} games it had never seen, ` +
-          `over ${whole.format(frozen.claims)} labelled claims: it answers ` +
-          `${share.format(frozen.coverage)} of them and names the same subject a separate ` +
-          `labeller did ${share.format(frozen.accuracy)} of the time when it does. Expect ` +
+          `${why} What is measured is ${heldOut.games} games it had never seen, ` +
+          `over ${whole.format(heldOut.claims)} labelled claims: it answers ` +
+          `${share.format(heldOut.coverage)} of them and names the same subject a separate ` +
+          `labeller did ${share.format(heldOut.accuracy)} of the time when it does. Expect ` +
           `this game to be near that, and treat every rate as provisional.`
         : `${why} Treat every rate as provisional.`
       : measured.agreement === null

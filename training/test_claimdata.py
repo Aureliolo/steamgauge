@@ -37,9 +37,9 @@ def roles(claims: list[claimdata.Claim]) -> dict[int, str]:
 
 
 def test_adding_a_game_moves_no_other_game():
-    # The property a frozen set needs and the shuffle did not have: a game's role depends
+    # The property a held-out set needs and the shuffle did not have: a game's role depends
     # on nothing but itself. Measured before the fix, adding four games to eleven moved a
-    # frozen game into training.
+    # held-out game into training.
     games = list(range(1000, 1040))
     before = roles([claim(g) for g in games[:20]])
     after = roles([claim(g) for g in games])
@@ -50,7 +50,7 @@ def test_adding_a_game_moves_no_other_game():
 def test_every_role_is_filled_however_few_games_there_are():
     for count in range(3, 12):
         found = roles([claim(g) for g in range(5000, 5000 + count)])
-        assert "test" in found.values(), f"{count} games left nothing frozen"
+        assert "test" in found.values(), f"{count} games left nothing held out"
         assert "validation" in found.values(), f"{count} games left nothing to validate on"
         assert "train" in found.values(), f"{count} games left nothing to train on"
 
@@ -72,18 +72,18 @@ def test_a_different_seed_is_a_different_split():
     assert {c.app_id for c in one[2]} != {c.app_id for c in two[2]}
 
 
-def test_the_folds_answer_every_game_the_frozen_set_does_not_hold():
+def test_the_folds_answer_every_game_the_held_out_set_does_not_hold():
     claims = [claim(g) for g in range(200, 236)]
-    frozen = {c.app_id for c in claimdata.split_by_game(claims, seed=1)[2]}
+    held_out = {c.app_id for c in claimdata.split_by_game(claims, seed=1)[2]}
     answered: list[int] = []
     for fold in range(5):
         train, held, test = claimdata.split_by_game(claims, seed=1, fold=fold, folds=5)
-        assert {c.app_id for c in test} == frozen, "a fold moved the frozen games"
+        assert {c.app_id for c in test} == held_out, "a fold moved the held-out games"
         held_games = {c.app_id for c in held}
-        assert not held_games & frozen, "a fold held out a frozen game"
+        assert not held_games & held_out, "a fold took in a held-out game"
         assert not held_games & {c.app_id for c in train}, "a game was trained on and held out"
         answered.extend(held_games)
-    assert sorted(answered) == sorted({c.app_id for c in claims} - frozen)
+    assert sorted(answered) == sorted({c.app_id for c in claims} - held_out)
     assert len(answered) == len(set(answered)), "a game was held out by two folds"
 
 

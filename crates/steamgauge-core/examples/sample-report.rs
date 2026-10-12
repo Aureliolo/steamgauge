@@ -117,7 +117,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             reader: "Game Review Reader".to_owned(),
             read_by_rule: String::new(),
             usual_declined: Some(0.53),
-            frozen: Some(steamgauge_core::reader::Frozen {
+            held_out: Some(steamgauge_core::reader::HeldOut {
                 games: 8,
                 claims: 3769,
                 coverage: 0.577,
@@ -162,7 +162,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         } else {
             Measurement::Unlabelled
         },
-        // A measured game whose set has been read twice, which is what the frozen games are,
+        // A measured game whose set has been read twice, which is what the held-out games are,
         // so the page's ceiling paragraph is in the fixture a browser checks.
         ceiling: measured.then_some(steamgauge_core::measure::Ceiling {
             compared: 420,

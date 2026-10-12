@@ -366,7 +366,7 @@
       ],
       measured: null,
       learned: false,
-      frozen: { games: 10, claims: 5_080, coverage: 0.98, accuracy: 0.78 },
+      held_out: { games: 10, claims: 5_080, coverage: 0.98, accuracy: 0.78 },
       months: calendar,
       languages: [{ name: 'english', reviews: 15_000, share: 0.75 }],
       // Beta was read before reviewers were told apart.

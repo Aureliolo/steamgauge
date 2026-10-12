@@ -101,7 +101,7 @@ enum SplitsFrom {
     /// None: the blind sample only.
     None,
     /// The games the model never saw, which is also where the blind sample comes from.
-    Frozen,
+    HeldOut,
     /// Every labelled game. Seven times the evidence about the sheet, and none about the
     /// model either way, which is why it is the default.
     #[default]
@@ -112,7 +112,7 @@ impl From<SplitsFrom> for steamgauge_core::gold::Splits {
     fn from(value: SplitsFrom) -> Self {
         match value {
             SplitsFrom::None => Self::None,
-            SplitsFrom::Frozen => Self::Frozen,
+            SplitsFrom::HeldOut => Self::HeldOut,
             SplitsFrom::Everywhere => Self::Everywhere,
         }
     }
@@ -267,7 +267,7 @@ enum Command {
     /// Once a reader exists, the claims it abstains on are worth several times a random claim
     /// to label. What that buys is a better model and never a better measurement: the set is
     /// marked `declined` so no prevalence figure ever counts it, and only games the model is
-    /// allowed to learn from may be drawn, because a frozen game taught from is not frozen.
+    /// allowed to learn from may be drawn, because a held-out game taught from is not held out.
     Declined {
         /// Steam app IDs to draw from. Each must be a game the model trains on.
         #[arg(required = true, num_args = 1..)]
@@ -546,7 +546,7 @@ enum Command {
         to: Option<PathBuf>,
     },
 
-    /// Write the page a person adjudicates claims on, from the frozen games.
+    /// Write the page a person adjudicates claims on, from the held-out games.
     ///
     /// Everything measured so far is a model agreeing with a model, which the README says and
     /// which no citation can rest on. This draws two kinds of claim: a random sample with no
@@ -576,7 +576,7 @@ enum Command {
         /// tenth a second agent of the first model read.
         #[arg(long, default_value = "second")]
         labels: String,
-        /// Which games' disagreements to include. The blind sample is always frozen, because
+        /// Which games' disagreements to include. The blind sample is always held out, because
         /// that is what makes it a measurement; a disagreement measures nothing and settles a
         /// boundary, and a boundary settled on one game is settled for every game.
         #[arg(long, default_value = "everywhere")]
@@ -689,8 +689,8 @@ enum Command {
     /// Reviews no reference set holds, from games the model trains on, in the numbers a
     /// labeller never could. A student learns a teacher's answers on them beside the
     /// labelled claims. The file holds review text and is not for publishing. Only games the
-    /// model already learns from may be drawn: a frozen game's reviews, even unlabelled,
-    /// carry what the teacher knows of it into the student, and the frozen figure would stop
+    /// model already learns from may be drawn: a held-out game's reviews, even unlabelled,
+    /// carry what the teacher knows of it into the student, and the held-out figure would stop
     /// being about a game nobody trained on.
     ExportPool {
         /// Steam app IDs to draw from. Each must be a game the model trains on.
@@ -1627,7 +1627,7 @@ fn run_export_training(
 
 /// Refuses to draw a teaching set from a game the model is measured on.
 ///
-/// Every teaching draw is labelled and trained on, so drawing one from a validation or frozen
+/// Every teaching draw is labelled and trained on, so drawing one from a validation or held-out
 /// game turns the only honest measurement this project has into a number about claims the
 /// model was shown.
 fn refuse_held_back(app_ids: &[u32]) -> Result<()> {
@@ -2294,7 +2294,7 @@ fn run_gold(
     )?;
     if questions.is_empty() {
         anyhow::bail!(
-            "no frozen game under {} has both a drawn sample and labels; nothing to adjudicate",
+            "no held-out game under {} has both a drawn sample and labels; nothing to adjudicate",
             reference.display()
         );
     }
@@ -2310,7 +2310,7 @@ fn run_gold(
 fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
     let languages = &found.languages;
     let boundaries = &found.boundaries;
-    println!("games      {} frozen", found.games);
+    println!("games      {} held out", found.games);
     if !languages.is_empty() {
         println!(
             "languages  {} only, so every figure from this is about {} rather than the corpus",
@@ -2941,7 +2941,7 @@ fn run_ceiling(app_ids: &[u32], out: &std::path::Path, reference: &std::path::Pa
     // anything and averaging it in would hide the one figure that is.
     let mut pooled: Vec<(Role, steamgauge_core::measure::Ceiling, usize)> = vec![
         (
-            Role::Frozen,
+            Role::HeldOut,
             steamgauge_core::measure::Ceiling::default(),
             0,
         ),
@@ -3005,7 +3005,7 @@ fn run_ceiling(app_ids: &[u32], out: &std::path::Path, reference: &std::path::Pa
     }
 
     println!(
-        "\nOnly the frozen block is a measurement. The model trained on the others, so its
+        "\nOnly the held-out block is a measurement. The model trained on the others, so its
 answers there are partly recall, and the validation games chose its threshold.
 
 Within that block, the first figure is the ceiling: a model trained on one labeller's
@@ -3036,7 +3036,7 @@ fn print_ceiling_block(
         "\n{} games the model {}, {} claims read twice and answered",
         games,
         match was {
-            Role::Frozen => "never saw",
+            Role::HeldOut => "never saw",
             Role::Validation => "chose its threshold on",
             Role::Train => "trained on",
         },

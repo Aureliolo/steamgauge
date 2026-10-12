@@ -12,7 +12,7 @@ direction of the confusion does say:
   right, but below the threshold   the reader knows and does not know that it knows, which
                                    is a calibration problem and not a knowledge one
 
-Run on the validation games, never the frozen ones.
+Run on the validation games, never the held-out ones.
 
     python confusion.py --model ../models/game-review-reader --subject story
 """

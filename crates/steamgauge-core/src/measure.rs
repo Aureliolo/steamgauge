@@ -570,7 +570,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Role {
     /// Never seen: neither trained on nor consulted when the threshold was chosen.
-    Frozen,
+    HeldOut,
     /// Chose the threshold. Scoring on these flatters by however much the threshold overfits.
     Validation,
     /// Trained on. Its labels are in the weights.
@@ -581,7 +581,7 @@ impl Role {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Frozen => "frozen",
+            Self::HeldOut => "held-out",
             Self::Validation => "validation",
             Self::Train => "train",
         }
@@ -590,7 +590,7 @@ impl Role {
 
 /// Share of games held back entirely, and share consulted only for the threshold. Both are
 /// thresholds on a hash rather than a ranking, so adding a game never moves another.
-const FROZEN_SHARE: f64 = 0.2;
+const HELD_OUT_SHARE: f64 = 0.2;
 const VALIDATION_SHARE: f64 = 0.15;
 
 /// What a game is to the model, from its own id and the split seed alone.
@@ -610,9 +610,9 @@ pub fn role(app_id: u32, seed: u64) -> Role {
         reason = "the top bits are what places a game; the low ones cannot move it a bucket"
     )]
     let at = head as f64 / 2.0_f64.powi(64);
-    if at < FROZEN_SHARE {
-        Role::Frozen
-    } else if at < FROZEN_SHARE + VALIDATION_SHARE {
+    if at < HELD_OUT_SHARE {
+        Role::HeldOut
+    } else if at < HELD_OUT_SHARE + VALIDATION_SHARE {
         Role::Validation
     } else {
         Role::Train
@@ -799,14 +799,18 @@ mod tests {
 
     /// The eight games the trainer holds back and the four it validates on, as recorded in
     /// DECISIONS.md. If this ever fails, the tool and the trainer disagree about which games
-    /// the model has seen, and every frozen figure either of them reports is over the wrong
+    /// the model has seen, and every held-out figure either of them reports is over the wrong
     /// games.
     #[test]
     fn the_tool_places_a_game_where_the_trainer_places_it() {
         for app_id in [
             214_490, 620_980, 774_361, 1_057_090, 1_274_570, 1_466_860, 1_809_540, 2_881_650,
         ] {
-            assert_eq!(role(app_id, SPLIT_SEED), Role::Frozen, "{app_id} is frozen");
+            assert_eq!(
+                role(app_id, SPLIT_SEED),
+                Role::HeldOut,
+                "{app_id} is held out"
+            );
         }
         for app_id in [275_850, 1_295_660, 1_465_360, 1_601_580] {
             assert_eq!(
@@ -1167,7 +1171,7 @@ mod tests {
 
     #[test]
     fn a_role_is_written_as_the_trainer_writes_it() {
-        assert_eq!(Role::Frozen.as_str(), "frozen");
+        assert_eq!(Role::HeldOut.as_str(), "held-out");
         assert_eq!(Role::Validation.as_str(), "validation");
         assert_eq!(Role::Train.as_str(), "train");
     }

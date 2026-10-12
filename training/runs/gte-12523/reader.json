@@ -35,7 +35,7 @@
   "trained_from": "Alibaba-NLP/gte-multilingual-base",
   "data_fingerprint": "8d9da61190f1ccb1",
   "usual_declined": 0.23189174847439642,
-  "frozen": {
+  "held_out": {
     "games": 8,
     "claims": 3769,
     "coverage": 0.7681082515256036,

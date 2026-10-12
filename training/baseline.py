@@ -13,7 +13,7 @@ protocol, because a number with nothing beside it says only that the thing runs:
   say "this is about nothing", so it answers every claim including "gfg".
 
     python baseline.py
-    python baseline.py --frozen
+    python baseline.py --held-out
 """
 
 from __future__ import annotations
@@ -148,11 +148,11 @@ def main():
     parser.add_argument("--split-seed", type=int, default=1)
     parser.add_argument("--min-accuracy", type=float, default=0.75)
     parser.add_argument(
-        "--frozen",
+        "--held-out",
         action="store_true",
-        help="score against the frozen games rather than the validation ones. A set used to "
+        help="score against the held-out games rather than the validation ones. A set used to "
         "choose between models cannot also say how the chosen one does, and these baselines "
-        "choose nothing, so the frozen set is the right one to quote them on.",
+        "choose nothing, so the held-out set is the right one to quote them on.",
     )
     parser.add_argument(
         "--key",
@@ -167,9 +167,9 @@ def main():
 
     claims = claimdata.load(args.data)
     train, validation, test = claimdata.split_by_game(claims, seed=args.split_seed)
-    held = test if args.frozen else validation
+    held = test if args.held_out else validation
     if args.key:
-        # The key names frozen claims, so the training half is untouched by this and nothing the
+        # The key names held-out claims, so the training half is untouched by this and nothing the
         # baselines fit on has seen them.
         by_claim = {(one.app_id, one.review_id, one.claim_index): one for one in claims}
         keyed = [
@@ -210,7 +210,11 @@ def main():
             json.dumps(
                 {
                     "held_out": (
-                        "frontier sample" if args.key else "frozen" if args.frozen else "validation"
+                        "frontier sample"
+                        if args.key
+                        else "held-out"
+                        if args.held_out
+                        else "validation"
                     ),
                     "games": sorted({claim.app_id for claim in held}),
                     "claims": len(held),

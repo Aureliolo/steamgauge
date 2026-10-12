@@ -1,7 +1,7 @@
 """Averages the weights of several trained runs, and reads the average.
 
 Three seeds of one configuration land a couple of points apart on the validation games, so
-shipping the best of the three ships whichever seed the validation draw flattered: the frozen
+shipping the best of the three ships whichever seed the validation draw flattered: the held-out
 figure does not follow it. Fine-tunes that started from the same pretrained encoder stay close
 enough in weight space to be averaged, and the average keeps what the runs agree on rather
 than what each of them invented (Wortsman et al., "Model soups", ICML 2022). It costs no
@@ -15,7 +15,7 @@ the window or the split, and those are refused rather than averaged.
     python soup.py runs/a runs/b runs/c --run-id e5inst-pool-rdrop-soup --save
 
 `--greedy` adds the ingredients one at a time in order of how well each reads the validation
-games, and keeps one only while the soup improves. The frozen games are read once, at the end,
+games, and keeps one only while the soup improves. The held-out games are read once, at the end,
 by whichever soup was chosen: nothing here may be picked by them.
 """
 
@@ -181,7 +181,7 @@ def main(args) -> dict:
         folds=first["folds"] or 5,
     )
     parts = {"train": train, "validation": validation, "test": test}
-    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (frozen)")
+    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (held out)")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = backbones.load(AutoTokenizer, first["backbone"])
@@ -253,10 +253,10 @@ def main(args) -> dict:
     metrics = read_with(model, state, loaders, device, subjects, parts, args.min_accuracy)
     print(f"\nsoup of {soup.count}: {how_it_reads(metrics)}")
 
-    # The frozen games, read once, by the soup that was already chosen. Reading them per
+    # The held-out games, read once, by the soup that was already chosen. Reading them per
     # ingredient would turn the one set nothing is picked on into a set something was picked on.
     held = None
-    if args.frozen:
+    if args.held_out:
         held = evaluate(model, loaders["test"], device, subjects, test, args.min_accuracy)
         at_threshold = selective(
             confidence_of(model, loaders["test"], device),
@@ -265,10 +265,10 @@ def main(args) -> dict:
         )
         held["at_validation_threshold"] = at_threshold
         print(
-            f"frozen games: {at_threshold['coverage']:.0%} of claims answered at "
+            f"held-out games: {at_threshold['coverage']:.0%} of claims answered at "
             f"{at_threshold['accuracy']:.3f}"
             if at_threshold["coverage"] > 0
-            else "frozen games: nothing cleared the threshold"
+            else "held-out games: nothing cleared the threshold"
         )
 
     record = {
@@ -338,10 +338,10 @@ def parse():
     )
     parser.add_argument("--save", action="store_true", help="write the averaged weights")
     parser.add_argument(
-        "--no-frozen",
-        dest="frozen",
+        "--no-held-out",
+        dest="held_out",
         action="store_false",
-        help="leave the frozen games unread",
+        help="leave the held-out games unread",
     )
     return parser.parse_args()
 

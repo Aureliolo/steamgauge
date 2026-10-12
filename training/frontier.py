@@ -46,7 +46,7 @@ def abstention_line(provenance: dict, subject: int) -> float:
 def drawn(claims, per_subject, seed):
     """A stratified draw, so the starved rows are measured rather than rounded away.
 
-    A proportional sample of frozen claims is a quarter `verdict` and two claims of
+    A proportional sample of held-out claims is a quarter `verdict` and two claims of
     `licensing`, and a macro F1 over that says almost nothing about the rows that need it.
     """
     by_subject = defaultdict(list)
@@ -238,7 +238,7 @@ def readable(key: Path, data: str) -> tuple[list[dict], list]:
 def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str]:
     """The shipped reader, over exactly the claims the frontier model was given.
 
-    Without this the comparison is a cheat. The reader's frozen figure is over every frozen
+    Without this the comparison is a cheat. The reader's held-out figure is over every held-out
     claim, which is a quarter `verdict`; the frontier handout is stratified, twenty a subject,
     and the starved rows are the hard ones. Two numbers from two distributions are not a
     comparison, however carefully each was measured.
@@ -355,13 +355,13 @@ def main():
     mine.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
     mine.add_argument("--key", default=None)
     mine.add_argument(
-        "--frozen",
+        "--held-out",
         action="store_true",
-        help="score every frozen claim, writing the key first. This is the run that has to "
+        help="score every held-out claim, writing the key first. This is the run that has to "
         "reproduce what training reported, and `steamgauge measure-claims` over the same "
         "games is the third opinion: any two of them more than a point apart is a bug.",
     )
-    mine.add_argument("--app-id", type=int, default=None, help="one game of the frozen set")
+    mine.add_argument("--app-id", type=int, default=None, help="one game of the held-out set")
     mine.add_argument("--split-seed", type=int, default=1)
     mine.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     mine.add_argument("--answers", default=None, help="where to write the reader's answers")
@@ -371,25 +371,25 @@ def main():
 
     if args.mode == "handout":
         claims = claimdata.load(args.data)
-        _, _, frozen = claimdata.split_by_game(claims, seed=args.split_seed)
-        picked = drawn(frozen, args.per_subject, args.seed)
+        _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
+        picked = drawn(held_out, args.per_subject, args.seed)
         count, batches = write_handout(picked, Path(args.out), Path(args.sheet))
         print(f"{count:,} claims over {batches} batches -> {args.out}")
-        print(f"drawn from {len({c.app_id for c in picked})} frozen games, labels held back")
+        print(f"drawn from {len({c.app_id for c in picked})} held-out games, labels held back")
         return
 
     if args.mode == "reader":
         model_dir = Path(args.model)
-        if args.frozen:
-            # Every frozen claim rather than a stratified draw, because this is the run that
+        if args.held_out:
+            # Every held-out claim rather than a stratified draw, because this is the run that
             # has to reproduce what training reported, and training reported over all of them.
             claims = claimdata.load(args.data)
-            _, _, frozen = claimdata.split_by_game(claims, seed=args.split_seed)
+            _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
             if args.app_id:
-                frozen = [claim for claim in frozen if claim.app_id == args.app_id]
+                held_out = [claim for claim in held_out if claim.app_id == args.app_id]
             # Beside the export it is built from, which is where this project keeps the files
             # that hold review ids rather than review text and are not committed either way.
-            key = Path(args.key) if args.key else HERE / "data" / "frozen-key.json"
+            key = Path(args.key) if args.key else HERE / "data" / "held-out-key.json"
             key.write_text(
                 json.dumps(
                     [
@@ -401,12 +401,12 @@ def main():
                             "subject": claim.subject,
                             "polarity": claim.polarity,
                         }
-                        for at, claim in enumerate(frozen)
+                        for at, claim in enumerate(held_out)
                     ]
                 ),
                 encoding="utf-8",
             )
-            print(f"{len(frozen):,} frozen claims -> {key}")
+            print(f"{len(held_out):,} held-out claims -> {key}")
         else:
             key = Path(args.key)
         said, scored_on = score_reader(model_dir, key, args.data)

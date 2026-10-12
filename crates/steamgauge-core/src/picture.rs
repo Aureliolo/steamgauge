@@ -228,7 +228,7 @@ mod tests {
             reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: None,
-            frozen: None,
+            held_out: None,
             context: false,
             threshold: 0.5,
             device: String::new(),

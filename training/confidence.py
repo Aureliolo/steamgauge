@@ -5,7 +5,7 @@ uses the largest softmax probability, which is the obvious choice and not usuall
 one. **Where to put the line**: the reader uses one threshold for all twenty-six subjects,
 which over-abstains on the subjects it reads well and under-abstains on the ones it does not.
 Neither costs anything to change. Both are decided here, on validation games, never on the
-frozen ones.
+held-out ones.
 
 Every figure is cross-fitted by game. A threshold fitted and reported on the same claims
 flatters itself, and a threshold fitted on one game and reported on another is the only kind
@@ -18,8 +18,8 @@ whole games rather than claims, because claims from one game are not independent
 
 The second form is the one to trust. Four validation games give intervals eight points wide,
 which is wider than every difference this study is asked to decide; five cross-validation folds
-(`train.py --fold`) give an out-of-fold answer for all twenty-eight non-frozen games at the
-cost of five training runs and no test set spent.
+(`train.py --fold`) give an out-of-fold answer for all twenty-eight games outside the held-out
+set at the cost of five training runs and no test set spent.
 
 The ranking is read with AUGRC, not AURC. AURC divides by how much was answered, so it mixes
 the ordering quality of the score with the accuracy of the classifier underneath it, and

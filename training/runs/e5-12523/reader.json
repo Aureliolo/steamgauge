@@ -35,7 +35,7 @@
   "trained_from": "intfloat/multilingual-e5-large",
   "data_fingerprint": "8d9da61190f1ccb1",
   "usual_declined": 0.15786680817192889,
-  "frozen": {
+  "held_out": {
     "games": 8,
     "claims": 3769,
     "coverage": 0.8421331918280711,

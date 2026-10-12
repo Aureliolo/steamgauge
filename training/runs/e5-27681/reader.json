@@ -1,7 +1,7 @@
 {
   "context": true,
   "data_fingerprint": "8a01195c332f2484",
-  "frozen": {
+  "held_out": {
     "accuracy": 0.7877150282579102,
     "claims": 32339,
     "coverage": 0.7495902779925168,

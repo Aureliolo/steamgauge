@@ -1,16 +1,16 @@
 """How well does the reader read each language, and on how much evidence?
 
-The frozen games answer this for English and almost nobody else: they hold 4,017 English claims
+The held-out games answer this for English and almost nobody else: they hold 4,017 English claims
 and 55 Japanese ones, so the Japanese interval is wide enough to be compatible with the reader
 being fine and with it being ten points worse. Meanwhile the library those games stand for is
 barely half English, and three of its games are led by a language that is not.
 
 The cross-validation folds answer it far better and cost nothing, because they already exist.
-Every non-frozen game is held out by exactly one fold, so pooling them gives roughly thirty
-thousand claims answered by a model that never trained on the game they came from, and the
-language of each one is in the label set beside it.
+Every game outside the held-out set is left out by exactly one fold, so pooling them gives
+roughly thirty thousand claims answered by a model that never trained on the game they came
+from, and the language of each one is in the label set beside it.
 
-This is not the frozen-game figure and does not replace it. It is the same out-of-fold evidence
+This is not the held-out figure and does not replace it. It is the same out-of-fold evidence
 the shipped abstention lines are drawn from, asked a question nobody had asked it.
 
     python language.py --oof <dir of cv-*.npz>

@@ -6,7 +6,7 @@ them. The label fingerprint is what says whether two runs are comparable at all:
 on more labels is not a better configuration, it is a different question.
 
 Coverage and accuracy are on the validation games at the threshold the run chose. They
-are not the figure the README quotes, which is measured on the frozen games; these are
+are not the figure the README quotes, which is measured on the held-out games; these are
 for telling runs apart. The spread between two seeds of one configuration is about four
 points of coverage, so a gap smaller than that is not a finding.
 
