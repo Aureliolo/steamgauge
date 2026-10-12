@@ -503,12 +503,12 @@ fn measurement(dir: &Path, app_id: u32) -> (bool, Option<steamgauge_core::ClaimA
 
 /// What the reading pass wrote beside a snapshot's readings.
 fn read_report(snapshot: &std::path::Path) -> Result<steamgauge_core::read::ReadReport, String> {
-    serde_json::from_slice(
-        &std::fs::read(snapshot.join("reading.json")).map_err(|_| {
+    steamgauge_core::read::ReadReport::load(snapshot).map_err(|error| match error {
+        steamgauge_core::Error::NoClassifications { .. } => {
             "this game has not been read yet; run the reading pass first".to_owned()
-        })?,
-    )
-    .map_err(text)
+        }
+        other => text(other),
+    })
 }
 
 #[tauri::command]

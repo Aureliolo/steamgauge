@@ -98,11 +98,7 @@ pub fn game(
     };
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let reading = snapshot.join("reading.json");
-    let report: ReadReport = serde_json::from_slice(&std::fs::read(&reading).map_err(|_| {
-        Error::NoClassifications {
-            path: reading.clone(),
-        }
-    })?)?;
+    let report = ReadReport::load(&snapshot)?;
     let facts = crate::report::crawl_facts(out_dir, app_id)?;
     let measurement = crate::report::agreement_for(
         app_id,

@@ -2578,10 +2578,10 @@ The games held out of training are the held-out games, no longer "frozen", every
 the `--held-out` flags, `gold --splits held-out`, `reference/baselines-held-out.json`, the
 prose, and the `held_out` key of `reader.json`. The user chose to carry the key into the
 published readers (2026-10-12): both are published again with it, weights unchanged, and pinned.
-A reading in somebody's library copies that block from its reader and keeps the key it was
-written with, so `ReadReport` reads `frozen` as well; a recount, an update or a new reading
-writes it back as `held_out`, and nothing writes the old key. The reader's own alias goes once
-the app pins the republished readers.
+The pins land with the rename, so no build reads a reader file under the old key. A reading in
+somebody's library carries a copy of that block under the key it was written with; the figure
+belongs to the reader, so `ReadReport::load` takes it from the reader on the computer that drew
+the reading's lines whenever the reading has none, and a recount writes the reader's own.
 
 ### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
 

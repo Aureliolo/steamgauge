@@ -386,10 +386,10 @@ pub struct ReadReport {
     #[serde(default)]
     pub usual_declined: Option<f32>,
     /// What the reader scored on games nobody involved in it had seen. Copied into the
-    /// reading so a report can say what its rates are worth without the model being present.
-    /// Readings already in a library store it under `frozen`, and are read by that name too
-    /// rather than losing the figure until the game is read again.
-    #[serde(default, alias = "frozen")]
+    /// reading so a report can say what its rates are worth without the model being present;
+    /// [`ReadReport::load`] takes it from the reader that read the game when the reading has
+    /// none.
+    #[serde(default)]
     pub held_out: Option<crate::reader::HeldOut>,
     /// Whether each claim was read with its review around it. The same model cannot be asked
     /// both ways, so this says which question the corpus was actually asked.
@@ -437,6 +437,39 @@ pub struct ReadReport {
 }
 
 impl ReadReport {
+    /// The reading stored beside a snapshot, with the held-out figure of the reader that made it.
+    ///
+    /// The figure belongs to the reader, and a reading carries a copy only so a report can say
+    /// what its rates are worth with no model present. A reading without one takes it from the
+    /// reader on this computer that read the game, which is the one drawing the same lines.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the snapshot holds no reading or it cannot be parsed.
+    pub fn load(snapshot: &Path) -> Result<Self> {
+        let path = snapshot.join("reading.json");
+        let mut report: Self = serde_json::from_slice(
+            &std::fs::read(&path).map_err(|_| Error::NoClassifications { path: path.clone() })?,
+        )?;
+        report.take_held_out_from(
+            crate::reader::SIZES
+                .iter()
+                .filter_map(|size| crate::reader::Provenance::load(&size.home()).ok()),
+        );
+        Ok(report)
+    }
+
+    /// Fills the held-out figure, where the reading has none, from whichever of `readers` drew
+    /// the lines it was read with.
+    fn take_held_out_from(&mut self, readers: impl IntoIterator<Item = crate::reader::Provenance>) {
+        if self.held_out.is_none() {
+            self.held_out = readers
+                .into_iter()
+                .find(|reader| reader.lines_fingerprint == self.read_by_rule)
+                .and_then(|reader| reader.held_out);
+        }
+    }
+
     /// Share of claims the model declined to put a subject on.
     #[must_use]
     #[expect(
@@ -700,7 +733,7 @@ pub fn recount_corpus(
         reader: provenance.name.clone(),
         read_by_rule: earlier.read_by_rule,
         usual_declined: earlier.usual_declined,
-        held_out: earlier.held_out,
+        held_out: provenance.held_out.or(earlier.held_out),
         context,
         captured_unix: earlier.captured_unix,
         ..counted
@@ -2926,5 +2959,47 @@ pub(crate) mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_reading_without_the_held_out_figure_takes_it_from_the_reader_that_made_it() {
+        let reading = |held_out: serde_json::Value| -> ReadReport {
+            serde_json::from_value(serde_json::json!({
+                "app_id": 1, "reviews": 5, "corpus_reviews": 5, "language": null, "claims": 5,
+                "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
+                "model": "m", "threshold": 0.5, "device": "cpu", "subjects": [],
+                "languages": [], "months": [], "read_by_rule": "lines-a", "held_out": held_out,
+            }))
+            .unwrap()
+        };
+        let reader = |lines: &str, claims: u32| -> crate::reader::Provenance {
+            serde_json::from_value(serde_json::json!({
+                "subjects": ["audio"], "threshold": 0.5, "max_tokens": 64,
+                "lines_fingerprint": lines,
+                "held_out": {
+                    "games": 10, "claims": claims, "coverage": 0.9, "accuracy": 0.8,
+                    "macro_f1": 0.7,
+                },
+            }))
+            .unwrap()
+        };
+
+        let mut bare = reading(serde_json::Value::Null);
+        bare.take_held_out_from([reader("lines-b", 2), reader("lines-a", 1)]);
+        assert_eq!(
+            bare.held_out.map(|held_out| held_out.claims),
+            Some(1),
+            "the figure comes from the reader drawing the reading's lines and no other"
+        );
+
+        let mut copied = reading(serde_json::json!(
+            {"games": 10, "claims": 7, "coverage": 0.9, "accuracy": 0.8, "macro_f1": 0.7}
+        ));
+        copied.take_held_out_from([reader("lines-a", 1)]);
+        assert_eq!(copied.held_out.map(|held_out| held_out.claims), Some(7));
+
+        let mut unknown = reading(serde_json::Value::Null);
+        unknown.take_held_out_from([reader("lines-b", 2)]);
+        assert!(unknown.held_out.is_none());
     }
 }

@@ -444,7 +444,7 @@ fn raised_by(snapshot: &Path, wanted: &HashSet<String>) -> Result<HashMap<String
 
 fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
-    let reading: crate::read::ReadReport = read_json(&snapshot.join("reading.json"))?;
+    let reading = crate::read::ReadReport::load(&snapshot)?;
     let crawl = crawl_facts(&options.out_dir, app_id)?;
 
     // A reading made against a different taxonomy counts subjects this build does not have,
