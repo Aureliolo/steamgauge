@@ -63,6 +63,9 @@ training/runs/*/backbone/
 training/runs/*/*.bin
 training/runs/*/*.safetensors
 training/runs/*/*.onnx
+# The card is rendered from run.json and reader.json whenever a model is published, so a copy
+# kept here would only describe the run as it was when last exported.
+training/runs/*/MODEL_CARD.md
 # A tokenizer is seventeen megabytes and is reproducible from the backbone name recorded in
 # run.json, so it belongs with the published model rather than in the history. Both the
 # directory the trainer saves and the copy the export lays beside the graph.

@@ -178,7 +178,7 @@ def dataset_card(
             f"| `ambiguous` | {agreed['ambiguous']:.0%} | {agreed['contested_kappa']:.2f} |",
         ]
         if agreed["claims"]
-        else ["No claim has a second label yet."]
+        else ["No claim has a second label."]
     )
     by = ", ".join(f"{name} ({count:,})" for name, count in (labellers or {}).items())
     return "\n".join(
@@ -293,8 +293,8 @@ def dataset_card(
 
 
 def search_card(name: str, base: str) -> str:
-    """The card for one of the two search exports: Qwen's weights, unchanged, in the shape the
-    tool runs."""
+    """The card for one of the two search exports: Qwen's weights in half precision, in the shape
+    the tool runs."""
     encoder = name == "search-encoder"
     use = (
         [
@@ -302,7 +302,8 @@ def search_card(name: str, base: str) -> str:
             "  last token.",
             "- Searches are written as `Instruct: {instruction}\\nQuery: {query}`; the passages",
             "  searched are embedded as they are.",
-            "- Parity with the original model on DirectML: cosine similarity at least 0.99988.",
+            "- `training/export_search.py` measures its cosine similarity to the original model",
+            "  on DirectML, over any claims it is given.",
         ]
         if encoder
         else [
@@ -311,7 +312,8 @@ def search_card(name: str, base: str) -> str:
             "  layer are kept.",
             "- Input is the reranker's own prompt: system and user turns holding `<Instruct>`,",
             "  `<Query>` and `<Document>`, as on the original model's card.",
-            "- Parity with the original model on DirectML: scores within 0.0076.",
+            "- `training/export_search.py` measures how far its scores are from the original",
+            "  model's on DirectML, over any claims it is given.",
         ]
     )
     return "\n".join(
@@ -328,8 +330,8 @@ def search_card(name: str, base: str) -> str:
             "",
             f"# SteamGauge {'search encoder' if encoder else 'search reranker'}",
             "",
-            f"[`{base}`](https://huggingface.co/{base}) as a half-precision ONNX graph, weights",
-            "unchanged. [SteamGauge](https://github.com/Aureliolo/steamgauge) uses it to search",
+            f"[`{base}`](https://huggingface.co/{base}) as a half-precision ONNX graph.",
+            "[SteamGauge](https://github.com/Aureliolo/steamgauge) uses it to search",
             "Steam reviews by meaning: the encoder finds the claims closest to a search, and the",
             "reranker orders them.",
             "",

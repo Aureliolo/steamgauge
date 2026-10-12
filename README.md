@@ -475,7 +475,7 @@ on exactly these labels, answers its surest claims less accurately than `standar
 
 - **Accuracy at a coverage:** 458 claims from ten games held out of training, labelled under the
   current category sheet. Each reader answers the given share of claims it is most confident about,
-  scored on DirectML (`frontier.py reader`).
+  scored on DirectML against `reference/frontier-key.json` (`frontier.py reader`).
 - **GPU memory and one large game on the GPU:** one read of game 920210 (117,664 claims) through the
   desktop app on DirectML, on an otherwise idle NVIDIA GeForce RTX 4090. Memory is the peak during
   the read minus what the GPU held before.
