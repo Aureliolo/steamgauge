@@ -5210,7 +5210,7 @@ it on intervals that do not overlap, Korean by ten points; the reader that ships
 as filed carries the person's second answers.
 
 The model card quotes the rule that ships, the per-subject and per-language thresholds measured
-out of fold (`frozen` in `reader.json`), rather than a single threshold no reader uses, and says
+out of fold (`held_out` in `reader.json`), rather than a single threshold no reader uses, and says
 that the readers also learned from a larger reader's answers on unpublished unlabelled claims.
 The search cards say half precision rather than "weights unchanged", and point at
 `export_search.py` for the drift from the original models instead of quoting a figure measured on

@@ -17,7 +17,7 @@ not committed.
   disagree with each other about as often as either disagrees with the truth, so a set that
   could not say which one wrote a label could not be split back apart.
 - **`claims/<app id>/second/labels.json`** is that set labelled again by a different labeller
-  working blind: every claim of the frozen games, and a share of every other game's.
+  working blind: every claim of the held-out games, and a share of every other game's.
   `steamgauge compare-labels` reads the two together; a set labelled once cannot say anything
   about its own reliability.
 - **`claims/<app id>/gold/labels.json`** is what a person adjudicated, written by
@@ -47,12 +47,12 @@ not committed.
 ## The benchmark
 
 - **`frontier-key.json`** is the benchmark the README's comparison table and every reader's
-  accuracy at a coverage are scored on: 487 claims drawn from the frozen games, twenty a
+  accuracy at a coverage are scored on: 487 claims drawn from the held-out games, twenty a
   subject, each named by its game, its review and its label's index, with the subject and
   polarity it is keyed to under the sheet as it stands. `training/frontier.py reader --key`
   scores a reader on it, over the claims this build still cuts.
 - **`frontier-opus-answers.json`** is Claude Opus 5's answers to the same claims, given the
   same sheet; `training/frontier.py score` scores them.
-- **`baselines-*.json`** are the baselines and readers scored on that key and on the frozen
+- **`baselines-*.json`** are the baselines and readers scored on that key and on the held-out
   games, and **`reader-sizes.json`** the figures the sizes table on the README and on every
   model card is rendered from.

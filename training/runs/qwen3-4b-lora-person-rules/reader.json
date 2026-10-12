@@ -49,6 +49,6 @@
     "coverage": 0.9828740157480315,
     "accuracy": 0.7869016623272581,
     "macro_f1": 0.7063893050404607,
-    "measured_on": "frozen games"
+    "measured_on": "held-out games"
   }
 }
