@@ -48,7 +48,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | `ort` with DirectML, CoreML and CPU | done |
 | Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search done (the rows below); classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
 | A hosted model does the reading when one is configured | **not built**, there is no API client in the tree |
-| The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and ties the first 4B on the frozen games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
+| The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card, which list only the sizes that ship. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and on the five rules' labels 83.6% against 84.7% (below), and ties the first 4B on the frozen games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
 | Where no card is reached, the person chooses the size, told what each takes on their computer | done: the fast reader by default, the most accurate one beside it (the user, 2026-09-29). Every reading on the processor is timed into `reading-times.json` in the library, so the estimate is that computer's own; before anything has been read there it says how many times as long, never an invented time. On a card the card decides, whatever was chosen before |
 | The user chooses which model does the sorting, and how closely it reads | **partly built**: the size, on a machine with no card; which model and how closely it reads are not |
 
@@ -5184,6 +5184,14 @@ language table is measured again on the shipping recipe's folds (`oof-person-rul
 it on intervals that do not overlap, Korean by ten points; the reader that ships usually declines
 10.9% of claims. The cold gold figures cite the gold set as committed in `4c07445`, since the set
 as filed carries the person's second answers.
+
+The model card quotes the rule that ships, the per-subject and per-language thresholds measured
+out of fold (`frozen` in `reader.json`), rather than a single threshold no reader uses, and says
+that the readers also learned from a larger reader's answers on unpublished unlabelled claims.
+The search cards say half precision rather than "weights unchanged", and point at
+`export_search.py` for the drift from the original models instead of quoting a figure measured on
+claims nobody else holds. The run directories no longer commit a `MODEL_CARD.md`: it is rendered
+whenever a model is published, and the committed copies were an older template's.
 
 ### The window carries no decoration a template would (2026-10-09)
 

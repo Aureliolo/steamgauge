@@ -501,8 +501,8 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             "  `reader.json`), `polarity_logits` (praise, complaint, neutral) and `pooled`.",
             "- `reader.json` holds the confidence each subject (`thresholds`) and each language",
             "  (`language_thresholds`) needs before the reader answers. A claim gets an answer",
-            "  when its top subject's probability clears both lines. A language with no line, or",
-            "  missing from the list, gets no answers.",
+            "  when its top subject's probability clears both thresholds. A language with no",
+            "  threshold, or missing from the list, gets no answers.",
             "",
             "Subjects: " + ", ".join(f"`{name}`" for name in subjects) + ".",
             "",
@@ -515,9 +515,19 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             f"- Polarity macro F1 {frozen.get('polarity_macro_f1', 0):.3f}.",
             f"- Calibration error {frozen.get('calibration_error', 0):.3f}; area under the "
             f"risk-coverage curve {frozen.get('aurc', 0):.3f}.",
-            f"- With one confidence line at {threshold:.2f}: answers "
-            f"{at_threshold.get('coverage', 0):.0%} of claims, accuracy "
-            f"{at_threshold.get('accuracy') or 0:.3f}" + wilson_note(at_threshold) + ".",
+            *(
+                [
+                    f"- With its thresholds, out of fold over {shipped['claims']:,} claims of "
+                    f"{shipped['games']} games: answers {shipped['coverage']:.0%} of claims, "
+                    f"accuracy {shipped['accuracy']:.3f}, macro F1 {shipped['macro_f1']:.3f}."
+                ]
+                if (shipped := reader.get("frozen"))
+                else [
+                    f"- With one confidence threshold at {threshold:.2f}: answers "
+                    f"{at_threshold.get('coverage', 0):.0%} of claims, accuracy "
+                    f"{at_threshold.get('accuracy') or 0:.3f}" + wilson_note(at_threshold) + "."
+                ]
+            ),
             "- Lowest per-subject F1: "
             + ", ".join(f"`{name}` {row['f1']:.2f}" for name, row in weakest)
             + ".",
@@ -532,6 +542,12 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             + (
                 f", from [`{dataset}`](https://huggingface.co/datasets/{dataset})"
                 if (dataset := next(iter((metadata or {}).get("datasets", [])), None))
+                else ""
+            )
+            + (
+                f", and a larger reader's answers on {pooled:,} unlabelled claims from the same"
+                " games' reviews, which are not published"
+                if (pooled := record.get("pool_claims"))
                 else ""
             )
             + f". SteamGauge commit `{record['git_sha'][:12]}`.",
