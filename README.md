@@ -399,7 +399,7 @@ Three things are reported together, and separating them is what makes the number
 
 ### What it is worth against the alternatives
 
-Measured over one set of claims drawn from the frozen games, twenty a subject, which chose
+Measured over one set of claims drawn from the held-out games, twenty a subject, which chose
 nothing about any row: 458 claims, labelled under the category sheet as it stands. The key is
 `reference/frontier-key.json`, and the frontier model's answers are
 `reference/frontier-opus-answers.json`. Every row abstains where it is unsure, and every row is
@@ -415,7 +415,7 @@ runs them, and the baselines are fitted on the same labels the reader learned fr
 | **this reader, 560M parameters** (`e5inst-pool-person-rules-s1`, the one that ships) | **93%** | **80.7%** | **0.765** |
 | Claude Opus 5, given the same sheet | 99.3% | 85.9% | 0.860 |
 
-On the whole frozen set, 5,080 claims as they come, the reader that ships answers 91.5% at 81.5%
+On the whole held-out set, 5,080 claims as they come, the reader that ships answers 91.5% at 81.5%
 (macro F1 0.707): a stratified sample is the harder question, and the one above.
 
 **Every row is the same claims, and that is not a detail.** Read on the corpus as it comes, a
@@ -423,7 +423,7 @@ quarter of which is `verdict`, the commonest-subject baseline scores 28.8% rathe
 TF-IDF answers 46% of claims at 75.1% rather than 48%. A stratified sample is the harder
 question and the useful one, because the rows a reader has to get right are the rare ones.
 Both sets of figures are kept, in `reference/baselines-frontier-sample.json` and
-`reference/baselines-frozen.json`, and a row from one does not belong in a table with a row
+`reference/baselines-held-out.json`, and a row from one does not belong in a table with a row
 from the other.
 
 The third row is why the reader is trained rather than matched against descriptions: cosine
@@ -508,7 +508,7 @@ rather than over them, and prints the share that agrees. That share is the one n
 that may be called accuracy rather than agreement.
 
 **What it says.** One person has adjudicated **200 claims**: 169 drawn blind, in English, from
-the frozen games, and 30 the two labellers were sure of and still disagreed about. Answering
+the held-out games, and 30 the two labellers were sure of and still disagreed about. Answering
 cold, before seeing any label, the person named the same subject as the labels the silver
 standard is made of on **65.1%** of the blind claims (58% to 72% with 95% confidence), and as
 the second labeller on 63.9%; where the two labellers agree with each other, 149 of the 169,
@@ -601,7 +601,7 @@ rather than about somebody's afternoon:
   drives the splitting rules.
 - **Every game the model is measured on is read again by a different labeller, blind, in full,
   and a share of every other set is too.** That is 21,449 of the 33,615 claims the random draws
-  hold, nearly two thirds, and every one of the 5,579 the frozen games hold.
+  hold, nearly two thirds, and every one of the 5,579 the held-out games hold.
   `steamgauge second-opinion` draws the same reviews as fresh batches with no labels in them,
   and `steamgauge compare-labels` reads the two labellings together. It reports each field apart
   from the others, because they fail differently: subject is a judgement about the claim, and
@@ -708,7 +708,7 @@ These rules keep those figures honest:
   would commit to. The share it declined is printed beside it, and a large one is a finding
   about the corpus rather than a footnote.
 
-  On the frozen games, which it never trained on, the reader that ships answers **91.5%** of
+  On the held-out games, which it never trained on, the reader that ships answers **91.5%** of
   the labelled claims and agrees with a labeller on **81.5%** of those. Its lines are drawn for
   what they promise, not moved to make that coverage look better, and the share it declines is
   printed beside every rate.
@@ -725,11 +725,11 @@ These rules keep those figures honest:
   all, with the reviews written in each.
 
 - **A threshold chosen on a few games may not transfer to a new one.** The threshold promises
-  an accuracy, and that promise is measured on the games that chose it; on games the lines were
-  fitted on too few of, the frozen ones can deliver well short of it. So every figure in the
-  model card comes from the frozen games, and the validation figures stay in the run record
-  where they belong. Which games are frozen is fixed
-  by a hash of each game's id, so adding games never moves one across the line.
+  an accuracy, and that promise is measured on the games that chose it; fitted on too few games,
+  it can fall well short on games held out of training. So every figure in the model card comes
+  from the held-out games, and the validation figures stay in the run record where they belong.
+  Which games are held out is fixed by a hash of each game's id, so adding games never moves one
+  across the line.
 
 - **The tool has to reproduce the training measurement, and when it does not the tool is
   wrong.** They are separate implementations of one question: the trainer builds the window
@@ -750,7 +750,7 @@ These rules keep those figures honest:
   than known, and the word accuracy still does not apply: the labels were written by a model, so
   what is measured is consistency between two models.
 
-  Measured over 21,449 claims on every one of the 51 games, with the ten frozen games read
+  Measured over 21,449 claims on every one of the 51 games, with the ten held-out games read
   twice in full: two labellers agree on the subject 88.6% of the time, kappa 0.87, and on
   polarity 94.9%, kappa 0.92.
 
