@@ -29,9 +29,9 @@
   "labels": ["dependencies"],
   "packageRules": [
     {
-      "description": "The manifests name the versions the binary is built with, so an in-range update moves the manifest as well as the lock rather than leaving the two to drift apart.",
+      "description": "The manifests name, with `=`, the exact version of each crate the binary is built with, so manifest and lock never drift apart. An exact requirement is also what holds Cargo to the version Renovate offers: under a caret, the lock update that follows a manifest update takes the newest release in range, which can be younger than the minimum release age, and Renovate then fails the branch's lock file update.",
       "matchManagers": ["cargo"],
-      "rangeStrategy": "bump"
+      "rangeStrategy": "pin"
     },
     {
       "description": "The toolchain is raised by the Rust custom manager below, together with the crates' rust-version; this manager would raise the same line a second time and leave rust-version behind.",
