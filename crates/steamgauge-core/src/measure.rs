@@ -725,7 +725,7 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
     // Every blind reading of these claims, newest sheet first, because a game read twice by
     // one exercise and again by another has two second opinions and both are second opinions.
     let mut theirs: HashMap<(&str, u16), &ClaimLabel> = HashMap::new();
-    let readings: Vec<Vec<ClaimLabel>> = crate::claimset::SECOND_READINGS
+    let readings: Vec<Vec<ClaimLabel>> = crate::claimset::SECOND_LABELS
         .iter()
         .map(|reading| read_labels(reference.join(reading).join("labels.json")).unwrap_or_default())
         .collect();
@@ -1422,10 +1422,7 @@ mod tests {
         // Read once only, so not compared.
         first.push(label("7", 0, (0, 17), "audio", "praise", false));
         write_labels(&reference, &first);
-        write_labels(
-            &reference.join(crate::claimset::SECOND_READINGS[0]),
-            &second,
-        );
+        write_labels(&reference.join(crate::claimset::SECOND_LABELS[0]), &second);
 
         let found = ceiling(out.path(), 1, &reference).unwrap();
         assert_eq!(

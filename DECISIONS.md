@@ -2559,6 +2559,18 @@ and that list went with the hash it was propping up.
 The word `spine` is gone too. It meant the same thing as "the sheet" and "the taxonomy", and three
 words for one concept is three chances to think they are different things.
 
+**The labels stopped carrying them too (2026-10-12).** 45,139 labels still said `core-5` or
+`core-6`, 28,462 of them in the published dataset, and the card explained the names. The user
+asked whether the value was relevant information; it was not: no file maps a name to a sheet,
+`core-6` covered two sheets, and every subject in those rows is in today's sheet. They hold an
+empty `taxonomy` now, which the publish writes as null, "not recorded", beside the 20,461 rows
+that carry a real hash. The same change takes the remaining metaphors out of what the dataset
+and the draws are called (the user's choice of names, 2026-10-12): the subset `mined` is
+`keyword`, its folders `keyword/`, and the command that draws it `rare-claims` with the module
+`rare_subjects` (keyword lists and neighbours, not fishing lines and probes); the published
+`second-readings.jsonl` is `second-labels.jsonl`. The model keeps its name, Game Review Reader,
+because its Hub repositories and DOIs are pinned.
+
 ### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
 
 `ingest-claims` merges by intersection: it takes the labels that name a claim the target set
