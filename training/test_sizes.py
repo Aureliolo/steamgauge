@@ -32,29 +32,37 @@ def test_every_size_says_every_figure_the_table_has_a_column_for():
         assert wanted <= size.keys(), size.get("name")
 
 
+LARGE = {
+    "name": "large",
+    "ships": True,
+    "parameters": 4_022_000_000,
+    "download_mib": 8403,
+    "right_at_80": 0.8392,
+    "right_at_90": None,
+    "card_mib": 12851,
+    "card_seconds": 1399,
+    "processor_seconds": 36.0,
+}
+
+
 def test_figures_read_the_way_a_person_reads_them():
-    data = {
-        "measured": {"frontier": "f", "card": "c", "processor": "p"},
-        "sizes": [
-            {
-                "name": "large",
-                "ships": False,
-                "parameters": 4_022_000_000,
-                "download_mib": 8403,
-                "right_at_80": 0.8392,
-                "right_at_90": None,
-                "card_mib": 12851,
-                "card_seconds": 1399,
-                "processor_seconds": 36.0,
-            }
-        ],
-    }
+    data = {"measured": {"frontier": "f", "card": "c", "processor": "p"}, "sizes": [LARGE]}
 
     row = sizes.table(data).splitlines()[2]
 
-    assert row == (
-        "| *large* (not published) | 4.0B | 8.8 GB | 83.9% | pending | 12.5 GB | 23 min | 36 s |"
-    )
+    assert row == "| large | 4.0B | 8.8 GB | 83.9% | pending | 12.5 GB | 23 min | 36 s |"
+
+
+def test_a_size_nobody_can_download_is_left_off_the_table():
+    data = {
+        "measured": {"frontier": "f", "card": "c", "processor": "p"},
+        "sizes": [{**LARGE, "name": "unpublished", "ships": False}, LARGE],
+    }
+
+    rendered = sizes.table(data)
+
+    assert "unpublished" not in rendered
+    assert rendered.splitlines()[2].startswith("| large |")
 
 
 def test_what_each_column_was_measured_on_keeps_to_the_prose_width():

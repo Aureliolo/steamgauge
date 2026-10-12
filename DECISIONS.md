@@ -5162,6 +5162,29 @@ the report's by Rust. Reviews quoted from players are their words and are left o
 that shows them, `claim` in the report and `said` in the window. DECISIONS and code comments are
 reasoning for whoever works on the project, and are not checked. Its first run found nothing.
 
+### Public texts say what the product is now, and every figure in them can be checked (2026-10-12)
+
+The README, the model and dataset cards and the release notes describe the product as it stands,
+in the present tense. How a figure got where it is, which reader came before and what a change
+was worth belong here, where every one of them is already recorded. A figure in a public text
+rests on something an outsider can check: a committed file, a published model, or reviews anyone
+can fetch from Steam. One that rests on a capture of the maintainer's library alone does not go
+in, and neither does one for a model nobody can download.
+
+What that moved. The frontier benchmark's key, 487 claims named by game, review and label index
+with the subject they are keyed to under the sheet as it stands, and Claude Opus 5's answers to
+them, were on this machine alone; they are `reference/frontier-key.json` and
+`reference/frontier-opus-answers.json`, and the comparison table re-scores from them (Opus 5:
+458 claims, 99.3% answered, 85.9% right, macro F1 0.860). The sizes table renders only the sizes
+that ship, so the 4B teacher's row stays in `reader-sizes.json` and is gone from the README and
+the cards. The search models' 1,029 judged results were judged on two games' captures that are
+not committed, so the README says what the pair does and this file keeps the comparison. The
+language table is measured again on the shipping recipe's folds (`oof-person-rules-standard`):
+40,327 claims, English 75.8%, with Russian, Spanish, Japanese, Simplified Chinese and Korean below
+it on intervals that do not overlap, Korean by ten points; the reader that ships usually declines
+10.9% of claims. The cold gold figures cite the gold set as committed in `4c07445`, since the set
+as filed carries the person's second answers.
+
 ### The window carries no decoration a template would (2026-10-09)
 
 The user went through a list of patterns that mark a page as made from a template, found several

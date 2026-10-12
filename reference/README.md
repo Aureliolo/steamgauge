@@ -16,9 +16,10 @@ not committed.
   answers, and a stamp saying so would be a second thing to keep in step. Two labellers
   disagree with each other about as often as either disagrees with the truth, so a set that
   could not say which one wrote a label could not be split back apart.
-- **`claims/<app id>/second/labels.json`** is a tenth of that set labelled again by a
-  different labeller working blind. `steamgauge compare-labels` reads the two together; a set
-  labelled once cannot say anything about its own reliability.
+- **`claims/<app id>/second/labels.json`** is that set labelled again by a different labeller
+  working blind: every claim of the frozen games, and a share of every other game's.
+  `steamgauge compare-labels` reads the two together; a set labelled once cannot say anything
+  about its own reliability.
 - **`claims/<app id>/gold/labels.json`** is what a person adjudicated, written by
   `steamgauge ingest-gold` from the page `steamgauge gold` produces. It is the only labelling
   in this repository not made by a model, and `steamgauge measure-claims --labels gold` is the
@@ -43,14 +44,15 @@ not committed.
 - **`claim-brief.txt`**, **`labelling-brief.txt`** and **`induction-brief.txt`** are generated
   from `taxonomy.rs` by `steamgauge brief`. Edit the taxonomy, not the briefs.
 
-## What used to be here
+## The benchmark
 
-Two sets were removed once nothing could read them. The reasoning they were kept for is in
-`DECISIONS.md`, which is prose rather than data and says more than the labels did; the labels
-themselves are in the history if anyone needs to see one.
-
-Review-level labels, one subject for a whole review plus a secondary, superseded when the unit
-became the claim: a review that praises the art and damns the framerate says two things and a
-single label records one of them. And claim-level labels written against a sheet whose
-categories this build no longer has, which it refused on sight, that being the version guard
-working rather than failing.
+- **`frontier-key.json`** is the benchmark the README's comparison table and every reader's
+  accuracy at a coverage are scored on: 487 claims drawn from the frozen games, twenty a
+  subject, each named by its game, its review and its label's index, with the subject and
+  polarity it is keyed to under the sheet as it stands. `training/frontier.py reader --key`
+  scores a reader on it, over the claims this build still cuts.
+- **`frontier-opus-answers.json`** is Claude Opus 5's answers to the same claims, given the
+  same sheet; `training/frontier.py score` scores them.
+- **`baselines-*.json`** are the baselines and readers scored on that key and on the frozen
+  games, and **`reader-sizes.json`** the figures the sizes table on the README and on every
+  model card is rendered from.
