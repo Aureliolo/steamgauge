@@ -1062,7 +1062,7 @@ def run(args) -> dict:
             flush=True,
         )
     if args.only_language:
-        # Dropped before the split rather than inside the training half, so the frozen games
+        # Dropped before the split rather than inside the training half, so the held-out games
         # are scored on the same languages they are taught: a model trained on English and
         # measured on everything is being marked on a paper it never sat.
         kept = [claim for claim in claims if claim.language in args.only_language]
@@ -1079,7 +1079,7 @@ def run(args) -> dict:
 
     # A learning curve asks what the next game buys, and the only way to read one is against a
     # test set that does not move. Training games are dropped in a fixed hash order so that
-    # ten games is the same ten in every run, and the frozen and validation games are never
+    # ten games is the same ten in every run, and the held-out and validation games are never
     # touched: the point is to vary what the model learned from, not what it is asked about.
     if args.train_games:
         kept = sorted(
@@ -1089,7 +1089,7 @@ def run(args) -> dict:
         train = [claim for claim in train if claim.app_id in kept]
         print(f"training on {len(kept)} of the training games, by hash order")
 
-    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (frozen)")
+    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (held out)")
 
     if args.batch_size % args.accumulate:
         raise SystemExit(
@@ -1412,7 +1412,7 @@ def run(args) -> dict:
             flush=True,
         )
         # Macro F1 rather than accuracy: the rows a reader has to get right are the rare ones,
-        # and accuracy is a quarter `verdict`. Only the validation games choose; the frozen ones
+        # and accuracy is a quarter `verdict`. Only the validation games choose; the held-out ones
         # never see this.
         if best is not None and best.offer(metrics["macro_f1"], epoch + 1, model):
             print(f"  best so far: epoch {epoch + 1}, kept", flush=True)
@@ -1422,7 +1422,7 @@ def run(args) -> dict:
         print(f"kept epoch {best.epoch} of {args.epochs}: validation macro F1 {best.score:.3f}")
 
     # The averaged weights are the run's weights from here on: what is scored below, what the
-    # frozen games are read with, and what is saved.
+    # held-out games are read with, and what is saved.
     if averaged is not None:
         model.load_state_dict(averaged.module.state_dict())
 
@@ -1432,33 +1432,33 @@ def run(args) -> dict:
         model, loaders["validation"], device, subjects, validation, args.min_accuracy
     )
 
-    # The frozen games, read once, with the threshold the validation games chose. Nothing here
+    # The held-out games, read once, with the threshold the validation games chose. Nothing here
     # picks anything: the moment a number from this set changes a setting, the set stops being
     # able to answer the only question it exists for. That is why it can be switched off, and
     # why the bake-off switches it off: comparing four backbones on it and then reporting the
     # winner's score from it would be reporting a number the winner was chosen by.
     #
     # It is asked at all because the validation figure was not transferring. Measured on eleven
-    # games, a threshold promising 0.756 on the validation games delivered 0.620 on the frozen
+    # games, a threshold promising 0.756 on the validation games delivered 0.620 on the held-out
     # ones, and a model card quoting the first would advertise an accuracy the tool does not
     # have on a game it has never seen.
     held = None
-    if getattr(args, "frozen", True):
+    if getattr(args, "held_out", True):
         held = evaluate(model, loaders["test"], device, subjects, test, args.min_accuracy)
         kept = confidence_of(model, loaders["test"], device)
         truth = [subjects.index(claim.subject) for claim in test]
         at_threshold = selective(kept, truth, metrics["threshold"])
         held["at_validation_threshold"] = at_threshold
         print(
-            f"frozen games: {at_threshold['coverage']:.0%} of claims answered at "
+            f"held-out games: {at_threshold['coverage']:.0%} of claims answered at "
             f"{at_threshold['accuracy']:.3f}"
             if at_threshold["coverage"] > 0
-            else "frozen games: nothing cleared the threshold"
+            else "held-out games: nothing cleared the threshold"
         )
         if held["read_twice"]:
             twice = held["read_twice"]
             print(
-                f"  on the {twice['claims']} frozen claims read twice: {twice['against_first']:.3f} "
+                f"  on the {twice['claims']} held-out claims read twice: {twice['against_first']:.3f} "
                 f"against the first labeller, {twice['against_second']:.3f} against the second, "
                 f"{twice['against_either']:.3f} against either, "
                 f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
@@ -1473,7 +1473,7 @@ def run(args) -> dict:
                 f"  WARNING: the threshold promised {args.min_accuracy:.2f} and delivers "
                 f"{at_threshold['accuracy']:.3f} on games it has never seen. The promise was "
                 f"chosen on {len({claim.app_id for claim in validation})} validation games and "
-                f"does not transfer; quote the frozen figure, not the validation one."
+                f"does not transfer; quote the held-out figure, not the validation one."
             )
 
     if args.save_logits:
@@ -1762,7 +1762,7 @@ def parse():
         type=int,
         default=0,
         help="train on only this many of the training games, chosen in a fixed hash order so "
-        "that every run of a learning curve uses the same ones. The validation and frozen "
+        "that every run of a learning curve uses the same ones. The validation and held-out "
         "games are untouched, so the curve is read against one unmoving test set.",
     )
     parser.add_argument(
@@ -1824,7 +1824,7 @@ def parse():
         type=int,
         default=None,
         help="hold out this cross-validation fold instead of the usual validation games. The "
-        "frozen games stay frozen. Four validation games cannot settle an abstention rule: "
+        "held-out games stay held out. Four validation games cannot settle an abstention rule: "
         "the interval around a coverage figure measured on them is wider than every "
         "difference worth deciding. Run every fold and pool what each held out.",
     )
@@ -1838,10 +1838,10 @@ def parse():
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--save", action="store_true")
     parser.add_argument(
-        "--no-frozen",
-        dest="frozen",
+        "--no-held-out",
+        dest="held_out",
         action="store_false",
-        help="leave the frozen games unread. For runs that compare configurations against each "
+        help="leave the held-out games unread. For runs that compare configurations against each "
         "other: a set used to choose between models cannot also say how the chosen one does.",
     )
     return parser.parse_args()

@@ -8,7 +8,7 @@ Three parts, and they have different jobs:
 
   train        what the model learns from
   validation   what every choice is made against: thresholds, epochs, backbone
-  test         frozen before the first run and read once, at the end
+  test         held out before the first run and read once, at the end
 
 Anything tuned against the test part stops being a measurement, so nothing here returns it
 except `held_out`, and nothing calls that until there is a number to publish.
@@ -230,13 +230,13 @@ def split_by_game(
     has to say so.
 
     With a `fold`, the one validation set is replaced by a cross-validation fold over every
-    game the frozen set does not hold. Four validation games is the honest size of the usual
+    game the held-out set does not hold. Four validation games is the honest size of the usual
     split and it is not enough to choose an abstention rule on: the interval around a coverage
     figure measured over four games is eight points wide, which is wider than every difference
     worth deciding. Training the same configuration once per fold and pooling what each fold
-    held out gives the same claims back as out-of-fold answers over every non-frozen game, at
-    the cost of one training run per fold and no test set spent. The frozen games stay frozen
-    in every fold.
+    left out gives the same claims back as out-of-fold answers over every game outside the
+    held-out set, at the cost of one training run per fold and no test set spent. The held-out
+    games stay held out in every fold.
     """
     games = sorted({claim.app_id for claim in claims})
     if len(games) < 3:
@@ -245,10 +245,10 @@ def split_by_game(
     # Each game's role comes from its own id and the seed, never from which other games are
     # labelled. Shuffling the list of games would reassign every role each time a game was
     # added, and the "games the model never saw" would quietly be different games on every
-    # run. Measured before this: eleven games froze {1295660, 1361210}; fifteen froze three
-    # others and put 1361210 into training.
+    # run. Measured before this: eleven games held out {1295660, 1361210}; fifteen held out
+    # three others and put 1361210 into training.
     #
-    # So a game is frozen if its hash falls in the lowest fifth of the range, validates if in
+    # So a game is held out if its hash falls in the lowest fifth of the range, validates if in
     # the next fifteenth, and trains otherwise, against fixed thresholds rather than a ranking.
     # A ranking would still move the boundary as the count grew. The shares hold only in
     # expectation; a set this small can land short, and the floor below keeps it from landing
@@ -287,7 +287,7 @@ def folds_over(games: list[int], seed: int, folds: int) -> dict[int, int]:
     """Deals the games into cross-validation folds, deterministically and evenly.
 
     Dealt in hash order rather than assigned by a hash of each game alone, which is the
-    opposite of how [`split_by_game`] fixes the frozen and validation roles, and deliberately.
+    opposite of how [`split_by_game`] fixes the held-out and validation roles, and deliberately.
     A role has to depend on the game alone so that labelling a new game cannot move which games
     the model is measured on. A fold has no such duty, and hashing each game independently
     across five buckets put one of thirty-six games in the first of them and left a whole

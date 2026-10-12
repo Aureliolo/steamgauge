@@ -444,7 +444,7 @@ game. The rule above settles each of them, and it is the first line the next she
 is adapting", so the sheet has an answer and the labeller did not trust it against
 `atmosphere`. A RULE on `atmosphere` pointing at `licensing` for faithfulness would do.
 
-**Reported again 2026-09-11**, independently, by the frontier model reading 471 frozen claims
+**Reported again 2026-09-11**, independently, by the frontier model reading 471 held-out claims
 for the baseline: it named this the single unclearest boundary on the sheet, because such
 claims "usually lead with atmosphere words" and the sheet sends faithfulness to `licensing`.
 Two readers who could not see each other's work naming the same boundary is the strongest
@@ -632,7 +632,7 @@ two horror games. Both are about what a game makes a player feel rather than abo
 that produces it. One category might take both.
 
 **`atmosphere` was added for this and is holding up.** Measured 2026-09-11 over
-the 205 atmosphere claims in the frozen games, the reader scores F1 0.55 on it, which is the
+the 205 atmosphere claims in the held-out games, the reader scores F1 0.55 on it, which is the
 middle of the table and the same as `gameplay` scores on twenty times the labels. It is not
 one of the broken rows; those are all under about 150 labels. The claims it does miss go to
 `audio`, `graphics` and `verdict`, which is the boundary this entry was always about, so
@@ -647,7 +647,7 @@ labeller called modding "the game's dominant theme" and had to file it under `co
 confidence with every claim marked contested. Falls between `content`, `updates` and
 `community` with no rule choosing.
 
-The model agrees, without having been asked. On the labelled claims of the three frozen games
+The model agrees, without having been asked. On the labelled claims of the three held-out games
 under the fifteen-game reader, 1466860 is the one it declines most of, 80% against 61% on the
 least, and it is the one where modding is the dominant theme. A subject the sheet lacks is a
 subject the model cannot commit to. Over the whole corpus the gap is softer, 72.9% against a

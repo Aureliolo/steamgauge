@@ -99,7 +99,7 @@
   "name": "Game Review Reader",
   "run_id": "e5small-pool-qwen4b-headset-s1",
   "usual_declined": 0.30455041142064043,
-  "frozen": {
+  "held_out": {
     "games": 59,
     "claims": 40348,
     "coverage": 0.6954495885793596,

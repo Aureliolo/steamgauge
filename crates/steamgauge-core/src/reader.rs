@@ -253,9 +253,10 @@ pub struct Provenance {
     pub usual_declined: Option<f32>,
     /// What this model did on the games it never saw. Carried with the graph so that a report
     /// of a game nobody has labelled can still say what its rates are worth: without it the
-    /// only honest thing such a report could say is nothing at all.
-    #[serde(default)]
-    pub frozen: Option<Frozen>,
+    /// only honest thing such a report could say is nothing at all. The published readers, whose
+    /// `reader.json` is pinned by hash below, carry it under `frozen`, so that name is read too.
+    #[serde(default, alias = "frozen")]
+    pub held_out: Option<HeldOut>,
 }
 
 impl Provenance {
@@ -329,7 +330,7 @@ impl Provenance {
 
 /// A model's own measurement, on games that chose nothing about it.
 #[derive(Debug, Clone, Copy, Deserialize, serde::Serialize)]
-pub struct Frozen {
+pub struct HeldOut {
     pub games: u32,
     pub claims: u32,
     /// The share of claims it answered rather than declining.
@@ -1574,6 +1575,27 @@ mod tests {
             named, "controls:praise",
             "the first subject is not repeated and offtopic never stands beside another"
         );
+    }
+
+    #[test]
+    fn a_published_reader_still_says_what_it_scored_on_the_held_out_games() {
+        let measured = serde_json::json!({
+            "games": 59, "claims": 40_327, "coverage": 0.68, "accuracy": 0.8, "macro_f1": 0.78,
+        });
+        for key in ["held_out", "frozen"] {
+            let provenance: Provenance = serde_json::from_value(serde_json::json!({
+                "subjects": ["audio"],
+                "threshold": 0.5,
+                "max_tokens": 64,
+                key: measured,
+            }))
+            .unwrap();
+            assert_eq!(
+                provenance.held_out.map(|held_out| held_out.claims),
+                Some(40_327),
+                "a reader.json carrying `{key}` lost the measurement"
+            );
+        }
     }
 
     #[test]

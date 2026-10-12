@@ -100,7 +100,7 @@
   "name": "Game Review Reader",
   "run_id": "e5small-pool-person-rules-s1",
   "usual_declined": 0.31626453740670024,
-  "frozen": {
+  "held_out": {
     "games": 59,
     "claims": 40327,
     "coverage": 0.6837354625932998,

@@ -2166,7 +2166,7 @@ fn measured_here(out: &mut String, app: &AppReport) {
 /// trust everything, and the model does have a measurement, taken on games it had never seen.
 /// That figure is not about this corpus and the wording must not pretend otherwise.
 fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
-    let Some(frozen) = app.reading.frozen else {
+    let Some(held_out) = app.reading.held_out else {
         let _ = writeln!(
             out,
             "<p class=\"warn\">{why} Treat every rate as provisional.</p>"
@@ -2180,10 +2180,10 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
          separate labeller did {} of the time when it does, declining the rest rather than \
          guessing. Those labellers were themselves language models. Expect this corpus to be \
          somewhere near that and treat every rate as provisional.</p>",
-        frozen.games,
-        thousands(u64::from(frozen.claims)),
-        percent(frozen.coverage),
-        percent(frozen.accuracy),
+        held_out.games,
+        thousands(u64::from(held_out.claims)),
+        percent(held_out.coverage),
+        percent(held_out.accuracy),
     );
 }
 
@@ -2572,7 +2572,7 @@ mod tests {
                     reader: "Game Review Reader".to_owned(),
                     read_by_rule: String::new(),
                     usual_declined: Some(0.1),
-                    frozen: Some(crate::reader::Frozen {
+                    held_out: Some(crate::reader::HeldOut {
                         games: 8,
                         claims: 3769,
                         coverage: 0.577,

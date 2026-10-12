@@ -406,7 +406,7 @@ struct Reading {
     /// on screen has no labels of its own, which is most games anybody will ever open: telling
     /// them only that nothing is measured invites them to distrust everything or to trust
     /// everything, and the model does have a measurement.
-    frozen: Option<steamgauge_core::reader::Frozen>,
+    held_out: Option<steamgauge_core::reader::HeldOut>,
     /// Oldest first. Fewer than two and there is no line to draw.
     months: Vec<MonthOut>,
     /// Commonest first, over the whole capture rather than the counted language.
@@ -561,7 +561,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
         subjects,
         measured,
         learned,
-        frozen: found.frozen,
+        held_out: found.held_out,
         months: found
             .months
             .iter()

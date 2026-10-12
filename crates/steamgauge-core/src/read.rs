@@ -387,8 +387,10 @@ pub struct ReadReport {
     pub usual_declined: Option<f32>,
     /// What the reader scored on games nobody involved in it had seen. Copied into the
     /// reading so a report can say what its rates are worth without the model being present.
-    #[serde(default)]
-    pub frozen: Option<crate::reader::Frozen>,
+    /// Readings already in a library store it under `frozen`, and are read by that name too
+    /// rather than losing the figure until the game is read again.
+    #[serde(default, alias = "frozen")]
+    pub held_out: Option<crate::reader::HeldOut>,
     /// Whether each claim was read with its review around it. The same model cannot be asked
     /// both ways, so this says which question the corpus was actually asked.
     #[serde(default)]
@@ -585,7 +587,7 @@ fn read_with(
         reader: model.provenance().name.clone(),
         read_by_rule: model.provenance().lines_fingerprint.clone(),
         usual_declined: model.provenance().usual_declined,
-        frozen: model.provenance().frozen,
+        held_out: model.provenance().held_out,
         context,
         captured_unix: captured.changed_unix(),
         ..counted
@@ -698,7 +700,7 @@ pub fn recount_corpus(
         reader: provenance.name.clone(),
         read_by_rule: earlier.read_by_rule,
         usual_declined: earlier.usual_declined,
-        frozen: earlier.frozen,
+        held_out: earlier.held_out,
         context,
         captured_unix: earlier.captured_unix,
         ..counted
@@ -1412,7 +1414,7 @@ impl Counting {
             reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: None,
-            frozen: None,
+            held_out: None,
             context: false,
             threshold: 0.0,
             device: String::new(),
@@ -1672,7 +1674,7 @@ pub(crate) mod tests {
                     "name": "Table Reader",
                     "lines_fingerprint": "lines-1",
                     "usual_declined": 0.25,
-                    "frozen": {"games": 3, "claims": 300, "coverage": 0.8, "accuracy": 0.9,
+                    "held_out": {"games": 3, "claims": 300, "coverage": 0.8, "accuracy": 0.9,
                                "macro_f1": 0.7},
                 }))
                 .unwrap(),
@@ -1999,7 +2001,7 @@ pub(crate) mod tests {
         );
         assert!((report.threshold - 0.5).abs() < f32::EPSILON);
         assert_eq!(report.usual_declined, Some(0.25));
-        assert_eq!(report.frozen.map(|frozen| frozen.games), Some(3));
+        assert_eq!(report.held_out.map(|held_out| held_out.games), Some(3));
         assert!(!report.context);
         assert_eq!(
             report.captured_unix, SWEPT,
@@ -2158,7 +2160,7 @@ pub(crate) mod tests {
             assert_eq!(again.trained_on, "labels-1");
             assert!((again.threshold - 0.5).abs() < f32::EPSILON);
             assert_eq!(again.usual_declined, Some(0.25));
-            assert_eq!(again.frozen.map(|frozen| frozen.claims), Some(300));
+            assert_eq!(again.held_out.map(|held_out| held_out.claims), Some(300));
             assert_eq!(again.context, context);
             assert_eq!(again.captured_unix, SWEPT);
             assert!(again.elapsed > Duration::ZERO);
@@ -2811,7 +2813,7 @@ pub(crate) mod tests {
             reader: String::new(),
             read_by_rule: String::new(),
             usual_declined: Some(0.73),
-            frozen: None,
+            held_out: None,
             context: false,
             threshold: 0.5,
             device: String::new(),

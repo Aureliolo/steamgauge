@@ -833,7 +833,7 @@ mod tests {
                 reader: String::new(),
                 read_by_rule: String::new(),
                 usual_declined: None,
-                frozen: None,
+                held_out: None,
                 context: false,
                 threshold: 0.5,
                 device: "cpu".to_owned(),
@@ -1098,12 +1098,12 @@ mod tests {
     #[test]
     fn a_measured_game_is_scored_and_its_ceiling_read_where_two_labellers_settled_claims() {
         // A game the model never saw, so its labels are scored.
-        const FROZEN: u32 = 214_490;
-        let (out, _snapshot) = library(FROZEN);
+        const HELD_OUT: u32 = 214_490;
+        let (out, _snapshot) = library(HELD_OUT);
         let reference = out.path().join("reference");
         let label = |review: &str, (start, end): (u32, u32), subject: &str| {
             serde_json::json!({
-                "review_id": review, "index": 0, "app_id": FROZEN, "language": "english",
+                "review_id": review, "index": 0, "app_id": HELD_OUT, "language": "english",
                 "subset": "random", "start": start, "end": end, "subject": subject,
                 "polarity": "complaint", "ironic": false, "confidence": "high",
                 "ambiguous": false, "split_wrong": false
@@ -1115,27 +1115,27 @@ mod tests {
         };
 
         write(&reference, serde_json::json!([label("1", (3, 9), "bugs")]));
-        match agreement_for(FROZEN, out.path(), &reference) {
+        match agreement_for(HELD_OUT, out.path(), &reference) {
             Measurement::Unscored(why) => assert!(why.starts_with("none of its 1"), "{why}"),
             other => panic!("labels naming no claim this build cuts were {other:?}"),
         }
 
         let labels = serde_json::json!([label("1", (0, 16), "bugs"), label("3", (0, 16), "bugs")]);
         write(&reference, labels.clone());
-        let agreement = agreement_for(FROZEN, out.path(), &reference);
+        let agreement = agreement_for(HELD_OUT, out.path(), &reference);
         let measured = agreement.report().expect("scored");
         assert_eq!((measured.matched, measured.agreed), (2, 2));
         assert!(
-            ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none(),
+            ceiling_for(HELD_OUT, out.path(), &reference, &agreement).is_none(),
             "read once, so there is no second labeller to settle anything with"
         );
 
         // A reading the ceiling takes, under a name other than the one that admits it.
         write(&reference.join("opus"), labels.clone());
-        assert!(ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none());
+        assert!(ceiling_for(HELD_OUT, out.path(), &reference, &agreement).is_none());
 
         write(&reference.join("second"), labels);
-        let ceiling = ceiling_for(FROZEN, out.path(), &reference, &agreement).unwrap();
+        let ceiling = ceiling_for(HELD_OUT, out.path(), &reference, &agreement).unwrap();
         assert_eq!((ceiling.compared, ceiling.labellers_agreed), (2, 2));
 
         write(
@@ -1144,10 +1144,10 @@ mod tests {
         );
         std::fs::remove_dir_all(reference.join("opus")).unwrap();
         assert!(
-            ceiling_for(FROZEN, out.path(), &reference, &agreement).is_none(),
+            ceiling_for(HELD_OUT, out.path(), &reference, &agreement).is_none(),
             "two labellers who settled nothing set no ceiling"
         );
-        assert!(ceiling_for(FROZEN, out.path(), &reference, &Measurement::Unlabelled).is_none());
+        assert!(ceiling_for(HELD_OUT, out.path(), &reference, &Measurement::Unlabelled).is_none());
     }
 
     #[test]
@@ -1189,7 +1189,7 @@ mod tests {
     #[test]
     fn a_set_nothing_could_be_scored_against_says_why_rather_than_passing_as_no_set() {
         // A game the model never saw, so its labels are something to score against at all.
-        const FROZEN: u32 = 214_490;
+        const HELD_OUT: u32 = 214_490;
         let dir = std::env::temp_dir().join(format!("steamgauge-unscored-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let reference = dir.join("reference");
@@ -1199,7 +1199,7 @@ mod tests {
 
         assert!(
             matches!(
-                agreement_for(FROZEN, &out, &reference),
+                agreement_for(HELD_OUT, &out, &reference),
                 Measurement::Unlabelled
             ),
             "no labels file is a game nobody has labelled"
@@ -1208,7 +1208,7 @@ mod tests {
         std::fs::write(reference.join("labels.json"), "[]").unwrap();
         assert!(
             matches!(
-                agreement_for(FROZEN, &out, &reference),
+                agreement_for(HELD_OUT, &out, &reference),
                 Measurement::Unlabelled
             ),
             "an empty set is a game nobody has labelled"
@@ -1225,7 +1225,7 @@ mod tests {
             .to_string(),
         )
         .unwrap();
-        match agreement_for(FROZEN, &out, &reference) {
+        match agreement_for(HELD_OUT, &out, &reference) {
             Measurement::Unscored(why) => assert!(
                 why.contains("no capture"),
                 "the reason does not name what is missing: {why}"
@@ -1234,7 +1234,7 @@ mod tests {
         }
 
         std::fs::write(reference.join("labels.json"), "not json").unwrap();
-        match agreement_for(FROZEN, &out, &reference) {
+        match agreement_for(HELD_OUT, &out, &reference) {
             Measurement::Unscored(why) => assert!(
                 why.starts_with("its labels cannot be read"),
                 "a corrupt set is not named as one: {why}"

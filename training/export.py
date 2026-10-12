@@ -459,17 +459,17 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
     threshold = reader["threshold"]
     by_language = reader.get("language_thresholds") or {}
     metrics = record["validation"]
-    # The card quotes the frozen games, the ones the run never saw. The validation games chose
+    # The card quotes the held-out games, the ones the run never saw. The validation games chose
     # its settings and score higher, which is not what a new game gets.
-    frozen = record.get("test", metrics)
-    at_threshold = frozen.get(
+    held_out = record.get("test", metrics)
+    at_threshold = held_out.get(
         "at_validation_threshold",
         {
             "coverage": metrics.get("threshold_coverage", 0),
             "accuracy": metrics.get("threshold_accuracy"),
         },
     )
-    weakest = sorted(frozen["per_subject"].items(), key=lambda pair: pair[1]["f1"])[:5]
+    weakest = sorted(held_out["per_subject"].items(), key=lambda pair: pair[1]["f1"])[:5]
     silent = sorted(name for name, line in by_language.items() if line is None)
     base = record["backbone"]
     base_licence = BASE_LICENCES.get(base)
@@ -510,18 +510,18 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             "",
             f"On {record['claims']['test']:,} claims from games held out of training:",
             "",
-            f"- Subject accuracy {frozen.get('accuracy', 0):.3f}, macro F1 "
-            f"{frozen.get('macro_f1', 0):.3f}.",
-            f"- Polarity macro F1 {frozen.get('polarity_macro_f1', 0):.3f}.",
-            f"- Calibration error {frozen.get('calibration_error', 0):.3f}; area under the "
-            f"risk-coverage curve {frozen.get('aurc', 0):.3f}.",
+            f"- Subject accuracy {held_out.get('accuracy', 0):.3f}, macro F1 "
+            f"{held_out.get('macro_f1', 0):.3f}.",
+            f"- Polarity macro F1 {held_out.get('polarity_macro_f1', 0):.3f}.",
+            f"- Calibration error {held_out.get('calibration_error', 0):.3f}; area under the "
+            f"risk-coverage curve {held_out.get('aurc', 0):.3f}.",
             *(
                 [
                     f"- With its thresholds, out of fold over {shipped['claims']:,} claims of "
                     f"{shipped['games']} games: answers {shipped['coverage']:.0%} of claims, "
                     f"accuracy {shipped['accuracy']:.3f}, macro F1 {shipped['macro_f1']:.3f}."
                 ]
-                if (shipped := reader.get("frozen"))
+                if (shipped := reader.get("held_out"))
                 else [
                     f"- With one confidence threshold at {threshold:.2f}: answers "
                     f"{at_threshold.get('coverage', 0):.0%} of claims, accuracy "
@@ -705,10 +705,10 @@ def abstention_lines(
     carries the other: 71% of the set is English, so a line drawn per subject is a line drawn
     mostly from English claims and every other language is marked against it.
 
-    Fitted on every non-frozen game at once rather than leave-one-game-out, because this is the
-    threshold that ships and it should see every claim there is. What a line is *worth* is a
-    different question, and `confidence.py` answers it out-of-fold; fitting the shipped one the
-    same way would throw away a fifth of the evidence for no gain.
+    Fitted on every game but the held-out ones at once rather than leave-one-game-out, because
+    this is the threshold that ships and it should see every claim there is. What a line is
+    *worth* is a different question, and `confidence.py` answers it out-of-fold; fitting the
+    shipped one the same way would throw away a fifth of the evidence for no gain.
 
     The folds carry a class order of their own, so the lines are remapped onto the order this
     export writes rather than trusted to match: two lists of twenty-six subjects that differ by
@@ -768,7 +768,7 @@ def abstention_lines(
         "coverage": float(answered.mean()),
         "accuracy": float(correct[answered].mean()) if answered.any() else 0.0,
         "macro_f1": macro_f1(predicted[answered], truth[answered], len(theirs)),
-        # Not the frozen games: these are the folds, each scoring games its own training never
+        # Not the held-out games: these are the folds, each scoring games its own training never
         # saw. Whoever reads the figure should know which question it answers.
         "measured_on": "out-of-fold",
     }
@@ -1007,7 +1007,7 @@ def main():
             "coverage": at_one_line.get("coverage"),
             "accuracy": at_one_line.get("accuracy"),
             "macro_f1": record.get("test", {}).get("macro_f1"),
-            "measured_on": "frozen games",
+            "measured_on": "held-out games",
         }
     usual_declined = 1.0 - carried["coverage"] if carried else None
     aspects_at = None
@@ -1070,9 +1070,9 @@ def main():
                 # What this model did on games it never saw, carried so that a report of a
                 # game with no reference set can still say what its rates are worth. Without
                 # it, the only honest thing such a report can say is nothing. Under the rule
-                # that ships: with lines, the folds; without them, the frozen games at the one
+                # that ships: with lines, the folds; without them, the held-out games at the one
                 # threshold, which is the same rule the reader then applies.
-                "frozen": carried,
+                "held_out": carried,
             },
             indent=2,
         ),

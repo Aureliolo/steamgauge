@@ -12,7 +12,7 @@ labels, since a run on more labels is not a better configuration.
     python sweep.py                     # every run on the current labels, best first
     python sweep.py --against win-128   # what each run changed, and what it bought
     python sweep.py --subjects lr5e5    # where one run wins and loses, subject by subject
-    python sweep.py --frozen            # what the saved runs promised and what they delivered
+    python sweep.py --held-out          # what the saved runs promised and what they delivered
 
 Coverage is the headline because the promise is fixed: the reader answers at the accuracy it
 promised or it abstains, so the configuration that answers more claims at the same promise is
@@ -137,13 +137,13 @@ def transfer(found: list[dict], against: dict | None) -> None:
     """What each saved run does on the games nothing about it was chosen from.
 
     The figure is coverage and accuracy **at the threshold the validation games chose**, not at
-    a threshold refitted on the frozen ones, because refitting is the measurement this project
+    a threshold refitted on the held-out ones, because refitting is the measurement this project
     exists to avoid. A model that promised 75% and delivers 62% has not been measured badly, it
     has failed, and that has happened here before.
     """
     rows = [run for run in found if run.get("test", {}).get("at_validation_threshold")]
     if not rows:
-        print("no run here was trained with the frozen games evaluated; train with --save")
+        print("no run here was trained with the held-out games evaluated; train with --save")
         return
 
     width = max(len(run["id"]) for run in rows)
@@ -153,15 +153,15 @@ def transfer(found: list[dict], against: dict | None) -> None:
         header += f"{'what it changed':<{what}}  "
     print(header + "promised   answers  delivered   short by   macro F1   AURC")
     for run in sorted(rows, key=lambda run: -run["test"]["at_validation_threshold"]["coverage"]):
-        frozen = run["test"]
-        at = frozen["at_validation_threshold"]
+        held_out = run["test"]
+        at = held_out["at_validation_threshold"]
         promised = run["validation"]["threshold_accuracy"]
         line = f"{run['id']:<{width}}  "
         if against:
             line += f"{differences(run, against):<{what}}  "
         line += (
             f"{promised:7.1%}  {at['coverage']:7.1%}  {at['accuracy']:9.1%}  "
-            f"{at['accuracy'] - promised:+9.1%}  {frozen['macro_f1']:8.3f} {frozen['aurc']:6.3f}"
+            f"{at['accuracy'] - promised:+9.1%}  {held_out['macro_f1']:8.3f} {held_out['aurc']:6.3f}"
         )
         print(line)
     print("\nshort by is what the promise cost on games nothing about the model was chosen from")
@@ -271,7 +271,7 @@ def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
         "on more labels is not a better configuration, it is a different question.",
         "",
         "Coverage and accuracy are on the validation games at the threshold the run chose. They",
-        "are not the figure the README quotes, which is measured on the frozen games; these are",
+        "are not the figure the README quotes, which is measured on the held-out games; these are",
         "for telling runs apart. The spread between two seeds of one configuration is about four",
         "points of coverage, so a gap smaller than that is not a finding.",
         "",
@@ -346,15 +346,15 @@ def spread(found: list[dict], against: dict | None) -> None:
     print(f"\na configuration has to beat {widest:.1%} of coverage to have changed anything")
 
 
-def subjects(run: dict, against: dict | None, frozen: bool) -> None:
+def subjects(run: dict, against: dict | None, held_out: bool) -> None:
     """One run's score for each subject, and what another run scored on the same ones.
 
-    On the frozen games where a run has them, because a subject that reads well on the games
+    On the held-out games where a run has them, because a subject that reads well on the games
     the threshold was chosen from is not a subject that reads well.
     """
-    where = "test" if frozen else "validation"
-    if frozen and not run.get("test", {}).get("per_subject"):
-        raise SystemExit(f"{run['id']} was trained without the frozen games evaluated")
+    where = "test" if held_out else "validation"
+    if held_out and not run.get("test", {}).get("per_subject"):
+        raise SystemExit(f"{run['id']} was trained without the held-out games evaluated")
     mine = run[where]["per_subject"]
     theirs = (against or {}).get(where, {}).get("per_subject", {})
     width = max(len(subject) for subject in mine)
@@ -375,9 +375,9 @@ def main() -> None:
     )
     parser.add_argument("--subjects", help="print one run's per-subject scores instead")
     parser.add_argument(
-        "--frozen",
+        "--held-out",
         action="store_true",
-        help="print what the saved runs deliver on the frozen games, against what they promised",
+        help="print what the saved runs deliver on the held-out games, against what they promised",
     )
     parser.add_argument(
         "--fingerprint",
@@ -439,10 +439,10 @@ def main() -> None:
         run = by_id.get(arguments.subjects)
         if run is None:
             raise SystemExit(f"no run {arguments.subjects} on these labels")
-        subjects(run, against, arguments.frozen)
+        subjects(run, against, arguments.held_out)
         return
 
-    if arguments.frozen:
+    if arguments.held_out:
         transfer(found, against)
         return
 

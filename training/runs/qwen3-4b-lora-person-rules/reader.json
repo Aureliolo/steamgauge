@@ -43,7 +43,7 @@
   "name": "Game Review Reader",
   "run_id": "qwen3-4b-lora-person-rules",
   "usual_declined": 0.01712598425196854,
-  "frozen": {
+  "held_out": {
     "games": 10,
     "claims": 5080,
     "coverage": 0.9828740157480315,

@@ -48,7 +48,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | `ort` with DirectML, CoreML and CPU | done |
 | Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search done (the rows below); classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
 | A hosted model does the reading when one is configured | **not built**, there is no API client in the tree |
-| The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card, which list only the sizes that ship. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and on the five rules' labels 83.6% against 84.7% (below), and ties the first 4B on the frozen games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
+| The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card, which list only the sizes that ship. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and on the five rules' labels 83.6% against 84.7% (below), and ties the first 4B on the held-out games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
 | Where no card is reached, the person chooses the size, told what each takes on their computer | done: the fast reader by default, the most accurate one beside it (the user, 2026-09-29). Every reading on the processor is timed into `reading-times.json` in the library, so the estimate is that computer's own; before anything has been read there it says how many times as long, never an invented time. On a card the card decides, whatever was chosen before |
 | The user chooses which model does the sorting, and how closely it reads | **partly built**: the size, on a machine with no card; which model and how closely it reads are not |
 
@@ -143,10 +143,10 @@ prepared again: its vectors are in another space.
 | Claims labelled by Fable 5.1 agents, one game each, shown the text alone | done for all 51 games, one labeller at a time on the user's instruction |
 | **Opus spot-checks the labels** | the blind second reading of a tenth was done by a second Fable agent, not Opus: 1,400 claims over thirty games, subject kappa 0.85. The row said Opus for weeks and was wrong. Opus has since read 26 of the 49 games in full, 16,310 claims, and what that settled is below |
 | Roughly 400 labels to start | 38,118 claims over 51 games; the 20,000 target was passed and the draws that followed it were teaching sets rather than more of the same |
-| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. The sheet has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the frozen games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
+| **The test set becomes gold: the user adjudicates it by hand**, a random sample of about a thousand claims labelled blind for a representative accuracy figure, then the roughly four hundred the two labellers disagreed on, to settle the boundaries | decided 2026-09-11. The sheet has landed and the page is built: `steamgauge gold --serve` draws 1,000 blind claims from the held-out games and 194 the two labellers answered differently, serves them on the loopback address, and writes each answer to `gold-answers.json` as it is made. It now waits on nobody but the user. `--labels opus` draws the disagreements from the second model instead, which is 2,116 claims rather than 194, and asks the 72 neither labeller hedged first: a person adjudicates until they stop rather than until the list ends, so the order is most of what the hour buys |
 | **Right or acceptable is measured beside exact**: human writing has more than one fair subject, so where the reader names another subject than the person's gold label, the person is asked whether that one would also do | decided 2026-09-29. `steamgauge gold --acceptable --serve` asks the 43 gold claims the reader answered differently, `ingest-gold` files the judgements in `gold/acceptable.json` beside the labels, which never change. Exact agreement stays the quoted accuracy; right-or-acceptable is quoted beside it, never in its place. A rejection where the reader repeated its training label is a sheet rule the person does not hold, and moves the sheet, relabels the claims under it and retrains. Answered 2026-09-30: 36 of 43 acceptable; blind **85.4% exact, 98.5% right or acceptable**; two rules moved, below |
 | 30 to 35 mid-size games, mixed sentiment, small corpora acceptable | done and then some: 51 games drawn and labelled |
-| Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the frozen ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 frozen (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games froze a different pair from eleven |
+| Stratified subset trains, random subset measures, and the two are never merged | superseded at claim level: **whole games** are held out and the held-out ones choose nothing. A game's role is fixed by a hash of its own id, so adding games moves none; over the 51 drawn that is 10 held out (214490, 620980, 774361, 920210, 1057090, 1222670, 1274570, 1466860, 1809540, 2881650), 6 validation (275850, 1295660, 1372880, 1465360, 1601580, 2338770), 35 train. The earlier shuffle reassigned every role on every run, which was found when fifteen games held out a different pair from eleven |
 | Measured error **corrects the reported prevalence** | done, on the report page, per subject where the model finds it better than chance |
 | The sets are a silver standard, and the README says so rather than calling them gold | done |
 
@@ -160,7 +160,7 @@ removed.
 |---|---|
 | The unit is a **claim**, not a review. A review is split into the points it makes and each point carries one subject | splitter written and tested |
 | A **fine-tuned multilingual encoder** replaces prototype similarity, distilled from Fable labels, exported to ONNX, run on the existing runtime | built, retrained on each new batch of labels |
-| The **backbone is chosen by bake-off**, not by reputation: several candidates, identical labels, identical frozen split, judged on per-category F1 and throughput together | done, below: `gte-multilingual-base` wins every measure but speed among models of its size, and the first model tried at twice that size beats it by more than every other setting in the sweep combined |
+| The **backbone is chosen by bake-off**, not by reputation: several candidates, identical labels, identical held-out split, judged on per-category F1 and throughput together | done, below: `gte-multilingual-base` wins every measure but speed among models of its size, and the first model tried at twice that size beats it by more than every other setting in the sweep combined |
 | **Calibrated abstention**: a claim below threshold is recorded as unclassified and counted, never folded into `verdict` | built, and the threshold is chosen by **the most coverage available at a promised accuracy**, never by maximising accuracy times coverage, which collapses to answering everything |
 | **Polarity is predicted per claim**, and reported per review per subject as praised, criticised or **mixed** | done: a second head on the same trunk, and the report counts praise, complaint and mixed per subject |
 | **Mention rate stays the headline** because it is verbosity-proof; claim share is deep-reading only and always labelled as verbosity-weighted | rule |
@@ -168,7 +168,7 @@ removed.
 | Labelling is **cluster-stratified in round one**, then **active learning** (uncertainty crossed with diversity) | round one is stratified and running; `steamgauge declined` draws the claims the reader abstained on as a teaching set nothing measures, which is the uncertainty half, and it waits on a reading made by the current splitter |
 | **One game first**, about 2,000 claims, then decide whether to commit the rest | done, the Frostpunk 2 pilot below, and the rest was committed |
 | The 26 games already labelled at review level get **re-labelled at claim level**, so old and new are the same sample | in progress: they are among the 36 in the claim-level run |
-| Full MLOps, **reproducible in this repository**: soft targets from labeller confidence, automated label auditing, frozen test set, per-language and per-length slice metrics, calibration, ONNX parity assertion, a CI gate that fails on F1 regression, hash-versioned label sets, plus self-training and multi-seed ensemble as measured experiments | frozen set, calibration, parity assertion and the second-reading audit are done; slice metrics, the CI gate, soft targets and the experiments are **not built** |
+| Full MLOps, **reproducible in this repository**: soft targets from labeller confidence, automated label auditing, held-out test set, per-language and per-length slice metrics, calibration, ONNX parity assertion, a CI gate that fails on F1 regression, hash-versioned label sets, plus self-training and multi-seed ensemble as measured experiments | held-out set, calibration, parity assertion and the second-reading audit are done; slice metrics, the CI gate, soft targets and the experiments are **not built** |
 | Run tracking is a local JSON log carrying git sha, data hash, config and metrics. No external service | done, `run.json` in every training run |
 | Model and dataset published to **Hugging Face**. The dataset is review ids, claim offsets and labels, **never review text**, because this repository holds no review data | script and fetch path built; nothing published yet, so the pin in `reader.rs` is empty |
 
@@ -189,22 +189,22 @@ Then eleven games, 5,574 claims, measured with games held out whole:
 
 | Question | Answer |
 |---|---|
-| How good is it on a game it has never seen? | Accuracy **0.318**, macro F1 **0.269**, on the frozen games. The pilot's 0.46 was within one game, which is the easy question; the validation games say 0.427, and they helped build the model |
+| How good is it on a game it has never seen? | Accuracy **0.318**, macro F1 **0.269**, on the held-out games. The pilot's 0.46 was within one game, which is the easy question; the validation games say 0.427, and they helped build the model |
 | How much can it answer at a promised 75% accuracy? | **24% of claims** at threshold 0.42, on the games that chose the threshold |
-| Does that promise transfer? | **No.** On the two frozen games the same threshold answers **13%** of claims at **0.620**, not 0.756. It was chosen on two validation games and overfits them |
-| Is it calibrated? | Better where it matters least: calibration error 0.066 on the frozen games against 0.132 on validation, but area under the risk-coverage curve 0.543 there against 0.386, so its confidence ranks claims worse on a game it has not seen |
-| What does it still not know? | `gameplay` has 257 labelled claims in one frozen game and the model answers **none** of them. `controls`, `difficulty` and `content` likewise. `accessibility`, `community`, `compatibility` and `language` score zero F1 for want of labels |
+| Does that promise transfer? | **No.** On the two held-out games the same threshold answers **13%** of claims at **0.620**, not 0.756. It was chosen on two validation games and overfits them |
+| Is it calibrated? | Better where it matters least: calibration error 0.066 on the held-out games against 0.132 on validation, but area under the risk-coverage curve 0.543 there against 0.386, so its confidence ranks claims worse on a game it has not seen |
+| What does it still not know? | `gameplay` has 257 labelled claims in one held-out game and the model answers **none** of them. `controls`, `difficulty` and `content` likewise. `accessibility`, `community`, `compatibility` and `language` score zero F1 for want of labels |
 
-Then fifteen games, 7,680 claims, on a frozen set fixed by hash so it cannot move again:
+Then fifteen games, 7,680 claims, on a held-out set fixed by hash so it cannot move again:
 
 | Question | Answer |
 |---|---|
-| How good is it on a game it has never seen? | Accuracy **0.476**, macro F1 **0.385**, polarity F1 0.700, on three frozen games |
+| How good is it on a game it has never seen? | Accuracy **0.476**, macro F1 **0.385**, polarity F1 0.700, on three held-out games |
 | How much does it answer, and how well? | **27% of claims at 0.747**, in [0.696, 0.792] over 316 claims. Four games earlier it was 13% at 0.620 |
-| Does the promise transfer now? | **Within a point**: 0.757 promised on validation, 0.747 delivered frozen |
+| Does the promise transfer now? | **Within a point**: 0.757 promised on validation, 0.747 delivered on the held-out games |
 | Why did it start transferring? | Area under the risk-coverage curve fell from 0.543 to **0.351**. The model learned when it does not know, which is the whole of what lets a threshold carry to a new game |
 
-The frozen games are different games from the eleven-game run, because the old split
+The held-out games are different games from the eleven-game run, because the old split
 reassigned them; so the before and after are not over the same reviews. What is not in doubt
 is the direction, and that labels are what moved it.
 
@@ -246,7 +246,7 @@ the same numbers to a point: that is a silver standard behaving like one.
 
 Then the backbone was put to the bake-off it was always going to face, on sixteen games and
 8,608 claims, every candidate on the same split and schedule, judged on the validation games
-only so the frozen ones stay unread by the thing choosing:
+only so the held-out ones stay unread by the thing choosing:
 
 | Backbone, five epochs | Macro F1 | Accuracy | AURC | Answers at 75% | Claims/s |
 |---|---|---|---|---|---|
@@ -272,16 +272,16 @@ is slower and worse at everything, whatever its reputation. `gte` exports to the
 graph shape with parity intact (largest drift 8.3e-03 at half precision, no answers changed),
 which was the condition for being a candidate at all.
 
-Trained on its own on the same 5,988 training claims and measured on the same four frozen
+Trained on its own on the same 5,988 training claims and measured on the same four held-out
 games (1,800 claims), `gte` answers **37% at 0.803** where `xlm-roberta` answers 28% at
-0.762; frozen accuracy 0.608 against 0.507, macro F1 0.512 against 0.405, AURC 0.236 against
+0.762; held-out accuracy 0.608 against 0.507, macro F1 0.512 against 0.405, AURC 0.236 against
 0.322. The chain is verified against it as before: the tool answers **666 claims at 0.803**
-across the four frozen games, which is training's figure to the claim and to the decimal,
+across the four held-out games, which is training's figure to the claim and to the decimal,
 on a different tokenizer and a different architecture from the last time this was checked.
 Per game it runs from 74.5% (1466860, the modding game) to 84.2% (1809540), and over the
 whole corpora it declines between 54% and 71% against a usual 63%.
 
-Then twenty-three games, 12,011 claims, five frozen (214490 joined them), 2,495 frozen claims:
+Then twenty-three games, 12,011 claims, five held out (214490 joined them), 2,495 held-out claims:
 
 | Question | Answer |
 |---|---|
@@ -290,7 +290,7 @@ Then twenty-three games, 12,011 claims, five frozen (214490 joined them), 2,495 
 | Does the tool agree? | 1,070 answered at 0.807 across the five corpora, one claim from training's 1,071 at 0.808, which is the half-precision tie again |
 | Per game? | 76.3% on 1466860 to 87.0% on 1057090; declined 47% to 63% of labelled claims, and 57% is now the usual figure the reader carries |
 
-Then twenty-seven games, 14,163 claims, six frozen (2881650 joined them), 2,797 frozen claims,
+Then twenty-seven games, 14,163 claims, six held out (2881650 joined them), 2,797 held-out claims,
 and this is the installed reader:
 
 | Question | Answer |
@@ -322,7 +322,7 @@ Only the first row is a measurement. The third is the model reciting labels it w
 on, and it is in the table precisely because the gap between 99.7% and 85.1% is what holding
 whole games back is for: a tool that pooled all three would report 94.9% and mean nothing by
 it. The first pooled figure this was run on did exactly that, before the placement the trainer
-uses was ported into the tool and a test pinned the frozen and validation games against it.
+uses was ported into the tool and a test pinned the held-out and validation games against it.
 
 So the honest sentence about the current reader is: **on games it has never seen, over claims
 it commits to, where two independent labellers reached the same subject, it agrees with them
@@ -348,7 +348,7 @@ next; an emoticon belongs to the sentence before it; "i.e." and "z.B." are abbre
 with their dots in; a bare `[list]` line is not a piece; a tagged heading weighs what its
 words weigh and keeps its colon.
 
-Measured with the gte-7579 reader on the same five frozen games: **1,003 claims answered at
+Measured with the gte-7579 reader on the same five held-out games: **1,003 claims answered at
 0.810** over the 2,361 labels the new splitter still cuts as labelled, against 1,070 at 0.807
 over 2,495 under the rules before it. The 134 labels it no longer cuts, 5.4%, are the comma lists and
 the fragments the labellers reported, split or joined as they asked; the agreement on the
@@ -422,7 +422,7 @@ change costs is unchanged: every reading is re-read, and every label whose span 
 cuts is dropped from the measurement.
 
 The chain was first verified end to end at eleven games and re-verified at every retrain since.
-Training measures the frozen games in Python, on the full-precision weights, from the claim
+Training measures the held-out games in Python, on the full-precision weights, from the claim
 text as labelled. The tool measures them in Rust, on the half-precision ONNX graph, over a
 corpus it split itself and joined back to the labels by review id and the span each label
 names. At eleven games the two agreed on **221 claims answered and 0.620 agreement**, to the
@@ -439,7 +439,7 @@ splitter at all. The two come back into exact agreement when the sets are redraw
 the next splitter and the next sheet, and until then the difference is reported rather than
 smoothed.
 
-So the model card and every report now quote the **frozen** games, never the validation ones.
+So the model card and every report now quote the **held-out** games, never the validation ones.
 A card is read by somebody deciding whether to run this on a game of their own, and the
 validation figure answers a different question: how well it does on the games that chose its
 settings. The two differ by eighteen points, and quoting the flattering one would be the same
@@ -509,7 +509,7 @@ instructive ways.
    rather than by its id, and "Great game." written as a whole review a thousand times is one
    forward pass again. Every reading records how many claims it counted and how many it
    actually asked about, so the saving is a number in the file rather than an argument, and it
-   is not one number: across the eight frozen games it runs from 1% to 12% of the corpus.
+   is not one number: across the eight held-out games it runs from 1% to 12% of the corpus.
 2. **By token arithmetic, then on a CPU: "9x", then "7.8x".** A claim is 21 tokens and a claim
    with its review is 168, so the work must be eight times greater. On a CPU it is: 51.7
    claims a second against 6.6.
@@ -692,7 +692,7 @@ unwell. What it costs to read is not a property of the reader alone.
 ## The tool was reading a window of nothing, and every answer looked plausible
 
 Found 2026-09-12, an hour after the context model shipped. Training said the reader answered
-84.2% of the frozen claims at 76.3%. The tool, running the same graph over the same games,
+84.2% of the held-out claims at 76.3%. The tool, running the same graph over the same games,
 agreed on **68.4%**. Same model, same threshold, same claims, eight points apart, and on the
 worst game nineteen.
 
@@ -709,7 +709,7 @@ within a point, and nothing anywhere logged a warning.
 
 The reader now keeps a second tokenizer with padding and truncation turned off, for offsets
 alone. On the same claims, through the same graph, Rust agrees 77.2% where Python agrees 76.8%.
-Through the whole pipeline, on all eight frozen games read again from their captures, the tool
+Through the whole pipeline, on all eight held-out games read again from their captures, the tool
 answers **84.3% of 3,456 labelled claims and agrees on 76.6%, macro F1 0.612**, against the
 84.2% at 76.3% and 0.611 training reported for the same games and the same graph. Three tenths
 of a point, where it had been eight. The export now strips a trainer's padding out of the
@@ -880,7 +880,8 @@ Three more on the Python side, run against a model directory rather than a captu
 
 The last four read out-of-fold logits with `--oof` and should be run that way. Four validation
 games give intervals eight points wide and figures that move; five folds
-(`crossval.sh`, seven minutes each) give all twenty-eight non-frozen games and intervals of two.
+(`crossval.sh`, seven minutes each) give all twenty-eight games outside the held-out set and
+intervals of two.
 
 `lines.py` is the one to reach for when a promise is suspected rather than a score: it fits every
 policy leave-one-game-out, so a language that reads well because one of its games is easy cannot
@@ -1050,17 +1051,17 @@ small one. So this is the backbone and not a lucky run. What
 it costs to read a library with is the open question, and cost is the whole argument for this
 project over a frontier model, so it is measured on the card that does the reading before it is
 chosen. Its calibration is the other: worse than the small model's at every rate, and
-calibration is what carries a threshold from the validation games to the frozen ones. Three
+calibration is what carries a threshold from the validation games to the held-out ones. Three
 epochs is the fallback that keeps the calibration and gives up six points of coverage.
 
 `training/sweep.py` prints that table and that spread from the run records, and it is the first
 thing to run before calling any configuration a winner.
 
-The sweep cannot say anything about the frozen games, because no sweep run ever reads them, so
+The sweep cannot say anything about the held-out games, because no sweep run ever reads them, so
 the one question it left open was whether the worse calibration would cost the transfer: the
 expected calibration error climbs from 0.066 at 1e-5 to 0.203 at 5e-5, and calibration is
-exactly what makes a threshold chosen on the validation games hold on the frozen ones. That has
-failed before. **It did not fail here.** Trained again with the frozen games evaluated, the
+exactly what makes a threshold chosen on the validation games hold on the held-out ones. That has
+failed before. **It did not fail here.** Trained again with the held-out games evaluated, the
 chosen configuration promised 75.0% and delivered 76.3% on them, and the small model at 5e-5
 promised 75.0% and delivered 75.1%. Worse calibration inside the validation games turned out to
 be compatible with a threshold that carries; it is still the thing to check, not the thing to
@@ -1069,7 +1070,7 @@ assume.
 ## What it has to beat
 
 A number with nothing beside it says only that the thing runs. Three baselines now run over
-the same claims, the same split and the same selective-prediction protocol, on the **frozen**
+the same claims, the same split and the same selective-prediction protocol, on the **held-out**
 games that chose nothing:
 
 | | accuracy | macro F1 | AURC | answers at 75% |
@@ -1082,17 +1083,17 @@ games that chose nothing:
 | the same again, on a backbone of twice the size | 0.709 | 0.611 | 0.127 | 84% |
 | the same again, on nineteen thousand more labels (`e5-27681`) | **0.737** | **0.673** | **0.106** | **90%** |
 
-The last four rows are one change at a time, each measured on the frozen games, each promising
+The last four rows are one change at a time, each measured on the held-out games, each promising
 75% and delivering it: 0.749, 0.751, 0.763 and 0.772. The last row is the reader that ships,
 scored here at one threshold so that it stands in the same column as the rows above it; with the
-line per subject it carries it answers 82.9% of frozen claims at 80.7% agreement, and the two
-frozen games added since the row above it was measured are in its figures and not in theirs.
+line per subject it carries it answers 82.9% of held-out claims at 80.7% agreement, and the two
+held-out games added since the row above it was measured are in its figures and not in theirs.
 Reading the claim inside its review and training at the learning rate that suits that is worth
 nineteen points of coverage; the bigger backbone
 is worth seven more on top and most of the macro F1.
 
-**The frozen set grew from eight games to ten on 2026-09-13**, because a game's role comes from
-a hash of its id and two games labelled that day fell inside the frozen fifth. Every row above
+**The held-out set grew from eight games to ten on 2026-09-13**, because a game's role comes from
+a hash of its id and two games labelled that day fell inside the held-out fifth. Every row above
 except the last was measured on the eight; the last was measured on the ten, and so are the
 baselines retaken the same day: commonest subject 0.258 and still never reaching the promise,
 bag of words 0.494 with macro F1 0.420 answering 42%, nearest centroid 0.429 and 0.373 answering
@@ -1134,10 +1135,11 @@ decide. Worse than imprecise, it was misleading: that run put `story` precision 
 0.65. Four games can tell you a subject is weak and cannot tell you how weak, and a figure
 quoted from four games is a figure that will move.
 
-So `train.py --fold` holds out a cross-validation fold over the non-frozen games instead of the
-usual validation set, the frozen games stay frozen in every fold, and `--save-logits` writes
-what each fold held out. Five folds, seven minutes each, and every claim of all twenty-eight
-non-frozen games comes back answered by a model that never saw its game: **15,138 out-of-fold
+So `train.py --fold` holds out a cross-validation fold over the games outside the held-out set
+instead of the usual validation set, the held-out games stay held out in every fold, and
+`--save-logits` writes what each fold held out. Five folds, seven minutes each, and every claim
+of all twenty-eight games outside the held-out set comes back answered by a model that never
+saw its game: **15,138 out-of-fold
 claims, and the interval closes to 2.3 points.** No test set was spent to get it. The thresholds
 are still cross-fitted on top of that, leave-one-game-out, because a threshold fitted and
 reported on the same claims flatters itself.
@@ -1223,16 +1225,16 @@ share a pooled one. That is the clustered form of the standard Mondrian construc
 `null` means that subject is declined outright, which is the honest answer for a subject no
 threshold can make reliable and is not the same as a low line. A reader exported without the
 field keeps the single threshold, which is every reader shipped so far, so nothing has changed
-under anyone. `export.py --lines-from <fold logits>` draws them, fitting on every non-frozen
-game at once because that is the threshold that ships; what a line is *worth* is the
+under anyone. `export.py --lines-from <fold logits>` draws them, fitting on every game but the
+held-out ones at once because that is the threshold that ships; what a line is *worth* is the
 out-of-fold question above and is answered separately.
 
 It is not switched on by exporting today, because the next export is going to carry the mined
 labels and whatever the adjudication settles, and exporting twice to change one thing at a time
-would mean measuring the model twice on the frozen games. One export, both changes, one frozen
+would mean measuring the model twice on the held-out games. One export, both changes, one held-out
 read.
 
-**Exported with lines as `e5-25481`, 2026-09-13, and measured on the frozen games.** The same eight
+**Exported with lines as `e5-25481`, 2026-09-13, and measured on the held-out games.** The same eight
 games and the same 3,456 labelled claims e5-12523 was measured on, by `measure-claims` over readings
 made by each reader:
 
@@ -1242,7 +1244,7 @@ made by each reader:
 | `e5-25481`, a line per subject | 83.7% | 79.5% | 0.646 |
 
 Three points of agreement at the same coverage is past the two-point bar a rerun of one
-configuration sets. Two games the split has frozen since, labelled after e5-12523 and trained on by
+configuration sets. Two games the split has held out since, labelled after e5-12523 and trained on by
 neither reader, land with the rest: over all ten, 84.7% of 5,266 claims answered at 80.0%, macro F1
 0.661. What this run cannot do is divide the gain between its two causes, because it carries both:
 the lines, and seventeen thousand labels more than e5-12523 had, most of them teaching draws aimed
@@ -1258,7 +1260,7 @@ tell from a rerun is not a retrain. Trained anyway on 2026-09-15, to check rathe
 `e5-27881` answers 89.3% at 77.5% against this reader's 90.1% at 77.2%, which is inside the seed
 spread on both counts. Two hundred labels in thirty-eight thousand bought nothing measurable,
 as expected, and it cost seventeen minutes to stop guessing. They are in the set for whatever
-trains next. Ten frozen
+trains next. Ten held-out
 games, 5,266 labelled claims:
 
 | reader | labels | answered | agreement | macro F1 |
@@ -1269,12 +1271,12 @@ games, 5,266 labelled claims:
 **Nothing in that is a finding.** Two points of coverage is what the same configuration run twice
 is worth on this card, and the two readers sit inside it in opposite directions. `e5-27681` ships
 because it is the one trained on every label, not because it measured better; a project that
-picks whichever rerun landed higher is fitting the frozen games. On the eight games `e5-12523` was
+picks whichever rerun landed higher is fitting the held-out games. On the eight games `e5-12523` was
 measured on, the three readers read 84.3% at 76.6%, 83.7% at 79.5% and 81.8% at 79.8%: the
 agreement gain from `e5-12523` holds, the coverage drift between the last two does not signify.
 
 **What the lines themselves cost and bought, one reader and two rules.** Training scores `e5-27681`
-on the same frozen games at the single threshold it transferred from validation, and the tool
+on the same held-out games at the single threshold it transferred from validation, and the tool
 scores it with the exported lines. Same weights, same claims, same labels:
 
 | rule | answered | agreement |
@@ -1287,8 +1289,9 @@ study predicted. It is the trade worth making here because the rows it silences 
 reader reads worst, and a mention rate nobody can trust is worth less than a missing one that
 says so. `e5-25481` showed the same shape (88.2% at 78.5% against 84.7% at 80.0%).
 
-**The lines `e5-27681` ships with**, drawn on five folds of the non-frozen games at a 75% floor,
-against the single threshold of 0.64 they replace. No subject is declined outright:
+**The lines `e5-27681` ships with**, drawn on five folds of the games outside the held-out set
+at a 75% floor, against the single threshold of 0.64 they replace. No subject is declined
+outright:
 
 | line | subjects |
 |---|---|
@@ -1303,7 +1306,7 @@ ones the second labeller and the frontier reader also disagree about most, which
 that the boundary is at fault rather than the reader.
 
 **Two implementations of that rule agree, which is the check that catches a wrong reader.**
-Python over the exported claims answers 82.5% of 5,579 frozen claims at 80.3%; the tool over its
+Python over the exported claims answers 82.5% of 5,579 held-out claims at 80.3%; the tool over its
 own reading of the same games answers 82.9% of the 5,266 whose spans it still cuts, at 80.7%.
 Four tenths of a point. Training is no longer the third opinion on this: it scores at one
 threshold, so its 90.1% at 77.2% answers a different question, and the third implementation is
@@ -1318,7 +1321,7 @@ about a sixth of its claims was advertising a tenth, and the warning for a corpu
 above usual measures against exactly that number. It would have fired on ordinary games. Where
 lines are exported the figures now come from the same folds the lines were drawn on, 41 games and
 32,339 claims under the rule that ships, and carry `measured_on` so nobody has to guess which
-question they answer: 80.4% answered at 76.9%. That is a shade under what the frozen games then
+question they answer: 80.4% answered at 76.9%. That is a shade under what the held-out games then
 measured (82.9% at 80.7%), which is the direction an estimate fitted on its own data should err
 in, and it is the estimate available at export time rather than an hour later.
 
@@ -1441,7 +1444,7 @@ more than any further arithmetic on the ones already labelled.
 model was not overfitting at five; it was underfitting at three.
 
 **Seven epochs instead of five.** The other side of the same question, measured 2026-09-17 on
-the frozen games at the threshold the validation games chose: 91.6% at 0.771 against e5-27681's
+the held-out games at the threshold the validation games chose: 91.6% at 0.771 against e5-27681's
 90.1% at 0.772, accuracy 0.7408 against 0.7372, macro F1 0.6783 against 0.6728. Read as a table
 of wins it looks like a small gain, and it is not one.
 
@@ -1461,7 +1464,7 @@ two are told apart by the one column that has no threshold in it.
 ### A 256-token window is better on every mean and clears nothing, and the fifth seed is why
 
 Measured 2026-09-17, five seeds against the five the shipped configuration already had, every
-figure from the frozen games at the threshold the validation games chose. The seeds are paired:
+figure from the held-out games at the threshold the validation games chose. The seeds are paired:
 the same seed fixes the same head initialisation and the same shuffle in both configurations, so
 the difference can be read seed by seed rather than as two clouds.
 
@@ -1507,9 +1510,9 @@ any amount of rereading the first four.
 
 Measured 2026-09-11, with Claude Opus 5 as the frontier model. It was given the category sheet
 the labellers work from,
-471 frozen claims stratified twenty to a subject, each inside the review it came from, and the
+471 held-out claims stratified twenty to a subject, each inside the review it came from, and the
 same right to abstain the reader has. The shipped reader was then run over **exactly those
-claims**, because the reader's usual frozen figure is over the natural distribution, which is
+claims**, because the reader's usual held-out figure is over the natural distribution, which is
 a quarter `verdict`, and two numbers from two distributions are not a comparison:
 
 | on the same 471 claims | answers | accuracy where it answers | macro F1 | polarity |
@@ -1528,7 +1531,7 @@ every claim, more accurately, on a sheet it was handed once.
 Two things to hold onto rather than explain away:
 
 - **The labels were made by a frontier model.** Two labellers agree with each other 90.2% of
-  the time on frozen claims, so 87% is close to that ceiling but below it. Some of this figure
+  the time on held-out claims, so 87% is close to that ceiling but below it. Some of this figure
   is models of a kind agreeing with each other, and the user's hand-adjudicated gold set is
   what will say how much.
 - **What the small model buys is not quality, it is scale.** The 471 claims cost 405,000
@@ -1545,7 +1548,7 @@ and fifteen of coverage, from twelve and thirty-nine, and it is the number to cl
 ## Where the reader loses, and what it says about where labels should go
 
 A gap averaged over everything says to work harder. Split by subject, on the same 471
-stratified frozen claims, it says what to work on. Measured 2026-09-11 against the 278M reader
+stratified held-out claims, it says what to work on. Measured 2026-09-11 against the 278M reader
 that was shipped then, with how much of the set each subject has:
 
 | subject | labels | Opus 5 | the reader | the reader declined |
@@ -1564,10 +1567,10 @@ not know. It also means the coverage figure, not the accuracy figure, is what mo
 
 Twenty claims a subject is too few to say anything about a subject, though, and reading that
 table as if it could was a mistake made first: it said `atmosphere` was broken. Over all 3,769
-frozen claims, where `atmosphere` has 205 of them, it scores F1 0.55, which is the middle of
+held-out claims, where `atmosphere` has 205 of them, it scores F1 0.55, which is the middle of
 the pack. The per-subject picture from that larger set is the one to trust:
 
-| | labels | frozen claims | F1, 278M | F1, 560M |
+| | labels | held-out claims | F1, 278M | F1, 560M |
 |---|---|---|---|---|
 | licensing | 32 | 24 | **0.00** | 0.21 |
 | accessibility | 62 | 17 | 0.08 | **0.10** |
@@ -1624,15 +1627,15 @@ Found 2026-09-15, from the outside: another session asked whether a complaint in
 review of a 63%-Japanese game reflected the game or its translation, and answering it meant
 asking what the reader's Japanese is worth. The answer is that nobody knows.
 
-The frozen games cannot answer it: they hold 4,017 English claims and 55 Japanese, so the
+The held-out games cannot answer it: they hold 4,017 English claims and 55 Japanese, so the
 Japanese interval runs from 52.3% to 76.6% and is compatible with the reader being fine and
 with it being ten points worse. The first instinct was to spend labeller quota on it.
 
-**The evidence already existed.** Every non-frozen game is held out by exactly one
+**The evidence already existed.** Every game outside the held-out set is left out by exactly one
 cross-validation fold, the folds are already on disk because the shipped abstention lines are
 drawn from them, and the language of each claim is in the label set beside it. Joining the two
 gives 32,339 claims answered by a model that never trained on the game they came from, which is
-six times the frozen set and thirty times its Japanese. `training/language.py` does the join.
+six times the held-out set and thirty times its Japanese. `training/language.py` does the join.
 
 | | library | out-of-fold claims | agreement |
 |---|---|---|---|
@@ -1721,13 +1724,13 @@ measurement already paid for.
 
 ### Weighting the languages made every language worse, and so did dropping them
 
-Two runs, at opposite ends of the same dial, against `e5-27681` on the same 4,017 frozen English
-claims and the same frozen games. `e5-27881-weighted` gives a claim weight by the inverse of its language's
+Two runs, at opposite ends of the same dial, against `e5-27681` on the same 4,017 held-out English
+claims and the same held-out games. `e5-27881-weighted` gives a claim weight by the inverse of its language's
 share, the mirror of the per-subject balance already in `train.py`. `english-only` drops every
-non-English claim before the split, so the frozen games are scored on the languages the model
+non-English claim before the split, so the held-out games are scored on the languages the model
 was taught.
 
-| frozen claims | claims | e5-27681 | e5-27881-weighted, weighted | english only |
+| held-out claims | claims | e5-27681 | e5-27881-weighted, weighted | english only |
 |---|---|---|---|---|
 | english | 4,017 | **74.0%** | 73.9% | 73.5% |
 | russian | 291 | **68.0%** | 66.7% | |
@@ -1743,7 +1746,7 @@ result the subject axis has already returned four times. Loss reweighting at thr
 post-hoc logit adjustment all failed to fix the subject tail, and the reason recorded there
 holds here unchanged: no reweighting of a gradient invents evidence the model has barely seen.
 Japanese has 348 labelled claims in the whole set and Korean 344. Weighting them more heavily
-does not make them more numerous; it makes the model fit them harder, and the frozen games say
+does not make them more numerous; it makes the model fit them harder, and the held-out games say
 what that costs. The gains in the table's tail, French at 47 claims and Italian at 16, are
 single claims moving a percentage by two points and should not be read.
 
@@ -1923,7 +1926,7 @@ claims still drawn and waiting, so every figure here is over half a corpus and w
 | | claims | subject | kappa |
 |---|---|---|---|
 | Fable against Opus, everything read twice | 16,310 | 87.0% | 0.855 |
-| frozen games only | 3,271 | 88.4% | 0.868 |
+| held-out games only | 3,271 | 88.4% | 0.868 |
 | validation games only | 3,204 | 86.6% | 0.850 |
 
 **The hedge flags are the finding.** Split the same claims by whether either labeller marked
@@ -1983,7 +1986,7 @@ Nothing here shows either model is right. Two models sharing a blind spot look e
 models agreeing. What it does give is 2,116 claims the two answered differently, 72 of them with
 both readers confident, and that short list is the most valuable thing a person could adjudicate.
 
-### The blind sample was a sample of the schedule, not of the frozen games
+### The blind sample was a sample of the schedule, not of the held-out games
 
 Found while costing the rest of the second labelling, and it would have ruined the one figure
 this whole project exists to produce.
@@ -1991,33 +1994,33 @@ this whole project exists to produce.
 `draw` treated a claim as a blind candidate only when the second labeller had *not* reached it.
 Everything read twice became a control or a disagreement instead. So the accuracy sample was
 whatever the second pass had not got to yet, and with 26 of 49 games read that meant **1,000
-blind claims from four of the ten frozen games, 486 of them from one game**. A figure computed on
+blind claims from four of the ten held-out games, 486 of them from one game**. A figure computed on
 that is a figure about Warhammer 40,000: Rogue Trader wearing the name of the corpus.
 
 It is worse than a bias, because it moves. Finishing those four games, which was the plan an hour
-earlier, would have taken the blind pool to **zero**: every frozen claim would have been read
+earlier, would have taken the blind pool to **zero**: every held-out claim would have been read
 twice and none would have been eligible. The sample would have silently emptied as the labelling
 got more complete.
 
-Coverage of the second reading is a fact about scheduling. Every frozen claim is now a blind
+Coverage of the second reading is a fact about scheduling. Every held-out claim is now a blind
 candidate, and the draw spreads across all ten games in their own proportions: the largest share
 fell from 48.6% to 23.3%.
 
-Fixing that exposed a second bias underneath it, and completing the frozen games is what made it
+Fixing that exposed a second bias underneath it, and completing the held-out games is what made it
 visible. The disagreements were taken for the split pool before the blind sample was drawn, so
-the sample got whatever was left. While four frozen games were unread that looked fine. Once all
+the sample got whatever was left. While four held-out games were unread that looked fine. Once all
 ten had been read twice, **1,000 of 1,000 blind claims were ones the two labellers had agreed
 on**: the easy half of the corpus, and an accuracy figure over it would have been flattering by
 construction.
 
-The blind sample is drawn first now, from every frozen claim, and the disagreements are whatever
+The blind sample is drawn first now, from every held-out claim, and the disagreements are whatever
 it did not take. The draw went from 100% agreed claims to 885 of 1,000, which is the true rate on
-frozen English claims rather than an artefact of the order the two pools were filled in.
+held-out English claims rather than an artefact of the order the two pools were filled in.
 `the_blind_sample_is_not_only_the_claims_the_labellers_agreed_on` holds it, and also checks that
 no claim is asked twice, once without answers and once with them.
 
 The separate pool of agreed-claim controls is retired with it, along with `--settled`. A sample
-over every frozen claim already contains the claims both labellers answered the same way, in
+over every held-out claim already contains the claims both labellers answered the same way, in
 their true proportion: 538 of the 1,000. Scoring those apart afterwards is the same check without
 a second draw that had to be kept indistinguishable from the first.
 `the_blind_sample_does_not_depend_on_where_the_second_labelling_got_to` holds it.
@@ -2116,7 +2119,7 @@ walks the capture with the live splitter and `gold::still_cut` asks the question
 and at the ingest. Unknown means asked: with no capture nothing is held back, because a draw
 that quietly shrank on a machine holding only the reference sets would be the worse failure.
 
-Measured over the ten frozen games, 467 of 5,579 labels, 8.4%, name a span this build does not
+Measured over the ten held-out games, 467 of 5,579 labels, 8.4%, name a span this build does not
 cut: 199 merged into a bigger claim, 125 gone entirely, 122 with edges moved, 21 taken apart.
 The worst game is 25.2%, and it was labelled under the earliest rules. In the draw itself, 925
 labels are held back, the blind sample is unchanged at 1,000 and the sharp block falls from 38 to 30.
@@ -2168,7 +2171,7 @@ that advances correctly is what made a test that never could have held wrong.
 Settled 2026-09-21: the gold set is **200 claims** adjudicated by one person, and 200 on
 purpose, because it is the number that will be quoted and a sample size that reads as chosen
 rather than as where somebody stopped. 30 are the sharp block, every disagreement the two
-labellers were sure about; 169 are the blind sample, English claims from the frozen ten with
+labellers were sure about; 169 are the blind sample, English claims from the held-out ten with
 no hole in the prefix; one is a blind claim a later draw held back. The person answered 216
 in all: 15 landed on claims nothing will ever score, template options the reviewer left blank
 and spans the splitter has since joined to their point or taken apart, and the ingest removes
@@ -2484,7 +2487,7 @@ abstention lines (`e5inst-pool-person-rules-s1`, `e5small-pool-person-rules-s1`)
 student took its batch as passes of 8 held to 18.5 GB of the card, the same gradient as before.
 
 **Against the person, every gold claim read by the new reader** (the gold games outside the
-frozen ten were read again for it; the first score, taken with thirteen of them still holding the
+held-out ten were read again for it; the first score, taken with thirteen of them still holding the
 old reader's readings, was a mixture and is not quoted). The user judged the five subjects the
 new reader gave that nobody had judged: four would do, one would not.
 
@@ -2520,7 +2523,7 @@ measured on a key it was never taught measures the rules rather than itself:
 
 Opus 5 falls from 87.0% to 85.9% on the moved key: it was given the sheet as it stood, not the
 person's rules. The 4B teacher still answers its surest claims less well than the standard student
-it taught, so the case against a larger size holds on the new labels. On the whole frozen set,
+it taught, so the case against a larger size holds on the new labels. On the whole held-out set,
 5,080 claims as they come, standard answers 91.5% at 81.5% (macro F1 0.707), the reader before
 it 90.4% at 81.6% (0.698). The library was read again with the new standard reader, at half the
 card's time, so that what the README says the library was read with stays true.
@@ -2592,7 +2595,7 @@ command again with `--to`; the cost of its absence was four games.
 
 ### A 256-token window wins on every measure, and on none of them alone
 
-| | frozen at the validation line | accuracy | macro F1 | AURC | minutes |
+| | held-out games at the validation line | accuracy | macro F1 | AURC | minutes |
 |---|---|---|---|---|---|
 | e5-27681, 128 tokens | 90.1% at 0.772 | 0.7372 | 0.6728 | 0.1061 | 17 |
 | window-256 | **92.0% at 0.776** | **0.7444** | **0.6849** | **0.1000** | 27 |
@@ -2608,9 +2611,9 @@ is why the flag exists: halving the batch instead would have moved two things at
 answered neither. Not adopted on one seed. Five seeds decide it.
 
 **The measurement trap this run walked into, recorded because it will recur.** `run.json` holds
-two frozen figures and they are not comparable. `test.threshold_coverage` refits the threshold
-*on the frozen games themselves* and is the best that set can be made to look; the console line
-and `test.at_validation_threshold` score the frozen games at the threshold the *validation* games
+two held-out figures and they are not comparable. `test.threshold_coverage` refits the threshold
+*on the held-out games themselves* and is the best that set can be made to look; the console line
+and `test.at_validation_threshold` score the held-out games at the threshold the *validation* games
 chose, which is the only one that says what a new game would get. Reading one run's refit figure
 against another run's transferring figure made a run that wins on all six measures look like it
 lost 4.3 points of coverage. Quote `at_validation_threshold`, or quote nothing.
@@ -2827,7 +2830,7 @@ Settled 2026-09-21. Found by reading rather than counting: `measure-claims` says
 game's labels name a span this build no longer cuts, and `--example unjoined-labels` prints
 each one beside what is cut there now, grouped by whether the label's bytes sit inside one
 larger claim, are cut into several, or have nothing cut at them at all. Read over the ten
-frozen games, the joins were repairs, the losses were blank template options held back on
+held-out games, the joins were repairs, the losses were blank template options held back on
 purpose, and the cuts into several were three defects.
 
 **A heading over a bullet list stood alone.** A heading with no full stop ends at its line
@@ -2855,7 +2858,7 @@ without spaces, where the weight already asks for two characters' worth.
 `--example dump-claims`: heading joins, list un-splits, numbered lists cut at their markers,
 and ballot boxes staying with their option. Over the whole flagged set the rules before still
 mis-split 3,641 and these 3,617, 24 fixed and none broken; the random draws stay at 9.6%. The
-library was read again under it, 53 of 53 readings reconcile, and the frozen ten score 78.2%
+library was read again under it, 53 of 53 readings reconcile, and the held-out ten score 78.2%
 answered at 82.1%, macro F1 0.645, against 78.3% at 82.1% and 0.645 before: four answers of
 5,177, well inside the 2.4 points the coverage moves seed to seed. The same 402 labels are
 unjoined in total, differently distributed: 920210 has eleven more, and every one of them is a
@@ -2884,12 +2887,12 @@ recommend") rather than a word; a single letter before the stop is an initial an
 
 **What it changed.** Over the 5,670 claims a labeller ever called badly split, 3,807 were
 still cut that way and 3,517 are now, 290 fixed and none newly broken; the random draws go
-from 9.8% to 9.1% still cut as objected to. On the frozen ten, 92 more labels of 5,579 are
+from 9.8% to 9.1% still cut as objected to. On the held-out ten, 92 more labels of 5,579 are
 now cut into several, 51 of them flagged by the labeller and the other 41 read one by one and
 every one a sentence boundary ("great evolution of the classic aoe2. combat and eco has been
 tweaked enough to stay similar but refreshing." is two points, and the labeller let it go).
 Three more labels sit inside a larger claim, which is the abbreviations joining what they
-should. The library owes a re-read under these rules before the frozen figure is recorded
+should. The library owes a re-read under these rules before the held-out figure is recorded
 again; until it has one, the 78.2% at 82.1% above stands as measured under the previous rules,
 and the 92 labels are outside the measurement rather than wrong in it.
 
@@ -2898,9 +2901,9 @@ and the 92 labels are outside the measurement rather than wrong in it.
 Settled 2026-09-21, the same evening, in the order the user chose: retrain first, then one
 re-read under the new splitter and the new reader rather than two. `e5-29006` is the shipped
 configuration on the refreshed export (39,173 rows; 29,006 train, 4,744 validation, 5,423
-frozen), 1,325 more training claims than `e5-27681`, most of them the starved-row draws. It is
+held out), 1,325 more training claims than `e5-27681`, most of them the starved-row draws. It is
 the same reader, everything a hair better and all of it inside the four-point seed spread:
-validation 90.3% answered at 75.0% against 88.6%; frozen at the one threshold 92% at 77.1%
+validation 90.3% answered at 75.0% against 88.6%; held-out games at the one threshold 92% at 77.1%
 against 90.1% at 77.2%; AURC 0.119 against 0.126; five folds 86, 92, 82, 85, 79 against 86,
 91, 84, 82, 80; out of fold under the lines it ships with, 75.8% answered at 78.8% against
 75.0% at 78.8%. Exported fp16 with the lines drawn from those folds, parity on DirectML with no
@@ -2910,7 +2913,7 @@ are not a benchmark.
 
 **The re-read.** 53 games in 4 hours 48 minutes of reading (17,313 seconds), the empty capture
 5126340 failing at the split as it always does, and every one of the 53 readings reconciling
-against its sidecar. The frozen ten under both changes: **5,083 labelled claims, 79.9%
+against its sidecar. The held-out ten under both changes: **5,083 labelled claims, 79.9%
 answered at 82.2% agreement, macro F1 0.652, polarity 86.0%**, against 5,177, 78.2% at 82.1%
 and 0.645 under the previous splitter and reader. The 94 claims that left the measurement are
 the 92 the splitter now cuts into sentences and two more; nothing else moved. Against the gold
@@ -2920,7 +2923,7 @@ for the previous reader on the previous cut: four answers of 138, inside a seven
 interval. The 471-claim frontier sample was not re-scored, because its key lived in a session
 scratchpad that is gone and the export it was drawn from (`8a01195c`) is not the one that was
 backed up; the README's table row is the previous reader's until the frontier comparison is
-run again on a fresh draw, and the key of that draw goes in `training/data/` where the frozen
+run again on a fresh draw, and the key of that draw goes in `training/data/` where the held-out
 key already lives.
 
 **The reader is called Game Review Reader.** A run is named for its encoder and its label
@@ -3011,13 +3014,13 @@ percent of the library.
 ### A night of training experiments, and what each was worth
 
 Settled 2026-09-22, from the sweep that ran while the user was away, on the e5-29006 labels
-(27,194 training claims, 6,556 validation, 5,423 frozen). Every run below is
+(27,194 training claims, 6,556 validation, 5,423 held out). Every run below is
 `sweep.py --fingerprint 2871969fd84a8278 --against e5-29006`; the seed spread of the shipped
 configuration is the bar, and three seeds put it at 2.6 points of validation coverage and
-under a point of frozen accuracy. The research behind the list is the reader-improvement
+under a point of held-out accuracy. The research behind the list is the reader-improvement
 survey in the session scratchpad, ranked by expected gain per hour of the card.
 
-| run | what it changed | validation answers at 75% | frozen answers | frozen accuracy | frozen AURC |
+| run | what it changed | validation answers at 75% | held-out answers | held-out accuracy | held-out AURC |
 |---|---|---|---|---|---|
 | e5-29006 | the baseline, seed 1 | 90.3% | 91.9% | 77.1% | 0.101 |
 | e5-29006-s2 | seed 2 | 87.7% | 89.9% | 78.0% | 0.103 |
@@ -3044,7 +3047,7 @@ what these labels can teach an e5-large, and the floor is flat.
 **A decoder read by its last token is better than the same decoder read by its mean, and
 still worse than the encoder.** Qwen3-Embedding-0.6B mean-pooled answered 77% where e5-large
 answers 90%; by its last token, the way it was trained, 82%, and Harrier 0.6B by its last
-token 80% at 78.4% on the frozen games. The gap is the causal mask: only the last token has
+token 80% at 78.4% on the held-out games. The gap is the causal mask: only the last token has
 seen the whole claim. Neither is a candidate at this size.
 
 **Distillation is the one thing that moved, and it moved by about the noise.** The three EMA
@@ -3052,7 +3055,7 @@ seeds read 250,668 unlabelled claims drawn from the training games (`export-pool
 reviews a game, nothing any reference set holds) and agreed on 85.7% of them; a student of
 the same configuration learned their averaged distributions beside the labels, one pool batch
 per labelled batch. It lands at 89.8% validation coverage against its teachers' 88.4, 87.6 and
-88.1, and on the frozen games at 90.8% answered at 77.9% with the best AURC of the night,
+88.1, and on the held-out games at 90.8% answered at 77.9% with the best AURC of the night,
 0.097 against 0.101 for the shipped run and 0.104 to 0.106 for its teachers. That is a point
 and a half over the runs it learned from and inside the spread of the runs it did not, at
 four and a half times the training time. Worth a second seed and a bigger pool before it is
@@ -3060,28 +3063,28 @@ called an improvement; not worth shipping on one run.
 
 **The instruction-tuned e5 answers the most of anything trained tonight.** On the same EMA
 schedule as its sibling, `multilingual-e5-large-instruct` answers 92.0% of validation claims
-where the plain e5 on that schedule answers 88.4, and 92.9% of frozen claims at 77.4% where
+where the plain e5 on that schedule answers 88.4, and 92.9% of held-out claims at 77.4% where
 the shipped run answers 91.9% at 77.1%: three and a half points over its like-for-like
 sibling, one point over the best plain seed, with a lower validation macro F1 (0.634 against
-0.646) and the same frozen one. One seed, at the edge of the spread. The two findings point
+0.646) and the same held-out one. One seed, at the edge of the spread. The two findings point
 the same way, and they stack: the next round is e5-large-instruct with the pool, on three
 seeds, and if that clears the bar it goes through the folds and ships.
 
 **R-Drop is the third small positive, and the cheapest.** Each batch through the dropout
 twice and the two answers charged for disagreeing (`--rdrop 1.0`, with `--accumulate 2` to
-keep the card's memory where it was): 91.1% validation coverage, 92.9% frozen at 77.8%, the
-best frozen macro F1 of the night at 0.697 and an AURC of 0.097 tying the student's, for
-twice the passes. One seed, on the good side of every figure and inside the spread on each.
-It belongs in the next round's configuration beside the pool.
+keep the card's memory where it was): 91.1% validation coverage, 92.9% of held-out claims at
+77.8%, the best held-out macro F1 of the night at 0.697 and an AURC of 0.097 tying the
+student's, for twice the passes. One seed, on the good side of every figure and inside the
+spread on each. It belongs in the next round's configuration beside the pool.
 
 **Stacked, they hold.** The instruction-tuned e5 learning the pool on the EMA schedule
 (`e5inst-distil-s1`) is the best-rounded run of the night: 91.2% validation coverage with
-the best validation macro F1 (0.653) and AURC (0.113) of anything trained, and on the frozen
+the best validation macro F1 (0.653) and AURC (0.113) of anything trained, and on the held-out
 games 92.8% answered at 77.7%, macro F1 0.682, AURC 0.096, the lowest of all. Each gain on
 its own is a point or two and inside the spread; that the same configuration leads on
-coverage, macro F1 and AURC at once, on validation and frozen alike, is what a real but small
-improvement looks like from one seed. **The next round is this configuration with R-Drop, on
-three seeds; if the three hold the lead, it goes through the five folds, is exported, and
+coverage, macro F1 and AURC at once, on validation and held-out games alike, is what a real
+but small improvement looks like from one seed. **The next round is this configuration with
+R-Drop, on three seeds; if the three hold the lead, it goes through the five folds, is exported, and
 replaces `e5-29006`.** About seven hours of the card.
 
 **Masked-language pretraining made the encoder worse.** The logits over a 250k-word
@@ -3089,7 +3092,7 @@ vocabulary at 32 reviews of 256 tokens are eight gigabytes on their own, so the 
 reviews of 128 tokens: one epoch over 205,685 training-game reviews, 12,856 steps, fifty-one
 minutes, ending at a perplexity of 79. The fine-tune from that backbone (`e5tapt-29006`, the
 shipped schedule) answers 84.8% of validation claims against the baseline's 90.3, 86.7% of
-frozen claims at 76.9% against 91.9 at 77.1, with the worst AURC of any e5 run (0.122) and a
+held-out claims at 76.9% against 91.9 at 77.1, with the worst AURC of any e5 run (0.122) and a
 validation macro F1 of 0.621 against 0.646: five points of coverage lost, outside the spread
 on the wrong side. The reason is what the checkpoint is. e5-large is a contrastively trained
 embedder, not a masked-language model; its head was thrown away, and one epoch of masked
@@ -3102,14 +3105,14 @@ back. Not a candidate. `tapt.py` stays, because the finding is only about this c
 ### The frontier comparison, drawn again
 
 Settled 2026-09-22. The 471-claim sample's key was lost with a session's scratch space, so the
-comparison was drawn again: 487 claims from the ten frozen games, twenty a subject, the key
-kept in `training/data/frontier-key.json` beside the frozen key this time. Opus 5, given the
+comparison was drawn again: 487 claims from the ten held-out games, twenty a subject, the key
+kept in `training/data/frontier-key.json` beside the held-out key this time. Opus 5, given the
 sheet and the review around each claim, blind to the game: **99.4% answered at 87.6%, macro
 F1 0.875**, for 389,000 tokens. The reader that ships, on exactly the same claims: **83.6% at
 78.4%, macro F1 0.691**, against 79% at 77.2% and 0.652 for the previous export on the
 previous draw. The baselines on the same claims: bag of words 40% at 75.1% (0.474), nearest
-centroid 6% at 78.6% (0.465), the commonest subject never. The frozen-set baselines were
-refreshed on the current labels too (`reference/baselines-frozen.json`, 5,423 claims):
+centroid 6% at 78.6% (0.465), the commonest subject never. The baselines on the held-out set were
+refreshed on the current labels too (`reference/baselines-held-out.json`, 5,423 claims):
 commonest 27.2%, bag of words 42% at 75.2%, centroid 9% at 79.4%. The gap to the frontier is
 nine points of agreement and sixteen of coverage, down from ten and twenty; the README's
 table is this draw.
@@ -3128,18 +3131,18 @@ index has said 29,006 training claims beside every one of those runs, truthfully
 What that costs and what it does not. The night's table compares configurations, and a
 comparison wants one label set; it has one, and every conclusion in it stands. What it means
 is that the reader in `models/game-review-reader` never saw the 2,596 labels bought for the
-rows it is weakest on, and that the frozen figures of the night were measured with the
+rows it is weakest on, and that the held-out figures of the night were measured with the
 revisit's 36 moves absent from both sides. The three-seed round running as this is written
 finishes on the same file, because a seed trained on different labels from its siblings is
 not a seed of them. **Everything after it, the folds and the reader that ships, trains on
 a fresh export**, and the export is written by the same command immediately before the run
 rather than found on disk, which is the rule that would have caught this.
 
-### The frozen games are being read twice in full, and the reader is scored against both readings
+### The held-out games are being read twice in full, and the reader is scored against both readings
 
-Settled 2026-09-22 with the user, from three options: read the ten frozen games in full a
+Settled 2026-09-22 with the user, from three options: read the ten held-out games in full a
 second time (chosen), top every set up to a fifth, or spend nothing until the round reports.
-The benchmark is the ten frozen games, and a benchmark read by one labeller can only say how
+The benchmark is the ten held-out games, and a benchmark read by one labeller can only say how
 well the model agrees with that labeller; 449 of its 5,579 claims had a second reading, the
 tenth every set has. The other 5,130 go to Opus in 31 sittings of two batches, one agent at a
 time as the budget says, ingested as each sitting returns.
@@ -3156,7 +3159,7 @@ unchanged to the bit, which a test holds, and the fingerprint hashes the first l
 so runs stay comparable. It is the fourth item of the night's survey (two-labeller targets,
 +1 to +3 in the literature at no compute) and has not been run: the round in progress was
 started before it existed, and the export it learns from has no second fields. **A run scores
-its frozen claims against the second labeller too**, where there is one: against the first
+its held-out claims against the second labeller too**, where there is one: against the first
 (the figure), against the second, against either, and on the claims the two agree on, which
 is what `steamgauge ceiling` prints from stored readings and the run record now carries
 beside the rest. After the first two games (214490 and 620980, 737 claims answered): the two
@@ -3202,7 +3205,7 @@ was recounted in seven minutes; nothing was read again.
 
 ### The sheet tells a labeller two different things about "if you like X, you will like this"
 
-Found 2026-09-22 in the second reading of the frozen games, which is what a second reading is
+Found 2026-09-22 in the second reading of the held-out games, which is what a second reading is
 for. Over 2,864 claims read twice on five of the ten, the two labellers split 265 times, and
 after `offtopic` against `verdict` (18) the commonest split is **`genre` against `verdict`,
 17 claims**, nine of them a conditional recommendation: "if you like horror and survival,
@@ -3216,7 +3219,7 @@ game is only the noun being judged, it is a verdict. A conditional recommendatio
 and names another game, so the description sends it to `genre` and the rule sends it to
 `verdict`.
 
-**The rule that settles it, once the frozen reading is finished: a recommendation is a
+**The rule that settles it, once the held-out reading is finished: a recommendation is a
 verdict, conditional or not.** "If you like X you will like this" recommends the game to a
 group of people, and who should buy it is a verdict; `genre` keeps the claims that only say
 what kind of game this is or what it resembles, with no recommendation attached: "a
@@ -3246,7 +3249,7 @@ invincible creatures lurk around you" is what the game makes you do and why it i
 sentence). A sheet cannot settle a claim that is two claims.
 
 It is **not applied yet**, deliberately. The sheet's wording is hashed into every label, and
-the ten frozen games are being read a second time as this is written; a sheet that moves
+the ten held-out games are being read a second time as this is written; a sheet that moves
 under a labelling in flight gives half a sitting one wording and half another, which is the
 one thing the fingerprint exists to prevent. When the reading is finished: change the wording,
 let the fingerprint move, and `revisit` the claims both rules can reach. A word probe over the
@@ -3269,7 +3272,7 @@ very similar"), which the verdict rule and the genre rule each claim.
 
 ### The page says what two labellers settled, because that is the difference between agreement and accuracy
 
-Built 2026-09-22, once enough of the frozen games had been read twice for it to say anything.
+Built 2026-09-22, once enough of the held-out games had been read twice for it to say anything.
 Every page already carried one figure about its own reading: how often the model names the
 subject a labeller did. On a set labelled by models that figure cannot say whether a
 disagreement is the model's mistake or the labeller's, which is the whole question a reader
@@ -3315,11 +3318,11 @@ The reason the language balance knob exists is a 6.5-point gap: against single l
 2,088 claims, Simplified Chinese was read at 63.9% [61.9, 66.0] where English was 70.4%
 [69.8, 71.0]. Against labels two labellers settled, that gap is not there. Over every set read
 twice, 4,353 settled claims the model answered: **English 90.0% of 3,336, Simplified Chinese
-93.0% of 171**; over the six frozen games read twice, where no memorisation flatters anything,
+93.0% of 171**; over the six held-out games read twice, where no memorisation flatters anything,
 English 85.7% of 1,799 and Simplified Chinese 85.7% of 77.
 
 What did move is the labellers. Over the same sets they reach the same subject on **89.1% of
-4,659 English claims and 83.8% of 265 Chinese ones**, and on the frozen games alone 91.3%
+4,659 English claims and 83.8% of 265 Chinese ones**, and on the held-out games alone 91.3%
 against 85.3%. Two labellers who agree five points less often leave a label five points
 noisier, and a model scored against one of them loses about that much whatever it read. The
 gap was the sheet and the labellers in Chinese, not the reader in Chinese.
@@ -3335,7 +3338,7 @@ is a second reading of it, not a heavier gradient.
 
 ### The reader's own mistakes, ranked, on claims nobody disputes
 
-From the same run, over the six frozen games read twice: 2,349 settled claims answered, 2,017
+From the same run, over the six held-out games read twice: 2,349 settled claims answered, 2,017
 read the same way, and the mistakes concentrate in a handful of pairs. `verdict` read as
 `offtopic` (19) is the largest, and reading the claims behind it shows the labellers were
 right and the model wrong on the short foreign-language verdicts ("funky", "mola"), where a
@@ -3350,7 +3353,7 @@ first entry on it is short verdicts in languages other than English.
 
 ### Three checks on the second reading, one of which was a hypothesis that did not survive
 
-Run 2026-09-22 over the five frozen games read twice in full (2,864 claims).
+Run 2026-09-22 over the five held-out games read twice in full (2,864 claims).
 
 **The second labeller is no closer to the model than the first, which is the check that the
 whole exercise rests on.** If the second reading resembled the model more than the first did,
@@ -3404,7 +3407,7 @@ multiplayer complaints `servers, capacity, join, matchmaking, connection, server
 waiting, connect`. The counting does not change, only which of the counted terms are worth a
 place, so a `recount` is enough and no game needs reading again.
 
-### The frozen games are read twice in full, and that is the ceiling
+### The held-out games are read twice in full, and that is the ceiling
 
 Finished 2026-09-22: 31 sittings, 5,130 claims, ten games, every one of them read by a second
 labeller who saw no label of the first and was not told which game a review came from.
@@ -3424,7 +3427,7 @@ column showed is not in this block at all, which is the third measurement to say
 
 Over every set, 8,106 claims are now read twice: the labellers agree on the subject 89.0% of
 the time, kappa 0.88, and on polarity 95.1%, kappa 0.92. Those did not move as the second
-reading grew from a share of each set to all of the frozen ones.
+reading grew from a share of each set to all of the held-out ones.
 
 **Both readings were then moved onto the sheet's two new rules**, which is what keeps the
 figures above honest: 479 claims re-answered in the first reading and the 132 of them the
@@ -3479,7 +3482,7 @@ that is not a finding, whatever it looks like, and where nothing clears it the i
 configuration stays: the shipped reader changes on evidence, not on the best of eight numbers.
 
 **Amended once the three seeds were in, before any of the others reported.** They landed
-**91.9%, 92.0% and 91.7%** on the validation games and **92.7%, 93.0% and 92.4%** on the frozen
+**91.9%, 92.0% and 91.7%** on the validation games and **92.7%, 93.0% and 92.4%** on the held-out
 ones: 0.3 points apart and 0.6 points apart. The 2.6 came from three seeds of `e5-29006`, a
 different configuration, and this one is visibly steadier. Scoring one model on 6,556
 validation claims carries about 0.8 points of its own, so the bar for this round is **a point
@@ -3498,25 +3501,25 @@ more labels is not a better configuration, which is why the sweep refuses to put
 in one table, and it is why the queue trains the same configuration on the fresh export beside
 the two knobs. **The reader ships from that group**, because the newest labels are the best
 labels this project has; what the seeds settle is whether the configuration is steady and
-whether it beats the reader in place, and on the frozen games it does: 93.0% at 0.781 against
+whether it beats the reader in place, and on the held-out games it does: 93.0% at 0.781 against
 91.9% at 0.771, macro F1 0.696 against 0.680, AURC 0.093 against 0.101.
 
-**The frozen games are not a chooser.** They are read once, by whatever was already chosen, and
+**The held-out games are not a chooser.** They are read once, by whatever was already chosen, and
 the only question they answer is whether the promise transfers to a game nobody trained on. If
-it does not, that is a finding about the threshold, and the reader ships with the frozen figure
+it does not, that is a finding about the threshold, and the reader ships with the held-out figure
 quoted rather than the validation one.
 
 **The soup is a configuration like any other**, and if it wins it ships with lines fitted on
 folds of a single seed, because five folds of a three-seed soup is fifteen runs and about
-thirty hours of a shared card. That mismatch is a real one and the frozen read is what tests
+thirty hours of a shared card. That mismatch is a real one and the held-out read is what tests
 it: if a soup's promise does not transfer where a seed's does, the seed ships.
 
-### The soup answers more on the validation games and not on the frozen ones
+### The soup answers more on the validation games and not on the held-out ones
 
 Measured 2026-09-22 against the rule written before it, which is the only reason the answer is
 worth anything: averaging the three seeds' weights was my idea and the evidence says no.
 
-| | validation | macro F1 | AURC | ECE | threshold | frozen |
+| | validation | macro F1 | AURC | ECE | threshold | held-out |
 |---|---|---|---|---|---|---|
 | seed 1 | 91.88% at 0.752 | 0.656 | 0.111 | 0.149 | 0.540 | 92.7% at 0.782 |
 | seed 2 | 92.01% at 0.751 | 0.655 | 0.112 | 0.154 | 0.540 | 93.0% at 0.781 |
@@ -3524,10 +3527,10 @@ worth anything: averaging the three seeds' weights was my idea and the evidence 
 | their soup | **93.09%** at 0.752 | 0.645 | 0.111 | 0.197 | 0.230 | 92.7% at 0.778 |
 
 **On the validation games the soup answers 1.08 points more than the best seed, which clears
-the bar. On the frozen games it lands exactly on the seeds' mean and 0.3 points short of the
+the bar. On the held-out games it lands exactly on the seeds' mean and 0.3 points short of the
 best of them.** Coverage at a promised accuracy cannot be manufactured by recalibration, since
 a monotone transform moves the threshold and not the ordering, so the validation gain is real
-and it is a gain that does not travel. That is what the frozen set is for, and it is the second
+and it is a gain that does not travel. That is what the held-out set is for, and it is the second
 time this project has caught a threshold promise failing to transfer.
 
 Two things underneath it, both predicted this morning and both confirmed. The soup is the
@@ -3543,17 +3546,17 @@ about the same ordering.
 **The greedy soup is the interesting one, and it does not ship either.** Adding the seeds best
 first, it kept seed 2, kept seed 1 at 93.9%, and refused seed 3 for costing a point:
 
-| | validation | macro F1 | ECE | frozen | frozen F1 | frozen AURC |
+| | validation | macro F1 | ECE | held-out | held-out F1 | held-out AURC |
 |---|---|---|---|---|---|---|
 | seed 2, the best single | 92.01% at 0.751 | 0.655 | 0.154 | 92.99% at 0.781 | 0.696 | 0.0925 |
 | the soup of two | **93.87%** at 0.751 | 0.645 | **0.023** | **93.93%** at 0.778 | 0.683 | 0.0928 |
 
 Its validation figure is chosen on the validation games and therefore flattering, but **the
-frozen one is not: it answers 0.94 points more of the claims nobody trained on**, at 0.27
+held-out one is not: it answers 0.94 points more of the claims nobody trained on**, at 0.27
 points less accuracy. That is the gain the three-seed soup did not have.
 
 It still fails the veto, and by more on the set that matters: **macro F1 0.683 against 0.696 on
-the frozen games**, 1.3 points. The coverage it buys comes out of the rare rows, which is the
+the held-out games**, 1.3 points. The coverage it buys comes out of the rare rows, which is the
 trade refused here every time it has been offered, and it is the trade every hour of mining
 and declined-claim labelling exists to avoid making. Two seeds averaged are also startlingly
 well calibrated, ECE 0.023 against 0.154 and 0.197 for one seed and for three; that is a
@@ -3568,7 +3571,7 @@ that produced it.
 trained three times with one thing changed, on labels where 11,104 training claims were read
 twice:
 
-| run | validation answered | frozen answered | frozen delivered | frozen macro F1 |
+| run | validation answered | held-out answered | held-out delivered | held-out macro F1 |
 |---|---|---|---|---|
 | plain | 92.0% | 93.1% | 78.1% | 0.693 |
 | `--error-reg 1.0` | 92.6% | 93.8% | 77.8% | 0.693 |
@@ -3577,7 +3580,7 @@ twice:
 
 Nothing clears a point of coverage, the soup included: averaging runs that differ by objective
 bought what averaging runs that differ by seed did, which is the best ingredient's figure.
-Paying for a confident wrong answer moved validation by 0.6 and the frozen games by 0.7, with
+Paying for a confident wrong answer moved validation by 0.6 and the held-out games by 0.7, with
 delivered accuracy 0.3 lower; learning from both labellers' answers moved nothing at all.
 Neither knob ships, both stay, and the labels are where the next point is: the knobs' job was to
 use the disagreement better, and at 5.8% of training claims the disagreement is too little to
@@ -3593,7 +3596,7 @@ and 297 disagreements**, 1.27% of the set: too little to clear a seed spread, an
 was written saying so.
 
 It was too little because the export was reading one of the two blind readings. A set holds
-`second/`, which `second-opinion` writes, a share of each game and the frozen ones in full;
+`second/`, which `second-opinion` writes, a share of each game and the held-out ones in full;
 beside it sits `opus/`, where a second model read twenty-six games from end to end, blind,
 from batches regenerated with no labels in them. `export_training` and `ceiling` looked only
 at the first. **9,072 second opinions on training claims, 1,069 of them disagreements, were on
@@ -3725,7 +3728,7 @@ accessibility revisit). The 560M row below is the knob round's, on the labels be
 (`7b20375556e2782f`), so it is the encoder in place rather than a control; the control is
 `e5inst-pool-e5ensemble-s1`, below.
 
-| | validation answered | frozen answered | frozen delivered | frozen macro F1 | frozen AURC |
+| | validation answered | held-out answered | held-out delivered | held-out macro F1 | held-out AURC |
 |---|---|---|---|---|---|
 | the 4B teacher | **99.7%** | **99.7%** | 77.6% | 0.700 | **0.075** |
 | `e5inst-pool-qwen4b-s1`, the 560M taught by it | 97.2% | 97.7% | 78.5% | 0.689 | 0.081 |
@@ -3739,7 +3742,7 @@ wrong better than anything trained here: AURC falls by a fifth. Seven points of 
 seven times the bar the knob round set, on one seed, from size alone.
 
 **And most of that reaches the 560M.** Taught by the 4B's answers over the 250,668-claim pool,
-the shipped student recipe answers 97.0-97.7% of frozen claims at 78.5-79.1%; taught by the
+the shipped student recipe answers 97.0-97.7% of held-out claims at 78.5-79.1%; taught by the
 three `e5-29006` seeds, on the same labels, the same recipe answers 93.4% at 78.4%, where every
 560M has landed since the pool was introduced. Four points of coverage at equal or better
 accuracy, with AURC down from 0.090 to 0.080: wider than the 2.6-point seed spread that is the
@@ -3750,9 +3753,9 @@ points of coverage above its students, and whether that is worth an eight-gigaby
 next measurement.
 
 Macro F1 barely moves, and the mean hides where the gain is. Against `e5inst-pool-rdrop-s1` on
-the frozen games, row by row, the 4B is ten points better on `controls` (108 claims), nine on
+the held-out games, row by row, the 4B is ten points better on `controls` (108 claims), nine on
 `audio` (79), eight on `licensing` (37), seven on `graphics` (190) and five on `atmosphere`
-(255), and worse only on `vr`, `community` and `accessibility`, which hold 12, 6 and 12 frozen
+(255), and worse only on `vr`, `community` and `accessibility`, which hold 12, 6 and 12 held-out
 claims: a row that small moves twenty points on two claims, so those three are noise in both
 directions, and they are what cancels the rest out of the mean.
 
@@ -3763,8 +3766,8 @@ choice the tool offers rather than one it makes for everybody, recommended from 
 finds. A reader that answers seven points more of every game is worth having for whoever has
 the card for it, and nobody without one should be handed it; nor should somebody on a
 processor wait for the 560M when a smaller reader would do. Each size is judged the way every
-reader here is: frozen coverage and accuracy, the frontier key, and the time and card memory of
-a real `steamgauge read` of the same frozen game (920210, 117,664 claims). The candidates are
+reader here is: held-out coverage and accuracy, the frontier key, and the time and card memory of
+a real `steamgauge read` of the same held-out game (920210, 117,664 claims). The candidates are
 the 4B itself at the top, the 560M in the middle, and `multilingual-e5-base` (278M) and `-small`
 (118M) taught by the 4B at the bottom. `bge-m3` and the 0.6B decoders are not among them: they
 lost to the encoder at its own size and are no cheaper to run, so they fill no tier.
@@ -3772,13 +3775,13 @@ lost to the encoder at its own size and are no cheaper to run, so they fill no t
 ### The licensed labels, taught by the 4B, and the reader that replaces `e5-29006` (2026-09-24)
 
 The user's rule, decided 2026-09-23: if a retrain on the 189 new `licensing` labels beats the
-installed reader on frozen `licensing` without losing coverage, its lines are fitted, it is
-exported and installed locally, and the frozen games are read again. Two seeds of the student
+installed reader on held-out `licensing` without losing coverage, its lines are fitted, it is
+exported and installed locally, and the held-out games are read again. Two seeds of the student
 recipe on the export holding everything labelled through 2026-09-23 (labels `d07674128d32d683`,
 42,231 claims), taught by the 4B, since the control above showed the teacher is worth four
 points:
 
-| run | frozen answered | delivered | macro F1 | AURC | `licensing` F1 (recall) |
+| run | held-out answered | delivered | macro F1 | AURC | `licensing` F1 (recall) |
 |---|---|---|---|---|---|
 | `e5inst-pool-qwen4b-licensed-s1` | **98.1%** | 78.5% | 0.693 | 0.080 | **0.63** (0.64) |
 | `e5inst-pool-qwen4b-licensed-s2` | 96.3% | **78.9%** | 0.691 | **0.078** | 0.60 |
@@ -3787,33 +3790,33 @@ points:
 
 Both seeds clear the rule on every figure it names, so it goes ahead. **Seed 1 is the one that
 ships, and was chosen before seed 2 finished**: no soup ships (above), and picking the better
-of two seeds ships whichever the validation draw flattered. The frozen games hold 37 to 39
+of two seeds ships whichever the validation draw flattered. The held-out games hold 37 to 39
 `licensing` claims, so a single seed's F1 there is wide; both seeds above the students, and
 recall up by a third, is the finding, not the second decimal.
 
-**`accessibility` reads 0.00 on the frozen games, and that is not this reader's regression.**
+**`accessibility` reads 0.00 on the held-out games, and that is not this reader's regression.**
 The accessibility revisit (#95) narrowed the row to the settings a player needs in order to play
-at all and moved 162 claims out of it, and the frozen games' share went from 22 claims to 12.
+at all and moved 162 claims out of it, and the held-out games' share went from 22 claims to 12.
 On the current labels every reader is near nothing: the 4B one claim in twelve, the control one,
 its students none. `e5-29006`'s 0.23 was measured against the wider row and does not compare.
-The row is starved again and the frozen games cannot measure it, which is the same position
+The row is starved again and the held-out games cannot measure it, which is the same position
 `licensing` was in before its draw; its lines will likely leave it silent, which is the honest
 answer until it has labels.
 
 **Installed 2026-09-25, with lines fitted on five folds of the same recipe** (`cv-licensed-0`
-to `-4`, their held-out logits in `data/oof-licensed`), and the ten frozen games read again.
+to `-4`, their held-out logits in `data/oof-licensed`), and the ten held-out games read again.
 The old reader is kept beside it as `models/game-review-reader-e5-29006`. What the rule that
 ships does, lines and all, against what it replaced:
 
 | measured on | `e5-29006` | `e5inst-pool-qwen4b-licensed-s1` |
 |---|---|---|
-| the whole frozen set, 5,083 claims | 79.9% at 81.9%, F1 0.667 | **89.6% at 81.6%, F1 0.720** |
+| the whole held-out set, 5,083 claims | 79.9% at 81.9%, F1 0.667 | **89.6% at 81.6%, F1 0.720** |
 | the benchmark draw, 487 claims | 83.6% at 78.4%, F1 0.691 | **90.6% at 80.5%, F1 0.751** |
 | the person, cold (169 blind) | 81.1% at 70.1% (62% to 77%) | 93.5% at 67.9% (60% to 75%) |
 | the person, rule in view | 76.8% where it answers | 79.9% where it answers |
-| frozen `licensing` F1, the two games that hold any | 0.32 and 0.20 | 0.67 and 0.55 |
+| held-out `licensing` F1, the two games that hold any | 0.32 and 0.20 | 0.67 and 0.55 |
 
-Ten points more of the frozen set answered at the same agreement is the finding, and it holds
+Ten points more of the held-out set answered at the same agreement is the finding, and it holds
 on the benchmark draw too, where agreement also rises two points. Against the person the new
 reader answers twenty-two more of the blind claims and names the person's subject on 2.2
 points fewer of what it answers, inside intervals fifteen points wide: a difference 169
@@ -3826,14 +3829,14 @@ filed (`4c07445`), before the re-judge replaced them. The whole-set figures are 
 Decided 2026-09-22, from the seed spread that keeps being the largest number in every
 comparison. Three seeds of one configuration land 2.6 points of validation coverage apart,
 which is wider than every difference the runs are being asked to settle, so shipping the best
-of three ships whichever seed the validation draw flattered: the frozen figure does not follow
+of three ships whichever seed the validation draw flattered: the held-out figure does not follow
 it, and a fold spread is not a seed spread.
 
 Fine-tunes that start from the same pretrained encoder stay in one basin, so their weights can
 be averaged into one model that costs nothing to train and holds none of what each seed
 invented alone (Wortsman et al., model soups). `training/soup.py` sums the saved weights one
 file at a time, reads each ingredient and the average on the validation games under one
-loader, and reads the frozen games once, with whichever soup was already chosen: reading them
+loader, and reads the held-out games once, with whichever soup was already chosen: reading them
 per ingredient would turn the one set nothing is picked on into a set something was picked on.
 
 It refuses to average runs that differ on the encoder, the subjects, the window, the split or
@@ -3854,7 +3857,7 @@ Found 2026-09-22, while checking which training games still have no mined set. E
 draw is selected rather than random: `declined` holds the claims the reader would not answer,
 `mined` and `retrieved` hold the claims a word probe or a nearest-neighbour walk went looking
 for, `multilingual` holds a deliberately non-English draw. A row of any of them is trained on,
-so drawing one from a validation or frozen game trains the model on the games it is measured
+so drawing one from a validation or held-out game trains the model on the games it is measured
 on. The draw commands refuse a held-back game and have for some time.
 
 They were not always there. **275850 is a validation game carrying 147 `multilingual` rows**,
@@ -3862,7 +3865,7 @@ drawn before the guard existed, and nothing since has taken them out: `labelled_
 every teaching set under every game, the export writes what it walks, and `split_by_game`
 places a claim by its game and never looks at its subset. So 147 of 4,744 validation claims,
 3.1% of the set and 147 of that one game's 787, were a draw chosen for being non-English. Every
-abstention threshold this project has chosen was chosen on that set, and the frozen figure is
+abstention threshold this project has chosen was chosen on that set, and the held-out figure is
 read at the threshold it picked.
 
 The guard belongs in the export as well as in the draw, because the draw guards an action and
@@ -3875,13 +3878,13 @@ be measured on.
 What it does to the numbers is not yet known and is bounded. The four knob runs in flight share
 the contaminated validation set, so the comparison between them is on the same claims and the
 choice between them stands. The folds behind the winner train on the fixed export, so the
-threshold that ships, and the frozen figure read at it, are clean. No figure already published
+threshold that ships, and the held-out figure read at it, are clean. No figure already published
 moves, because nothing is published.
 
 ### 6.9% of the labels name bytes the splitter no longer cuts a claim at
 
 Measured 2026-09-22, from the adjudication draw's own `recut` counter, which had been printing
-1,274 for weeks over the English frozen claims and had never been read as a number about
+1,274 for weeks over the English held-out claims and had never been read as a number about
 training. Over every label in the reference tree it is **3,031 of 43,851, 6.9%**
 (`examples/recut-labels.rs`):
 
@@ -3914,8 +3917,8 @@ build cuts no claim at. A game with no capture on this machine holds nothing bac
 does not silently shrink depending on what was crawled. It costs 25 seconds.
 
 **What it moves.** Written rows 42,669 to 41,011 on the same reference tree plus that evening's
-labelling; train 32,502 to 31,618, validation 4,744 to 4,310, frozen 5,423 to 5,083. The frozen
-set losing 340 claims is the part that matters for reading the record: **every frozen figure
+labelling; train 32,502 to 31,618, validation 4,744 to 4,310, held-out 5,423 to 5,083. The held-out
+set losing 340 claims is the part that matters for reading the record: **every held-out figure
 quoted before this, tonight's included, was measured partly on claims the reader could not have
 been handed.** They are not wrong about the runs they compare, which all sat the same paper.
 They are wrong about the corpus, and they will move when the folds re-measure on the clean set.
@@ -3950,11 +3953,11 @@ and 2,358 of those disagreeing on the subject.
 ### The reader is worst exactly where the labellers are, and labels are not what those rows need
 
 Measured 2026-09-22, over the 24 subjects with at least 30 claims read twice and at least 15
-claims in the frozen games. Two numbers per row: how often the two blind readings reached the
+claims in the held-out games. Two numbers per row: how often the two blind readings reached the
 same subject, and what the reader scores on that row on games it never saw (`e5inst-pool-rdrop`
-seed 2, frozen `per_subject`).
+seed 2, held-out `per_subject`).
 
-| | agreement vs frozen F1 | training labels vs frozen F1 |
+| | agreement vs held-out F1 | training labels vs held-out F1 |
 |---|---|---|
 | Pearson | **+0.79** | +0.29 |
 | Spearman | **+0.65** | +0.22 |
@@ -3962,7 +3965,7 @@ seed 2, frozen `per_subject`).
 **How well two labellers agree about a row predicts how well the model reads it. How many
 labels the row has barely does.** The ends of the table are where it is plainest:
 
-| subject | labellers agree | frozen F1 | training labels | where the second reading went instead |
+| subject | labellers agree | held-out F1 | training labels | where the second reading went instead |
 |---|---|---|---|---|
 | accessibility | 68% | 0.28 | 299 | difficulty, gameplay |
 | policy | 70% | 0.60 | 737 | compatibility 23, updates 12 |
@@ -4017,7 +4020,7 @@ hold 850 and 787 training labels and score 0.74 and 0.79 on games the reader nev
 are also still two of the ten lines cast every draw, and they took **20% of everything the
 draws caught**, while `licensing` at F1 0.49 and recall 0.38 took **1%**.
 
-| where a mined label landed | share | training labels | frozen F1 |
+| where a mined label landed | share | training labels | held-out F1 |
 |---|---|---|---|
 | `mods` | 11% | 850 | 0.74 |
 | `compatibility` | 9% | 787 | 0.79 |
@@ -4113,7 +4116,7 @@ game, every file checked (1.33M tokens for the eight):
 
 **`community` is fixed: 478 of 800, 60%**, against 16% before the line learned to turn away
 claims about mods and the developers. The row held about 550 training labels before this; it
-now holds nearly twice that, where the frozen games hold six claims of it to measure by.
+now holds nearly twice that, where the held-out games hold six claims of it to measure by.
 1203220's 58 `multiplayer` are the other side of the one line the sheet draws there, whether
 the players are pleasant or merely present, and are worth as much.
 
@@ -4132,7 +4135,7 @@ gameplay labels these games just gave (529) vote against exactly the claims this
 **Drawn again by neighbour the same night, with `accessibility` beside it, and the neighbour
 draw is the answer for a row whose word is everywhere.** The user decided both rows on
 2026-09-24: `vr` on the same four headset games, and `accessibility`, which the accessibility
-revisit had narrowed to about 140 training labels and twelve frozen claims, on four games chosen
+revisit had narrowed to about 140 training labels and twelve held-out claims, on four games chosen
 for long accessibility menus (1817070, 1895880, 2215430 and 1649240, all training by hash and
 new to the set). 200 claims a game, one Fable labeller a game, 1.64M tokens:
 
@@ -4344,7 +4347,7 @@ settled two thirds of the calls it was written for. The labellers then found fou
 the new wording split them, each reported two to four times, and the sheet took a second pass
 (`6f8a3415126b`): blame goes where what it is for belongs, a launch judged alone is a verdict,
 a named headset with how the game runs on it is `vr`. The user then chose to ask every label
-still carrying both flags, 3,047 claims once the frozen games are counted, which the first
+still carrying both flags, 3,047 claims once the held-out games are counted, which the first
 quote of 2,420 had left out.
 
 ### A claim names every subject it covers (2026-09-26)
@@ -4679,7 +4682,7 @@ epoch 5 tonight, so about an hour of a two-and-a-half hour run, every run, for a
 than the one-point bar the seed spread set.
 
 So **six epochs is the length of a comparison run from here**, and the bake-off's five stay
-five. Two things this does not settle. The frozen games are read once, at the end, so what a
+five. Two things this does not settle. The held-out games are read once, at the end, so what a
 six-epoch run delivers there is inferred from the validation curve rather than measured; the
 first six-epoch run to read them answers it. And a run that ships is a different question from
 a run that ranks: if the fold runs are shortened, the shipping run is shortened with them,
@@ -5806,7 +5809,7 @@ reviews are cut now, and the draw over ten games takes eighteen seconds.
 
 **The library read again, and the figure held.** Every capture was read under the span format
 on 2026-09-20, 53 games with the one empty capture failing as it should, and `check-readings`
-reconciles all 53. Scored by the rebuilt tool, the ten frozen games join 5,177 of their 5,579
+reconciles all 53. Scored by the rebuilt tool, the ten held-out games join 5,177 of their 5,579
 labels (402 name a span this build cuts no claim at, 7.2%), answer 78.3% of them at 82.1%
 agreement, macro F1 0.645: the 78% at 82% and the 0.645 the README carries, to the decimal.
 `check-draws` over every draw finds 76,069 drawn claims, 4,297 the splitter no longer cuts as
@@ -5815,7 +5818,7 @@ drawn and 543 cut in the same place and tidied differently, which score.
 **One answer to whether a label still names a claim.** The measure and the gold draw were
 asking it differently. The measure brought a label's span to its words first, so a label cut
 under rules that left the bullet on still met its reading; the draw looked the raw span up,
-held the same label back, and the ingest refused an answer on it. Over the frozen ten that was
+held the same label back, and the ingest refused an answer on it. Over the held-out ten that was
 467 held back against 402 unjoined: 65 questions nobody was asked that were scored anyway.
 `claims::words_at` is now the one door a stored span goes through and `claimset::cut_at` the
 one answer, so what the draw holds back and what the measure leaves unjoined are the same
@@ -5894,7 +5897,7 @@ nothing. Two are missing, and no amount of further labelling closes either.
 
 1. **Human-adjudicated labels. Done 2026-09-21: 200 claims, 169 of them blind.** Everything
    before it was a model agreeing with a model, which the README says plainly and which no
-   citation can rest on. The user adjudicated a blind English sample from the frozen games and
+   citation can rest on. The user adjudicated a blind English sample from the held-out games and
    the claims the two labellers were surest and still split on; the labels agree with the
    person 65.1% cold and 89.3% once the person re-read the differing answers with the sheet's
    rule in view, and the entries under "The first accuracy figure" say which of those is
@@ -5911,8 +5914,8 @@ nothing. Two are missing, and no amount of further labelling closes either.
    below which the exercise has produced nothing.
 
    **The tool exists as of 2026-09-11.** `steamgauge gold` writes one self-contained page
-   holding 1,000 blind claims from the frozen games and every claim the two labellers split on
-   there, which as the set has grown to ten frozen games is 194 of them. A letter picks a
+   holding 1,000 blind claims from the held-out games and every claim the two labellers split on
+   there, which as the set has grown to ten held-out games is 194 of them. A letter picks a
    subject, a digit the polarity, and a claim with both moves on by itself; answers are kept as
    they are made, because fourteen hundred claims is not one sitting. `steamgauge ingest-gold`
    reads them back and prints the share that matches the labeller already on record, which is
@@ -5952,12 +5955,12 @@ nothing. Two are missing, and no amount of further labelling closes either.
    leaves the machine. Opened as a file the page behaves exactly as before, because a page that
    needs a server to show a question would be a worse page.
 
-   Frozen-only gives 27 splits rather than the four hundred first estimated, because a tenth
+   Held-out games alone give 27 splits rather than the four hundred first estimated, because a tenth
    of each set is read twice and 271 claims at 93.2% agreement leaves 27. A disagreement
    settles a boundary and measures nothing, so it may come from any game, and the default
    draws from all of them: 1,000 blind and 192 split, out of 1,400 claims read twice.
 2. **A comparison against the alternatives. Done, and it does not flatter this project.**
-   Four baselines run over the same frozen claims and the same abstention protocol, in "What
+   Four baselines run over the same held-out claims and the same abstention protocol, in "What
    it has to beat" above, including Claude Opus 5 asked the same question directly. It answers
    99.6% of them at 87.0% where this reader answers 60.7% at 74.8%. The honest claim is not
    that this beats a frontier model but that it gets most of the way there for the electricity

@@ -856,7 +856,7 @@ pub const TEACHING_SETS: &[&str] = &["declined", "keyword", "retrieved", "multil
 /// first, because the first one holding a claim is the one that answers it.
 ///
 /// Both are blind readings of the same drawn batches with no labels in them. `second` is what
-/// `second-opinion` writes, a share of each set and the frozen games in full; `opus` is what a
+/// `second-opinion` writes, a share of each set and the held-out games in full; `opus` is what a
 /// second model wrote reading twenty-six games from end to end. Reading only the first of them
 /// left 9,072 second opinions on training claims unused, 1,069 of them disagreements, which is
 /// most of what a loss charged against two labellers has to work with.
@@ -872,7 +872,7 @@ pub const SECOND_LABELS: &[&str] = &["second", "opus"];
 ///
 /// So this is a teaching draw and it is marked as one. Every review it produces carries
 /// `subset: "declined"`, which keeps it out of every prevalence figure and out of the
-/// validation and frozen games entirely: a model measured on the claims it was known to find
+/// validation and held-out games entirely: a model measured on the claims it was known to find
 /// hard would report an accuracy nobody can interpret.
 ///
 /// Drawn uniformly from the declined claims rather than from the least confident of them. The
@@ -1625,7 +1625,7 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
         }
         let label = &claim.label;
         // A teaching set is drawn for being hard or for holding a word, so a row of one on a
-        // validation or frozen game is measured on claims chosen for the model rather than
+        // validation or held-out game is measured on claims chosen for the model rather than
         // drawn at random, and the coverage figure stops meaning what it says. The draw
         // commands refuse such a game, but the sets drawn before that guard existed are still
         // on disk, and the split reads whatever the export hands it.
@@ -1723,7 +1723,7 @@ fn reviews_in_sets(game: &Path) -> Result<std::collections::HashSet<String>> {
 /// answers on. The rows are shaped like the training export without the label fields, and
 /// hold review text, so the file never leaves the machine either.
 ///
-/// The caller keeps the draw to games the model trains on. A frozen or validation game's
+/// The caller keeps the draw to games the model trains on. A held-out or validation game's
 /// reviews, even unlabelled, carry the teacher's knowledge of that game into the student, and
 /// the figure measured on it would stop being about a game nobody trained on.
 ///

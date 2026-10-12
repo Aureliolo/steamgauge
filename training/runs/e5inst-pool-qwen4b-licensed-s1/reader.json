@@ -98,7 +98,7 @@
   "name": "Game Review Reader",
   "run_id": "e5inst-pool-qwen4b-licensed-s1",
   "usual_declined": 0.12606331431032625,
-  "frozen": {
+  "held_out": {
     "games": 47,
     "claims": 37148,
     "coverage": 0.8739366856896738,
