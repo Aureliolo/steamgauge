@@ -2574,6 +2574,15 @@ and the draws are called (the user's choice of names, 2026-10-12): the subset `m
 `second-readings.jsonl` is `second-labels.jsonl`. The model keeps its name, Game Review Reader,
 because its Hub repositories and DOIs are pinned.
 
+The games held out of training are the held-out games, no longer "frozen", everywhere: code,
+the `--held-out` flags, `gold --splits held-out`, `reference/baselines-held-out.json`, the
+prose, and the `held_out` key of `reader.json`. The user chose to carry the key into the
+published readers (2026-10-12): both are published again with it, weights unchanged, and pinned.
+A reading in somebody's library copies that block from its reader and keeps the key it was
+written with, so `ReadReport` reads `frozen` as well; a recount, an update or a new reading
+writes it back as `held_out`, and nothing writes the old key. The reader's own alias goes once
+the app pins the republished readers.
+
 ### The ingest destroyed 2,068 labels, and the shape of the bug is worth keeping
 
 `ingest-claims` merges by intersection: it takes the labels that name a claim the target set
