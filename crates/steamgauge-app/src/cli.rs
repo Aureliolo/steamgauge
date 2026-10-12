@@ -289,15 +289,14 @@ enum Command {
         reference: PathBuf,
     },
 
-    /// Draw claims that look like the subjects the labelled set has almost none of.
+    /// Draw claims that look like the subjects the labelled set has fewest labels for.
     ///
-    /// Eight of the twenty-six subjects have under 250 labels between them. A random draw
-    /// cannot fix that, because it lands on the distribution the corpus already has, and the
-    /// reader's own uncertainty cannot point at them either: it has seen thirty-two
-    /// `licensing` claims and does not know the row is there. So the claims are found by
-    /// looking for them, with a written probe per starved subject. Marked `mined`, which
-    /// trains the model and measures nothing.
-    Mine {
+    /// A random draw lands on the distribution the corpus already has, and the reader's own
+    /// uncertainty cannot point at the rarest subjects either: with a few dozen `licensing`
+    /// claims behind it, it does not know the subject is there. So the claims are found by
+    /// their words, with a keyword list per rare subject, or by `--by-neighbour`. Marked
+    /// `keyword` or `retrieved`, which trains the model and measures nothing.
+    RareClaims {
         /// Steam app IDs to draw from. Each must be a game the model trains on.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
@@ -316,13 +315,13 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Fish with the labelled claims instead of with words. Every labelled claim of a
-        /// starved subject is embedded and the corpus is walked for its nearest neighbours,
-        /// which finds the paraphrases no word list has and crosses languages a word list
+        /// Search with the labelled claims instead of with words. Every labelled claim of a
+        /// rare subject is embedded and the corpus is walked for its nearest neighbours, which
+        /// finds the paraphrases no keyword list has and crosses languages a keyword list
         /// cannot. Costs a forward pass over the corpus per game and lands in `retrieved/`.
         #[arg(long)]
         by_neighbour: bool,
-        /// Which encoder to fish with, when `--by-neighbour`.
+        /// Which encoder to search with, when `--by-neighbour`.
         #[arg(long, default_value = "gte-base")]
         model: Model,
         /// Which build of the encoder to run, when `--by-neighbour`.
@@ -334,9 +333,9 @@ enum Command {
         /// Claims per forward pass, when `--by-neighbour`.
         #[arg(long, default_value_t = 256)]
         embed_batch: usize,
-        /// Fish for these subjects only. With `--by-neighbour` the rest still vote against,
+        /// Draw for these subjects only. With `--by-neighbour` the rest still vote against,
         /// so a draw for `licensing` alone is a draw for `licensing` and not for whatever
-        /// else is rare; with the word probes the other lines are simply not cast. Which rows
+        /// else is rare; with keywords the other lists are simply not matched. Which subjects
         /// are worth a draw is a measurement that moves, and `steamgauge measure-claims` is
         /// what says which they are today.
         #[arg(long, num_args = 1..)]
@@ -977,7 +976,7 @@ pub async fn run() -> Result<()> {
 /// The commands that load an encoder, which on a first run is a download.
 async fn encoder_work(command: Command) -> Result<()> {
     match command {
-        Command::Mine {
+        Command::RareClaims {
             app_ids,
             out,
             claims,
@@ -991,13 +990,13 @@ async fn encoder_work(command: Command) -> Result<()> {
             only,
             ..
         } => {
-            run_mine_by_neighbour(
+            run_rare_claims_by_neighbour(
                 &app_ids,
                 &out,
                 claims,
                 batch_size,
                 &reference,
-                Neighbours {
+                NeighbourDraw {
                     model_dir,
                     encoder: model.into(),
                     precision: precision.into(),
@@ -1031,7 +1030,7 @@ async fn encoder_work(command: Command) -> Result<()> {
         // reference_work does not know about.
         Command::SampleClaims { .. }
         | Command::Declined { .. }
-        | Command::Mine { .. }
+        | Command::RareClaims { .. }
         | Command::IngestClaims { .. }
         | Command::Revisit { .. }
         | Command::IngestRevisit { .. }
@@ -1098,7 +1097,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             seed,
             reference,
         } => run_declined(app_ids, out, *claims, *batch_size, *seed, reference),
-        Command::Mine {
+        Command::RareClaims {
             app_ids,
             out,
             claims,
@@ -1108,7 +1107,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             only,
             by_neighbour: false,
             ..
-        } => run_mine(app_ids, out, *claims, *batch_size, *seed, reference, only),
+        } => run_rare_claims_by_keyword(app_ids, out, *claims, *batch_size, *seed, reference, only),
         Command::Revisit {
             words,
             subjects,
@@ -1744,7 +1743,7 @@ fn run_export_pool(
     Ok(())
 }
 
-fn run_mine(
+fn run_rare_claims_by_keyword(
     app_ids: &[u32],
     out: &std::path::Path,
     claims: usize,
@@ -1755,34 +1754,35 @@ fn run_mine(
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
     if let Some(unknown) = only.iter().find(|name| {
-        !steamgauge_core::mine::PROBES
+        !steamgauge_core::rare_subjects::KEYWORDS
             .iter()
-            .any(|p| p.subject == name.as_str())
+            .any(|keywords| keywords.subject == name.as_str())
     }) {
         anyhow::bail!(
-            "{unknown} has no probe; the lines are {}",
-            steamgauge_core::mine::PROBES
+            "{unknown} has no keyword list; the subjects that have one are {}",
+            steamgauge_core::rare_subjects::KEYWORDS
                 .iter()
-                .map(|p| p.subject)
+                .map(|keywords| keywords.subject)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
     }
 
     let (mut reviews, mut asked, mut batches) = (0, 0, 0);
-    let mut by_line: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    let mut by_subject: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
     for &app_id in app_ids {
         let dir = reference.join(app_id.to_string());
-        let mined = steamgauge_core::claimset::draw_mined(out, app_id, &dir, claims, seed, only)?;
-        for (subject, count) in &mined.by_line {
-            *by_line.entry(subject).or_default() += count;
+        let draw =
+            steamgauge_core::claimset::draw_by_keyword(out, app_id, &dir, claims, seed, only)?;
+        for (subject, count) in &draw.by_subject {
+            *by_subject.entry(subject).or_default() += count;
         }
-        if mined.drawn.is_empty() {
-            println!("{app_id:<10} no probe caught anything that is not already labelled");
+        if draw.drawn.is_empty() {
+            println!("{app_id:<10} no keyword matched anything that is not already labelled");
             continue;
         }
         let report =
-            steamgauge_core::claimset::write_set(&dir.join("mined"), &mined.drawn, batch_size)?;
+            steamgauge_core::claimset::write_set(&dir.join("keyword"), &draw.drawn, batch_size)?;
         println!(
             "{:<10} {:>4} reviews {:>5} claims {:>3} batches",
             app_id, report.reviews, report.claims, report.batches
@@ -1793,18 +1793,21 @@ fn run_mine(
     }
 
     if asked == 0 {
-        anyhow::bail!("no probe caught a claim; read these games with a current reader first");
+        anyhow::bail!("no keyword matched a claim; read these games with a current reader first");
     }
     println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
-    println!("\nwhat each line caught, before the labeller has said whether any of it is right:");
-    for (subject, count) in &by_line {
+    println!(
+        "\nwhat each subject's keywords matched, before the labeller has said whether any of it \
+         is right:"
+    );
+    for (subject, count) in &by_subject {
         println!("  {subject:<16} {count:>5}");
     }
     println!(
-        "\nA probe says where a subject tends to be written about and never what it means, so\n\
+        "\nA keyword says where a subject tends to be written about and never what it means, so\n\
          a drawn claim is a candidate and the labeller decides. Ingest each with `steamgauge\n\
-         ingest-claims <app id> --from <dir> --by <model> --to {}/<app id>/mined`.\n\
-         Every row lands as subset `mined`, which trains the model and measures nothing: a set\n\
+         ingest-claims <app id> --from <dir> --by <model> --to {}/<app id>/keyword`.\n\
+         Every row lands as subset `keyword`, which trains the model and measures nothing: a set\n\
          selected for holding the word \"headset\" cannot say what share of a corpus is about one.",
         reference.display()
     );
@@ -3489,8 +3492,8 @@ async fn load_encoder(
     Ok(steamgauge_core::Embedder::load(&cache, encoder, precision)?)
 }
 
-/// How a retrieval draw fishes: which encoder, how, and for which subjects.
-struct Neighbours {
+/// How a neighbour draw searches: which encoder, how, and for which subjects.
+struct NeighbourDraw {
     model_dir: Option<PathBuf>,
     encoder: steamgauge_core::Encoder,
     precision: steamgauge_core::model::Precision,
@@ -3498,13 +3501,13 @@ struct Neighbours {
     only: Vec<String>,
 }
 
-async fn run_mine_by_neighbour(
+async fn run_rare_claims_by_neighbour(
     app_ids: &[u32],
     out: &std::path::Path,
     claims: usize,
     batch_size: usize,
     reference: &std::path::Path,
-    how: Neighbours,
+    how: NeighbourDraw,
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
     for &app_id in app_ids {
@@ -3514,29 +3517,29 @@ async fn run_mine_by_neighbour(
     let mut embedder = load_encoder(how.model_dir, how.encoder, how.precision).await?;
     let embed_batch = how.embed_batch;
 
-    let lines = steamgauge_core::mine::Lines::cast(
+    let neighbours = steamgauge_core::rare_subjects::Neighbours::from_reference(
         &mut |texts: &[String]| embedder.embed(texts),
         reference,
         embed_batch,
         (!how.only.is_empty()).then_some(how.only.as_slice()),
     )?;
-    let (cast, against) = lines.cast_count();
-    eprintln!("fishing with the labelled claims of each starved subject:");
-    for (subject, count) in cast {
+    let (queries, against) = neighbours.queries_per_subject();
+    eprintln!("searching with the labelled claims of each rare subject:");
+    for (subject, count) in queries {
         eprintln!("  {subject:<16} {count:>5}");
     }
     eprintln!("  and {against} labelled claims of the common subjects voting against");
 
     let (mut reviews, mut asked, mut batches) = (0, 0, 0);
-    let mut by_line: std::collections::BTreeMap<&str, (usize, f32, f32)> =
+    let mut by_subject: std::collections::BTreeMap<&str, (usize, f32, f32)> =
         std::collections::BTreeMap::new();
     for &app_id in app_ids {
         let dir = reference.join(app_id.to_string());
         eprintln!("embedding app {app_id} on {}", embedder.device());
         let mut last_line = 0;
-        let found = steamgauge_core::mine::draw_by_neighbour(
+        let found = steamgauge_core::rare_subjects::draw_by_neighbour(
             &mut |texts: &[String]| embedder.embed(texts),
-            &lines,
+            &neighbours,
             out,
             app_id,
             &dir,
@@ -3557,8 +3560,8 @@ async fn run_mine_by_neighbour(
         if interactive {
             eprintln!();
         }
-        for (subject, count, widest, narrowest) in &found.by_line {
-            let entry = by_line
+        for (subject, count, widest, narrowest) in &found.by_subject {
+            let entry = by_subject
                 .entry(subject)
                 .or_insert((0, f32::NEG_INFINITY, f32::INFINITY));
             entry.0 += count;
@@ -3587,28 +3590,29 @@ async fn run_mine_by_neighbour(
     }
 
     if asked == 0 {
-        anyhow::bail!("nothing caught; read these games with a current reader first");
+        anyhow::bail!("nothing drawn; read these games with a current reader first");
     }
     println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
-    say_margins(&by_line, reference);
+    say_margins(&by_subject, reference);
     Ok(())
 }
 
-/// What each retrieval line caught across every game drawn, and how to read it.
+/// What a neighbour draw found for each rare subject across every game drawn, and how to read
+/// it.
 fn say_margins(
-    by_line: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
+    by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
     reference: &std::path::Path,
 ) {
     println!(
-        "\nwhat each line caught, and by what margin over the nearest common subject. The\n\
-         narrowest is the figure to read: below zero, the line was scraping the floor for a\n\
-         subject this game does not hold, and those labels will mostly say `gameplay`"
+        "\nwhat was drawn for each subject, and by what margin over the nearest common subject.\n\
+         The narrowest is the figure to read: below zero, the game barely holds the subject,\n\
+         and those labels will mostly say `gameplay`"
     );
     println!(
         "  {:<16} {:>6} {:>8} {:>10}",
-        "line", "caught", "widest", "narrowest"
+        "subject", "drawn", "widest", "narrowest"
     );
-    for (subject, (count, widest, narrowest)) in by_line {
+    for (subject, (count, widest, narrowest)) in by_subject {
         if *count == 0 {
             println!("  {subject:<16} {count:>6}");
         } else {

@@ -637,7 +637,7 @@ impl Question {
         self.words.is_empty()
             || self.words.iter().any(|word| {
                 crate::said::mentions(text, word)
-                    || crate::mine::contains_term(
+                    || crate::rare_subjects::contains_term(
                         &plain,
                         &word.to_lowercase().replace('\u{2019}', "'"),
                     )
@@ -850,7 +850,7 @@ pub fn draw_revisits(
 /// Sets beside a game's random draw that add claims to train on rather than answers to
 /// compare. Every one of them is labelled as its own `subset`, and no prevalence figure
 /// counts a row from any of them.
-pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved", "multilingual"];
+pub const TEACHING_SETS: &[&str] = &["declined", "keyword", "retrieved", "multilingual"];
 
 /// The directories that hold another labeller's answers to claims a set already has, newest
 /// first, because the first one holding a claim is the one that answers it.
@@ -860,7 +860,7 @@ pub const TEACHING_SETS: &[&str] = &["declined", "mined", "retrieved", "multilin
 /// second model wrote reading twenty-six games from end to end. Reading only the first of them
 /// left 9,072 second opinions on training claims unused, 1,069 of them disagreements, which is
 /// most of what a loss charged against two labellers has to work with.
-pub const SECOND_READINGS: &[&str] = &["second", "opus"];
+pub const SECOND_LABELS: &[&str] = &["second", "opus"];
 
 /// Draws the claims the reader would not answer, as a set to teach it on.
 ///
@@ -939,8 +939,8 @@ pub type CutSpans = std::collections::HashMap<String, Cut>;
 /// Which claims of which reviews a draw wants, named by the bytes they cover.
 pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Span>>;
 
-/// One line of a draw: the claims it caught, in the order it ranked them.
-pub(crate) type Caught = Vec<(String, crate::claims::Span)>;
+/// One subject's share of a draw: the claims found for it, in the order it ranked them.
+pub(crate) type Found = Vec<(String, crate::claims::Span)>;
 
 /// What this build's splitter cuts from the named reviews of one game's capture.
 ///
@@ -1000,20 +1000,20 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
     review.spans.contains(&words).then_some(words)
 }
 
-/// Draws claims that look like they belong to the subjects the labelled set is starved of.
+/// Draws claims whose words suggest the subjects the labelled set has fewest labels for.
 ///
 /// The declined draw above asks the reader what it found hard. This asks a different question,
-/// because for eight of the twenty-six subjects the reader's opinion is worthless: it has seen
-/// thirty-two `licensing` claims and it does not know the row exists. A draw that waits for the
-/// model to be uncertain about `vr` will wait forever, and a random draw over a corpus where
+/// because on the rarest subjects the reader's opinion is worthless: with a few dozen
+/// `licensing` claims behind it, it does not know the subject is there. A draw that waits for
+/// the model to be uncertain about `vr` will wait forever, and a random draw over a corpus where
 /// `vr` is two claims in a thousand spends its whole budget elsewhere.
 ///
-/// So the claims are found by looking for them. [`crate::mine::PROBES`] says where each starved
-/// subject tends to be written about, a claim goes to the first subject whose line it takes,
-/// and the quota is filled round-robin so a game with plenty of `mods` claims and no `vr` ones
-/// still returns a full draw without `mods` eating it.
+/// So the claims are found by their words. [`crate::rare_subjects::KEYWORDS`] lists the words
+/// each rare subject tends to be written with, a claim goes to the first subject whose keywords
+/// it matches, and the quota is filled round-robin so a game with plenty of `mods` claims and no
+/// `vr` ones still returns a full draw without `mods` taking all of it.
 ///
-/// **Nothing here is a sample of anything.** Every review carries `subset: "mined"`, which
+/// **Nothing here is a sample of anything.** Every review carries `subset: "keyword"`, which
 /// keeps it out of every prevalence figure exactly as the declined draw is kept out. A set
 /// selected for containing the word "headset" cannot say what share of a corpus is about
 /// headsets, and the labels it produces are for training only.
@@ -1023,14 +1023,14 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
 /// # Errors
 ///
 /// Fails if there is no capture, no reading, or the reading was cut by another splitter.
-pub fn draw_mined(
+pub fn draw_by_keyword(
     out_dir: &Path,
     app_id: u32,
     dir: &Path,
     wanted: usize,
     seed: u64,
     only: &[String],
-) -> Result<Mined> {
+) -> Result<KeywordDraw> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let reading: crate::read::ReadReport =
         serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
@@ -1042,8 +1042,8 @@ pub fn draw_mined(
     let already = already_drawn(dir);
 
     let depth = reading.depth;
-    let mut lines: Vec<crate::bounded::Smallest<[u8; 32], (String, crate::claims::Span)>> =
-        crate::mine::PROBES
+    let mut by_subject: Vec<crate::bounded::Smallest<[u8; 32], (String, crate::claims::Span)>> =
+        crate::rare_subjects::KEYWORDS
             .iter()
             .map(|_| crate::bounded::Smallest::new(wanted))
             .collect();
@@ -1057,16 +1057,16 @@ pub fn draw_mined(
             .enumerate()
             .zip(depth.spans_of(text))
         {
-            let Some(subject) = crate::mine::hooked_among(&claim, only) else {
+            let Some(subject) = crate::rare_subjects::keyword_subject_among(&claim, only) else {
                 continue;
             };
-            let at = crate::mine::PROBES
+            let at = crate::rare_subjects::KEYWORDS
                 .iter()
-                .position(|probe| probe.subject == subject)
+                .position(|keywords| keywords.subject == subject)
                 .unwrap_or(0);
             let index = u16::try_from(index).unwrap_or(u16::MAX);
-            let key = crate::bounded::rank(seed, "mined", &format!("{id}\u{0}{index}"));
-            lines[at].offer(
+            let key = crate::bounded::rank(seed, "keyword", &format!("{id}\u{0}{index}"));
+            by_subject[at].offer(
                 key,
                 (
                     id.to_owned(),
@@ -1080,37 +1080,37 @@ pub fn draw_mined(
         Ok(())
     })?;
 
-    let caught: Vec<Caught> = lines
+    let found: Vec<Found> = by_subject
         .into_iter()
         .map(crate::bounded::Smallest::take)
         .collect();
-    let (picks, taken) = round_robin(&caught, wanted);
-    Ok(Mined {
-        drawn: handouts(&snapshot, app_id, depth, &picks, "mined")?,
-        by_line: crate::mine::PROBES
+    let (picks, taken) = round_robin(&found, wanted);
+    Ok(KeywordDraw {
+        drawn: handouts(&snapshot, app_id, depth, &picks, "keyword")?,
+        by_subject: crate::rare_subjects::KEYWORDS
             .iter()
             .zip(taken)
-            .map(|(probe, count)| (probe.subject, count))
+            .map(|(keywords, count)| (keywords.subject, count))
             .collect(),
     })
 }
 
-/// A mining draw and which line caught what.
+/// A keyword draw and how many claims each subject's keywords matched.
 ///
-/// The counts are the only way to tell a probe list that is working from one that is not,
-/// short of labelling the result: a line that catches nothing across a whole library is
-/// written wrong or aimed at a subject the corpus does not discuss, and either way the reader
-/// will not learn that row from this draw.
+/// The counts are the only way to tell a keyword list that is working from one that is not,
+/// short of labelling the result: a list that matches nothing across a whole library is written
+/// wrong or aimed at a subject the corpus does not discuss, and either way the reader will not
+/// learn that subject from this draw.
 #[derive(Debug)]
-pub struct Mined {
+pub struct KeywordDraw {
     pub drawn: Vec<DrawnReview>,
-    pub by_line: Vec<(&'static str, usize)>,
+    pub by_subject: Vec<(&'static str, usize)>,
 }
 
 /// The reviews a game's reference set already holds, under any draw, so no review is drawn
 /// twice under two different ones.
 ///
-/// Every teaching set counts, not only the random draw. A review drawn as `mined` and again
+/// Every teaching set counts, not only the random draw. A review drawn as `keyword` and again
 /// as `retrieved` would be labelled twice and trained on twice, and where the two labellers
 /// disagreed the model would be trained on both answers.
 pub(crate) fn already_drawn(dir: &Path) -> std::collections::HashSet<String> {
@@ -1123,21 +1123,21 @@ pub(crate) fn already_drawn(dir: &Path) -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// Takes from each subject's line in turn until the quota is full or the lines run dry.
+/// Takes from each subject's claims in turn until the quota is full or every subject runs out.
 ///
 /// Taking the best `wanted / 8` from each instead would leave the draw short whenever a game
 /// has none of a subject, which for `vr` is most games. Round-robin spends what one subject
-/// cannot use on the subjects that can, while still giving the starved rows first refusal.
-pub(crate) fn round_robin(caught: &[Caught], wanted: usize) -> (Picks, Vec<usize>) {
+/// cannot use on the subjects that can, while still giving the rarest subjects first refusal.
+pub(crate) fn round_robin(found: &[Found], wanted: usize) -> (Picks, Vec<usize>) {
     let mut picks: Picks = std::collections::HashMap::new();
-    let mut taken = vec![0; caught.len()];
-    let deepest = caught.iter().map(Vec::len).max().unwrap_or(0);
+    let mut taken = vec![0; found.len()];
+    let deepest = found.iter().map(Vec::len).max().unwrap_or(0);
     for round in 0..deepest {
-        for (line, at) in caught.iter().zip(0..) {
+        for (claims, at) in found.iter().zip(0..) {
             if taken.iter().sum::<usize>() >= wanted {
                 return (picks, taken);
             }
-            let Some((id, index)) = line.get(round) else {
+            let Some((id, index)) = claims.get(round) else {
                 continue;
             };
             picks.entry(id.clone()).or_default().push(*index);
@@ -1431,11 +1431,11 @@ pub struct LabelledClaim {
 
 /// What a second labeller said about the claims of one set, from whichever reading holds each.
 ///
-/// [`SECOND_READINGS`] in order, first one wins: a claim read by both is answered by the
+/// [`SECOND_LABELS`] in order, first one wins: a claim read by both is answered by the
 /// newer sheet's reading, and a claim only the older one covers is still answered.
 fn read_again(set: &Path) -> Result<std::collections::HashMap<(String, u16), ClaimLabel>> {
     let mut again = std::collections::HashMap::new();
-    for reading in SECOND_READINGS {
+    for reading in SECOND_LABELS {
         let Ok(bytes) = std::fs::read(set.join(reading).join("labels.json")) else {
             continue;
         };
@@ -1885,9 +1885,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         for (app_id, set, subset) in [
             (trains_on, "", "random"),
-            (trains_on, "mined", "mined"),
+            (trains_on, "keyword", "keyword"),
             (held_back, "", "random"),
-            (held_back, "mined", "mined"),
+            (held_back, "keyword", "keyword"),
         ] {
             let dir = root.join(app_id.to_string()).join(set);
             std::fs::create_dir_all(&dir).unwrap();
@@ -1922,16 +1922,16 @@ mod tests {
         let report = export_training(&root, &root.join("no-captures"), &to).unwrap();
         let written = std::fs::read_to_string(&to).unwrap();
 
-        assert_eq!(report.measured_on, 1, "the held-back game's mined row");
+        assert_eq!(report.measured_on, 1, "the held-back game's keyword row");
         assert_eq!(report.measured_on_games, [held_back].into_iter().collect());
         assert_eq!(report.written, 3);
         assert!(
-            written.contains(&format!("{trains_on}-mined")),
+            written.contains(&format!("{trains_on}-keyword")),
             "a teaching row on a game the model trains on is what teaching sets are for"
         );
         // The random draw is the measurement, so it stays whatever else the game carries.
         assert!(written.contains(&format!("{held_back}-random")));
-        assert!(!written.contains(&format!("{held_back}-mined")));
+        assert!(!written.contains(&format!("{held_back}-keyword")));
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -2209,7 +2209,7 @@ mod tests {
         // One game with a random draw, and one drawn only to teach a thin row.
         set(1, &root.join("1"), "controls");
         set(2, &root.join("2").join("retrieved"), "controls");
-        let stale = root.join("1").join("mined").join("revisit");
+        let stale = root.join("1").join("keyword").join("revisit");
         std::fs::create_dir_all(&stale).unwrap();
 
         let remap = Question {
@@ -2818,24 +2818,24 @@ mod tests {
     }
 
     #[test]
-    fn the_lines_take_turns_until_the_draw_is_full() {
-        let caught = |id: &str, n: u32| (id.to_owned(), (n, n + 1));
-        let lines: Vec<Caught> = vec![
-            vec![caught("a", 0), caught("a", 1), caught("b", 0)],
-            vec![caught("c", 0)],
+    fn the_subjects_take_turns_until_the_draw_is_full() {
+        let claim = |id: &str, n: u32| (id.to_owned(), (n, n + 1));
+        let found: Vec<Found> = vec![
+            vec![claim("a", 0), claim("a", 1), claim("b", 0)],
+            vec![claim("c", 0)],
             Vec::new(),
         ];
-        let (picks, taken) = round_robin(&lines, 3);
+        let (picks, taken) = round_robin(&found, 3);
         assert_eq!(taken, [2, 1, 0]);
         assert_eq!(picks["a"], [(0, 1), (1, 2)]);
         assert_eq!(picks["c"], [(0, 1)]);
         assert!(!picks.contains_key("b"));
-        let (_, all) = round_robin(&lines, 10);
+        let (_, all) = round_robin(&found, 10);
         assert_eq!(all, [3, 1, 0]);
     }
 
     #[test]
-    fn a_mined_claim_is_counted_under_the_line_that_hooked_it() {
+    fn a_keyword_claim_is_counted_under_the_subject_whose_keywords_it_matched() {
         let out = crate::tempdir::Dir::new();
         let snapshot = out.path().join("appid=1").join("snapshot=1");
         let texts = [
@@ -2869,8 +2869,8 @@ mod tests {
         )
         .unwrap();
 
-        let mined = draw_mined(out.path(), 1, &out.path().join("set"), 4, 1, &[]).unwrap();
-        let mut hooked: Vec<&str> = mined
+        let draw = draw_by_keyword(out.path(), 1, &out.path().join("set"), 4, 1, &[]).unwrap();
+        let mut matched: Vec<&str> = draw
             .drawn
             .iter()
             .flat_map(|review| {
@@ -2878,18 +2878,18 @@ mod tests {
                     .claims
                     .iter()
                     .filter(|claim| review.asks(claim.index))
-                    .filter_map(|claim| crate::mine::hooked(&claim.text))
+                    .filter_map(|claim| crate::rare_subjects::keyword_subject(&claim.text))
             })
             .collect();
-        hooked.sort_unstable();
-        let mut counted: Vec<&str> = mined
-            .by_line
+        matched.sort_unstable();
+        let mut counted: Vec<&str> = draw
+            .by_subject
             .iter()
             .flat_map(|&(subject, count)| std::iter::repeat_n(subject, count))
             .collect();
         counted.sort_unstable();
-        assert_eq!(hooked, ["compatibility", "mods", "policy", "vr"]);
-        assert_eq!(counted, hooked);
+        assert_eq!(matched, ["compatibility", "mods", "policy", "vr"]);
+        assert_eq!(counted, matched);
     }
 
     #[test]

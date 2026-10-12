@@ -7,7 +7,7 @@ release (`v1`, `v2`, ...):
   `reference/reader-sizes.json`, each with a card written from its run.
 - `steamgauge-search-encoder` and `steamgauge-search-reranker`: the two exports search by
   meaning runs, from the model cache, exactly the files `search_models.rs` pins.
-- `game-review-claims`, a dataset: every label, the second readings, the person's gold answers
+- `game-review-claims`, a dataset: every label, the second labels, the person's gold answers
   and judgements, what Steam shows about each labelled review, and `fetch_text.py`. Never the
   review text and never the author: the words are the reviewers' and the author is a person.
 
@@ -68,10 +68,10 @@ def sha256(path: Path) -> str:
 
 # The draws beside a game's random one that train the reader, as the Rust side names them in
 # `claimset::TEACHING_SETS`. Named rather than "every subdirectory holding labels": the second
-# readings answer claims the set already has, and go up as their own file.
-TEACHING_SETS = ["declined", "mined", "retrieved", "multilingual"]
-# `claimset::SECOND_READINGS`, in its order: the first to answer a claim is its second reading.
-SECOND_READINGS = ["second", "opus"]
+# labels answer claims the set already has, and go up as their own file.
+TEACHING_SETS = ["declined", "keyword", "retrieved", "multilingual"]
+# `claimset::SECOND_LABELS`, in its order: the first to answer a claim gives its second label.
+SECOND_LABELS = ["second", "opus"]
 
 KEY = ("app_id", "review_id", "index")
 
@@ -169,7 +169,7 @@ def dataset_card(
         [
             "",
             f"{agreed['claims']:,} claims have a second label from a different model, in",
-            "`second-readings.jsonl`. On those claims the two labels agree:",
+            "`second-labels.jsonl`. On those claims the two labels agree:",
             "",
             "| Field | Agreement | Cohen's kappa |",
             "|---|---|---|",
@@ -210,7 +210,7 @@ def dataset_card(
             "## Files",
             "",
             "- `claims.jsonl`: one label per claim.",
-            "- `second-readings.jsonl`: a second label, from a different model, for some claims.",
+            "- `second-labels.jsonl`: a second label, from a different model, for some claims.",
             f"- `gold.jsonl`: {gold:,} claims labelled by one person.",
             "- `acceptable.jsonl`: for some gold claims, whether a subject other than the gold",
             "  one is also acceptable, judged by the same person.",
@@ -219,7 +219,7 @@ def dataset_card(
             "",
             "## Fields",
             "",
-            "`claims.jsonl`, `second-readings.jsonl` and `gold.jsonl`:",
+            "`claims.jsonl`, `second-labels.jsonl` and `gold.jsonl`:",
             "",
             "| Field | Meaning |",
             "|---|---|",
@@ -242,8 +242,8 @@ def dataset_card(
             "| `split_wrong` | The claim is cut in the wrong place. |",
             "| `produced_by` | The model that wrote the label, or `a person`. |",
             (
-                "| `taxonomy` | The category sheet the label was written against: a hash of the "
-                "sheet, or `core-5` or `core-6`. Null where it was not recorded. |"
+                "| `taxonomy` | The category sheet the label was written against, as a hash of "
+                "the sheet. Null where it was not recorded. |"
             ),
             "| `subset` | How the claim was drawn (below). |",
             "",
@@ -252,7 +252,7 @@ def dataset_card(
             "- `random`: a random draw of the game's reviews. Only these rows estimate how often",
             "  a subject comes up.",
             "- `declined`: claims a trained reader did not answer.",
-            "- `mined`: claims found by keyword for rarely mentioned subjects.",
+            "- `keyword`: claims found by keyword for rarely mentioned subjects.",
             "- `retrieved`: claims found by meaning for rarely mentioned subjects.",
             "- `multilingual`: claims from reviews in languages other than English.",
             "",
@@ -271,7 +271,7 @@ def dataset_card(
             "python fetch_text.py --data . --to claims-with-text.jsonl",
             "```",
             "",
-            "`--claims gold.jsonl` or `--claims second-readings.jsonl` does the same for another",
+            "`--claims gold.jsonl` or `--claims second-labels.jsonl` does the same for another",
             "label file. Reviews deleted or edited on Steam since labelling are left out.",
             "",
             "## Labels",
@@ -405,7 +405,7 @@ def pin_search(source: str, constant: str, release: tuple[str, str, str]) -> str
 
 
 def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
-    """Every label, every second reading, the gold answers and the judgements beside them."""
+    """Every label, every second label, the gold answers and the judgements beside them."""
     rows, again, gold, acceptable = [], [], [], []
 
     def load(path: Path) -> list[dict]:
@@ -415,8 +415,8 @@ def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], li
         for draw in [game, *(game / name for name in TEACHING_SETS)]:
             rows.extend(load(draw / "labels.json"))
         answered: set[tuple] = set()
-        for reading in SECOND_READINGS:
-            for row in load(game / reading / "labels.json"):
+        for second in SECOND_LABELS:
+            for row in load(game / second / "labels.json"):
                 if (key := tuple(row[name] for name in KEY)) not in answered:
                     answered.add(key)
                     again.append(row)
@@ -535,23 +535,23 @@ def main() -> None:
     ]
     for found, fields, what in (
         (rows, LABEL_FIELDS, "labels"),
-        (again, LABEL_FIELDS, "second readings"),
+        (again, LABEL_FIELDS, "second labels"),
         (gold, LABEL_FIELDS, "gold answers"),
         (acceptable, JUDGEMENT_FIELDS, "judgements"),
         (reviews, REVIEW_FIELDS, "review facts"),
     ):
         checked(found, fields, f"the {what}")
-    # A second reading whose sheet was not recorded holds either nothing or an empty string;
-    # both go up as one null so a reader of the file has a single case to handle.
-    for row in again:
+    # A label written before labels recorded their sheet holds either nothing or an empty
+    # string; both go up as one null so a reader of the file has a single case to handle. A
+    # fingerprint guessed from a commit date would be the stamping the ingest refuses to do.
+    for row in rows + again:
         row["taxonomy"] = row.get("taxonomy") or None
     for name in (*KEY, "start", "end", "subject", "polarity", "produced_by"):
         if any(name not in row for row in rows + again):
             raise SystemExit(f"a row has no {name}; nothing can be joined back from it")
-    # Only second readings made before a label recorded its sheet may lack one, and a fingerprint
-    # guessed from a commit date would be the stamping the ingest refuses to do.
-    if any(not row.get("taxonomy") for row in rows + gold):
-        raise SystemExit("a row has no taxonomy; the sheet it answered is not known")
+    # The gold page stamps every answer with the sheet it showed, so one without is broken.
+    if any(not row.get("taxonomy") for row in gold):
+        raise SystemExit("a gold answer has no taxonomy; the sheet it answered is not known")
     described = {row["review_id"] for row in reviews}
     bare = {row["review_id"] for row in rows + again + gold} - described
     if bare:
@@ -561,7 +561,7 @@ def main() -> None:
         )
     files = {
         "claims.jsonl": rows,
-        "second-readings.jsonl": again,
+        "second-labels.jsonl": again,
         "gold.jsonl": gold,
         "acceptable.jsonl": acceptable,
         "reviews.jsonl": reviews,
