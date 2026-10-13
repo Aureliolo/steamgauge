@@ -115,7 +115,10 @@ jobs:
       # version and nothing else, so the code it ships passed CI before prepare release was
       # pressed, and tools/release/checked.mjs finds where and holds it to every check main's
       # ruleset requires, on a head whose tree is that code's.
+      # A dry run is a branch, whose head is code rather than a version raise; it has nothing
+      # released to hold to anything.
       - name: Verify the code being released passed every required check
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node tools/release/checked.mjs "${GITHUB_SHA}"

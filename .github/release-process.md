@@ -159,8 +159,12 @@ publishes and packages:
 ## A dry run
 
 Dispatch **release** on a branch rather than a tag. Every job up to verify runs exactly as it
-would for a release, bar the two checks only a tag can pass (its name, and being on `main`), and
-publish and every job after it are skipped. The run summary carries the checksums and the notes
+would for a release, bar the three checks only a tag can pass (its name, being on `main`, and
+the code it ships having passed CI on its pull request), and publish and every job after it are
+skipped. A pull request that touches `release.yml`, `release-build.yml` or any workflow they call
+gets a dry run before it merges: a job asking for a permission its caller does not grant stops
+the whole run before a step executes, which no linter here reads and only a run shows, and found
+on a tag it spends the version. The run summary carries the checksums and the notes
 a release from there would have. The attestations it makes name the branch as their source, so
 none of them can pass for a release's.
 
