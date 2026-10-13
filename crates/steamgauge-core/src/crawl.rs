@@ -13,7 +13,7 @@ use tokio::{sync::Semaphore, task::JoinSet};
 use crate::{
     CaptureWriter, Result,
     api::SteamClient,
-    query::{ReviewQuery, SortOrder},
+    query::{MAX_PER_PAGE, ReviewQuery, SortOrder},
     shard::{self, CORPUS_EPOCH, DEFAULT_SHARD_TARGET, Shard},
     state::CrawlState,
 };
@@ -127,11 +127,8 @@ pub async fn crawl(
     let started = Instant::now();
     let state = Arc::new(CrawlState::open(&options.out_dir.join("state.sqlite"))?);
 
-    let summary = client
-        .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
-        .await?
-        .query_summary;
-    let valve_total = summary.as_ref().map_or(0, |s| s.total_reviews);
+    let summary = client.summary(app_id).await?;
+    let valve_total = summary.total_reviews;
 
     let (crawl_id, snapshot, resumed) =
         prepare(client, app_id, options, &state, valve_total).await?;
@@ -174,12 +171,6 @@ pub async fn crawl(
         state.finish_crawl(crawl_id)?;
     }
     let (unique, pages) = state.completed_totals(crawl_id)?;
-    let summary = summary.unwrap_or(crate::QuerySummary {
-        total_reviews: 0,
-        total_positive: 0,
-        total_negative: 0,
-        review_score_desc: String::new(),
-    });
 
     let report = CrawlReport {
         app_id,
@@ -375,18 +366,24 @@ struct ShardOutcome {
 }
 
 /// Walks a window, repeating it while it comes back short of what Valve says it holds.
+///
+/// Each walk asks for one review fewer a page than the walk before. Steam keeps what it
+/// answered a caller without a key for up to ten minutes, and an identical walk asked again
+/// inside that time is served the same pages, the early end included; a different page size
+/// is a different query, walked afresh.
 async fn crawl_shard(
     client: &SteamClient,
     app_id: u32,
     shard: Shard,
     path: &std::path::Path,
 ) -> Result<ShardOutcome> {
-    let mut last = walk_shard(client, app_id, shard, path).await?;
+    let mut last = walk_shard(client, app_id, shard, path, MAX_PER_PAGE).await?;
     for walk in 2..=MAX_SHARD_WALKS {
         if !fell_short(last.rows, shard.expected) {
             return Ok(last);
         }
-        last = walk_shard(client, app_id, shard, path).await?;
+        let per_page = MAX_PER_PAGE.saturating_sub(u16::try_from(walk - 1).unwrap_or(0));
+        last = walk_shard(client, app_id, shard, path, per_page).await?;
         last.walks = walk;
     }
     let short = fell_short(last.rows, shard.expected);
@@ -398,6 +395,7 @@ async fn walk_shard(
     app_id: u32,
     shard: Shard,
     path: &std::path::Path,
+    per_page: u16,
 ) -> Result<ShardOutcome> {
     let mut writer = CaptureWriter::create(path, app_id)?;
     let mut cursor = "*".to_owned();
@@ -409,6 +407,7 @@ async fn walk_shard(
     let stop = loop {
         let query = ReviewQuery::new(app_id)
             .cursor(cursor.clone())
+            .per_page(per_page)
             .window(shard.start_date, shard.end_date);
         let page = client.fetch(&query, app_id).await?;
         pages = pages.saturating_add(1);
@@ -582,10 +581,7 @@ pub async fn sweep(
     // Valve's total moves with the corpus, so coverage is re-read against today's figure
     // rather than the one the crawl saw. Asked before anything is recorded, so the records
     // below are written together or not at all.
-    let summary = client
-        .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
-        .await?
-        .query_summary;
+    let summary = client.summary(app_id).await?;
     if walked.rows == 0 {
         std::fs::remove_file(&path)?;
     } else {
@@ -596,7 +592,7 @@ pub async fn sweep(
         .and_then(Value::as_u64)
         .unwrap_or(0)
         .saturating_add(walked.new);
-    let valve_total = summary.as_ref().map_or(0, |s| s.total_reviews);
+    let valve_total = summary.total_reviews;
     let sweeps = facts.get("sweeps").and_then(Value::as_u64).unwrap_or(0) + 1;
     let swept_rows = facts
         .get("rows_swept")
@@ -608,28 +604,23 @@ pub async fn sweep(
         object.insert("sweeps".to_owned(), json!(sweeps));
         object.insert("rows_swept".to_owned(), json!(swept_rows));
         object.insert("rows_unique".to_owned(), json!(unique));
-        if let Some(summary) = &summary {
-            object.insert(
-                "valve_total_reviews".to_owned(),
-                json!(summary.total_reviews),
-            );
-            object.insert(
-                "valve_total_positive".to_owned(),
-                json!(summary.total_positive),
-            );
-            object.insert(
-                "valve_total_negative".to_owned(),
-                json!(summary.total_negative),
-            );
-            object.insert(
-                "review_score_desc".to_owned(),
-                json!(summary.review_score_desc),
-            );
-            object.insert(
-                "coverage".to_owned(),
-                json!(coverage_of(unique, valve_total)),
-            );
-        }
+        object.insert("valve_total_reviews".to_owned(), json!(valve_total));
+        object.insert(
+            "valve_total_positive".to_owned(),
+            json!(summary.total_positive),
+        );
+        object.insert(
+            "valve_total_negative".to_owned(),
+            json!(summary.total_negative),
+        );
+        object.insert(
+            "review_score_desc".to_owned(),
+            json!(summary.review_score_desc),
+        );
+        object.insert(
+            "coverage".to_owned(),
+            json!(coverage_of(unique, valve_total)),
+        );
     }
     write_facts(&dir, &facts)?;
     // The store is being asked about the game anyway; a name it will not give is not a reason
@@ -716,6 +707,13 @@ struct Walked {
 
 /// Walks the corpus newest edit first, writing every review touched since `watermark` to
 /// `path` and noting each in `newest`, until it is safely past the watermark or `halt` is set.
+///
+/// The walk asks for the reviews written up to `started`, which is every review there is when
+/// it starts. Steam keeps each answer it gives a caller without a key for ten minutes and
+/// gives it to anyone who asks the same thing, so a sweep asking what any other caller asked
+/// could be served pages from before the latest edits, and the next sweep, starting from
+/// this one, would never look for them again. Bounded by its own start, every sweep asks
+/// something nobody has asked before.
 async fn walk_since(
     client: &SteamClient,
     app_id: u32,
@@ -739,6 +737,7 @@ async fn walk_since(
         }
         let query = ReviewQuery::new(app_id)
             .order(SortOrder::Updated)
+            .window(CORPUS_EPOCH, started)
             .cursor(cursor.clone());
         let page = client.fetch(&query, app_id).await?;
         pages = pages.saturating_add(1);
@@ -915,17 +914,21 @@ mod tests {
     }
 
     fn summary_of(total: usize) -> stand_in::Answer {
-        stand_in::Answer::json(&json!({
-            "success": 1,
+        stand_in::Answer::json(&json!({"response": {
             "query_summary": {
+                "num_reviews": 0,
                 "total_reviews": total,
                 "total_positive": total,
                 "total_negative": 0,
                 "review_score_desc": "Very Positive",
             },
-            "reviews": [],
             "cursor": "*",
-        }))
+        }}))
+    }
+
+    /// Whether the client is asking only for Valve's totals, which it does with a page of one.
+    fn counting(asked: &stand_in::Asked) -> bool {
+        asked.input()["num_per_page"] == 1
     }
 
     fn name_of_the_game(name: &str) -> stand_in::Answer {
@@ -936,8 +939,8 @@ mod tests {
 
     /// Where a cursor the stand-in handed out starts: `*` at the beginning, `at{n}` after `n`.
     fn offset(asked: &stand_in::Asked) -> usize {
-        asked
-            .param("cursor")
+        asked.input()["cursor"]
+            .as_str()
             .and_then(|cursor| cursor.strip_prefix("at"))
             .and_then(|at| at.parse().ok())
             .unwrap_or(0)
@@ -946,11 +949,12 @@ mod tests {
     fn page_of(served: &[Value], from: usize) -> stand_in::Answer {
         let to = (from + PAGE).min(served.len());
         let next = if from < served.len() { to } else { from };
-        stand_in::Answer::json(&json!({
-            "success": 1,
-            "reviews": served.get(from..to).unwrap_or(&[]),
+        let reviews = served.get(from..to).unwrap_or(&[]);
+        stand_in::Answer::json(&json!({"response": {
+            "query_summary": {"num_reviews": reviews.len()},
+            "reviews": reviews,
             "cursor": format!("at{next}"),
-        }))
+        }}))
     }
 
     /// Valve as far as a crawl can tell: `reviews` newest first, a page at a time, counted and
@@ -966,14 +970,10 @@ mod tests {
             if asked.path() == "/api/appdetails" {
                 return name_of_the_game("A Game");
             }
-            let bound = |name| {
-                asked
-                    .param(name)
-                    .and_then(|value| value.parse::<i64>().ok())
-            };
+            let input = asked.input();
             let (start, end) = (
-                bound("start_date").unwrap_or(i64::MIN),
-                bound("end_date").unwrap_or(i64::MAX),
+                input["date_range_start"].as_i64().unwrap_or(i64::MIN),
+                input["date_range_end"].as_i64().unwrap_or(i64::MAX),
             );
             let mut served: Vec<Value> = reviews
                 .iter()
@@ -983,7 +983,7 @@ mod tests {
                 .cloned()
                 .collect();
             served.sort_by_key(|review| std::cmp::Reverse(review["timestamp_created"].as_i64()));
-            if asked.param("num_per_page") == Some("0") {
+            if counting(asked) {
                 let distinct: HashSet<&str> = served
                     .iter()
                     .filter_map(|review| review["recommendationid"].as_str())
@@ -1029,6 +1029,7 @@ mod tests {
         SteamClient::new(Duration::ZERO)
             .unwrap()
             .with_store(&server.origin())
+            .with_api(&server.origin())
     }
 
     fn options(out_dir: &std::path::Path) -> CrawlOptions {
@@ -1120,6 +1121,22 @@ mod tests {
         assert_eq!((first.shards_restarted, first.shards_short), (1, 1));
         assert!(!first.complete);
         assert!(!first.resumed);
+        let walks_of_the_stalled_window: Vec<Value> = stalling
+            .asked()
+            .iter()
+            .map(stand_in::Asked::input)
+            .filter(|input| {
+                input["date_range_start"] == shard::CORPUS_EPOCH
+                    && input["cursor"] == "*"
+                    && input["num_per_page"] != 1
+            })
+            .map(|input| input["num_per_page"].clone())
+            .collect();
+        assert_eq!(
+            walks_of_the_stalled_window,
+            [json!(100), json!(99), json!(98)],
+            "a walk asked again as it was asked before is served from Steam's cache"
+        );
         assert_eq!(facts(&first.dir)["complete"], false);
 
         let serving = stand_in::Server::new(valve(corpus(), None, 0));
@@ -1164,17 +1181,22 @@ mod tests {
             if asked.path() == "/api/appdetails" {
                 return name_of_the_game("A Game");
             }
-            if asked.param("num_per_page") == Some("0") {
+            if counting(asked) {
                 return summary_of(total);
             }
-            assert_eq!(asked.param("filter"), Some("updated"));
+            assert_eq!(asked.input()["filter"], 2, "the sweep walks by last edit");
+            assert!(
+                asked.input()["date_range_end"].as_i64() > Some(WATERMARK),
+                "the sweep asks up to its own start, which no other caller has asked"
+            );
             let at = offset(asked);
             let next = if at < pages.len() { at + 1 } else { at };
-            stand_in::Answer::json(&json!({
-                "success": 1,
-                "reviews": pages.get(at).cloned().unwrap_or_default(),
+            let reviews = pages.get(at).cloned().unwrap_or_default();
+            stand_in::Answer::json(&json!({"response": {
+                "query_summary": {"num_reviews": reviews.len()},
+                "reviews": reviews,
                 "cursor": format!("at{next}"),
-            }))
+            }}))
         }
     }
 

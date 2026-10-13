@@ -40,6 +40,19 @@ impl Asked {
             .map(|(_, value)| value)
     }
 
+    /// The arguments of a call to one of Steam's service methods, which go as JSON in
+    /// `input_json`, or `null` where there are none.
+    pub fn input(&self) -> serde_json::Value {
+        self.param("input_json")
+            .and_then(|sent| {
+                percent_encoding::percent_decode_str(sent)
+                    .decode_utf8()
+                    .ok()
+            })
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default()
+    }
+
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()

@@ -27,7 +27,7 @@ use std::{
 
 use serde::Serialize;
 use steamgauge_core::{
-    DEFAULT_PACE, Listing, ReviewQuery, SteamClient, embed, reading_time::ReadingTimes, report,
+    DEFAULT_PACE, Listing, SteamClient, embed, reading_time::ReadingTimes, report,
 };
 use tauri::{AppHandle, Manager};
 
@@ -186,13 +186,7 @@ async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
     let client = SteamClient::new(DEFAULT_PACE)
         .map_err(text)?
         .with_patience(std::time::Duration::from_secs(30));
-    let page = client
-        .fetch(&ReviewQuery::new(app_id).per_page(0), app_id)
-        .await
-        .map_err(text)?;
-    let summary = page
-        .query_summary
-        .ok_or_else(|| format!("Steam serves no reviews for app {app_id}"))?;
+    let summary = client.summary(app_id).await.map_err(text)?;
     let held = embed::latest_snapshot(&library_dir(&app), app_id).is_ok();
     Ok(Found {
         app_id,

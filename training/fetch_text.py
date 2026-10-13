@@ -1,7 +1,7 @@
 """Puts the review text back beside the published labels, on your own machine.
 
 The dataset carries no review text: the words are their authors', and they stay on Steam.
-This fetches each labelled review from Steam's public review endpoint, checks it against the
+This fetches each labelled review from Steam's public web API, checks it against the
 fingerprint of the text the labels were written against, and writes every claim with its text
 cut out at the byte offsets its label names.
 
@@ -25,19 +25,18 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-ENDPOINT = "https://store.steampowered.com/appreviews/{app}"
+ENDPOINT = "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/"
 DAY = 86_400
 
-# The census parameters the labels' text was fetched with. Steam's defaults leave out
-# activated keys and review bombs, and with them reviews that were labelled.
+# The census arguments the labels' text was fetched with. Steam's defaults leave out
+# activated keys, review bombs and every language but English, and with them reviews that
+# were labelled. Purchase type 1 is every purchase, and filter 1 is newest first.
 PARAMETERS = {
-    "json": "1",
-    "language": "all",
-    "purchase_type": "all",
-    "filter_offtopic_activity": "0",
-    "filter": "recent",
-    "num_per_page": "100",
-    "date_range_type": "include",
+    "languages": ["all"],
+    "purchase_type": 1,
+    "filter_offtopic_activity": False,
+    "filter": 1,
+    "num_per_page": 100,
 }
 
 Page = Callable[[int, dict], dict]
@@ -57,14 +56,16 @@ def next_wait(refusals: int, waited: float, told: float | None) -> float | None:
 
 
 def steam_page(app: int, query: dict) -> dict:
-    url = ENDPOINT.format(app=app) + "?" + urllib.parse.urlencode(query)
+    """One page of `app`'s reviews. A web API method takes its arguments as one JSON value."""
+    arguments = json.dumps({"appid": app, **query})
+    url = ENDPOINT + "?" + urllib.parse.urlencode({"input_json": arguments})
     request = urllib.request.Request(url, headers={"User-Agent": "game-review-claims fetch"})
     refusals, waited = 0, 0.0
     while True:
         told = None
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
-                answer = json.load(response)
+                answer = json.load(response).get("response", {})
             # A page a second keeps a fetch of every labelled review well inside what Steam
             # serves one caller.
             time.sleep(1)
@@ -104,7 +105,13 @@ def fetch(app: int, wanted: dict[str, int], page: Page = steam_page) -> dict[str
         cursor = "*"
         while True:
             answer = page(
-                app, {**PARAMETERS, "start_date": start, "end_date": end, "cursor": cursor}
+                app,
+                {
+                    **PARAMETERS,
+                    "date_range_start": start,
+                    "date_range_end": end,
+                    "cursor": cursor,
+                },
             )
             for review in answer.get("reviews", []):
                 if review.get("recommendationid") in wanted:

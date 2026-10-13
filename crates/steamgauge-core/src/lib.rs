@@ -70,7 +70,7 @@ pub enum Error {
     #[error("http request failed: {0}")]
     Http(#[from] reqwest::Error),
 
-    /// Valve answers with `success: 0` for unknown app IDs and for apps whose reviews are
+    /// Valve answers an empty response for unknown app IDs and for apps whose reviews are
     /// not served, which is not an HTTP error and would otherwise look like an empty corpus.
     #[error("steam served no review data for app {app_id}")]
     NoSuchCorpus { app_id: u32 },

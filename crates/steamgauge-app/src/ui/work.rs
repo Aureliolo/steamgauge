@@ -1176,15 +1176,7 @@ async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {
             float(at),
             Some(total),
         );
-        let page = client
-            .fetch(
-                &steamgauge_core::ReviewQuery::new(game.app_id).per_page(0),
-                game.app_id,
-            )
-            .await;
-        if let Ok(summary) = page.map(|page| page.query_summary)
-            && let Some(summary) = summary
-        {
+        if let Ok(summary) = client.summary(game.app_id).await {
             totals.games.insert(game.app_id, summary.total_reviews);
         }
         // A game downloaded before the crawler asked for names is listed by its number until
