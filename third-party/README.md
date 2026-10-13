@@ -27,13 +27,13 @@ and the carriage returns.
 
 | Component | Version | In the archive | Files here | Taken from |
 |---|---|---|---|---|
-| ONNX Runtime | 1.28.0 | linked into the binary, on every platform, from the prebuilt library the `ort-sys` 2.0.0-rc.13 build downloads (`ms@1.28.0` in its table) | `onnxruntime/LICENSE`, `onnxruntime/ThirdPartyNotices.txt` | <https://github.com/microsoft/onnxruntime> at tag `v1.28.0` (commit `da9b5e364c465de65c49d91e696cd6485270757f`) |
+| ONNX Runtime | 1.31.0 | linked into the binary, on every platform, from the prebuilt library the `ort-sys` 2.0.0-rc.14 build downloads (`ms@1.31.0` in its table) | `onnxruntime/LICENSE`, `onnxruntime/ThirdPartyNotices.txt` | <https://github.com/microsoft/onnxruntime> at tag `v1.31.0` (commit `402979ac1bef89dcd55add41eaa7277c407599eb`) |
 | DirectML | 1.15.4 | `DirectML.dll` beside the Windows binary, byte for byte `bin/x64-win/DirectML.dll` of the package | `directml/LICENSE.txt`, `directml/LICENSE-CODE.txt`, `directml/ThirdPartyNotices.txt` | <https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4>, the package root |
 
 | File | SHA-256 |
 |---|---|
 | `onnxruntime/LICENSE` | `2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c` |
-| `onnxruntime/ThirdPartyNotices.txt` | `0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2` |
+| `onnxruntime/ThirdPartyNotices.txt` | `143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3` |
 | `directml/LICENSE.txt` | `a05138e3a085ff60a44881eedfa58dccb03ecc1d7b1f6ae888418e8c2fec4b8d` |
 | `directml/LICENSE-CODE.txt` | `903df5512f7d02609fed0c780a9b704f5a3eeb6e4d84ebe42a29845c81899a3c` |
 | `directml/ThirdPartyNotices.txt` | `2c95795c13ff48a58b6ed916f37901c23d964b5d9d601af422f17ad2172e7950` |
