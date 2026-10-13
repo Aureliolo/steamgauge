@@ -126,6 +126,20 @@ jobs:
           bash tools/onnx-runtime.sh \
             cargo build --release --locked --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
 
+      # The release refuses a build or a packaging that changed the tree, so these do too: Tauri's
+      # bundler rewrites the app's manifest through a TOML formatter, and a line it would
+      # reformat passes everything here and stops the release on its tag.
+      - name: Verify the build left the source as it was
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "The build modified the checked-out source." >&2
+            git status --short >&2
+            git diff >&2
+            exit 1
+          fi
+
       # The release packs the notices cargo-about writes, which CI's notices job checks on its
       # own; a text of its own stands in for them here, since it is the packaging under test. Not
       # LICENSE: rpmlint refuses an .rpm carrying two identical files.
@@ -141,6 +155,17 @@ jobs:
           notices="${RUNNER_TEMP}/THIRD-PARTY-NOTICES.txt"
           echo "The third-party notices of a release, which cargo-about writes when one is built." > "${notices}"
           bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${version}" "${notices}" dist
+
+      - name: Verify packaging left the source as it was
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain --untracked-files=all -- . ':!dist')" ]]; then
+            echo "Packaging modified the checked-out source." >&2
+            git status --short >&2
+            git diff >&2
+            exit 1
+          fi
 
       - name: Install and run
         shell: bash

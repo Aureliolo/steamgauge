@@ -393,6 +393,11 @@ exists.
 - **Tests or build steps modified the checked-out release source**, or **The build modified**
   it: something writes into the tree, which would mean the archive does not match the tagged
   commit.
+- **Packaging modified the checked-out release source**: Tauri's bundler rewrites the app's
+  `Cargo.toml` through a TOML formatter, so a line it would format differently, such as
+  `name ={` with the space missing, comes back changed. The install check on every pull request
+  refuses the same, so this means a manifest reached `main` some other way; fix it there and
+  prepare the next version.
 - **The SBOM's files are not the members of ...**, **The SBOM's crates are not the ones ...**,
   or **The SBOM for ... does not list ...**: syft read something other than the unpacked
   archive and the cut-down lock file, or a syft upgrade changed what its catalogers see or how
