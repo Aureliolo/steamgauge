@@ -27,6 +27,9 @@ pub struct Folders {
     pub config: PathBuf,
     /// The environment variable a client reads its folder from instead, where it is set.
     pub variable: fn(&str) -> Option<PathBuf>,
+    /// Whether the folders are Windows's, where some clients keep their files in `config` rather
+    /// than the XDG folder they use everywhere else.
+    pub windows: bool,
 }
 
 impl Folders {
@@ -44,6 +47,7 @@ impl Folders {
                     .map(PathBuf::from)
                     .filter(|path| path.is_absolute())
             },
+            windows: cfg!(windows),
         })
     }
 
@@ -227,7 +231,7 @@ pub const CLIENTS: &[Client] = &[
 
 /// Devin Desktop's folder: `%APPDATA%\devin` on Windows, the XDG one elsewhere, macOS included.
 fn devin_folder(folders: &Folders) -> PathBuf {
-    if cfg!(windows) {
+    if folders.windows {
         folders.config.join("devin")
     } else {
         folders.xdg_config().join("devin")
@@ -236,7 +240,7 @@ fn devin_folder(folders: &Folders) -> PathBuf {
 
 /// Zed's folder: `%APPDATA%\Zed` on Windows, the XDG one elsewhere, macOS included.
 fn zed_folder(folders: &Folders) -> PathBuf {
-    if cfg!(windows) {
+    if folders.windows {
         folders.config.join("Zed")
     } else {
         folders.xdg_config().join("zed")
@@ -671,6 +675,7 @@ mod tests {
                 home: self.0.join("home"),
                 config: self.0.join("config"),
                 variable: |_| None,
+                windows: cfg!(windows),
             }
         }
     }

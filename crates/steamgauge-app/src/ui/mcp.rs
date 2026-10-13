@@ -771,6 +771,25 @@ impl Server {
     }
 }
 
+/// Every tool as the documentation describes it.
+pub(crate) fn reference() -> Vec<crate::reference::Tool> {
+    entries()
+        .into_iter()
+        .map(|entry| crate::reference::Tool {
+            name: entry.tool.name.to_string(),
+            description: entry
+                .tool
+                .description
+                .as_deref()
+                .unwrap_or_default()
+                .to_owned(),
+            read_only: entry.effect == Effect::Looks,
+            destructive: entry.effect == Effect::Removes,
+            input: serde_json::Value::Object((*entry.tool.input_schema).clone()),
+        })
+        .collect()
+}
+
 fn server_config() -> ServerConfig {
     ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
         .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))

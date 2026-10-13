@@ -897,6 +897,11 @@ enum Command {
     },
 }
 
+/// The command line as clap builds it, for the documentation's reference.
+pub(crate) fn command() -> clap::Command {
+    <Cli as clap::CommandFactory>::command()
+}
+
 pub async fn run() -> Result<()> {
     let command = Cli::parse().command;
     if let Some(done) = reference_work(&command) {

@@ -1249,6 +1249,11 @@ fn claims_using(
 ///
 /// Fails if the webview cannot be created, which on Linux means the system webview is
 /// missing and on Windows means `WebView2` is not installed.
+/// Every MCP tool, as the documentation describes it.
+pub(crate) fn tool_reference() -> Vec<crate::reference::Tool> {
+    mcp::reference()
+}
+
 pub fn run(without_window: bool) -> anyhow::Result<()> {
     tauri::Builder::default()
         // First, so a second copy hands over before it starts anything of its own. Opened by a
