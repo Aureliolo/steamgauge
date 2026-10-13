@@ -7,7 +7,10 @@ version. Only the repository's owner can. It raises the version in `Cargo.toml`,
 `[workspace.package]` where every crate takes it from, and in the entry `Cargo.lock` keeps for
 each crate, on a `release/vX.Y.Z` branch with a signed commit, opens the pull request, sets it
 to merge itself once its checks are green, and links it in the run summary. Everything after
-that is automatic.
+that is automatic. The pull request raises the version and changes nothing else, which
+`tools/release/scope.mjs` proves byte for byte, so its builds, installs and scans pass at once
+(`.github/actions/scope`): `main` passed them on the same code, and the gate below holds the
+release to them.
 
 Nobody types a version twice and nobody creates a tag by hand, which is the release step that
 cannot be checked afterwards and the one most likely to be done from the wrong branch.
@@ -68,8 +71,11 @@ publishes and packages:
    latest and is immutable, so a pre-release would stand as the newest release for good), the
    tag matches the workspace version, every crate takes
    that version and `Cargo.lock` agrees, the release commit is reachable from `main`, and that
-   commit carries a valid signature. Then it runs the formatter, clippy and the tests with
-   `--locked`, as CI does, checks the working tree is still clean, and writes the changelog.
+   commit carries a valid signature. It does not run CI again: `tools/release/checked.mjs`
+   proves the release commit only raises the version, walks back over commits that hold no code
+   (manifests the last release merged, another version raise) to the one that does, and
+   requires every check `main`'s ruleset names to have passed on that commit's pull request, on
+   a head whose tree is the same. Then it writes the changelog.
 2. **notices** writes each archive's `THIRD-PARTY-NOTICES.txt` with cargo-about, for that
    platform's target and GPU feature from `Cargo.lock` (see below). It compiles nothing, and it
    is a job of its own so that the build runs no tool the binary does not need.
@@ -142,7 +148,9 @@ publishes and packages:
     and each uninstall has to remove it.
 12. **package managers (main)** opens a pull request putting the cask and the Scoop manifest on
     `main`, as the packaging App, and merges it once every check has passed; a check that fails,
-    or anything else that keeps it from merging, fails the job with the reason.
+    or anything else that keeps it from merging, fails the job with the reason. It holds no code,
+    so its builds, installs and scans pass at once (`.github/actions/scope`) and it merges within
+    minutes.
 13. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program the
     winget manifests name against the release, its attestation and its hash, and submits the
     manifests with Microsoft's `wingetcreate` to `microsoft/winget-pkgs`, where Microsoft's

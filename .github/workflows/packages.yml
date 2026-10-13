@@ -19,9 +19,25 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
+# A pull request that holds no code runs each job with its steps skipped, so it reports under the
+# name the ruleset requires; see ci.yml and .github/actions/scope.
 jobs:
+  scope:
+    name: scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - id: scope
+        uses: $/.github/actions/scope
+
   install:
     name: install (${{ matrix.system }})
+    needs: scope
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,19 +71,20 @@ jobs:
 
     steps:
       - name: Checkout
+        if: needs.scope.outputs.code != 'false'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       # help2man writes the man page the Linux packages carry from the program's own --help.
       - name: Install the webview Tauri links against, help2man, and a display for the window
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man xvfb
 
       # nFPM, which makes the .deb and the .rpm; the release archive, refused unless it has the
       # digest written here.
       - name: Install nFPM (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         env:
           # renovate: datasource=github-release-attachments depName=goreleaser/nfpm versioning=semver
           NFPM_TAG: v2.48.0
@@ -84,7 +101,7 @@ jobs:
           "${RUNNER_TEMP}/nfpm/nfpm" --version
 
       - name: Install tauri-cli (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && needs.scope.outputs.code != 'false'
         shell: bash
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
@@ -100,7 +117,7 @@ jobs:
           echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri.exe" >> "${GITHUB_ENV}"
 
       - name: Install tauri-cli (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.scope.outputs.code != 'false'
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
           TAURI_CLI_TAG: tauri-cli-v2.12.2
@@ -116,6 +133,7 @@ jobs:
 
       # No cache, as in the release build, so this builds what a release would.
       - name: Build
+        if: needs.scope.outputs.code != 'false'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -130,6 +148,7 @@ jobs:
       # bundler rewrites the app's manifest through a TOML formatter, and a line it would
       # reformat passes everything here and stops the release on its tag.
       - name: Verify the build left the source as it was
+        if: needs.scope.outputs.code != 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -144,6 +163,7 @@ jobs:
       # own; a text of its own stands in for them here, since it is the packaging under test. Not
       # LICENSE: rpmlint refuses an .rpm carrying two identical files.
       - name: Package
+        if: needs.scope.outputs.code != 'false'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -157,6 +177,7 @@ jobs:
           bash tools/release/package.sh "${TARGET}" "${FEATURES}" "${version}" "${notices}" dist
 
       - name: Verify packaging left the source as it was
+        if: needs.scope.outputs.code != 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -168,6 +189,7 @@ jobs:
           fi
 
       - name: Install and run
+        if: needs.scope.outputs.code != 'false'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}

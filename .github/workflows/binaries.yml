@@ -20,9 +20,25 @@ env:
   BINSKIM_VERSION: 4.4.9.11
   BINSKIM_SHA256: 69678989cbc273b5b50fcf98fb0fd978e1e35a3f844acb24254b31f0ce90c447
 
+# A pull request that holds no code runs each job with its steps skipped, so it reports under the
+# name the ruleset requires; see ci.yml and .github/actions/scope.
 jobs:
+  scope:
+    name: scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - id: scope
+        uses: $/.github/actions/scope
+
   binskim:
     name: binskim (${{ matrix.platform }})
+    needs: scope
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,15 +84,17 @@ jobs:
 
     steps:
       - name: Checkout
+        if: needs.scope.outputs.code != 'false'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Install the webview Tauri links against
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Build
+        if: needs.scope.outputs.code != 'false'
         env:
           TARGET: ${{ matrix.target }}
           FEATURES: ${{ matrix.features }}
@@ -90,6 +108,7 @@ jobs:
 
       # The NuGet package, refused unless it has the digest written above.
       - name: Install BinSkim
+        if: needs.scope.outputs.code != 'false'
         run: |
           set -euo pipefail
           package="${RUNNER_TEMP}/binskim.nupkg"
@@ -102,6 +121,7 @@ jobs:
           fi
 
       - name: Analyse
+        if: needs.scope.outputs.code != 'false'
         env:
           TARGET: ${{ matrix.target }}
           PROGRAM: ${{ matrix.program }}
@@ -146,7 +166,7 @@ jobs:
           jq -e 'all(.runs[].results[]; .message.text | type == "string")' binskim.sarif > /dev/null
 
       - name: Upload the results
-        if: '!cancelled()'
+        if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
         uses: github/codeql-action/upload-sarif@977e6ceaea7361825998245d787fa3b4d6b9e5df # codeql-bundle-v2.27.0
         with:
           sarif_file: binskim.sarif
@@ -154,6 +174,7 @@ jobs:
 
       # A warning is refused as an error is: each is a mitigation missing from what ships.
       - name: Refuse anything BinSkim found
+        if: needs.scope.outputs.code != 'false'
         run: |
           set -euo pipefail
           found='[.runs[].results[] | select((.level // "warning") != "note" and (.kind // "fail") == "fail")]'

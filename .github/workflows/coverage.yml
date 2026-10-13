@@ -32,9 +32,25 @@ env:
   # The ratchet. Raise it with the figure; never lower it to let a change through.
   FAIL_UNDER_LINES: 97
 
+# A pull request that holds no code skips the measurement, which the ruleset counts as passed;
+# see ci.yml and .github/actions/scope.
 jobs:
+  scope:
+    name: scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - id: scope
+        uses: $/.github/actions/scope
+
   coverage:
     name: coverage
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

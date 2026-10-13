@@ -40,6 +40,7 @@ jobs:
       # the repository's visibility, and without it the release fails writing its changelog after
       # everything expensive has already run.
       pull-requests: read # Reads each pull request's title and labels, to write the changelog.
+      checks: read # Reads the checks the released code passed on its pull request.
     outputs:
       version: ${{ steps.version.outputs.version }}
 
@@ -91,11 +92,6 @@ jobs:
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
-      # The desktop shell is Tauri, which links against WebKitGTK on Linux; without it the
-      # workspace does not build at all.
-      - name: Install the webview Tauri links against
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-
       # The version script reads the manifests as text. Cargo reads them as Cargo does, and
       # --locked refuses a lock file that would have to change, which a bump that missed an entry
       # would be.
@@ -115,24 +111,14 @@ jobs:
             fi
           done < "${RUNNER_TEMP}/members.txt"
 
-      # The gates CI runs, with --locked, and no cache: see the build job.
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Lint
-        run: bash tools/onnx-runtime.sh cargo clippy --locked --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Test the release tools
-        run: node --test tools/release/release.test.mjs
-
-      - name: Verify the tests left the source as it was
-        run: |
-          set -euo pipefail
-          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
-            echo "Tests or build steps modified the checked-out release source." >&2
-            git status --short >&2
-            exit 1
-          fi
+      # Not run again: read from the pull request that ran them. The release commit raises the
+      # version and nothing else, so the code it ships passed CI before prepare release was
+      # pressed, and tools/release/checked.mjs finds where and holds it to every check main's
+      # ruleset requires, on a head whose tree is that code's.
+      - name: Verify the code being released passed every required check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/release/checked.mjs "${GITHUB_SHA}"
 
       # Written here rather than where the release is created, because this job has the checkout
       # and the history and that one deliberately has neither: it holds `contents: write` and runs

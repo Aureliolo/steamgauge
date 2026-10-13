@@ -1,0 +1,45 @@
+name: Scope
+description: >-
+  Whether the checks have to run. A pull request that changes no code, only the package
+  managers' manifests or only SteamGauge's version (tools/release/scope.mjs), has its builds,
+  installs and scans pass at once: main passed them on the same code before it was opened. The
+  classifier is the base branch's, so a pull request cannot rewrite it to pass itself; anything
+  but a pull request, and a base that has no classifier yet, runs everything.
+
+outputs:
+  code:
+    description: "'true' where the checks have to run, 'false' where the change holds no code."
+    value: ${{ steps.scope.outputs.code }}
+  kind:
+    description: code, version or packaging.
+    value: ${{ steps.scope.outputs.kind }}
+
+runs:
+  using: composite
+  steps:
+    - id: scope
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+        BASE: ${{ github.event.pull_request.base.sha }}
+        HEAD: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+        kind=code
+        if [[ "${EVENT}" == pull_request ]]; then
+          # The two commits alone, in a repository of their own: nothing here needs the
+          # workspace, and nothing in it is read.
+          git init -q "${RUNNER_TEMP}/scope"
+          cd "${RUNNER_TEMP}/scope"
+          git fetch -q --no-tags --depth=1 "https://github.com/${GITHUB_REPOSITORY}.git" "${BASE}" "${HEAD}"
+          classifier="${RUNNER_TEMP}/base-classifier"
+          mkdir -p "${classifier}"
+          if git archive "${BASE}" tools/release | tar -x -C "${classifier}" && [[ -f "${classifier}/tools/release/scope.mjs" ]]; then
+            kind="$(node "${classifier}/tools/release/scope.mjs" "${BASE}" "${HEAD}")"
+          fi
+        fi
+        echo "This change is ${kind}."
+        {
+          echo "kind=${kind}"
+          echo "code=$([[ "${kind}" == code ]] && echo true || echo false)"
+        } >> "${GITHUB_OUTPUT}"
