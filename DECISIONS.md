@@ -5241,6 +5241,19 @@ build and the packaging checks take nothing from a cache, because ort-sys checks
 SHA-256 as it downloads but trusts a folder it finds already in place; they wrap their own build
 in the script and fetch afresh every time.
 
+### ort 2.0.0-rc.14 and ONNX Runtime 1.31.0 (2026-10-13)
+
+rc.14 builds every session inside an `Environment` it is handed. The core builds one the first
+time a session is wanted and keeps it for the life of the process, naming no provider, so each
+session still picks DirectML, CoreML or the processor for itself and still refuses a provider that
+did not load. A read of a 4,683-review game with the small reader ran on `directml` on this build.
+
+The runtime it links is 1.31.0, whose CoreML provider asks `@available` which macOS it runs on.
+That compiles to a call into clang's runtime library, which rustc does not link for Apple targets,
+and the macOS link failed on `___isPlatformVersionAtLeast`; the core's build script links
+`clang_rt.osx` from `xcrun clang -print-resource-dir` when it is built with `coreml` for macOS.
+1.31.0's notices add Mbed TLS, which Microsoft takes under Apache-2.0.
+
 ### The library lives in the local app data folder (2026-10-06)
 
 The app keeps its library under Tauri's local app data folder,

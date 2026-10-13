@@ -256,7 +256,11 @@ test("the check refuses notices that leave out a crate, a file or a licence", ()
   const noDll = shipped();
   noDll.delete("DirectML.dll");
   assert.match(check({ files: noDll }).join("\n"), /archive without DirectML\.dll/);
-  assert.match(check({ notices: notices.replaceAll("3. ONNX Runtime", "3. Something") }).join("\n"), /ONNX Runtime 1\.28\.0's licence/);
+  assert.ok(
+    check({ notices: notices.replaceAll("3. ONNX Runtime", "3. Something") })
+      .join("\n")
+      .includes(`ONNX Runtime ${ONNX_RUNTIME.version}'s licence`),
+  );
 });
 
 test("the changelog splits on what reaches the download", () => {

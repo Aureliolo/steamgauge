@@ -33,8 +33,8 @@ const APP_MANIFEST = join(ROOT, "crates", "steamgauge-app", "Cargo.toml");
 // replaced with that version's and the version below with it.
 export const ONNX_RUNTIME = {
   heading: "ONNX Runtime",
-  version: "1.28.0",
-  source: "https://github.com/microsoft/onnxruntime/tree/v1.28.0",
+  version: "1.31.0",
+  source: "https://github.com/microsoft/onnxruntime/tree/v1.31.0",
   files: ["onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt"],
 };
 
