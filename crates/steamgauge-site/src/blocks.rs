@@ -10,6 +10,7 @@ use clap::{Arg, ArgAction, Command};
 use steamgauge_app::reference;
 
 use crate::PAGES;
+use crate::picker::{self, Choice};
 
 const OPEN: &str = "<!-- steamgauge-site: ";
 const SHUT: &str = " -->";
@@ -51,6 +52,8 @@ fn generate(root: &Path, holder: &str, name: &str) -> Result<String> {
     match name {
         "pages" => pages(root, holder),
         "clients" => Ok(clients()),
+        "entries" => Ok(entries()),
+        "paste" => Ok(format!("```text\n{PASTE}\n```")),
         "tools" => tools(),
         "commands" => commands(),
         _ => bail!("{holder}: no generated part is called `{name}`"),
@@ -67,6 +70,7 @@ fn pages(root: &Path, holder: &str) -> Result<String> {
     let mut text = String::new();
     for (page, path) in PAGES
         .iter()
+        .filter(|page| page.nav)
         .filter_map(|page| page.markdown().map(|path| (page, path)))
     {
         let source = std::fs::read_to_string(root.join(path)).with_context(|| path)?;
@@ -84,36 +88,262 @@ fn pages(root: &Path, holder: &str) -> Result<String> {
     Ok(text)
 }
 
-/// Each MCP client the app adds itself to, with the file it writes on each system.
+/// What a person pastes to an assistant to have it add the app to itself.
+pub const PASTE: &str = "Add SteamGauge to yourself by following \
+                         https://aureliolo.github.io/steamgauge/agent.md,\nthen tell me which \
+                         file you changed.";
+
+/// An assistant the app cannot add itself to, and how it takes the server.
+struct Other {
+    id: &'static str,
+    name: &'static str,
+    /// What to type or paste, with the program as `reference::PROGRAM`.
+    code: &'static str,
+    /// Where it goes.
+    note: &'static str,
+}
+
+const OTHERS: &[Other] = &[
+    Other {
+        id: "claude-code",
+        name: "Claude Code",
+        code: "claude mcp add --scope user steamgauge -- \"<path to steamgauge>\" mcp",
+        note: "In a terminal.",
+    },
+    Other {
+        id: "jetbrains",
+        name: "JetBrains AI Assistant",
+        code: "{\"mcpServers\": {\"steamgauge\": {\"command\": \"<path to steamgauge>\", \
+               \"args\": [\"mcp\"]}}}",
+        note: "Settings, Tools, AI Assistant, Model Context Protocol (MCP), Add, at the Global \
+               level.",
+    },
+    Other {
+        id: "lm-studio",
+        name: "LM Studio",
+        code: "{\"mcpServers\": {\"steamgauge\": {\"command\": \"<path to steamgauge>\", \
+               \"args\": [\"mcp\"]}}}",
+        note: "The Program tab, Install, Edit `mcp.json`.",
+    },
+    Other {
+        id: "goose",
+        name: "Goose",
+        code: "\"<path to steamgauge>\" mcp",
+        note: "`goose configure`, Add Extension, Command-line Extension, with this command.",
+    },
+    Other {
+        id: "continue",
+        name: "Continue",
+        code: "mcpServers:\n  - name: steamgauge\n    type: stdio\n    command: <path to \
+               steamgauge>\n    args: [mcp]",
+        note: "In `~/.continue/config.yaml`.",
+    },
+    Other {
+        id: "other",
+        name: "Something else",
+        code: "\"<path to steamgauge>\" mcp",
+        note: "Any assistant that starts an MCP server from a command. `steamgauge clients` \
+               prints this copy's path.",
+    },
+];
+
+/// One assistant, as the page offers it.
+struct Assistant {
+    id: String,
+    name: String,
+    code: String,
+    note: String,
+}
+
+/// Every assistant: first those the app adds itself to, each by `connect`, then the others.
+fn assistants() -> Vec<Assistant> {
+    let mut all: Vec<Assistant> = reference::clients()
+        .into_iter()
+        .map(|client| {
+            let files = if client.macos == client.linux {
+                format!(
+                    "`{}` on macOS and Linux, `{}` on Windows",
+                    client.macos, client.windows
+                )
+            } else {
+                format!(
+                    "`{}` on macOS, `{}` on Linux, `{}` on Windows",
+                    client.macos, client.linux, client.windows
+                )
+            };
+            let then = client
+                .then
+                .map(|then| format!(" {then}"))
+                .unwrap_or_default();
+            Assistant {
+                id: client.id.to_owned(),
+                name: client.name.to_owned(),
+                code: format!("steamgauge connect {}", client.id),
+                note: format!("Writes {files}.{then}"),
+            }
+        })
+        .collect();
+    all.extend(OTHERS.iter().map(|other| Assistant {
+        id: other.id.to_owned(),
+        name: other.name.to_owned(),
+        code: other.code.to_owned(),
+        note: other.note.to_owned(),
+    }));
+    all
+}
+
+/// Every assistant as a list, which is how the page reads on GitHub; the site shows the same as
+/// a picker, from `clients_picker`.
 fn clients() -> String {
     let mut text = String::new();
-    for client in reference::clients() {
-        let files = if client.macos == client.linux {
-            format!(
-                "`{}` on Windows, `{}` on macOS and Linux",
-                client.windows, client.macos
-            )
+    for assistant in assistants() {
+        let said = if assistant.code.contains('\n') {
+            format!("**{}**: {}", assistant.name, assistant.note)
         } else {
             format!(
-                "`{}` on Windows, `{}` on macOS, `{}` on Linux",
-                client.windows, client.macos, client.linux
+                "**{}**: `{}`. {}",
+                assistant.name, assistant.code, assistant.note
             )
         };
-        let then = client
-            .then
-            .map(|then| format!(" {}", prose(then)))
-            .unwrap_or_default();
-        text.push_str(&wrap(
-            &format!(
-                "**{}**, `connect {}`: {files}.{then}",
-                client.name, client.id
-            ),
-            "- ",
-            "  ",
-        ));
+        text.push_str(&wrap(&said, "- ", "  "));
         text.push('\n');
+        if assistant.code.contains('\n') {
+            let _ = write!(text, "\n  ```yaml\n");
+            for line in assistant.code.lines() {
+                let _ = writeln!(text, "  {line}");
+            }
+            text.push_str("  ```\n\n");
+        }
     }
     text
+}
+
+/// Assistants one maker ships in more than one form, offered as one chip, the forms in this
+/// order, each under its own name.
+const FAMILIES: &[(&str, &str, &[&str])] =
+    &[("claude", "Claude", &["claude-code", "claude-desktop"])];
+
+/// Every assistant as a row of chips, the command for the one chosen beneath them.
+#[must_use]
+pub fn clients_picker() -> String {
+    let all = assistants();
+    let mut choices: Vec<Choice> = Vec::new();
+    for assistant in &all {
+        if let Some((id, name, members)) = FAMILIES
+            .iter()
+            .find(|(_, _, members)| members.contains(&assistant.id.as_str()))
+        {
+            if choices.iter().any(|choice| choice.id == *id) {
+                continue;
+            }
+            let forms: Vec<&Assistant> = members
+                .iter()
+                .filter_map(|member| all.iter().find(|one| one.id == *member))
+                .collect();
+            choices.push(Choice {
+                id: (*id).to_owned(),
+                name: (*name).to_owned(),
+                code: forms
+                    .iter()
+                    .map(|form| format!("# {}\n{}", form.name, form.code))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                note: forms
+                    .iter()
+                    .map(|form| format!("**{}**: {}", form.name, form.note))
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            });
+            continue;
+        }
+        choices.push(Choice {
+            id: assistant.id.clone(),
+            name: assistant.name.clone(),
+            code: assistant.code.clone(),
+            note: assistant.note.clone(),
+        });
+    }
+    picker::html("assistant", &choices)
+}
+
+/// The site's form of each generated part that has one, in place of its Markdown.
+#[must_use]
+pub fn for_the_site(html: &str) -> String {
+    let mut html = html.to_owned();
+    for (name, site) in [
+        ("clients", clients_picker as fn() -> String),
+        ("entries", entries_picker),
+    ] {
+        let open = format!("{OPEN}{name}{SHUT}");
+        let Some(at) = html.find(&open) else {
+            continue;
+        };
+        let Some(length) = html[at..].find(END) else {
+            continue;
+        };
+        html = format!(
+            "{}{}{}",
+            &html[..at],
+            site(),
+            &html[at + length + END.len()..]
+        );
+    }
+    html
+}
+
+/// The entry `connect` writes, once for each shape the assistants keep it in, with the
+/// assistants that keep it so.
+fn shapes() -> Vec<(Vec<&'static str>, String)> {
+    let mut shapes: Vec<(Vec<&'static str>, String)> = Vec::new();
+    for client in reference::clients() {
+        match shapes.iter_mut().find(|(_, entry)| *entry == client.entry) {
+            Some((names, _)) => names.push(client.name),
+            None => shapes.push((vec![client.name], client.entry)),
+        }
+    }
+    shapes
+}
+
+/// Each shape of entry as a chip named for who keeps it, the entry beneath.
+fn entries_picker() -> String {
+    let choices: Vec<Choice> = shapes()
+        .into_iter()
+        .enumerate()
+        .map(|(at, (names, entry))| Choice {
+            id: at.to_string(),
+            name: if names.len() > 2 {
+                format!("{} and {} more", names[0], names.len() - 1)
+            } else {
+                listed_and(&names)
+            },
+            code: entry,
+            note: format!("{}.", listed_and(&names)),
+        })
+        .collect();
+    picker::html("entry", &choices)
+}
+
+/// The entry `connect` writes, once for each shape the assistants keep it in.
+fn entries() -> String {
+    let mut text = String::new();
+    for (names, entry) in shapes() {
+        let language = if entry.starts_with('[') {
+            "toml"
+        } else {
+            "json"
+        };
+        text.push_str(&wrap(&format!("{}:", listed_and(&names)), "", ""));
+        let _ = write!(text, "\n\n```{language}\n{entry}\n```\n\n");
+    }
+    text
+}
+
+fn listed_and(items: &[&str]) -> String {
+    match items {
+        [] => String::new(),
+        [one] => (*one).to_owned(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
 }
 
 /// The tools in the groups the reference shows them in. A tool the server gains is refused
@@ -629,6 +859,72 @@ mod tests {
         assert!(filled.ends_with("\n\n<!-- steamgauge-site: end -->\n\nafter\n"));
         assert!(!filled.contains("stale"));
         assert_eq!(fill(root(), "docs/assistants.md", &filled).unwrap(), filled);
+    }
+
+    #[test]
+    fn every_assistant_is_on_the_list_and_in_the_picker_the_site_swaps_in() {
+        let list = clients();
+        let picker = clients_picker();
+        assert!(
+            picker.contains(
+                "id=\"pick-assistant-claude\" aria-controls=\"panel-assistant-claude\" checked>"
+            ),
+            "{picker}"
+        );
+        assert!(picker.contains(
+            "# Claude Code</span>\nclaude mcp add --scope user steamgauge -- &quot;&lt;path to \
+             steamgauge&gt;&quot; mcp\n<span class=\"comment\"># Claude Desktop</span>\n\
+             steamgauge connect claude-desktop"
+        ));
+        assert_eq!(
+            picker.matches("<label for=\"pick-assistant-claude").count(),
+            1
+        );
+        let in_a_family = |id: &str| FAMILIES.iter().any(|(_, _, members)| members.contains(&id));
+        for client in reference::clients() {
+            assert!(
+                list.contains(&format!("`steamgauge connect {}`", client.id)),
+                "{}",
+                client.id
+            );
+            assert!(
+                in_a_family(client.id)
+                    || picker.contains(&format!("id=\"pick-assistant-{}\"", client.id)),
+                "{}",
+                client.id
+            );
+        }
+        for other in OTHERS {
+            assert!(
+                in_a_family(other.id)
+                    || picker.contains(&format!("id=\"pick-assistant-{}\"", other.id)),
+                "{}",
+                other.id
+            );
+            assert!(other.code.contains(reference::PROGRAM), "{}", other.id);
+        }
+        let page = "<p>a</p>\n<!-- steamgauge-site: clients -->\n<ul><li>x</li></ul>\n\
+                    <!-- steamgauge-site: end -->\n<p>b</p>";
+        let swapped = for_the_site(page);
+        assert!(
+            swapped.starts_with("<p>a</p>\n<div class=\"picker\">"),
+            "{swapped}"
+        );
+        assert!(swapped.ends_with("\n<p>b</p>") && !swapped.contains("<li>x</li>"));
+    }
+
+    #[test]
+    fn each_shape_of_entry_is_shown_once_with_who_keeps_it() {
+        let entries = entries();
+        assert!(
+            entries.contains("```toml\n[mcp_servers.steamgauge]"),
+            "{entries}"
+        );
+        assert!(entries.contains("Codex:"), "{entries}");
+        for client in reference::clients() {
+            assert!(entries.contains(&client.entry), "{}", client.id);
+            assert!(entries.contains(client.name), "{}", client.id);
+        }
     }
 
     #[test]

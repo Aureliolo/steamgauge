@@ -439,15 +439,23 @@ pub fn add(client: &Client, folders: &Folders, launch: &Launch) -> Result<Added>
     if was.as_deref() == Some(launch.program.as_str()) {
         return Ok(Added::Already(file));
     }
-    let written = match client.format {
-        Format::Json { container, shape } => json_with(&text, container, shape, launch)?,
-        Format::Toml { container } => toml_with(&text, container, launch)?,
-    };
-    write_in_place(&file, &written)?;
+    write_in_place(&file, &with_entry(client, &text, launch)?)?;
     Ok(match was {
         None => Added::Written(file),
         Some(was) => Added::Replaced { file, was },
     })
+}
+
+/// `text`, a client's configuration, with the app's entry in it.
+///
+/// # Errors
+///
+/// Fails if `text` does not parse.
+pub fn with_entry(client: &Client, text: &str, launch: &Launch) -> Result<String> {
+    match client.format {
+        Format::Json { container, shape } => json_with(text, container, shape, launch),
+        Format::Toml { container } => toml_with(text, container, launch),
+    }
 }
 
 /// Takes the app's entry out of `client`, leaving everything else as it was.

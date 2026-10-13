@@ -5868,6 +5868,13 @@ its palette in both schemes, its system fonts, the cockpit as the picture.
 The rewrite dropped one claim that was not true: the privacy page said exporting a corpus offers
 de-identification, and nothing in the program does.
 
+The assistants page then followed the user's other project in shape, as asked: a line to paste
+to an assistant, pointing it at `agent.md`, a guide written for the assistant to follow, then a
+chip for every assistant with its own command and the file it writes, then a chip for each shape
+of entry. Claude Code and Claude Desktop are one chip, "Claude", the two commands one under the
+other. The entries are the text `connect` itself writes into an empty file, so the page cannot
+show an entry the app does not write. On GitHub the same page reads as a list.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one

@@ -342,6 +342,7 @@ mod tests {
             label: "Test",
             description: "a test",
             layout: Layout::Prose,
+            nav: true,
         }
     }
 
