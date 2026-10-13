@@ -2,7 +2,8 @@ name: Scope
 description: >-
   Whether the checks have to run. A pull request that changes no code, only the package
   managers' manifests or only SteamGauge's version (tools/release/scope.mjs), has its builds,
-  installs and scans pass at once: main passed them on the same code before it was opened. It
+  installs and scans pass at once, CodeQL's apart (codeql.yml says why): main passed them on the
+  same code before it was opened. It
   reads the merge commit actions/checkout makes of a pull request, at a depth of two, against its
   first parent, which is the base it merges onto, so what is classified is what merging would
   change. The classifier is the base's, so a pull request cannot rewrite it to pass itself, and
