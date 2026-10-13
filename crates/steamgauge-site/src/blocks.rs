@@ -141,12 +141,62 @@ fn tools() -> String {
                     said.push_str(": ");
                     said.push_str(&full_stop(&prose(description)));
                 }
+                let values = values(&tool.input, schema);
+                if values.iter().all(|(_, about)| about.is_none()) && !values.is_empty() {
+                    let names: Vec<String> = values
+                        .iter()
+                        .map(|(value, _)| format!("`{value}`"))
+                        .collect();
+                    let _ = write!(said, " One of {}.", listed(&names));
+                }
                 text.push_str(&wrap(&said, "  - ", "    "));
                 text.push('\n');
+                if values.iter().any(|(_, about)| about.is_some()) {
+                    for (value, about) in values {
+                        let about = about.map(|about| format!(": {}", full_stop(&prose(&about))));
+                        text.push_str(&wrap(
+                            &format!("`{value}`{}", about.unwrap_or_default()),
+                            "    - ",
+                            "      ",
+                        ));
+                        text.push('\n');
+                    }
+                }
             }
         }
     }
     text
+}
+
+/// The values a parameter takes, each with what it means where the schema says, when it is one
+/// of a fixed few. schemars writes such a type once under `$defs` and refers to it, as itself or
+/// as one choice beside `null` for an optional one.
+fn values(root: &serde_json::Value, schema: &serde_json::Value) -> Vec<(String, Option<String>)> {
+    let resolved = schema["$ref"]
+        .as_str()
+        .and_then(|reference| reference.strip_prefix("#/$defs/"))
+        .map_or(schema, |name| &root["$defs"][name]);
+    if let Some(names) = resolved["enum"].as_array() {
+        return names
+            .iter()
+            .filter_map(|name| name.as_str().map(|name| (name.to_owned(), None)))
+            .collect();
+    }
+    let choices = resolved["oneOf"]
+        .as_array()
+        .or_else(|| resolved["anyOf"].as_array())
+        .cloned()
+        .unwrap_or_default();
+    choices
+        .iter()
+        .flat_map(|choice| match choice["const"].as_str() {
+            Some(name) => vec![(
+                name.to_owned(),
+                choice["description"].as_str().map(str::to_owned),
+            )],
+            None => values(root, choice),
+        })
+        .collect()
 }
 
 /// The command line, as `steamgauge --help` and each command's `--help` give it.
@@ -457,5 +507,10 @@ mod tests {
         );
         let tools = tools();
         assert!(tools.contains("- `connect_client`: "));
+        assert!(tools.contains("  - `page`, required: Which page of the window to show.\n"));
+        assert!(
+            tools.contains("    - `cockpit`: What moved, what is running and what needs a look.\n")
+        );
+        assert!(tools.contains("    - `settings`: How the app runs"));
     }
 }

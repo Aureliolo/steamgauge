@@ -329,6 +329,7 @@ enum Page {
     Library,
     /// Finding a game on Steam to add.
     Finder,
+    /// How the app runs, and the assistants it is added to.
     Settings,
     /// What the library and the models take on disk.
     Storage,
@@ -345,6 +346,7 @@ enum Page {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct Show {
+    /// Which page of the window to show.
     page: Page,
     /// The game, for a game's page, a subject or a search.
     app_id: Option<u32>,

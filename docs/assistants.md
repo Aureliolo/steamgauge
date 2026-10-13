@@ -183,6 +183,11 @@ it removes something, and some assistants use that to decide when to ask you fir
   removes has to be downloaded or worked out again.
   - `app_id`: The game to remove from, or none to remove that part from every game.
   - `what`, required: What to remove.
+    - `reads`: Its readings, which a read makes again.
+    - `search`: Its preparation for search by meaning.
+    - `earlier`: Its earlier downloads, kept from before its newest one.
+    - `partial`: What work stopped part way left: a download, a read or a recount.
+    - `game`: The whole game: every file, its crawl records and its place in groups.
 - `remove_model`: Removes a downloaded model; a read that needs it downloads it again. What it
   removes has to be downloaded or worked out again.
   - `key`, required: The model's key, as `storage` lists it.
@@ -197,7 +202,16 @@ it removes something, and some assistants use that to decide when to ask you fir
   only looks.
   - `app_id`: The game, for a game's page, a subject or a search.
   - `app_ids`: The games to compare.
-  - `page`, required
+  - `page`, required: Which page of the window to show.
+    - `cockpit`: What moved, what is running and what needs a look.
+    - `library`: Every game kept.
+    - `finder`: Finding a game on Steam to add.
+    - `settings`: How the app runs, and the assistants it is added to.
+    - `storage`: What the library and the models take on disk.
+    - `game`: One game's page; needs `app_id`.
+    - `compare`: Games side by side; needs `app_ids`.
+    - `subject`: The reviews behind one subject of a read game; needs `app_id` and `subject`.
+    - `search`: A read game's claims that say something; needs `app_id` and `query`.
   - `query`: The words to search a game for.
   - `side`: "praise", "complaint" or "neutral", to open a subject on one side.
   - `subject`: The subject's id, as `reading` gives it.
