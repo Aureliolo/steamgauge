@@ -422,7 +422,7 @@ steamgauge gold [OPTIONS]
 - `-o, --out <OUT>`: Directory holding the captures. A label names a byte span, and only the capture
   can say whether this build's splitter still cuts one there: where it does not, the claim the label
   was written about no longer exists and nobody is asked about it. Without the captures every stored
-  label is asked, which is what happened before. Default: `data`.
+  label is asked. Default: `data`.
 - `--to <TO>`: Where to write the page. It holds review text, so it is never committed; the default
   sits beside the repository's other ignored artefacts. Default: `gold.html`.
 - `--blind <BLIND>`: How many claims to draw blind. Default: `1000`.

@@ -560,7 +560,7 @@ enum Command {
         /// Directory holding the captures. A label names a byte span, and only the capture can
         /// say whether this build's splitter still cuts one there: where it does not, the claim
         /// the label was written about no longer exists and nobody is asked about it. Without
-        /// the captures every stored label is asked, which is what happened before.
+        /// the captures every stored label is asked.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the page. It holds review text, so it is never committed; the
