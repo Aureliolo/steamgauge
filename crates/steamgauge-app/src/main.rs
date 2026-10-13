@@ -9,6 +9,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod cli;
+mod clients;
 mod mcp;
 mod ui;
 mod update;

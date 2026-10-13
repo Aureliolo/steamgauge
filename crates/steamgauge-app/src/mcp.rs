@@ -1,5 +1,4 @@
-//! Claude Code, or any other program that speaks the Model Context Protocol, steering
-//! `SteamGauge`.
+//! A program that speaks the Model Context Protocol steering `SteamGauge`.
 //!
 //! The open app owns the library, the work board and the window, so it is the server: it listens
 //! on a local socket only this user can reach, and every tool there is something the window can

@@ -435,8 +435,32 @@ const PROBE = `(async function () {
     last('save_settings').args.settings.check_newer_version === true && shown('newer-version'));
 
   await go('settings');
-  check('Settings does not say how to add SteamGauge to Claude Code',
-    /^claude mcp add steamgauge -- ".*steamgauge\\.exe" mcp$/.test($('#claude-command').textContent));
+  check('Settings does not give the command any other MCP client starts',
+    /^".*steamgauge\\.exe" mcp$/.test($('#mcp-command').textContent));
+  var clientRow = function (name) {
+    return Array.prototype.slice.call($('#mcp-clients').children)
+      .filter(function (row) { return row.querySelector('strong').textContent === name; })[0];
+  };
+  var clientButtons = function (name) {
+    return Array.prototype.slice.call(clientRow(name).querySelectorAll('button'))
+      .map(function (button) { return button.textContent; });
+  };
+  check('the MCP clients on this computer go unlisted', $('#mcp-clients').children.length === 3 && !shown('mcp-clients-none'));
+  check('a client without the app is not offered Add', clientButtons('Cursor').join() === 'Add');
+  check('a client starting another copy is not offered this one',
+    clientButtons('Claude Desktop').join() === 'Start this copy,Remove' &&
+    /D:\\\\Old\\\\steamgauge\\.exe/.test(clientRow('Claude Desktop').textContent));
+  check('a client whose file does not parse is offered a write', clientButtons('Zed').length === 0 && /does not parse/.test(clientRow('Zed').textContent));
+  clientRow('Cursor').querySelector('button').click();
+  await pause(250);
+  check('Add does not add', last('connect_client').args.client === 'cursor' &&
+    clientButtons('Cursor').join() === 'Remove' && /Added to Cursor/.test($('#settings-note').textContent));
+  clientRow('Claude Desktop').querySelector('button').click();
+  await pause(250);
+  check('a restart a client needs goes unsaid', /Starts SteamGauge\\. Quit Claude Desktop/.test(clientRow('Claude Desktop').textContent));
+  clientRow('Cursor').querySelector('button').click();
+  await pause(250);
+  check('Remove does not remove', last('disconnect_client').args.client === 'cursor' && clientButtons('Cursor').join() === 'Add');
   check('answering over HTTP is on before anyone asked for it', !$('#answer-over-http').checked && !shown('http-reach'));
   $('#answer-over-http').click();
   await pause(250);

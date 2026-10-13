@@ -149,6 +149,13 @@ struct Nothing {}
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct OneClient {
+    /// The client's id, as settings lists it.
+    client: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct OneGame {
     /// The game's Steam app id, as in its store address.
     app_id: u32,
@@ -660,6 +667,22 @@ fn entries() -> Vec<Entry> {
             |app, Nothing {}| off_thread_trying(move || settings::new_http_token(app)),
         ),
         tool(
+            "connect_client",
+            Changes,
+            "Adds this copy of the app to another MCP client's own configuration, as settings lists the clients on this computer, leaving every other entry in it; the client starts the app from then on. Returns the settings with it.",
+            |app, OneClient { client }| {
+                off_thread_trying(move || settings::connect_client(app, client))
+            },
+        ),
+        tool(
+            "disconnect_client",
+            Changes,
+            "Takes the app out of an MCP client's configuration, leaving every other entry in it, and returns the settings without it.",
+            |app, OneClient { client }| {
+                off_thread_trying(move || settings::disconnect_client(app, client))
+            },
+        ),
+        tool(
             "reader_options",
             Looks,
             "The reader sizes this machine can read with, what each costs to download, and the room left for them.",
@@ -748,21 +771,19 @@ impl Server {
     }
 }
 
-/// The command that adds this copy to Claude Code, naming it by its own path, which no
-/// installer puts on the search path everywhere.
-pub fn claude_command() -> String {
-    let program = std::env::current_exe().map_or_else(
-        |_| "steamgauge".to_owned(),
-        |path| path.display().to_string(),
-    );
-    format!("claude mcp add steamgauge -- \"{program}\" mcp")
+fn server_config() -> ServerConfig {
+    ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
+        .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))
+        .with_instructions(INSTRUCTIONS)
+}
+
+fn tool_list() -> ListToolsResult {
+    ListToolsResult::with_all_items(TOOLS.iter().map(|entry| entry.tool.clone()).collect())
 }
 
 impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+        server_config()
     }
 
     fn list_tools(
@@ -770,9 +791,7 @@ impl ServerHandler for Server {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
-        std::future::ready(Ok(ListToolsResult::with_all_items(
-            TOOLS.iter().map(|entry| entry.tool.clone()).collect(),
-        )))
+        std::future::ready(Ok(tool_list()))
     }
 
     async fn call_tool(
@@ -1051,5 +1070,63 @@ mod tests {
     #[test]
     fn a_drawn_name_is_spelled_in_hex() {
         assert_eq!(hex(&[0, 15, 255]), "000fff");
+    }
+
+    /// The app's server as a client meets it, without the window behind the tools.
+    struct Bare;
+
+    impl ServerHandler for Bare {
+        fn get_info(&self) -> ServerConfig {
+            server_config()
+        }
+
+        fn list_tools(
+            &self,
+            _request: Option<PaginatedRequestParams>,
+            _context: RequestContext<RoleServer>,
+        ) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
+            std::future::ready(Ok(tool_list()))
+        }
+    }
+
+    /// Connects as a client of the given era and lists the tools.
+    async fn tools_seen_by(lifecycle: rmcp::service::ClientLifecycleMode) -> Vec<String> {
+        let (server_end, client_end) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let running = Bare.serve(server_end).await.expect("the server starts");
+            let _ = running.waiting().await;
+        });
+        let client = rmcp::service::serve_client_with_lifecycle((), client_end, lifecycle)
+            .await
+            .expect("the handshake succeeds");
+        let tools = client.list_all_tools().await.expect("the tools are listed");
+        client.cancel().await.expect("the client closes");
+        server.await.expect("the server ends");
+        tools
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect()
+    }
+
+    fn every_tool() -> Vec<String> {
+        entries()
+            .iter()
+            .map(|entry| entry.tool.name.to_string())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn a_client_of_the_discover_protocol_sees_every_tool() {
+        let seen = tools_seen_by(rmcp::service::ClientLifecycleMode::Discover {
+            preferred_versions: vec![rmcp::model::ProtocolVersion::V_2026_07_28],
+        })
+        .await;
+        assert_eq!(seen, every_tool());
+    }
+
+    #[tokio::test]
+    async fn a_client_of_the_earlier_handshake_sees_every_tool() {
+        let seen = tools_seen_by(rmcp::service::ClientLifecycleMode::Initialize).await;
+        assert_eq!(seen, every_tool());
     }
 }

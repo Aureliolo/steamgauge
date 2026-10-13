@@ -808,12 +808,17 @@
               <legend>Other programs</legend>
               <div class="setting stacked">
                 <div class="setting-text">
-                  <strong>Steer SteamGauge from Claude Code</strong>
-                  <span>Claude Code, and any other program that speaks the Model Context Protocol, can do anything this window can, and you see it done here. This command adds SteamGauge to Claude Code:</span>
+                  <strong>Steer SteamGauge from an AI assistant</strong>
+                  <span>A program that speaks the Model Context Protocol can do anything this window can, and you see it done here. Add SteamGauge to the ones on this computer:</span>
+                </div>
+                <ul class="mcp-clients" id="mcp-clients"></ul>
+                <p class="note" id="mcp-clients-none" hidden>None of the programs SteamGauge knows how to add itself to is on this computer.</p>
+                <div class="setting-text">
+                  <span>Any other one starts SteamGauge with this command:</span>
                 </div>
                 <div class="copyable">
-                  <code id="claude-command"></code>
-                  <button type="button" class="quiet-button small" data-copies="claude-command">Copy</button>
+                  <code id="mcp-command"></code>
+                  <button type="button" class="quiet-button small" data-copies="mcp-command">Copy</button>
                 </div>
               </div>
               <label class="setting" for="answer-over-http">

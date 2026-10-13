@@ -120,10 +120,18 @@ build, both of which would produce a correctly signed release.
 
 ## Steering from other programs
 
-`steamgauge mcp` lets Claude Code, or any other program that speaks the Model Context Protocol,
-steer the app. Every tool there is something the window can do, including removing games and
-models, changing settings and updating the app, so a client is trusted as the person is: any
-program that can start `steamgauge mcp` as you can already run the app and its commands as you.
+`steamgauge mcp` lets any program that speaks the Model Context Protocol steer the app. Every
+tool there is something the window can do, including removing games and models, changing
+settings and updating the app, so a client is trusted as the person is: any program that can
+start `steamgauge mcp` as you can already run the app and its commands as you.
+
+Adding the app to a client, from Settings or with `steamgauge connect`, writes one entry into
+that client's own configuration file in your folders: this copy's path and `mcp`, under the
+name `steamgauge`. Nothing else in the file changes, a file that does not parse is left alone,
+and the file is written beside itself and renamed into place, so an interrupted write leaves
+the old one. The same is open to a client through the `connect_client` tool, and gives it
+nothing it lacked: the entry starts this app and nothing else, and a program that can reach
+the app can already run it.
 
 The open app listens on no network port. On Windows it listens on a named pipe whose name is
 drawn at random each time the app opens and written only into the app's local data folder, which

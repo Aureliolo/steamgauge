@@ -855,14 +855,35 @@ enum Command {
     /// afterwards.
     Update,
 
-    /// Steer the app from Claude Code or any other Model Context Protocol client, which starts
-    /// this command and speaks to it on standard input and output.
+    /// Steer the app from a Model Context Protocol client, which starts this command and speaks
+    /// to it on standard input and output.
     ///
     /// Every tool is something the window can do, and the person sees it done there. The open
     /// app answers, over a local socket only this user can reach; where it is not running it is
     /// opened with its window hidden, and closes once the last client has gone and its work is
-    /// done. Settings shows the command that adds this copy to Claude Code.
+    /// done. `connect` adds this command to a client's configuration.
     Mcp,
+
+    /// The MCP clients this command can add the app to, whether each is on this computer, and
+    /// whether it starts this copy.
+    Clients,
+
+    /// Add this copy to an MCP client's own configuration, so the client starts it.
+    ///
+    /// Only the app's own entry is written: every other server, every comment and the file's
+    /// layout stay as they were, and a file that does not parse is left alone. An entry that
+    /// starts another copy is pointed at this one. Any other client takes the command
+    /// `<this program> mcp` in its own settings.
+    Connect {
+        /// The client, as `clients` lists it.
+        client: String,
+    },
+
+    /// Take the app out of an MCP client's configuration, leaving everything else in it.
+    Disconnect {
+        /// The client, as `clients` lists it.
+        client: String,
+    },
 
     /// Write the category sheet labellers work from, generated from the taxonomy.
     ///
@@ -969,6 +990,9 @@ pub async fn run() -> Result<()> {
         Command::ExportData { app_id, out, to } => run_export_data(app_id, &out, &to),
         Command::Update => run_update().await,
         Command::Mcp => crate::mcp::bridge().await,
+        Command::Clients => run_clients(),
+        Command::Connect { client } => run_connect(&client),
+        Command::Disconnect { client } => run_disconnect(&client),
         other => encoder_work(other).await,
     }
 }
@@ -1055,7 +1079,10 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::Report { .. }
         | Command::ExportData { .. }
         | Command::Update
-        | Command::Mcp => {
+        | Command::Mcp
+        | Command::Clients
+        | Command::Connect { .. }
+        | Command::Disconnect { .. } => {
             unreachable!("run answers every command that needs no encoder")
         }
     }
@@ -1370,6 +1397,66 @@ fn run_export_data(app_id: u32, out: &std::path::Path, to: &std::path::Path) -> 
         "\nsubjects, months, points and updates, each as .csv and .json, and a README.txt saying\n\
          what every column holds."
     );
+    Ok(())
+}
+
+fn run_clients() -> Result<()> {
+    use crate::clients::{self, Folders, Launch, State};
+
+    let folders = Folders::of_this_user()?;
+    let launch = Launch::this_copy()?;
+    let width = |field: fn(&clients::Client) -> &str| {
+        clients::CLIENTS
+            .iter()
+            .map(|client| field(client).chars().count())
+            .max()
+            .unwrap_or(0)
+            + 2
+    };
+    let (ids, names) = (width(|client| client.id), width(|client| client.name));
+    for client in clients::CLIENTS {
+        let state = match clients::state(client, &folders, &launch) {
+            State::Absent => "not on this computer".to_owned(),
+            State::Installed => "not added".to_owned(),
+            State::Added => "starts this copy".to_owned(),
+            State::Elsewhere { command } => format!("starts {command}"),
+            State::Unreadable { reason } => format!("configuration does not parse: {reason}"),
+        };
+        println!("{:<ids$}{:<names$}{state}", client.id, client.name);
+    }
+    println!(
+        "\nAny other MCP client takes this command in its own settings:\n  {}",
+        launch.line()
+    );
+    Ok(())
+}
+
+fn run_connect(id: &str) -> Result<()> {
+    use crate::clients::{self, Added, Folders, Launch};
+
+    let client = clients::by_id(id)?;
+    match clients::add(client, &Folders::of_this_user()?, &Launch::this_copy()?)? {
+        Added::Written(file) => println!("added       to {}", file.display()),
+        Added::Replaced { file, was } => {
+            println!("added       to {}, in place of {was}", file.display());
+        }
+        Added::Already(file) => println!("unchanged   {} starts this copy already", file.display()),
+    }
+    if let Some(then) = client.then {
+        println!("\n{then}");
+    }
+    Ok(())
+}
+
+fn run_disconnect(id: &str) -> Result<()> {
+    use crate::clients::{self, Folders, Removed};
+
+    match clients::remove(clients::by_id(id)?, &Folders::of_this_user()?)? {
+        Removed::Taken(file) => println!("removed     from {}", file.display()),
+        Removed::NoEntry(file) => {
+            println!("unchanged   {} has no entry for SteamGauge", file.display());
+        }
+    }
     Ok(())
 }
 

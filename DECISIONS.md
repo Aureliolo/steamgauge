@@ -47,7 +47,7 @@ State means: **done** is built and in use; **partial** is built for one case and
 | Embeddings run locally, on ONNX Runtime | done |
 | `ort` with DirectML, CoreML and CPU | done |
 | Embeddings carry dedupe, taxonomy, search and classification, not just one of them | dedupe done, search done (the rows below); classification moved off embeddings onto the trained reader, which is the right call because embeddings are dominated by sentiment and length rather than subject |
-| A hosted model does the reading when one is configured | **not built**, there is no API client in the tree |
+| A hosted model does the reading when one is configured | **dropped** (the user, 2026-10-13): a review's text never leaves the machine to be read. A hosted model reaches the app the other way round instead, as an MCP client the person runs, and the app is set up for any of them (below, "Any MCP client steers the app") |
 | The reader ships in sizes, and the machine's card chooses the largest it has room for | done: `small` (e5-small, 118M) and `standard` (e5-large-instruct, 559M), both taught by the 4B on the same data; the table beside every figure is `reference/reader-sizes.json`, rendered into the README and every model card, which list only the sizes that ship. `base` was measured and dropped (the user, 2026-09-29): no card's room falls between its needs and standard's, so nothing would ever choose it. No larger size: the 4B retrained on exactly the sizes' labels (2026-09-30) answers its surest 80% of the frontier claims 79.8% right against `standard`'s 85.2%, and on the five rules' labels 83.6% against 84.7% (below), and ties the first 4B on the held-out games (77.7% against 77.4%), so it is neither a size worth shipping nor a better teacher to re-teach the sizes from |
 | Where no card is reached, the person chooses the size, told what each takes on their computer | done: the fast reader by default, the most accurate one beside it (the user, 2026-09-29). Every reading on the processor is timed into `reading-times.json` in the library, so the estimate is that computer's own; before anything has been read there it says how many times as long, never an invented time. On a card the card decides, whatever was chosen before |
 | The user chooses which model does the sorting, and how closely it reads | **partly built**: the size, on a machine with no card; which model and how closely it reads are not |
@@ -5463,15 +5463,15 @@ bundle, the disk image's as much as the update's. The bundle is now signed ad ho
 every file in it, and the install check verifies the disk image's app as the update check
 verifies the updated one.
 
-**Claude Code and other programs steer the app through its MCP server (2026-10-10).** The user
-asked for SteamGauge to be steerable from Claude Code and any other Model Context Protocol
-client, with everything the window can do. The open app is the server, because it owns the work
-board, the library and the window: a second process reading the same library would race the
-app's own jobs. `steamgauge mcp` is what a client starts; it joins standard input and output to
-the app's local socket and, where the app is not running, opens it with the window hidden
-(`--without-window`), which closes once no client is connected, the window is still hidden and
-no job is left. Closing the window while a client is connected hides it instead, and the app is
-now single-instance, so a person opening it while a client has it hidden gets that copy forward.
+**Any MCP client steers the app (2026-10-10).** The user asked for SteamGauge to be steerable
+from Claude Code and any other Model Context Protocol client, with everything the window can do.
+The open app is the server, because it owns the work board, the library and the window: a
+second process reading the same library would race the app's own jobs. `steamgauge mcp` is
+what a client starts; it joins standard input and output to the app's local socket and, where
+the app is not running, opens it with the window hidden (`--without-window`), which closes once
+no client is connected, the window is still hidden and no job is left. Closing the window while
+a client is connected hides it instead, and the app is now single-instance, so a person opening
+it while a client has it hidden gets that copy forward.
 Every tool calls the function the window's command calls, under the command's own name, and a
 test reads the command registration to fail on any command without a tool; `show` puts a page
 in front of the person, and anything that changes something has the page on screen draw itself
@@ -5481,8 +5481,28 @@ as unsafe code, so the pipe's name is drawn at random at each start and written 
 user's local data folder: another user can neither find it nor create it first, Windows' default
 pipe security gives other users read access at most, which sends nothing, and pipes refuse other
 machines. Elsewhere the socket sits in a folder of mode 700. No installer puts `steamgauge` on
-the search path everywhere (the Windows setup and the macOS app do not), so Settings shows the
-`claude mcp add` command with the running copy's own path.
+the search path everywhere (the Windows setup and the macOS app do not), so every client is told
+the running copy's own path; under Scoop that is the `current` folder's, since each version's own
+folder goes at the next update.
+
+**The app adds itself to the clients, and favours none (the user, 2026-10-13).** Settings showed
+one command, Claude Code's, and the user asked for a generic server with instructions for the
+common clients instead. Every client starts a stdio server from the same two facts, a command
+and its arguments, and differs only in the file, the key and the shape it keeps them in, so the
+clients are rows of one table (`crates/steamgauge-app/src/clients.rs`) and adding the app to one
+is writing its row. A row is there only where the client's own documentation gives a user-wide
+file, key and shape: a guessed path writes a file the client never reads, and looks like it
+worked. Writing keeps everything else in the file: JSON with comments is edited through a
+syntax tree (`jsonc-parser`) and TOML through `toml_edit`, so every other server, every comment
+and the layout stay; a file that does not parse is refused, never replaced; and the file is
+written beside itself and renamed over, so a crash leaves the old one. An entry already naming
+another copy is reported and pointed at this one on request rather than left to start a copy
+that has moved. Settings lists the clients found on this computer with Add and Remove, the
+command line takes `clients`, `connect` and `disconnect`, and both are MCP tools too, since every
+window command is; a client gains nothing by them, because the entry starts this app and only
+this app. Any client not in the table takes the one command line Settings shows. The server
+speaks the 2026-07-28 protocol's `server/discover` and the earlier `initialize` alike, and a test
+connects as a client of each.
 
 The same tools answer over HTTP on 127.0.0.1 for clients that connect no other way, off until
 Settings switches it on, at port 47800 unless another is chosen. A loopback port is open to
