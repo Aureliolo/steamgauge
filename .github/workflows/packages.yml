@@ -49,7 +49,7 @@ jobs:
       # The .deb is linted on Debian and the .rpm linted and installed on Fedora, each pinned by
       # digest so the check is the same each run.
       # renovate: datasource=docker depName=debian
-      DEBIAN_IMAGE: debian:13@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+      DEBIAN_IMAGE: debian:13@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
       # renovate: datasource=docker depName=fedora
       FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
@@ -70,8 +70,8 @@ jobs:
         if: runner.os == 'Linux'
         env:
           # renovate: datasource=github-release-attachments depName=goreleaser/nfpm versioning=semver
-          NFPM_TAG: v2.47.0
-          NFPM_SHA256: 0660ca602b2d2d2ae4781a06c692b3eeb9d437ffea05b831d76e41f4a3188783
+          NFPM_TAG: v2.48.0
+          NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/nfpm.tar.gz"
@@ -88,8 +88,8 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.1
-          TAURI_CLI_SHA256: d3919ebe0bf7013dd98293862784dd37b8f76db2d650e13a3ec11c5dd799c519
+          TAURI_CLI_TAG: tauri-cli-v2.12.2
+          TAURI_CLI_SHA256: bef439eb1a0edd5192ed0009945e5de660b642a51519efe7d6953d70c5ab1939
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"
@@ -103,8 +103,8 @@ jobs:
         if: runner.os == 'macOS'
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.1
-          TAURI_CLI_SHA256: ee35ee364a0c626df7852d9a5bc0c5394b6440772e9864cfb9b11dcb8d33f527
+          TAURI_CLI_TAG: tauri-cli-v2.12.2
+          TAURI_CLI_SHA256: 4a27a61b06e688308a5c17333008b6df52fd5780fa7a313a9ce8fb4a80dfb9ac
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"
