@@ -3,7 +3,7 @@
   "description": [
     "Every update from every ecosystem lands in one PR on Monday morning: crates, the Rust toolchain, GitHub Actions, and the Python requirements, re-resolved by uv rather than moved pin by pin. Vulnerability fixes ride in it too rather than as PRs of their own; everything is taken to its latest version, so a vulnerable version never survives the week.",
     "Cargo's transitive dependencies are the one thing that cannot join it: Renovate refuses to group a lock file refresh with other update types, so `cargo update` arrives as a second PR on Tuesday, after Monday's has had a day to be merged.",
-    "A release has to be three days old before it is offered, which is the cheapest defence there is against a package taken over the day it is published."
+    "A release is offered as soon as it is published, whatever its age, in every ecosystem."
   ],
   "extends": [
     "config:best-practices",
@@ -19,7 +19,6 @@
   },
   "separateMajorMinor": false,
   "separateMultipleMajor": false,
-  "minimumReleaseAge": "3 days",
   "internalChecksFilter": "strict",
   "osvVulnerabilityAlerts": false,
   "vulnerabilityAlerts": {
@@ -29,7 +28,7 @@
   "labels": ["dependencies"],
   "packageRules": [
     {
-      "description": "The manifests name, with `=`, the exact version of each crate the binary is built with, so manifest and lock never drift apart. An exact requirement is also what holds Cargo to the version Renovate offers: under a caret, the lock update that follows a manifest update takes the newest release in range, which can be younger than the minimum release age, and Renovate then fails the branch's lock file update.",
+      "description": "The manifests name, with `=`, the exact version of each crate the binary is built with, so manifest and lock never drift apart. An exact requirement is also what holds Cargo to the version Renovate offers: under a caret, the lock update that follows a manifest update takes the newest release in range rather than the one in the PR.",
       "matchManagers": ["cargo"],
       "rangeStrategy": "pin"
     },
@@ -45,9 +44,9 @@
       "enabled": false
     },
     {
-      "description": "A digest update is aged at lookup against the release its tag resolves to, but the branch's stability check reads a timestamp field digest updates never carry, and a lock file refresh has no release to age at all. Left at the default, every pinned action held the one combined PR at pending for good. Optional still ages whatever does carry a timestamp.",
-      "matchUpdateTypes": ["pinDigest", "digest", "lockFileMaintenance"],
-      "minimumReleaseAgeBehaviour": "timestamp-optional"
+      "description": "No release waits to age, including the npm packages `config:best-practices` would otherwise hold for three days.",
+      "matchPackageNames": ["*"],
+      "minimumReleaseAge": null
     },
     {
       "description": "Held until a dynamo-exported graph runs on DirectML. Training is fine on transformers 5, but half precision through the TorchScript exporter writes a graph whose LayerNormalization takes one float input and one half one, which onnxruntime refuses to load. The dynamo exporter writes a graph that loads, keeps its weights in one file and agrees with the model to 8.75e-03 with no answer changed, and then fails on a Reshape node inside the DirectML provider four seconds into a read the traced graph does at 909 claims a second. Measured 2026-09-14; DECISIONS records it.",

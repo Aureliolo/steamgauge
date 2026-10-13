@@ -5752,6 +5752,25 @@ agree did not measure the same thing. The mutants the weekly run listed in `meas
 up. The tool now scores it as the trainer does. Figures above from `steamgauge measure` were
 taken before, and can read high where a game held such a subject; none from training can.
 
+### Renovate offers a release as soon as it is published (2026-10-13)
+
+The user removed the release-age wait outright: no ecosystem holds a release for three days, npm
+included, where `config:best-practices` would otherwise hold it. The trade-off was put to them
+first: the wait is the cheapest defence against a package taken over the day it is published,
+and with it gone a hijacked release can reach a pull request, and a build, the same day. What is
+left to catch one is CI, the dependency review job and the crates' exact pins, which hold a build
+to the version a reviewed pull request named. Crates stay pinned with `=`, which keeps the
+manifest and the lock naming the same version.
+
+### Below 1.0, a release that renames something people call raises the minor version (2026-10-13)
+
+0.2.0 follows 0.1.10 because the release renames what people outside the window call: the
+`mine` command is `rare-claims`, `gold --splits frozen` is `held-out`, the training flags
+`--frozen` are `--held-out`, the readers' `reader.json` key is `held_out`, and the dataset's
+`second-readings.jsonl` is `second-labels.jsonl` with its `mined` subset `keyword`. A release
+that only adds or fixes raises the patch number. The update check compares versions as semver, so
+0.1.10 sees 0.2.0 as newer.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
