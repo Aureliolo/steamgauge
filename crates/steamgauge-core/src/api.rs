@@ -1,4 +1,5 @@
-//! HTTP access to Valve's `appreviews` endpoint.
+//! HTTP access to Steam: its reviews through the web API, and a game's name, picture and
+//! categories through the store.
 
 use std::{
     sync::Arc,
@@ -11,12 +12,12 @@ use tokio::sync::Mutex;
 
 use crate::{
     Error, Result,
-    query::{ReviewQuery, STORE},
+    query::{API, ReviewQuery},
 };
 
-/// Valve documents no rate limit for this endpoint, so the ceiling is unknown and can only
-/// be found by exceeding it. The client paces itself and treats any push-back as
-/// authoritative rather than probing for the real limit.
+/// Valve documents no number for the rate limit callers without a publisher's key share, so
+/// the ceiling is unknown and can only be found by exceeding it. The client paces itself and
+/// treats any push-back as authoritative rather than probing for the real limit.
 const BACKOFF_BASE: Duration = Duration::from_secs(2);
 /// The longest single wait the client picks for itself. Valve's refusals come in windows of
 /// minutes, so doubling past this only overshoots the end of one.
@@ -28,10 +29,10 @@ const BACKOFF_CAP: Duration = Duration::from_mins(5);
 pub const PATIENCE: Duration = Duration::from_mins(30);
 pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
 
+/// The store, which names and pictures every app and lists the ones that match a search.
+const STORE: &str = "https://store.steampowered.com";
 /// Where the store keeps the pictures of its apps.
 const ART: &str = "https://shared.akamai.steamstatic.com";
-/// Steam's public web API, which lists what a developer posts on a game's page.
-const API: &str = "https://api.steampowered.com";
 /// A store header is about 50 KB; anything far larger, past 2 MiB, is not the picture that was
 /// asked for.
 const ART_LIMIT: usize = 2_097_152;
@@ -59,11 +60,11 @@ fn next_wait(
     (waited + wait <= patience).then_some(wait)
 }
 
-/// Totals as Valve reports them for the query's filters, present only on the first page.
+/// Totals as Valve reports them for the query's filters, filled in only on the first page.
 ///
 /// `total_reviews` is what a crawl's coverage is measured against. It moves with the
 /// request parameters, so it is only comparable to a crawl made with the same ones.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct QuerySummary {
     #[serde(default)]
     pub total_reviews: u64,
@@ -79,16 +80,21 @@ pub struct QuerySummary {
 ///
 /// Reviews stay as raw JSON rather than a typed struct: the capture layer's job is to lose
 /// nothing, and Valve adds fields over time that a fixed struct would silently discard.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Page {
-    #[serde(default)]
-    pub success: u8,
     #[serde(default)]
     pub query_summary: Option<QuerySummary>,
     #[serde(default)]
     pub reviews: Vec<Value>,
     #[serde(default)]
     pub cursor: Option<String>,
+}
+
+/// A web API method's answer, which carries its result under `response`.
+#[derive(Deserialize)]
+struct Answer {
+    #[serde(default)]
+    response: Page,
 }
 
 /// Told how long the client is about to wait after Valve refused it, and with what status.
@@ -154,7 +160,7 @@ impl SteamClient {
         self
     }
 
-    /// Asks a stand-in at `origin` everything it would ask Steam's web API.
+    /// Asks a stand-in at `origin` everything it would ask Steam's web API, the reviews included.
     #[cfg(test)]
     pub(crate) fn with_api(mut self, origin: &str) -> Self {
         origin.clone_into(&mut self.api);
@@ -192,12 +198,25 @@ impl SteamClient {
     ///
     /// Propagates transport and throttling failures.
     pub async fn count(&self, app_id: u32, window: Option<(i64, i64)>) -> Result<u64> {
-        let mut query = ReviewQuery::new(app_id).per_page(0);
+        let mut query = ReviewQuery::new(app_id).per_page(1);
         if let Some((start, end)) = window {
             query = query.window(start, end);
         }
         let page = self.fetch(&query, app_id).await?;
         Ok(page.query_summary.map_or(0, |s| s.total_reviews))
+    }
+
+    /// Valve's totals for a game: how many reviews, how many of each side, and its verdict.
+    ///
+    /// # Errors
+    ///
+    /// Propagates transport and throttling failures, and [`Error::NoSuchCorpus`] for a game
+    /// Steam does not know.
+    pub async fn summary(&self, app_id: u32) -> Result<QuerySummary> {
+        let page = self
+            .fetch(&ReviewQuery::new(app_id).per_page(1), app_id)
+            .await?;
+        Ok(page.query_summary.unwrap_or_default())
     }
 
     /// The store's name for an app, so a report can say "Helldivers 2" rather than 553850.
@@ -333,17 +352,15 @@ impl SteamClient {
     /// # Errors
     ///
     /// Returns [`Error::Throttled`] if Valve keeps refusing for longer than the client's
-    /// patience, and [`Error::NoSuchCorpus`] if it answers `success: 0`.
+    /// patience, and [`Error::NoSuchCorpus`] if Steam does not know the game. It answers such
+    /// a game with an empty response, and every page of one it knows, the page past the last
+    /// included, with a summary.
     pub async fn fetch(&self, query: &ReviewQuery, app_id: u32) -> Result<Page> {
-        let page: Page = self
-            .patient(&query.url_at(&self.store))
-            .await?
-            .json()
-            .await?;
-        if page.success != 1 {
+        let answer: Answer = self.patient(&query.url_at(&self.api)).await?.json().await?;
+        if answer.response.query_summary.is_none() {
             return Err(Error::NoSuchCorpus { app_id });
         }
-        Ok(page)
+        Ok(answer.response)
     }
 
     /// One page of what the developer posted on a game's Steam page, newest first, as Steam's
@@ -485,17 +502,16 @@ mod tests {
         let server = stand_in::Server::new(answer);
         let client = SteamClient::new(Duration::ZERO)
             .unwrap()
-            .with_store(&server.origin());
+            .with_store(&server.origin())
+            .with_api(&server.origin());
         (server, client)
     }
 
     fn page(summary: &serde_json::Value) -> stand_in::Answer {
-        stand_in::Answer::json(&serde_json::json!({
-            "success": 1,
+        stand_in::Answer::json(&serde_json::json!({"response": {
             "query_summary": summary,
-            "reviews": [],
             "cursor": "*",
-        }))
+        }}))
     }
 
     /// Answers `refusals` requests in a row with `refusal`, and every one after with a page.
@@ -515,14 +531,53 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_count_asks_for_no_reviews_in_the_window_and_reads_valves_total() {
+    async fn a_count_asks_for_one_review_in_the_window_and_reads_valves_total() {
         let (server, client) = steam(|_| page(&serde_json::json!({"total_reviews": 1234})));
         assert_eq!(client.count(7, Some((100, 200))).await.unwrap(), 1234);
         let asked = &server.asked()[0];
-        assert_eq!(asked.path(), "/appreviews/7");
-        assert_eq!(asked.param("num_per_page"), Some("0"));
-        assert_eq!(asked.param("start_date"), Some("100"));
-        assert_eq!(asked.param("end_date"), Some("200"));
+        assert_eq!(asked.path(), "/IUserReviewsService/GetAppReviews/v1/");
+        let input = asked.input();
+        assert_eq!(input["appid"], 7);
+        assert_eq!(input["num_per_page"], 1);
+        assert_eq!(input["date_range_start"], 100);
+        assert_eq!(input["date_range_end"], 200);
+    }
+
+    #[tokio::test]
+    async fn a_summary_is_valves_totals_for_the_whole_game() {
+        let (server, client) = steam(|_| {
+            page(&serde_json::json!({
+                "num_reviews": 1, "review_score": 8, "review_score_desc": "Very Positive",
+                "total_positive": 4242, "total_negative": 441, "total_reviews": 4683
+            }))
+        });
+        let summary = client.summary(2_395_210).await.unwrap();
+        assert_eq!(
+            (
+                summary.total_reviews,
+                summary.total_positive,
+                summary.total_negative
+            ),
+            (4683, 4242, 441)
+        );
+        assert_eq!(summary.review_score_desc, "Very Positive");
+        assert!(server.asked()[0].input().get("date_range_start").is_none());
+    }
+
+    #[tokio::test]
+    async fn a_page_reads_steams_numbers_where_the_store_wrote_strings() {
+        let (_server, client) = steam(|_| {
+            stand_in::Answer::json(&serde_json::json!({"response": {
+                "query_summary": {"num_reviews": 1},
+                "reviews": [{"recommendationid": "237602057", "weighted_vote_score": 0.5,
+                             "refunded": false, "author": {"steamid": "76561199159658360"}}],
+                "cursor": "AoJ4zsaImaEDce2oigc=",
+                "total_matching": 4508
+            }}))
+        });
+        let page = client.fetch(&ReviewQuery::new(7), 7).await.unwrap();
+        assert_eq!(page.reviews.len(), 1);
+        assert_eq!(page.cursor.as_deref(), Some("AoJ4zsaImaEDce2oigc="));
     }
 
     #[tokio::test]
@@ -697,12 +752,23 @@ mod tests {
     #[tokio::test]
     async fn an_app_valve_serves_nothing_for_is_named_rather_than_read_as_empty() {
         let (_server, client) =
-            steam(|_| stand_in::Answer::json(&serde_json::json!({"success": 0})));
+            steam(|_| stand_in::Answer::json(&serde_json::json!({"response": {}})));
         let refused = client.fetch(&ReviewQuery::new(7), 7).await;
         assert!(
             matches!(refused, Err(Error::NoSuchCorpus { app_id: 7 })),
             "{refused:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn a_game_with_nothing_in_the_window_is_a_count_of_none_not_a_missing_game() {
+        let (_server, client) = steam(|_| {
+            page(&serde_json::json!({
+                "num_reviews": 0, "review_score_desc": "No user reviews",
+                "total_positive": 0, "total_negative": 0, "total_reviews": 0
+            }))
+        });
+        assert_eq!(client.count(7, Some((1, 2))).await.unwrap(), 0);
     }
 
     #[tokio::test]
@@ -769,7 +835,7 @@ mod tests {
     async fn requests_are_spaced_by_the_pace_however_many_ask_at_once() {
         let server = stand_in::Server::new(|_| page(&serde_json::json!({})));
         let pace = Duration::from_millis(200);
-        let client = SteamClient::new(pace).unwrap().with_store(&server.origin());
+        let client = SteamClient::new(pace).unwrap().with_api(&server.origin());
         let started = Instant::now();
         let (first, second, third) = tokio::join!(
             client.count(7, None),

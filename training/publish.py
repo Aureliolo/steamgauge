@@ -204,7 +204,7 @@ def dataset_card(
             "[SteamGauge](https://github.com/Aureliolo/steamgauge).",
             "",
             "The dataset contains no review text and no author information. `fetch_text.py`",
-            "fetches the labelled reviews from Steam's public review endpoint and adds each",
+            "fetches the labelled reviews from Steam's public web API and adds each",
             "claim's text.",
             "",
             "## Files",

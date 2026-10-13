@@ -6,7 +6,10 @@ python -m pytest test_fetch_text.py
 from __future__ import annotations
 
 import hashlib
+import json
+import urllib.parse
 
+import fetch_text
 from fetch_text import BACKOFF_CAP, DAY, PATIENCE, fetch, joined, next_wait, windows
 
 
@@ -40,9 +43,38 @@ def test_fetch_walks_each_window_with_the_census_parameters_and_keeps_only_what_
 
     assert texts == {"1": "one", "2": "two"}
     first = asked[0][1]
-    assert (first["purchase_type"], first["filter_offtopic_activity"]) == ("all", "0")
-    assert (first["language"], first["filter"]) == ("all", "recent")
-    assert (first["start_date"], first["end_date"]) == (9 * DAY, 11 * DAY)
+    assert (first["purchase_type"], first["filter_offtopic_activity"]) == (1, False)
+    assert (first["languages"], first["filter"]) == (["all"], 1)
+    assert (first["date_range_start"], first["date_range_end"]) == (9 * DAY, 11 * DAY)
+
+
+def test_a_page_is_asked_of_the_web_api_with_its_arguments_as_one_json_value(monkeypatch):
+    sent = []
+
+    class Answer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return json.dumps({"response": {"reviews": [], "cursor": "c+/="}}).encode()
+
+    def urlopen(request, **_):
+        sent.append(request.full_url)
+        return Answer()
+
+    monkeypatch.setattr(fetch_text.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(fetch_text.time, "sleep", lambda _: None)
+
+    answer = fetch_text.steam_page(7, {"cursor": "a+b/c=", "filter": 1})
+
+    assert answer == {"reviews": [], "cursor": "c+/="}
+    url, query = sent[0].split("?", 1)
+    assert url == fetch_text.ENDPOINT
+    arguments = json.loads(urllib.parse.parse_qs(query)["input_json"][0])
+    assert arguments == {"appid": 7, "cursor": "a+b/c=", "filter": 1}
 
 
 def test_a_refusal_is_waited_out_longer_each_time_and_for_as_long_as_steam_says():
