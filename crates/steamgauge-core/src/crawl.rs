@@ -707,6 +707,13 @@ struct Walked {
 
 /// Walks the corpus newest edit first, writing every review touched since `watermark` to
 /// `path` and noting each in `newest`, until it is safely past the watermark or `halt` is set.
+///
+/// The walk asks for the reviews written up to `started`, which is every review there is when
+/// it starts. Steam keeps each answer it gives a caller without a key for ten minutes and
+/// gives it to anyone who asks the same thing, so a sweep asking what any other caller asked
+/// could be served pages from before the latest edits, and the next sweep, starting from
+/// this one, would never look for them again. Bounded by its own start, every sweep asks
+/// something nobody has asked before.
 async fn walk_since(
     client: &SteamClient,
     app_id: u32,
@@ -730,6 +737,7 @@ async fn walk_since(
         }
         let query = ReviewQuery::new(app_id)
             .order(SortOrder::Updated)
+            .window(CORPUS_EPOCH, started)
             .cursor(cursor.clone());
         let page = client.fetch(&query, app_id).await?;
         pages = pages.saturating_add(1);
@@ -1177,6 +1185,10 @@ mod tests {
                 return summary_of(total);
             }
             assert_eq!(asked.input()["filter"], 2, "the sweep walks by last edit");
+            assert!(
+                asked.input()["date_range_end"].as_i64() > Some(WATERMARK),
+                "the sweep asks up to its own start, which no other caller has asked"
+            );
             let at = offset(asked);
             let next = if at < pages.len() { at + 1 } else { at };
             let reviews = pages.get(at).cloned().unwrap_or_default();
