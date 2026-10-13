@@ -475,7 +475,9 @@ async fn download(
     path: &Path,
     on_progress: &mut impl FnMut(DownloadProgress),
 ) -> Result<()> {
-    let mut response = http.get(url).send().await?.error_for_status()?;
+    let mut response = crate::http::send(|| http.get(url))
+        .await?
+        .error_for_status()?;
 
     // Written beside the target and renamed, so an interrupted download is never mistaken
     // for a complete one on the next run.

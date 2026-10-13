@@ -388,7 +388,8 @@ impl SteamClient {
     }
 
     /// Asks for `url` at the client's pace until Steam answers with success, waiting out
-    /// refusals and server errors for as long as the client's patience allows.
+    /// refusals and server errors for as long as the client's patience allows, and sending again
+    /// a request nobody answered as [`crate::http::send`] does.
     async fn patient(&self, url: &str) -> Result<reqwest::Response> {
         let mut attempt = 0;
         let mut waited = Duration::ZERO;
@@ -397,7 +398,7 @@ impl SteamClient {
             attempt += 1;
             self.wait_turn().await;
 
-            let response = self.http.get(url).send().await?;
+            let response = crate::http::send(|| self.http.get(url)).await?;
             let status = response.status();
 
             if status.is_success() {
