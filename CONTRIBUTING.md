@@ -87,6 +87,21 @@ side is added to the stub in the same change.
 node tools/app-check/check.mjs
 ```
 
+The documentation site is held to it too. `crates/steamgauge-site` builds it from the README and
+`docs/`, and writes the parts that describe the program, its commands, its MCP tools and the
+clients it adds itself to, from the program's own tables; `write` refreshes them, and a test
+fails while a copy is behind. The build refuses a link to a file or heading that does not exist
+and anything fetched from another host, and `tools/site-check` serves the built site and holds
+every page to WCAG 2.2 A and AA, light, dark and at a phone's width:
+
+```sh
+cargo run -p steamgauge-site -- write
+node tools/app-check/check.mjs --shots shots
+cargo run -p steamgauge-core --example sample-report -- report.html
+cargo run -p steamgauge-site -- build --out site --shots shots --report report.html
+node tools/site-check/check.mjs site
+```
+
 The words a person reads are held to plain prose by [Vale](https://vale.sh) with the style in
 `.vale/`: no inflated praise, filler, chatbot asides, unnamed authorities, or a thing framed
 against what it is not. It reads the README, the docs and SECURITY, the report pages, and every

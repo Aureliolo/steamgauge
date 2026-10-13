@@ -3,7 +3,9 @@
 One binary, `steamgauge` (`crates/steamgauge-app`): opened with no arguments it is the Tauri
 desktop app, whose window is `crates/steamgauge-app/ui/`; given arguments it is the pipeline,
 `crawl` (a Parquet capture), `claims` (spans beside it), `read` (the ONNX reader), `report`.
-`crates/steamgauge-core` is everything that knows nothing about a window. `training/` is Python
+`crates/steamgauge-core` is everything that knows nothing about a window. `crates/steamgauge-site`
+builds the documentation site from the README, `docs/` and the app's own tables; the release
+deploys it to GitHub Pages. `training/` is Python
 that produces the reader; `training/README.md` gives the order a model is trained, swept,
 exported and published in. `tools/` drives the report, gold and window pages in Chrome and holds
 the release scripts. `DECISIONS.md` is the live record of every choice and figure, written as
@@ -25,6 +27,8 @@ bash -c "cd tools && npm ci --ignore-scripts"   # once: axe-core, which the brow
 cargo run -p steamgauge-core --example sample-report && node tools/report-check/check.mjs sample-report.html
 cargo run -p steamgauge-core --example sample-gold -- sample-gold.html && node tools/gold-check/check.mjs sample-gold.html
 node tools/app-check/check.mjs [--shots <folder outside the tree>]   # the window against a stand-in core; look at the shots
+cargo run -p steamgauge-site -- write   # after changing a command, its help, an MCP tool or a client
+cargo run -p steamgauge-site -- build --out site --shots <shots> --report <sample report> && node tools/site-check/check.mjs site
 r="ruff@$(sed -n 's/.*pipx run ruff==\([0-9.]*\) check.*/\1/p' .github/workflows/ci.yml)"; uvx "$r" check training && uvx "$r" format --check training   # the ruff ci.yml pins; the venv's is another
 bash -c "cd training && .venv/Scripts/python -m pytest -q"   # from inside training/, never by path
 ```
@@ -36,6 +40,10 @@ gold page it drives, and read CI for the rest.
 
 ## Gotchas
 
+- What sits between `<!-- steamgauge-site: <name> -->` and its end marker in the README and
+  `docs/` is written by `cargo run -p steamgauge-site -- write` from the program's own tables;
+  never edit it by hand. A build refuses a page whose copy is out of date, so a change to a
+  command, its help, an MCP tool or a client carries the rewritten page with it.
 - One build tree, `target/`. A running `steamgauge.exe` (a crawl, `gold --serve`) holds the
   release binary open: the build fails with "Access is denied" among other output, and the next
   command silently runs the old binary. Stop it, rebuild, see `Finished`.

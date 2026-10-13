@@ -16,7 +16,8 @@ mod update;
 /// argument is a nested builder call, so an unoptimised build walks far deeper than Windows
 /// gives the main thread by default, and `cargo run -- --version` overflows before reaching any
 /// command at all. Reserved address space, not memory: nothing is paid unless it is touched.
-const CLI_STACK: usize = 32 * 1024 * 1024;
+/// Whatever calls `reference::command()` needs it too.
+pub const CLI_STACK: usize = 32 * 1024 * 1024;
 
 /// The program: the window, the window hidden for an MCP client, or the pipeline.
 ///

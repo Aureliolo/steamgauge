@@ -303,6 +303,24 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
 
+  # The documentation site, built and checked on every run and deployed only once a tag's release
+  # is published, so a dry run proves the site builds and Pages only ever describes a release.
+  docs:
+    name: docs
+    if: >-
+      github.repository == 'Aureliolo/steamgauge' && !cancelled()
+      && needs.verify.result == 'success'
+      && (github.ref_type != 'tag' || needs.publish.result == 'success')
+    needs: [verify, publish]
+    permissions:
+      contents: read # Reads the tagged source the site is built from.
+      pages: write # Only docs.yml's deploy job uses it, to deploy.
+      id-token: write # Only docs.yml's deploy job uses it, to prove the run to Pages.
+    # `./` as for release-build.yml above.
+    uses: ./.github/workflows/docs.yml # zizmor: ignore[self-repository]
+    with:
+      publish: ${{ github.ref_type == 'tag' }}
+
   # The cask, the Scoop manifest and the winget manifests for this release, from the checksums as
   # published, verified against the release's attestation the way a person's download would be.
   package-managers-write:

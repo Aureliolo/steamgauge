@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<link rel="canonical" href="{{canonical}}">
+<link rel="alternate" type="text/markdown" href="{{twin}}">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<header>
+<a class="mark" href="index.html"><img src="icon.png" alt="" width="32" height="32">SteamGauge</a>
+<nav aria-label="Documentation">
+<ul>
+{{nav}}
+</ul>
+</nav>
+</header>
+<main id="main">
+{{content}}
+</main>
+<footer>
+<p>SteamGauge {{version}}, under the Apache License 2.0.
+<a href="https://github.com/Aureliolo/steamgauge">The source on GitHub</a>.
+<a href="{{twin}}">This page as Markdown</a>.</p>
+</footer>
+</body>
+</html>

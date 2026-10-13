@@ -3,7 +3,8 @@
 locale = "en-gb"
 # Spellings that are not this project's, each matched whole so the prose around them is still
 # checked: CSS's own properties, values and media feature (transition lists, scroll-behavior,
-# optimizeLegibility, a background's position keyword included), the DOM's style property, the
+# optimizeLegibility, a background's position keyword included), HTML's color-scheme meta tag,
+# the DOM's style property, the
 # canvas's addColorStop, and the
 # colour flags of actionlint, cargo and cargo-about; ClusterFuzzLite's input and LLVM's sanitiser
 # by their names, rustc's sanitiser flag, BinSkim's rule names and its analyse command; the
@@ -25,6 +26,7 @@ extend-ignore-re = [
   '\baddColorStop\b',
   'currentColor',
   'prefers-color-scheme',
+  'name="color-scheme"',
   '\)\.(?:backgroundC|c)olor\b',
   '\bstyle\.color\b',
   '(?:^|[\s"])--?color\b',

@@ -1,0 +1,202 @@
+/* The documentation site's one stylesheet. System fonts only, so a page fetches nothing from
+   another host; the colour scheme follows the reader's system. */
+
+:root {
+  --paper: #ffffff;
+  --ink: #1b1f23;
+  --quiet: #57606a;
+  --link: #0b5cad;
+  --rule: #d0d7de;
+  --well: #f3f4f6;
+  --brand: #b33a0f;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #111417;
+    --ink: #e6e8eb;
+    --quiet: #a0a7b0;
+    --link: #79b8ff;
+    --rule: #30363d;
+    --well: #1c2127;
+    --brand: #f0884f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font: 1.0625rem/1.6 var(--sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 52rem;
+  padding: 0 1.25rem;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.15em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -100vw;
+}
+
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  background: var(--paper);
+  padding: 0.5rem 0.75rem;
+}
+
+header {
+  border-bottom: 1px solid var(--rule);
+  padding: 1.25rem 0 0.75rem;
+}
+
+.mark {
+  align-items: center;
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 1.25rem;
+  font-weight: 700;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+nav a {
+  display: inline-block;
+  padding: 0.2rem 0;
+}
+
+nav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration-color: var(--brand);
+  text-decoration-thickness: 2px;
+}
+
+main {
+  padding: 1rem 0 2rem;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+  margin: 2rem 0 0.75rem;
+}
+
+h1 {
+  font-size: 2rem;
+}
+
+h2 {
+  border-bottom: 1px solid var(--rule);
+  font-size: 1.5rem;
+  padding-bottom: 0.3rem;
+}
+
+h3 {
+  font-size: 1.2rem;
+}
+
+code {
+  background: var(--well);
+  border-radius: 4px;
+  font: 0.9em var(--mono);
+  padding: 0.1em 0.3em;
+}
+
+pre {
+  background: var(--well);
+  border-radius: 6px;
+  line-height: 1.45;
+  overflow-x: auto;
+  padding: 0.9rem 1rem;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+.wide {
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid var(--rule);
+  padding: 0.4rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--well);
+}
+
+blockquote {
+  border-left: 4px solid var(--rule);
+  color: var(--quiet);
+  margin: 1rem 0;
+  padding: 0 1rem;
+}
+
+img {
+  height: auto;
+  max-width: 100%;
+}
+
+figure.window {
+  margin: 1.5rem 0;
+}
+
+figure.window img {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+figcaption {
+  color: var(--quiet);
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+footer {
+  border-top: 1px solid var(--rule);
+  color: var(--quiet);
+  font-size: 0.95rem;
+  padding: 1rem 0 2rem;
+}

@@ -1,0 +1,96 @@
+name: docs
+
+# The documentation site: the README and docs/ built into pages by crates/steamgauge-site, with
+# the window's cockpit pictured from tools/app-check and the sample report beside it. Every pull
+# request builds and checks it; the release calls this once it has published, and only then is
+# the site deployed, so what GitHub Pages serves always describes a released version.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      publish:
+        description: Deploy the site to GitHub Pages once it is built and checked
+        type: boolean
+        required: true
+
+permissions: {}
+
+# Called by the release, `github.workflow` is the release's name, so the group names this file.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # As in ci.yml: a pull request holding no code passes at once. Called by the release there is
+  # no pull request to compare, and the site is always built.
+  scope:
+    name: scope
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: scope
+        uses: $/.github/actions/scope
+
+  site:
+    name: site
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read # Reads the source the site is built from.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The generator reads the app's own tables, so it links the app and with it Tauri, which
+      # needs WebKitGTK on Linux to build at all.
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: $/.github/actions/onnx-runtime
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tools
+      - run: node tools/app-check/check.mjs --shots "${RUNNER_TEMP}/shots"
+      - run: cargo run --locked -p steamgauge-core --example sample-report -- "${RUNNER_TEMP}/sample-report.html"
+      # Refuses a page whose generated parts are out of date, a link to a file or heading that
+      # does not exist, and anything fetched from another host.
+      - run: cargo run --locked -p steamgauge-site -- build --out site --shots "${RUNNER_TEMP}/shots" --report "${RUNNER_TEMP}/sample-report.html"
+      - run: node tools/site-check/check.mjs site
+      - if: inputs.publish
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: deploy
+    if: inputs.publish
+    needs: site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write # Deploys the built site.
+      id-token: write # Proves to Pages that this run built the artefact it deploys.
+    # Never cancelled: a deployment cut short leaves Pages between two versions.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    # The environment admits only release tags, so nothing but a release can deploy.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
