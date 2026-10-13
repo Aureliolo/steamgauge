@@ -5578,6 +5578,19 @@ writable, and past that stops with an error, so an update lands whole or not at 
 check proves both on every pull request, with the program made read-only for ten seconds and then
 for longer than the setup waits.
 
+That check then failed three times in a day on main, each time around the program it had just
+ended or installed: twice the check's own write to the program was refused as busy, once two
+seconds after `taskkill //F` and once a third of a second after a setup program finished, and once
+the check's shell died of SIGTERM (exit code 3840, signal 15 shifted by eight, as MSYS reports one)
+a second into a setup program whose Restart Manager check force-closes whatever holds the program.
+Real-time scanning is off on GitHub's Windows images, so no scanner was the holder; neither does
+the setup program start the app after a silent install, since Git Bash hands it a path with
+backslashes and no `/R`. The logs never said what held the file. `taskkill` returns before Windows
+has torn the process down, so the check now waits for every `steamgauge.exe` to be gone, and
+before each mark it asks the Restart Manager the setup program's own question, through
+`tools/release/file-holders.ps1`, and prints every holder with the command that started it, so the
+next failure names its cause.
+
 **On Windows the program is a windowed application.** As a console program it opened a console
 window beside the app for as long as it ran, which the user rejected outright: double-clicking
 shows the window and nothing else. The pipeline is the same binary given arguments, and as a

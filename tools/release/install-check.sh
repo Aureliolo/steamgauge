@@ -130,6 +130,26 @@ powershell_value() {
   printf '%s' "${said%$'\r'}"
 }
 
+# Every process holding a file, by the Restart Manager the setup program asks before it closes
+# whatever holds the installed program.
+holders() {
+  powershell -NoProfile -File "$(cygpath -w tools/release/file-holders.ps1)" -File "$(cygpath -w "$1")" | tr -d '\r'
+}
+
+# taskkill returns once it has asked, and a program it ends holds its file until Windows has torn
+# the process down, which the next write to that file can lose the race to.
+all_ended() {
+  local waited=0
+  while tasklist //FI "IMAGENAME eq $1" //NH | grep -qi "$1"; do
+    if [[ "${waited}" -ge 30 ]]; then
+      echo "A $1 is still running 30 seconds after it was ended." >&2
+      exit 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
 # The details Windows shows for a program under Properties, from its version resource.
 version_details() {
   local file pair
@@ -189,6 +209,7 @@ case "${target}" in
     expect_version "${home}/steamgauge.exe"
     stays_up "${home}/steamgauge.exe"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
+    all_ended steamgauge.exe
     # What Apps and winget know the installed copy by, and the folder the next setup program
     # replaces it from, kept under the publisher's name with nothing left under 0.1.2's.
     entry='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SteamGauge'
@@ -212,7 +233,17 @@ case "${target}" in
       (sleep "$1" && attrib -R "$(cygpath -w "${program}")") &
       holder=$!
     }
-    printf 'marked' >> "${program}"
+    # Nothing but the read-only flag may hold the program: the setup program force-closes whatever
+    # the Restart Manager says holds it, and a write refused here is not the setup's to answer for.
+    # Either way, what held it is named.
+    mark() {
+      holders "${program}"
+      if ! printf 'marked' >> "${program}"; then
+        echo "The installed program could not be marked." >&2
+        exit 1
+      fi
+    }
+    mark
     hold 10
     step "Installing silently over a program unwritable for ten seconds" "${setup}" //S
     wait "${holder}"
@@ -221,7 +252,7 @@ case "${target}" in
       exit 1
     fi
     echo "The setup program waited for the program to be writable and replaced it."
-    printf 'marked' >> "${program}"
+    mark
     marked="$(sha256sum "${program}" | cut -d' ' -f1)"
     hold 90
     echo "::group::Installing silently over a program unwritable past the setup's patience"
