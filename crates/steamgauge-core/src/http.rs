@@ -32,19 +32,16 @@ pub(crate) async fn send(
     let mut pauses = AGAIN_AFTER.iter();
     loop {
         match request().send().await {
-            Err(failed) if unanswered(&failed) => match pauses.next() {
+            // reqwest's request kind is every failure between sending and an answer's head: a
+            // connection refused, timed out or dropped, a TLS handshake that failed. A request
+            // that could not be made, or a redirect refused, is another kind and final.
+            Err(failed) if failed.is_request() => match pauses.next() {
                 Some(pause) => tokio::time::sleep(*pause).await,
                 None => return Err(failed),
             },
             sent => return sent,
         }
     }
-}
-
-/// Whether `failed` is a request the server never answered, rather than one it answered or one
-/// that could not be made.
-fn unanswered(failed: &reqwest::Error) -> bool {
-    failed.is_connect() || failed.is_timeout() || failed.is_request()
 }
 
 /// What `failed` says, followed by each cause under it. reqwest's own message stops at "error
@@ -105,8 +102,26 @@ mod tests {
         let http = super::builder().build().unwrap();
         let url = format!("{}/file", server.origin());
         let failed = super::send(|| http.get(&url)).await.unwrap_err();
-        assert!(super::unanswered(&failed));
+        assert!(failed.is_request(), "{failed}");
         assert_eq!(server.asked().len(), super::AGAIN_AFTER.len() + 1);
+    }
+
+    #[tokio::test]
+    async fn a_redirect_refused_is_not_sent_again() {
+        let server =
+            stand_in::Server::new(|_| stand_in::Answer::status(302).header("Location", "/file"));
+        let http = super::builder()
+            .redirect(reqwest::redirect::Policy::limited(2))
+            .build()
+            .unwrap();
+        let url = format!("{}/file", server.origin());
+        let failed = super::send(|| http.get(&url)).await.unwrap_err();
+        assert!(failed.is_redirect(), "{failed}");
+        assert_eq!(
+            server.asked().len(),
+            3,
+            "the request and the two redirects followed"
+        );
     }
 
     #[tokio::test]
@@ -133,6 +148,10 @@ mod tests {
             .send()
             .await
             .unwrap_err();
+        assert!(
+            failed.is_request(),
+            "a refused connection is sent again: {failed}"
+        );
         let explained = super::explained(&failed);
         assert!(explained.starts_with(&failed.to_string()), "{explained}");
         let cause = std::error::Error::source(&failed).unwrap().to_string();
