@@ -5806,6 +5806,17 @@ manifest and the lock naming the same version.
 that only adds or fixes raises the patch number. The update check compares versions as semver, so
 0.1.10 sees 0.2.0 as newer.
 
+### The release build uses Cargo's sixteen codegen units, because one bought nothing (2026-10-13)
+
+The release profile held `codegen-units = 1` beside thin LTO, which serialises most of the
+optimiser onto one core. Measured on a 32-core machine from an empty target folder, the
+`directml` release build took 964 s with one unit and 445 s with sixteen. The program it made
+was 4.2 MB larger (73.3 MB against 69.1 MB) and no slower: `steamgauge claims` over a
+124,180-review capture, five runs of each alternating, averaged 4,109 ms with one unit and
+4,080 ms with sixteen, inside the spread of either. Splitting is the work Rust does on the hot
+path; reading runs inside ONNX Runtime, which this setting never touches. The release workflow
+builds each system's program from nothing, so the saving lands on every release.
+
 ## Nothing here is identified by a number somebody incremented
 
 Settled 2026-09-20, and it supersedes every version-stamp decision above it, including the one
