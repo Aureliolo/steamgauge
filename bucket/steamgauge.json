@@ -1,13 +1,13 @@
 {
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Finds out what players of a game think, from every Steam review.",
   "homepage": "https://github.com/Aureliolo/steamgauge",
   "license": "Apache-2.0",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/Aureliolo/steamgauge/releases/download/v0.2.5/steamgauge-0.2.5-x86_64-pc-windows-msvc.zip",
-      "hash": "dffbb45f490dc66307429301d04f048098531d33c5af8f302c804f99fde1d386",
-      "extract_dir": "steamgauge-0.2.5-x86_64-pc-windows-msvc"
+      "url": "https://github.com/Aureliolo/steamgauge/releases/download/v0.2.6/steamgauge-0.2.6-x86_64-pc-windows-msvc.zip",
+      "hash": "a434753188b22644295198f3ee8fc46f78b411ff9e4ac3669c72b73c3cc8322d",
+      "extract_dir": "steamgauge-0.2.6-x86_64-pc-windows-msvc"
     }
   },
   "env_add_path": ".",
