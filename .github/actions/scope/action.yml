@@ -1,0 +1,42 @@
+name: Scope
+description: >-
+  Whether the checks have to run. A pull request that changes no code, only the package
+  managers' manifests or only SteamGauge's version (tools/release/scope.mjs), has its builds,
+  installs and scans pass at once: main passed them on the same code before it was opened. It
+  reads the merge commit actions/checkout makes of a pull request, at a depth of two, against its
+  first parent, which is the base it merges onto, so what is classified is what merging would
+  change. The classifier is the base's, so a pull request cannot rewrite it to pass itself, and
+  nothing of the pull request's is run. Anything but a pull request, and a base that has no
+  classifier yet, runs everything.
+
+outputs:
+  code:
+    description: "'true' where the checks have to run, 'false' where the change holds no code."
+    value: ${{ steps.scope.outputs.code }}
+  kind:
+    description: code, version or packaging.
+    value: ${{ steps.scope.outputs.kind }}
+
+runs:
+  using: composite
+  steps:
+    - id: scope
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        set -euo pipefail
+        kind=code
+        if [[ "${EVENT}" == pull_request ]]; then
+          base="$(git rev-parse HEAD^1)"
+          classifier="${RUNNER_TEMP}/base-classifier"
+          mkdir -p "${classifier}"
+          if git archive "${base}" tools/release | tar -x -C "${classifier}" && [[ -f "${classifier}/tools/release/scope.mjs" ]]; then
+            kind="$(node "${classifier}/tools/release/scope.mjs" "${base}" HEAD)"
+          fi
+        fi
+        echo "This change is ${kind}."
+        {
+          echo "kind=${kind}"
+          echo "code=$([[ "${kind}" == code ]] && echo true || echo false)"
+        } >> "${GITHUB_OUTPUT}"

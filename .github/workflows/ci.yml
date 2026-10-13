@@ -19,9 +19,35 @@ env:
 # The runners are the images release-build.yml builds the release on, so what is tested here is
 # what ships. Matrix jobs are named by platform rather than by image: the name is what the branch
 # ruleset requires, and an image raise must not rename a required check out from under it.
+#
+# A pull request that holds no code, one that only rewrites the package managers' manifests or
+# only raises SteamGauge's version, passes the builds and tests at once: main passed them on the
+# same code before it was opened (.github/actions/scope). A job named by its matrix runs with its
+# steps skipped rather than being skipped itself, so it reports under the name the ruleset
+# requires; any other is skipped, which the ruleset counts as passed. Should the scope job fail,
+# everything runs.
 jobs:
+  scope:
+    name: scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      # The pull request's merge commit and the base under it, which is all the classifier reads.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: scope
+        uses: $/.github/actions/scope
+
   lint:
     name: lint
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -57,6 +83,8 @@ jobs:
   # that cannot be taken back. Nothing is compiled.
   notices:
     name: notices
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -120,19 +148,25 @@ jobs:
             # renovate: datasource=github-runners depName=macos
             runner: macos-26
             feature: coreml
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
       contents: read # Reads the source it lints.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: needs.scope.outputs.code != 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: $/.github/actions/onnx-runtime
+      - if: needs.scope.outputs.code != 'false'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: needs.scope.outputs.code != 'false'
+        uses: $/.github/actions/onnx-runtime
         with:
           features: ${{ matrix.feature }}
-      - shell: bash
+      - if: needs.scope.outputs.code != 'false'
+        shell: bash
         env:
           FEATURE: ${{ matrix.feature }}
         run: cargo clippy --locked --workspace --all-targets --features "steamgauge-core/${FEATURE}" -- -D warnings
@@ -152,19 +186,25 @@ jobs:
           - platform: macos
             # renovate: datasource=github-runners depName=macos
             runner: macos-26
+    needs: scope
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
       contents: read # Reads the source it tests.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: needs.scope.outputs.code != 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - if: runner.os == 'Linux'
+      - if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: $/.github/actions/onnx-runtime
-      - run: cargo test --locked --workspace
+      - if: needs.scope.outputs.code != 'false'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: needs.scope.outputs.code != 'false'
+        uses: $/.github/actions/onnx-runtime
+      - if: needs.scope.outputs.code != 'false'
+        run: cargo test --locked --workspace
 
   # The training scripts decide every figure the reader is quoted with, and their tests need
   # no card and no labels. The lock is resolved for Windows (onnxruntime-directml has no other
@@ -172,6 +212,8 @@ jobs:
   # code without a multi-gigabyte download of libraries a runner cannot use.
   python:
     name: python
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: windows-2025
     timeout-minutes: 30
     permissions:
@@ -201,6 +243,8 @@ jobs:
   # fixture, on screen and again under print media, needing no corpus and no model.
   report:
     name: report
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

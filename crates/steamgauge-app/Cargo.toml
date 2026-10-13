@@ -37,7 +37,7 @@ fs4 = "=1.1.0"
 dirs = "=7.0.0"
 # The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
 # pipe on Windows) that only this user can reach.
-rmcp ={ version = "=3.5.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
+rmcp = { version = "=3.5.1", default-features = false, features = ["server", "transport-streamable-http-server"] }
 interprocess = { version = "=2.4.5", features = ["tokio"] }
 schemars = "=1.2.2"
 base64 = "=0.23.1"

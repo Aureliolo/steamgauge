@@ -24,9 +24,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A pull request that holds no code skips the fuzzing, which the ruleset counts as passed; see
+  # ci.yml and .github/actions/scope.
+  scope:
+    name: scope
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # Fetches the two commits a pull request compares.
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      # The pull request's merge commit and the base under it, which is all the classifier reads.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: scope
+        uses: $/.github/actions/scope
+
   pull-request:
     name: fuzz
-    if: github.event_name == 'pull_request'
+    needs: scope
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.scope.outputs.code != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:

@@ -23,6 +23,8 @@ import {
   withTexts,
 } from "./notices.mjs";
 import { previousRelease, pullRequestNumber, renderNotes, shipsInDownload } from "./notes.mjs";
+import { checkedCode } from "./checked.mjs";
+import { scopeOf } from "./scope.mjs";
 import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from "./version.mjs";
 
 const MANIFEST = `[workspace]
@@ -137,6 +139,117 @@ test("a lock file behind the manifest is refused", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// The files of a workspace at one commit, as scope.mjs reads them.
+function files(manifest, lock) {
+  const member = (name) => `[package]\nname = "${name}"\nversion.workspace = true\n`;
+  const all = {
+    "Cargo.toml": manifest,
+    "Cargo.lock": lock,
+    "crates/one/Cargo.toml": member("one"),
+    "crates/two/Cargo.toml": member("two"),
+  };
+  return (path) => {
+    if (!(path in all)) {
+      throw new Error(`${path} is not there`);
+    }
+    return all[path];
+  };
+}
+
+const RAISED_MANIFEST = MANIFEST.replace('version = "0.3.9"', 'version = "0.3.10"');
+const RAISED_LOCK = LOCK.replaceAll('version = "0.3.9"', 'version = "0.3.10"');
+
+test("a change that only raises the workspace version is a version change", () => {
+  const before = files(MANIFEST, LOCK);
+  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(RAISED_MANIFEST, RAISED_LOCK)), "version");
+});
+
+test("anything beside the version in the same two files is code", () => {
+  const before = files(MANIFEST, LOCK);
+  const dependency = RAISED_LOCK.replace('version = "2.0.0"', 'version = "2.0.1"');
+  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(RAISED_MANIFEST, dependency)), "code");
+  const pinned = RAISED_MANIFEST.replace('version = "1.0.0"', 'version = "1.0.1"');
+  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(pinned, RAISED_LOCK)), "code");
+  assert.equal(scopeOf(["Cargo.toml"], before, files(RAISED_MANIFEST, LOCK)), "code", "a lock left behind");
+  assert.equal(scopeOf(["Cargo.lock"], before, files(MANIFEST, dependency.replaceAll("0.3.10", "0.3.9"))), "code");
+});
+
+test("a version that does not move forward is code", () => {
+  const lowered = files(MANIFEST.replace("0.3.9", "0.3.8"), LOCK.replaceAll('version = "0.3.9"', 'version = "0.3.8"'));
+  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], files(MANIFEST, LOCK), lowered), "code");
+});
+
+test("only the package managers' manifests is a packaging change, and nothing else is", () => {
+  const same = files(MANIFEST, LOCK);
+  assert.equal(scopeOf(["Casks/steamgauge.rb", "bucket/steamgauge.json"], same, same), "packaging");
+  assert.equal(scopeOf(["Casks/steamgauge.rb", "tools/release/scope.mjs"], same, same), "code");
+  assert.equal(scopeOf(["bucketless/x"], same, same), "code");
+  assert.equal(scopeOf([], same, same), "code");
+});
+
+// main as a line of commits, newest last, each with what it changed and the pull request it came
+// from: `{ id, kind, pull, head, tree, checks }`.
+function history(commits, required = ["lint", "test (windows)"]) {
+  const at = new Map(commits.map((commit, index) => [commit.id, { ...commit, index }]));
+  const heads = new Map(commits.filter((commit) => commit.head).map((commit) => [commit.head, commit]));
+  return {
+    required,
+    parent: async (id) => commits[at.get(id).index - 1].id,
+    kind: async (id) => at.get(id).kind,
+    merged: async (id) => (at.get(id).pull === undefined ? null : { number: at.get(id).pull, head: at.get(id).head }),
+    tree: async (id) => (at.has(id) ? at.get(id).tree : heads.get(id).headTree ?? heads.get(id).tree),
+    checks: async (head) => new Map(Object.entries(heads.get(head).checks ?? {})),
+  };
+}
+
+const PASSED = { lint: "success", "test (windows)": "success" };
+
+test("a release is held to the checks its parent's pull request passed", async () => {
+  const look = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
+    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+  ]);
+  assert.deepEqual(await checkedCode(look, "r"), { commit: "a", pull: 1 });
+});
+
+test("manifests merged after the last release are walked past to the code they ship", async () => {
+  const skipped = { lint: "skipped", "test (windows)": "success" };
+  const look = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
+    { id: "m", kind: "packaging", pull: 2, head: "m-head", tree: "t2", checks: skipped },
+    { id: "r", kind: "version", pull: 3, head: "r-head", tree: "t3" },
+  ]);
+  assert.deepEqual(await checkedCode(look, "r"), { commit: "a", pull: 1 });
+});
+
+test("a release is refused where the code it ships did not pass, or was not what was checked", async () => {
+  const failed = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: { lint: "success", "test (windows)": "failure" } },
+    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+  ]);
+  await assert.rejects(checkedCode(failed, "r"), /test \(windows\): failure/);
+  const missing = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: { lint: "success" } },
+    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+  ]);
+  await assert.rejects(checkedCode(missing, "r"), /test \(windows\): never ran/);
+  const otherTree = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", headTree: "t0", checks: PASSED },
+    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+  ]);
+  await assert.rejects(checkedCode(otherTree, "r"), /is not the code/);
+  const pushed = history([
+    { id: "a", kind: "code", tree: "t1" },
+    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+  ]);
+  await assert.rejects(checkedCode(pushed, "r"), /without a pull request/);
+  const notARelease = history([
+    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
+    { id: "r", kind: "code", pull: 2, head: "r-head", tree: "t2" },
+  ]);
+  await assert.rejects(checkedCode(notARelease, "r"), /more than the version/);
 });
 
 test("the lock subset keeps exactly the crates named, and the header", () => {
