@@ -9,8 +9,17 @@ import hashlib
 import json
 import urllib.parse
 
-import fetch_text
-from fetch_text import BACKOFF_CAP, DAY, PATIENCE, fetch, joined, next_wait, windows
+from fetch_text import (
+    BACKOFF_CAP,
+    DAY,
+    ENDPOINT,
+    PATIENCE,
+    fetch,
+    joined,
+    next_wait,
+    steam_page,
+    windows,
+)
 
 
 def fingerprint(text: str) -> str:
@@ -65,14 +74,14 @@ def test_a_page_is_asked_of_the_web_api_with_its_arguments_as_one_json_value(mon
         sent.append(request.full_url)
         return Answer()
 
-    monkeypatch.setattr(fetch_text.urllib.request, "urlopen", urlopen)
-    monkeypatch.setattr(fetch_text.time, "sleep", lambda _: None)
+    monkeypatch.setattr("fetch_text.urllib.request.urlopen", urlopen)
+    monkeypatch.setattr("fetch_text.time.sleep", lambda _: None)
 
-    answer = fetch_text.steam_page(7, {"cursor": "a+b/c=", "filter": 1})
+    answer = steam_page(7, {"cursor": "a+b/c=", "filter": 1})
 
     assert answer == {"reviews": [], "cursor": "c+/="}
     url, query = sent[0].split("?", 1)
-    assert url == fetch_text.ENDPOINT
+    assert url == ENDPOINT
     arguments = json.loads(urllib.parse.parse_qs(query)["input_json"][0])
     assert arguments == {"appid": 7, "cursor": "a+b/c=", "filter": 1}
 
