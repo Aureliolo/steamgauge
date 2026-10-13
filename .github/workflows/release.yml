@@ -35,6 +35,7 @@ jobs:
       # does stops the whole run before a single step executes: `startup_failure`, no logs, and a
       # tag left standing with no release behind it.
       pull-requests: read # Only release-build.yml's gate job uses it, to write the changelog.
+      checks: read # Only release-build.yml's gate job uses it, to read the checks the released code passed.
     # zizmor wants `$/...` here. actionlint 1.7.12 rejects that spelling as neither of the two
     # forms GitHub documents, and this path only runs on a tag, where a syntax error is a failed
     # release rather than a failed check. The two linters disagree; the one that can be verified
