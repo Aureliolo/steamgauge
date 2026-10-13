@@ -619,10 +619,25 @@ pub fn session_at(path: &Path) -> Result<(Session, &'static str)> {
 /// second, while nvidia-smi showed it was never on the GPU at all. A backend that did not load
 /// has to say so here, so that the fallback below it is a decision rather than an accident.
 fn try_session(path: &Path, provider: ort::ep::ExecutionProviderDispatch) -> Result<Session> {
-    let mut builder = Session::builder()?
+    let mut builder = Session::builder(environment()?)?
         .with_execution_providers([provider.error_on_failure()])
         .map_err(ort::Error::from)?;
     Ok(builder.commit_from_file(path)?)
+}
+
+/// The one ONNX Runtime environment every session in the process is built in.
+///
+/// A session needs its environment alive for as long as the session lives, and the reader, the
+/// encoder and the search models are loaded and dropped at different times, so the environment is
+/// built on first use and kept. It names no provider: each session picks its own above.
+fn environment() -> Result<&'static ort::environment::Environment> {
+    static ENVIRONMENT: std::sync::OnceLock<ort::environment::Environment> =
+        std::sync::OnceLock::new();
+    if let Some(built) = ENVIRONMENT.get() {
+        return Ok(built);
+    }
+    let built = ort::init().build()?;
+    Ok(ENVIRONMENT.get_or_init(|| built))
 }
 
 #[cfg(test)]
