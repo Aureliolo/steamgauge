@@ -137,6 +137,7 @@ prepared again: its vectors are in another space.
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
 | A newer version is named in the window, and installed from it on request once its keyless build provenance verifies; no signing key anywhere | named since 2026-10-03, at most once a day, a setting turns it off (below, "A newer version is named, and no key exists to sign one"); installed since 2026-10-06 (below, "Update now installs what the release workflow built, and nothing else") |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
+| **The documentation is a site, and the README is its front page** (the user, 2026-10-13: the README was "FAAAAAAAR to large"; a site built by our own Rust generator) | built: below, "The documentation site is built from the program's own tables" |
 
 ## Reference sets
 
@@ -5816,6 +5817,37 @@ was 4.2 MB larger (73.3 MB against 69.1 MB) and no slower: `steamgauge claims` o
 4,080 ms with sixteen, inside the spread of either. Splitting is the work Rust does on the hot
 path; reading runs inside ONNX Runtime, which this setting never touches. The release workflow
 builds each system's program from nothing, so the saving lands on every release.
+
+### The documentation site is built from the program's own tables (2026-10-13)
+
+The README holds the pitch, the install commands, the list of pages and the models; everything
+else is a page under `docs/`, and the site at <https://aureliolo.github.io/steamgauge/> is those
+pages with the README as its home. A generator of our own, `crates/steamgauge-site`, builds it
+rather than a static-site tool, because the parts that go stale are the ones describing the
+program: the commands and their options, the MCP tools and what each is given, and the files the
+app writes into each MCP client. Those are written from the definitions the program runs on,
+clap's command, the MCP server's tool list and the clients table, between marker comments in
+the Markdown, so the files read whole on GitHub too and a test fails when a copy falls behind.
+For that the app crate is a library with a thin binary, and the generator links it.
+
+What the site is held to, by the generator and then `tools/site-check` in Chrome: a link to
+another page goes to that page and a link to any other file goes to it on GitHub at the release's
+tag, each checked to exist, headings included, with GitHub's anchors so a link written for the
+repository works on the site. Nothing is fetched from another host, which drops the README's
+badges there and leaves system fonts. The pages run no script and carry a content security
+policy allowing only their own stylesheet and pictures, and every page passes axe-core's WCAG 2.2
+A and AA rules in the light scheme, the dark one and at a phone's width. Each page is also
+published as Markdown, with `llms.txt` and `llms-full.txt` beside them. The release builds the
+site on every run, dry runs included, and deploys it only once a tag's release is published,
+so Pages always describes a released version.
+
+Linking the app library put two Windows build details in view that a binary hid. tauri-build
+puts the app manifest naming Common Controls 6 only into the app's binaries, so the library's
+test program died at load on an import the older version lacks; the linker now embeds the same
+manifest into every program the app crate and the generator link. And tauri-build links the C
+runtime statically through an empty `msvcrt.lib` that every dependent inherits on its search
+path, while its arguments choosing the static runtime reach only the app, so the generator
+names the static runtime the same way.
 
 ## Nothing here is identified by a number somebody incremented
 

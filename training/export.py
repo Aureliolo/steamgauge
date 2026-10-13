@@ -533,7 +533,7 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             + ".",
             *(["- No answers in: " + ", ".join(silent) + "."] if silent else []),
             "",
-            # Every size's card carries every size; the same table as the README's.
+            # Every size's card carries every size; the same table as docs/accuracy.md's.
             *(["## Sizes", "", sizes.table(sizes.load()), ""] if sizes.SIZES.is_file() else []),
             "## Training",
             "",

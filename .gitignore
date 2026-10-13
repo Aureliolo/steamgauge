@@ -79,6 +79,10 @@ training/.venv/
 # built from changed underneath it.
 crates/steamgauge-app/gen/schemas/
 target/
+# The documentation site, built by crates/steamgauge-site and deployed by the release.
+/site/
+# The window's pictures `tools/app-check/check.mjs --shots shots` takes for it.
+/shots/
 # What a local fuzzing run finds; the corpus it grows is fuzz/corpus/, which corpus/ above already
 # keeps out. The seeds the corpus starts from are fuzz/seeds/, and those are committed.
 fuzz/artifacts/

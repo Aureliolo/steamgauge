@@ -329,6 +329,7 @@ enum Page {
     Library,
     /// Finding a game on Steam to add.
     Finder,
+    /// How the app runs, and the assistants it is added to.
     Settings,
     /// What the library and the models take on disk.
     Storage,
@@ -345,6 +346,7 @@ enum Page {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct Show {
+    /// Which page of the window to show.
     page: Page,
     /// The game, for a game's page, a subject or a search.
     app_id: Option<u32>,
@@ -769,6 +771,25 @@ impl Server {
     pub(super) fn new(app: AppHandle) -> Self {
         Self { app }
     }
+}
+
+/// Every tool as the documentation describes it.
+pub(crate) fn reference() -> Vec<crate::reference::Tool> {
+    entries()
+        .into_iter()
+        .map(|entry| crate::reference::Tool {
+            name: entry.tool.name.to_string(),
+            description: entry
+                .tool
+                .description
+                .as_deref()
+                .unwrap_or_default()
+                .to_owned(),
+            read_only: entry.effect == Effect::Looks,
+            destructive: entry.effect == Effect::Removes,
+            input: serde_json::Value::Object((*entry.tool.input_schema).clone()),
+        })
+        .collect()
 }
 
 fn server_config() -> ServerConfig {

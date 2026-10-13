@@ -46,13 +46,15 @@ not committed.
 
 ## The benchmark
 
-- **`frontier-key.json`** is the benchmark the README's comparison table and every reader's
-  accuracy at a coverage are scored on: 487 claims drawn from the held-out games, twenty a
-  subject, each named by its game, its review and its label's index, with the subject and
-  polarity it is keyed to under the sheet as it stands. `training/frontier.py reader --key`
+- **`frontier-key.json`** is the benchmark the
+  [comparison table](../docs/accuracy.md#what-it-is-worth-against-the-alternatives) and every
+  reader's accuracy at a coverage are scored on: 487 claims drawn from the held-out games,
+  twenty a subject, each named by its game, its review and its label's index, with the subject
+  and polarity it is keyed to under the sheet as it stands. `training/frontier.py reader --key`
   scores a reader on it, over the claims this build still cuts.
 - **`frontier-opus-answers.json`** is Claude Opus 5's answers to the same claims, given the
   same sheet; `training/frontier.py score` scores them.
 - **`baselines-*.json`** are the baselines and readers scored on that key and on the held-out
-  games, and **`reader-sizes.json`** the figures the sizes table on the README and on every
-  model card is rendered from.
+  games, and **`reader-sizes.json`** the figures the
+  [sizes table](../docs/accuracy.md#the-reader-in-each-size) and every model card's are
+  rendered from.

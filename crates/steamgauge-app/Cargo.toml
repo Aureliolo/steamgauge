@@ -15,6 +15,10 @@ publish.workspace = true
 OriginalFilename = "steamgauge.exe"
 InternalName = "steamgauge"
 
+[lib]
+name = "steamgauge_app"
+path = "src/lib.rs"
+
 [[bin]]
 name = "steamgauge"
 path = "src/main.rs"

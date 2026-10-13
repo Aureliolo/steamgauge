@@ -87,14 +87,30 @@ side is added to the stub in the same change.
 node tools/app-check/check.mjs
 ```
 
+The documentation site is held to it too. `crates/steamgauge-site` builds it from the README and
+`docs/`, and writes the parts that describe the program, its commands, its MCP tools and the
+clients it adds itself to, from the program's own tables; `write` refreshes them, and a test
+fails while a copy is behind. The build refuses a link to a file or heading that does not exist
+and anything fetched from another host, and `tools/site-check` serves the built site and holds
+every page to WCAG 2.2 A and AA, light, dark and at a phone's width:
+
+```sh
+cargo run -p steamgauge-site -- write
+node tools/app-check/check.mjs --shots shots
+cargo run -p steamgauge-core --example sample-report -- report.html
+cargo run -p steamgauge-site -- build --out site --shots shots --report report.html
+node tools/site-check/check.mjs site
+```
+
 The words a person reads are held to plain prose by [Vale](https://vale.sh) with the style in
 `.vale/`: no inflated praise, filler, chatbot asides, unnamed authorities, or a thing framed
-against what it is not. It reads the README and SECURITY, the report pages, and every page of
-the window as its check renders it with `--pages`; reviews quoted from players are left out.
+against what it is not. It reads the README, the docs and SECURITY, the report pages, and every
+page of the window as its check renders it with `--pages`; reviews quoted from players are left
+out.
 
 ```sh
 node tools/app-check/check.mjs --pages pages
-vale README.md SECURITY.md training/README.md reference/README.md report.html pages
+vale README.md docs SECURITY.md training/README.md reference/README.md report.html pages
 ```
 
 ### One build directory
@@ -179,11 +195,11 @@ reported number needs more than passing tests:
 - **Ingestion parameters.** The census depends on overriding Valve's defaults. A change here
   silently changes every downstream figure and can make existing corpora incomparable.
 - **Denominators.** A percentage is a mention rate unless labelled otherwise. Do not add a
-  figure to the interface or the README without stating which denominator it uses.
+  figure to the interface, the README or the docs without stating which denominator it uses.
 - **Taxonomy, classifier and gold set.** Changing any of these changes the numbers. Say by
   how much.
-- **Claims in the README.** Every figure quoted must be reproducible, and the pull request
-  should say how to reproduce it.
+- **Claims in the README and the docs.** Every figure quoted must be reproducible, and the pull
+  request should say how to reproduce it.
 
 ## Licence
 

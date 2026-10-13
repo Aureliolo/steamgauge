@@ -548,7 +548,7 @@ enum Command {
 
     /// Write the page a person adjudicates claims on, from the held-out games.
     ///
-    /// Everything measured so far is a model agreeing with a model, which the README says and
+    /// Everything measured so far is a model agreeing with a model, which the docs say and
     /// which no citation can rest on. This draws two kinds of claim: a random sample with no
     /// answer shown, which is the only reading that produces an accuracy figure rather than a
     /// ratification, and the claims two labellers answered differently, with both answers
@@ -560,7 +560,7 @@ enum Command {
         /// Directory holding the captures. A label names a byte span, and only the capture can
         /// say whether this build's splitter still cuts one there: where it does not, the claim
         /// the label was written about no longer exists and nobody is asked about it. Without
-        /// the captures every stored label is asked, which is what happened before.
+        /// the captures every stored label is asked.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the page. It holds review text, so it is never committed; the
@@ -895,6 +895,11 @@ enum Command {
         #[arg(long, default_value = "reference")]
         to: PathBuf,
     },
+}
+
+/// The command line as clap builds it, for the documentation's reference.
+pub(crate) fn command() -> clap::Command {
+    <Cli as clap::CommandFactory>::command()
 }
 
 pub async fn run() -> Result<()> {
