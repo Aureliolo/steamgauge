@@ -67,8 +67,10 @@ pub use taxonomy::{Category, SHEET};
 /// Anything that can go wrong while building a corpus.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("http request failed: {0}")]
-    Http(#[from] reqwest::Error),
+    /// The causes are in the message rather than behind `source`, so that a report walking the
+    /// chain does not print them twice.
+    #[error("http request failed: {}", crate::http::explained(.0))]
+    Http(reqwest::Error),
 
     /// Valve answers an empty response for unknown app IDs and for apps whose reviews are
     /// not served, which is not an HTTP error and would otherwise look like an empty corpus.
@@ -174,6 +176,12 @@ pub enum Error {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(failed: reqwest::Error) -> Self {
+        Self::Http(failed)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

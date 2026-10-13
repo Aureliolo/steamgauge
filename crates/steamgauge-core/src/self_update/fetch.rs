@@ -107,14 +107,22 @@ pub struct Fetched {
 /// Why a download did not finish.
 #[derive(Debug, thiserror::Error)]
 pub enum Failed {
-    #[error("{0}")]
-    Http(#[from] reqwest::Error),
+    /// The causes are in the message rather than behind `source`, so that a report walking the
+    /// chain does not print them twice.
+    #[error("{}", crate::http::explained(.0))]
+    Http(reqwest::Error),
     #[error("the file could not be written: {0}")]
     Disk(#[from] std::io::Error),
     #[error("the server sent more than {0} bytes")]
     TooLong(u64),
     #[error("the server said {0}")]
     Status(reqwest::StatusCode),
+}
+
+impl From<reqwest::Error> for Failed {
+    fn from(failed: reqwest::Error) -> Self {
+        Self::Http(failed)
+    }
 }
 
 /// Downloads `url` into `into`, hashing every byte as it is written, and tells `progress` how
@@ -131,7 +139,7 @@ pub async fn download(
     most: u64,
     progress: &mut impl FnMut(u64, Option<u64>),
 ) -> Result<Fetched, Failed> {
-    let mut response = http.get(url).send().await?;
+    let mut response = crate::http::send(|| http.get(url)).await?;
     if !response.status().is_success() {
         return Err(Failed::Status(response.status()));
     }

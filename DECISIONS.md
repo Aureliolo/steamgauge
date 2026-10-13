@@ -5958,6 +5958,27 @@ labels. The served draw moved from 952 recut and 1,460 split to 739 and 1,477; t
 is still 1,000 claims, with eleven labels back in it and the ten at its tail out, none of them
 answered.
 
+### A request nobody answered is sent twice more, and a failure names its cause (2026-10-13)
+
+v0.2.7's release checks that each installed v0.2.6 updates itself. The Windows copy failed with
+"error sending request for url (.../steamgauge-0.2.7-windows-x64-setup.exe)" and nothing more,
+21 seconds in, while the three other installations fetched from the same release that minute. 21
+seconds is how long Windows takes to give up a TCP connection that got no reply (SYN retries
+after 3, 6 and 12 seconds), well inside the client's own 60, so one connection to GitHub's
+release file host went unanswered and cost the whole update. Nothing in it was SteamGauge's to
+fix but the two things it showed: the message stopped at reqwest's outer layer, and one
+unanswered connection was final.
+
+Every download now goes through `http::send`: the update, the model files and each page of a
+crawl. A request the server never answered, refused, timed out or dropped before a word, is
+made again after one second and again after three; any answer, whatever its status, stands as it
+came, so a crawl's own waits for refusals and server errors are unchanged. A failure that
+happens after the answer began is not retried here, since the update writes into a file it
+cannot rewind and the model's download starts over on the next run. The two errors holding a
+reqwest error print every cause under it in their message rather than exposing it as a source,
+so the command line's report, which walks sources, does not print them twice, and the window,
+which shows only the message, gets them too.
+
 ### The runs stopped being numbered, and got an index instead
 
 `wave11` says neither what it was nor what it did, and there is nothing in the repository that
