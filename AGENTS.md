@@ -67,12 +67,12 @@ gold page it drives, and read CI for the rest.
   added to the stub in the same change, or the check tests a window the app no longer has.
 - Nothing is named by an incremented number, and names say plainly what the thing is, never a
   metaphor.
-- Public texts (the README, model and dataset cards, release notes) state what the product is
-  and does now, in plain present tense: no history of how it got here and no comparison with
-  what it replaced, which belong in `DECISIONS.md`. No figure in them rests on a library or
-  capture nobody else can check. The one list of changes is the release notes' changelog,
-  built from pull request titles, so a title states what is true after the change rather than
-  comparing it with what came before.
+- Public texts (the README, the docs, model and dataset cards, release notes) state what the
+  product is and does now, in plain present tense: no history of how it got here and no
+  comparison with what it replaced, which belong in `DECISIONS.md`. No figure in them rests on
+  a library or capture nobody else can check. The one list of changes is the release notes'
+  changelog, built from pull request titles, so a title states what is true after the change
+  rather than comparing it with what came before.
 - None of the maintainer's other projects is named anywhere in this repository: files,
   comments, commit messages, pull requests. A pattern borrowed from one is described as this
   repository's own choice.

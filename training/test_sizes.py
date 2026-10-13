@@ -1,17 +1,17 @@
-"""The sizes table is one table: the README's is the one the data file renders."""
+"""The sizes table is one table: the docs' is the one the data file renders."""
 
 from __future__ import annotations
 
 import sizes
 
 
-def test_the_readme_carries_the_table_the_data_renders():
-    # Edited by hand, the README's copy drifts from every model card, which render the data.
-    readme = sizes.README.read_text(encoding="utf-8")
-    start = readme.index(sizes.OPENS) + len(sizes.OPENS)
-    block = readme[start : readme.index(sizes.CLOSES)].strip()
+def test_the_page_carries_the_table_the_data_renders():
+    # Edited by hand, the page's copy drifts from every model card, which render the data.
+    page = sizes.PAGE.read_text(encoding="utf-8")
+    start = page.index(sizes.OPENS) + len(sizes.OPENS)
+    block = page[start : page.index(sizes.CLOSES)].strip()
 
-    assert block == sizes.table(sizes.load()), "run `python sizes.py --readme`"
+    assert block == sizes.table(sizes.load()), "run `python sizes.py --write`"
 
 
 def test_every_size_says_every_figure_the_table_has_a_column_for():
@@ -79,7 +79,7 @@ def test_what_each_column_was_measured_on_keeps_to_the_prose_width():
     assert all(line.startswith(("- **", "  ")) for line in notes)
 
 
-def test_the_readme_block_is_replaced_and_nothing_around_it():
+def test_the_page_block_is_replaced_and_nothing_around_it():
     text = f"before\n{sizes.OPENS}\nold\n{sizes.CLOSES}\nafter\n"
 
-    assert sizes.in_readme(text, "new") == f"before\n{sizes.OPENS}\nnew\n{sizes.CLOSES}\nafter\n"
+    assert sizes.in_page(text, "new") == f"before\n{sizes.OPENS}\nnew\n{sizes.CLOSES}\nafter\n"

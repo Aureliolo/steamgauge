@@ -290,9 +290,9 @@ jobs:
       # board, the library's grouping and selection, the comparison and the settings exist only
       # once a browser has run them.
       - run: node tools/app-check/check.mjs --pages pages
-      # Every word a person reads, as they read it: the README and SECURITY, the report pages
-      # above and each page of the window as its check rendered it, held to the plain style in
-      # .vale/. Players' own words, quoted in reviews, are left out.
+      # Every word a person reads, as they read it: the README, the docs and SECURITY, the report
+      # pages above and each page of the window as its check rendered it, held to the plain style
+      # in .vale/. Players' own words, quoted in reviews, are left out.
       - name: Install Vale
         env:
           # renovate: datasource=github-release-attachments depName=errata-ai/vale versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
@@ -308,7 +308,7 @@ jobs:
           tar -xzf "${archive}" -C "${RUNNER_TEMP}/vale" vale
           echo "${RUNNER_TEMP}/vale" >> "${GITHUB_PATH}"
       - name: Check the words people read
-        run: vale README.md SECURITY.md training/README.md reference/README.md report.html one.html many.html pages
+        run: vale README.md docs SECURITY.md training/README.md reference/README.md report.html one.html many.html pages
 
   # Advisories, yanked crates, licences and sources for both graphs: the product's, and the fuzz
   # harness's, which is a workspace of its own. The harness keeps no lock file; it builds on the

@@ -22,7 +22,7 @@ reported to code scanning; `CONTRIBUTING.md` says how to run the fuzzers yoursel
 Every release is built by GitHub Actions on GitHub-hosted runners, from a signed commit on
 `main`, with `--locked` dependencies and no build cache, by `release-build.yml`. Nothing is built
 or signed on a developer machine. Each release carries an installer and a portable archive for
-each system (the README's Install section lists them), an SPDX SBOM of each, the Scoop manifest
+each system ([Install](docs/install.md) lists them), an SPDX SBOM of each, the Scoop manifest
 `steamgauge.json`, and `SHA256SUMS` over all of them, and two kinds of Sigstore attestation:
 build provenance over every file, and each SBOM bound to the file it describes. The build and
 the signing both run in that one reusable workflow, which is SLSA Build Level 3, and the
@@ -62,10 +62,10 @@ Three different things are commonly called signing, and they answer different qu
   never heard of. It changes no warnings.
 
 So every build warns on first launch. Windows shows a SmartScreen prompt you can click past;
-macOS refuses until you allow the app under System Settings, Privacy and Security. The README's
-Install section shows both. Neither warning is a sign that the download has been tampered with.
-Verify provenance with the commands above: the operating system's warning reflects only that no
-certificate authority has been paid.
+macOS refuses until you allow the app under System Settings, Privacy and Security.
+[The first launch](docs/install.md#the-first-launch) shows both. Neither warning is a sign that
+the download has been tampered with. Verify provenance with the commands above: the operating
+system's warning reflects only that no certificate authority has been paid.
 
 Windows builds are to carry a SignPath Foundation signature, which chains to a CA Windows
 trusts, once the project is enrolled; until then they carry provenance only. macOS has no free

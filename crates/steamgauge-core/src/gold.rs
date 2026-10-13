@@ -1,6 +1,6 @@
 //! The claims a person adjudicates, and the page they do it on.
 //!
-//! Everything measured so far is a model agreeing with a model. The README says so and no
+//! Everything measured so far is a model agreeing with a model. The docs say so and no
 //! citation can rest on it. What turns a silver set into a gold one is a person reading the
 //! claims themselves, and the only reason that has not happened is that there was nothing to
 //! read them on.

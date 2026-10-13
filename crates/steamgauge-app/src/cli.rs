@@ -548,7 +548,7 @@ enum Command {
 
     /// Write the page a person adjudicates claims on, from the held-out games.
     ///
-    /// Everything measured so far is a model agreeing with a model, which the README says and
+    /// Everything measured so far is a model agreeing with a model, which the docs say and
     /// which no citation can rest on. This draws two kinds of claim: a random sample with no
     /// answer shown, which is the only reading that produces an accuracy figure rather than a
     /// ratification, and the claims two labellers answered differently, with both answers

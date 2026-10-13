@@ -1,11 +1,12 @@
-"""The reader in each size, measured one way, as one table for the README and every model card.
+"""The reader in each size, measured one way, as one table for the docs and every model card.
 
-The figures live in `reference/reader-sizes.json` and nowhere else. The README's table and the
-table on each size's model card are both rendered from that file, so the page somebody reads on
-the Hugging Face hub and the one in the repository cannot say different things.
+The figures live in `reference/reader-sizes.json` and nowhere else. The table in
+`docs/accuracy.md` and the table on each size's model card are both rendered from that file, so
+the page somebody reads on the Hugging Face hub and the one in the repository cannot say
+different things.
 
     python sizes.py            prints the table
-    python sizes.py --readme   writes it into the README between its markers
+    python sizes.py --write    writes it into docs/accuracy.md between its markers
 """
 
 from __future__ import annotations
@@ -17,10 +18,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SIZES = REPO / "reference" / "reader-sizes.json"
-README = REPO / "README.md"
+PAGE = REPO / "docs" / "accuracy.md"
 OPENS = "<!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->"
 CLOSES = "<!-- end of reader sizes -->"
-# The README's prose width, which its Markdown lint holds every line but a table row to.
+# The page's prose width, which its Markdown lint holds every line but a table row to.
 WIDTH = 100
 
 
@@ -95,7 +96,7 @@ def load(path: Path = SIZES) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def in_readme(text: str, rendered: str) -> str:
+def in_page(text: str, rendered: str) -> str:
     """`text` with the block between the markers replaced by `rendered`."""
     start, end = text.index(OPENS), text.index(CLOSES)
     return text[: start + len(OPENS)] + "\n" + rendered + "\n" + text[end:]
@@ -103,12 +104,14 @@ def in_readme(text: str, rendered: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--readme", action="store_true", help="write the table into README.md")
+    parser.add_argument(
+        "--write", action="store_true", help="write the table into docs/accuracy.md"
+    )
     args = parser.parse_args()
     rendered = table(load())
-    if args.readme:
-        README.write_text(
-            in_readme(README.read_text(encoding="utf-8"), rendered), encoding="utf-8", newline="\n"
+    if args.write:
+        PAGE.write_text(
+            in_page(PAGE.read_text(encoding="utf-8"), rendered), encoding="utf-8", newline="\n"
         )
     else:
         print(rendered)
