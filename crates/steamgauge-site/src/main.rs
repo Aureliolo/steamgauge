@@ -11,6 +11,7 @@
 mod blocks;
 mod checks;
 mod home;
+mod picker;
 mod render;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -36,6 +37,9 @@ pub struct Page {
     /// What it holds, as the README's list and a search result say it: lower case, no full stop.
     pub description: &'static str,
     pub layout: Layout,
+    /// Whether the navigation lists it. The guide written for assistants is reached from the
+    /// text a person pastes to one, and from `llms.txt`.
+    pub nav: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +78,7 @@ pub const PAGES: &[Page] = &[
                       one on your own computer: what players praise and criticise, how often, \
                       and the reviews behind every figure",
         layout: Layout::Prose,
+        nav: true,
     },
     Page {
         file: "install",
@@ -82,6 +87,7 @@ pub const PAGES: &[Page] = &[
         description: "the files for each system, the first launch, checking a download and \
                       updating",
         layout: Layout::Prose,
+        nav: true,
     },
     Page {
         file: "how-it-works",
@@ -89,6 +95,7 @@ pub const PAGES: &[Page] = &[
         label: "How it works",
         description: "what it downloads, how it reads a review, and what each figure counts",
         layout: Layout::Prose,
+        nav: true,
     },
     Page {
         file: "accuracy",
@@ -97,6 +104,7 @@ pub const PAGES: &[Page] = &[
         description: "how often the reader is right, against what, in which languages, and what \
                       the figures cannot tell you",
         layout: Layout::Prose,
+        nav: true,
     },
     Page {
         file: "assistants",
@@ -104,6 +112,15 @@ pub const PAGES: &[Page] = &[
         label: "AI assistants",
         description: "the app's MCP server and the assistants it adds itself to",
         layout: Layout::Prose,
+        nav: true,
+    },
+    Page {
+        file: "agent",
+        source: Source::Markdown("docs/agent.md"),
+        label: "Guide for assistants",
+        description: "the steps an AI assistant follows to add SteamGauge to itself",
+        layout: Layout::Prose,
+        nav: false,
     },
     Page {
         file: "tools",
@@ -111,6 +128,7 @@ pub const PAGES: &[Page] = &[
         label: "MCP tools",
         description: "every tool the MCP server offers and what each is given",
         layout: Layout::Cards,
+        nav: true,
     },
     Page {
         file: "commands",
@@ -118,6 +136,7 @@ pub const PAGES: &[Page] = &[
         label: "Command line",
         description: "every command of the `steamgauge` program",
         layout: Layout::Cards,
+        nav: true,
     },
     Page {
         file: "privacy",
@@ -125,6 +144,7 @@ pub const PAGES: &[Page] = &[
         label: "Privacy",
         description: "what stays on your computer and the four places the app connects to",
         layout: Layout::Prose,
+        nav: true,
     },
 ];
 
@@ -213,18 +233,12 @@ fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
     let mut stylesheet = include_str!("../style.css").to_owned();
     for page in PAGES {
         let (title, content, contents, markdown) = match page.markdown() {
-            None => {
-                let (content, rules) = home::rules(&home::html(version, &window.picture()));
-                stylesheet.push_str("\n/* The install picker, written with it by home.rs. */\n");
-                stylesheet.push_str(&rules);
-                stylesheet.push('\n');
-                (
-                    "SteamGauge".to_owned(),
-                    content,
-                    Vec::new(),
-                    home::text(version),
-                )
-            }
+            None => (
+                "SteamGauge".to_owned(),
+                home::html(version, &window.picture()),
+                Vec::new(),
+                home::text(version),
+            ),
             Some(source) => {
                 let rendered = render::render(&site, page, &texts[source])?;
                 assets.extend(rendered.assets);
@@ -236,6 +250,14 @@ fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
                 )
             }
         };
+        let (content, rules) = picker::rules(&blocks::for_the_site(&content));
+        if !rules.is_empty() {
+            let _ = write!(
+                stylesheet,
+                "\n/* The pickers on {}.html, written with them. */\n{rules}\n",
+                page.file
+            );
+        }
         let html = page_html(page, &title, &content, &contents, version);
         pages.insert(format!("{}.html", page.file), html);
         files.insert(format!("{}.md", page.file), markdown.clone().into_bytes());
@@ -410,7 +432,7 @@ fn page_html(
         format!("{title} | SteamGauge")
     };
     let mut nav = String::new();
-    for other in PAGES {
+    for other in PAGES.iter().filter(|other| other.nav) {
         let current = if other.file == page.file {
             " aria-current=\"page\""
         } else {

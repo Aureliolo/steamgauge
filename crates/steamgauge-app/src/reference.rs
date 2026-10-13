@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use crate::clients::{CLIENTS, Folders};
+use crate::clients::{CLIENTS, Folders, Launch, with_entry};
 
 /// The command line, as `--help` prints it.
 #[must_use]
@@ -40,9 +40,19 @@ pub struct Client {
     pub linux: String,
     /// What the person still has to do once the file is written, if anything.
     pub then: Option<&'static str>,
+    /// The file as `connect` writes it where there was none, with the program's path as
+    /// `PROGRAM`.
+    pub entry: String,
 }
 
+/// What stands for the program's path in a client's entry.
+pub const PROGRAM: &str = "<path to steamgauge>";
+
 /// Every client, each with its file as a person would type it on each system.
+///
+/// # Panics
+///
+/// Never: an empty file always takes an entry, and the tests hold every client to it.
 #[must_use]
 pub fn clients() -> Vec<Client> {
     let on = |home: &str, config: &str, windows: bool| Folders {
@@ -60,6 +70,10 @@ pub fn clients() -> Vec<Client> {
         path.to_string_lossy()
             .replace(['/', '\\'], &separator.to_string())
     };
+    let launch = Launch {
+        program: PROGRAM.to_owned(),
+        args: vec!["mcp".to_owned()],
+    };
     CLIENTS
         .iter()
         .map(|client| Client {
@@ -69,6 +83,10 @@ pub fn clients() -> Vec<Client> {
             macos: written((client.file)(&macos), '/'),
             linux: written((client.file)(&linux), '/'),
             then: client.then,
+            entry: with_entry(client, "", &launch)
+                .expect("an empty file takes the entry")
+                .trim_end()
+                .to_owned(),
         })
         .collect()
 }
@@ -94,6 +112,28 @@ mod tests {
             "~/Library/Application Support/Claude/claude_desktop_config.json"
         );
         assert_eq!(desktop.linux, "~/.config/Claude/claude_desktop_config.json");
+    }
+
+    #[test]
+    fn each_entry_is_the_file_connect_writes() {
+        let entry = |id: &str| {
+            clients()
+                .into_iter()
+                .find(|client| client.id == id)
+                .unwrap()
+                .entry
+        };
+        let cursor = entry("cursor");
+        assert!(cursor.contains("\"mcpServers\""), "{cursor}");
+        assert!(cursor.contains("\"steamgauge\""), "{cursor}");
+        assert!(cursor.contains("\"<path to steamgauge>\""), "{cursor}");
+        assert!(cursor.contains("\"mcp\""), "{cursor}");
+        let codex = entry("codex");
+        assert!(codex.contains("[mcp_servers.steamgauge]"), "{codex}");
+        assert!(
+            codex.contains("command = \"<path to steamgauge>\""),
+            "{codex}"
+        );
     }
 
     #[test]

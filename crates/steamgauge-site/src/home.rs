@@ -6,7 +6,8 @@ use std::fmt::Write as _;
 
 use steamgauge_app::reference;
 
-use crate::{REPOSITORY, escape};
+use crate::picker::{self, Choice, inline};
+use crate::{REPOSITORY, blocks, escape};
 
 const HEADLINE: &str = "Read every review of a game.";
 
@@ -102,9 +103,6 @@ const WAYS: [Way; 5] = [
     },
 ];
 
-/// Shown first, for the system most people read Steam reviews on.
-const FIRST: &str = "winget";
-
 fn filled(text: &str, version: &str) -> String {
     text.replace(
         RELEASE,
@@ -181,7 +179,7 @@ pub fn html(version: &str, picture: &Picture) -> String {
          over. <a href=\"install.html\">Install</a> has the archives, the first launch and \
          upgrading.</p>\n</section>\n\
          <section class=\"step two\">\n<div>\n<h2 id=\"first-game\">A first game</h2>\n<ol>\n",
-        picker(version)
+        installs(version)
     );
     for step in IN_THE_WINDOW {
         let _ = writeln!(page, "<li>{}</li>", inline(step));
@@ -192,108 +190,34 @@ pub fn html(version: &str, picture: &Picture) -> String {
          <pre tabindex=\"0\"><code>{}</code></pre>\n\
          <p class=\"note\"><a href=\"commands.html\">The command line</a> has every \
          command.</p>\n</div>\n</section>\n\
-         <section class=\"step\">\n<h2 id=\"assistants\">From an AI assistant</h2>\n\
+         <section class=\"step\">\n<h2 id=\"assistants\">Hand it to your AI assistant</h2>\n\
          <p>The app is an MCP server with {tools} tools: an assistant can find, download and \
-         read games, and ask what their players say. Settings adds it to any of {clients} \
-         assistants with one click, or from a terminal:</p>\n\
-         <pre tabindex=\"0\"><code>steamgauge connect claude-desktop</code></pre>\n\
-         <p class=\"note\"><a href=\"assistants.html\">AI assistants</a> lists them and the \
-         command for any other.</p>\n</section>\n\
+         read games, and ask what their players say. Paste this to yours:</p>\n\
+         <pre tabindex=\"0\"><code>{}</code></pre>\n\
+         <p class=\"note\">It reads the guide, adds SteamGauge to its own settings, and says \
+         which file it wrote. <a href=\"assistants.html\">AI assistants</a> has the command for \
+         each of {clients} assistants, and for any other.</p>\n</section>\n\
          <p class=\"smallprint\">{}</p>\n",
-        commented(IN_A_TERMINAL),
+        picker::commented(IN_A_TERMINAL),
+        escape(blocks::PASTE),
         escape(SMALLPRINT)
     );
     page
 }
 
-/// The ways to install, one chip each, and the command for the one chosen: radio inputs and
-/// sibling selectors, so choosing needs no script, which the site's content security policy
-/// forbids. The rules tying each input to its chip and its panel are written with them, so a
-/// way added above cannot outrun the stylesheet.
-fn picker(version: &str) -> String {
-    let mut inputs = String::new();
-    let mut chips = String::new();
-    let mut panels = String::new();
-    let mut rules = String::new();
-    for way in WAYS {
-        let id = way.id;
-        let checked = if id == FIRST { " checked" } else { "" };
-        let _ = writeln!(
-            inputs,
-            "<input type=\"radio\" name=\"way\" id=\"way-{id}\" aria-controls=\"panel-{id}\"{checked}>"
-        );
-        let _ = write!(chips, "<label for=\"way-{id}\">{}</label>", way.name);
-        let _ = write!(
-            panels,
-            "<div class=\"panel\" id=\"panel-{id}\"><pre tabindex=\"0\"><code>{}</code></pre>\
-             <p>{}</p></div>",
-            escape(&filled(way.command, version)),
-            inline(&filled(way.note, version))
-        );
-        let _ = write!(
-            rules,
-            "#way-{id}:checked~.panels #panel-{id}{{display:block}}\
-             #way-{id}:checked~.chips label[for=\"way-{id}\"]{{background:var(--accent);\
-             border-color:var(--accent);color:var(--accent-ink)}}\
-             #way-{id}:focus-visible~.chips label[for=\"way-{id}\"]{{outline:3px solid \
-             var(--accent);outline-offset:2px}}"
-        );
-    }
-    format!(
-        "<div class=\"picker\">\n{inputs}<div class=\"chips\">{chips}</div>\n\
-         <div class=\"panels\">{panels}</div>\n</div>\n<style-rules>{rules}</style-rules>"
-    )
-}
-
-/// The picker's rules, which the build moves into the stylesheet: the pages carry no inline
-/// style, since the content security policy allows only the site's own stylesheet.
-#[must_use]
-pub fn rules(page: &str) -> (String, String) {
-    match page.split_once("<style-rules>") {
-        Some((before, rest)) => {
-            let (rules, after) = rest.split_once("</style-rules>").unwrap_or((rest, ""));
-            (format!("{before}{after}"), rules.to_owned())
-        }
-        None => (page.to_owned(), String::new()),
-    }
-}
-
-/// A shell snippet with its comments marked, so the stylesheet can set them apart.
-fn commented(code: &str) -> String {
-    code.lines()
-        .map(|line| {
-            if line.starts_with('#') {
-                format!("<span class=\"comment\">{}</span>", escape(line))
-            } else {
-                escape(line)
-            }
+/// The ways to install, one chip each, Windows first, as the system most people read Steam
+/// reviews on.
+fn installs(version: &str) -> String {
+    let choices: Vec<Choice> = WAYS
+        .iter()
+        .map(|way| Choice {
+            id: way.id.to_owned(),
+            name: way.name.to_owned(),
+            code: filled(way.command, version),
+            note: filled(way.note, version),
         })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// The little Markdown the cards and notes use: `code` and **strong**.
-fn inline(text: &str) -> String {
-    let mut out = String::new();
-    let mut code = false;
-    let mut strong = false;
-    let mut rest = escape(text);
-    while !rest.is_empty() {
-        if let Some(after) = rest.strip_prefix("**") {
-            out.push_str(if strong { "</strong>" } else { "<strong>" });
-            strong = !strong;
-            rest = after.to_owned();
-        } else if let Some(after) = rest.strip_prefix('`') {
-            out.push_str(if code { "</code>" } else { "<code>" });
-            code = !code;
-            rest = after.to_owned();
-        } else {
-            let c = rest.chars().next().unwrap_or_default();
-            out.push(c);
-            rest = rest[c.len_utf8()..].to_owned();
-        }
-    }
-    out
+        .collect();
+    picker::html("install", &choices)
 }
 
 /// The front page as Markdown.
@@ -326,10 +250,10 @@ pub fn text(version: &str) -> String {
     }
     let _ = write!(
         page,
-        "\nOr in a terminal:\n\n```sh\n{IN_A_TERMINAL}\n```\n\n## From an AI assistant\n\n\
-         The app is an MCP server. Settings adds it to an assistant, or `steamgauge connect \
-         claude-desktop` does from a terminal. See [AI assistants](assistants.md).\n\n\
-         {SMALLPRINT}\n"
+        "\nOr in a terminal:\n\n```sh\n{IN_A_TERMINAL}\n```\n\n## Hand it to your AI assistant\n\n\
+         The app is an MCP server. Paste this to your assistant:\n\n```text\n{}\n```\n\n\
+         See [AI assistants](assistants.md) for each assistant's own command.\n\n{SMALLPRINT}\n",
+        blocks::PASTE
     );
     page
 }
@@ -339,22 +263,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_way_to_install_has_a_chip_a_panel_and_its_rules() {
-        let (page, rules) = rules(&picker("9.8.7"));
+    fn every_way_to_install_is_a_choice_at_the_version_built() {
+        let page = installs("9.8.7");
         for way in WAYS {
-            let id = way.id;
-            assert!(page.contains(&format!("id=\"way-{id}\"")), "{id}");
-            assert!(page.contains(&format!("<label for=\"way-{id}\">")), "{id}");
-            assert!(page.contains(&format!("id=\"panel-{id}\"")), "{id}");
             assert!(
-                rules.contains(&format!(
-                    "#way-{id}:checked~.panels #panel-{id}{{display:block}}"
-                )),
-                "{id}"
+                page.contains(&format!("id=\"pick-install-{}\"", way.id)),
+                "{}",
+                way.id
             );
         }
-        assert_eq!(page.matches(" checked>").count(), 1);
-        assert!(!page.contains("style"), "{page}");
+        assert!(page.contains(
+            "id=\"pick-install-winget\" aria-controls=\"panel-install-winget\" checked>"
+        ));
         assert!(page.contains(
             "https://github.com/Aureliolo/steamgauge/releases/download/v9.8.7/\
              steamgauge_9.8.7-1_amd64.deb"
@@ -383,13 +303,5 @@ mod tests {
         assert!(text.starts_with("# SteamGauge\n\n"), "{text}");
         assert!(text.contains("winget install Aureliolo.SteamGauge"));
         assert!(text.contains("See [Accuracy](accuracy.md)."));
-    }
-
-    #[test]
-    fn the_little_markdown_becomes_code_and_strong() {
-        assert_eq!(
-            inline("**Add** `a` <b>"),
-            "<strong>Add</strong> <code>a</code> &lt;b&gt;"
-        );
     }
 }
