@@ -21,30 +21,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# A pull request that holds no code runs each job with its steps skipped, so it reports under the
-# name the ruleset requires; see ci.yml and .github/actions/scope.
+# Unlike the other checks, this one analyses a pull request that holds no code too (a release's
+# version, the package managers' manifests): a commit on main counts as scanned only where its own
+# pull request carries an analysis, which is what OpenSSF Scorecard's SAST check reads.
 jobs:
-  scope:
-    name: scope
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read # Fetches the two commits a pull request compares.
-    outputs:
-      code: ${{ steps.scope.outputs.code }}
-    steps:
-      # The pull request's merge commit and the base under it, which is all the classifier reads.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 2
-      - id: scope
-        uses: $/.github/actions/scope
-
   analyse:
     name: codeql (${{ matrix.language }})
-    needs: scope
-    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,13 +39,11 @@ jobs:
 
     steps:
       - name: Checkout
-        if: needs.scope.outputs.code != 'false'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Initialise
-        if: needs.scope.outputs.code != 'false'
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: ${{ matrix.language }}
@@ -71,7 +51,6 @@ jobs:
           queries: security-and-quality
 
       - name: Analyse
-        if: needs.scope.outputs.code != 'false'
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:${{ matrix.language }}
