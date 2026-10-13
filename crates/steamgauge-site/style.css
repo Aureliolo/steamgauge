@@ -1,55 +1,92 @@
-/* The documentation site's one stylesheet. System fonts only, so a page fetches nothing from
-   another host; the colour scheme follows the reader's system. */
+/* The documentation site. The window's own palette and type, so the site and the app read as
+   one thing; system fonts only, so a page fetches nothing from another host; the scheme follows
+   the reader's system, as the window does. */
 
 :root {
-  --paper: #ffffff;
-  --ink: #1b1f23;
-  --quiet: #57606a;
-  --link: #0b5cad;
-  --rule: #d0d7de;
-  --well: #f3f4f6;
-  --brand: #b33a0f;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: light dark;
+  --bg: #f7f4ef;
+  --surface: #fffdfa;
+  --sunken: #f2eee7;
+  --line: #e8e2d8;
+  --line-strong: #d7cfc3;
+  --ink: #1f1b17;
+  --ink-2: #3f3a34;
+  --ink-3: #5f584f;
+  --ink-4: #736c64;
+  --accent: #c43e0b;
+  --accent-hover: #a8350a;
+  --accent-soft: #fcede5;
+  --accent-ink: #ffffff;
+  /* Code sits on dark in either scheme, as a terminal does. */
+  --code-bg: #1a1714;
+  --code-ink: #f3eee6;
+  --code-quiet: #aaa196;
+  --code-line: #2c2722;
+  --shadow: 0 12px 32px -8px rgb(43 39 34 / 0.18), 0 4px 8px -4px rgb(43 39 34 / 0.06);
+  --sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system,
+    BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Cascadia Mono', ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --page: 1180px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #111417;
-    --ink: #e6e8eb;
-    --quiet: #a0a7b0;
-    --link: #79b8ff;
-    --rule: #30363d;
-    --well: #1c2127;
-    --brand: #f0884f;
+    --bg: #12100e;
+    --surface: #1a1714;
+    --sunken: #151210;
+    --line: #2c2722;
+    --line-strong: #3b352f;
+    --ink: #f3eee6;
+    --ink-2: #cfc7bb;
+    --ink-3: #aaa196;
+    --ink-4: #8c847c;
+    --accent: #ff6b2c;
+    --accent-hover: #ff8552;
+    --accent-soft: #2e1a10;
+    --accent-ink: #1a0d05;
+    --code-bg: #0d0b0a;
+    --code-line: #2c2722;
+    --shadow: 0 16px 40px -8px rgb(0 0 0 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.4);
   }
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
-  font: 1.0625rem/1.6 var(--sans);
+  font: 16px/1.6 var(--sans);
   -webkit-text-size-adjust: 100%;
 }
 
 body {
-  margin: 0 auto;
-  max-width: 52rem;
-  padding: 0 1.25rem;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--link);
-  text-underline-offset: 0.15em;
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--accent-hover);
 }
 
 :focus-visible {
-  outline: 3px solid var(--link);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .skip {
@@ -58,145 +95,563 @@ a {
 }
 
 .skip:focus {
-  left: 1rem;
-  top: 1rem;
-  background: var(--paper);
-  padding: 0.5rem 0.75rem;
+  left: 16px;
+  top: 12px;
+  z-index: 2;
+  background: var(--surface);
+  padding: 8px 12px;
 }
 
-header {
-  border-bottom: 1px solid var(--rule);
-  padding: 1.25rem 0 0.75rem;
+/* The bar along the top and the one along the bottom. */
+
+.bar {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
-.mark {
-  align-items: center;
-  color: var(--ink);
-  display: inline-flex;
-  font-size: 1.25rem;
-  font-weight: 700;
-  gap: 0.5rem;
-  text-decoration: none;
+.top {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
 }
 
-nav ul {
+.top .bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  list-style: none;
-  margin: 0.75rem 0 0;
-  padding: 0;
+  align-items: center;
+  gap: 8px 32px;
+  min-height: 60px;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0.2rem 0;
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 17px;
 }
 
-nav a[aria-current="page"] {
+.wordmark img {
+  border-radius: 6px;
+}
+
+.wordmark .version {
+  color: var(--ink-3);
+  font: 500 12px var(--mono);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  flex: 1;
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+@media (min-width: 1100px) {
+  .links {
+    flex-wrap: nowrap;
+  }
+}
+
+.links a {
+  color: var(--ink-2);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.links a:hover {
+  color: var(--accent);
+}
+
+.links a[aria-current='page'] {
   color: var(--ink);
   font-weight: 600;
-  text-decoration-color: var(--brand);
-  text-decoration-thickness: 2px;
+  border-bottom-color: var(--accent);
 }
 
-main {
-  padding: 1rem 0 2rem;
+.links .gap {
+  flex: 1;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  line-height: 1.25;
-  margin: 2rem 0 0.75rem;
+.links .out::after {
+  content: ' \2197' / '';
+  color: var(--ink-4);
 }
 
-h1 {
-  font-size: 2rem;
+.foot {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font: 12.5px/1.6 var(--mono);
 }
 
-h2 {
-  border-bottom: 1px solid var(--rule);
-  font-size: 1.5rem;
-  padding-bottom: 0.3rem;
+.foot .bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+  padding-top: 20px;
+  padding-bottom: 28px;
 }
 
-h3 {
-  font-size: 1.2rem;
+.foot a {
+  color: var(--ink-3);
 }
+
+/* Code, the same everywhere. */
 
 code {
-  background: var(--well);
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--sunken);
+  border: 1px solid var(--line);
   border-radius: 4px;
-  font: 0.9em var(--mono);
-  padding: 0.1em 0.3em;
+  padding: 0.05em 0.35em;
 }
 
 pre {
-  background: var(--well);
-  border-radius: 6px;
-  line-height: 1.45;
+  margin: 16px 0;
+  padding: 16px 18px;
   overflow-x: auto;
-  padding: 0.9rem 1rem;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  border: 1px solid var(--code-line);
+  border-radius: 10px;
+  font: 13.5px/1.65 var(--mono);
 }
 
 pre code {
   background: none;
+  border: 0;
   padding: 0;
+  font-size: inherit;
+  color: inherit;
 }
 
-.wide {
-  margin: 1rem 0;
-  overflow-x: auto;
+pre .comment {
+  color: var(--code-quiet);
+  font-style: italic;
 }
 
-table {
-  border-collapse: collapse;
+/* The front page. */
+
+.home {
+  width: 100%;
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 0 24px 40px;
 }
 
-th,
-td {
-  border: 1px solid var(--rule);
-  padding: 0.4rem 0.7rem;
-  text-align: left;
-  vertical-align: top;
+.hero {
+  padding: 64px 0 8px;
+  max-width: 820px;
 }
 
-th {
-  background: var(--well);
+.hero h1 {
+  margin: 0;
+  font: 700 clamp(36px, 6vw, 58px) / 1.05 var(--display);
+  letter-spacing: -0.025em;
 }
 
-blockquote {
-  border-left: 4px solid var(--rule);
-  color: var(--quiet);
-  margin: 1rem 0;
-  padding: 0 1rem;
+.lede {
+  margin: 20px 0 0;
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink-2);
 }
 
-img {
-  height: auto;
-  max-width: 100%;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 28px 0 0;
+}
+
+.button {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
+}
+
+.button.quiet {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.button.quiet:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 figure.window {
-  margin: 1.5rem 0;
+  margin: 48px 0 0;
 }
 
+/* The top of the cockpit, which is what it opens on; the picture runs on well past it. */
 figure.window img {
-  border: 1px solid var(--rule);
-  border-radius: 6px;
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 
-figcaption {
-  color: var(--quiet);
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
+figure.window figcaption {
+  margin-top: 10px;
+  color: var(--ink-3);
+  font-size: 13.5px;
 }
 
-footer {
-  border-top: 1px solid var(--rule);
-  color: var(--quiet);
-  font-size: 0.95rem;
-  padding: 1rem 0 2rem;
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 48px 0 0;
+}
+
+.cards .card {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 22px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font: 600 11.5px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cards h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+.cards p {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+
+.go {
+  margin-top: auto;
+  font-weight: 600;
+  font-size: 14.5px;
+  text-decoration: none;
+}
+
+.go::after {
+  content: ' \2192' / '';
+}
+
+.step {
+  margin: 56px 0 0;
+}
+
+.step h2 {
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-3);
+  font: 600 12px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.step.two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px 40px;
+}
+
+.step ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.step li {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+}
+
+.step li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.step li strong {
+  color: var(--ink);
+}
+
+.note {
+  color: var(--ink-3);
+  font-size: 14.5px;
+}
+
+.smallprint {
+  margin: 64px 0 0;
+  color: var(--ink-4);
+  font-size: 13px;
+}
+
+/* The install picker: radio inputs ahead of their chips and panels, so choosing needs no
+   script. The rules tying each input to its own are appended by the build. */
+
+.picker {
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.picker > input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chips label {
+  padding: 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chips label:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.panels .panel {
+  display: none;
+}
+
+.panels pre {
+  margin: 0;
+}
+
+.panels p {
+  margin: 10px 2px 0;
+  color: var(--ink-3);
+  font-size: 14.5px;
+}
+
+/* The documentation pages: the page's own contents beside it on a wide screen, above it on a
+   narrow one. */
+
+.doc {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 56px;
+  width: 100%;
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+
+.doc.single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 820px;
+}
+
+.contents {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  font-size: 14px;
+}
+
+.contents p {
+  margin: 8px 0 10px;
+  color: var(--ink-3);
+  font: 600 11.5px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contents ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-left: 1px solid var(--line);
+}
+
+.contents li {
+  margin: 0 0 8px;
+}
+
+.contents a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.contents a:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .doc {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .contents {
+    position: static;
+  }
+}
+
+.prose {
+  max-width: 760px;
+}
+
+.prose h1 {
+  margin: 0 0 12px;
+  font: 700 38px/1.15 var(--display);
+  letter-spacing: -0.02em;
+}
+
+.prose h1 + p {
+  font-size: 18px;
+  color: var(--ink-2);
+}
+
+.prose h2 {
+  margin: 48px 0 12px;
+  font-size: 23px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.prose h3 {
+  margin: 28px 0 8px;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+  margin: 0 0 14px;
+}
+
+.prose li {
+  margin: 0 0 6px;
+}
+
+.prose li > ul {
+  margin: 6px 0 0;
+}
+
+.prose strong {
+  color: var(--ink);
+}
+
+.prose blockquote {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+}
+
+.prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.wide {
+  margin: 16px 0 20px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.wide table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.wide th,
+.wide td {
+  padding: 9px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.wide th {
+  background: var(--sunken);
+  color: var(--ink-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wide tr:last-child td {
+  border-bottom: 0;
+}
+
+/* A reference page: each entry a card of its own. */
+
+.reference .card {
+  margin: 12px 0;
+  padding: 16px 20px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.reference .card h3 {
+  margin: 0 0 6px;
+}
+
+.reference .card h3 code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 15.5px;
+  color: var(--accent);
+}
+
+.reference .card ul {
+  font-size: 14.5px;
+  color: var(--ink-2);
 }

@@ -47,20 +47,16 @@ The documentation is published at <https://aureliolo.github.io/steamgauge/> and 
 
 <!-- steamgauge-site: pages -->
 
-- [Install](docs/install.md): the files for each system, the package managers, the first launch,
-  verifying a download and upgrading.
-- [How it works](docs/how-it-works.md): what the tool counts and why, how a review becomes the
-  claims it makes, how each claim is read, and what every percentage means.
-- [Steering it from an AI assistant](docs/assistants.md): the app's MCP server, its tools, the
-  assistants it adds itself to, and the command for any other.
-- [The command line](docs/commands.md): every command and option of the `steamgauge` program.
-- [How it knows whether it is right](docs/accuracy.md): how the reader is measured, how it compares
-  with the alternatives, each size it comes in, the person-checked gold set, and how the reference
-  sets are made.
-- [Honest limits](docs/limits.md): where the figures fall short, by language, by labeller and by
-  what Steam serves.
-- [Data and privacy](docs/privacy.md): what stays on your machine and the four places the app makes
-  requests to.
+- [Install](docs/install.md): the files for each system, the first launch, checking a download and
+  updating.
+- [How it works](docs/how-it-works.md): what it downloads, how it reads a review, and what each
+  figure counts.
+- [Accuracy](docs/accuracy.md): how often the reader is right, against what, in which languages, and
+  what the figures cannot tell you.
+- [AI assistants](docs/assistants.md): the app's MCP server and the assistants it adds itself to.
+- [MCP tools](docs/tools.md): every tool the MCP server offers and what each is given.
+- [Command line](docs/commands.md): every command of the `steamgauge` program.
+- [Privacy](docs/privacy.md): what stays on your computer and the four places the app connects to.
 
 <!-- steamgauge-site: end -->
 

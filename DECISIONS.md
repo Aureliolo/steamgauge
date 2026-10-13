@@ -137,7 +137,7 @@ prepared again: its vectors are in another space.
 | No money spent: self-signed on macOS, and an extra step there is acceptable | accepted |
 | A newer version is named in the window, and installed from it on request once its keyless build provenance verifies; no signing key anywhere | named since 2026-10-03, at most once a day, a setting turns it off (below, "A newer version is named, and no key exists to sign one"); installed since 2026-10-06 (below, "Update now installs what the release workflow built, and nothing else") |
 | Supply-chain hardening in proportion to the project, not the full enterprise set | done |
-| **The documentation is a site, and the README is its front page** (the user, 2026-10-13: the README was "FAAAAAAAR to large"; a site built by our own Rust generator) | built: below, "The documentation site is built from the program's own tables" |
+| **The documentation is a site with a front page of its own, and the README is GitHub's front page** (the user, 2026-10-13: the README was "FAAAAAAAR to large"; a site built by our own Rust generator; its home handcrafted and its pages concise) | built: below, "The documentation site is built from the program's own tables" and "The site's front page is made" |
 
 ## Reference sets
 
@@ -5822,7 +5822,7 @@ builds each system's program from nothing, so the saving lands on every release.
 
 The README holds the pitch, the install commands, the list of pages and the models; everything
 else is a page under `docs/`, and the site at <https://aureliolo.github.io/steamgauge/> is those
-pages with the README as its home. A generator of our own, `crates/steamgauge-site`, builds it
+pages behind a front page of its own. A generator of our own, `crates/steamgauge-site`, builds it
 rather than a static-site tool, because the parts that go stale are the ones describing the
 program: the commands and their options, the MCP tools and what each is given, and the files the
 app writes into each MCP client. Those are written from the definitions the program runs on,
@@ -5833,8 +5833,8 @@ For that the app crate is a library with a thin binary, and the generator links 
 What the site is held to, by the generator and then `tools/site-check` in Chrome: a link to
 another page goes to that page and a link to any other file goes to it on GitHub at the release's
 tag, each checked to exist, headings included, with GitHub's anchors so a link written for the
-repository works on the site. Nothing is fetched from another host, which drops the README's
-badges there and leaves system fonts. The pages run no script and carry a content security
+repository works on the site. Nothing is fetched from another host, which leaves the window's own
+system fonts. The pages run no script and carry a content security
 policy allowing only their own stylesheet and pictures, and every page passes axe-core's WCAG 2.2
 A and AA rules in the light scheme, the dark one and at a phone's width. Each page is also
 published as Markdown, with `llms.txt` and `llms-full.txt` beside them. The release builds the
@@ -5848,6 +5848,25 @@ manifest into every program the app crate and the generator link. And tauri-buil
 runtime statically through an empty `msvcrt.lib` that every dependent inherits on its search
 path, while its arguments choosing the static runtime reach only the app, so the generator
 names the static runtime the same way.
+
+### The site's front page is made, and its pages are reference rather than essays (2026-10-13)
+
+The first site rendered the README as its home and the old README's sections as its pages, and
+the user called both out: the home "should be a unique handcrafted" page, and the pages were
+"walls of text" and "llm ramble" when they "should be concise, informative". So the front page is
+made in `home.rs` as a page meant to be looked at: what the program does in one line, the window,
+three cards that each lead into the documentation, install commands per system behind tabs that
+need no script, a first game in the window and in a terminal, and the way in for an assistant. Its
+Markdown twin says the same in prose. The pages were rewritten as reference, from about 12,700
+words to about 3,200 beside the generated parts: what each thing is and how to use it, each figure
+with what it was measured on, and no argument for why, which stays here. Limits became the last
+section of Accuracy. The MCP tools have a page of their own, each tool a card in a named group, and
+the command line puts the commands people run in full and the reader's measuring and training
+commands a line each; a command or tool in no group fails the build. The look is the window's own:
+its palette in both schemes, its system fonts, the cockpit as the picture.
+
+The rewrite dropped one claim that was not true: the privacy page said exporting a corpus offers
+de-identification, and nothing in the program does.
 
 ## Nothing here is identified by a number somebody incremented
 
