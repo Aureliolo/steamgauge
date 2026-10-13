@@ -4746,6 +4746,12 @@ failing the check and landing in code scanning. The fuzzers are built by the com
 `rust-toolchain.toml` names, not the nightly in OSS-Fuzz's image, which is pinned by hand and
 older than the crates' `rust-version`.
 
+Renovate's dashboard lists `google/clusterfuzzlite` as abandoned, from its last release in 2023.
+Its `v1` actions are wrappers that run `gcr.io/oss-fuzz-base/clusterfuzzlite-build-fuzzers:v1`
+and its run counterpart, images OSS-Fuzz keeps rebuilding, and the repository is maintained
+without cutting releases (checked 2026-10-13), so the flag measures tags rather than upkeep and
+the actions stay.
+
 Not crashing is the floor. What each target asserts is what the join between labels, readings
 and claims relies on, since a claim is its span and nothing else: every span the splitter cuts
 comes back unchanged through `words_at`, which is the door every stored span passes; claims are
@@ -5797,6 +5803,11 @@ and with it gone a hijacked release can reach a pull request, and a build, the s
 left to catch one is CI, the dependency review job and the crates' exact pins, which hold a build
 to the version a reviewed pull request named. Crates stay pinned with `=`, which keeps the
 manifest and the lock naming the same version.
+
+The dashboard's abandoned list counts time since a last release, not upkeep. `percent-encoding`
+is pinned at its newest release and comes out of servo/rust-url, which is maintained beside the
+`url` crate; ClusterFuzzLite's case is under the fuzzing finding. Both were checked on
+2026-10-13 and stay.
 
 ### Below 1.0, a release that renames something people call raises the minor version (2026-10-13)
 
