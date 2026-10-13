@@ -76,7 +76,9 @@ jobs:
 
   deploy:
     name: deploy
-    if: inputs.publish
+    # Without a status function GitHub adds success(), which skips this job whenever anything
+    # upstream was skipped, and `scope` always is when the release calls this file.
+    if: ${{ !cancelled() && inputs.publish && needs.site.result == 'success' }}
     needs: site
     runs-on: ubuntu-24.04
     timeout-minutes: 15
