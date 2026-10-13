@@ -10,6 +10,7 @@
 
 mod blocks;
 mod checks;
+mod home;
 mod render;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -29,71 +30,109 @@ pub const REPOSITORY: &str = "https://github.com/Aureliolo/steamgauge";
 pub struct Page {
     /// Its file name in the site, without `.html` or `.md`.
     pub file: &'static str,
-    /// Its Markdown, from the repository root.
-    pub source: &'static str,
+    pub source: Source,
     /// Its name in the navigation.
     pub label: &'static str,
     /// What it holds, as the README's list and a search result say it: lower case, no full stop.
     pub description: &'static str,
+    pub layout: Layout,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    /// The front page, made by `home`.
+    Home,
+    /// A Markdown file, from the repository root.
+    Markdown(&'static str),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layout {
+    /// Running text.
+    Prose,
+    /// A reference, each third-level heading and what follows it a card of its own.
+    Cards,
+}
+
+impl Page {
+    /// Its Markdown, for a page written as one.
+    #[must_use]
+    pub fn markdown(&self) -> Option<&'static str> {
+        match self.source {
+            Source::Home => None,
+            Source::Markdown(path) => Some(path),
+        }
+    }
 }
 
 pub const PAGES: &[Page] = &[
     Page {
         file: "index",
-        source: "README.md",
-        label: "Home",
-        description: "a tool that downloads every Steam review of a game and reads each claim in \
-                      them on your own machine, to show what players praise and criticise",
+        source: Source::Home,
+        label: "Overview",
+        description: "a desktop app that downloads every Steam review of a game and reads each \
+                      one on your own computer: what players praise and criticise, how often, \
+                      and the reviews behind every figure",
+        layout: Layout::Prose,
     },
     Page {
         file: "install",
-        source: "docs/install.md",
+        source: Source::Markdown("docs/install.md"),
         label: "Install",
-        description: "the files for each system, the package managers, the first launch, \
-                      verifying a download and upgrading",
+        description: "the files for each system, the first launch, checking a download and \
+                      updating",
+        layout: Layout::Prose,
     },
     Page {
         file: "how-it-works",
-        source: "docs/how-it-works.md",
+        source: Source::Markdown("docs/how-it-works.md"),
         label: "How it works",
-        description: "what the tool counts and why, how a review becomes the claims it makes, how \
-                      each claim is read, and what every percentage means",
-    },
-    Page {
-        file: "assistants",
-        source: "docs/assistants.md",
-        label: "AI assistants",
-        description: "the app's MCP server, its tools, the assistants it adds itself to, and the \
-                      command for any other",
-    },
-    Page {
-        file: "commands",
-        source: "docs/commands.md",
-        label: "Command line",
-        description: "every command and option of the `steamgauge` program",
+        description: "what it downloads, how it reads a review, and what each figure counts",
+        layout: Layout::Prose,
     },
     Page {
         file: "accuracy",
-        source: "docs/accuracy.md",
+        source: Source::Markdown("docs/accuracy.md"),
         label: "Accuracy",
-        description: "how the reader is measured, how it compares with the alternatives, each \
-                      size it comes in, the person-checked gold set, and how the reference sets \
-                      are made",
+        description: "how often the reader is right, against what, in which languages, and what \
+                      the figures cannot tell you",
+        layout: Layout::Prose,
     },
     Page {
-        file: "limits",
-        source: "docs/limits.md",
-        label: "Limits",
-        description: "where the figures fall short, by language, by labeller and by what Steam \
-                      serves",
+        file: "assistants",
+        source: Source::Markdown("docs/assistants.md"),
+        label: "AI assistants",
+        description: "the app's MCP server and the assistants it adds itself to",
+        layout: Layout::Prose,
+    },
+    Page {
+        file: "tools",
+        source: Source::Markdown("docs/tools.md"),
+        label: "MCP tools",
+        description: "every tool the MCP server offers and what each is given",
+        layout: Layout::Cards,
+    },
+    Page {
+        file: "commands",
+        source: Source::Markdown("docs/commands.md"),
+        label: "Command line",
+        description: "every command of the `steamgauge` program",
+        layout: Layout::Cards,
     },
     Page {
         file: "privacy",
-        source: "docs/privacy.md",
+        source: Source::Markdown("docs/privacy.md"),
         label: "Privacy",
-        description: "what stays on your machine and the four places the app makes requests to",
+        description: "what stays on your computer and the four places the app connects to",
+        layout: Layout::Prose,
     },
 ];
+
+/// Every Markdown file holding generated parts: the README, whose list of pages is one, and
+/// every page written as Markdown.
+fn sources() -> impl Iterator<Item = &'static str> {
+    std::iter::once("README.md").chain(PAGES.iter().filter_map(Page::markdown))
+}
 
 #[derive(Parser, Debug)]
 #[command(about = "Build SteamGauge's documentation site.")]
@@ -128,37 +167,42 @@ fn main() -> Result<()> {
 }
 
 fn write(root: &Path) -> Result<()> {
-    for page in PAGES {
-        let path = root.join(page.source);
-        let text = fs::read_to_string(&path).with_context(|| page.source)?;
-        let filled = blocks::fill(root, page.source, &text)?;
+    for source in sources() {
+        let path = root.join(source);
+        let text = fs::read_to_string(&path).with_context(|| source)?;
+        let filled = blocks::fill(root, source, &text)?;
         if filled != text {
-            fs::write(&path, filled).with_context(|| page.source)?;
-            println!("wrote {}", page.source);
+            fs::write(&path, filled).with_context(|| source)?;
+            println!("wrote {source}");
         }
     }
     Ok(())
 }
 
-fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
+/// Every Markdown source, once each is current, holds nothing that hides or reorders text, and
+/// `docs/` holds no page the site leaves out.
+fn read_sources(root: &Path) -> Result<BTreeMap<&'static str, String>> {
     let mut problems = Vec::new();
-    let mut sources = Vec::new();
-    for page in PAGES {
-        let text = fs::read_to_string(root.join(page.source)).with_context(|| page.source)?;
-        if blocks::fill(root, page.source, &text)? != text {
+    let mut texts = BTreeMap::new();
+    for source in sources() {
+        let text = fs::read_to_string(root.join(source)).with_context(|| source)?;
+        if blocks::fill(root, source, &text)? != text {
             problems.push(format!(
-                "{}: a generated part is out of date; run `cargo run -p steamgauge-site -- write`",
-                page.source
+                "{source}: a generated part is out of date; run `cargo run -p steamgauge-site -- write`"
             ));
         }
-        problems.extend(checks::controls(&text).map(|at| format!("{}: {at}", page.source)));
-        sources.push(text);
+        problems.extend(checks::controls(&text).map(|at| format!("{source}: {at}")));
+        texts.insert(source, text);
     }
     problems.extend(orphans(root)?);
     if !problems.is_empty() {
         bail!(listed(&problems));
     }
+    Ok(texts)
+}
 
+fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
+    let texts = read_sources(root)?;
     let version = env!("CARGO_PKG_VERSION");
     let site = render::Site { root, version };
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -166,27 +210,42 @@ fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
     let mut twins = Vec::new();
     let mut assets = BTreeSet::new();
     let window = Window::taken(shots)?;
-    for (page, text) in PAGES.iter().zip(&sources) {
-        let rendered = render::render(&site, page, text)?;
-        let mut content = rendered.html;
-        if page.file == "index" {
-            let at = content.find("<h2").unwrap_or(content.len());
-            content.insert_str(at, &window.figure());
-        }
-        let html = page_html(page, &rendered.title, &content, version);
+    let mut stylesheet = include_str!("../style.css").to_owned();
+    for page in PAGES {
+        let (title, content, contents, markdown) = match page.markdown() {
+            None => {
+                let (content, rules) = home::rules(&home::html(version, &window.picture()));
+                stylesheet.push_str("\n/* The install picker, written with it by home.rs. */\n");
+                stylesheet.push_str(&rules);
+                stylesheet.push('\n');
+                (
+                    "SteamGauge".to_owned(),
+                    content,
+                    Vec::new(),
+                    home::text(version),
+                )
+            }
+            Some(source) => {
+                let rendered = render::render(&site, page, &texts[source])?;
+                assets.extend(rendered.assets);
+                (
+                    rendered.title,
+                    rendered.html,
+                    rendered.contents,
+                    rendered.markdown,
+                )
+            }
+        };
+        let html = page_html(page, &title, &content, &contents, version);
         pages.insert(format!("{}.html", page.file), html);
-        files.insert(
-            format!("{}.md", page.file),
-            rendered.markdown.clone().into_bytes(),
-        );
-        twins.push((page, rendered.title, rendered.markdown));
-        assets.extend(rendered.assets);
+        files.insert(format!("{}.md", page.file), markdown.clone().into_bytes());
+        twins.push((page, title, markdown));
     }
     for asset in assets {
         let bytes = fs::read(root.join(&asset)).with_context(|| asset.clone())?;
         files.insert(format!("files/{asset}"), bytes);
     }
-    files.insert("style.css".into(), include_bytes!("../style.css").to_vec());
+    files.insert("style.css".into(), stylesheet.into_bytes());
     files.insert(
         "icon.png".into(),
         fs::read(root.join("crates/steamgauge-app/icons/128x128.png"))?,
@@ -253,7 +312,9 @@ fn orphans(root: &Path) -> Result<Vec<String>> {
         if Path::new(&name)
             .extension()
             .is_some_and(|extension| extension == "md")
-            && !PAGES.iter().any(|page| page.source == source)
+            && !PAGES
+                .iter()
+                .any(|page| page.markdown() == Some(source.as_str()))
         {
             found.push(format!("{source}: no page of the site lists it"));
         }
@@ -314,18 +375,11 @@ impl Window {
         })
     }
 
-    fn figure(&self) -> String {
-        format!(
-            "<figure class=\"window\">\n<picture>\n\
-             <source srcset=\"window-dark.png\" media=\"(prefers-color-scheme: dark)\">\n\
-             <img src=\"window-light.png\" width=\"{}\" height=\"{}\" alt=\"The SteamGauge \
-             window's cockpit: the games held, what moved in each since the last look, what \
-             needs attention, and the reader this computer uses.\">\n</picture>\n\
-             <figcaption>The window, showing invented games. The page <code>report</code> \
-             writes looks like <a href=\"sample-report.html\">this sample</a>, made from \
-             invented counts.</figcaption>\n</figure>\n",
-            self.width, self.height
-        )
+    fn picture(&self) -> home::Picture {
+        home::Picture {
+            width: self.width,
+            height: self.height,
+        }
     }
 }
 
@@ -340,7 +394,16 @@ fn png_size(bytes: &[u8]) -> Result<(u32, u32)> {
     Ok((number(16), number(20)))
 }
 
-fn page_html(page: &Page, title: &str, content: &str, version: &str) -> String {
+/// A page needs its own contents only once it is long enough to scroll past them.
+const CONTENTS_FROM: usize = 3;
+
+fn page_html(
+    page: &Page,
+    title: &str,
+    content: &str,
+    contents: &[(String, String)],
+    version: &str,
+) -> String {
     let title = if page.file == "index" {
         title.to_owned()
     } else {
@@ -353,21 +416,52 @@ fn page_html(page: &Page, title: &str, content: &str, version: &str) -> String {
         } else {
             ""
         };
-        let _ = writeln!(
+        let _ = write!(
             nav,
-            "<li><a href=\"{}.html\"{current}>{}</a></li>",
+            "<a href=\"{}.html\"{current}>{}</a>",
             other.file,
             escape(other.label)
         );
     }
+    let body = if page.file == "index" {
+        format!(
+            "<main id=\"main\" class=\"home\">\n{}\n</main>",
+            content.trim_end()
+        )
+    } else if contents.len() >= CONTENTS_FROM {
+        let mut list = String::new();
+        for (id, words) in contents {
+            let _ = write!(list, "<li><a href=\"#{id}\">{}</a></li>", escape(words));
+        }
+        format!(
+            "<div class=\"doc\">\n<nav class=\"contents\" aria-label=\"On this page\">\
+             <p>On this page</p><ol>{list}</ol></nav>\n<main id=\"main\" class=\"{}\">\n{}\n\
+             </main>\n</div>",
+            layout_class(page.layout),
+            content.trim_end()
+        )
+    } else {
+        format!(
+            "<div class=\"doc single\">\n<main id=\"main\" class=\"{}\">\n{}\n</main>\n</div>",
+            layout_class(page.layout),
+            content.trim_end()
+        )
+    };
     include_str!("../page.html")
         .replace("{{title}}", &escape(&title))
         .replace("{{description}}", &escape(&sentence(page.description)))
         .replace("{{canonical}}", &canonical(page))
         .replace("{{twin}}", &format!("{}.md", page.file))
-        .replace("{{nav}}", nav.trim_end())
+        .replace("{{nav}}", &nav)
         .replace("{{version}}", version)
-        .replace("{{content}}", content.trim_end())
+        .replace("{{body}}", &body)
+}
+
+fn layout_class(layout: Layout) -> &'static str {
+    match layout {
+        Layout::Prose => "prose",
+        Layout::Cards => "prose reference",
+    }
 }
 
 fn canonical(page: &Page) -> String {
@@ -437,21 +531,21 @@ mod tests {
     #[test]
     fn every_page_has_its_own_file_and_source() {
         let files: BTreeSet<_> = PAGES.iter().map(|page| page.file).collect();
-        let sources: BTreeSet<_> = PAGES.iter().map(|page| page.source).collect();
+        let sources: BTreeSet<_> = sources().collect();
         assert_eq!(files.len(), PAGES.len());
         assert_eq!(sources.len(), PAGES.len());
         assert_eq!(PAGES[0].file, "index");
+        assert_eq!(PAGES[0].source, Source::Home);
     }
 
     #[test]
     fn every_generated_part_in_the_repository_is_current() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        for page in PAGES {
-            let text = fs::read_to_string(root.join(page.source)).unwrap();
+        for source in sources() {
+            let text = fs::read_to_string(root.join(source)).unwrap();
             assert!(
-                blocks::fill(&root, page.source, &text).unwrap() == text,
-                "{} is out of date: run `cargo run -p steamgauge-site -- write`",
-                page.source
+                blocks::fill(&root, source, &text).unwrap() == text,
+                "{source} is out of date: run `cargo run -p steamgauge-site -- write`"
             );
         }
         assert_eq!(orphans(&root).unwrap(), Vec::<String>::new());

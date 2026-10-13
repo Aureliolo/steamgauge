@@ -15,21 +15,21 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to the page</a>
-<header>
-<a class="mark" href="index.html"><img src="icon.png" alt="" width="32" height="32">SteamGauge</a>
-<nav aria-label="Documentation">
-<ul>
-{{nav}}
-</ul>
-</nav>
+<header class="top">
+<div class="bar">
+<a class="wordmark" href="index.html"><img src="icon.png" alt="" width="28" height="28"><span>SteamGauge</span> <span class="version">{{version}}</span></a>
+<nav class="links" aria-label="Pages">{{nav}}<span class="gap" aria-hidden="true"></span><a class="out" href="https://github.com/Aureliolo/steamgauge/releases">Releases</a><a class="out" href="https://github.com/Aureliolo/steamgauge">Source</a></nav>
+</div>
 </header>
-<main id="main">
-{{content}}
-</main>
-<footer>
-<p>SteamGauge {{version}}, under the Apache License 2.0.
-<a href="https://github.com/Aureliolo/steamgauge">The source on GitHub</a>.
-<a href="{{twin}}">This page as Markdown</a>.</p>
+{{body}}
+<footer class="foot">
+<div class="bar">
+<span>SteamGauge {{version}}</span>
+<span>Reads on your computer</span>
+<span>Sigstore signed, SLSA Build L3</span>
+<span>Apache-2.0</span>
+<a href="{{twin}}">This page as Markdown</a>
+</div>
 </footer>
 </body>
 </html>

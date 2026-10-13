@@ -8,7 +8,7 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use pulldown_cmark::{Event, HeadingLevel, LinkType, Options, Parser, Tag, TagEnd};
 
-use crate::{PAGES, Page, REPOSITORY};
+use crate::{Layout, PAGES, Page, REPOSITORY};
 
 #[derive(Debug)]
 pub struct Site<'a> {
@@ -25,6 +25,8 @@ pub struct Rendered {
     pub markdown: String,
     /// The repository's files the page shows, by their path from its root.
     pub assets: BTreeSet<String>,
+    /// Each second-level heading, as its anchor and its words, for the page's contents.
+    pub contents: Vec<(String, String)>,
 }
 
 fn options() -> Options {
@@ -35,16 +37,16 @@ fn options() -> Options {
 }
 
 pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
-    let events = without_badges(&Parser::new_ext(text, options()).collect::<Vec<_>>());
-    let folder = page
-        .source
-        .rsplit_once('/')
-        .map_or("", |(folder, _)| folder);
+    let source = page.markdown().unwrap_or("the front page");
+    let events: Vec<Event<'_>> = Parser::new_ext(text, options()).collect();
+    let folder = source.rsplit_once('/').map_or("", |(folder, _)| folder);
     let mut html_events = Vec::with_capacity(events.len());
     let mut twin_events = Vec::with_capacity(events.len());
     let mut slugs = Slugs::default();
     let mut title = None;
     let mut assets = BTreeSet::new();
+    let mut contents = Vec::new();
+    let mut card = false;
     for (at, event) in events.iter().enumerate() {
         match event {
             Event::Start(Tag::Heading {
@@ -56,7 +58,13 @@ pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
                 let words = heading_text(&events[at + 1..]);
                 let slug = slugs.next(&words);
                 if *level == HeadingLevel::H1 && title.is_none() {
-                    title = Some(words);
+                    title = Some(words.clone());
+                }
+                if *level == HeadingLevel::H2 {
+                    contents.push((slug.clone(), words));
+                }
+                if page.layout == Layout::Cards {
+                    card_edge(&mut html_events, &mut card, *level);
                 }
                 html_events.push(Event::Start(Tag::Heading {
                     level: *level,
@@ -74,12 +82,8 @@ pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
             }) => {
                 let (html, twin) = site
                     .link(folder, dest_url)
-                    .with_context(|| format!("{}: the link to {dest_url}", page.source))?;
-                // Written back inline, since the twin carries no reference definitions.
-                let link_type = match link_type {
-                    LinkType::Autolink | LinkType::Email if twin == dest_url.as_ref() => *link_type,
-                    _ => LinkType::Inline,
-                };
+                    .with_context(|| format!("{source}: the link to {dest_url}"))?;
+                let link_type = written_back(*link_type, twin == dest_url.as_ref());
                 let link = |dest_url: String| {
                     Event::Start(Tag::Link {
                         link_type,
@@ -92,7 +96,7 @@ pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
                 twin_events.push(link(twin));
             }
             Event::Start(Tag::Image { .. }) => {
-                let (image, path) = site.picture(page, folder, event)?;
+                let (image, path) = site.picture(source, folder, event)?;
                 assets.insert(path);
                 html_events.push(image.clone());
                 twin_events.push(image);
@@ -114,21 +118,49 @@ pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
             }
         }
     }
-    let title = title.with_context(|| format!("{} has no top-level heading", page.source))?;
+    if card {
+        html_events.push(Event::Html("</section>\n".into()));
+    }
+    let title = title.with_context(|| format!("{source} has no top-level heading"))?;
     let mut html = String::new();
     pulldown_cmark::html::push_html(&mut html, html_events.into_iter());
     // A code block wider than the page scrolls too, and has to be reachable the same way.
     let html = html.replace("<pre><code", "<pre tabindex=\"0\"><code");
     let mut markdown = String::new();
     pulldown_cmark_to_cmark::cmark(twin_events.iter(), &mut markdown, options())
-        .with_context(|| format!("{}: writing its Markdown back", page.source))?;
+        .with_context(|| format!("{source}: writing its Markdown back"))?;
     markdown.push('\n');
     Ok(Rendered {
         title,
         html,
         markdown,
         assets,
+        contents,
     })
+}
+
+/// On a reference page, closes the card a heading ends and opens the one a third-level heading
+/// starts.
+fn card_edge(events: &mut Vec<Event<'_>>, open: &mut bool, level: HeadingLevel) {
+    if !matches!(level, HeadingLevel::H2 | HeadingLevel::H3) {
+        return;
+    }
+    if *open {
+        events.push(Event::Html("</section>\n".into()));
+    }
+    *open = level == HeadingLevel::H3;
+    if *open {
+        events.push(Event::Html("<section class=\"card\">\n".into()));
+    }
+}
+
+/// How a link is written back into the twin: inline, since the twin carries no reference
+/// definitions, unless it is an address written as itself and left unchanged.
+fn written_back(link_type: LinkType, unchanged: bool) -> LinkType {
+    match link_type {
+        LinkType::Autolink | LinkType::Email if unchanged => link_type,
+        _ => LinkType::Inline,
+    }
 }
 
 pub fn external(destination: &str) -> bool {
@@ -149,7 +181,10 @@ impl Site<'_> {
         let fragment = anchor
             .map(|anchor| format!("#{anchor}"))
             .unwrap_or_default();
-        if let Some(page) = PAGES.iter().find(|page| page.source == path) {
+        if let Some(page) = PAGES
+            .iter()
+            .find(|page| page.markdown() == Some(path.as_str()))
+        {
             return Ok((
                 format!("{}.html{fragment}", page.file),
                 format!("{}.md{fragment}", page.file),
@@ -182,7 +217,7 @@ impl Site<'_> {
     /// copies.
     fn picture<'a>(
         &self,
-        page: &Page,
+        source: &str,
         folder: &str,
         event: &Event<'a>,
     ) -> Result<(Event<'a>, String)> {
@@ -193,18 +228,17 @@ impl Site<'_> {
             ..
         }) = event
         else {
-            bail!("{}: not a picture", page.source);
+            bail!("{source}: not a picture");
         };
         if external(dest_url) {
             bail!(
-                "{}: the picture {dest_url} is on another host, and the site fetches nothing \
-                 from one",
-                page.source
+                "{source}: the picture {dest_url} is on another host, and the site fetches \
+                 nothing from one"
             );
         }
         let path = self
             .file(folder, dest_url)
-            .with_context(|| format!("{}: the picture {dest_url}", page.source))?;
+            .with_context(|| format!("{source}: the picture {dest_url}"))?;
         let image = Event::Start(Tag::Image {
             link_type: LinkType::Inline,
             dest_url: format!("files/{path}").into(),
@@ -234,50 +268,6 @@ impl Site<'_> {
         }
         Ok(joined)
     }
-}
-
-/// Drops every badge, a link whose only content is a picture on another host, since the site
-/// fetches nothing from one, and the paragraph that held them once it holds nothing else.
-fn without_badges<'a>(events: &[Event<'a>]) -> Vec<Event<'a>> {
-    let mut kept = Vec::with_capacity(events.len());
-    let mut at = 0;
-    while at < events.len() {
-        if matches!(events[at], Event::Start(Tag::Link { .. }))
-            && let Some(Event::Start(Tag::Image { dest_url, .. })) = events.get(at + 1)
-            && external(dest_url)
-            && let Some(close) = events[at + 1..]
-                .iter()
-                .position(|event| matches!(event, Event::End(TagEnd::Image)))
-            && matches!(events.get(at + close + 2), Some(Event::End(TagEnd::Link)))
-        {
-            at += close + 3;
-            continue;
-        }
-        kept.push(events[at].clone());
-        at += 1;
-    }
-    let mut left = Vec::with_capacity(kept.len());
-    let mut at = 0;
-    while at < kept.len() {
-        if matches!(kept[at], Event::Start(Tag::Paragraph))
-            && let Some(length) = kept[at + 1..]
-                .iter()
-                .position(|event| matches!(event, Event::End(TagEnd::Paragraph)))
-            && kept[at + 1..at + 1 + length]
-                .iter()
-                .all(|event| match event {
-                    Event::SoftBreak | Event::HardBreak => true,
-                    Event::Text(text) => text.trim().is_empty(),
-                    _ => false,
-                })
-        {
-            at += length + 2;
-            continue;
-        }
-        left.push(kept[at].clone());
-        at += 1;
-    }
-    left
 }
 
 /// The words of the heading the events open on.
@@ -336,6 +326,7 @@ fn anchors(text: &str) -> BTreeSet<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Source;
 
     fn site() -> Site<'static> {
         Site {
@@ -347,10 +338,41 @@ mod tests {
     fn page(source: &'static str) -> Page {
         Page {
             file: "test",
-            source,
+            source: Source::Markdown(source),
             label: "Test",
             description: "a test",
+            layout: Layout::Prose,
         }
+    }
+
+    #[test]
+    fn a_reference_is_cards_and_every_page_lists_its_sections() {
+        let reference = Page {
+            layout: Layout::Cards,
+            ..page("docs/test.md")
+        };
+        let rendered = render(
+            &site(),
+            &reference,
+            "# T\n\nIntro.\n\n## Games\n\n### `games`\n\nOne.\n\n### `look_up`\n\nTwo.\n\n\
+             ## Jobs\n\n### `queue`\n\nThree.\n",
+        )
+        .unwrap();
+        assert_eq!(rendered.html.matches("<section class=\"card\">").count(), 3);
+        assert_eq!(rendered.html.matches("</section>").count(), 3);
+        assert!(
+            rendered
+                .html
+                .contains("Two.</p>\n</section>\n<h2 id=\"jobs\">")
+        );
+        assert_eq!(
+            rendered.contents,
+            [
+                ("games".to_owned(), "Games".to_owned()),
+                ("jobs".to_owned(), "Jobs".to_owned())
+            ]
+        );
+        assert!(!rendered.markdown.contains("section"));
     }
 
     #[test]
@@ -407,17 +429,13 @@ mod tests {
     }
 
     #[test]
-    fn badges_go_and_a_picture_from_another_host_is_refused() {
+    fn a_picture_is_copied_in_and_one_from_another_host_is_refused() {
         let rendered = render(
             &site(),
-            &page("README.md"),
-            "# T\n\n[![CI](https://example.org/badge.svg)](https://example.org)\n\
-             [![L](https://example.org/l.svg)](LICENSE)\n\n\
-             ![Mark](crates/steamgauge-app/icons/128x128.png)\n",
+            &page("docs/test.md"),
+            "# T\n\n![Mark](../crates/steamgauge-app/icons/128x128.png)\n",
         )
         .unwrap();
-        assert!(!rendered.html.contains("example.org"));
-        assert_eq!(rendered.html.matches("<p>").count(), 1);
         assert!(
             rendered
                 .html
@@ -431,8 +449,8 @@ mod tests {
         assert!(
             render(
                 &site(),
-                &page("README.md"),
-                "# T\n\n![x](https://example.org/x.png)\n"
+                &page("docs/test.md"),
+                "# T\n\n[![x](https://example.org/x.png)](https://example.org)\n"
             )
             .is_err()
         );

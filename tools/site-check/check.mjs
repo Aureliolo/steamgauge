@@ -55,7 +55,9 @@ const pages = (await readdir(folder))
 
 const PROBE = `(function () {
   var wrong = [];
-  if (getComputedStyle(document.body).maxWidth === 'none') wrong.push('its stylesheet is not applied');
+  if (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() === '') {
+    wrong.push('its stylesheet is not applied');
+  }
   return wrong;
 })()`;
 const SIDEWAYS = `(function () {

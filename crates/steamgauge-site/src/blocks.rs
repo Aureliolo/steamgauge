@@ -51,8 +51,8 @@ fn generate(root: &Path, holder: &str, name: &str) -> Result<String> {
     match name {
         "pages" => pages(root, holder),
         "clients" => Ok(clients()),
-        "tools" => Ok(tools()),
-        "commands" => Ok(commands()),
+        "tools" => tools(),
+        "commands" => commands(),
         _ => bail!("{holder}: no generated part is called `{name}`"),
     }
 }
@@ -65,15 +65,17 @@ fn pages(root: &Path, holder: &str) -> Result<String> {
         );
     }
     let mut text = String::new();
-    for page in PAGES.iter().filter(|page| page.file != "index") {
-        let source =
-            std::fs::read_to_string(root.join(page.source)).with_context(|| page.source)?;
+    for (page, path) in PAGES
+        .iter()
+        .filter_map(|page| page.markdown().map(|path| (page, path)))
+    {
+        let source = std::fs::read_to_string(root.join(path)).with_context(|| path)?;
         let title = source
             .lines()
             .find_map(|line| line.strip_prefix("# "))
-            .with_context(|| format!("{} has no top-level heading", page.source))?;
+            .with_context(|| format!("{path} has no top-level heading"))?;
         text.push_str(&wrap(
-            &format!("[{title}]({}): {}.", page.source, page.description),
+            &format!("[{title}]({path}): {}.", page.description),
             "- ",
             "  ",
         ));
@@ -114,58 +116,163 @@ fn clients() -> String {
     text
 }
 
-/// Each tool the MCP server offers, with what it is given.
-fn tools() -> String {
-    let mut text = String::new();
-    for tool in reference::tools() {
-        let mut said = format!("`{}`: {}", tool.name, full_stop(&prose(&tool.description)));
-        if tool.read_only {
-            said.push_str(" It only looks.");
+/// The tools in the groups the reference shows them in. A tool the server gains is refused
+/// until it is placed here, so the page never lists a tool under no heading.
+const TOOL_GROUPS: &[(&str, &[&str])] = &[
+    (
+        "The library",
+        &[
+            "overview",
+            "library",
+            "games",
+            "find_games",
+            "look_up",
+            "art",
+            "groups",
+            "save_groups",
+            "since_last_look",
+            "looked",
+            "show",
+        ],
+    ),
+    (
+        "A read game",
+        &[
+            "reading",
+            "claims_behind",
+            "search_game",
+            "who_wrote",
+            "induced",
+            "game_updates",
+            "before_after",
+            "compare",
+        ],
+    ),
+    (
+        "Search by meaning",
+        &["meaning_offer", "choose_meaning", "search_by_meaning"],
+    ),
+    (
+        "Jobs",
+        &[
+            "work",
+            "read_offer",
+            "queue",
+            "queue_reads",
+            "queue_updates",
+            "stop_job",
+            "clear_finished",
+            "open_report",
+            "export_data",
+            "export_report",
+        ],
+    ),
+    (
+        "Settings and storage",
+        &[
+            "settings",
+            "save_settings",
+            "reader_options",
+            "storage",
+            "free_room",
+            "remove_model",
+            "new_http_token",
+            "connect_client",
+            "disconnect_client",
+        ],
+    ),
+    (
+        "Updates",
+        &[
+            "newer_version",
+            "update_state",
+            "update_now",
+            "show_update_file",
+        ],
+    ),
+];
+
+/// Each tool the MCP server offers, by group, with what it is given.
+fn tools() -> Result<String> {
+    let tools = reference::tools();
+    for tool in &tools {
+        if !TOOL_GROUPS
+            .iter()
+            .any(|(_, names)| names.contains(&tool.name.as_str()))
+        {
+            bail!(
+                "the MCP tool `{}` is in no group: add it to TOOL_GROUPS",
+                tool.name
+            );
         }
-        if tool.destructive {
-            said.push_str(" What it removes has to be downloaded or worked out again.");
+    }
+    let mut text = String::new();
+    for (group, names) in TOOL_GROUPS {
+        let _ = write!(text, "## {group}\n\n");
+        for name in *names {
+            let tool = tools
+                .iter()
+                .find(|tool| tool.name == *name)
+                .with_context(|| format!("TOOL_GROUPS names `{name}`, which the server lacks"))?;
+            tool_card(&mut text, tool);
+        }
+    }
+    Ok(text)
+}
+
+fn tool_card(text: &mut String, tool: &reference::Tool) {
+    let _ = write!(text, "### `{}`\n\n", tool.name);
+    let mut said = full_stop(&prose(&tool.description));
+    if tool.read_only {
+        said.push_str(" Only looks.");
+    }
+    if tool.destructive {
+        said.push_str(" What it removes has to be downloaded or worked out again.");
+    }
+    text.push_str(&wrap(&said, "", ""));
+    text.push_str("\n\n");
+    let required: Vec<&str> = tool.input["required"]
+        .as_array()
+        .map(|names| names.iter().filter_map(|name| name.as_str()).collect())
+        .unwrap_or_default();
+    let Some(properties) = tool.input["properties"].as_object() else {
+        return;
+    };
+    if properties.is_empty() {
+        return;
+    }
+    for (name, schema) in properties {
+        let mut said = format!("`{name}`");
+        if required.contains(&name.as_str()) {
+            said.push_str(", required");
+        }
+        if let Some(description) = schema["description"].as_str() {
+            said.push_str(": ");
+            said.push_str(&full_stop(&prose(description)));
+        }
+        let values = values(&tool.input, schema);
+        if values.iter().all(|(_, about)| about.is_none()) && !values.is_empty() {
+            let names: Vec<String> = values
+                .iter()
+                .map(|(value, _)| format!("`{value}`"))
+                .collect();
+            let _ = write!(said, " One of {}.", listed(&names));
         }
         text.push_str(&wrap(&said, "- ", "  "));
         text.push('\n');
-        let required: Vec<&str> = tool.input["required"]
-            .as_array()
-            .map(|names| names.iter().filter_map(|name| name.as_str()).collect())
-            .unwrap_or_default();
-        if let Some(properties) = tool.input["properties"].as_object() {
-            for (name, schema) in properties {
-                let mut said = format!("`{name}`");
-                if required.contains(&name.as_str()) {
-                    said.push_str(", required");
-                }
-                if let Some(description) = schema["description"].as_str() {
-                    said.push_str(": ");
-                    said.push_str(&full_stop(&prose(description)));
-                }
-                let values = values(&tool.input, schema);
-                if values.iter().all(|(_, about)| about.is_none()) && !values.is_empty() {
-                    let names: Vec<String> = values
-                        .iter()
-                        .map(|(value, _)| format!("`{value}`"))
-                        .collect();
-                    let _ = write!(said, " One of {}.", listed(&names));
-                }
-                text.push_str(&wrap(&said, "  - ", "    "));
+        if values.iter().any(|(_, about)| about.is_some()) {
+            for (value, about) in values {
+                let about = about.map(|about| format!(": {}", full_stop(&prose(&about))));
+                text.push_str(&wrap(
+                    &format!("`{value}`{}", about.unwrap_or_default()),
+                    "  - ",
+                    "    ",
+                ));
                 text.push('\n');
-                if values.iter().any(|(_, about)| about.is_some()) {
-                    for (value, about) in values {
-                        let about = about.map(|about| format!(": {}", full_stop(&prose(&about))));
-                        text.push_str(&wrap(
-                            &format!("`{value}`{}", about.unwrap_or_default()),
-                            "    - ",
-                            "      ",
-                        ));
-                        text.push('\n');
-                    }
-                }
             }
         }
     }
-    text
+    text.push('\n');
 }
 
 /// The values a parameter takes, each with what it means where the schema says, when it is one
@@ -199,36 +306,108 @@ fn values(root: &serde_json::Value, schema: &serde_json::Value) -> Vec<(String, 
         .collect()
 }
 
+/// The commands in the groups the page shows them in: the first two with every option, the
+/// last, which only measures and trains the reader, a line each. A command the program gains is
+/// refused until it is placed here.
+const COMMAND_GROUPS: &[(&str, bool, &[&str])] = &[
+    (
+        "Downloading and reading",
+        true,
+        &["crawl", "sweep", "read", "recount", "report", "export-data"],
+    ),
+    (
+        "The app and AI assistants",
+        true,
+        &["update", "mcp", "clients", "connect", "disconnect"],
+    ),
+    (
+        "Measuring and training the reader",
+        false,
+        &[
+            "claims",
+            "embed",
+            "store-facts",
+            "sample-claims",
+            "declined",
+            "rare-claims",
+            "distinct",
+            "ingest-induced",
+            "ingest-claims",
+            "second-opinion",
+            "compare-labels",
+            "revisit",
+            "ingest-revisit",
+            "measure-claims",
+            "ceiling",
+            "gold",
+            "ingest-gold",
+            "export-training",
+            "export-review-facts",
+            "export-pool",
+            "brief",
+        ],
+    ),
+];
+
 /// The command line, as `steamgauge --help` and each command's `--help` give it.
-fn commands() -> String {
+fn commands() -> Result<String> {
     let mut command = reference::command();
     command.build();
+    for sub in subcommands(&command) {
+        if !COMMAND_GROUPS
+            .iter()
+            .any(|(_, _, names)| names.contains(&sub.get_name()))
+        {
+            bail!(
+                "the command `{}` is in no group: add it to COMMAND_GROUPS",
+                sub.get_name()
+            );
+        }
+    }
     let mut text = String::new();
-    if let Some(after) = command.get_after_long_help().or(command.get_after_help()) {
-        paragraphs(&mut text, &after.to_string());
-    }
-    let shown: Vec<&Command> = subcommands(&command).collect();
-    for command in &shown {
-        let about = command
-            .get_about()
-            .map(ToString::to_string)
-            .unwrap_or_default();
-        text.push_str(&wrap(
-            &format!(
-                "[`{0}`](#{0}): {1}",
-                command.get_name(),
-                full_stop(&prose(&about))
-            ),
-            "- ",
-            "  ",
-        ));
+    for (group, whole, names) in COMMAND_GROUPS {
+        let _ = write!(text, "## {group}\n\n");
+        for (at, name) in names.iter().enumerate() {
+            let sub = subcommands(&command)
+                .find(|sub| sub.get_name() == *name)
+                .with_context(|| {
+                    format!("COMMAND_GROUPS names `{name}`, which the program lacks")
+                })?;
+            if *whole {
+                if at > 0 {
+                    text.push('\n');
+                }
+                section(&mut text, sub, 3);
+            } else {
+                let usage = sub.clone().render_usage().to_string();
+                let usage = usage
+                    .trim()
+                    .trim_start_matches("Usage:")
+                    .trim()
+                    .trim_start_matches("steamgauge ")
+                    .replace(" [OPTIONS]", "");
+                let about = sub.get_about().map(ToString::to_string).unwrap_or_default();
+                text.push_str(&wrap(
+                    &format!("`{usage}`: {}", full_stop(&prose(&about))),
+                    "- ",
+                    "  ",
+                ));
+                text.push('\n');
+            }
+        }
+        if !*whole {
+            text.push('\n');
+            text.push_str(&wrap(
+                "Each takes `--help` for its options. \
+                 [Accuracy](accuracy.md#how-the-labels-are-made) says where each fits.",
+                "",
+                "",
+            ));
+            text.push('\n');
+        }
         text.push('\n');
     }
-    for command in shown {
-        text.push('\n');
-        section(&mut text, command, 2);
-    }
-    text
+    Ok(text)
 }
 
 fn section(text: &mut String, command: &Command, level: usize) {
@@ -495,22 +674,24 @@ mod tests {
 
     #[test]
     fn every_command_and_tool_is_written_with_what_it_takes() {
-        let commands = commands();
-        assert!(commands.contains("## `crawl`\n"));
+        let commands = commands().unwrap();
+        assert!(commands.starts_with("## Downloading and reading\n\n### `crawl`\n"));
         assert!(commands.contains("steamgauge crawl"));
         assert!(commands.contains("`-o, --out <OUT>`"));
-        assert!(!commands.contains("--help"));
+        assert!(commands.contains("\n- `brief`: "), "{commands}");
+        assert!(!commands.contains("`--help`:"));
         assert!(
             commands
                 .lines()
                 .all(|line| line.starts_with("steamgauge") || line.chars().count() <= WIDTH)
         );
-        let tools = tools();
-        assert!(tools.contains("- `connect_client`: "));
-        assert!(tools.contains("  - `page`, required: Which page of the window to show.\n"));
+        let tools = tools().unwrap();
+        assert!(tools.starts_with("## The library\n\n### `overview`\n"));
+        assert!(tools.contains("### `connect_client`\n"));
+        assert!(tools.contains("- `page`, required: Which page of the window to show.\n"));
         assert!(
-            tools.contains("    - `cockpit`: What moved, what is running and what needs a look.\n")
+            tools.contains("  - `cockpit`: What moved, what is running and what needs a look.\n")
         );
-        assert!(tools.contains("    - `settings`: How the app runs"));
+        assert!(tools.contains("  - `settings`: How the app runs"));
     }
 }

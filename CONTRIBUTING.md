@@ -87,12 +87,14 @@ side is added to the stub in the same change.
 node tools/app-check/check.mjs
 ```
 
-The documentation site is held to it too. `crates/steamgauge-site` builds it from the README and
-`docs/`, and writes the parts that describe the program, its commands, its MCP tools and the
-clients it adds itself to, from the program's own tables; `write` refreshes them, and a test
-fails while a copy is behind. The build refuses a link to a file or heading that does not exist
-and anything fetched from another host, and `tools/site-check` serves the built site and holds
-every page to WCAG 2.2 A and AA, light, dark and at a phone's width:
+The documentation site is held to it too. `crates/steamgauge-site` builds its front page in
+`home.rs` and every other page from `docs/`, and writes the parts that describe the program, its
+commands, its MCP tools and the clients it adds itself to, from the program's own tables; `write`
+refreshes them, and a test fails while a copy is behind. A page under `docs/` is reference: what
+something is and how to use it, in as few words as that takes, with the reasoning behind it kept
+in `DECISIONS.md`. The build refuses a link to a file or heading that does not exist and anything
+fetched from another host, and `tools/site-check` serves the built site and holds every page to
+WCAG 2.2 A and AA, light, dark and at a phone's width:
 
 ```sh
 cargo run -p steamgauge-site -- write

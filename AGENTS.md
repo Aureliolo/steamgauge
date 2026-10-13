@@ -4,8 +4,8 @@ One binary, `steamgauge` (`crates/steamgauge-app`): opened with no arguments it 
 desktop app, whose window is `crates/steamgauge-app/ui/`; given arguments it is the pipeline,
 `crawl` (a Parquet capture), `claims` (spans beside it), `read` (the ONNX reader), `report`.
 `crates/steamgauge-core` is everything that knows nothing about a window. `crates/steamgauge-site`
-builds the documentation site from the README, `docs/` and the app's own tables; the release
-deploys it to GitHub Pages. `training/` is Python
+builds the documentation site, a front page made in `home.rs` and the pages under `docs/`, with the
+app's own tables written into them; the release deploys it to GitHub Pages. `training/` is Python
 that produces the reader; `training/README.md` gives the order a model is trained, swept,
 exported and published in. `tools/` drives the report, gold and window pages in Chrome and holds
 the release scripts. `DECISIONS.md` is the live record of every choice and figure, written as
