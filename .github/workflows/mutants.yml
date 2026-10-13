@@ -49,6 +49,11 @@ jobs:
     outputs:
       code: ${{ steps.scope.outputs.code }}
     steps:
+      # The pull request's merge commit and the base under it, which is all the classifier reads.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
       - id: scope
         uses: $/.github/actions/scope
 
