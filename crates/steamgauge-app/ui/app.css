@@ -3170,6 +3170,42 @@ legend + .setting {
   overflow-wrap: anywhere;
 }
 
+.mcp-clients {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-client {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--s4);
+  align-items: center;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.mcp-client > span {
+  grid-column: 1;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+  overflow-wrap: anywhere;
+}
+
+.mcp-client .actions {
+  display: flex;
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  gap: var(--s2);
+}
+
+#mcp-clients-none {
+  margin: 0;
+}
+
 #http-port {
   width: 7.5rem;
 }

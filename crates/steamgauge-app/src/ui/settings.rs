@@ -127,10 +127,77 @@ pub struct Shown {
     pub shares: [f64; 4],
     /// Where the library is, so a person knows where the gigabytes went.
     pub library: String,
-    /// What adds this copy to Claude Code.
-    pub claude_command: String,
+    /// The MCP clients on this computer and whether each starts this copy.
+    pub clients: Vec<Client>,
+    /// What any other MCP client is told to start.
+    pub mcp_command: String,
     /// How a client reaches the HTTP server, where it answers.
     pub http: super::mcp_http::Reach,
+}
+
+/// One MCP client on this computer, as Settings lists it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Client {
+    pub id: String,
+    pub name: String,
+    /// The configuration file the app's entry goes in.
+    pub file: String,
+    #[serde(flatten)]
+    pub state: crate::clients::State,
+    /// What the person still has to do once the entry is written, if anything.
+    pub then: Option<String>,
+}
+
+fn clients_here() -> Vec<Client> {
+    use crate::clients::{CLIENTS, Folders, Launch, State, state};
+
+    let (Ok(folders), Ok(launch)) = (Folders::of_this_user(), Launch::this_copy()) else {
+        return Vec::new();
+    };
+    CLIENTS
+        .iter()
+        .filter_map(|client| {
+            let state = state(client, &folders, &launch);
+            (state != State::Absent).then(|| Client {
+                id: client.id.to_owned(),
+                name: client.name.to_owned(),
+                file: (client.file)(&folders).display().to_string(),
+                state,
+                then: client.then.map(str::to_owned),
+            })
+        })
+        .collect()
+}
+
+/// Adds this copy to an MCP client's configuration, and returns the settings with it.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+pub fn connect_client(app: AppHandle, client: String) -> Result<Shown, String> {
+    use crate::clients::{Folders, Launch, add, by_id};
+
+    let found = by_id(&client).map_err(|e| e.to_string())?;
+    let folders = Folders::of_this_user().map_err(|e| e.to_string())?;
+    let launch = Launch::this_copy().map_err(|e| e.to_string())?;
+    add(found, &folders, &launch).map_err(|e| format!("{e:#}"))?;
+    Ok(settings(app))
+}
+
+/// Takes the app out of an MCP client's configuration, and returns the settings without it.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+pub fn disconnect_client(app: AppHandle, client: String) -> Result<Shown, String> {
+    use crate::clients::{Folders, by_id, remove};
+
+    let found = by_id(&client).map_err(|e| e.to_string())?;
+    let folders = Folders::of_this_user().map_err(|e| e.to_string())?;
+    remove(found, &folders).map_err(|e| format!("{e:#}"))?;
+    Ok(settings(app))
 }
 
 #[tauri::command]
@@ -145,7 +212,9 @@ pub fn settings(app: AppHandle) -> Shown {
         search_every_game: steamgauge_core::meaning::Choice::load(&library).every_game,
         shares: SHARES,
         library: library.display().to_string(),
-        claude_command: super::mcp::claude_command(),
+        clients: clients_here(),
+        mcp_command: crate::clients::Launch::this_copy()
+            .map_or_else(|_| "steamgauge mcp".to_owned(), |launch| launch.line()),
         http: super::mcp_http::reach(&app),
     }
 }

@@ -304,6 +304,31 @@
   // Where Update now stands: nothing under way, on a copy the window can update.
   let update = { state: 'idle', why: null };
   let searchEveryGame = false;
+  // The MCP clients on this computer: one without the app, one starting another copy, and one
+  // whose settings file does not parse.
+  const program = 'C:\\Users\\someone\\AppData\\Local\\SteamGauge\\steamgauge.exe';
+  let clients = [
+    {
+      id: 'cursor', name: 'Cursor', file: 'C:\\Users\\someone\\.cursor\\mcp.json',
+      state: 'installed', then: null,
+    },
+    {
+      id: 'claude-desktop', name: 'Claude Desktop',
+      file: 'C:\\Users\\someone\\AppData\\Roaming\\Claude\\claude_desktop_config.json',
+      state: 'elsewhere', command: 'D:\\Old\\steamgauge.exe', then: 'Quit Claude Desktop and open it again.',
+    },
+    {
+      id: 'zed', name: 'Zed', file: 'C:\\Users\\someone\\AppData\\Roaming\\Zed\\settings.json',
+      state: 'unreadable', reason: 'Unexpected token on line 3 column 5', then: null,
+    },
+  ];
+  const steerFrom = (id, state) => {
+    const client = clients.find((one) => one.id === id);
+    if (!client) throw new Error(`SteamGauge knows no MCP client called ${id}`);
+    if (client.state === 'unreadable') throw new Error(`${client.file} does not parse (${client.reason}), so SteamGauge was not added to it; fix the file, or add the entry by hand`);
+    const { name, file, then } = client;
+    clients = clients.map((one) => (one.id === id ? { id, name, file, then, state } : one));
+  };
   // What each game takes on disk, by part, and the models in the cache.
   let rooms = games.map((game, at) => ({
     app_id: game.app_id,
@@ -643,7 +668,8 @@
       search_every_game: searchEveryGame,
       shares: [0.25, 0.5, 0.75, 1],
       library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
-      claude_command: 'claude mcp add steamgauge -- "C:\\Users\\someone\\AppData\\Local\\SteamGauge\\steamgauge.exe" mcp',
+      clients,
+      mcp_command: `"${program}" mcp`,
       // Port 47801 stands in for one another program holds.
       http: !settings.answer_over_http
         ? { address: null, token: null, problem: null }
@@ -658,6 +684,14 @@
     },
     new_http_token: () => {
       httpToken = 'a1'.repeat(32);
+      return answers.settings();
+    },
+    connect_client: ({ client }) => {
+      steerFrom(client, 'added');
+      return answers.settings();
+    },
+    disconnect_client: ({ client }) => {
+      steerFrom(client, 'installed');
       return answers.settings();
     },
     reader_options: () => ({

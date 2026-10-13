@@ -1320,6 +1320,8 @@ pub fn run(without_window: bool) -> anyhow::Result<()> {
             settings::save_settings,
             settings::reader_options,
             settings::new_http_token,
+            settings::connect_client,
+            settings::disconnect_client,
             storage::storage,
             storage::free_room,
             storage::remove_model,
