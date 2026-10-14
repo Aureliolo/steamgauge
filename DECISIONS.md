@@ -5339,12 +5339,9 @@ the tag from the `Location` header, and compares it as a semantic version with t
 was built as (`newer_version` in the core). The answer and when it was asked are kept in
 `newer-version.json` in the app's configuration directory, so a restart within the day asks
 nothing; a question that fails, offline or otherwise, still counts as the day's and keeps the
-answer before it. The question is asked when the app opens and again on the ten-minute look
-that keeps the library current, because an app stays open for days and a question asked only
-on opening left a copy naming no release for as long as it stayed. When the release is newer,
-the rail names it, links to its page, which the window opens through the opener, and offers
-Update now (the next entry). A setting, on by default, turns the question off, and with it the
-notice.
+answer before it. When the release is newer, the rail names it, links to its page, which the
+window opens through the opener, and offers Update now (the next entry). A setting, on by
+default, turns the question off, and with it the notice.
 
 **Keyless, so no signing key exists anywhere.** The Tauri updater was refused because it
 installs only what a long-lived private key signed, and that key would have to live in CI,
