@@ -106,9 +106,14 @@ game in thirty.
 
 - The open app is the MCP server, because it owns the library and the work board. Every tool is a
   window command under the same name, and a test fails on a command without a tool.
-- `steamgauge mcp` is what a client starts. It joins the client to the app's local socket: a
+- `steamgauge mcp` is what a client starts. It answers the client itself, listing the tools
+  whether the app is open or not, and hands each call to the open app over its local socket: a
   named pipe with a random name on Windows, a socket in a folder of mode 700 elsewhere, the name
   written only into the user's own data folder.
+- **The app answers only while its window is open.** Nothing starts it but the person, and closing
+  the window closes it, assistants connected or not. While it is closed every call says so and
+  tells the assistant to ask the person; a call the app closed during is reported, never sent
+  again.
 - Over HTTP the same tools answer on 127.0.0.1 when Settings turns it on, behind a 256-bit bearer
   token, with any `Origin` header refused and only `127.0.0.1` or `localhost` accepted as `Host`.
 - The clients the app adds itself to are rows of one table (`clients.rs`), each from that client's
