@@ -1284,11 +1284,14 @@ pub fn run(without_window: bool) -> anyhow::Result<()> {
             cockpit::check_when_due(app.handle());
             newer::check_in_background(app.handle());
             // The library is kept up to date only while the app is open: this loop ends with it.
+            // The app an assistant starts runs for days and a person's opening only brings its
+            // window forward, so the day's question about a newer release is asked here too.
             let open = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(cockpit::LOOK_AGAIN_EVERY).await;
                     cockpit::check_when_due(&open);
+                    newer::check_in_background(&open);
                 }
             });
             Ok(())
