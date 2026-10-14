@@ -35,7 +35,8 @@ assistant takes.
 
 Reload your MCP servers, or ask the person to restart you if you cannot, then call the
 `overview` tool. It answers with the library, what is running and what this computer reads with.
-If SteamGauge was not open it starts with its window hidden.
+SteamGauge answers only while its window is open: if the tool says it is not open, ask the person
+to open it, then call `overview` again.
 
 ## 4. Report
 

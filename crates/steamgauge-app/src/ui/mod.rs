@@ -1242,29 +1242,33 @@ fn claims_using(
     Ok((total, wanted))
 }
 
-/// Opens the app, with its window shown unless `without_window`, which is how it is opened for
-/// a client of its MCP server alone.
-///
-/// # Errors
-///
-/// Fails if the webview cannot be created, which on Linux means the system webview is
-/// missing and on Windows means `WebView2` is not installed.
 /// Every MCP tool, as the documentation describes it.
 pub(crate) fn tool_reference() -> Vec<crate::reference::Tool> {
     mcp::reference()
 }
 
-pub fn run(without_window: bool) -> anyhow::Result<()> {
+/// What `steamgauge mcp` tells a client the server is, the same as the app tells it.
+pub(crate) fn mcp_server_config() -> rmcp::model::ServerConfig {
+    mcp::server_config()
+}
+
+/// The tools `steamgauge mcp` offers whether the app is open or not.
+pub(crate) fn mcp_tool_list() -> rmcp::model::ListToolsResult {
+    mcp::tool_list()
+}
+
+/// Opens the app with its window shown.
+///
+/// # Errors
+///
+/// Fails if the webview cannot be created, which on Linux means the system webview is
+/// missing and on Windows means `WebView2` is not installed.
+pub fn run() -> anyhow::Result<()> {
     tauri::Builder::default()
-        // First, so a second copy hands over before it starts anything of its own. Opened by a
-        // person it brings the window forward; opened for a client it only lets the client in.
-        .plugin(tauri_plugin_single_instance::init(|app, arguments, _| {
-            if !arguments
-                .iter()
-                .any(|argument| argument == crate::mcp::WITHOUT_WINDOW)
-            {
-                mcp::bring_forward(app);
-            }
+        // First, so a second copy brings this one's window forward before it starts anything of
+        // its own.
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            mcp::bring_forward(app);
         }))
         .plugin(tauri_plugin_opener::init())
         .manage(LastSearch::default())
@@ -1272,11 +1276,9 @@ pub fn run(without_window: bool) -> anyhow::Result<()> {
         .manage(work::Work::default())
         .manage(update::Updating::default())
         .manage(since::Baseline::default())
-        .manage(mcp::Clients::default())
         .manage(mcp_http::Http::default())
-        .on_window_event(mcp::on_window_event)
-        .setup(move |app| {
-            mcp::start(app.handle(), without_window);
+        .setup(|app| {
+            mcp::start(app.handle());
             mcp_http::follow(app.handle());
             update::tidy(app.handle());
             since::remember(app.handle());

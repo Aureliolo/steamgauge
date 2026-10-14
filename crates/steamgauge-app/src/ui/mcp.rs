@@ -1,21 +1,9 @@
 //! The app as a Model Context Protocol server: every tool is something the window can do, called
 //! through the same function the window's command is, so a client and a person can never be
-//! offered different things. A client reaches it through `steamgauge mcp` (see `crate::mcp`).
-//!
-//! While a client is connected the app stays open: closing the window hides it, and an app opened
-//! for a client alone closes once the last one has gone and the work it was asked for is done.
+//! offered different things. A client reaches it through `steamgauge mcp` (see `crate::mcp`),
+//! and only while the window is open: closing the window closes the app, clients or not.
 
-use std::{
-    future::Future,
-    io,
-    path::Path,
-    pin::Pin,
-    sync::{
-        LazyLock,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::{Duration, Instant},
-};
+use std::{future::Future, io, path::Path, pin::Pin, sync::LazyLock};
 
 use base64::Engine as _;
 use interprocess::local_socket::{
@@ -51,7 +39,8 @@ the person sees its effects there. A game is named by its Steam app id: find_gam
 by name. Downloads, reads, updates and exports are jobs: queue starts them and returns at once, \
 work shows where each stands. A game is read once its download is done; reading then gives its \
 subjects and figures, and claims_behind and search_game the reviews behind them. show puts a \
-page in front of the person.";
+page in front of the person. SteamGauge answers only while its window is open; when a tool says it \
+is not open, ask the person to open it rather than trying to start it.";
 
 /// What a tool does to the app, which tells a client how carefully to call it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -671,7 +660,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "connect_client",
             Changes,
-            "Adds this copy of the app to another MCP client's own configuration, as settings lists the clients on this computer, leaving every other entry in it; the client starts the app from then on. Returns the settings with it.",
+            "Adds this copy of the app to another MCP client's own configuration, as settings lists the clients on this computer, leaving every other entry in it; the client reaches the open app from then on. Returns the settings with it.",
             |app, OneClient { client }| {
                 off_thread_trying(move || settings::connect_client(app, client))
             },
@@ -731,7 +720,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "update_now",
             Changes,
-            "Updates SteamGauge to the newest release once its build provenance verifies, then restarts it, which ends this connection.",
+            "Updates SteamGauge to the newest release once its build provenance verifies, then restarts it; the next call reaches the new version.",
             |app, Nothing {}| {
                 off_thread(move || update::update_now(app.clone(), app.state::<update::Updating>()))
             },
@@ -747,7 +736,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "show",
             Looks,
-            "Puts a page of the window in front of the person, opening the window if it is hidden.",
+            "Puts a page of the window in front of the person, bringing the window forward.",
             |app, page: Show| async move {
                 if let Some(missing) = page.missing() {
                     return Err(format!("that page needs {missing}"));
@@ -792,13 +781,13 @@ pub(crate) fn reference() -> Vec<crate::reference::Tool> {
         .collect()
 }
 
-fn server_config() -> ServerConfig {
+pub(super) fn server_config() -> ServerConfig {
     ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
         .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))
         .with_instructions(INSTRUCTIONS)
 }
 
-fn tool_list() -> ListToolsResult {
+pub(super) fn tool_list() -> ListToolsResult {
     ListToolsResult::with_all_items(TOOLS.iter().map(|entry| entry.tool.clone()).collect())
 }
 
@@ -839,23 +828,8 @@ impl ServerHandler for Server {
     }
 }
 
-/// How many clients are connected, and whether one ever was.
-#[derive(Debug, Default)]
-pub struct Clients {
-    open: AtomicUsize,
-    ever: AtomicBool,
-}
-
-impl Clients {
-    fn any(&self) -> bool {
-        self.open.load(Ordering::SeqCst) > 0
-    }
-}
-
-/// Brings the window forward, opening it where it was hidden.
+/// Brings the window forward.
 pub fn bring_forward(app: &AppHandle) {
-    #[cfg(target_os = "macos")]
-    let _ = app.set_dock_visibility(true);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
@@ -863,71 +837,15 @@ pub fn bring_forward(app: &AppHandle) {
     }
 }
 
-fn hide(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
-    #[cfg(target_os = "macos")]
-    let _ = app.set_dock_visibility(false);
-}
-
-/// Closing the window while a client is connected hides it instead, so the client keeps the app
-/// it was steering.
-pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
-    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-        let app = window.app_handle();
-        if app.state::<Clients>().any() {
-            api.prevent_close();
-            hide(app);
-        }
-    }
-}
-
-/// How long an app opened for a client waits for it to connect before closing unasked.
-const FIRST_CLIENT_WAIT: Duration = Duration::from_secs(60);
-const LOOK_EVERY: Duration = Duration::from_secs(5);
-
-/// Starts the server, and where the app was opened for a client, keeps the window hidden and
-/// closes the app once no client is connected, the window is still hidden and no job is left.
-pub fn start(app: &AppHandle, without_window: bool) {
-    if without_window {
-        hide(app);
-    } else {
-        bring_forward(app);
-    }
+/// Shows the window and starts the server, which lasts as long as the app does.
+pub fn start(app: &AppHandle) {
+    bring_forward(app);
     let listening = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(error) = listen(&listening).await {
             eprintln!("the MCP server could not start: {error}");
         }
     });
-    let watched = app.clone();
-    let opened = Instant::now();
-    tauri::async_runtime::spawn(async move {
-        loop {
-            tokio::time::sleep(LOOK_EVERY).await;
-            if needed(&watched, opened) {
-                continue;
-            }
-            watched.exit(0);
-            return;
-        }
-    });
-}
-
-fn needed(app: &AppHandle, opened: Instant) -> bool {
-    let shown = app
-        .get_webview_window("main")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(true);
-    let clients = app.state::<Clients>();
-    let waiting = !clients.ever.load(Ordering::SeqCst) && opened.elapsed() < FIRST_CLIENT_WAIT;
-    let working = app
-        .state::<work::Work>()
-        .jobs()
-        .iter()
-        .any(|job| matches!(job.state, work::State::Queued | work::State::Running));
-    shown || clients.any() || waiting || working
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {
@@ -982,13 +900,9 @@ async fn listen(app: &AppHandle) -> io::Result<()> {
 }
 
 async fn serve(app: AppHandle, stream: Stream) {
-    let clients = app.state::<Clients>();
-    clients.open.fetch_add(1, Ordering::SeqCst);
-    clients.ever.store(true, Ordering::SeqCst);
-    if let Ok(running) = Server::new(app.clone()).serve(stream).await {
+    if let Ok(running) = Server::new(app).serve(stream).await {
         let _ = running.waiting().await;
     }
-    clients.open.fetch_sub(1, Ordering::SeqCst);
 }
 
 #[cfg(test)]
@@ -1093,28 +1007,25 @@ mod tests {
         assert_eq!(hex(&[0, 15, 255]), "000fff");
     }
 
-    /// The app's server as a client meets it, without the window behind the tools.
-    struct Bare;
-
-    impl ServerHandler for Bare {
-        fn get_info(&self) -> ServerConfig {
-            server_config()
-        }
-
-        fn list_tools(
-            &self,
-            _request: Option<PaginatedRequestParams>,
-            _context: RequestContext<RoleServer>,
-        ) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
-            std::future::ready(Ok(tool_list()))
-        }
+    /// A folder of its own for one test, standing in for the app's local data.
+    fn folder() -> std::path::PathBuf {
+        let mut drawn = [0_u8; 8];
+        getrandom::fill(&mut drawn).unwrap();
+        let folder = std::env::temp_dir().join(format!("steamgauge-bridge-{}", hex(&drawn)));
+        std::fs::create_dir_all(&folder).unwrap();
+        folder
     }
 
-    /// Connects as a client of the given era and lists the tools.
+    /// Connects as a client of the given era to what `steamgauge mcp` serves, with no app open,
+    /// and lists the tools.
     async fn tools_seen_by(lifecycle: rmcp::service::ClientLifecycleMode) -> Vec<String> {
         let (server_end, client_end) = tokio::io::duplex(1 << 16);
+        let local = folder();
         let server = tokio::spawn(async move {
-            let running = Bare.serve(server_end).await.expect("the server starts");
+            let running = crate::mcp::Bridge::new(local)
+                .serve(server_end)
+                .await
+                .expect("the server starts");
             let _ = running.waiting().await;
         });
         let client = rmcp::service::serve_client_with_lifecycle((), client_end, lifecycle)
@@ -1149,5 +1060,98 @@ mod tests {
     async fn a_client_of_the_earlier_handshake_sees_every_tool() {
         let seen = tools_seen_by(rmcp::service::ClientLifecycleMode::Initialize).await;
         assert_eq!(seen, every_tool());
+    }
+
+    /// An open app as the bridge meets it: a server on the socket the rendezvous names, which
+    /// answers every call with the tool's name.
+    struct Open;
+
+    impl ServerHandler for Open {
+        fn get_info(&self) -> ServerConfig {
+            server_config()
+        }
+
+        fn call_tool(
+            &self,
+            request: CallToolRequestParams,
+            _context: RequestContext<RoleServer>,
+        ) -> impl Future<Output = Result<CallToolResponse, ErrorData>> + Send + '_ {
+            std::future::ready(Ok(CallToolResult::success(vec![ContentBlock::text(
+                request.name.to_string(),
+            )])
+            .into()))
+        }
+    }
+
+    /// Opens a stand-in app on `local` that serves one connection, and returns what ends it.
+    fn open_app(local: &Path) -> tokio::task::JoinHandle<()> {
+        let (listener, written) = bind(local).unwrap();
+        std::fs::write(rendezvous(local), written).unwrap();
+        tokio::spawn(async move {
+            let stream = listener.accept().await.unwrap();
+            let running = Open.serve(stream).await.unwrap();
+            let _ = running.waiting().await;
+        })
+    }
+
+    fn asking(name: &'static str) -> CallToolRequestParams {
+        CallToolRequestParams::new(name)
+    }
+
+    fn said(answer: CallToolResponse) -> (bool, String) {
+        let CallToolResponse::Complete(result) = answer else {
+            panic!("the call asked for more input");
+        };
+        let text = result
+            .content
+            .iter()
+            .filter_map(|block| block.as_text().map(|text| text.text.clone()))
+            .collect();
+        (result.is_error.unwrap_or(false), text)
+    }
+
+    #[tokio::test]
+    async fn a_call_while_the_app_is_closed_says_to_ask_the_person() {
+        let bridge = crate::mcp::Bridge::new(folder());
+        let (failed, text) = said(bridge.call(asking("library")).await.unwrap());
+        assert!(failed);
+        assert_eq!(text, crate::mcp::CLOSED);
+    }
+
+    #[tokio::test]
+    async fn a_call_reaches_the_open_app_and_a_closed_one_is_said() {
+        let local = folder();
+        let app = open_app(&local);
+        let bridge = crate::mcp::Bridge::new(local.clone());
+        assert_eq!(
+            said(bridge.call(asking("library")).await.unwrap()),
+            (false, "library".to_owned())
+        );
+        app.abort();
+        let _ = app.await;
+        let (failed, text) = said(bridge.call(asking("library")).await.unwrap());
+        assert!(failed);
+        assert!(
+            text == crate::mcp::CLOSED || text == crate::mcp::CLOSED_DURING,
+            "{text}"
+        );
+        let (_, text) = said(bridge.call(asking("library")).await.unwrap());
+        assert_eq!(text, crate::mcp::CLOSED);
+    }
+
+    #[tokio::test]
+    async fn an_app_opened_again_is_reached_again() {
+        let local = folder();
+        let first = open_app(&local);
+        let bridge = crate::mcp::Bridge::new(local.clone());
+        assert!(!said(bridge.call(asking("library")).await.unwrap()).0);
+        first.abort();
+        let _ = first.await;
+        let _ = bridge.call(asking("library")).await;
+        let _second = open_app(&local);
+        assert_eq!(
+            said(bridge.call(asking("work")).await.unwrap()),
+            (false, "work".to_owned())
+        );
     }
 }

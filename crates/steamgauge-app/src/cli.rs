@@ -859,9 +859,9 @@ enum Command {
     /// to it on standard input and output.
     ///
     /// Every tool is something the window can do, and the person sees it done there. The open
-    /// app answers, over a local socket only this user can reach; where it is not running it is
-    /// opened with its window hidden, and closes once the last client has gone and its work is
-    /// done. `connect` adds this command to a client's configuration.
+    /// app answers, over a local socket only this user can reach; while it is closed every tool
+    /// says so, and the assistant asks the person to open it. `connect` adds this command to a
+    /// client's configuration.
     Mcp,
 
     /// The MCP clients this command can add the app to, whether each is on this computer, and
