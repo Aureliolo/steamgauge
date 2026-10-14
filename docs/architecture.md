@@ -117,9 +117,17 @@ game in thirty.
 - Over HTTP the same tools answer on 127.0.0.1 when Settings turns it on, behind a 256-bit bearer
   token, with any `Origin` header refused and only `127.0.0.1` or `localhost` accepted as `Host`.
 - The clients the app adds itself to are rows of one table (`clients.rs`), each from that client's
-  own documentation of its user-wide file. Writing keeps everything else in the file: JSON with
-  comments through a syntax tree, TOML through `toml_edit`. A file that does not parse is refused,
-  and the file is written beside itself and renamed over.
+  own documentation of its user-wide file: which file, the keys down to its servers, whether they
+  are a map or a list of named entries, and the entry's shape. Writing keeps everything else in
+  the file: JSON with comments through `jsonc-parser`'s syntax tree, TOML through `toml_edit`, YAML
+  through `yaml-edit` with the entry written on one line, in flow style, so no indentation can
+  misplace it.
+- **Every write is checked before it lands.** A strict parser (`serde-saphyr` for YAML) reads the
+  old and the new text, and the new has to be the old plus the entry and nothing else; otherwise
+  nothing is written. A file that does not parse is refused, and the file is written beside itself
+  and renamed over.
+- A client that rewrites its own file while it runs, Claude Code, is added and removed through its
+  own command (`claude mcp add --scope user`), and its file is read back to confirm.
 
 ## Updates and releases
 

@@ -105,12 +105,6 @@ struct Other {
 
 const OTHERS: &[Other] = &[
     Other {
-        id: "claude-code",
-        name: "Claude Code",
-        code: "claude mcp add --scope user steamgauge -- \"<path to steamgauge>\" mcp",
-        note: "In a terminal.",
-    },
-    Other {
         id: "jetbrains",
         name: "JetBrains AI Assistant",
         code: "{\"mcpServers\": {\"steamgauge\": {\"command\": \"<path to steamgauge>\", \
@@ -119,24 +113,31 @@ const OTHERS: &[Other] = &[
                level.",
     },
     Other {
-        id: "lm-studio",
-        name: "LM Studio",
+        id: "trae",
+        name: "Trae",
         code: "{\"mcpServers\": {\"steamgauge\": {\"command\": \"<path to steamgauge>\", \
                \"args\": [\"mcp\"]}}}",
-        note: "The Program tab, Install, Edit `mcp.json`.",
+        note: "Settings, MCP, Add, Raw Config (JSON).",
     },
     Other {
-        id: "goose",
-        name: "Goose",
-        code: "\"<path to steamgauge>\" mcp",
-        note: "`goose configure`, Add Extension, Command-line Extension, with this command.",
+        id: "qoder-ide",
+        name: "Qoder",
+        code: "{\"mcpServers\": {\"steamgauge\": {\"command\": \"<path to steamgauge>\", \
+               \"args\": [\"mcp\"]}}}",
+        note: "Settings, MCP, My Servers, Add. Qoder CLI is added by `steamgauge connect qoder`.",
     },
     Other {
-        id: "continue",
-        name: "Continue",
-        code: "mcpServers:\n  - name: steamgauge\n    type: stdio\n    command: <path to \
-               steamgauge>\n    args: [mcp]",
-        note: "In `~/.continue/config.yaml`.",
+        id: "command-code",
+        name: "Command Code",
+        code: "cmd mcp add --scope user steamgauge -- \"<path to steamgauge>\" mcp",
+        note: "In a terminal.",
+    },
+    Other {
+        id: "fast-agent",
+        name: "fast-agent",
+        code: "mcp:\n  servers:\n    steamgauge:\n      command: <path to steamgauge>\n      \
+               args: [mcp]",
+        note: "In the `fast-agent.yaml` of the folder it runs in, and in the agent's `servers`.",
     },
     Other {
         id: "other",
@@ -175,11 +176,15 @@ fn assistants() -> Vec<Assistant> {
                 .then
                 .map(|then| format!(" {then}"))
                 .unwrap_or_default();
+            let does = match &client.runs {
+                Some(runs) => format!("Runs `{runs}`"),
+                None => format!("Writes {files}"),
+            };
             Assistant {
                 id: client.id.to_owned(),
                 name: client.name.to_owned(),
                 code: format!("steamgauge connect {}", client.id),
-                note: format!("Writes {files}.{then}"),
+                note: format!("{does}.{then}"),
             }
         })
         .collect();
@@ -220,8 +225,11 @@ fn clients() -> String {
 
 /// Assistants one maker ships in more than one form, offered as one chip, the forms in this
 /// order, each under its own name.
-const FAMILIES: &[(&str, &str, &[&str])] =
-    &[("claude", "Claude", &["claude-code", "claude-desktop"])];
+const FAMILIES: &[(&str, &str, &[&str])] = &[
+    ("claude", "Claude", &["claude-code", "claude-desktop"]),
+    ("devin", "Devin and Windsurf", &["devin", "windsurf"]),
+    ("tabnine", "Tabnine", &["tabnine", "tabnine-ide"]),
+];
 
 /// Every assistant as a row of chips, the command for the one chosen beneath them.
 #[must_use]
@@ -293,12 +301,15 @@ pub fn for_the_site(html: &str) -> String {
 
 /// The entry `connect` writes, once for each shape the assistants keep it in, with the
 /// assistants that keep it so.
-fn shapes() -> Vec<(Vec<&'static str>, String)> {
-    let mut shapes: Vec<(Vec<&'static str>, String)> = Vec::new();
+fn shapes() -> Vec<(Vec<&'static str>, String, &'static str)> {
+    let mut shapes: Vec<(Vec<&'static str>, String, &'static str)> = Vec::new();
     for client in reference::clients() {
-        match shapes.iter_mut().find(|(_, entry)| *entry == client.entry) {
-            Some((names, _)) => names.push(client.name),
-            None => shapes.push((vec![client.name], client.entry)),
+        let Some(entry) = client.entry else {
+            continue;
+        };
+        match shapes.iter_mut().find(|(_, written, _)| *written == entry) {
+            Some((names, _, _)) => names.push(client.name),
+            None => shapes.push((vec![client.name], entry, client.language)),
         }
     }
     shapes
@@ -309,7 +320,7 @@ fn entries_picker() -> String {
     let choices: Vec<Choice> = shapes()
         .into_iter()
         .enumerate()
-        .map(|(at, (names, entry))| Choice {
+        .map(|(at, (names, entry, _))| Choice {
             id: at.to_string(),
             name: if names.len() > 2 {
                 format!("{} and {} more", names[0], names.len() - 1)
@@ -326,12 +337,7 @@ fn entries_picker() -> String {
 /// The entry `connect` writes, once for each shape the assistants keep it in.
 fn entries() -> String {
     let mut text = String::new();
-    for (names, entry) in shapes() {
-        let language = if entry.starts_with('[') {
-            "toml"
-        } else {
-            "json"
-        };
+    for (names, entry, language) in shapes() {
         text.push_str(&wrap(&format!("{}:", listed_and(&names)), "", ""));
         let _ = write!(text, "\n\n```{language}\n{entry}\n```\n\n");
     }
@@ -872,10 +878,14 @@ mod tests {
             "{picker}"
         );
         assert!(picker.contains(
-            "# Claude Code</span>\nclaude mcp add --scope user steamgauge -- &quot;&lt;path to \
-             steamgauge&gt;&quot; mcp\n<span class=\"comment\"># Claude Desktop</span>\n\
-             steamgauge connect claude-desktop"
+            "# Claude Code</span>\nsteamgauge connect claude-code\n<span class=\"comment\"># \
+             Claude Desktop</span>\nsteamgauge connect claude-desktop"
         ));
+        assert!(
+            list.contains(
+                "`claude mcp add --scope user steamgauge -- \"<path to steamgauge>\" mcp`"
+            )
+        );
         assert_eq!(
             picker.matches("<label for=\"pick-assistant-claude").count(),
             1
@@ -921,8 +931,13 @@ mod tests {
             "{entries}"
         );
         assert!(entries.contains("Codex:"), "{entries}");
+        assert!(entries.contains("```yaml\nextensions:"), "{entries}");
         for client in reference::clients() {
-            assert!(entries.contains(&client.entry), "{}", client.id);
+            let Some(entry) = &client.entry else {
+                assert!(client.runs.is_some(), "{}", client.id);
+                continue;
+            };
+            assert!(entries.contains(entry.as_str()), "{}", client.id);
             assert!(entries.contains(client.name), "{}", client.id);
         }
     }

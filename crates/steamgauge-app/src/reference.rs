@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use crate::clients::{CLIENTS, Folders, Launch, with_entry};
+use crate::clients::{By, CLIENTS, Folders, Launch, System, with_entry};
 
 /// The command line, as `--help` prints it.
 #[must_use]
@@ -40,9 +40,14 @@ pub struct Client {
     pub linux: String,
     /// What the person still has to do once the file is written, if anything.
     pub then: Option<&'static str>,
+    /// The client's own command `connect` runs, for a client that rewrites its own file, with
+    /// the program's path as `PROGRAM`.
+    pub runs: Option<String>,
     /// The file as `connect` writes it where there was none, with the program's path as
-    /// `PROGRAM`.
-    pub entry: String,
+    /// `PROGRAM`, for a client whose file the app writes.
+    pub entry: Option<String>,
+    /// The language the file is written in: `json`, `toml` or `yaml`.
+    pub language: &'static str,
 }
 
 /// What stands for the program's path in a client's entry.
@@ -55,15 +60,27 @@ pub const PROGRAM: &str = "<path to steamgauge>";
 /// Never: an empty file always takes an entry, and the tests hold every client to it.
 #[must_use]
 pub fn clients() -> Vec<Client> {
-    let on = |home: &str, config: &str, windows: bool| Folders {
+    let on = |home: &str, config: &str, local: &str, system: System| Folders {
         home: PathBuf::from(home),
         config: PathBuf::from(config),
+        local: PathBuf::from(local),
         variable: |_| None,
-        windows,
+        program: |_| None,
+        system,
     };
-    let windows = on("%USERPROFILE%", "%APPDATA%", true);
-    let macos = on("~", "~/Library/Application Support", false);
-    let linux = on("~", "~/.config", false);
+    let windows = on(
+        "%USERPROFILE%",
+        "%APPDATA%",
+        "%LOCALAPPDATA%",
+        System::Windows,
+    );
+    let macos = on(
+        "~",
+        "~/Library/Application Support",
+        "~/Library/Application Support",
+        System::MacOs,
+    );
+    let linux = on("~", "~/.config", "~/.local/share", System::Linux);
     // The folders are joined on whatever system builds the site, so each is written back with
     // the separator of the system it describes.
     let written = |path: PathBuf, separator: char| {
@@ -83,10 +100,19 @@ pub fn clients() -> Vec<Client> {
             macos: written((client.file)(&macos), '/'),
             linux: written((client.file)(&linux), '/'),
             then: client.then,
-            entry: with_entry(client, "", &launch)
-                .expect("an empty file takes the entry")
-                .trim_end()
-                .to_owned(),
+            runs: match client.by {
+                By::Running { program, add, .. } => {
+                    Some(format!("{program} {} {}", add.join(" "), launch.line()))
+                }
+                By::Editing => None,
+            },
+            entry: matches!(client.by, By::Editing).then(|| {
+                with_entry(client, "", &launch)
+                    .expect("an empty file takes the entry")
+                    .trim_end()
+                    .to_owned()
+            }),
+            language: client.format.language.name(),
         })
         .collect()
 }
@@ -122,6 +148,7 @@ mod tests {
                 .find(|client| client.id == id)
                 .unwrap()
                 .entry
+                .unwrap()
         };
         let cursor = entry("cursor");
         assert!(cursor.contains("\"mcpServers\""), "{cursor}");
@@ -133,6 +160,15 @@ mod tests {
         assert!(
             codex.contains("command = \"<path to steamgauge>\""),
             "{codex}"
+        );
+        let claude = clients()
+            .into_iter()
+            .find(|client| client.id == "claude-code")
+            .unwrap();
+        assert_eq!(claude.entry, None);
+        assert_eq!(
+            claude.runs.as_deref(),
+            Some("claude mcp add --scope user steamgauge -- \"<path to steamgauge>\" mcp")
         );
     }
 
