@@ -127,7 +127,7 @@ export function setUpSettings() {
       set(
         el('settings-note'),
         command === 'connect_client'
-          ? `Added to ${client.name}. ${client.then ?? 'It starts SteamGauge from its next session.'}`
+          ? `Added to ${client.name}. ${client.then ?? 'It reaches SteamGauge from its next session, while this window is open.'}`
           : `Taken out of ${client.name}.`,
       );
     } catch (failure) {

@@ -66,7 +66,7 @@ what counts as new there.
 
 ### `show`
 
-Puts a page of the window in front of the person, opening the window if it is hidden. Only looks.
+Puts a page of the window in front of the person, bringing the window forward. Only looks.
 
 - `app_id`: The game, for a game's page, a subject or a search.
 - `app_ids`: The games to compare.
@@ -299,8 +299,8 @@ the settings with it.
 ### `connect_client`
 
 Adds this copy of the app to another MCP client's own configuration, as settings lists the clients
-on this computer, leaving every other entry in it; the client starts the app from then on. Returns
-the settings with it.
+on this computer, leaving every other entry in it; the client reaches the open app from then on.
+Returns the settings with it.
 
 - `client`, required: The client's id, as settings lists it.
 
@@ -323,8 +323,8 @@ Where an update of SteamGauge stands, or what keeps this copy from updating itse
 
 ### `update_now`
 
-Updates SteamGauge to the newest release once its build provenance verifies, then restarts it, which
-ends this connection.
+Updates SteamGauge to the newest release once its build provenance verifies, then restarts it; the
+next call reaches the new version.
 
 ### `show_update_file`
 

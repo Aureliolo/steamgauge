@@ -19,17 +19,13 @@ mod update;
 /// Whatever calls `reference::command()` needs it too.
 pub const CLI_STACK: usize = 32 * 1024 * 1024;
 
-/// The program: the window, the window hidden for an MCP client, or the pipeline.
+/// The program: the window, or the pipeline.
 ///
 /// # Errors
 ///
 /// Fails where the window cannot open or the command given fails.
 pub fn run() -> anyhow::Result<()> {
-    let first = std::env::args_os().nth(1);
-    if first.as_deref() == Some(mcp::WITHOUT_WINDOW.as_ref()) {
-        return ui::run(true);
-    }
-    if first.is_some() {
+    if std::env::args_os().nth(1).is_some() {
         // The window has to stay on the main thread; the pipeline does not, so only it moves.
         return std::thread::Builder::new()
             .stack_size(CLI_STACK)
@@ -38,5 +34,5 @@ pub fn run() -> anyhow::Result<()> {
             .join()
             .map_err(|_| anyhow::anyhow!("the command panicked"))?;
     }
-    ui::run(false)
+    ui::run()
 }
