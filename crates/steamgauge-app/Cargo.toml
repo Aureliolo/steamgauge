@@ -55,9 +55,13 @@ http-body-util = "=0.1.5"
 bytes = "=1.12.1"
 tokio-util = "=0.7.19"
 # Adding the app to an MCP client's own configuration in place, keeping that file's comments,
-# formatting and every other server: JSON with comments, and TOML.
+# formatting and every other server: JSON with comments, TOML and YAML, each through a syntax
+# tree. serde-saphyr reads YAML strictly, so a written file is checked by a parser other than the
+# one that wrote it.
 jsonc-parser = { version = "=0.34.0", features = ["cst", "serde"] }
-toml_edit = "=0.25.17"
+toml_edit = { version = "=0.25.17", features = ["serde"] }
+yaml-edit = "=0.3.2"
+serde-saphyr = "=2.0.0"
 # One app per user, so a client and the person share one library, one work board and one window.
 tauri-plugin-single-instance = "=2.5.3"
 
