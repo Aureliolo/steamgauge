@@ -389,7 +389,7 @@ test("the changelog splits on what reaches the download", () => {
   assert.equal(shipsInDownload(["crates/steamgauge-core/examples/sample-report.rs"]), false);
   assert.equal(shipsInDownload(["crates/steamgauge-core/tests/pipeline.rs"]), false);
   assert.equal(shipsInDownload(["training/train.py", "reference/README.md", "tools/chrome.mjs"]), false);
-  assert.equal(shipsInDownload(["DECISIONS.md", ".github/workflows/ci.yml", "training/Cargo.lock"]), false);
+  assert.equal(shipsInDownload(["CONTRIBUTING.md", ".github/workflows/ci.yml", "training/Cargo.lock"]), false);
 });
 
 test("pull requests are found by the number a squash appends", () => {

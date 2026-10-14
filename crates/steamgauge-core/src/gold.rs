@@ -901,7 +901,7 @@ mod tests {
 
     #[test]
     fn a_blind_draw_is_held_out_games_only_and_a_split_can_come_from_anywhere() {
-        // 214490 is held out and 296970 trains, both pinned in DECISIONS.md.
+        // 214490 is held out and 296970 trains, as the trainer places them.
         assert_eq!(role(214_490, SPLIT_SEED), Role::HeldOut);
         assert_ne!(role(296_970, SPLIT_SEED), Role::HeldOut);
 

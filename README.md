@@ -56,6 +56,8 @@ The documentation is published at <https://aureliolo.github.io/steamgauge/> and 
 - [AI assistants](docs/assistants.md): the app's MCP server and the assistants it adds itself to.
 - [MCP tools](docs/tools.md): every tool the MCP server offers and what each is given.
 - [Command line](docs/commands.md): every command of the `steamgauge` program.
+- [Architecture](docs/architecture.md): how the parts fit and the rules they keep, for anyone
+  changing SteamGauge.
 - [Privacy](docs/privacy.md): what stays on your computer and the four places the app connects to.
 
 <!-- steamgauge-site: end -->

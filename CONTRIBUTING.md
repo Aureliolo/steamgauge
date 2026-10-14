@@ -91,8 +91,8 @@ The documentation site is held to it too. `crates/steamgauge-site` builds its fr
 `home.rs` and every other page from `docs/`, and writes the parts that describe the program, its
 commands, its MCP tools and the clients it adds itself to, from the program's own tables; `write`
 refreshes them, and a test fails while a copy is behind. A page under `docs/` is reference: what
-something is and how to use it, in as few words as that takes, with the reasoning behind it kept
-in `DECISIONS.md`. The build refuses a link to a file or heading that does not exist and anything
+something is and how to use it, in as few words as that takes; how the parts fit is in
+`docs/architecture.md`. The build refuses a link to a file or heading that does not exist and anything
 fetched from another host, and `tools/site-check` serves the built site and holds every page to
 WCAG 2.2 A and AA, light, dark and at a phone's width:
 

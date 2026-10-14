@@ -139,6 +139,14 @@ pub const PAGES: &[Page] = &[
         nav: true,
     },
     Page {
+        file: "architecture",
+        source: Source::Markdown("docs/architecture.md"),
+        label: "Architecture",
+        description: "how the parts fit and the rules they keep, for anyone changing SteamGauge",
+        layout: Layout::Prose,
+        nav: true,
+    },
+    Page {
         file: "privacy",
         source: Source::Markdown("docs/privacy.md"),
         label: "Privacy",

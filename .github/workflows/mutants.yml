@@ -8,7 +8,8 @@ name: mutants
 # A pull request is held to it on the lines it changes, and a mutant that survives there fails the
 # check: the change is in front of its author, and so is the test it needs. Every Tuesday the
 # whole crate is run, which is where anything no diff touched turns up, and what survives there
-# is kept in one issue rather than failing the run; DECISIONS.md says why.
+# is kept in one issue rather than failing the run: a check red for the weeks the tests take to
+# write is one nobody opens, which hides the week it fails for a reason.
 #
 # The core only, as the coverage job measures it, and on Linux only. The app crate is clap and
 # Tauri over the core and is driven by tools/app-check, not by Rust tests. The only code the core

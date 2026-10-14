@@ -8,11 +8,13 @@ builds the documentation site, a front page made in `home.rs` and the pages unde
 app's own tables written into them; the release deploys it to GitHub Pages. `training/` is Python
 that produces the reader; `training/README.md` gives the order a model is trained, swept,
 exported and published in. `tools/` drives the report, gold and window pages in Chrome and holds
-the release scripts. `DECISIONS.md` is the live record of every choice and figure, written as
-findings rather than one section per subject: before touching the classifier, the taxonomy, the
-splitter or anything a reported number depends on, list its headings with
-`grep -n '^#' DECISIONS.md` and read each one that names it. `CONTRIBUTING.md` says what is held
-to a higher bar.
+the release scripts. `docs/architecture.md` says how the parts fit and the rules they keep: read
+the section that names the thing before changing the classifier, the taxonomy, the splitter or
+anything a reported number depends on. `CONTRIBUTING.md` says what is held to a higher bar.
+
+There is no decision log. A design choice is the architecture: once settled, it is written into
+`docs/architecture.md` (or `training/README.md`) as a present-tense fact, and how it got there
+stays in git and the pull request.
 
 ## Commands
 
@@ -77,7 +79,7 @@ gold page it drives, and read CI for the rest.
   metaphor.
 - Public texts (the README, the docs, model and dataset cards, release notes) state what the
   product is and does now, in plain present tense: no history of how it got here and no
-  comparison with what it replaced, which belong in `DECISIONS.md`. No figure in them rests on
+  comparison with what it replaced. No figure in them rests on
   a library or capture nobody else can check. The one list of changes is the release notes'
   changelog, built from pull request titles, so a title states what is true after the change
   rather than comparing it with what came before.

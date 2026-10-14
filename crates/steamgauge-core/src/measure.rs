@@ -797,8 +797,8 @@ mod tests {
         }
     }
 
-    /// The eight games the trainer holds back and the four it validates on, as recorded in
-    /// DECISIONS.md. If this ever fails, the tool and the trainer disagree about which games
+    /// The eight games the trainer holds back and the four it validates on, as its run records
+    /// name them. If this ever fails, the tool and the trainer disagree about which games
     /// the model has seen, and every held-out figure either of them reports is over the wrong
     /// games.
     #[test]

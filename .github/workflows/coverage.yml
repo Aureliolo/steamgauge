@@ -1,8 +1,8 @@
 name: coverage
 
 # How much of steamgauge-core its own tests run, held to a floor that only ever rises. The floor
-# is the figure measured when it was set, rounded down to the whole percent; DECISIONS.md records
-# each one. A change that adds code without the tests to run it lowers the figure and fails here,
+# is the figure measured when it was set, rounded down to the whole percent. A change that adds
+# code without the tests to run it lowers the figure and fails here,
 # and a change that lifts the figure past the next whole percent should raise the floor with it.
 #
 # The core alone, by its own tests. The app crate is two front ends over it: clap dispatching to
