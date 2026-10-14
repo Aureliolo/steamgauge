@@ -216,6 +216,11 @@ code {
   padding: 0.05em 0.35em;
 }
 
+/* A link's ink is drawn for the page; on the sunken ground of code it reads too faint. */
+a code {
+  background: transparent;
+}
+
 pre {
   margin: 16px 0;
   padding: 16px 18px;
