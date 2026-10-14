@@ -47,8 +47,8 @@ python publish.py --run runs/<id> \
 `--context` is what ships: the model reads a claim inside a window of its review centred on it,
 as the labeller did. `sweep.py` is not optional reading. It prints, beside every configuration,
 how far apart two runs of one configuration land, which on this machine is about two points of
-coverage even on the same seed. Almost every configuration ever tried here sits inside that,
-and the ones that did not are in `DECISIONS.md` with what each was worth.
+coverage even on the same seed. Almost every configuration ever tried here sits inside that;
+`runs/README.md` lists each with what it changed and scored.
 
 A student can learn from more than the labels. `steamgauge export-pool <training app ids>`
 draws reviews no reference set holds, from games the model trains on only, and `teach.py
@@ -60,8 +60,8 @@ it pays for disagreeing with a label. The pool never reaches a held-out or valid
 figure about games nobody trained on. `tapt.py --pool data/tapt.jsonl --run-id tapt-e5`
 continues the encoder's masked-language pretraining on the same kind of pool before any
 label is spent, and writes a backbone `train.py --backbone runs/tapt-e5/backbone` fine-tunes
-from. `--ema`, `--llrd`, `--rdrop` and `--pooling last` are the other knobs added the same
-night, and `DECISIONS.md` says what each was worth.
+from. `--ema`, `--llrd`, `--rdrop` and `--pooling last` are the other knobs, and the run index
+says what each scored.
 
 Two knobs aim at the abstention rule rather than at accuracy, which is what coverage at a
 promised accuracy is made of. `--second-weight` charges the loss against both labellers'
@@ -112,6 +112,31 @@ did not happen.
 The held-out games are read once, at the end, and choose nothing. The bake-off does not read
 them at all: a set used to choose between models cannot also say how the chosen one does.
 
-The bake-off's table, with the figures that chose the backbone, is in `DECISIONS.md`. It runs
-five epochs by default: at three the order was the same but every candidate was still
-climbing, and a gap measured mid-climb is a gap in learning speed as much as in the model.
+The bake-off's runs are in the index under `bakeoff-`. It runs five epochs by default: at three
+the order was the same but every candidate was still climbing, and a gap measured mid-climb is
+a gap in learning speed as much as in the model.
+
+## What holds
+
+- **The recipe.** `multilingual-e5-large-instruct` is the standard reader's encoder and
+  `multilingual-e5-small` the small one's. Both learn from the labels and from a teacher,
+  `Qwen3-Embedding-4B` trained through rank-16 adapters, whose answers over the unlabelled pool
+  are the distillation targets. Every encoder of the same size measured against it answered far
+  fewer claims at the promised accuracy.
+- **The lines.** The per-subject and per-language abstention lines are fitted on five folds of
+  the games outside the held-out set, so every training claim is answered by a model that never
+  saw its game. `export.py --lines-from` writes them into `reader.json`.
+- **The bar.** A configuration is better only when it clears the seed spread on coverage at the
+  promised accuracy, without losing a point of macro F1 or worsening AURC. Five seeds decide; four
+  that look separated are not enough. A comparison run is six epochs, since every seed is within
+  half a point of its last epoch by then.
+- **What is quoted.** `test.at_validation_threshold`, the held-out games at the line the
+  validation games chose. `test.threshold_coverage` refits the line on the held-out games and is
+  never quoted.
+- **The export is fresh.** `export-training` is run immediately before training, never found on
+  disk. It holds back a label at a span this build cuts no claim at, a teaching row from a game
+  that is not training, and a second copy of a claim, which becomes that claim's second answer.
+- **transformers stays below 5** until the exporter's graph runs on DirectML; `requirements.txt`
+  says why beside the pin.
+- **Training shares the card.** `--card-share` rests after each batch and `--card-memory` holds
+  the run to a size; `--cuda-graphs` replays the passes so the card does not wait on Python.

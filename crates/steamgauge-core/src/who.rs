@@ -113,7 +113,7 @@ pub const REFUND_WINDOW: u32 = 2 * HOUR;
 /// Every kind of reviewer a reading counts, a split's answers together and in order.
 ///
 /// The bands of time played are the refund window and then four of roughly a fifth of reviewers
-/// each, at round numbers: DECISIONS.md has the spread they were read from.
+/// each, at round numbers, read from the time played across the published dataset's reviews.
 pub const SEGMENTS: [Segment; 11] = [
     Segment {
         id: "under-2-hours",

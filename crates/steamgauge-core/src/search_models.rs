@@ -2,7 +2,7 @@
 //! one space, and a reranker that reads the search and each claim near it together.
 //!
 //! Chosen on 1,029 results judged by whether they were what was asked for, over fourteen
-//! searches on three games (DECISIONS.md): Qwen3-Embedding-0.6B with Qwen3-Reranker-0.6B found
+//! searches on three games: Qwen3-Embedding-0.6B with Qwen3-Reranker-0.6B found
 //! it in 77% of their first ten, gte-multilingual-base alone in 64%, and gte put up 24 opposites
 //! of what was asked where the pair put up 5. Both are this project's own exports
 //! (`training/export_search.py`), graphs that take tokens and give back only what is used: a

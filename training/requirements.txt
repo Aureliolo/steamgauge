@@ -15,8 +15,9 @@ torch>=2.13
 # The exporter torch now defaults to writes a graph that loads, keeps its weights in one file
 # and answers identically, and then dies on a Reshape node inside the DirectML provider four
 # seconds into a read the traced graph does at 909 claims a second. Until that graph runs on
-# this card, these three stay where they are. DECISIONS has the measurements, and what the
-# hold leaves open: advisories fixed only in 5.3, 5.5 and 5.10.
+# this card, these three stay where they are. The hold leaves open advisories fixed only in
+# 5.3, 5.5 and 5.10; each needs a backbone repository serving hostile files, and every
+# backbone is read at the commit backbones.py pins.
 transformers>=4.57.2,<5
 tokenizers>=0.19,<0.23
 huggingface_hub>=0.25,<1

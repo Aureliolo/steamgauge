@@ -1,6 +1,6 @@
 """Exports the two models search by meaning runs, and checks each against the model it came from.
 
-Measured on 1,029 judged results over three games and fourteen searches (DECISIONS.md), the
+Measured on 1,029 judged results over three games and fourteen searches, the
 Qwen3 embedding and reranker at 0.6B found what was asked for in 77% of their first ten, where
 the encoder the search first shipped with found 64% and put up four times as many opposites.
 Neither has a full-precision ONNX export of the shape the app runs: the embedding's carries a

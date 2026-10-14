@@ -22,7 +22,8 @@ missing_debug_implementations = "warn"
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
-# Cargo's sixteen codegen units: one built twice as slowly and ran no faster (DECISIONS.md).
+# Cargo's sixteen codegen units: one built twice as slowly and ran no faster, since reading runs
+# inside ONNX Runtime, which this setting never touches.
 [profile.release]
 lto = "thin"
 strip = true
