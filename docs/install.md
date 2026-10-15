@@ -61,8 +61,10 @@ and commit that built it. [SECURITY.md](../SECURITY.md#releases) has the command
 
 ## Updating
 
-When a newer version is out, the window names it and offers **Update now**. It installs the new
-release's file only once its signed provenance shows SteamGauge's release workflow built it, for
+When a newer version is out, the window names it and offers **Update now**. SteamGauge's name at
+the top of the window opens About, which shows the version this computer has and asks GitHub at
+once through **Check for updates**. Update now asks again and installs the newest release's file
+only once its signed provenance shows SteamGauge's release workflow built it, for
 that version's tag, with the SHA-256 it arrived with; anything else stops the update and offers
 the release page. [SECURITY.md](../SECURITY.md#updates-from-the-window) lists every check.
 `steamgauge update` does the same from a terminal.

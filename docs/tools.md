@@ -76,6 +76,7 @@ Puts a page of the window in front of the person, bringing the window forward. O
   - `finder`: Finding a game on Steam to add.
   - `settings`: How the app runs, and the assistants it is added to.
   - `storage`: What the library and the models take on disk.
+  - `about`: This copy's version and the newest release, with the button that asks for it.
   - `game`: One game's page; needs `app_id`.
   - `compare`: Games side by side; needs `app_ids`.
   - `subject`: The reviews behind one subject of a read game; needs `app_id` and `subject`.
@@ -312,6 +313,16 @@ settings without it.
 - `client`, required: The client's id, as settings lists it.
 
 ## Updates
+
+### `about`
+
+This copy's version, the newest release GitHub last named, when it was last asked and answered, and
+where SteamGauge is published. Only looks.
+
+### `check_for_updates`
+
+Asks GitHub now for the newest SteamGauge release, as the About page's button does, and returns what
+about returns.
 
 ### `newer_version`
 

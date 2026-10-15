@@ -5,7 +5,10 @@
 use std::{path::PathBuf, sync::Mutex, time::Instant};
 
 use serde::Serialize;
-use steamgauge_core::{newer_version::Asked, self_update::Version};
+use steamgauge_core::{
+    newer_version::{Asked, LATEST},
+    self_update::Version,
+};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::work::{EVERY, Meter, left};
@@ -148,9 +151,14 @@ pub fn tidy(app: &AppHandle) {
 
 async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
     let config = app.path().app_config_dir().map_err(Stop::new)?;
-    let release = Asked::load(&config)
+    // The kept answer can be a day old, and a release may have come out since: what is installed
+    // is the newest there is when the person asks for it.
+    let asked = Asked::load(&config).ask(LATEST, super::now_unix()).await;
+    let _ = asked.save(&config);
+    let release = asked
         .newer_than(env!("CARGO_PKG_VERSION"))
         .ok_or_else(|| Stop::new("no newer release is known"))?;
+    let _ = app.emit("newer-version", &release);
     let version = Version::parse(&release.version).map_err(Stop::new)?;
     let folders = folders(app).ok_or_else(|| Stop::new("there is no folder to download into"))?;
 

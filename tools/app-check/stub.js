@@ -303,6 +303,24 @@
   };
   // Where Update now stands: nothing under way, on a copy the window can update.
   let update = { state: 'idle', why: null };
+  // When GitHub was last asked and last answered, and the release it names when asked next;
+  // null stands for GitHub out of reach.
+  let askedAt = 1_792_000_000;
+  let answeredAt = askedAt;
+  let github = '0.2.0';
+  const release = (version) => ({ version, running: '0.1.0', url: `https://github.com/Aureliolo/steamgauge/releases/tag/v${version}` });
+  const about = () => ({
+    running: '0.1.0',
+    latest: newer?.version ?? '0.1.0',
+    asked: askedAt,
+    answered: answeredAt,
+    newer,
+    notes: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0',
+    site: 'https://aureliolo.github.io/steamgauge/',
+    repository: 'https://github.com/Aureliolo/steamgauge',
+    licence: 'Apache-2.0',
+    daily: settings.check_newer_version,
+  });
   let searchEveryGame = false;
   // The MCP clients on this computer: one without the app, one starting another copy, and one
   // whose settings file does not parse.
@@ -722,6 +740,16 @@
       return storage();
     },
     newer_version: () => (settings.check_newer_version ? newer : null),
+    about: () => about(),
+    check_for_updates: () => {
+      askedAt += 60;
+      if (github !== null) {
+        answeredAt = askedAt;
+        newer = github === '0.1.0' ? null : release(github);
+      }
+      send('newer-version', newer);
+      return about();
+    },
     update_state: () => update,
     update_now: () => {
       update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
@@ -877,6 +905,10 @@
     },
     refuse: (why) => {
       refusal = why;
+    },
+    // What GitHub names when Check for updates asks next: a version, or null for out of reach.
+    github: (version) => {
+      github = version;
     },
   };
 })();

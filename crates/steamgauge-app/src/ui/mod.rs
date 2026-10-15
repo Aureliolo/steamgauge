@@ -1330,6 +1330,8 @@ pub fn run() -> anyhow::Result<()> {
             storage::free_room,
             storage::remove_model,
             newer::newer_version,
+            newer::about,
+            newer::check_for_updates,
             update::update_state,
             update::update_now,
             update::show_update_file,

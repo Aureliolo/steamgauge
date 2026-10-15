@@ -6,7 +6,8 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use steamgauge_core::newer_version::{Asked, LATEST, Release};
+use serde::Serialize;
+use steamgauge_core::newer_version::{Asked, LATEST, RELEASES, Release};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::{now_unix, settings::Settings};
@@ -55,6 +56,66 @@ pub fn newer_version(app: AppHandle) -> Option<Release> {
     Asked::load(&dir(&app)?).newer_than(env!("CARGO_PKG_VERSION"))
 }
 
+/// This copy, and what GitHub last said about the newest release, as the About page shows it.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct About {
+    pub running: String,
+    /// The newest release GitHub last named.
+    pub latest: Option<String>,
+    /// When GitHub was last asked, in Unix seconds; zero for never.
+    pub asked: i64,
+    /// When GitHub last answered, in Unix seconds; zero for never.
+    pub answered: i64,
+    /// A release newer than this copy, where the last answer named one.
+    pub newer: Option<Release>,
+    /// This copy's own release page, which the window may open.
+    pub notes: String,
+    pub site: &'static str,
+    pub repository: &'static str,
+    pub licence: &'static str,
+    /// Whether the app asks GitHub by itself, once a day.
+    pub daily: bool,
+}
+
+fn about_from(asked: &Asked, daily: bool) -> About {
+    let running = env!("CARGO_PKG_VERSION");
+    About {
+        running: running.to_owned(),
+        latest: asked.latest.clone(),
+        asked: asked.at,
+        answered: asked.answered,
+        newer: asked.newer_than(running),
+        notes: format!("{RELEASES}/tag/v{running}"),
+        site: env!("CARGO_PKG_HOMEPAGE"),
+        repository: env!("CARGO_PKG_REPOSITORY"),
+        licence: env!("CARGO_PKG_LICENSE"),
+        daily,
+    }
+}
+
+/// This copy and the newest release last heard of; nothing is asked here.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+pub fn about(app: AppHandle) -> About {
+    let asked = dir(&app).map(|dir| Asked::load(&dir)).unwrap_or_default();
+    about_from(&asked, Settings::load(&app).check_newer_version)
+}
+
+/// Asks GitHub now for the newest release, whatever the setting and however recently it was
+/// asked: the person asked. The window is told either way, so a notice the answer no longer
+/// bears out goes.
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<About, String> {
+    let dir = dir(&app).ok_or("there is no folder to keep the answer in")?;
+    let asked = Asked::load(&dir).ask(LATEST, now_unix()).await;
+    asked.save(&dir).map_err(super::text)?;
+    let _ = app.emit("newer-version", ());
+    Ok(about_from(&asked, Settings::load(&app).check_newer_version))
+}
+
 #[cfg(test)]
 mod tests {
     /// The opener's own rule: a URL may be opened when no denied pattern matches it and an
@@ -83,8 +144,8 @@ mod tests {
     #[test]
     fn the_window_may_open_a_release_page_of_this_repository_and_nothing_else_on_github() {
         let release = steamgauge_core::newer_version::Asked {
-            at: 0,
             latest: Some("0.2.0".to_owned()),
+            ..steamgauge_core::newer_version::Asked::default()
         }
         .newer_than("0.1.0")
         .unwrap();
@@ -104,6 +165,16 @@ mod tests {
         ] {
             assert!(!may_open(refused), "{refused} may be opened");
         }
+    }
+
+    #[test]
+    fn the_about_page_may_open_this_copy_s_release_page_and_only_shows_the_other_addresses() {
+        let about = super::about_from(&steamgauge_core::newer_version::Asked::default(), true);
+        assert!(may_open(&about.notes), "{}", about.notes);
+        assert!(!may_open(about.repository));
+        assert!(!may_open(about.site));
+        assert_eq!(about.running, env!("CARGO_PKG_VERSION"));
+        assert_eq!((about.asked, about.answered, about.newer), (0, 0, None));
     }
 
     #[test]

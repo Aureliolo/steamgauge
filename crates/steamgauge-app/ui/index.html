@@ -24,10 +24,14 @@
 
     <div class="frame">
       <nav class="rail" aria-label="SteamGauge">
-        <div class="brand">
+        <button type="button" class="brand" data-go="about">
           <svg class="brand-mark" aria-hidden="true" focusable="false"><use href="#mark" /></svg>
-          <span class="brand-name">SteamGauge</span>
-        </div>
+          <span class="brand-text">
+            <span class="sr">About </span>
+            <span class="brand-name">SteamGauge</span>
+            <span class="brand-version" id="brand-version"></span>
+          </span>
+        </button>
         <button type="button" class="primary rail-add" id="rail-add">
           <svg aria-hidden="true" focusable="false"><use href="#icon-plus" /></svg>
           Add a game
@@ -714,6 +718,51 @@
           <p class="note" id="storage-note" role="status" aria-live="polite"></p>
         </section>
 
+        <section class="about" id="about" hidden>
+          <header class="page-head">
+            <div>
+              <h2>About SteamGauge</h2>
+              <p>Reads every Steam review of a game on this computer, and shows what players praise and criticise.</p>
+            </div>
+          </header>
+          <section class="panel" aria-labelledby="about-version-title">
+            <div class="panel-head">
+              <h3 id="about-version-title">Version</h3>
+            </div>
+            <div class="about-body">
+              <p class="about-running" id="about-running"></p>
+              <p class="about-latest" id="about-latest" role="status" aria-live="polite"></p>
+              <p class="quiet small" id="about-asked"></p>
+              <p class="about-update-state" id="about-update-state" role="status" hidden></p>
+              <div class="row">
+                <button type="button" class="primary" id="about-update" hidden>Update now</button>
+                <button type="button" class="primary" id="about-check">Check for updates</button>
+                <button type="button" class="link" id="about-release" hidden>Download it from its release page</button>
+                <button type="button" class="link" id="about-notes">This version's release notes</button>
+              </div>
+              <p class="quiet small" id="about-daily"></p>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="about-where-title">
+            <div class="panel-head">
+              <h3 id="about-where-title">Where it is published</h3>
+            </div>
+            <div class="about-body">
+              <span class="quiet small">Documentation</span>
+              <div class="copyable">
+                <code id="about-site"></code>
+                <button type="button" class="quiet-button small" data-copies="about-site">Copy</button>
+              </div>
+              <span class="quiet small">Source code, releases and issues</span>
+              <div class="copyable">
+                <code id="about-repository"></code>
+                <button type="button" class="quiet-button small" data-copies="about-repository">Copy</button>
+              </div>
+              <p class="quiet small" id="about-licence"></p>
+            </div>
+          </section>
+        </section>
+
         <section class="settings" id="settings" hidden>
           <header class="page-head">
             <div>
@@ -799,7 +848,7 @@
               <label class="setting" for="check-newer-version">
                 <span class="setting-text">
                   <strong>Ask GitHub whether a newer SteamGauge is out</strong>
-                  <span>At most once a day, one request to SteamGauge's release page. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
+                  <span>At most once a day, one request to SteamGauge's release page; Check for updates, on the About page you open from SteamGauge's name, asks at once. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>

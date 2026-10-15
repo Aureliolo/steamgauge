@@ -3,8 +3,7 @@
 //! GitHub answers a repository's `/releases/latest` with a redirect to the newest release's tag.
 //! The tag is read from where the redirect points, and the redirect is never followed: one small
 //! request, with no API, no token and no account, so no key exists anywhere that could be taken
-//! and used to push a build. Nothing is downloaded; the person installs the new release
-//! themselves.
+//! and used to push a build. Nothing is downloaded here; `self_update` installs a release.
 
 use std::{path::Path, time::Duration};
 
@@ -33,6 +32,9 @@ const FILE: &str = "newer-version.json";
 pub struct Asked {
     /// When it was last asked, in Unix seconds; zero for never.
     pub at: i64,
+    /// When an answer last came back, in Unix seconds; zero for never. Behind `at` when the last
+    /// question went unanswered.
+    pub answered: i64,
     /// The version of the newest release, from the last answer that came back.
     pub latest: Option<String>,
 }
@@ -80,10 +82,20 @@ impl Asked {
     /// Asks `page`, which is [`LATEST`], and records the answer. A question that fails, offline
     /// or otherwise, still counts as the day's question and keeps the answer before it.
     pub async fn ask(self, page: &str, now: i64) -> Self {
-        Self {
-            at: now,
-            latest: latest(page).await.unwrap_or(self.latest),
+        match latest(page).await {
+            Ok(latest) => Self {
+                at: now,
+                answered: now,
+                latest,
+            },
+            Err(_) => Self { at: now, ..self },
         }
+    }
+
+    /// Whether the last question was answered.
+    #[must_use]
+    pub fn reached(&self) -> bool {
+        self.at != 0 && self.answered == self.at
     }
 
     /// The release newer than `running`, where the last answer named one.
@@ -149,8 +161,8 @@ mod tests {
 
     fn heard(latest: &str) -> Asked {
         Asked {
-            at: 0,
             latest: Some(latest.to_owned()),
+            ..Asked::default()
         }
     }
 
@@ -193,7 +205,7 @@ mod tests {
     fn it_is_asked_once_a_day() {
         let asked = Asked {
             at: 1_000_000,
-            latest: None,
+            ..Asked::default()
         };
         assert!(Asked::default().due(1_000_000), "never asked is due");
         assert!(!asked.due(1_000_000));
@@ -209,7 +221,7 @@ mod tests {
     fn a_day_is_twenty_four_hours_and_not_one_sooner() {
         let asked = Asked {
             at: 1_000_000,
-            latest: None,
+            ..Asked::default()
         };
         assert!(!asked.due(1_000_000 + 23 * 60 * 60));
         assert!(asked.due(1_000_000 + 24 * 60 * 60));
@@ -239,9 +251,11 @@ mod tests {
             asked,
             Asked {
                 at: 1_000_000,
+                answered: 1_000_000,
                 latest: Some("9.9.9".to_owned()),
             }
         );
+        assert!(asked.reached());
         let request = &server.asked()[0];
         assert_eq!(request.method, "HEAD", "nothing is downloaded");
         assert!(
@@ -255,15 +269,26 @@ mod tests {
     #[tokio::test]
     async fn a_question_that_fails_keeps_the_answer_before_it_and_still_counts() {
         let (_server, page) = release_page(stand_in::Answer::hang_up());
-        let asked = heard("0.2.0").ask(&page, 1_000_000).await;
+        let before = Asked {
+            at: 900_000,
+            answered: 900_000,
+            ..heard("0.2.0")
+        };
+        let asked = before.clone().ask(&page, 1_000_000).await;
         assert_eq!(
             asked,
             Asked {
                 at: 1_000_000,
-                ..heard("0.2.0")
+                ..before
             }
         );
         assert!(!asked.due(1_000_000 + 60));
+        assert!(!asked.reached(), "the answer kept is the one from before");
+    }
+
+    #[test]
+    fn never_asked_is_not_reached() {
+        assert!(!Asked::default().reached());
     }
 
     #[tokio::test]
@@ -279,6 +304,7 @@ mod tests {
         assert_eq!(Asked::load(dir.path()), Asked::default());
         let asked = Asked {
             at: 1_000_000,
+            answered: 1_000_000,
             latest: Some("0.2.0".to_owned()),
         };
         asked.save(dir.path()).unwrap();

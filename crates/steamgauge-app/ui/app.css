@@ -243,11 +243,36 @@ code {
   border-right: 1px solid var(--line);
 }
 
+/* The name opens About, so it reads as the app's name first and a button second. */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 var(--s2);
+  padding: var(--s1) var(--s2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+
+.brand:hover {
+  background: var(--sunken);
+}
+
+.brand[aria-current] {
+  background: var(--accent-soft);
+}
+
+.brand-text {
+  display: grid;
+}
+
+.brand-version {
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The mark is the app icon itself, a paper tile in both themes; on the light page the tile is
@@ -3366,9 +3391,33 @@ label.option:has(input:focus-visible) {
   }
 }
 
-.storage {
+.storage,
+.about {
   display: grid;
   gap: var(--s5);
+}
+
+.about > header {
+  margin-bottom: 0;
+}
+
+.about-body {
+  display: grid;
+  gap: var(--s2);
+}
+
+.about-running {
+  font-size: var(--t-lg);
+  font-weight: 600;
+}
+
+.about-update-state {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.about-body .row {
+  margin: var(--s2) 0;
 }
 
 .storage > header {

@@ -134,8 +134,11 @@ game in thirty.
 - **No signing key exists.** Every signature is Sigstore's, keyless and tied to the release
   workflow.
 - The app asks GitHub's `releases/latest` redirect at most once a day, on opening and on the
-  ten-minute loop, without following it. Update now downloads the release's file for the way this
-  copy was installed and installs it only after its SLSA provenance verifies (`sigstore-verify`):
+  ten-minute loop, without following it, and again whenever the person chooses Check for updates
+  on the About page or Update now, so what is installed is the newest release at that moment.
+  `newer-version.json` keeps when it last asked, when GitHub last answered and what it named.
+- Update now downloads the release's file for the way this copy was installed and installs it
+  only after its SLSA provenance verifies (`sigstore-verify`):
   the certificate names `release-build.yml` at the tag being installed, this repository's and
   owner's numeric ids and a GitHub-hosted runner; the digest is the one taken while downloading,
   and the version is strictly newer.
