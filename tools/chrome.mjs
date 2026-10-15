@@ -57,6 +57,12 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
       // A runner's /dev/shm is small enough that Chrome's renderer falls over on it, and the
       // fall is silent.
       "--disable-dev-shm-usage",
+      // On a desktop that is in use, headless Chrome can take its page for one in the
+      // background and let its timers fire once a minute, so a check whose steps wait on
+      // timers ran for over half an hour where a runner takes three minutes.
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
       url,
     ],
     { stdio: ["ignore", "ignore", "pipe"] },
