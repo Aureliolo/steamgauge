@@ -17,7 +17,8 @@ use interprocess::local_socket::{Name, tokio::Stream, traits::tokio::Stream as _
 use rmcp::{
     ErrorData, RoleClient, RoleServer, ServerHandler, ServiceExt,
     model::{
-        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ListToolsResult,
+        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
+        GetPromptRequestParams, GetPromptResponse, ListPromptsResult, ListToolsResult,
         PaginatedRequestParams, ServerConfig,
     },
     service::{RequestContext, RunningService, ServiceError},
@@ -133,6 +134,25 @@ impl ServerHandler for Bridge {
         _context: RequestContext<RoleServer>,
     ) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
         std::future::ready(Ok(crate::ui::mcp_tool_list()))
+    }
+
+    // Prompts are text alone, so they are answered here whether the app is open or not.
+    fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> impl Future<Output = Result<ListPromptsResult, ErrorData>> + Send + '_ {
+        std::future::ready(Ok(crate::prompts::list()))
+    }
+
+    fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> impl Future<Output = Result<GetPromptResponse, ErrorData>> + Send + '_ {
+        std::future::ready(
+            crate::prompts::get(&request.name, request.arguments.as_ref()).map(Into::into),
+        )
     }
 
     async fn call_tool(

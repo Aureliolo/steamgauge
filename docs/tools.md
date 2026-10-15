@@ -1,7 +1,39 @@
 # MCP tools
 
-Every tool the app's MCP server offers, written from the server's own definitions. A tool that
-only looks tells the assistant so, and some assistants then use it without asking you first.
+Every prompt and tool the app's MCP server offers, written from the server's own definitions. A
+tool that only looks tells the assistant so, and some assistants then use it without asking you
+first.
+
+## Prompts
+
+Requests you pick from your assistant's own list, such as the commands Claude Code shows under
+`/`. Each asks the assistant to work through the tools below, and the window shows each step.
+
+<!-- steamgauge-site: prompts -->
+
+### `what_players_say`
+
+**What players say about a game.** What a game's players praise and criticise, from every one of its
+Steam reviews, downloading and reading it first where it has to be.
+
+- `game`, required: The game: its name, its Steam store link or its app id.
+
+### `compare_games`
+
+**Compare games.** Where the players of two or more games differ, subject by subject, downloading
+and reading each first where it has to be.
+
+- `games`, required: Two or more games, by name, Steam store link or app id, separated by commas.
+
+### `around_an_update`
+
+**How players took an update.** What moved in a game's reviews in the four weeks after one of its
+developer's updates against the four weeks before.
+
+- `game`, required: The game: its name, its Steam store link or its app id.
+- `update`: The update, by its title or date as Steam lists it; the newest where none is given.
+
+<!-- steamgauge-site: end -->
 
 <!-- steamgauge-site: tools -->
 
