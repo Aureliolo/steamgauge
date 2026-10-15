@@ -32,9 +32,10 @@ const FILE: &str = "newer-version.json";
 pub struct Asked {
     /// When it was last asked, in Unix seconds; zero for never.
     pub at: i64,
-    /// When an answer last came back, in Unix seconds; zero for never. Behind `at` when the last
-    /// question went unanswered.
-    pub answered: i64,
+    /// When an answer last came back, in Unix seconds. Behind `at` when the last question went
+    /// unanswered; none where no answer has, or where the file was kept by a build that did not
+    /// record it, so an old file is never read as GitHub out of reach.
+    pub answered: Option<i64>,
     /// The version of the newest release, from the last answer that came back.
     pub latest: Option<String>,
 }
@@ -85,7 +86,7 @@ impl Asked {
         match latest(page).await {
             Ok(latest) => Self {
                 at: now,
-                answered: now,
+                answered: Some(now),
                 latest,
             },
             Err(_) => Self { at: now, ..self },
@@ -95,7 +96,7 @@ impl Asked {
     /// Whether the last question was answered.
     #[must_use]
     pub fn reached(&self) -> bool {
-        self.at != 0 && self.answered == self.at
+        self.at != 0 && self.answered == Some(self.at)
     }
 
     /// The release newer than `running`, where the last answer named one.
@@ -251,7 +252,7 @@ mod tests {
             asked,
             Asked {
                 at: 1_000_000,
-                answered: 1_000_000,
+                answered: Some(1_000_000),
                 latest: Some("9.9.9".to_owned()),
             }
         );
@@ -271,7 +272,7 @@ mod tests {
         let (_server, page) = release_page(stand_in::Answer::hang_up());
         let before = Asked {
             at: 900_000,
-            answered: 900_000,
+            answered: Some(900_000),
             ..heard("0.2.0")
         };
         let asked = before.clone().ask(&page, 1_000_000).await;
@@ -304,13 +305,36 @@ mod tests {
         assert_eq!(Asked::load(dir.path()), Asked::default());
         let asked = Asked {
             at: 1_000_000,
-            answered: 1_000_000,
+            answered: Some(1_000_000),
             latest: Some("0.2.0".to_owned()),
         };
         asked.save(dir.path()).unwrap();
         let loaded = Asked::load(dir.path());
         assert_eq!(loaded, asked);
         assert!(!loaded.due(1_000_000 + 60));
+    }
+
+    #[test]
+    fn a_file_kept_before_answers_were_timed_does_not_say_github_was_out_of_reach() {
+        let dir = crate::tempdir::Dir::new();
+        std::fs::write(
+            dir.path().join(FILE),
+            r#"{ "at": 1000000, "latest": "0.2.0" }"#,
+        )
+        .unwrap();
+        let loaded = Asked::load(dir.path());
+        assert_eq!(
+            loaded,
+            Asked {
+                at: 1_000_000,
+                answered: None,
+                latest: Some("0.2.0".to_owned()),
+            }
+        );
+        assert!(
+            !loaded.due(1_000_000 + 60),
+            "the day's question still counts"
+        );
     }
 
     #[test]
