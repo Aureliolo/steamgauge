@@ -1,10 +1,11 @@
 //! The tables the documentation site renders, taken from the definitions the program runs on, so
-//! a page cannot describe a command, a tool or an MCP client the program does not have.
+//! a page cannot describe a command, a tool, a prompt or an MCP client the program does not have.
 
 use std::path::PathBuf;
 
 pub use crate::clients::PASTE;
 use crate::clients::{By, CLIENTS, Folders, Launch, System, with_entry};
+pub use crate::prompts::{Argument, PROMPTS, Spec as Prompt};
 
 /// The command line, as `--help` prints it.
 #[must_use]

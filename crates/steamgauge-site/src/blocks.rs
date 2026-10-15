@@ -55,6 +55,7 @@ fn generate(root: &Path, holder: &str, name: &str) -> Result<String> {
         "entries" => Ok(entries()),
         "paste" => Ok(format!("```text\n{}\n```", reference::PASTE)),
         "tools" => tools(),
+        "prompts" => Ok(prompts()),
         "commands" => commands(),
         _ => bail!("{holder}: no generated part is called `{name}`"),
     }
@@ -425,6 +426,33 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
         ],
     ),
 ];
+
+/// Each prompt the MCP server offers, with what it is given.
+fn prompts() -> String {
+    let mut text = String::new();
+    for prompt in reference::PROMPTS {
+        let _ = write!(text, "### `{}`\n\n", prompt.name);
+        let said = format!(
+            "**{}.** {}",
+            prompt.title,
+            full_stop(&prose(prompt.description))
+        );
+        text.push_str(&wrap(&said, "", ""));
+        text.push_str("\n\n");
+        for argument in prompt.arguments {
+            let mut said = format!("`{}`", argument.name);
+            if argument.required {
+                said.push_str(", required");
+            }
+            said.push_str(": ");
+            said.push_str(&full_stop(&prose(argument.description)));
+            text.push_str(&wrap(&said, "- ", "  "));
+            text.push('\n');
+        }
+        text.push('\n');
+    }
+    text
+}
 
 /// Each tool the MCP server offers, by group, with what it is given.
 fn tools() -> Result<String> {

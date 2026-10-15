@@ -8,6 +8,7 @@
 mod cli;
 mod clients;
 mod mcp;
+mod prompts;
 pub mod reference;
 mod ui;
 mod update;

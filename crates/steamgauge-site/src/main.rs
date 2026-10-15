@@ -126,7 +126,7 @@ pub const PAGES: &[Page] = &[
         file: "tools",
         source: Source::Markdown("docs/tools.md"),
         label: "MCP tools",
-        description: "every tool the MCP server offers and what each is given",
+        description: "every prompt and tool the MCP server offers and what each is given",
         layout: Layout::Cards,
         nav: true,
     },

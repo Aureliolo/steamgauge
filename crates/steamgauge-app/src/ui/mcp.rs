@@ -15,9 +15,10 @@ use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceExt,
     handler::server::common::schema_for_type,
     model::{
-        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
-        JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig,
-        Tool, ToolAnnotations,
+        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
+        GetPromptRequestParams, GetPromptResponse, Implementation, JsonObject, ListPromptsResult,
+        ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool,
+        ToolAnnotations,
     },
     service::RequestContext,
 };
@@ -798,9 +799,14 @@ pub(crate) fn reference() -> Vec<crate::reference::Tool> {
 }
 
 pub(super) fn server_config() -> ServerConfig {
-    ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-        .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))
-        .with_instructions(INSTRUCTIONS)
+    ServerConfig::new(
+        ServerCapabilities::builder()
+            .enable_tools()
+            .enable_prompts()
+            .build(),
+    )
+    .with_server_info(Implementation::new("steamgauge", env!("CARGO_PKG_VERSION")))
+    .with_instructions(INSTRUCTIONS)
 }
 
 pub(super) fn tool_list() -> ListToolsResult {
@@ -818,6 +824,24 @@ impl ServerHandler for Server {
         _context: RequestContext<RoleServer>,
     ) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send + '_ {
         std::future::ready(Ok(tool_list()))
+    }
+
+    fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> impl Future<Output = Result<ListPromptsResult, ErrorData>> + Send + '_ {
+        std::future::ready(Ok(crate::prompts::list()))
+    }
+
+    fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> impl Future<Output = Result<GetPromptResponse, ErrorData>> + Send + '_ {
+        std::future::ready(
+            crate::prompts::get(&request.name, request.arguments.as_ref()).map(Into::into),
+        )
     }
 
     async fn call_tool(
