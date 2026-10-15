@@ -30,6 +30,7 @@ import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
 import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
+import { setUpAbout } from './about.js';
 import { setUpFinder, openFinder } from './finder.js';
 import { setUpWho, drawWho, drawRecount } from './who.js';
 import { setUpUpdates, loadUpdates, markUpdates } from './updates.js';
@@ -961,6 +962,7 @@ setUpCompare({ openGame });
 setUpSettings();
 setUpStorage({ openGame });
 setUpNewer();
+setUpAbout();
 setUpUpdates();
 
 for (const link of document.querySelectorAll('[data-go]')) {
@@ -1025,7 +1027,7 @@ listen('show', async ({ payload }) => {
 listen('steered', () => {
   const now = showing();
   if (now === 'game' && chosen !== null) showGame(chosen);
-  else if (['cockpit', 'library', 'settings', 'storage'].includes(now)) go(now);
+  else if (['cockpit', 'library', 'settings', 'storage', 'about'].includes(now)) go(now);
 });
 
 drawBrief(el('rail-work'));

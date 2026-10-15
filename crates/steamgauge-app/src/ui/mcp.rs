@@ -322,6 +322,8 @@ enum Page {
     Settings,
     /// What the library and the models take on disk.
     Storage,
+    /// This copy's version and the newest release, with the button that asks for it.
+    About,
     /// One game's page; needs `app_id`.
     Game,
     /// Games side by side; needs `app_ids`.
@@ -708,6 +710,18 @@ fn entries() -> Vec<Entry> {
             Looks,
             "The newer SteamGauge release last heard of, if there is one.",
             |app, Nothing {}| off_thread(move || newer::newer_version(app)),
+        ),
+        tool(
+            "about",
+            Looks,
+            "This copy's version, the newest release GitHub last named, when it was last asked and answered, and where SteamGauge is published.",
+            |app, Nothing {}| off_thread(move || newer::about(app)),
+        ),
+        tool(
+            "check_for_updates",
+            Changes,
+            "Asks GitHub now for the newest SteamGauge release, as the About page's button does, and returns what about returns.",
+            |app, Nothing {}| newer::check_for_updates(app),
         ),
         tool(
             "update_state",

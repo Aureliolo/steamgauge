@@ -1,7 +1,8 @@
 /* The notice that a newer SteamGauge is out, and the update it offers. The core asks GitHub at
    most once a day and keeps the answer; the window shows what it kept, and looks again when a
-   fresh answer arrives. Update now downloads the release's file for this system and installs it
-   only once its build provenance verifies; the core says how far it has got. */
+   fresh answer arrives. Update now asks once more, so the version the notice names can rise as
+   it starts, then downloads the release's file for this system and installs it only once its
+   build provenance verifies; the core says how far it has got. */
 
 import { invoke, listen, el, set, size, left, openOutside } from './common.js';
 
@@ -92,15 +93,18 @@ export async function showNewer() {
   draw();
 }
 
+/* Update now, from the notice or the About page: both draw from the same events. */
+export function startUpdate() {
+  update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
+  draw();
+  invoke('update_now').catch(() => showNewer());
+}
+
 export function setUpNewer() {
   el('newer-open').addEventListener('click', () => {
     if (release) openOutside(release.url);
   });
-  el('newer-update').addEventListener('click', () => {
-    update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
-    draw();
-    invoke('update_now').catch(() => showNewer());
-  });
+  el('newer-update').addEventListener('click', startUpdate);
   el('newer-show').addEventListener('click', () => invoke('show_update_file').catch(() => {}));
   /* Asked again rather than drawn from the event, in case the setting was turned off while the
      question was out. */

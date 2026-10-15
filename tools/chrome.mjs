@@ -161,5 +161,9 @@ export async function connect(url) {
     });
   const evaluate = (expression) =>
     send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+  // On a Windows desktop headless Chrome reports its page hidden within seconds. A hidden page
+  // gets its timers fired once a minute, and the window records no look nobody could see, so
+  // a check run there crawled for half an hour and failed. Emulated focus keeps it visible.
+  await send("Emulation.setFocusEmulationEnabled", { enabled: true });
   return { socket, send, asked, evaluate };
 }

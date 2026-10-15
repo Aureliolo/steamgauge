@@ -196,6 +196,21 @@ export function go(name, ...args) {
 
 export const showing = () => current;
 
+/* Each button under `root` that names an element in data-copies copies that element's text. */
+export function copiers(root) {
+  for (const copier of root.querySelectorAll('[data-copies]')) {
+    copier.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(el(copier.dataset.copies).textContent);
+        set(copier, 'Copied');
+      } catch {
+        set(copier, 'Select it to copy');
+      }
+      setTimeout(() => set(copier, 'Copy'), 2000);
+    });
+  }
+}
+
 export function openOutside(url) {
   const opener = window.__TAURI__.opener;
   if (opener?.openUrl) opener.openUrl(url);

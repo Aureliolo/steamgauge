@@ -5,7 +5,7 @@
 // here with `stub.js` standing in for that bridge, every page can be opened and every control
 // pressed without a library, a model or a webview: the cockpit and what changed since the last
 // look, the work board, the library's sorting, grouping and selection, the comparison, the
-// settings, a game's page, and the notice that a newer version is out with every state of its
+// settings, About and its check for updates, a game's page, and the notice that a newer version is out with every state of its
 // update.
 //
 //   node tools/app-check/check.mjs [--shots <folder>]
@@ -238,6 +238,55 @@ const PROBE = `(async function () {
   window.__stub.update({ state: 'idle', why: null });
   await pause();
   check('the notice keeps an old reason once the copy can update', !visible('newer-why') && visible('newer-update'));
+
+  check('the top of the rail does not name the version this computer has', $('#brand-version').textContent === '0.1.0');
+  await go('about');
+  check('SteamGauge\\'s name does not open About', shown('about') &&
+    $('[data-go="about"]').getAttribute('aria-current') === 'page');
+  check('the name at the top of the rail does not say it opens About', /^About\\s+SteamGauge/.test($('[data-go="about"]').textContent.trim()));
+  check('About does not say which version this computer has', /This computer has SteamGauge 0\\.1\\.0\\./.test($('#about-running').textContent));
+  check('About does not name the newer release kept', /SteamGauge 0\\.2\\.0 is out\\./.test($('#about-latest').textContent));
+  check('About does not say when GitHub last answered', /^GitHub last answered on /.test($('#about-asked').textContent));
+  check('About does not offer the newer release', visible('about-update') && /Update to 0\\.2\\.0/.test($('#about-update').textContent));
+  check('About does not say the daily question is on', /at most once a day/.test($('#about-daily').textContent));
+  check('About does not show where SteamGauge is published',
+    $('#about-site').textContent === 'https://aureliolo.github.io/steamgauge/' &&
+    $('#about-repository').textContent === 'https://github.com/Aureliolo/steamgauge');
+  check('About does not name the licence', /Apache-2\\.0/.test($('#about-licence').textContent));
+  $('#about-notes').click();
+  await pause();
+  check('this version\\'s release notes do not open through the opener',
+    last('plugin:opener|open_url').args.url === 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0');
+  window.__stub.github('0.4.0');
+  $('#about-check').click();
+  await pause(250);
+  check('Check for updates does not ask the core', called('check_for_updates').length === 1);
+  check('a release Check for updates found is not named on About', /SteamGauge 0\\.4\\.0 is out\\./.test($('#about-latest').textContent));
+  check('a release Check for updates found does not reach the notice', /SteamGauge 0\\.4\\.0 is out/.test(notice()));
+  window.__stub.github(null);
+  $('#about-check').click();
+  await pause(250);
+  check('GitHub out of reach is not said, with when it last answered',
+    /^GitHub could not be reached on .+; it last answered on .+\\.$/.test($('#about-asked').textContent));
+  check('GitHub out of reach forgets the release it last named', /SteamGauge 0\\.4\\.0 is out\\./.test($('#about-latest').textContent));
+  window.__stub.github('0.1.0');
+  $('#about-check').click();
+  await pause(250);
+  check('the newest release is not said to be the one here', /^This is the newest release\\.$/.test($('#about-latest').textContent) &&
+    !visible('about-update') && $('#about-check').classList.contains('primary'));
+  check('the notice outlives an answer that no longer bears it out', !shown('newer-version'));
+  window.__stub.github('0.2.0');
+  $('#about-check').click();
+  await pause(250);
+  $('#about-update').click();
+  await pause();
+  check('Update now on About does not ask the core to update', called('update_now').length === 3);
+  check('an update started on About is not shown under way there', /Downloading 0\\.2\\.0\\./.test($('#about-update-state').textContent) &&
+    !visible('about-update') && $('#about-check').disabled);
+  check('an update started on About is not shown in the notice', /Downloading 0\\.2\\.0/.test(notice()));
+  window.__stub.update({ state: 'idle', why: null });
+  await pause();
+  await go('cockpit');
 
   window.__stub.board([
     { id: 1, task: { kind: 'read', app_id: 1, language: 'english' }, name: 'Alpha', state: 'running',
@@ -789,7 +838,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
   const narrow = await evaluate(`(async function () {
     var wrong = [];
-    for (var name of ['cockpit', 'library', 'compare', 'storage', 'settings']) {
+    for (var name of ['cockpit', 'library', 'compare', 'storage', 'settings', 'about']) {
       document.querySelector('[data-go="' + name + '"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
       var stage = document.getElementById('stage');
@@ -966,7 +1015,7 @@ try {
       await load(page);
       await sleep(400);
       await evaluate(unroll);
-      for (const name of ["cockpit", "library", "compare", "storage", "settings"]) {
+      for (const name of ["cockpit", "library", "compare", "storage", "settings", "about"]) {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
@@ -1096,7 +1145,7 @@ try {
     await load(page);
     await sleep(400);
     await evaluate(unroll);
-    for (const name of ["cockpit", "library", "storage", "settings"]) {
+    for (const name of ["cockpit", "library", "storage", "settings", "about"]) {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }

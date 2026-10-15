@@ -1,7 +1,7 @@
 /* How the app runs on this computer: which reader reads every review, how much of the graphics
    card it takes, and what happens on its own. */
 
-import { invoke, el, set, make, roundShare, size, page } from './common.js';
+import { invoke, el, set, make, roundShare, size, page, copiers } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
@@ -95,17 +95,7 @@ export function setUpSettings() {
   page('settings', el('settings'), load);
   el('settings-form').addEventListener('change', save);
 
-  for (const copier of el('settings').querySelectorAll('[data-copies]')) {
-    copier.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(el(copier.dataset.copies).textContent);
-        set(copier, 'Copied');
-      } catch {
-        set(copier, 'Select it to copy');
-      }
-      setTimeout(() => set(copier, 'Copy'), 2000);
-    });
-  }
+  copiers(el('settings'));
 
   el('new-http-token').addEventListener('click', async () => {
     try {

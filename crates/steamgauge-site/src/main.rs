@@ -23,8 +23,8 @@ use anyhow::{Context, Result, bail};
 use clap::Parser;
 
 /// Where the site is published.
-pub const SITE: &str = "https://aureliolo.github.io/steamgauge/";
-pub const REPOSITORY: &str = "https://github.com/Aureliolo/steamgauge";
+pub const SITE: &str = env!("CARGO_PKG_HOMEPAGE");
+pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 
 /// One page of the site, in the order the navigation lists them.
 #[derive(Debug)]
