@@ -27,9 +27,10 @@ function latestLine() {
 function askedLine() {
   if (!about.asked) return '';
   if (about.answered === about.asked) return `GitHub last answered on ${at(about.answered)}.`;
-  return about.answered
-    ? `GitHub could not be reached on ${at(about.asked)}; it last answered on ${at(about.answered)}.`
-    : `GitHub could not be reached on ${at(about.asked)}.`;
+  /* Not known when, or whether, GitHub answered: a first question that failed, or an answer
+     kept by a build that did not time it. Only when it was asked is certain. */
+  if (about.answered === null) return `GitHub was last asked on ${at(about.asked)}.`;
+  return `GitHub could not be reached on ${at(about.asked)}; it last answered on ${at(about.answered)}.`;
 }
 
 function updateLine() {

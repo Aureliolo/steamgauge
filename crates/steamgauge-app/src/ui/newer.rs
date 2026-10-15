@@ -64,8 +64,8 @@ pub struct About {
     pub latest: Option<String>,
     /// When GitHub was last asked, in Unix seconds; zero for never.
     pub asked: i64,
-    /// When GitHub last answered, in Unix seconds; zero for never.
-    pub answered: i64,
+    /// When GitHub last answered, in Unix seconds; none where that is not known.
+    pub answered: Option<i64>,
     /// A release newer than this copy, where the last answer named one.
     pub newer: Option<Release>,
     /// This copy's own release page, which the window may open.
@@ -174,7 +174,7 @@ mod tests {
         assert!(!may_open(about.repository));
         assert!(!may_open(about.site));
         assert_eq!(about.running, env!("CARGO_PKG_VERSION"));
-        assert_eq!((about.asked, about.answered, about.newer), (0, 0, None));
+        assert_eq!((about.asked, about.answered, about.newer), (0, None, None));
     }
 
     #[test]

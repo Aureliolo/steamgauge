@@ -910,5 +910,9 @@
     github: (version) => {
       github = version;
     },
+    // The kept answer as a build that did not time GitHub's answers left it.
+    untimed: () => {
+      answeredAt = null;
+    },
   };
 })();

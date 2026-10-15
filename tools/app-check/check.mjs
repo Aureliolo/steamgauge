@@ -247,6 +247,11 @@ const PROBE = `(async function () {
   check('About does not say which version this computer has', /This computer has SteamGauge 0\\.1\\.0\\./.test($('#about-running').textContent));
   check('About does not name the newer release kept', /SteamGauge 0\\.2\\.0 is out\\./.test($('#about-latest').textContent));
   check('About does not say when GitHub last answered', /^GitHub last answered on /.test($('#about-asked').textContent));
+  window.__stub.untimed();
+  await go('cockpit');
+  await go('about');
+  check('an answer kept by an older build is said to be GitHub out of reach',
+    /^GitHub was last asked on [^;]+\\.$/.test($('#about-asked').textContent));
   check('About does not offer the newer release', visible('about-update') && /Update to 0\\.2\\.0/.test($('#about-update').textContent));
   check('About does not say the daily question is on', /at most once a day/.test($('#about-daily').textContent));
   check('About does not show where SteamGauge is published',
