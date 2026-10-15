@@ -57,12 +57,6 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
       // A runner's /dev/shm is small enough that Chrome's renderer falls over on it, and the
       // fall is silent.
       "--disable-dev-shm-usage",
-      // On a desktop that is in use, headless Chrome can take its page for one in the
-      // background and let its timers fire once a minute, so a check whose steps wait on
-      // timers ran for over half an hour where a runner takes three minutes.
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-backgrounding-occluded-windows",
       url,
     ],
     { stdio: ["ignore", "ignore", "pipe"] },
@@ -167,5 +161,9 @@ export async function connect(url) {
     });
   const evaluate = (expression) =>
     send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+  // On a Windows desktop headless Chrome reports its page hidden within seconds. A hidden page
+  // gets its timers fired once a minute, and the window records no look nobody could see, so
+  // a check run there crawled for half an hour and failed. Emulated focus keeps it visible.
+  await send("Emulation.setFocusEmulationEnabled", { enabled: true });
   return { socket, send, asked, evaluate };
 }
