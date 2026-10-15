@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+pub use crate::clients::PASTE;
 use crate::clients::{By, CLIENTS, Folders, Launch, System, with_entry};
 
 /// The command line, as `--help` prints it.

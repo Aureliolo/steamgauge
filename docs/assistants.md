@@ -21,7 +21,8 @@ changed.
 
 ## Or do it yourself
 
-Settings has **Add** beside every assistant it finds on this computer. From a terminal:
+The window's **AI assistants** page has **Add** beside every assistant it finds on this computer.
+From a terminal:
 
 <!-- steamgauge-site: clients -->
 
@@ -114,6 +115,8 @@ Settings has **Add** beside every assistant it finds on this computer. From a te
   Linux, `%USERPROFILE%\.deepcode\settings.json` on Windows.
 - **LM Studio**: `steamgauge connect lm-studio`. Writes `~/.lmstudio/mcp.json` on macOS and Linux,
   `%USERPROFILE%\.lmstudio\mcp.json` on Windows. LM Studio asks before each tool call.
+- **Amazon Q Developer**: `steamgauge connect amazon-q`. Writes `~/.aws/amazonq/mcp.json` on macOS
+  and Linux, `%USERPROFILE%\.aws\amazonq\mcp.json` on Windows.
 - **JetBrains AI Assistant**:
   `{"mcpServers": {"steamgauge": {"command": "<path to steamgauge>", "args": ["mcp"]}}}`. Settings,
   Tools, AI Assistant, Model Context Protocol (MCP), Add, at the Global level.
@@ -150,7 +153,8 @@ stays as it was, comments included. `steamgauge disconnect <name>` takes it out 
 <!-- steamgauge-site: entries -->
 
 Claude Desktop, Devin Desktop and Devin CLI, Windsurf, Gemini CLI, Kiro, Cline, Roo Code, Junie,
-Qoder CLI, Warp, Tabnine CLI, Tabnine in the editor, pi, Deep Code and LM Studio:
+Qoder CLI, Warp, Tabnine CLI, Tabnine in the editor, pi, Deep Code, LM Studio and Amazon Q
+Developer:
 
 ```json
 {
@@ -359,5 +363,5 @@ Autohand:
   named pipe on Windows, that no other user or machine can reach. Closing the window closes the
   app; while it is closed, every tool says so and the assistant asks you to open it.
 - **Both handshakes**, `initialize` and `server/discover`.
-- **HTTP, if you need it.** Off until Settings turns it on: the app then also answers on
-  127.0.0.1 at a port you choose, to requests carrying a token Settings shows.
+- **HTTP, if you need it.** Off until the AI assistants page turns it on: the app then also
+  answers on 127.0.0.1 at a port you choose, to requests carrying the token that page shows.

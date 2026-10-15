@@ -53,7 +53,7 @@ fn generate(root: &Path, holder: &str, name: &str) -> Result<String> {
         "pages" => pages(root, holder),
         "clients" => Ok(clients()),
         "entries" => Ok(entries()),
-        "paste" => Ok(format!("```text\n{PASTE}\n```")),
+        "paste" => Ok(format!("```text\n{}\n```", reference::PASTE)),
         "tools" => tools(),
         "commands" => commands(),
         _ => bail!("{holder}: no generated part is called `{name}`"),
@@ -87,11 +87,6 @@ fn pages(root: &Path, holder: &str) -> Result<String> {
     }
     Ok(text)
 }
-
-/// What a person pastes to an assistant to have it add the app to itself.
-pub const PASTE: &str = "Add SteamGauge to yourself by following \
-                         https://aureliolo.github.io/steamgauge/agent.md,\nthen tell me which \
-                         file you changed.";
 
 /// An assistant the app cannot add itself to, and how it takes the server.
 struct Other {
@@ -412,10 +407,11 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
             "storage",
             "free_room",
             "remove_model",
-            "new_http_token",
-            "connect_client",
-            "disconnect_client",
         ],
+    ),
+    (
+        "AI assistants",
+        &["connect_client", "disconnect_client", "new_http_token"],
     ),
     (
         "Updates",
@@ -934,13 +930,15 @@ mod tests {
         );
         assert!(entries.contains("Codex:"), "{entries}");
         assert!(entries.contains("```yaml\nextensions:"), "{entries}");
+        // The names are prose, wrapped wherever the line runs out.
+        let prose = entries.split_whitespace().collect::<Vec<_>>().join(" ");
         for client in reference::clients() {
             let Some(entry) = &client.entry else {
                 assert!(client.runs.is_some(), "{}", client.id);
                 continue;
             };
             assert!(entries.contains(entry.as_str()), "{}", client.id);
-            assert!(entries.contains(client.name), "{}", client.id);
+            assert!(prose.contains(client.name), "{}", client.id);
         }
     }
 

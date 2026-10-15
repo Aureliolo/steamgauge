@@ -688,6 +688,7 @@
       library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
       clients,
       mcp_command: `"${program}" mcp`,
+      paste: 'Add SteamGauge to yourself by following https://aureliolo.github.io/steamgauge/agent.md,\nthen tell me which file you changed.',
       // Port 47801 stands in for one another program holds.
       http: !settings.answer_over_http
         ? { address: null, token: null, problem: null }

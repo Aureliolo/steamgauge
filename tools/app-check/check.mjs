@@ -244,6 +244,8 @@ const PROBE = `(async function () {
   check('SteamGauge\\'s name does not open About', shown('about') &&
     $('[data-go="about"]').getAttribute('aria-current') === 'page');
   check('the name at the top of the rail does not say it opens About', /^About\\s+SteamGauge/.test($('[data-go="about"]').textContent.trim()));
+  check('About has no entry of its own in the rail',
+    document.querySelector('.nav [data-go="about"]').getAttribute('aria-current') === 'page');
   check('About does not say which version this computer has', /This computer has SteamGauge 0\\.1\\.0\\./.test($('#about-running').textContent));
   check('About does not name the newer release kept', /SteamGauge 0\\.2\\.0 is out\\./.test($('#about-latest').textContent));
   check('About does not say when GitHub last answered', /^GitHub last answered on /.test($('#about-asked').textContent));
@@ -489,8 +491,16 @@ const PROBE = `(async function () {
     last('save_settings').args.settings.check_newer_version === true && shown('newer-version'));
 
   await go('settings');
-  check('Settings does not give the command any other MCP client starts',
+  check('Settings still holds what the AI assistants page does',
+    $('#settings').querySelector('#mcp-clients, #answer-over-http') === null);
+  await go('assistants');
+  check('the AI assistants page does not open from the rail', shown('assistants') && !shown('settings') &&
+    document.querySelector('.nav [data-go="assistants"]').getAttribute('aria-current') === 'page');
+  check('the AI assistants page does not give the command any other MCP client starts',
     /^".*steamgauge\\.exe" mcp$/.test($('#mcp-command').textContent));
+  check('the AI assistants page does not give the line to paste to any other assistant',
+    /^Add SteamGauge to yourself by following https:\\/\\/aureliolo\\.github\\.io\\/steamgauge\\/agent\\.md,\\nthen tell me which file you changed\\.$/
+      .test($('#mcp-paste').textContent));
   var clientRow = function (name) {
     return Array.prototype.slice.call($('#mcp-clients').children)
       .filter(function (row) { return row.querySelector('strong').textContent === name; })[0];
@@ -508,7 +518,7 @@ const PROBE = `(async function () {
   clientRow('Cursor').querySelector('button').click();
   await pause(250);
   check('Add does not add', last('connect_client').args.client === 'cursor' &&
-    clientButtons('Cursor').join() === 'Remove' && /Added to Cursor/.test($('#settings-note').textContent));
+    clientButtons('Cursor').join() === 'Remove' && /Added to Cursor/.test($('#assistants-note').textContent));
   clientRow('Claude Desktop').querySelector('button').click();
   await pause(250);
   check('a restart a client needs goes unsaid', /Starts SteamGauge\\. Quit Claude Desktop/.test(clientRow('Claude Desktop').textContent));
@@ -519,6 +529,10 @@ const PROBE = `(async function () {
   $('#answer-over-http').click();
   await pause(250);
   check('switching on HTTP is not saved', last('save_settings').args.settings.answer_over_http === true);
+  check('switching on HTTP changes the other settings',
+    last('save_settings').args.settings.check_newer_version === true &&
+    last('save_settings').args.settings.language === 'english' &&
+    !('clients' in last('save_settings').args.settings) && !('paste' in last('save_settings').args.settings));
   check('switched on, the address and token go unshown', shown('http-reach') &&
     $('#http-address').textContent === 'http://127.0.0.1:47800/mcp' && $('#http-token').textContent === '0f'.repeat(32));
   $('#new-http-token').click();
@@ -535,7 +549,7 @@ const PROBE = `(async function () {
   await pause(250);
   check('switched off, the token is still shown', !shown('http-reach') && !shown('http-problem') &&
     last('save_settings').args.settings.answer_over_http === false);
-  check('Settings does not fit its page', fits());
+  check('the AI assistants page does not fit its page', fits());
 
   await go('library');
   rows().filter(function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click();
@@ -843,7 +857,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
   const narrow = await evaluate(`(async function () {
     var wrong = [];
-    for (var name of ['cockpit', 'library', 'compare', 'storage', 'settings', 'about']) {
+    for (var name of ['cockpit', 'library', 'compare', 'storage', 'assistants', 'settings', 'about']) {
       document.querySelector('[data-go="' + name + '"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
       var stage = document.getElementById('stage');
@@ -1020,7 +1034,7 @@ try {
       await load(page);
       await sleep(400);
       await evaluate(unroll);
-      for (const name of ["cockpit", "library", "compare", "storage", "settings", "about"]) {
+      for (const name of ["cockpit", "library", "compare", "storage", "assistants", "settings", "about"]) {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
@@ -1150,7 +1164,7 @@ try {
     await load(page);
     await sleep(400);
     await evaluate(unroll);
-    for (const name of ["cockpit", "library", "storage", "settings", "about"]) {
+    for (const name of ["cockpit", "library", "storage", "assistants", "settings", "about"]) {
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }

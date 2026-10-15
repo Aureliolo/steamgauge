@@ -62,9 +62,21 @@
             </button>
           </li>
           <li>
+            <button type="button" data-go="assistants">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4 4h12a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 14h-6l-4 3v-3H4a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 4 4Z" /><path d="M7 9h.01M10 9h.01M13 9h.01" /></svg>
+              AI assistants
+            </button>
+          </li>
+          <li>
             <button type="button" data-go="settings">
               <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 6h9M15 6h2M3 14h2M8 14h9" /><circle cx="13.5" cy="6" r="1.8" /><circle cx="6.5" cy="14" r="1.8" /></svg>
               Settings
+            </button>
+          </li>
+          <li>
+            <button type="button" data-go="about">
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7" /><path d="M10 9v5M10 6h.01" /></svg>
+              About
             </button>
           </li>
         </ul>
@@ -848,28 +860,53 @@
               <label class="setting" for="check-newer-version">
                 <span class="setting-text">
                   <strong>Ask GitHub whether a newer SteamGauge is out</strong>
-                  <span>At most once a day, one request to SteamGauge's release page; Check for updates, on the About page you open from SteamGauge's name, asks at once. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
+                  <span>At most once a day, one request to SteamGauge's release page; Check for updates, on the About page, asks at once. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>
             </fieldset>
-            <fieldset id="steering">
-              <legend>Other programs</legend>
+          </form>
+          <p class="note" id="settings-note" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="assistants" id="assistants" hidden>
+          <header class="page-head">
+            <div>
+              <h2>AI assistants</h2>
+              <p>An assistant that speaks the Model Context Protocol can do anything this window can, while it is open, and you see it done here.</p>
+            </div>
+          </header>
+          <form id="assistants-form">
+            <fieldset>
+              <legend>On this computer</legend>
+              <ul class="mcp-clients" id="mcp-clients"></ul>
+              <p class="note" id="mcp-clients-none" hidden>None of the assistants SteamGauge knows how to add itself to is on this computer.</p>
+            </fieldset>
+            <fieldset>
+              <legend>Any other assistant</legend>
               <div class="setting stacked">
                 <div class="setting-text">
-                  <strong>Steer SteamGauge from an AI assistant</strong>
-                  <span>A program that speaks the Model Context Protocol can do anything this window can, while it is open, and you see it done here. Add SteamGauge to the ones on this computer:</span>
+                  <strong>Paste this to it</strong>
+                  <span>It reads SteamGauge's guide, adds SteamGauge to its own settings, and says which file it changed.</span>
                 </div>
-                <ul class="mcp-clients" id="mcp-clients"></ul>
-                <p class="note" id="mcp-clients-none" hidden>None of the programs SteamGauge knows how to add itself to is on this computer.</p>
+                <div class="copyable">
+                  <code class="paste" id="mcp-paste"></code>
+                  <button type="button" class="quiet-button small" data-copies="mcp-paste">Copy</button>
+                </div>
+              </div>
+              <div class="setting stacked">
                 <div class="setting-text">
-                  <span>Any other one connects with this command:</span>
+                  <strong>Or give it this command</strong>
+                  <span>In its own settings, as the MCP server it starts.</span>
                 </div>
                 <div class="copyable">
                   <code id="mcp-command"></code>
                   <button type="button" class="quiet-button small" data-copies="mcp-command">Copy</button>
                 </div>
               </div>
+            </fieldset>
+            <fieldset>
+              <legend>Over HTTP</legend>
               <label class="setting" for="answer-over-http">
                 <span class="setting-text">
                   <strong>Answer programs that connect over HTTP</strong>
@@ -908,7 +945,7 @@
               <p class="note bad" id="http-problem" role="status" hidden></p>
             </fieldset>
           </form>
-          <p class="note" id="settings-note" role="status" aria-live="polite"></p>
+          <p class="note" id="assistants-note" role="status" aria-live="polite"></p>
         </section>
       </main>
     </div>

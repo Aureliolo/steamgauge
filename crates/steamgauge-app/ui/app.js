@@ -28,6 +28,7 @@ import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
 import { setUpSettings } from './settings.js';
+import { setUpAssistants } from './assistants.js';
 import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpAbout } from './about.js';
@@ -960,6 +961,7 @@ setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
 setUpSettings();
+setUpAssistants();
 setUpStorage({ openGame });
 setUpNewer();
 setUpAbout();
@@ -1027,7 +1029,7 @@ listen('show', async ({ payload }) => {
 listen('steered', () => {
   const now = showing();
   if (now === 'game' && chosen !== null) showGame(chosen);
-  else if (['cockpit', 'library', 'settings', 'storage', 'about'].includes(now)) go(now);
+  else if (['cockpit', 'library', 'settings', 'assistants', 'storage', 'about'].includes(now)) go(now);
 });
 
 drawBrief(el('rail-work'));

@@ -74,7 +74,8 @@ Puts a page of the window in front of the person, bringing the window forward. O
   - `cockpit`: What moved, what is running and what needs a look.
   - `library`: Every game kept.
   - `finder`: Finding a game on Steam to add.
-  - `settings`: How the app runs, and the assistants it is added to.
+  - `settings`: How the app runs.
+  - `assistants`: The assistants it is added to, and answering over HTTP.
   - `storage`: What the library and the models take on disk.
   - `about`: This copy's version and the newest release, with the button that asks for it.
   - `game`: One game's page; needs `app_id`.
@@ -292,10 +293,7 @@ downloaded or worked out again.
 
 - `key`, required: The model's key, as `storage` lists it.
 
-### `new_http_token`
-
-Draws a new token for the HTTP server, shutting out every client that holds the old one, and returns
-the settings with it.
+## AI assistants
 
 ### `connect_client`
 
@@ -311,6 +309,11 @@ Takes the app out of an MCP client's configuration, leaving every other entry in
 settings without it.
 
 - `client`, required: The client's id, as settings lists it.
+
+### `new_http_token`
+
+Draws a new token for the HTTP server, shutting out every client that holds the old one, and returns
+the settings with it.
 
 ## Updates
 

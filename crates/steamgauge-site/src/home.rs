@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 use steamgauge_app::reference;
 
 use crate::picker::{self, Choice, inline};
-use crate::{REPOSITORY, blocks, escape};
+use crate::{REPOSITORY, escape};
 
 const HEADLINE: &str = "Read every review of a game.";
 
@@ -199,7 +199,7 @@ pub fn html(version: &str, picture: &Picture) -> String {
          each of {clients} assistants, and for any other.</p>\n</section>\n\
          <p class=\"smallprint\">{}</p>\n",
         picker::commented(IN_A_TERMINAL),
-        escape(blocks::PASTE),
+        escape(reference::PASTE),
         escape(SMALLPRINT)
     );
     page
@@ -253,7 +253,7 @@ pub fn text(version: &str) -> String {
         "\nOr in a terminal:\n\n```sh\n{IN_A_TERMINAL}\n```\n\n## Hand it to your AI assistant\n\n\
          The app is an MCP server. Paste this to your assistant:\n\n```text\n{}\n```\n\n\
          See [AI assistants](assistants.md) for each assistant's own command.\n\n{SMALLPRINT}\n",
-        blocks::PASTE
+        reference::PASTE
     );
     page
 }

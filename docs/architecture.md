@@ -114,8 +114,12 @@ game in thirty.
   the window closes it, assistants connected or not. While it is closed every call says so and
   tells the assistant to ask the person; a call the app closed during is reported, never sent
   again.
-- Over HTTP the same tools answer on 127.0.0.1 when Settings turns it on, behind a 256-bit bearer
-  token, with any `Origin` header refused and only `127.0.0.1` or `localhost` accepted as `Host`.
+- The window's **AI assistants** page holds everything about them: the clients on this computer
+  with Add and Remove, the line to paste to any other, the command it starts, and the HTTP server.
+  It saves only its own two settings, over the others read afresh.
+- Over HTTP the same tools answer on 127.0.0.1 when the AI assistants page turns it on, behind a
+  256-bit bearer token, with any `Origin` header refused and only `127.0.0.1` or `localhost`
+  accepted as `Host`.
 - The clients the app adds itself to are rows of one table (`clients.rs`), each from that client's
   own documentation of its user-wide file: which file, the keys down to its servers, whether they
   are a map or a list of named entries, and the entry's shape. Writing keeps everything else in
