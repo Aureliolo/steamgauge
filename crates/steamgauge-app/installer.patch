@@ -64,3 +64,12 @@
    !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${STARTMENUFOLDER}"
  !else
    !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
+@@ -649,7 +680,7 @@
+     !insertmacro NSIS_HOOK_PREINSTALL
+   !endif
+
+-  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
++  ; SteamGauge: NSIS_HOOK_PREINSTALL closes the window alone, leaving the assistants' copies running.
+
+   ; Copy main executable
+   File "${MAINBINARYSRCPATH}"

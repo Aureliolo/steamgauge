@@ -680,7 +680,7 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  ; SteamGauge: NSIS_HOOK_PREINSTALL closes the window alone, leaving the assistants' copies running.
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"

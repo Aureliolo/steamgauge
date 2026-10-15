@@ -313,6 +313,22 @@ mod tests {
         assert_eq!(config["identifier"], IDENTIFIER);
     }
 
+    /// The setup program closes the window alone, by its class, leaving assistants' copies
+    /// running; a class it does not look for would leave the window open over the install.
+    #[test]
+    fn the_setup_program_looks_for_the_window_by_the_class_it_is_given() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let windows = config["app"]["windows"].as_array().unwrap();
+        assert_eq!(windows.len(), 1);
+        let class = windows[0]["windowClassname"].as_str().unwrap();
+        assert_eq!(class, IDENTIFIER);
+        assert!(
+            include_str!("../installer-hooks.nsh").contains(&format!("FindWindow $R0 \"{class}\"")),
+            "{class}"
+        );
+    }
+
     #[test]
     fn an_update_keeps_its_files_under_the_local_data() {
         let folders = Folders::under(Path::new("local"));

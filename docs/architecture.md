@@ -117,6 +117,12 @@ game in thirty.
   the window closes it, assistants connected or not. While it is closed every call says so and
   tells the assistant to ask the person; a call the app closed during is reported, never sent
   again.
+- **An update closes the window, never an assistant's `steamgauge mcp`.** That copy runs on from
+  the program it started from, offering that version's tools, and hands its calls to the new
+  window, until the assistant starts it again. On Windows the setup program closes the window
+  alone, found by its own window class, and moves the program and `DirectML.dll` a copy still runs
+  from aside into a folder of their own under `replaced`, as Windows allows for a running program
+  where it refuses a write; the next install and the uninstaller remove what nothing holds.
 - The window's **AI assistants** page holds everything about them: the clients on this computer
   with Add and Remove, the line to paste to any other, the command it starts, and the HTTP server.
   It saves only its own two settings, over the others read afresh.

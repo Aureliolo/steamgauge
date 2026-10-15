@@ -219,23 +219,76 @@ case "${target}" in
       "$(powershell_value "(Get-Item 'HKCU:\\Software\\${publisher}\\SteamGauge').GetValue('')")" "${folder}"
     same "Whether Software\\Aurelio\\SteamGauge is left" \
       "$(powershell_value "Test-Path 'HKCU:\\Software\\Aurelio\\SteamGauge'")" False
-    # A setup program run over an install whose program cannot be written for a while, as when a
-    # scanner reads a program just written. Unwritable briefly, the setup waits and replaces it;
-    # past the setup's minute of patience, it stops with an error and copies nothing, rather than
-    # leaving new libraries beside the old program. The read-only flag stands in for the scanner:
-    # it refuses the write the same way, and the Restart Manager, which Tauri's setup asks to close
-    # whatever holds the program, cannot clear it. The installed program is marked first, so
-    # whether it was replaced can be told from its bytes.
     program="${home}/steamgauge.exe"
     shipped="$(sha256sum "${program}" | cut -d' ' -f1)"
-    hold() {
-      attrib +R "$(cygpath -w "${program}")"
-      (sleep "$1" && attrib -R "$(cygpath -w "${program}")") &
-      holder=$!
+    # Where each steamgauge.exe running now was started from, the window's or the assistants'
+    # `steamgauge mcp`, joined by semicolons.
+    started_from() {
+      local which=notlike
+      [[ "$1" == assistants ]] && which=like
+      powershell_value "(@(Get-CimInstance Win32_Process -Filter \"Name='steamgauge.exe'\" | Where-Object { \$_.CommandLine -${which} '* mcp' }) | ForEach-Object { \$_.ExecutablePath }) -join ';'"
     }
-    # Nothing but the read-only flag may hold the program: the setup program force-closes whatever
-    # the Restart Manager says holds it, and a write refused here is not the setup's to answer for.
-    # Either way, what held it is named.
+    there() {
+      if [[ -e "$1" ]]; then echo yes; else echo no; fi
+    }
+    # An assistant's own `steamgauge mcp`, its input held open as the assistant holds it.
+    assistant() {
+      sleep 600 | "${program}" mcp > /dev/null 2>&1 &
+      sleep 5
+    }
+    # Each assistant runs its own `steamgauge mcp` from the installed program for as long as the
+    # assistant runs. An install closes the window alone, and moves the program the assistant's
+    # copy still runs aside, into a folder of its own under replaced; the next install removes the
+    # folder once nothing holds it.
+    "${program}" > /dev/null 2>&1 &
+    assistant
+    sleep 15
+    same "Where the window runs from" "$(started_from window)" "${folder}\\steamgauge.exe"
+    same "Where an assistant's copy runs from" "$(started_from assistants)" "${folder}\\steamgauge.exe"
+    step "Installing silently with the window and an assistant's copy running" "${setup}" //S
+    same "Where a window runs from after installing" "$(started_from window)" ""
+    # Windows keeps the path a process was started from, so where the copy runs from now is told
+    # by what holds the program moved aside.
+    moved=("${home}"/replaced/*/steamgauge.exe)
+    if [[ "${#moved[@]}" -ne 1 || ! -f "${moved[0]}" || ! -f "$(dirname "${moved[0]}")/DirectML.dll" ]]; then
+      echo "Installing did not move the program and DirectML.dll aside into one folder under replaced." >&2
+      ls -laR "${home}" >&2
+      exit 1
+    fi
+    held_by="$(holders "${moved[0]}")"
+    echo "${held_by}"
+    if ! grep -q " mcp" <<<"${held_by}"; then
+      echo "No assistant's copy runs from ${moved[0]} after installing." >&2
+      exit 1
+    fi
+    echo "The assistant's copy runs on from ${moved[0]}."
+    same "The program installed beside it" "$(sha256sum "${program}" | cut -d' ' -f1)" "${shipped}"
+    expect_version "${program}"
+    taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
+    all_ended steamgauge.exe
+    step "Installing silently once nothing holds what was moved aside" "${setup}" //S
+    same "Whether what was moved aside is left" "$(there "${home}/replaced")" no
+    # A setup program run over an install whose program can be neither written nor moved for a
+    # while, as when a scanner reads a program just written. Held briefly, the setup waits and
+    # replaces it; past the setup's minute of patience, it stops with an error and copies nothing,
+    # rather than leaving new libraries beside the old program. A PowerShell that holds the program
+    # open, sharing it for reading alone, stands in for the scanner. The installed program is
+    # marked first, so whether it was replaced can be told from its bytes.
+    hold() {
+      powershell -NoProfile -Command "\$held = [IO.File]::Open('$(cygpath -w "${program}")', 'Open', 'Read', 'Read'); Start-Sleep $1; \$held.Close()" &
+      holder=$!
+      local waited=0
+      while { : >> "${program}"; } 2>/dev/null; do
+        if [[ "${waited}" -ge 30 ]]; then
+          echo "The stand-in for a scanner did not hold the program within 30 seconds." >&2
+          exit 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+      done
+    }
+    # Nothing but the stand-in may hold the program, so a write refused here is not the setup's to
+    # answer for. Either way, what held it is named.
     mark() {
       holders "${program}"
       if ! printf 'marked' >> "${program}"; then
@@ -275,18 +328,26 @@ case "${target}" in
       exit 1
     fi
     # The uninstall a quiet uninstaller such as winget runs is the one the setup program
-    # registered, so that is the one checked, and then run.
+    # registered, so that is the one checked, and then run, with an assistant still running a
+    # copy an install moved aside, which uninstalling closes and removes too.
     same "The quiet uninstall the setup program registered" \
       "$(powershell_value "(Get-ItemProperty '${entry}').QuietUninstallString")" "\"${folder}\\uninstall.exe\" /S"
+    assistant
+    step "Installing silently with an assistant's copy running" "${setup}" //S
+    test -d "${home}/replaced" || { echo "Installing moved nothing aside from the assistant's copy." >&2; exit 1; }
     step "Uninstalling silently" "${home}/uninstall.exe" //S
     # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
     # the files are gone; and it removes the files before the entry in Apps, so both are waited
     # for, or the entry is read in the moment between them.
     for _ in $(seq 60); do
       listed="$(powershell_value "Test-Path '${entry}'")"
-      [[ -e "${home}/steamgauge.exe" || "${listed}" != False ]] || break
+      [[ -e "${home}/steamgauge.exe" || -e "${home}/replaced" || "${listed}" != False ]] || break
       sleep 2
     done
+    same "What runs from ${folder} after uninstalling" "$(started_from assistants)$(started_from window)" ""
+    same "Whether uninstalling left ${home}" "$(there "${home}")" no
+    # The input each assistant's copy was given, which outlives the copy.
+    jobs -p | xargs -r kill 2>/dev/null || true
     if [[ -e "${home}/steamgauge.exe" ]]; then
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
       exit 1
