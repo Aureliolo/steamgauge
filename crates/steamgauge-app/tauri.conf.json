@@ -11,6 +11,7 @@
     "windows": [
       {
         "title": "SteamGauge",
+        "windowClassname": "com.aureliolo.steamgauge",
         "width": 1280,
         "height": 860,
         "minWidth": 760,

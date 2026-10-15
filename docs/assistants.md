@@ -364,6 +364,8 @@ Autohand:
 - **Only while the window is open.** The assistant reaches the open app over a local socket, a
   named pipe on Windows, that no other user or machine can reach. Closing the window closes the
   app; while it is closed, every tool says so and the assistant asks you to open it.
+- **Through updates.** Updating SteamGauge closes its window and leaves every assistant
+  connected. Until you restart an assistant, it offers the tools of the version it started.
 - **Both handshakes**, `initialize` and `server/discover`.
 - **HTTP, if you need it.** Off until the AI assistants page turns it on: the app then also
   answers on 127.0.0.1 at a port you choose, to requests carrying the token that page shows.
