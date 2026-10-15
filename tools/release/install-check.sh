@@ -247,12 +247,21 @@ case "${target}" in
     same "Where an assistant's copy runs from" "$(started_from assistants)" "${folder}\\steamgauge.exe"
     step "Installing silently with the window and an assistant's copy running" "${setup}" //S
     same "Where a window runs from after installing" "$(started_from window)" ""
-    moved="$(started_from assistants)"
-    if [[ ! "${moved}" =~ ^"${folder}"\\replaced\\\{[0-9A-Fa-f-]+\}\\steamgauge\.exe$ ]]; then
-      echo "After installing, the assistant's copy runs from '${moved}', not from a folder under replaced." >&2
+    # Windows keeps the path a process was started from, so where the copy runs from now is told
+    # by what holds the program moved aside.
+    moved=("${home}"/replaced/*/steamgauge.exe)
+    if [[ "${#moved[@]}" -ne 1 || ! -f "${moved[0]}" || ! -f "$(dirname "${moved[0]}")/DirectML.dll" ]]; then
+      echo "Installing did not move the program and DirectML.dll aside into one folder under replaced." >&2
+      ls -laR "${home}" >&2
       exit 1
     fi
-    echo "The assistant's copy runs on from ${moved}."
+    held_by="$(holders "${moved[0]}")"
+    echo "${held_by}"
+    if ! grep -q " mcp" <<<"${held_by}"; then
+      echo "No assistant's copy runs from ${moved[0]} after installing." >&2
+      exit 1
+    fi
+    echo "The assistant's copy runs on from ${moved[0]}."
     same "The program installed beside it" "$(sha256sum "${program}" | cut -d' ' -f1)" "${shipped}"
     expect_version "${program}"
     taskkill //F //IM steamgauge.exe > /dev/null 2>&1 || true
