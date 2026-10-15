@@ -110,6 +110,9 @@ game in thirty.
   whether the app is open or not, and hands each call to the open app over its local socket: a
   named pipe with a random name on Windows, a socket in a folder of mode 700 elsewhere, the name
   written only into the user's own data folder.
+- The prompts (`prompts.rs`) are requests written out in the tools' own words, text alone, so
+  `steamgauge mcp` and the open app both answer them, open or not. A test fails on a prompt that
+  names a tool the server lacks.
 - **The app answers only while its window is open.** Nothing starts it but the person, and closing
   the window closes it, assistants connected or not. While it is closed every call says so and
   tells the assistant to ask the person; a call the app closed during is reported, never sent

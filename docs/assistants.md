@@ -1,7 +1,9 @@
 # AI assistants
 
 SteamGauge is an MCP server. An assistant can find, download and read games and ask what their
-players say, and the window shows each step. [MCP tools](tools.md) lists every tool.
+players say, and the window shows each step. Its prompts appear in your assistant's own list,
+such as the commands Claude Code shows under `/`: what players say about a game, comparing games,
+and how players took an update. [MCP tools](tools.md) lists every prompt and tool.
 
 ## Hand it to your assistant
 

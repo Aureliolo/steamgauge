@@ -110,8 +110,9 @@ pub const PROMPTS: &[Spec] = &[
                 );
             format!(
                 "Use SteamGauge to find out how players of {game} took {update}.\n\n\
-                 {READY} A game already in the library needs queue_updates first, so the \
-                 reviews written since it was downloaded are in.\n\n\
+                 {READY} A game that was already in the library needs queue_updates as well, \
+                 so the reviews written since it was downloaded are in; follow work until that \
+                 is done too.\n\n\
                  Then find the update in game_updates and set the four weeks after it against \
                  the four weeks before with before_after. Tell me which subjects moved, which \
                  way and by how much, as before_after gives it, quoting reviews written after the \
