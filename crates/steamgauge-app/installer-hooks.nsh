@@ -40,7 +40,7 @@ FunctionEnd
       ${EndIf}
     ${EndIf}
     System::Call 'user32::GetWindowThreadProcessId(p R0, *i .R1)'
-    ; SYNCHRONIZE and PROCESS_TERMINATE.
+    ; The rights to wait for the process to end and to end it.
     System::Call 'kernel32::OpenProcess(i 0x00100001, i 0, i R1) p .R2'
     System::Call 'user32::PostMessageW(p R0, i ${WM_CLOSE}, p 0, p 0)'
     ${If} $R2 P<> 0
