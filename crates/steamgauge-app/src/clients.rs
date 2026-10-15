@@ -26,6 +26,14 @@ use serde_json::Value;
 /// The name the app is entered under in every client's configuration.
 pub const SERVER: &str = "steamgauge";
 
+/// What a person pastes to any assistant, this table's or not, to have it add the app to itself
+/// by the guide the documentation site publishes.
+pub const PASTE: &str = concat!(
+    "Add SteamGauge to yourself by following ",
+    env!("CARGO_PKG_HOMEPAGE"),
+    "agent.md,\nthen tell me which file you changed."
+);
+
 /// Which system the folders are a person's on, where clients keep their files in different places.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum System {
@@ -504,6 +512,18 @@ pub const CLIENTS: &[Client] = &[
         by: By::Editing,
         installed: |folders| vec![folders.home.join(".lmstudio")],
         then: Some("LM Studio asks before each tool call."),
+    },
+    Client {
+        id: "amazon-q",
+        name: "Amazon Q Developer",
+        // The file its MCP panel writes, `default.json`, is an agent whose tools must also name a
+        // server; this one, which the IDE plugins read unless `useLegacyMcpJson` is turned off,
+        // takes the entry alone.
+        file: |folders| folders.home.join(".aws").join("amazonq").join("mcp.json"),
+        format: JSON_MCP_SERVERS,
+        by: By::Editing,
+        installed: |folders| vec![folders.home.join(".aws").join("amazonq")],
+        then: None,
     },
 ];
 

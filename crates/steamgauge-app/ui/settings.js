@@ -1,7 +1,7 @@
 /* How the app runs on this computer: which reader reads every review, how much of the graphics
    card it takes, and what happens on its own. */
 
-import { invoke, el, set, make, roundShare, size, page, copiers } from './common.js';
+import { invoke, el, set, make, roundShare, size, page } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
@@ -60,71 +60,9 @@ function sizeCard(found, option) {
   return label;
 }
 
-/* Where an MCP client stands with this copy, in one line. */
-function clientState(client) {
-  switch (client.state) {
-    case 'installed':
-      return 'Not added.';
-    case 'added':
-      return client.then ? `Starts SteamGauge. ${client.then}` : 'Starts SteamGauge.';
-    case 'elsewhere':
-      return `Starts ${client.command}, which is not this copy.`;
-    case 'unreadable':
-      return `Its settings file does not parse (${client.reason}), so SteamGauge leaves it alone.`;
-    default:
-      return '';
-  }
-}
-
-function clientRow(client, act) {
-  const button = (label, command) => {
-    const pressed = make('button', 'quiet-button small', label);
-    pressed.type = 'button';
-    pressed.setAttribute('aria-label', `${label}: ${client.name}`);
-    pressed.addEventListener('click', () => act(command, client));
-    return pressed;
-  };
-  const actions = make('div', 'actions');
-  if (client.state === 'installed') actions.append(button('Add', 'connect_client'));
-  if (client.state === 'elsewhere') actions.append(button('Start this copy', 'connect_client'));
-  if (client.state === 'added' || client.state === 'elsewhere') actions.append(button('Remove', 'disconnect_client'));
-  return make('li', 'mcp-client', make('strong', null, client.name), make('span', null, clientState(client)), make('span', null, client.file), actions);
-}
-
 export function setUpSettings() {
   page('settings', el('settings'), load);
   el('settings-form').addEventListener('change', save);
-
-  copiers(el('settings'));
-
-  el('new-http-token').addEventListener('click', async () => {
-    try {
-      shown = await invoke('new_http_token');
-      draw();
-      el('settings-note').classList.remove('bad');
-      set(el('settings-note'), 'A new token. Programs with the old one are shut out.');
-    } catch (failure) {
-      el('settings-note').classList.add('bad');
-      set(el('settings-note'), String(failure));
-    }
-  });
-
-  async function steerFrom(command, client) {
-    try {
-      shown = await invoke(command, { client: client.id });
-      draw();
-      el('settings-note').classList.remove('bad');
-      set(
-        el('settings-note'),
-        command === 'connect_client'
-          ? `Added to ${client.name}. ${client.then ?? 'It reaches SteamGauge from its next session, while this window is open.'}`
-          : `Taken out of ${client.name}.`,
-      );
-    } catch (failure) {
-      el('settings-note').classList.add('bad');
-      set(el('settings-note'), String(failure));
-    }
-  }
 
   async function load() {
     try {
@@ -162,18 +100,6 @@ export function setUpSettings() {
     el('keep-up-to-date').disabled = !shown.check_steam;
     el('notify-moves').checked = shown.notify_moves;
     el('check-newer-version').checked = shown.check_newer_version;
-
-    el('mcp-clients').replaceChildren(...shown.clients.map((client) => clientRow(client, steerFrom)));
-    el('mcp-clients').hidden = shown.clients.length === 0;
-    el('mcp-clients-none').hidden = shown.clients.length > 0;
-    set(el('mcp-command'), shown.mcp_command);
-    el('answer-over-http').checked = shown.answer_over_http;
-    el('http-port').value = String(shown.http_port);
-    el('http-reach').hidden = !shown.http.address;
-    set(el('http-address'), shown.http.address ?? '');
-    set(el('http-token'), shown.http.token ?? '');
-    el('http-problem').hidden = !shown.http.problem;
-    set(el('http-problem'), shown.http.problem ?? '');
   }
 
   async function save() {
@@ -190,8 +116,9 @@ export function setUpSettings() {
       notify_moves: el('notify-moves').checked,
       read_after_download: el('read-after-download').checked,
       check_newer_version: el('check-newer-version').checked,
-      answer_over_http: el('answer-over-http').checked,
-      http_port: Number.parseInt(el('http-port').value, 10) || shown.http_port,
+      /* The AI assistants page sets these. */
+      answer_over_http: shown.answer_over_http,
+      http_port: shown.http_port,
     };
     try {
       shown = await invoke('save_settings', { settings, searchEveryGame: el('search-every-game').checked });

@@ -217,7 +217,7 @@ fn same(given: &[u8], token: &[u8]) -> bool {
 fn refused() -> Response<BoxBody<Bytes, Infallible>> {
     let mut response = Response::new(
         Full::new(Bytes::from_static(
-            b"SteamGauge answers only a request that carries its token, which Settings shows",
+            b"SteamGauge answers only a request that carries its token, which its AI assistants page shows",
         ))
         .boxed(),
     );

@@ -1,6 +1,6 @@
-/* About SteamGauge, opened from its name at the top of the sidebar: which version this computer
-   has, the newest release GitHub last named, a button that asks GitHub now, and where SteamGauge
-   is published. */
+/* About SteamGauge, opened from the sidebar or from its name at the top of it: which version this
+   computer has, the newest release GitHub last named, a button that asks GitHub now, and where
+   SteamGauge is published. */
 
 import { invoke, listen, el, set, page, copiers, openOutside } from './common.js';
 import { startUpdate } from './newer.js';

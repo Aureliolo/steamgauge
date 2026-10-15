@@ -39,7 +39,7 @@ pub struct Settings {
     /// Whether the app asks GitHub, at most once a day, whether a newer `SteamGauge` is out.
     pub check_newer_version: bool,
     /// Whether programs on this computer that connect to an MCP server over HTTP may steer the
-    /// app, with the token Settings shows, on 127.0.0.1 and `http_port`.
+    /// app, with the token the AI assistants page shows, on 127.0.0.1 and `http_port`.
     pub answer_over_http: bool,
     pub http_port: u16,
 }
@@ -131,11 +131,13 @@ pub struct Shown {
     pub clients: Vec<Client>,
     /// What any other MCP client is told to start.
     pub mcp_command: String,
+    /// What a person pastes to an assistant to have it add the app to itself.
+    pub paste: String,
     /// How a client reaches the HTTP server, where it answers.
     pub http: super::mcp_http::Reach,
 }
 
-/// One MCP client on this computer, as Settings lists it.
+/// One MCP client on this computer, as the AI assistants page lists it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Client {
     pub id: String,
@@ -215,6 +217,7 @@ pub fn settings(app: AppHandle) -> Shown {
         clients: clients_here(),
         mcp_command: crate::clients::Launch::this_copy()
             .map_or_else(|_| "steamgauge mcp".to_owned(), |launch| launch.line()),
+        paste: crate::clients::PASTE.to_owned(),
         http: super::mcp_http::reach(&app),
     }
 }

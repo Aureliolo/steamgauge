@@ -3123,7 +3123,8 @@ table.compared td small {
 
 /* Settings: what each one is on the left, the control on the right. */
 
-.settings form {
+.settings form,
+.assistants form {
   display: grid;
   gap: var(--s5);
 }
@@ -3199,8 +3200,13 @@ legend + .setting {
   display: grid;
   gap: var(--s2);
   margin: 0;
-  padding: 0;
+  padding: 0 var(--s6) var(--s5);
   list-style: none;
+}
+
+/* The line to paste keeps its break, so it reads as the two sentences it is. */
+.copyable code.paste {
+  white-space: pre-wrap;
 }
 
 .mcp-client {
@@ -3229,6 +3235,7 @@ legend + .setting {
 
 #mcp-clients-none {
   margin: 0;
+  padding: 0 var(--s6) var(--s5);
 }
 
 #http-port {
@@ -3285,6 +3292,7 @@ label.option:has(input:focus-visible) {
 }
 
 #settings-note:empty,
+#assistants-note:empty,
 #storage-note:empty {
   display: none;
 }

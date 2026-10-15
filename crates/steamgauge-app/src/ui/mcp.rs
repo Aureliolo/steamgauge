@@ -318,8 +318,10 @@ enum Page {
     Library,
     /// Finding a game on Steam to add.
     Finder,
-    /// How the app runs, and the assistants it is added to.
+    /// How the app runs.
     Settings,
+    /// The assistants it is added to, and answering over HTTP.
+    Assistants,
     /// What the library and the models take on disk.
     Storage,
     /// This copy's version and the newest release, with the button that asks for it.
