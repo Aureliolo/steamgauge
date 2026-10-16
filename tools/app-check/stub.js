@@ -721,9 +721,10 @@
         reader: 'standard',
         gpu_share: settings.gpu_share,
         models: [
-          { name: 'Game Review Reader (small)', role: 'reads every review', here: false, bytes_left: 244_000_000, release: 'v1', newer: null, used: false },
-          { name: 'Game Review Reader (standard)', role: 'reads every review', here: true, bytes_left: 0, release: 'v1', newer: 'v2', used: true },
-          { name: 'SteamGauge search encoder', role: 'finds what was said in other words', here: false, bytes_left: 1_321_804_224, release: 'v1', newer: null, used: true },
+          { name: 'Game Review Reader (small)', key: 'small', role: 'reads every review', here: false, bytes_left: 244_000_000, release: 'v1', newer: null, used: false },
+          { name: 'Game Review Reader (standard)', key: 'standard', role: 'reads every review', here: true, bytes_left: 0, release: 'v1', newer: 'v2', used: true },
+          { name: 'SteamGauge search encoder', key: 'search-encoder', role: 'finds what was said in other words', here: false, bytes_left: 1_321_804_224, release: 'v1', newer: null, used: true },
+          { name: 'SteamGauge writer', key: 'writer', role: 'writes what stands out about a game', here: false, bytes_left: 2_664_279_746, release: 'v1', newer: null, used: false },
         ],
         releases_checked: now - DAY,
       },

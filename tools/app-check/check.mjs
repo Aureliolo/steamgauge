@@ -94,9 +94,32 @@ const PROBE = `(async function () {
   check('the cockpit does not show what moved', $('#moves').children.length === 2);
   check('a complaint that rose is not marked as bad news', $('#moves .move.complaint.up') !== null);
   check('a share recommending that fell is not marked as bad news', $('#moves .move.recommended.down') !== null);
-  check('the cockpit does not list the models', $('#models').children.length === 3);
+  check('the cockpit does not list the models', $('#models').children.length === 4);
   check('a newer release goes unmentioned', /v2 is published/.test($('#models').textContent));
   check('a download still to come does not say its size', /1\\.3 GB download/.test($('#models').textContent));
+  check('a model not here is not offered for download now',
+    document.querySelectorAll('#models .model-fetch button').length === 3);
+  check('every model at once is not offered with what it all comes to',
+    shown('fetch-every-model') && /4\\.2 GB/.test($('#fetch-every-model').textContent));
+  var encoder = Array.prototype.find.call(document.querySelectorAll('#models .model'), function (row) {
+    return /search encoder/.test(row.textContent); });
+  encoder.querySelector('.model-fetch button').click();
+  await pause(300);
+  check('downloading one model now does not queue it by its name',
+    last('queue') && last('queue').args.tasks.length === 1 &&
+    last('queue').args.tasks[0].kind === 'fetch_model' && last('queue').args.tasks[0].model === 'search-encoder');
+  encoder = Array.prototype.find.call(document.querySelectorAll('#models .model'), function (row) {
+    return /search encoder/.test(row.textContent); });
+  check('a model on its way is still offered for download',
+    encoder.querySelector('button') === null && /Downloading/.test(encoder.textContent));
+  $('#fetch-every-model').click();
+  await pause(300);
+  check('downloading every model does not queue each one still to come, once',
+    last('queue').args.tasks.map(function (t) { return t.model; }).sort().join() === 'small,writer');
+  check('every model at once is offered while all of them are on their way', !shown('fetch-every-model'));
+  var jobs = await window.__TAURI__.core.invoke('work');
+  window.__stub.board(jobs.filter(function (job) { return job.task.kind !== 'fetch_model'; }));
+  await pause(200);
   check('a game new on Steam goes unlisted', /\\+1,520/.test($('#health-lists').textContent));
   check('a game read by an older reader goes unlisted', /Beta/.test($('#health-lists').textContent));
   check('the card in use goes unnamed', /RTX 4090/.test($('#machine-facts').textContent));
@@ -1098,7 +1121,7 @@ try {
     await pause(300);
     var fetched = window.__stub.calls.filter(function (call) { return call.command === 'queue'; }).pop();
     check('downloading the reader does not queue it',
-      fetched && fetched.args.tasks.some(function (t) { return t.kind === 'fetch_reader'; }));
+      fetched && fetched.args.tasks.some(function (t) { return t.kind === 'fetch_model' && t.model === 'standard'; }));
     check('the reader downloading takes the welcome away', shown('cockpit-empty'));
     check('the reader downloading is not shown where it was offered',
       document.querySelector('#ready-job .job') !== null && !shown('ready-actions'));

@@ -355,6 +355,8 @@ pub struct NewOnSteam {
 #[derive(Debug, Clone, Serialize)]
 pub struct ModelState {
     pub name: String,
+    /// What a `fetch_model` job and Storage call it.
+    pub key: &'static str,
     /// What it is for, in words.
     pub role: &'static str,
     pub here: bool,
@@ -397,6 +399,7 @@ fn machine(app: &AppHandle) -> Machine {
             let left = size.published.bytes_left(&size.home());
             ModelState {
                 name: format!("Game Review Reader ({})", size.name),
+                key: size.name,
                 role: "reads every review",
                 here: size.home().join("model.onnx").is_file()
                     && (left == 0 || !size.published.is_pinned()),
@@ -414,6 +417,7 @@ fn machine(app: &AppHandle) -> Machine {
         ]
         .map(|(model, role)| ModelState {
             name: format!("SteamGauge {}", model.name.replace('-', " ")),
+            key: model.name,
             role,
             here: model.fetched(&cache),
             bytes_left: model.bytes_left(&cache),
@@ -425,6 +429,7 @@ fn machine(app: &AppHandle) -> Machine {
     let writer = steamgauge_core::writer::WRITER;
     models.push(ModelState {
         name: "SteamGauge writer".to_owned(),
+        key: writer.name,
         role: "writes what stands out about a game",
         here: writer.fetched(&cache),
         bytes_left: writer.bytes_left(&cache),
