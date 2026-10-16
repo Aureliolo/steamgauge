@@ -1002,4 +1002,225 @@ mod tests {
         assert!(kept.chars().count() <= QUOTE_MOST + 1);
         assert_eq!(cut("  short  "), "short");
     }
+
+    /// Sixteen reviews: six praise how it runs on the Steam Deck, each filed under controls
+    /// too; six complain of the price; four praise the story, one review short of a theme.
+    /// Beside them a verdict, a declined claim and a neutral one, none of which is grouped.
+    fn game(dir: &Path) {
+        use std::sync::{Arc, atomic::AtomicBool};
+
+        use arrow::{
+            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
+        use parquet::arrow::ArrowWriter;
+
+        type Claim = (
+            &'static str,
+            Option<&'static str>,
+            &'static str,
+            Option<&'static str>,
+        );
+        let deck = |text| (text, Some("performance"), "praise", Some("controls:praise"));
+        let price = |text| (text, Some("price"), "complaint", None);
+        let story = |text| (text, Some("story"), "praise", None);
+        let reviews: Vec<Vec<Claim>> = vec![
+            vec![
+                deck("Runs great on my Steam Deck."),
+                ("Ten out of ten.", Some("verdict"), "praise", None),
+            ],
+            vec![
+                deck("Perfect on the Steam Deck every time."),
+                ("I bought it on sale.", None, "neutral", None),
+            ],
+            vec![
+                deck("Smooth as butter on Steam Deck."),
+                (
+                    "It is a game about trains.",
+                    Some("gameplay"),
+                    "neutral",
+                    None,
+                ),
+            ],
+            vec![deck("The Steam Deck runs it with no trouble.")],
+            vec![deck("Plays well on the Deck.")],
+            vec![deck("Flawless on my Deck after the patch.")],
+            vec![price("The price is far too high.")],
+            vec![price("Too high a price for this.")],
+            vec![price("The price should be half.")],
+            vec![price("Not worth the price asked.")],
+            vec![price("The price is a joke.")],
+            vec![price("Way too much at full price.")],
+            vec![story("The story is moving and kind.")],
+            vec![story("A story I will remember.")],
+            vec![story("Loved the story and its ending.")],
+            vec![story("The story kept me playing all night.")],
+        ];
+
+        let texts: Vec<String> = reviews
+            .iter()
+            .map(|claims| {
+                claims
+                    .iter()
+                    .map(|claim| claim.0)
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect();
+        let rows: Vec<serde_json::Value> = texts
+            .iter()
+            .enumerate()
+            .map(|(at, text)| {
+                serde_json::json!({"recommendationid": (at + 1).to_string(), "review": text,
+                    "language": "english", "timestamp_created": at, "timestamp_updated": at,
+                    "voted_up": true, "votes_up": 0, "weighted_vote_score": "0.5"})
+            })
+            .collect();
+        let mut capture =
+            crate::capture::CaptureWriter::create(&dir.join("shard-0000.parquet"), 1).unwrap();
+        capture.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        capture.close().unwrap();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("recommendationid", DataType::Utf8, false),
+            Field::new("start", DataType::UInt32, false),
+            Field::new("end", DataType::UInt32, false),
+            Field::new("subject", DataType::Utf8, true),
+            Field::new("confidence", DataType::Float32, false),
+            Field::new("polarity", DataType::Utf8, false),
+            Field::new("also", DataType::Utf8, true),
+        ]));
+        let (mut ids, mut starts, mut ends, mut subjects) = (
+            StringBuilder::new(),
+            UInt32Builder::new(),
+            UInt32Builder::new(),
+            StringBuilder::new(),
+        );
+        let (mut confidences, mut polarities, mut also) = (
+            Float32Builder::new(),
+            StringBuilder::new(),
+            StringBuilder::new(),
+        );
+        for (at, (claims, text)) in reviews.iter().zip(&texts).enumerate() {
+            for &(said, subject, polarity, other) in claims {
+                let start = text.find(said).unwrap();
+                ids.append_value((at + 1).to_string());
+                starts.append_value(u32::try_from(start).unwrap());
+                ends.append_value(u32::try_from(start + said.len()).unwrap());
+                subjects.append_option(subject);
+                confidences.append_value(0.9);
+                polarities.append_value(polarity);
+                also.append_option(other);
+            }
+        }
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(ids.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
+            Arc::new(subjects.finish()),
+            Arc::new(confidences.finish()),
+            Arc::new(polarities.finish()),
+            Arc::new(also.finish()),
+        ];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
+        let file = std::fs::File::create(dir.join("readings.parquet")).unwrap();
+        let mut readings = ArrowWriter::try_new(file, schema, None).unwrap();
+        readings.write(&batch).unwrap();
+        readings.close().unwrap();
+
+        // Each topic along a direction of its own, every claim nudged off it by its length, so
+        // claims on one topic are alike without being one point.
+        let embed = |texts: &[String]| -> Result<Vec<Vec<f32>>> {
+            Ok(texts
+                .iter()
+                .map(|text| {
+                    let lowered = text.to_lowercase();
+                    let axis = ["deck", "price", "story"]
+                        .iter()
+                        .position(|topic| lowered.contains(topic))
+                        .unwrap_or(3);
+                    let mut vector = vec![0.0_f32; crate::search_models::DIMENSIONS];
+                    vector[axis] = 0.96;
+                    vector[8 + text.len() % 24] = 0.28;
+                    vector
+                })
+                .collect())
+        };
+        meaning::prepare(dir, embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+    }
+
+    #[test]
+    fn a_reading_gives_each_point_said_in_enough_reviews_with_where_else_it_is_said() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        let found = find(dir.path(), Closeness::USED).unwrap();
+        assert_eq!(found.encoder, ENCODER.name);
+        assert_eq!(found.readings, meaning::readings_written(dir.path()));
+
+        let named: Vec<(&str, &str, u64)> = found
+            .subjects
+            .iter()
+            .map(|one| (one.subject.as_str(), one.side.as_str(), one.reviews))
+            .collect();
+        assert_eq!(
+            named.len(),
+            3,
+            "the story is praised in four reviews, one short of a theme, and a verdict, a \
+             declined claim and a neutral one are not grouped: {named:?}"
+        );
+        for subject in ["performance", "controls", "price"] {
+            let side = found
+                .subjects
+                .iter()
+                .find(|one| one.subject == subject)
+                .unwrap_or_else(|| panic!("no themes for {subject}: {named:?}"));
+            assert_eq!(side.reviews, 6);
+            assert_eq!(side.themes.len(), 1, "{subject} says one thing");
+            let theme = &side.themes[0];
+            assert_eq!((theme.reviews, theme.claims), (6, 6));
+            assert_eq!(theme.members.len(), 6);
+            assert!(
+                theme
+                    .members
+                    .windows(2)
+                    .all(|pair| pair[0].0.parse::<u32>().unwrap() < pair[1].0.parse().unwrap()),
+                "members in the capture's order"
+            );
+            assert!(
+                theme
+                    .members
+                    .iter()
+                    .any(|(review, ..)| *review == theme.quote.review_id),
+                "the quote is one of the theme's own claims"
+            );
+        }
+        let side = |subject: &str| {
+            found
+                .subjects
+                .iter()
+                .find(|one| one.subject == subject)
+                .unwrap()
+        };
+        let deck = &side("performance").themes[0];
+        assert_eq!(
+            deck.label, "Plays well on the Deck.",
+            "the shortest near the centre"
+        );
+        assert_eq!(side("performance").side, "praise");
+        assert_eq!(
+            deck.also_in,
+            vec![Elsewhere {
+                subject: "controls".to_owned(),
+                theme: 0
+            }],
+            "the same claims filed under controls are the same point"
+        );
+        assert_eq!(side("controls").themes[0].also_in[0].subject, "performance");
+        assert_eq!(side("price").side, "complaint");
+        assert!(
+            side("price").themes[0].also_in.is_empty(),
+            "a complaint is never the same point as a praise"
+        );
+    }
 }
