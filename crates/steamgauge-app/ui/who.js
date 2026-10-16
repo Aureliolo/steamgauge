@@ -5,13 +5,11 @@
    by the core, by the rule what moved is held to: too wide for chance and wide enough to act on.
    A kind with too few reviews is offered no figure at all. */
 
-import { invoke, el, set, make, button, whole } from './common.js';
+import { invoke, el, set, make, button, whole, tenth as percent } from './common.js';
 import { queue, jobsFor, active } from './work.js';
 
 /* Differences listed before the rest wait behind a button. */
 const FINDINGS_SHOWN = 6;
-
-const percent = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
 
 let hooks = null;
 /* The reading the page last drew, and what was chosen on it. */

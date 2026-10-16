@@ -87,6 +87,10 @@ const PROBE = `(async function () {
   check('the cockpit is not the page marked in the rail',
     $('[data-go="cockpit"]').getAttribute('aria-current') === 'page');
   check('the cockpit does not count the games', /3 games/.test($('#cockpit-sub').textContent));
+  check('the check stands in a system that writes numbers as the window does',
+    new Intl.NumberFormat().format(25900) !== '25,900');
+  check('a number is written in the system\\'s format rather than the window\\'s',
+    /25,900/.test($('#health-stats').textContent));
   check('the cockpit does not show what moved', $('#moves').children.length === 2);
   check('a complaint that rose is not marked as bad news', $('#moves .move.complaint.up') !== null);
   check('a share recommending that fell is not marked as bad news', $('#moves .move.recommended.down') !== null);
@@ -865,6 +869,8 @@ try {
   await send("Runtime.enable", {});
   await send("Network.enable", {});
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  // A system whose own number format differs from the window's British English one.
+  await send("Emulation.setLocaleOverride", { locale: "de-CH" });
   // Opens `url` afresh. The page about to be left is marked first, because right after a
   // navigation it can still answer as ready and be checked in place of the new one.
   let loads = 0;

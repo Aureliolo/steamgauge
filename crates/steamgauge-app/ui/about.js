@@ -3,7 +3,7 @@
    this copy's details for a report of a problem and whether its build was checked, what
    SteamGauge is built on, and SteamGauge's own pages. */
 
-import { invoke, listen, el, set, page, go, openOutside } from './common.js';
+import { invoke, listen, el, set, page, go, openOutside, LOCALE } from './common.js';
 import { startUpdate } from './newer.js';
 
 let about = null;
@@ -16,7 +16,7 @@ let noticesFailure = null;
 
 const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
 
-const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const when = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
 const at = (seconds) => when.format(new Date(seconds * 1000));
 
 /* The versions the list covers: up to the newer release where there is one, and otherwise since

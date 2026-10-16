@@ -6,11 +6,16 @@ export const { listen } = window.__TAURI__.event;
 
 export const el = (id) => document.getElementById(id);
 
-export const whole = new Intl.NumberFormat();
-export const share = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 2 });
-export const roundShare = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 });
-export const day = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-export const when = new Intl.DateTimeFormat(undefined, {
+/* The window's text is British English, and so are its numbers and dates: the system's own
+   format would put "2'860" beside the core's "2,860" in one sentence. */
+export const LOCALE = 'en-GB';
+
+export const whole = new Intl.NumberFormat(LOCALE);
+export const share = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 2 });
+export const tenth = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
+export const roundShare = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 0 });
+export const day = new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' });
+export const when = new Intl.DateTimeFormat(LOCALE, {
   month: 'short',
   day: 'numeric',
   hour: 'numeric',
@@ -84,7 +89,7 @@ export const language = (name) => (name ? name.charAt(0).toUpperCase() + name.sl
 export function monthName(label) {
   const [year, month] = label.split('-').map(Number);
   if (!year || !month) return label;
-  return new Date(Date.UTC(year, month - 1, 15)).toLocaleDateString(undefined, {
+  return new Date(Date.UTC(year, month - 1, 15)).toLocaleDateString(LOCALE, {
     month: 'short',
     year: 'numeric',
     timeZone: 'UTC',

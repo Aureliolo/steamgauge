@@ -2,7 +2,7 @@
    weeks after it. The core decides what an update is and what changed across it; this draws
    what it is told. Titles come from Steam and are always set as text. */
 
-import { invoke, el, set, make, whole, day, openOutside } from './common.js';
+import { invoke, el, set, make, whole, tenth, day, openOutside } from './common.js';
 import { chosenKind } from './who.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -12,8 +12,6 @@ const CHART_WIDTH = 1000;
 const TOO_CLOSE = 2.4;
 const NOTE = ' The dashed lines are its updates; a mark under the chart chooses one.';
 const NONE = { asked: null, updates: [], window_days: 28, enough: 100 };
-
-const tenth = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
 
 let game = null;
 let listed = NONE;
