@@ -552,7 +552,9 @@ const PROBE = `(async function () {
   await pause(250);
   check('storage does not say what the app takes', /SteamGauge takes/.test($('#storage-sub').textContent));
   check('storage does not draw the drive', document.querySelectorAll('#drives .drive').length === 1);
-  check('storage does not list every part of the library', document.querySelectorAll('#parts .part-row').length === 6);
+  check('storage does not list every part of the library and the models', document.querySelectorAll('#parts .part-row').length === 7);
+  check('a part under a megabyte is not given in kilobytes', /Library records[\\s\\S]*349 KB/.test($('#parts').textContent));
+  check('the models are not counted among what SteamGauge keeps', /Models[\\s\\S]*2\\.4 GB/.test($('#parts').textContent));
   check('storage does not list the games largest first',
     document.querySelectorAll('#game-rooms .room').length === 3 &&
     /Alpha/.test(document.querySelector('#game-rooms .room').textContent));
@@ -564,6 +566,7 @@ const PROBE = `(async function () {
   await pause(250);
   check('removing earlier downloads everywhere is not asked of the core',
     last('free_room') && last('free_room').args.appId === null && last('free_room').args.what === 'earlier');
+  check('a part with nothing left in it is still listed', !/Earlier downloads/.test($('#parts').textContent));
   var reads = document.querySelector('#game-rooms .room select');
   reads.value = 'reads';
   reads.dispatchEvent(new Event('change'));
