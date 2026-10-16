@@ -612,6 +612,15 @@ pub fn session_at(path: &Path) -> Result<(Session, &'static str)> {
     Ok((try_session(path, ort::ep::CPU::default().build())?, "cpu"))
 }
 
+/// The graph on the processor, whatever cards the build reaches.
+///
+/// # Errors
+///
+/// Fails if the processor cannot load the graph.
+pub fn session_on_processor(path: &Path) -> Result<Session> {
+    try_session(path, ort::ep::CPU::default().build())
+}
+
 /// Loads the graph on exactly one backend, or admits it could not.
 ///
 /// `error_on_failure` is the whole point. Left at its default, a provider that cannot

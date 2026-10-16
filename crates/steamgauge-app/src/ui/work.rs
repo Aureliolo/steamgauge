@@ -1086,41 +1086,21 @@ async fn prepare(
 ) -> Result<Ended, String> {
     use steamgauge_core::{
         meaning::{Times, prepare},
-        search_models::{ENCODER, RERANKER, SearchEncoder},
+        search_models::SearchEncoder,
         themes,
     };
 
-    let cache = steamgauge_core::model::default_cache_dir();
-    let left = ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache);
-    if left > 0 {
-        let total = float(left);
-        let mut across = Across::new();
-        for model in [ENCODER, RERANKER] {
-            let telling = app.clone();
-            let across = &mut across;
-            model
-                .ensure(&cache, move |progress| {
-                    let file = format!("{}/{}", model.name, progress.file);
-                    let done = float(across.add(&file, progress.downloaded));
-                    let saying = if done >= total {
-                        "Checking the search models"
-                    } else {
-                        "Fetching the search models"
-                    };
-                    tell(&telling, id, saying, Unit::Bytes, done, Some(total));
-                })
-                .await
-                .map_err(text)?;
-        }
-    }
-
     let dir = library_dir(app);
+    let writing = steamgauge_core::writer::Choice::load(&dir).write;
+    fetch_for_prepare(app, id, writing).await?;
+
     let share = Settings::load(app).gpu_share;
     let embedder = Arc::clone(&app.state::<super::Meaning>().embedder);
     let telling = app.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<Ended, String> {
         let snapshot = steamgauge_core::embed::latest_snapshot(&dir, app_id).map_err(text)?;
-        let total = float(super::read_report(&snapshot)?.claims);
+        let reading = super::read_report(&snapshot)?;
+        let total = float(reading.claims);
         tell(
             &telling,
             id,
@@ -1166,15 +1146,123 @@ async fn prepare(
             total,
             Some(total),
         );
-        themes::find(&snapshot, themes::Closeness::USED)
-            .and_then(|found| found.save(&snapshot))
-            .map_err(text)?;
-        Ok(Ended::said(
-            "Ready to search by meaning, with what players praise and complain about found.",
-        ))
+        let found = themes::find(&snapshot, themes::Closeness::USED).map_err(text)?;
+        found.save(&snapshot).map_err(text)?;
+        if !writing {
+            return Ok(Ended::said(
+                "Ready to search by meaning, with what players praise and complain about found.",
+            ));
+        }
+
+        let game = steamgauge_core::report::crawl_facts(&dir, app_id)
+            .map_err(text)?
+            .title();
+        write_paragraph(
+            &telling,
+            id,
+            &snapshot,
+            &game,
+            reading.reviews,
+            &found,
+            &stop,
+        )
     })
     .await
     .map_err(text)?
+}
+
+/// Every model preparing a game needs that is not here yet, fetched and checked against its pins:
+/// the search models always, and the writer once somebody has asked for paragraphs.
+async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<(), String> {
+    use steamgauge_core::{
+        search_models::{ENCODER, RERANKER},
+        writer::WRITER,
+    };
+
+    let cache = steamgauge_core::model::default_cache_dir();
+    let left = ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache);
+    if left > 0 {
+        let total = float(left);
+        let mut across = Across::new();
+        for model in [ENCODER, RERANKER] {
+            let telling = app.clone();
+            let across = &mut across;
+            model
+                .ensure(&cache, move |progress| {
+                    let file = format!("{}/{}", model.name, progress.file);
+                    let done = float(across.add(&file, progress.downloaded));
+                    let saying = if done >= total {
+                        "Checking the search models"
+                    } else {
+                        "Fetching the search models"
+                    };
+                    tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+                })
+                .await
+                .map_err(text)?;
+        }
+    }
+    let left = WRITER.bytes_left(&cache);
+    if writing && left > 0 {
+        let total = float(left);
+        let mut across = Across::new();
+        let telling = app.clone();
+        WRITER
+            .ensure(&cache, move |progress| {
+                let done = float(across.add(progress.file, progress.downloaded));
+                let saying = if done >= total {
+                    "Checking the writer"
+                } else {
+                    "Fetching the writer"
+                };
+                tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+            })
+            .await
+            .map_err(text)?;
+    }
+    Ok(())
+}
+
+/// Writes a game's paragraph from the themes just found and keeps what the check leaves of it.
+fn write_paragraph(
+    telling: &AppHandle,
+    id: u64,
+    snapshot: &std::path::Path,
+    game: &str,
+    reviews: u64,
+    found: &steamgauge_core::themes::Themes,
+    stop: &AtomicBool,
+) -> Result<Ended, String> {
+    use steamgauge_core::writer;
+
+    let Some(brief) = writer::brief(game, reviews, found) else {
+        return Ok(Ended::said(
+            "Ready to search by meaning. No point is made in enough reviews to write about.",
+        ));
+    };
+    tell(
+        telling,
+        id,
+        "Writing what stands out",
+        Unit::Points,
+        0.0,
+        None,
+    );
+    let mut loaded =
+        writer::Writer::load(&steamgauge_core::model::default_cache_dir()).map_err(text)?;
+    let Some(written) = loaded.answer(&brief.prompt, stop).map_err(text)? else {
+        return Err("stopped".to_owned());
+    };
+    // A paragraph the check leaves nothing of is kept as none, so the page does not offer to
+    // write one again for the same points.
+    let kept = writer::checked(&written, &brief).unwrap_or_default();
+    writer::Paragraph::new(kept, snapshot)
+        .save(snapshot)
+        .map_err(text)?;
+    Ok(Ended::said(
+        "Ready to search by meaning, with what players praise and complain about found and \
+         written up.",
+    ))
 }
 
 async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {

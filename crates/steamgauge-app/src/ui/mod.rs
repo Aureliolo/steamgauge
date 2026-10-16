@@ -384,8 +384,9 @@ struct Reading {
     positive_baseline: Option<f64>,
     model: String,
     threshold: f32,
-    /// The game in a paragraph, assembled from the same counts the table shows.
-    in_short: String,
+    /// What stands out, as the writer put it from the themes: `None` where it has not written
+    /// for these themes, empty where it wrote nothing the themes bear out.
+    paragraph: Option<String>,
     /// The particular things praised and complained about, where they have been found for this
     /// reading; finding them needs the game prepared for search by meaning.
     themes: Option<SaidMost>,
@@ -610,7 +611,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
         positive_baseline: share_of(found.positive, found.reviews),
         model: found.model.clone(),
         threshold: found.threshold,
-        in_short: steamgauge_core::picture::in_short(&found),
+        paragraph: steamgauge_core::writer::Paragraph::load(&snapshot).map(|written| written.text),
         themes: said_most(&snapshot, found.reviews),
         swept_since: facts
             .swept_unix
@@ -1091,6 +1092,44 @@ fn choose_meaning(app: AppHandle, every_game: bool) -> Result<(), String> {
         .map_err(text)
 }
 
+/// What having paragraphs written would take on this machine.
+#[derive(Debug, Clone, Serialize)]
+struct WriterOffer {
+    /// Whether somebody already asked for them.
+    write: bool,
+    /// What the writer takes to fetch, where it is not here yet; nothing once it is.
+    download_bytes: u64,
+    /// About how long one paragraph takes, on the processor.
+    seconds: f64,
+}
+
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn writer_offer(app: AppHandle) -> WriterOffer {
+    use steamgauge_core::writer::{Choice, SECONDS, WRITER};
+
+    WriterOffer {
+        write: Choice::load(&library_dir(&app)).write,
+        download_bytes: WRITER.bytes_left(&steamgauge_core::model::default_cache_dir()),
+        seconds: SECONDS,
+    }
+}
+
+/// Whether preparing a game also writes its paragraph from then on.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+fn choose_writer(app: AppHandle, write: bool) -> Result<(), String> {
+    steamgauge_core::writer::Choice { write }
+        .save(&library_dir(&app))
+        .map_err(text)
+}
+
 /// Loads a search model into `slot` unless it is there already.
 fn loaded<T>(
     slot: &mut Option<T>,
@@ -1419,6 +1458,8 @@ pub fn run() -> anyhow::Result<()> {
             search_game,
             meaning_offer,
             choose_meaning,
+            writer_offer,
+            choose_writer,
             search_by_meaning,
             game_updates::game_updates,
             game_updates::before_after,

@@ -75,9 +75,11 @@ length and SHA-256 before using it.
 | Labelled claims | [Aureliolo/game-review-claims](https://huggingface.co/datasets/Aureliolo/game-review-claims) | [10.57967/hf/10735](https://doi.org/10.57967/hf/10735) |
 | Search encoder | [Aureliolo/steamgauge-search-encoder](https://huggingface.co/Aureliolo/steamgauge-search-encoder) | |
 | Search reranker | [Aureliolo/steamgauge-search-reranker](https://huggingface.co/Aureliolo/steamgauge-search-reranker) | |
+| Writer | [Aureliolo/steamgauge-writer](https://huggingface.co/Aureliolo/steamgauge-writer) | |
 
 The search models are fp16 ONNX exports of Qwen3-Embedding-0.6B and Qwen3-Reranker-0.6B with
-their weights unchanged. The dataset holds no review text and nothing about the authors: each
+their weights unchanged. The writer is Qwen3-4B-Instruct-2507 with its weights rounded to four
+bits. The dataset holds no review text and nothing about the authors: each
 labelled review carries a SHA-256 fingerprint of its text, and `training/fetch_text.py`
 fetches the reviews from Steam and puts the text back on your own machine.
 

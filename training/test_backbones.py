@@ -10,7 +10,16 @@ from pathlib import Path
 
 import pytest
 
-from backbones import BACKBONES, COMMIT, DECIDED, Backbone, UnpinnedBackbone, load, pinning
+from backbones import (
+    BACKBONES,
+    COMMIT,
+    DECIDED,
+    Backbone,
+    UnpinnedBackbone,
+    load,
+    pinning,
+    snapshot,
+)
 
 HERE = Path(__file__).resolve().parent
 
@@ -48,6 +57,14 @@ def test_a_directory_loads_from_disk_without_remote_code(tmp_path):
             "local_files_only": True,
             "torch_dtype": None,
         }
+
+
+def test_a_snapshot_is_of_a_directory_or_a_pinned_backbone_without_code_of_its_own(tmp_path):
+    assert snapshot(str(tmp_path)) == tmp_path
+    with pytest.raises(UnpinnedBackbone, match="BACKBONES in training/backbones.py"):
+        snapshot("someone/new-encoder")
+    with pytest.raises(UnpinnedBackbone, match="runs code of its own"):
+        snapshot("EuroBERT/EuroBERT-610m")
 
 
 def test_a_pinned_name_is_read_at_its_commit():

@@ -2422,7 +2422,8 @@ table.games td:last-child {
   font-size: var(--t-sm);
 }
 
-.said-offer {
+.said-offer,
+.write-offer {
   display: grid;
   justify-items: start;
   gap: var(--s2);

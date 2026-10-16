@@ -55,6 +55,16 @@ SEARCH = {
     "search-encoder": ("steamgauge-search-encoder", "ENCODER", "Qwen/Qwen3-Embedding-0.6B"),
     "search-reranker": ("steamgauge-search-reranker", "RERANKER", "Qwen/Qwen3-Reranker-0.6B"),
 }
+WRITER_RS = CORE / "writer.rs"
+# The writer's cache directory, repository, constant in writer.rs and what it was exported from.
+WRITER = ("writer", "steamgauge-writer", "WRITER", "Qwen/Qwen3-4B-Instruct-2507")
+WRITER_FILES = ["model.onnx", "model.onnx.data", "tokenizer.json"]
+REPOSITORIES = [
+    *(repo for repo, _ in READERS.values()),
+    *(repo for repo, _, _ in SEARCH.values()),
+    WRITER[1],
+    DATASET,
+]
 TAG = re.compile(r"v[1-9][0-9]*")
 
 
@@ -349,6 +359,51 @@ def search_card(name: str, base: str) -> str:
     )
 
 
+def writer_card(base: str) -> str:
+    """The card for the writer: Qwen's weights rounded to four bits, in one graph decoded a
+    token at a time."""
+    return "\n".join(
+        [
+            "---",
+            "license: apache-2.0",
+            f"base_model: {base}",
+            "tags:",
+            "- onnx",
+            "- steam",
+            "- game-reviews",
+            "pipeline_tag: text-generation",
+            "---",
+            "",
+            "# SteamGauge writer",
+            "",
+            f"[`{base}`](https://huggingface.co/{base}) as an ONNX graph with int4 weights,",
+            "rounded to nearest in blocks of 32 by onnxruntime-genai's model builder.",
+            "[SteamGauge](https://github.com/Aureliolo/steamgauge) uses it to write the",
+            "paragraph at the top of a game's page from the points its Steam reviewers make most,",
+            "and leaves out any sentence giving a number or a quotation those points do not give.",
+            "",
+            "## Use",
+            "",
+            "- `model.onnx` takes `input_ids` from `tokenizer.json`, `attention_mask`, and",
+            "  `past_key_values.{layer}.key` and `.value` for each of its 36 layers, in single",
+            "  precision, 8 heads of 128; it returns `logits` and `present.{layer}.key` and",
+            "  `.value`, which are the next step's past. The weights are in `model.onnx.data`.",
+            "- Input is the model's chat format. SteamGauge takes the likeliest token at every",
+            "  step and stops at `<|im_end|>` or `<|endoftext|>`.",
+            "- It is built for the processor's int4 kernels and runs on the processor. On",
+            "  DirectML it runs slower and its answers are not the model's.",
+            "- `training/export_writer.py` builds it and checks it against the original model:",
+            "  fed the original's own paragraph for a fixed brief, it has to pick the original's",
+            "  next token at three places in four or more.",
+            "",
+            "## Licence",
+            "",
+            f"Apache-2.0, as is `{base}`. The model is Qwen's work.",
+            "",
+        ]
+    )
+
+
 def pins_in(source: str, constant: str) -> dict[str, str]:
     """The file hashes a Rust constant pins, by remote name."""
     found = re.search(rf"const {constant}\b.*?(?=\n(?:pub )?const |\Z)", source, re.DOTALL)
@@ -390,17 +445,18 @@ def pin_reader(
 
 
 def pin_search(source: str, constant: str, release: tuple[str, str, str]) -> str:
-    """search_models.rs with one model pinned to a repository, a commit and its tag."""
+    """search_models.rs or writer.rs with one model pinned to a repository, a commit and its
+    tag."""
     repo, revision, tag = release
     source, count = re.subn(
-        rf'(pub const {constant}: Model = Model \{{\s*name: "[^"]*",\s*repository: )"[^"]*"'
+        rf'(pub const {constant}: \w+ = \w+ \{{\s*name: "[^"]*",\s*repository: )"[^"]*"'
         r'(,\s*revision: )"[^"]*"(,\s*release: )"[^"]*"',
         rf'\g<1>"{repo}"\g<2>"{revision}"\g<3>"{tag}"',
         source,
         count=1,
     )
     if count != 1:
-        raise SystemExit(f"could not find where to pin {constant} in {SEARCH_RS}")
+        raise SystemExit(f"could not find where to pin {constant}")
     return source
 
 
@@ -441,7 +497,14 @@ def main() -> None:
     parser.add_argument("--owner", required=True, help="the Hugging Face user or organisation")
     parser.add_argument("--tag", required=True, help="the release, v1, v2, ...")
     parser.add_argument(
-        "--reviews", required=True, help="what `steamgauge export-review-facts` wrote"
+        "--reviews", help="what `steamgauge export-review-facts` wrote; the dataset needs it"
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        choices=REPOSITORIES,
+        help="publish this repository alone, as a new one is published at v1 while the rest "
+        "stay where they are; may be given more than once, and every one is published without it",
     )
     parser.add_argument("--reference", default=str(REPO / "reference" / "claims"))
     parser.add_argument("--runs", default=str(HERE / "runs"), help="where the exported runs are")
@@ -459,10 +522,12 @@ def main() -> None:
     args = parser.parse_args()
     if not TAG.fullmatch(args.tag):
         raise SystemExit(f"{args.tag!r} is not a release tag; they are v1, v2, ...")
+    wanted = set(args.only or REPOSITORIES)
     staging = Path(args.staging)
     staging.mkdir(parents=True, exist_ok=True)
     reader_rs = READER_RS.read_text(encoding="utf-8")
     search_rs = SEARCH_RS.read_text(encoding="utf-8")
+    writer_rs = WRITER_RS.read_text(encoding="utf-8")
 
     # What goes where: each repository's files as (path in the repository, path here).
     uploads: dict[str, tuple[str, list[tuple[str, Path]]]] = {}
@@ -474,6 +539,8 @@ def main() -> None:
         if not size["ships"]:
             continue
         repo, _ = READERS[size["name"]]
+        if repo not in wanted:
+            continue
         run = Path(args.runs) / size["run"]
         for name in MODEL_FILES:
             if not (run / name).is_file():
@@ -505,6 +572,8 @@ def main() -> None:
         )
 
     for name, (repo, constant, base) in SEARCH.items():
+        if repo not in wanted:
+            continue
         directory = Path(args.cache) / name
         pinned = pins_in(search_rs, constant)
         for file in SEARCH_FILES:
@@ -521,73 +590,26 @@ def main() -> None:
             [*((file, directory / file) for file in SEARCH_FILES), ("README.md", card)],
         )
 
-    # The dataset is built from the reference sets, not from the training export. The export
-    # carries each claim's text because training needs it; the reference sets carry the claim's
-    # offsets within its review because that is all a label needs to be joined back. Only the
-    # second shape leaves this machine.
-    rows, again, gold, acceptable = read_labels(Path(args.reference))
-    if not rows:
-        raise SystemExit(f"no labelled sets under {args.reference}")
-    reviews = [
-        json.loads(line)
-        for line in Path(args.reviews).read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    for found, fields, what in (
-        (rows, LABEL_FIELDS, "labels"),
-        (again, LABEL_FIELDS, "second labels"),
-        (gold, LABEL_FIELDS, "gold answers"),
-        (acceptable, JUDGEMENT_FIELDS, "judgements"),
-        (reviews, REVIEW_FIELDS, "review facts"),
-    ):
-        checked(found, fields, f"the {what}")
-    # A label written before labels recorded their sheet holds either nothing or an empty
-    # string; both go up as one null so a reader of the file has a single case to handle. A
-    # fingerprint guessed from a commit date would be the stamping the ingest refuses to do.
-    for row in rows + again:
-        row["taxonomy"] = row.get("taxonomy") or None
-    for name in (*KEY, "start", "end", "subject", "polarity", "produced_by"):
-        if any(name not in row for row in rows + again):
-            raise SystemExit(f"a row has no {name}; nothing can be joined back from it")
-    # The gold page stamps every answer with the sheet it showed, so one without is broken.
-    if any(not row.get("taxonomy") for row in gold):
-        raise SystemExit("a gold answer has no taxonomy; the sheet it answered is not known")
-    described = {row["review_id"] for row in reviews}
-    bare = {row["review_id"] for row in rows + again + gold} - described
-    if bare:
-        raise SystemExit(
-            f"{len(bare):,} labelled reviews have no facts in {args.reviews}; a label nobody can "
-            "check against its text is not one to publish. Run export-review-facts again."
+    name, repo, constant, base = WRITER
+    if repo in wanted:
+        directory = Path(args.cache) / name
+        pinned = pins_in(writer_rs, constant)
+        for file in WRITER_FILES:
+            if not (directory / file).is_file():
+                raise SystemExit(f"{directory / file} is missing; export_writer.py writes it")
+            if sha256(directory / file) != pinned[file]:
+                raise SystemExit(f"{directory / file} is not the file {constant} pins")
+        card = staging / f"{repo}.md"
+        card.write_text(writer_card(base), encoding="utf-8")
+        uploads[repo] = (
+            "model",
+            [*((file, directory / file) for file in WRITER_FILES), ("README.md", card)],
         )
-    files = {
-        "claims.jsonl": rows,
-        "second-labels.jsonl": again,
-        "gold.jsonl": gold,
-        "acceptable.jsonl": acceptable,
-        "reviews.jsonl": reviews,
-    }
-    for name, found in files.items():
-        (staging / name).write_text(jsonl(found), encoding="utf-8")
-    card = staging / f"{DATASET}.md"
-    card.write_text(
-        dataset_card(
-            len(rows),
-            len({row["app_id"] for row in rows}),
-            agreement(rows, again),
-            reviews=len(reviews),
-            gold=len(gold),
-            labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
-        ),
-        encoding="utf-8",
-    )
-    uploads[DATASET] = (
-        "dataset",
-        [
-            *((name, staging / name) for name in files),
-            ("fetch_text.py", HERE / "fetch_text.py"),
-            ("README.md", card),
-        ],
-    )
+
+    if DATASET in wanted:
+        if not args.reviews:
+            raise SystemExit("the dataset needs --reviews")
+        uploads[DATASET] = ("dataset", stage_dataset(args.reference, args.reviews, staging))
 
     for repo, (kind, contents) in uploads.items():
         print(
@@ -626,12 +648,87 @@ def main() -> None:
         release = (f"{args.owner}/{repo}", commits[repo], args.tag)
         reader_rs = pin_reader(reader_rs, size, constant, release, files)
     for name, (repo, constant, _) in SEARCH.items():
+        if repo in commits:
+            release = (f"{args.owner}/{repo}", commits[repo], args.tag)
+            search_rs = pin_search(search_rs, constant, release)
+    _, repo, constant, _ = WRITER
+    if repo in commits:
         release = (f"{args.owner}/{repo}", commits[repo], args.tag)
-        search_rs = pin_search(search_rs, constant, release)
+        writer_rs = pin_search(writer_rs, constant, release)
     # The sources are kept with Unix line ends, which Windows would otherwise turn every one of.
     READER_RS.write_text(reader_rs, encoding="utf-8", newline="\n")
     SEARCH_RS.write_text(search_rs, encoding="utf-8", newline="\n")
-    print(f"\npinned in {READER_RS.relative_to(REPO)} and {SEARCH_RS.relative_to(REPO)}")
+    WRITER_RS.write_text(writer_rs, encoding="utf-8", newline="\n")
+    pinned_in = ", ".join(str(path.relative_to(REPO)) for path in (READER_RS, SEARCH_RS, WRITER_RS))
+    print(f"\npinned in {pinned_in}")
+
+
+def stage_dataset(reference: str, reviews_file: str, staging: Path) -> list[tuple[str, Path]]:
+    """The dataset's files, written into `staging`, as (path in the repository, path here)."""
+    # The dataset is built from the reference sets, not from the training export. The export
+    # carries each claim's text because training needs it; the reference sets carry the claim's
+    # offsets within its review because that is all a label needs to be joined back. Only the
+    # second shape leaves this machine.
+    rows, again, gold, acceptable = read_labels(Path(reference))
+    if not rows:
+        raise SystemExit(f"no labelled sets under {reference}")
+    reviews = [
+        json.loads(line)
+        for line in Path(reviews_file).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    for found, fields, what in (
+        (rows, LABEL_FIELDS, "labels"),
+        (again, LABEL_FIELDS, "second labels"),
+        (gold, LABEL_FIELDS, "gold answers"),
+        (acceptable, JUDGEMENT_FIELDS, "judgements"),
+        (reviews, REVIEW_FIELDS, "review facts"),
+    ):
+        checked(found, fields, f"the {what}")
+    # A label written before labels recorded their sheet holds either nothing or an empty
+    # string; both go up as one null so a reader of the file has a single case to handle. A
+    # fingerprint guessed from a commit date would be the stamping the ingest refuses to do.
+    for row in rows + again:
+        row["taxonomy"] = row.get("taxonomy") or None
+    for name in (*KEY, "start", "end", "subject", "polarity", "produced_by"):
+        if any(name not in row for row in rows + again):
+            raise SystemExit(f"a row has no {name}; nothing can be joined back from it")
+    # The gold page stamps every answer with the sheet it showed, so one without is broken.
+    if any(not row.get("taxonomy") for row in gold):
+        raise SystemExit("a gold answer has no taxonomy; the sheet it answered is not known")
+    described = {row["review_id"] for row in reviews}
+    bare = {row["review_id"] for row in rows + again + gold} - described
+    if bare:
+        raise SystemExit(
+            f"{len(bare):,} labelled reviews have no facts in {reviews_file}; a label nobody can "
+            "check against its text is not one to publish. Run export-review-facts again."
+        )
+    files = {
+        "claims.jsonl": rows,
+        "second-labels.jsonl": again,
+        "gold.jsonl": gold,
+        "acceptable.jsonl": acceptable,
+        "reviews.jsonl": reviews,
+    }
+    for name, found in files.items():
+        (staging / name).write_text(jsonl(found), encoding="utf-8")
+    card = staging / f"{DATASET}.md"
+    card.write_text(
+        dataset_card(
+            len(rows),
+            len({row["app_id"] for row in rows}),
+            agreement(rows, again),
+            reviews=len(reviews),
+            gold=len(gold),
+            labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
+        ),
+        encoding="utf-8",
+    )
+    return [
+        *((name, staging / name) for name in files),
+        ("fetch_text.py", HERE / "fetch_text.py"),
+        ("README.md", card),
+    ]
 
 
 if __name__ == "__main__":

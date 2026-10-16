@@ -449,8 +449,7 @@ dl.induced summary {
   max-width: 52rem;
 }
 
-/* Prose assembled from the counts, so it reads as prose: no box, a measure a paragraph
-   wants, and room under it before the chart. */
+/* Prose, so it reads as prose: no box, and the measure a paragraph wants. */
 .in-short {
   max-width: 52rem;
   margin: 0.75rem 0 1.25rem;

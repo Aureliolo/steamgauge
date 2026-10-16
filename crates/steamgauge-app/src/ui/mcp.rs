@@ -271,6 +271,13 @@ struct ChooseMeaning {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct ChooseWriter {
+    /// Whether preparing a game also writes its paragraph.
+    write: bool,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct BeforeAfter {
     /// The game's Steam app id.
     app_id: u32,
@@ -523,6 +530,20 @@ fn entries() -> Vec<Entry> {
             "Whether every game read from now on is also prepared for search by meaning.",
             |app, ChooseMeaning { every_game }| {
                 off_thread_trying(move || super::choose_meaning(app, every_game))
+            },
+        ),
+        tool(
+            "writer_offer",
+            Looks,
+            "Whether paragraphs are written when a game is prepared, and what the writer would take to fetch and to run on this machine.",
+            |app, Nothing {}| off_thread(move || super::writer_offer(app)),
+        ),
+        tool(
+            "choose_writer",
+            Changes,
+            "Whether preparing a game for search by meaning also writes a paragraph of what stands out in what its players say, from its themes, with a model on this machine.",
+            |app, ChooseWriter { write }| {
+                off_thread_trying(move || super::choose_writer(app, write))
             },
         ),
         tool(

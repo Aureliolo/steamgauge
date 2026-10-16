@@ -707,6 +707,23 @@ const PROBE = `(async function () {
     $('#praised-terms').hidden && $('#criticised-terms').hidden);
   $('#back').click();
   await pause(300);
+  check('a written paragraph is not shown, or not said to be a model\\'s', shown('in-short') &&
+    /^Players praise the sharp writing most/.test($('#in-short').textContent) && shown('in-short-note') &&
+    !shown('write-offer'));
+  window.__stub.unwritten();
+  await pause(300);
+  check('a game with themes and no paragraph offers to write one, with its cost',
+    !shown('in-short') && !shown('in-short-note') && shown('write-offer') &&
+    /these points, about a minute a game on this computer's processor, after a 2\\.7 GB download, once/.test(
+      $('#write-offer-note').textContent) &&
+    /^Write it, here and for every game I prepare$/.test($('#write-it').textContent.trim()));
+  $('#write-it').click();
+  await pause();
+  check('writing a paragraph does not ask for it and queue the game\\'s preparation',
+    called('choose_writer').some(function (call) { return call.args.write === true; }) &&
+    called('queue').some(function (call) {
+      return call.args.tasks.some(function (t) { return t.kind === 'prepare' && t.app_id === 1; }); }) &&
+    !shown('write-offer'));
   $('#game-since .since-move .link').click();
   await pause(300);
   check('a subject that moved since does not open onto its points', shown('evidence') &&

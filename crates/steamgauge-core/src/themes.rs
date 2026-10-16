@@ -74,7 +74,7 @@ const QUOTE_MOST: usize = 240;
 /// Subjects with nothing particular inside them to find.
 const NOT_A_SUBJECT: [&str; 2] = ["verdict", "offtopic"];
 
-const FILE: &str = "themes.json";
+pub(crate) const FILE: &str = "themes.json";
 
 /// Threads the pairwise comparison runs on, so a large subject takes a few cores, not all.
 const THREADS: usize = 4;

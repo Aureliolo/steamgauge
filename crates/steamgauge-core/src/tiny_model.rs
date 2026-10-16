@@ -86,6 +86,15 @@ impl Graph {
         self
     }
 
+    /// A float input `past`, given back unchanged as `present`, as a decoder's cache of keys and
+    /// values is handed from one step to the next.
+    pub fn passed(&mut self, past: &str, present: &str, dims: &[Dim]) -> &mut Self {
+        bytes(&mut self.body, 11, &value_info(past, FLOAT, dims));
+        self.node("Identity", &[past], present, &[]);
+        bytes(&mut self.body, 12, &value_info(present, FLOAT, dims));
+        self
+    }
+
     fn node(&mut self, op: &str, inputs: &[&str], output: &str, attributes: &[u8]) {
         let mut node = Vec::new();
         for input in inputs {
