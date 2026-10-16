@@ -295,7 +295,7 @@
   };
   // The token the HTTP server answers with, drawn again by New token.
   let httpToken = '0f'.repeat(32);
-  // The answer the core kept from the last day's question.
+  // The answer the core kept from the last question.
   let newer = {
     version: '0.2.0',
     running: '0.1.0',
@@ -309,17 +309,34 @@
   let answeredAt = askedAt;
   let github = '0.2.0';
   const release = (version) => ({ version, running: '0.1.0', url: `https://github.com/Aureliolo/steamgauge/releases/tag/v${version}` });
+  // The version this copy was updated from, until the window says what changed was seen.
+  let updated = null;
+  // What GitHub's releases API lists between two versions, newest first.
+  const releases = [
+    { version: '0.2.0', changes: ['About lists what each newer version changes', 'The app asks for a newer version each time it opens'] },
+    { version: '0.1.1', changes: [] },
+  ];
+  let whatsNewAsked = 0;
   const about = () => ({
     running: '0.1.0',
+    made_by: 'Aurelio Amoroso',
     latest: newer?.version ?? '0.1.0',
     asked: askedAt,
     answered: answeredAt,
     newer,
+    updated,
+    details: [
+      { name: 'Version', value: '0.1.0' },
+      { name: 'System', value: 'Windows, x86-64' },
+      { name: 'Installed with', value: 'the setup program' },
+      { name: 'WebView', value: '141.0.3537.71' },
+    ],
     notes: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0',
     site: 'https://aureliolo.github.io/steamgauge/',
     repository: 'https://github.com/Aureliolo/steamgauge',
+    issues: 'https://github.com/Aureliolo/steamgauge/issues/new/choose',
     licence: 'Apache-2.0',
-    daily: settings.check_newer_version,
+    by_itself: settings.check_newer_version,
   });
   let searchEveryGame = false;
   // The MCP clients on this computer: one without the app, one starting another copy, and one
@@ -751,6 +768,16 @@
       send('newer-version', newer);
       return about();
     },
+    whats_new: () => {
+      whatsNewAsked += 1;
+      if (newer) return { from: '0.1.0', to: newer.version, releases };
+      if (updated) return { from: updated.from, to: '0.1.0', releases: [] };
+      return null;
+    },
+    saw_what_changed: () => {
+      if (updated) updated.seen = true;
+      return null;
+    },
     update_state: () => update,
     update_now: () => {
       update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
@@ -915,5 +942,10 @@
     untimed: () => {
       answeredAt = null;
     },
+    // This copy opening as a version newer than the one it last opened as.
+    updatedFrom: (from) => {
+      updated = { from, seen: false };
+    },
+    whatsNewAsked: () => whatsNewAsked,
   };
 })();

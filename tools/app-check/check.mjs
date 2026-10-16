@@ -241,8 +241,8 @@ const PROBE = `(async function () {
 
   check('the top of the rail does not name the version this computer has', $('#brand-version').textContent === '0.1.0');
   await go('about');
-  check('SteamGauge\\'s name does not open About', shown('about') &&
-    $('[data-go="about"]').getAttribute('aria-current') === 'page');
+  check('SteamGauge\\'s name does not open About', shown('about'));
+  check('the name at the top of the rail is lit up as a second About', !$('.brand').hasAttribute('aria-current'));
   check('the name at the top of the rail does not say it opens About', /^About\\s+SteamGauge/.test($('[data-go="about"]').textContent.trim()));
   check('About has no entry of its own in the rail',
     document.querySelector('.nav [data-go="about"]').getAttribute('aria-current') === 'page');
@@ -255,15 +255,30 @@ const PROBE = `(async function () {
   check('an answer kept by an older build is said to be GitHub out of reach',
     /^GitHub was last asked on [^;]+\\.$/.test($('#about-asked').textContent));
   check('About does not offer the newer release', visible('about-update') && /Update to 0\\.2\\.0/.test($('#about-update').textContent));
-  check('About does not say the daily question is on', /at most once a day/.test($('#about-daily').textContent));
-  check('About does not show where SteamGauge is published',
-    $('#about-site').textContent === 'https://aureliolo.github.io/steamgauge/' &&
-    $('#about-repository').textContent === 'https://github.com/Aureliolo/steamgauge');
+  check('About does not say SteamGauge asks on opening', /each time it opens and every six hours/.test($('#about-by-itself').textContent));
+  check('About does not say who makes SteamGauge', $('#about-made-by').textContent === 'Made by Aurelio Amoroso.');
+  check('About does not list what updating changes',
+    visible('about-changes') && /What changes when you update to 0\\.2\\.0/.test($('#about-changes-title').textContent) &&
+    $('#about-releases').querySelectorAll('.about-release').length === 2 &&
+    $('#about-releases li').textContent === 'About lists what each newer version changes');
+  check('a release that changed nothing downloaded is not said to', /Nothing in what you download/.test($('#about-releases').textContent));
+  const askedBefore = window.__stub.whatsNewAsked();
+  await go('cockpit');
+  await go('about');
+  check('reopening About asks GitHub what changed again', window.__stub.whatsNewAsked() === askedBefore);
+  check('About does not list this copy\\'s details',
+    [...$('#about-details').querySelectorAll('dt')].map((node) => node.textContent).join() === 'Version,System,Installed with,WebView');
   check('About does not name the licence', /Apache-2\\.0/.test($('#about-licence').textContent));
-  $('#about-notes').click();
-  await pause();
-  check('this version\\'s release notes do not open through the opener',
-    last('plugin:opener|open_url').args.url === 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0');
+  for (const [id, url] of [
+    ['about-notes', 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0'],
+    ['about-site', 'https://aureliolo.github.io/steamgauge/'],
+    ['about-repository', 'https://github.com/Aureliolo/steamgauge'],
+    ['about-issues', 'https://github.com/Aureliolo/steamgauge/issues/new/choose'],
+  ]) {
+    document.getElementById(id).click();
+    await pause();
+    check(document.getElementById(id).textContent + ' does not open through the opener', last('plugin:opener|open_url').args.url === url);
+  }
   window.__stub.github('0.4.0');
   $('#about-check').click();
   await pause(250);
@@ -282,6 +297,17 @@ const PROBE = `(async function () {
   check('the newest release is not said to be the one here', /^This is the newest release\\.$/.test($('#about-latest').textContent) &&
     !visible('about-update') && $('#about-check').classList.contains('primary'));
   check('the notice outlives an answer that no longer bears it out', !shown('newer-version'));
+  check('the newest release here still lists what updating changes', !visible('about-changes'));
+  window.__stub.updatedFrom('0.0.9');
+  await go('cockpit');
+  window.__stub.send('newer-version', null);
+  await pause();
+  check('the rail does not say this copy was updated', shown('rail-updated') && /updated to 0\\.1\\.0/.test($('#rail-updated-says').textContent));
+  $('#rail-updated-show').click();
+  await pause(250);
+  check('the rail\\'s See what changed does not open About', shown('about'));
+  check('About does not say what changed since the version updated from', /What changed since 0\\.0\\.9/.test($('#about-changes-title').textContent));
+  check('the rail still points at what changed once it was seen', !shown('rail-updated') && called('saw_what_changed').length === 1);
   window.__stub.github('0.2.0');
   $('#about-check').click();
   await pause(250);

@@ -717,8 +717,20 @@ fn entries() -> Vec<Entry> {
         tool(
             "about",
             Looks,
-            "This copy's version, the newest release GitHub last named, when it was last asked and answered, and where SteamGauge is published.",
+            "This copy's version and details, who makes SteamGauge, the newest release GitHub last named, when it was last asked and answered, the version this copy was updated from, and where SteamGauge is published.",
             |app, Nothing {}| off_thread(move || newer::about(app)),
+        ),
+        tool(
+            "whats_new",
+            Looks,
+            "What each release changes in what people download, as the About page lists it: up to the newer release last heard of, or, with none, since the version this copy was updated from. Asks GitHub's releases API.",
+            |app, Nothing {}| newer::whats_new(app),
+        ),
+        tool(
+            "saw_what_changed",
+            Changes,
+            "Records that the person has been shown what changed since the version this copy was updated from, so the sidebar stops pointing at it.",
+            |app, Nothing {}| off_thread_trying(move || newer::saw_what_changed(app)),
         ),
         tool(
             "check_for_updates",

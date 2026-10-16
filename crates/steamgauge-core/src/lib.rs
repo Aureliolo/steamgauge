@@ -29,6 +29,7 @@ pub mod rare_subjects;
 pub mod read;
 pub mod reader;
 pub mod reading_time;
+pub mod release_notes;
 pub mod reliability;
 pub mod report;
 pub mod said;

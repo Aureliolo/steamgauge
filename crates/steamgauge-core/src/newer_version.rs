@@ -17,8 +17,9 @@ pub const RELEASES: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/releases");
 /// The page that redirects to the newest release, which is the question [`Asked::ask`] asks.
 pub const LATEST: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/releases/latest");
 
-/// How long an answer stands before it is asked for again, in seconds.
-pub const ASK_EVERY: i64 = 24 * 60 * 60;
+/// How long an answer stands, in an app left open, before it is asked for again, in seconds.
+/// Opening the app always asks.
+pub const ASK_EVERY: i64 = 6 * 60 * 60;
 
 /// The question runs behind the window and nothing waits on it, so this only bounds how long a
 /// dead connection holds a socket open.
@@ -66,22 +67,18 @@ impl Asked {
     ///
     /// Fails where the directory cannot be made or written to.
     pub fn save(&self, dir: &Path) -> std::io::Result<()> {
-        std::fs::create_dir_all(dir)?;
-        let path = dir.join(FILE);
-        let partial = path.with_extension("partial");
-        std::fs::write(&partial, serde_json::to_vec_pretty(self)?)?;
-        std::fs::rename(partial, path)
+        keep(self, dir, FILE)
     }
 
-    /// Whether a day has passed since the last question. A clock set back past it counts as
-    /// due, or a clock that was once a year ahead would silence the notice for that year.
+    /// Whether [`ASK_EVERY`] has passed since the last question. A clock set back past it counts
+    /// as due, or a clock that was once a year ahead would silence the notice for that year.
     #[must_use]
     pub fn due(&self, now: i64) -> bool {
         now < self.at || now - self.at >= ASK_EVERY
     }
 
     /// Asks `page`, which is [`LATEST`], and records the answer. A question that fails, offline
-    /// or otherwise, still counts as the day's question and keeps the answer before it.
+    /// or otherwise, still counts as a question and keeps the answer before it.
     pub async fn ask(self, page: &str, now: i64) -> Self {
         match latest(page).await {
             Ok(latest) => Self {
@@ -109,6 +106,74 @@ impl Asked {
             running: ours.to_string(),
             url: format!("{RELEASES}/tag/v{latest}"),
         })
+    }
+}
+
+fn keep(value: &impl Serialize, dir: &Path, file: &str) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join(file);
+    let partial = path.with_extension("partial");
+    std::fs::write(&partial, serde_json::to_vec_pretty(value)?)?;
+    std::fs::rename(partial, path)
+}
+
+const OPENED: &str = "opened-version.json";
+
+/// The version this copy last opened as, and the one it was updated from, so a copy that opens
+/// as a newer version can say what changed.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct Opened {
+    pub version: String,
+    /// The version opened before this one, where this one is newer.
+    pub from: Option<String>,
+    /// Whether the person has been shown what changed since `from`.
+    pub seen: bool,
+}
+
+impl Opened {
+    /// What was kept, or none where there is no file or it cannot be read.
+    #[must_use]
+    pub fn load(dir: &Path) -> Option<Self> {
+        std::fs::read(dir.join(OPENED))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+    }
+
+    /// Written beside its place and moved over it, so a file is never half a record.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the directory cannot be made or written to.
+    pub fn save(&self, dir: &Path) -> std::io::Result<()> {
+        keep(self, dir, OPENED)
+    }
+
+    /// What opening as `running` makes of what was `kept`. A first opening has nothing to tell,
+    /// and nor has one after a newer version, a copy put back. One after an older version tells
+    /// what changed since it until that is shown, and since the oldest version not yet shown
+    /// where several updates came in between.
+    #[must_use]
+    pub fn opening(kept: Option<Self>, running: &str) -> Self {
+        let quiet = Self {
+            version: running.to_owned(),
+            from: None,
+            seen: true,
+        };
+        let Some(kept) = kept else {
+            return quiet;
+        };
+        if kept.version == running {
+            return kept;
+        }
+        match (version(&kept.version), version(running)) {
+            (Some(before), Some(now)) if before < now => Self {
+                version: running.to_owned(),
+                from: Some(kept.from.filter(|_| !kept.seen).unwrap_or(kept.version)),
+                seen: false,
+            },
+            _ => quiet,
+        }
     }
 }
 
@@ -167,6 +232,58 @@ mod tests {
         }
     }
 
+    fn opened(version: &str, from: Option<&str>, seen: bool) -> Opened {
+        Opened {
+            version: version.to_owned(),
+            from: from.map(str::to_owned),
+            seen,
+        }
+    }
+
+    #[test]
+    fn opening_as_a_newer_version_tells_what_changed_since_the_one_before_until_it_is_shown() {
+        assert_eq!(
+            Opened::opening(None, "0.2.12"),
+            opened("0.2.12", None, true),
+            "a first opening"
+        );
+        let updated = Opened::opening(Some(opened("0.2.10", None, true)), "0.2.12");
+        assert_eq!(updated, opened("0.2.12", Some("0.2.10"), false));
+        assert_eq!(
+            Opened::opening(Some(updated.clone()), "0.2.12"),
+            updated,
+            "opening again as the same version keeps the record"
+        );
+        assert_eq!(
+            Opened::opening(Some(updated), "0.2.13"),
+            opened("0.2.13", Some("0.2.10"), false),
+            "an update not yet shown is told with the next"
+        );
+        assert_eq!(
+            Opened::opening(Some(opened("0.2.12", Some("0.2.10"), true)), "0.2.13"),
+            opened("0.2.13", Some("0.2.12"), false)
+        );
+        assert_eq!(
+            Opened::opening(Some(opened("0.2.13", None, true)), "0.2.12"),
+            opened("0.2.12", None, true),
+            "a copy put back tells nothing"
+        );
+        assert_eq!(
+            Opened::opening(Some(opened("v0.2.12", None, true)), "0.2.12"),
+            opened("0.2.12", None, true),
+            "the same version written another way is no update"
+        );
+    }
+
+    #[test]
+    fn what_was_opened_is_kept_across_openings() {
+        let dir = crate::tempdir::Dir::new();
+        assert_eq!(Opened::load(dir.path()), None);
+        let kept = opened("0.2.12", Some("0.2.10"), false);
+        kept.save(dir.path()).unwrap();
+        assert_eq!(Opened::load(dir.path()), Some(kept));
+    }
+
     #[test]
     fn versions_are_compared_as_numbers_and_not_as_text() {
         assert!(heard("0.10.0").newer_than("0.9.3").is_some());
@@ -203,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn it_is_asked_once_a_day() {
+    fn an_answer_stands_for_six_hours() {
         let asked = Asked {
             at: 1_000_000,
             ..Asked::default()
@@ -219,13 +336,13 @@ mod tests {
     }
 
     #[test]
-    fn a_day_is_twenty_four_hours_and_not_one_sooner() {
+    fn six_hours_are_six_hours_and_not_one_sooner() {
         let asked = Asked {
             at: 1_000_000,
             ..Asked::default()
         };
-        assert!(!asked.due(1_000_000 + 23 * 60 * 60));
-        assert!(asked.due(1_000_000 + 24 * 60 * 60));
+        assert!(!asked.due(1_000_000 + 5 * 60 * 60));
+        assert!(asked.due(1_000_000 + 6 * 60 * 60));
     }
 
     /// A stand-in release page answering as GitHub does: a redirect to the newest tag.
@@ -333,7 +450,7 @@ mod tests {
         );
         assert!(
             !loaded.due(1_000_000 + 60),
-            "the day's question still counts"
+            "the last question still counts"
         );
     }
 

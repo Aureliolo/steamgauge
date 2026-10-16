@@ -261,10 +261,6 @@ code {
   background: var(--sunken);
 }
 
-.brand[aria-current] {
-  background: var(--accent-soft);
-}
-
 .brand-text {
   display: grid;
 }
@@ -3426,6 +3422,76 @@ label.option:has(input:focus-visible) {
 
 .about-body .row {
   margin: var(--s2) 0;
+}
+
+.about-changes {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.about-changes h4 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+}
+
+.about-changes .quiet-button {
+  justify-self: start;
+}
+
+.about-releases {
+  display: grid;
+  gap: var(--s3);
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.about-release h5 {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.about-release p {
+  margin: var(--s1) 0 0;
+}
+
+.about-release ul {
+  margin: var(--s1) 0 0;
+  padding-left: var(--s5);
+  display: grid;
+  gap: var(--s1);
+}
+
+.about-details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s2) var(--s5);
+  margin: 0;
+}
+
+.about-details dt {
+  color: var(--ink-2);
+}
+
+.about-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .storage > header {

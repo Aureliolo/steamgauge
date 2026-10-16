@@ -1284,16 +1284,17 @@ pub fn run() -> anyhow::Result<()> {
             since::remember(app.handle());
             work::start(app.handle());
             cockpit::check_when_due(app.handle());
-            newer::check_in_background(app.handle());
+            newer::remember_opening(app.handle());
+            newer::check_on_opening(app.handle());
             // The library is kept up to date only while the app is open: this loop ends with it.
-            // The app may stay open for days, so the day's question about a newer release is
-            // asked here too, not only on opening.
+            // The app may stay open for days, so whether a newer release is out is asked here
+            // too, not only on opening.
             let open = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(cockpit::LOOK_AGAIN_EVERY).await;
                     cockpit::check_when_due(&open);
-                    newer::check_in_background(&open);
+                    newer::check_when_due(&open);
                 }
             });
             Ok(())
@@ -1332,6 +1333,8 @@ pub fn run() -> anyhow::Result<()> {
             newer::newer_version,
             newer::about,
             newer::check_for_updates,
+            newer::whats_new,
+            newer::saw_what_changed,
             update::update_state,
             update::update_now,
             update::show_update_file,
