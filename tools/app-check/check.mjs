@@ -87,6 +87,8 @@ const PROBE = `(async function () {
   check('the cockpit is not the page marked in the rail',
     $('[data-go="cockpit"]').getAttribute('aria-current') === 'page');
   check('the cockpit does not count the games', /3 games/.test($('#cockpit-sub').textContent));
+  check('the check stands in a system that writes numbers as the window does',
+    new Intl.NumberFormat().format(25900) !== '25,900');
   check('a number is written in the system\\'s format rather than the window\\'s',
     /25,900/.test($('#health-stats').textContent));
   check('the cockpit does not show what moved', $('#moves').children.length === 2);
