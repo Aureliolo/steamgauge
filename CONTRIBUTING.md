@@ -45,7 +45,9 @@ archive's `THIRD-PARTY-NOTICES.txt` on every pull request and fails on a crate w
 `third-party/about.toml` does not accept, or whose licence text cargo-about cannot find; the
 message says which, and `third-party/README.md` says what to do. Accepting another licence is a
 decision about what the binary may contain, so make it in the pull request that needs it, in
-`deny.toml` and `fuzz/deny.toml` as well, which hold every other crate to the same list.
+`deny.toml` and `fuzz/deny.toml` as well, which hold every other crate to the same list. The
+dependency review on every pull request holds the Python packages and workflow actions to a
+permissive list of the maintainer's too, and accepts no other licence.
 
 Not `--all-features`: the cuda and coreml backends need vendor toolchains, and the default set
 is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,

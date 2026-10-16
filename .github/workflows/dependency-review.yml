@@ -1,9 +1,12 @@
 name: dependency review
 
-# Refuses a pull request that brings in a dependency with a known advisory of any severity, from
-# any of the manifests GitHub's dependency graph reads: the Cargo locks, the Python lock and the
-# workflows' actions. It is checked against GitHub's advisory database, beside the RustSec one
-# cargo-deny reads in ci.yml.
+# Refuses a pull request that brings in a dependency with a known advisory of any severity, or
+# under a licence outside the permissive list below, from any of the manifests GitHub's dependency
+# graph reads: the Cargo locks, the Python lock and the workflows' actions. Advisories come from
+# GitHub's database, beside the RustSec one cargo-deny reads in ci.yml; the licence list is the
+# maintainer's, and deny.toml holds the Rust graph to the narrower one the release notices cover.
+# DirectML.dll is vendored, outside the graph: its terms are read in third-party/ and ship in the
+# notices.
 on:
   # Every pull request, whatever it targets, so that one stacked on another is checked too.
   pull_request:
@@ -27,3 +30,8 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: low
+          allow-licenses: >-
+            MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-2-Clause, BSD-3-Clause, ISC, Zlib,
+            0BSD, Unlicense, CC0-1.0, BSL-1.0, Python-2.0, MPL-2.0, Unicode-3.0, CDLA-Permissive-2.0
+          # They declare "Apache-2.0/MIT", which GitHub cannot parse; it means MIT OR Apache-2.0.
+          allow-dependencies-licenses: pkg:cargo/dbus, pkg:cargo/libdbus-sys
