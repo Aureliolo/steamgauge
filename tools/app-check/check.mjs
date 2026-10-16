@@ -535,9 +535,10 @@ const PROBE = `(async function () {
   whole.click();
   await pause(250);
   check('choosing a share does not save it', last('save_settings') && last('save_settings').args.settings.gpu_share === 1);
+  check('preparing every game for search is not on as it is by default', $('#search-every-game').checked);
   $('#search-every-game').click();
   await pause(250);
-  check('preparing every game for search is not saved', last('save_settings').args.searchEveryGame === true);
+  check('turning off preparing every game for search is not saved', last('save_settings').args.searchEveryGame === false);
   var sizes = document.querySelectorAll('#reader-sizes input');
   check('settings do not offer both readers', sizes.length === 2);
   check('the recommended reader is not marked', /Recommended/.test($('#reader-sizes').textContent));

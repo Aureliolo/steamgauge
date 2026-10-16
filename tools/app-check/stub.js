@@ -374,7 +374,7 @@
     notices: true,
     by_itself: settings.check_newer_version,
   });
-  let searchEveryGame = false;
+  let searchEveryGame = true;
   // The MCP clients on this computer: one without the app, one starting another copy, and one
   // whose settings file does not parse.
   const program = 'C:\\Users\\someone\\AppData\\Local\\SteamGauge\\steamgauge.exe';

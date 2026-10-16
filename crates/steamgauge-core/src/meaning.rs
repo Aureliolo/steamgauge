@@ -744,10 +744,19 @@ impl Times {
     }
 }
 
-/// Whether somebody asked for every game they read to be prepared, kept in the library.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// Whether every game read is prepared after its read, kept in the library.
+///
+/// On until somebody turns it off: preparing is what finds a game's themes, so a game left
+/// unprepared shows no point within its subjects until it is prepared by hand.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choice {
     pub every_game: bool,
+}
+
+impl Default for Choice {
+    fn default() -> Self {
+        Self { every_game: true }
+    }
 }
 
 /// The file the choice is kept in, in the library directory.
@@ -1099,11 +1108,11 @@ mod tests {
     }
 
     #[test]
-    fn the_choice_to_prepare_every_game_is_kept() {
+    fn every_game_is_prepared_until_somebody_turns_it_off_and_that_is_kept() {
         let dir = crate::tempdir::Dir::new();
-        assert_eq!(Choice::load(dir.path()), Choice::default());
-        Choice { every_game: true }.save(dir.path()).unwrap();
         assert_eq!(Choice::load(dir.path()), Choice { every_game: true });
+        Choice { every_game: false }.save(dir.path()).unwrap();
+        assert_eq!(Choice::load(dir.path()), Choice { every_game: false });
     }
 
     #[test]
