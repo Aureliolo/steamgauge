@@ -268,6 +268,11 @@ mod tests {
             opened("0.2.12", None, true),
             "a copy put back tells nothing"
         );
+        assert_eq!(
+            Opened::opening(Some(opened("v0.2.12", None, true)), "0.2.12"),
+            opened("0.2.12", None, true),
+            "the same version written another way is no update"
+        );
     }
 
     #[test]

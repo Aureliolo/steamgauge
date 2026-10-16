@@ -236,25 +236,84 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_used_up_limit_is_said_as_such() {
-        let server = stand_in::Server::new(|_| stand_in::Answer::status(403));
-        let refusal = between(&server.origin(), &v("0.2.10"), &v("0.2.11"))
+    async fn the_next_page_is_asked_only_while_a_full_page_stays_above_the_older_version() {
+        let full: Vec<serde_json::Value> = (0..PER_PAGE)
+            .map(|patch| listed(&format!("v1.0.{patch}"), NOTES))
+            .collect();
+        let second = serde_json::json!([listed("v0.9.0", NOTES), listed("v0.1.0", NOTES)]);
+        let server = stand_in::Server::new(move |asked| match asked.param("page") {
+            Some("1") => stand_in::Answer::json(&serde_json::Value::from(full.clone())),
+            _ => stand_in::Answer::json(&second),
+        });
+        let got = between(&server.origin(), &v("0.1.0"), &v("2.0.0"))
+            .await
+            .unwrap();
+        assert_eq!(got.len(), PER_PAGE + 1);
+        assert_eq!(
+            got.last().map(|changed| changed.version.as_str()),
+            Some("0.9.0")
+        );
+        assert_eq!(server.asked().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_short_page_is_the_last_even_above_the_older_version() {
+        let page = serde_json::json!([listed("v0.2.13", NOTES), listed("v0.2.12", NOTES)]);
+        let server = stand_in::Server::new(move |_| stand_in::Answer::json(&page));
+        let got = between(&server.origin(), &v("0.2.0"), &v("0.2.13"))
+            .await
+            .unwrap();
+        assert_eq!(got.len(), 2);
+        assert_eq!(server.asked().len(), 1);
+    }
+
+    async fn refusal_for(status: u16) -> String {
+        let server = stand_in::Server::new(move |_| stand_in::Answer::status(status));
+        between(&server.origin(), &v("0.2.10"), &v("0.2.11"))
             .await
             .unwrap_err()
-            .to_string();
-        assert!(
-            refusal.contains("sixty such questions an hour"),
-            "{refusal}"
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn a_used_up_limit_is_said_as_such_and_any_other_refusal_by_its_status() {
+        for limited in [403, 429] {
+            let refusal = refusal_for(limited).await;
+            assert!(
+                refusal.contains("sixty such questions an hour"),
+                "{limited}: {refusal}"
+            );
+        }
+        let refusal = refusal_for(500).await;
+        assert!(refusal.contains("GitHub answered 500"), "{refusal}");
+    }
+
+    /// A list of no releases, `[` and `]` around enough spaces to come to `length` bytes.
+    fn padded(length: usize) -> Vec<u8> {
+        let mut body = vec![b' '; length];
+        body[0] = b'[';
+        body[length - 1] = b']';
+        body
+    }
+
+    #[tokio::test]
+    async fn a_list_of_exactly_its_limit_is_read() {
+        let server = stand_in::Server::new(|_| stand_in::Answer::body(padded(MOST)));
+        assert_eq!(
+            between(&server.origin(), &v("0.2.10"), &v("0.2.11"))
+                .await
+                .unwrap(),
+            []
         );
     }
 
     #[tokio::test]
     async fn a_list_past_its_limit_is_not_read() {
-        let server = stand_in::Server::new(|_| stand_in::Answer::body(vec![b' '; MOST + 1]));
-        assert!(
-            between(&server.origin(), &v("0.2.10"), &v("0.2.11"))
-                .await
-                .is_err()
-        );
+        let server = stand_in::Server::new(|_| stand_in::Answer::body(padded(MOST + 2)));
+        let refusal = between(&server.origin(), &v("0.2.10"), &v("0.2.11"))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(refusal.contains("ran past its limit"), "{refusal}");
     }
 }
