@@ -320,6 +320,34 @@ mod tests {
     }
 
     #[test]
+    fn a_subject_no_review_raised_leans_no_way_in_any_game() {
+        let (big, small) = two();
+        let story = found(&big, &small)
+            .into_iter()
+            .find(|one| one.id == "story")
+            .unwrap();
+        for figures in [&story.each_game, &story.every_review] {
+            assert_eq!(figures.leaning_games, 0);
+            assert_eq!(
+                (figures.praising, figures.complaining, figures.mixed),
+                (None, None, None)
+            );
+        }
+        // Twenty reviews raise it in the small game, under the thirty a game's own lean needs.
+        let audio = found(&big, &small)
+            .into_iter()
+            .find(|one| one.id == "audio")
+            .unwrap();
+        assert_eq!(
+            (
+                audio.each_game.leaning_games,
+                audio.every_review.leaning_games
+            ),
+            (0, 1)
+        );
+    }
+
+    #[test]
     fn each_interval_holds_its_rate() {
         let (big, small) = two();
         let performance = found(&big, &small).remove(0);
