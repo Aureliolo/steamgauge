@@ -1,8 +1,8 @@
 # Written by tools/release/package-managers.sh for each release, from the release's own signed
 # checksums.
 cask "steamgauge" do
-  version "0.2.11"
-  sha256 "0c4b5a49cbdccc92e89c60cb4e5d4b2b2a6f49d7411b89094f1df711c42430ba"
+  version "0.2.12"
+  sha256 "4966473577ae13cca09022e2f7ba1e7ad43d60fb59838b1fd1b0bcc8e80488cf"
 
   url "https://github.com/Aureliolo/steamgauge/releases/download/v#{version}/steamgauge-#{version}-macos-arm64.dmg"
   name "SteamGauge"
