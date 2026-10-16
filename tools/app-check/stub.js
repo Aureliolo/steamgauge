@@ -416,7 +416,7 @@
   ];
   const storage = () => {
     const total = (parts) => Object.values(parts).reduce((sum, bytes) => sum + bytes, 0);
-    const parts = { reviews: 0, reads: 0, search: 0, earlier: 0, partial: 0, other: 3_000_000 };
+    const parts = { reviews: 0, reads: 0, search: 0, earlier: 0, partial: 0, other: 349_000 };
     for (const room of rooms) for (const key of Object.keys(room.parts)) parts[key] += room.parts[key];
     return {
       library: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',

@@ -65,12 +65,17 @@ export function button(label, className, onClick) {
   return node;
 }
 
+/* Each unit takes over where the one below would round to a thousand, so nothing reads "1000 KB". */
 export const size = (bytes) =>
-  bytes >= 1e12
+  bytes >= 999.95e9
     ? `${(bytes / 1e12).toFixed(2)} TB`
-    : bytes >= 1e9
+    : bytes >= 999.5e6
       ? `${(bytes / 1e9).toFixed(1)} GB`
-      : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+      : bytes >= 999.5e3
+        ? `${Math.round(bytes / 1e6)} MB`
+        : bytes > 0
+          ? `${Math.max(1, Math.round(bytes / 1e3))} KB`
+          : '0 KB';
 
 /* An estimate as a sentence says one: "about 3 minutes", but never "about under a minute". */
 export function roughly(seconds) {

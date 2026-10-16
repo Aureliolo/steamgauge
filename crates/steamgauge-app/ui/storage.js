@@ -125,22 +125,26 @@ export function setUpStorage({ openGame }) {
       }),
     );
 
+    /* A part holding nothing is left out: there is nothing in it to weigh or to remove. */
+    const held = [
+      ...PARTS.map((part) => ({ ...part, bytes: found.parts[part.key] })),
+      { key: 'models', name: 'Models', cost: 'Fetched again the first time each is needed; each is listed below.', bytes: models },
+    ].filter((part) => part.bytes > 0);
     el('parts').replaceChildren(
-      ...PARTS.map((part) => {
-        const bytes = found.parts[part.key];
-        return make(
+      ...held.map((part) =>
+        make(
           'li',
           'part-row',
           legendSwatch(part.key),
           make('span', 'part-text', make('strong', null, part.name), make('span', 'quiet small', part.cost)),
-          make('span', 'part-size', size(bytes)),
-          part.everywhere && bytes > 0
-            ? removeButton('Remove', null, bytes, () =>
+          make('span', 'part-size', size(part.bytes)),
+          part.everywhere
+            ? removeButton('Remove', null, part.bytes, () =>
                 act('free_room', { appId: null, what: part.everywhere }, `${part.name} removed from every game.`),
               )
             : make('span'),
-        );
-      }),
+        ),
+      ),
     );
 
     const games = el('game-rooms');
