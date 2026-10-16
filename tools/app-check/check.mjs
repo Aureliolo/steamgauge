@@ -1103,6 +1103,34 @@ try {
     if (fits.result?.result?.value !== true) sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
   }
 
+  // A wide screen is used across its whole width, and the cockpit shows everything at once.
+  await send("Emulation.setDeviceMetricsOverride", { width: 2000, height: 1080, deviceScaleFactor: 1, mobile: false });
+  const wide = await evaluate(`(async function () {
+    var wrong = [];
+    var stage = document.getElementById('stage');
+    for (var name of ['cockpit', 'library', 'storage', 'assistants', 'settings', 'about']) {
+      document.querySelector('[data-go="' + name + '"]').click();
+      await new Promise(function (done) { setTimeout(done, 250); });
+      var head = document.querySelector('#' + name + ' .page-head').getBoundingClientRect();
+      if (head.right < stage.getBoundingClientRect().right - 100) wrong.push('the ' + name + ' leaves the side of a wide window empty');
+      if (name === 'settings') {
+        var flowed = document.querySelectorAll('#settings-form > fieldset');
+        if (flowed[0].getBoundingClientRect().left === flowed[flowed.length - 1].getBoundingClientRect().left) {
+          wrong.push('the settings stay in one column in a wide window');
+        }
+      }
+    }
+    document.querySelector('[data-go="cockpit"]').click();
+    await new Promise(function (done) { setTimeout(done, 250); });
+    var stacks = ['since-title', 'moves-title', 'work-title'].map(function (id) {
+      return document.getElementById(id).closest('.panel').getBoundingClientRect();
+    });
+    if (!(stacks[0].right <= stacks[1].left && stacks[1].right <= stacks[2].left && stacks[1].top === stacks[0].top)) {
+      wrong.push('the cockpit does not set what is new, what moved and what runs side by side in a wide window');
+    }
+    return wrong;
+  })()`);
+
   // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
   await load(`${page}?first`);
@@ -1408,6 +1436,7 @@ try {
       .concat(answer.result.result.value)
       .concat(narrow.result.result.value)
       .concat(sideways)
+      .concat(wide.result.result.value)
       .concat(first.result.result.value)
       .concat(later.result.result.value)
       .concat(unreachable);
