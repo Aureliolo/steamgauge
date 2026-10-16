@@ -1003,29 +1003,22 @@ mod tests {
         assert_eq!(cut("  short  "), "short");
     }
 
+    /// A claim as it is read: its words, subject, side and the other subjects it covers.
+    type Claim = (
+        &'static str,
+        Option<&'static str>,
+        &'static str,
+        Option<&'static str>,
+    );
+
     /// Sixteen reviews: six praise how it runs on the Steam Deck, each filed under controls
     /// too; six complain of the price; four praise the story, one review short of a theme.
     /// Beside them a verdict, a declined claim and a neutral one, none of which is grouped.
-    fn game(dir: &Path) {
-        use std::sync::{Arc, atomic::AtomicBool};
-
-        use arrow::{
-            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
-            datatypes::{DataType, Field, Schema},
-            record_batch::RecordBatch,
-        };
-        use parquet::arrow::ArrowWriter;
-
-        type Claim = (
-            &'static str,
-            Option<&'static str>,
-            &'static str,
-            Option<&'static str>,
-        );
+    fn reviews() -> Vec<Vec<Claim>> {
         let deck = |text| (text, Some("performance"), "praise", Some("controls:praise"));
         let price = |text| (text, Some("price"), "complaint", None);
         let story = |text| (text, Some("story"), "praise", None);
-        let reviews: Vec<Vec<Claim>> = vec![
+        vec![
             vec![
                 deck("Runs great on my Steam Deck."),
                 ("Ten out of ten.", Some("verdict"), "praise", None),
@@ -1056,8 +1049,15 @@ mod tests {
             vec![story("A story I will remember.")],
             vec![story("Loved the story and its ending.")],
             vec![story("The story kept me playing all night.")],
-        ];
+        ]
+    }
 
+    /// [`reviews`] as a capture, a reading of it, and the vectors that prepare it for search by
+    /// meaning.
+    fn game(dir: &Path) {
+        use std::sync::atomic::AtomicBool;
+
+        let reviews = reviews();
         let texts: Vec<String> = reviews
             .iter()
             .map(|claims| {
@@ -1081,6 +1081,38 @@ mod tests {
             crate::capture::CaptureWriter::create(&dir.join("shard-0000.parquet"), 1).unwrap();
         capture.write(&rows.iter().collect::<Vec<_>>()).unwrap();
         capture.close().unwrap();
+        write_readings(dir, &reviews, &texts);
+
+        // Each topic along a direction of its own, every claim nudged off it by its length, so
+        // claims on one topic are alike without being one point.
+        let embed = |texts: &[String]| -> Result<Vec<Vec<f32>>> {
+            Ok(texts
+                .iter()
+                .map(|text| {
+                    let lowered = text.to_lowercase();
+                    let axis = ["deck", "price", "story"]
+                        .iter()
+                        .position(|topic| lowered.contains(topic))
+                        .unwrap_or(3);
+                    let mut vector = vec![0.0_f32; crate::search_models::DIMENSIONS];
+                    vector[axis] = 0.96;
+                    vector[8 + text.len() % 24] = 0.28;
+                    vector
+                })
+                .collect())
+        };
+        meaning::prepare(dir, embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+    }
+
+    fn write_readings(dir: &Path, reviews: &[Vec<Claim>], texts: &[String]) {
+        use std::sync::Arc;
+
+        use arrow::{
+            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
+            datatypes::{DataType, Field, Schema},
+            record_batch::RecordBatch,
+        };
+        use parquet::arrow::ArrowWriter;
 
         let schema = Arc::new(Schema::new(vec![
             Field::new("recommendationid", DataType::Utf8, false),
@@ -1102,7 +1134,7 @@ mod tests {
             StringBuilder::new(),
             StringBuilder::new(),
         );
-        for (at, (claims, text)) in reviews.iter().zip(&texts).enumerate() {
+        for (at, (claims, text)) in reviews.iter().zip(texts).enumerate() {
             for &(said, subject, polarity, other) in claims {
                 let start = text.find(said).unwrap();
                 ids.append_value((at + 1).to_string());
@@ -1128,26 +1160,6 @@ mod tests {
         let mut readings = ArrowWriter::try_new(file, schema, None).unwrap();
         readings.write(&batch).unwrap();
         readings.close().unwrap();
-
-        // Each topic along a direction of its own, every claim nudged off it by its length, so
-        // claims on one topic are alike without being one point.
-        let embed = |texts: &[String]| -> Result<Vec<Vec<f32>>> {
-            Ok(texts
-                .iter()
-                .map(|text| {
-                    let lowered = text.to_lowercase();
-                    let axis = ["deck", "price", "story"]
-                        .iter()
-                        .position(|topic| lowered.contains(topic))
-                        .unwrap_or(3);
-                    let mut vector = vec![0.0_f32; crate::search_models::DIMENSIONS];
-                    vector[axis] = 0.96;
-                    vector[8 + text.len() % 24] = 0.28;
-                    vector
-                })
-                .collect())
-        };
-        meaning::prepare(dir, embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
     }
 
     #[test]
