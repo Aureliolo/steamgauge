@@ -2,14 +2,34 @@
    those how many praise it and how many complain. Every share is of the game's own reviews, so a
    game with a million reviews and one with a thousand compare as rates, not as counts. */
 
-import { invoke, el, set, make, button, roundShare, whole, nothing, language, page } from './common.js';
+import {
+  invoke,
+  el,
+  set,
+  make,
+  button,
+  roundShare,
+  whole,
+  nothing,
+  language,
+  page,
+  ENOUGH_TO_LEAN,
+  thin,
+} from './common.js';
 
 let chosen = [];
+let found = [];
 
 export function setUpCompare({ openGame }) {
   page('compare', el('compare'), (appIds) => {
     if (appIds) chosen = [...appIds];
+    el('compare-thin').checked = thin.shown;
     load();
+  });
+
+  el('compare-thin').addEventListener('change', () => {
+    thin.shown = el('compare-thin').checked;
+    draw(found);
   });
 
   el('compare-add').addEventListener('change', () => {
@@ -24,7 +44,7 @@ export function setUpCompare({ openGame }) {
 
   async function load() {
     let games = [];
-    let found = [];
+    found = [];
     try {
       [games, found] = await Promise.all([invoke('games'), chosen.length ? invoke('compare', { appIds: chosen }) : []]);
     } catch (failure) {
@@ -103,21 +123,31 @@ export function setUpCompare({ openGame }) {
             const raised = subject.mention_reviews;
             const praising = (subject.praised + subject.mixed) / Math.max(raised, 1);
             const complaining = (subject.criticised + subject.mixed) / Math.max(raised, 1);
-            const bar = make('span', 'split');
+            const enough = raised >= ENOUGH_TO_LEAN;
+            const bar = make('span', enough || thin.shown ? 'split' : 'split plain');
             bar.style.width = `${(100 * rate(game, id)) / widest}%`;
-            const praise = make('i', 'praise');
-            praise.style.width = `${100 * (subject.praised / Math.max(raised, 1))}%`;
-            const mixed = make('i', 'mixed');
-            mixed.style.width = `${100 * (subject.mixed / Math.max(raised, 1))}%`;
-            const complaint = make('i', 'complaint');
-            complaint.style.width = `${100 * (subject.criticised / Math.max(raised, 1))}%`;
-            bar.append(praise, mixed, complaint);
+            if (enough || thin.shown) {
+              const praise = make('i', 'praise');
+              praise.style.width = `${100 * (subject.praised / Math.max(raised, 1))}%`;
+              const mixed = make('i', 'mixed');
+              mixed.style.width = `${100 * (subject.mixed / Math.max(raised, 1))}%`;
+              const complaint = make('i', 'complaint');
+              complaint.style.width = `${100 * (subject.criticised / Math.max(raised, 1))}%`;
+              bar.append(praise, mixed, complaint);
+            }
             const td = make(
               'td',
               'cell',
               make('span', 'rate', roundShare.format(rate(game, id))),
               bar,
-              make('small', null, `${roundShare.format(praising)} praise, ${roundShare.format(complaining)} complain`),
+              make(
+                'small',
+                null,
+                enough || thin.shown
+                  ? `${roundShare.format(praising)} praise, ${roundShare.format(complaining)} complain` +
+                      (enough ? '' : `, from ${whole.format(raised)} ${raised === 1 ? 'review' : 'reviews'}`)
+                  : `Too few reviews to split (${whole.format(raised)})`,
+              ),
             );
             td.title = `${whole.format(raised)} of ${whole.format(game.reviews)} reviews raise it`;
             return td;

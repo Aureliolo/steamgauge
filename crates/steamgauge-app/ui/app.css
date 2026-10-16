@@ -1894,6 +1894,10 @@ label.choice {
 }
 
 .group-tools {
+  flex-wrap: wrap;
+}
+
+.group-tools form {
   flex-wrap: nowrap;
 }
 
@@ -3133,8 +3137,129 @@ table.compared td small {
   background: var(--bad);
 }
 
-.compare .footnote {
+/* A share whose split is withheld: the length still counts, the colours would not. */
+.split.plain {
+  background: var(--ink-3);
+}
+
+.thin-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+.compare .footnote,
+.group .footnote {
   margin-top: var(--s4);
+}
+
+/* A group's figures. */
+
+.group .options {
+  margin-bottom: var(--s3);
+}
+
+.group-unread {
+  margin-bottom: var(--s4);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
+table.across th.subject {
+  white-space: nowrap;
+}
+
+table.across td.cell {
+  min-width: 180px;
+}
+
+table.across .rate {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+table.across td small {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.disclosure::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  transform: rotate(-45deg);
+  transition: transform 120ms;
+}
+
+.disclosure[aria-expanded="true"]::before {
+  transform: rotate(45deg);
+}
+
+.disclosure:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The interval is drawn over the bar, with ticks at its ends, on the same scale. */
+.interval-track {
+  position: relative;
+  display: block;
+}
+
+.interval {
+  position: absolute;
+  top: calc(50% - 6px);
+  height: 12px;
+  border-right: 1.5px solid var(--ink-2);
+  border-left: 1.5px solid var(--ink-2);
+  background: linear-gradient(var(--ink-2), var(--ink-2)) 50% / 100% 1.5px no-repeat;
+}
+
+.praise-text {
+  color: var(--good);
+}
+
+.complaint-text {
+  color: var(--bad);
+}
+
+.per-game {
+  display: grid;
+  gap: var(--s2);
+  padding-left: var(--s4);
+  border-left: 2px solid var(--line);
+  list-style: none;
+}
+
+.per-game li {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) 4rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.per-game .link {
+  justify-self: start;
+  text-align: left;
 }
 
 /* Settings: what each one is on the left, the control on the right. */

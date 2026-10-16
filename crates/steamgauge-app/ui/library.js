@@ -104,6 +104,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
     );
     await saveGroups(changed);
   });
+  el('open-group').addEventListener('click', () => go('group', group));
   el('delete-group').addEventListener('click', async () => {
     const gone = group;
     group = null;

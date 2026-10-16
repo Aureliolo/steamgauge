@@ -15,6 +15,7 @@ pub mod embed;
 pub mod export;
 pub mod facts;
 pub mod gold;
+pub mod group;
 pub mod html;
 mod http;
 pub mod induced;

@@ -581,6 +581,32 @@
     };
   };
 
+  const comparedGame = (appId) => {
+    const game = games.find((one) => one.app_id === appId);
+    return {
+      app_id: appId,
+      name: game.name,
+      reviews: game.read?.reviews ?? 0,
+      language: game.read?.language ?? null,
+      recommended: game.read?.recommended ?? null,
+      subjects:
+        appId === 1
+          ? [
+              counts('performance', 'Performance', 4_000, 900, 2_600, 300),
+              counts('story', 'Story', 3_000, 2_400, 300, 200),
+              counts('audio', 'Audio', 1_200, 900, 200, 100),
+              counts('vr', 'VR', 0, 0, 0, 0),
+            ]
+          : [
+              counts('performance', 'Performance', 600, 150, 400, 30),
+              counts('story', 'Story', 1_500, 1_200, 200, 50),
+              // Too few to say how they split, unless the person asks.
+              counts('audio', 'Audio', 20, 0, 20, 0),
+              counts('vr', 'VR', 0, 0, 0, 0),
+            ],
+    };
+  };
+
   const send = (event, payload) => {
     for (const handler of listeners.get(event) ?? []) handler({ event, payload });
   };
@@ -676,29 +702,73 @@
       }
       return { groups };
     },
-    compare: ({ appIds }) =>
-      appIds.map((appId) => {
-        const game = games.find((one) => one.app_id === appId);
+    compare: ({ appIds }) => appIds.map(comparedGame),
+    // Figures worked out as `steamgauge_core::group::across` does, from the comparison's counts.
+    group_reading: ({ name }) => {
+      const group = groups.find((one) => one.name === name);
+      if (!group) throw new Error(`no group is called ${name}`);
+      const read = group.app_ids.filter((appId) => games.find((one) => one.app_id === appId)?.read);
+      const found = read.map(comparedGame);
+      const ratio = (part, whole) => (whole > 0 ? part / whole : null);
+      const mean = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null);
+      const subjects = found[0]?.subjects.map(({ id, label }) => {
+        const shares = found.map((game) => {
+          const subject = game.subjects.find((one) => one.id === id);
+          const raised = subject.mention_reviews;
+          return {
+            app_id: game.app_id,
+            raised,
+            reviews: game.reviews,
+            rate: raised / game.reviews,
+            praising: ratio(subject.praised + subject.mixed, raised),
+            complaining: ratio(subject.criticised + subject.mixed, raised),
+            mixed: ratio(subject.mixed, raised),
+          };
+        });
+        const leaning = shares.filter((game) => game.raised >= 30);
+        const rate = mean(shares.map((game) => game.rate));
+        const spread = 1.96 * Math.sqrt(shares.reduce((sum, game) => sum + (game.rate * (1 - game.rate)) / game.reviews, 0)) / shares.length;
+        const sum = (pick) => found.reduce((total, game) => total + pick(game.subjects.find((one) => one.id === id)), 0);
+        const raised = sum((one) => one.mention_reviews);
+        const reviews = found.reduce((total, game) => total + game.reviews, 0);
+        const pooled = raised / reviews;
+        const pooledSpread = 1.96 * Math.sqrt((pooled * (1 - pooled)) / reviews);
+        const most = shares.filter((game) => game.rate > 0).sort((a, b) => b.rate - a.rate)[0];
         return {
-          app_id: appId,
-          name: game.name,
-          reviews: game.read?.reviews ?? 0,
-          language: game.read?.language ?? null,
-          recommended: game.read?.recommended ?? null,
-          subjects:
-            appId === 1
-              ? [
-                  counts('performance', 'Performance', 4_000, 900, 2_600, 300),
-                  counts('story', 'Story', 3_000, 2_400, 300, 200),
-                  counts('vr', 'VR', 0, 0, 0, 0),
-                ]
-              : [
-                  counts('performance', 'Performance', 600, 150, 400, 30),
-                  counts('story', 'Story', 1_500, 1_200, 200, 50),
-                  counts('vr', 'VR', 0, 0, 0, 0),
-                ],
+          id,
+          label,
+          each_game: {
+            rate,
+            low: Math.max(rate - spread, 0),
+            high: Math.min(rate + spread, 1),
+            praising: mean(leaning.map((game) => game.praising)),
+            complaining: mean(leaning.map((game) => game.complaining)),
+            mixed: mean(leaning.map((game) => game.mixed)),
+            leaning_games: leaning.length,
+          },
+          every_review: {
+            rate: pooled,
+            low: Math.max(pooled - pooledSpread, 0),
+            high: Math.min(pooled + pooledSpread, 1),
+            praising: ratio(sum((one) => one.praised + one.mixed), raised),
+            complaining: ratio(sum((one) => one.criticised + one.mixed), raised),
+            mixed: ratio(sum((one) => one.mixed), raised),
+            leaning_games: shares.filter((game) => game.raised > 0).length,
+          },
+          raised_in: shares.filter((game) => game.rate >= 0.01).length,
+          most: most?.app_id ?? null,
+          games: shares,
         };
-      }),
+      });
+      return {
+        name,
+        games: found.map((game) => ({ ...game, subjects: [] })),
+        unread: group.app_ids
+          .filter((appId) => !read.includes(appId))
+          .map((appId) => ({ app_id: appId, name: games.find((one) => one.app_id === appId)?.name ?? `App ${appId}` })),
+        subjects: subjects ?? [],
+      };
+    },
     export_report: ({ appIds }) => queued({ kind: 'export', app_ids: appIds, to: 'C:\\report.html' }),
     // The core asks where in the system's dialog; a refusal stands in for a name already taken.
     export_data: ({ appId }) => {
