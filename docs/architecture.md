@@ -156,8 +156,16 @@ game in thirty.
   otherwise on the person's word), and kept while the app runs. `opened-version.json` keeps the
   version the app last opened as and the one before it, so a copy that opens as a newer version
   lists what changed since, and the sidebar points at that list until About is shown.
-- The window opens SteamGauge's documentation, repository and issue forms by their exact
-  addresses alone; every other address it may open is a Steam page or a release page.
+- The window opens SteamGauge's documentation, repository, issue forms and security policy by
+  their exact addresses alone; every other address it may open is a Steam page or a release page.
+- An update that has verified a release file writes `verified-install.json` (the version, the
+  file and its SHA-256) before installing it, and About says a build was checked only where that
+  record names the running version. A copy installed by hand is said not to be checked by
+  SteamGauge, with the security policy that says how to check a download.
+- About names what SteamGauge is built on from the table of contents of the
+  `THIRD-PARTY-NOTICES.txt` the release puts beside the program (in the bundle's Resources on
+  macOS, `/usr/share/doc/steamgauge` from a package), and opens that file in the system's viewer
+  for text; the window itself opens no file.
 - Update now downloads the release's file for the way this copy was installed and installs it
   only after its SLSA provenance verifies (`sigstore-verify`):
   the certificate names `release-build.yml` at the tag being installed, this repository's and

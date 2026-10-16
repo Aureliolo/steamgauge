@@ -717,7 +717,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "about",
             Looks,
-            "This copy's version and details, who makes SteamGauge, the newest release GitHub last named, when it was last asked and answered, the version this copy was updated from, and where SteamGauge is published.",
+            "This copy's version and details, whether its build was checked as it was installed, who makes SteamGauge and what it is built on, the newest release GitHub last named, when it was last asked and answered, the version this copy was updated from, and where SteamGauge is published.",
             |app, Nothing {}| off_thread(move || newer::about(app)),
         ),
         tool(
@@ -731,6 +731,12 @@ fn entries() -> Vec<Entry> {
             Changes,
             "Records that the person has been shown what changed since the version this copy was updated from, so the sidebar stops pointing at it.",
             |app, Nothing {}| off_thread_trying(move || newer::saw_what_changed(app)),
+        ),
+        tool(
+            "open_notices",
+            Looks,
+            "Opens the licences and notices of the open-source software SteamGauge is built on, which every release carries, in the system's viewer for text.",
+            |app, Nothing {}| off_thread_trying(move || newer::open_notices(app)),
         ),
         tool(
             "check_for_updates",

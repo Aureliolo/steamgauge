@@ -267,13 +267,19 @@ const PROBE = `(async function () {
   await go('about');
   check('reopening About asks GitHub what changed again', window.__stub.whatsNewAsked() === askedBefore);
   check('About does not list this copy\\'s details',
-    [...$('#about-details').querySelectorAll('dt')].map((node) => node.textContent).join() === 'Version,System,Installed with,WebView');
+    [...$('#about-details').querySelectorAll('dt')].map((node) => node.textContent).join() === 'Version,System,Installed with,WebView,Build');
   check('About does not name the licence', /Apache-2\\.0/.test($('#about-licence').textContent));
+  check('About does not say what SteamGauge is built on',
+    $('#about-built-on').textContent === 'SteamGauge is built on open-source software: 498 Rust crates, ONNX Runtime 1.31.0 and DirectML 1.15.4, each used under its own licence.');
+  $('#about-open-notices').click();
+  await pause();
+  check('Open the licences does not ask the core', called('open_notices').length === 1 && !visible('about-notices-state'));
   for (const [id, url] of [
     ['about-notes', 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0'],
     ['about-site', 'https://aureliolo.github.io/steamgauge/'],
     ['about-repository', 'https://github.com/Aureliolo/steamgauge'],
     ['about-issues', 'https://github.com/Aureliolo/steamgauge/issues/new/choose'],
+    ['about-checking', 'https://github.com/Aureliolo/steamgauge/security/policy'],
   ]) {
     document.getElementById(id).click();
     await pause();

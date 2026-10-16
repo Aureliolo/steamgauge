@@ -50,6 +50,40 @@ pub enum Then {
     Restart,
 }
 
+/// The release file an update verified before installing it: its build provenance names
+/// `SteamGauge`'s release workflow at the version's tag, and the digest is the one taken as it
+/// arrived. The version it installed reads it to say its own build was checked.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct Verified {
+    pub version: String,
+    pub file: String,
+    pub sha256: String,
+}
+
+impl Verified {
+    /// What was kept, or none where nothing was or it cannot be read.
+    #[must_use]
+    pub fn load(path: &Path) -> Option<Self> {
+        std::fs::read(path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+    }
+
+    /// Written beside its place and moved over it, so a record is never half written.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the folder cannot be made or written to.
+    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let partial = path.with_extension("partial");
+        std::fs::write(&partial, serde_json::to_vec_pretty(self)?)?;
+        std::fs::rename(partial, path)
+    }
+}
+
 /// Where an update keeps what it fetches, under the app's local data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Folders {
@@ -57,6 +91,8 @@ pub struct Folders {
     pub download: PathBuf,
     /// Sigstore's trusted root, as its TUF repository last served it.
     pub tuf: PathBuf,
+    /// What the last update verified, for the version it installed to show.
+    pub verified: PathBuf,
 }
 
 impl Folders {
@@ -65,6 +101,7 @@ impl Folders {
         Self {
             download: local.join("update"),
             tuf: local.join("sigstore-tuf"),
+            verified: local.join("verified-install.json"),
         }
     }
 }
@@ -212,6 +249,13 @@ pub async fn run(
     };
     self_update::verify_any(&bundles, &arrived, &running, &RELEASE_BUILD, &root)
         .map_err(Stop::new)?;
+    // A record that cannot be written costs only the line About shows, never the update.
+    let _ = Verified {
+        version: version.to_string(),
+        file: name.clone(),
+        sha256: sha256.clone(),
+    }
+    .save(&folders.verified);
 
     tell(Step::Installing);
     file.seek(SeekFrom::Start(0)).map_err(Stop::new)?;
@@ -334,5 +378,24 @@ mod tests {
         let folders = Folders::under(Path::new("local"));
         assert_eq!(folders.download, Path::new("local").join("update"));
         assert_eq!(folders.tuf, Path::new("local").join("sigstore-tuf"));
+        assert_eq!(
+            folders.verified,
+            Path::new("local").join("verified-install.json")
+        );
+    }
+
+    #[test]
+    fn what_an_update_verified_is_kept_for_the_version_it_installs() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-verified-{}", std::process::id()));
+        let path = dir.join("verified-install.json");
+        assert_eq!(Verified::load(&path), None);
+        let kept = Verified {
+            version: "0.2.14".to_owned(),
+            file: "steamgauge-0.2.14-windows-x64-setup.exe".to_owned(),
+            sha256: "ab".repeat(32),
+        };
+        kept.save(&path).unwrap();
+        assert_eq!(Verified::load(&path), Some(kept));
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

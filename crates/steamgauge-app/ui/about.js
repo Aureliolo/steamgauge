@@ -1,6 +1,7 @@
 /* About SteamGauge, opened from the sidebar or from its name at the top of it: which version this
    computer has and the newest release GitHub last named, what each release in between changes,
-   this copy's details for a report of a problem, and SteamGauge's own pages. */
+   this copy's details for a report of a problem and whether its build was checked, what
+   SteamGauge is built on, and SteamGauge's own pages. */
 
 import { invoke, listen, el, set, page, go, openOutside } from './common.js';
 import { startUpdate } from './newer.js';
@@ -11,6 +12,7 @@ let asking = false;
 let failure = null;
 /* What GitHub said changed, for the span it was asked about, so reopening the page asks nothing. */
 let changes = { span: null, list: null, asking: false, why: null };
+let noticesFailure = null;
 
 const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
 
@@ -127,6 +129,34 @@ function drawDetails() {
   );
 }
 
+/* A list read as a sentence: "a, b and c". */
+function listed(parts) {
+  return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+}
+
+function drawCredits() {
+  set(
+    el('about-built-on'),
+    about.built_on.length > 0
+      ? `SteamGauge is built on open-source software: ${listed(about.built_on)}, each used under its own licence.`
+      : 'SteamGauge is built on open-source software, each used under its own licence.',
+  );
+  el('about-open-notices').hidden = !about.notices;
+  const missing = about.notices ? '' : 'Every release carries their licences and notices; this copy was not built by one.';
+  el('about-notices-state').hidden = !missing && !noticesFailure;
+  set(el('about-notices-state'), noticesFailure ? `The licences did not open, because ${noticesFailure}.` : missing);
+}
+
+async function openNotices() {
+  noticesFailure = null;
+  try {
+    await invoke('open_notices');
+  } catch (reason) {
+    noticesFailure = String(reason);
+  }
+  drawCredits();
+}
+
 /* The rail points at what changed after an update until the person has seen it. */
 function drawRail() {
   const told = about?.updated && !about.updated.seen && !about.newer;
@@ -162,6 +192,7 @@ function draw() {
   );
   drawChanges();
   drawDetails();
+  drawCredits();
   set(el('about-licence'), `SteamGauge is free software under the ${about.licence} licence.`);
 }
 
@@ -234,12 +265,14 @@ export function setUpAbout() {
     ['about-repository', 'repository'],
     ['about-issues', 'issues'],
     ['about-notes', 'notes'],
+    ['about-checking', 'checking'],
   ]) {
     el(id).addEventListener('click', () => {
       if (about) openOutside(about[address]);
     });
   }
   el('rail-updated-show').addEventListener('click', () => go('about'));
+  el('about-open-notices').addEventListener('click', openNotices);
   listen('update', (event) => {
     update = event.payload;
     if (about) draw();

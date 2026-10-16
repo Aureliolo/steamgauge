@@ -351,9 +351,9 @@ the settings with it.
 
 ### `about`
 
-This copy's version and details, who makes SteamGauge, the newest release GitHub last named, when it
-was last asked and answered, the version this copy was updated from, and where SteamGauge is
-published. Only looks.
+This copy's version and details, whether its build was checked as it was installed, who makes
+SteamGauge and what it is built on, the newest release GitHub last named, when it was last asked and
+answered, the version this copy was updated from, and where SteamGauge is published. Only looks.
 
 ### `check_for_updates`
 
@@ -374,6 +374,11 @@ releases API. Only looks.
 
 Records that the person has been shown what changed since the version this copy was updated from, so
 the sidebar stops pointing at it.
+
+### `open_notices`
+
+Opens the licences and notices of the open-source software SteamGauge is built on, which every
+release carries, in the system's viewer for text. Only looks.
 
 ### `update_state`
 

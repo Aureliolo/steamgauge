@@ -2,7 +2,7 @@
 //! to ask, where the answer is kept, and tells the window.
 
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Mutex,
         atomic::{AtomicBool, Ordering},
@@ -17,6 +17,7 @@ use steamgauge_core::{
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::{now_unix, settings::Settings};
+use crate::update::{Folders, Verified};
 
 /// Opening the app and saving the settings can both start a question; one is enough.
 static ASKING: AtomicBool = AtomicBool::new(false);
@@ -77,6 +78,12 @@ pub fn newer_version(app: AppHandle) -> Option<Release> {
 /// Where a problem is reported: the issue forms, which ask for what [`About::details`] holds.
 const ISSUES: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/issues/new/choose");
 
+/// The repository's security policy, `SECURITY.md` as GitHub shows it.
+const CHECKING: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/security/policy");
+
+/// The file every release carries the third-party licences and notices in.
+const NOTICES: &str = "THIRD-PARTY-NOTICES.txt";
+
 /// This copy, and what GitHub last said about the newest release, as the About page shows it.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct About {
@@ -100,7 +107,13 @@ pub struct About {
     pub site: &'static str,
     pub repository: &'static str,
     pub issues: &'static str,
+    /// The security policy, which says how a download is checked by hand.
+    pub checking: &'static str,
     pub licence: &'static str,
+    /// What `SteamGauge` is built on, from the notices' table of contents.
+    pub built_on: Vec<String>,
+    /// Whether this copy carries the third-party notices, which [`open_notices`] opens.
+    pub notices: bool,
     /// Whether the app asks GitHub by itself, on opening and every six hours while open.
     pub by_itself: bool,
 }
@@ -168,8 +181,82 @@ fn installed() -> Detail {
     }
 }
 
-fn about_from(asked: &Asked, opened: Option<&Opened>, by_itself: bool) -> About {
+/// Whether this copy's build was checked: by the update that installed it, which verified the
+/// release file's provenance before installing it, or not at all.
+fn build(verified: Option<&Verified>) -> Detail {
+    Detail {
+        name: "Build",
+        value: verified.map_or_else(
+            || "Not checked by SteamGauge, which checks the copies Update now installs".to_owned(),
+            |verified| {
+                format!(
+                    "Checked before it was installed: SteamGauge's release workflow built {} for \
+                     v{}",
+                    verified.file, verified.version
+                )
+            },
+        ),
+    }
+}
+
+/// Where the release put the third-party notices: beside the program from the setup program and
+/// the portable archives, in the bundle's Resources on macOS, and with the package's
+/// documentation from a `.deb` or `.rpm`.
+fn notices_file() -> Option<PathBuf> {
+    let program = std::env::current_exe().ok()?;
+    let dir = program.parent()?;
+    [
+        dir.join(NOTICES),
+        dir.join("..").join("Resources").join(NOTICES),
+        Path::new("/usr/share/doc/steamgauge").join(NOTICES),
+    ]
+    .into_iter()
+    .find(|path| path.is_file())
+}
+
+/// What the notices' table of contents names, with the number of crates in place of the bare
+/// heading, and without the part that only gathers the crates' own NOTICE files.
+fn built_on(head: &str) -> Vec<String> {
+    let crates = head.lines().find_map(|line| {
+        line.split_once(" crates.")
+            .and_then(|(count, _)| count.trim().parse::<usize>().ok())
+    });
+    head.lines()
+        .take_while(|line| !line.starts_with("===="))
+        .filter_map(|line| {
+            let (number, part) = line.trim().split_once(". ")?;
+            number.parse::<usize>().ok()?;
+            Some(part)
+        })
+        .filter(|part| !part.starts_with("NOTICE files"))
+        .map(|part| match (part, crates) {
+            ("Rust crates", Some(count)) => format!("{count} Rust crates"),
+            _ => part.to_owned(),
+        })
+        .collect()
+}
+
+/// The start of the notices, which holds the table of contents and the crate count; the file is
+/// about a megabyte, and About needs only this.
+fn notices_head(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut head = String::new();
+    std::fs::File::open(path)
+        .ok()?
+        .take(16 << 10)
+        .read_to_string(&mut head)
+        .ok()?;
+    Some(head)
+}
+
+fn about_from(
+    asked: &Asked,
+    opened: Option<&Opened>,
+    verified: Option<&Verified>,
+    by_itself: bool,
+) -> About {
     let running = env!("CARGO_PKG_VERSION");
+    let notices = notices_file();
     let mut details = vec![
         Detail {
             name: "Version",
@@ -187,6 +274,9 @@ fn about_from(asked: &Asked, opened: Option<&Opened>, by_itself: bool) -> About 
             value: webview,
         });
     }
+    details.push(build(
+        verified.filter(|verified| verified.version == running),
+    ));
     About {
         running: running.to_owned(),
         made_by: made_by(),
@@ -207,9 +297,41 @@ fn about_from(asked: &Asked, opened: Option<&Opened>, by_itself: bool) -> About 
         site: env!("CARGO_PKG_HOMEPAGE"),
         repository: env!("CARGO_PKG_REPOSITORY"),
         issues: ISSUES,
+        checking: CHECKING,
         licence: env!("CARGO_PKG_LICENSE"),
+        built_on: notices
+            .as_deref()
+            .and_then(notices_head)
+            .map(|head| built_on(&head))
+            .unwrap_or_default(),
+        notices: notices.is_some(),
         by_itself,
     }
+}
+
+fn verified(app: &AppHandle) -> Option<Verified> {
+    let local = app.path().app_local_data_dir().ok()?;
+    Verified::load(&Folders::under(&local).verified)
+}
+
+/// Opens the third-party notices this copy carries in the system's viewer for text.
+///
+/// # Errors
+///
+/// Says where the notices are not beside this copy, as in a build not made by the release.
+#[tauri::command]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri hands a command its arguments by value"
+)]
+pub fn open_notices(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let path = notices_file().ok_or(
+        "this copy carries no third-party notices; a release carries them beside the program",
+    )?;
+    app.opener()
+        .open_path(path.display().to_string(), None::<&str>)
+        .map_err(super::text)
 }
 
 /// This copy and the newest release last heard of; nothing is asked here.
@@ -225,6 +347,7 @@ pub fn about(app: AppHandle) -> About {
     about_from(
         &asked,
         opened.as_ref(),
+        verified(&app).as_ref(),
         Settings::load(&app).check_newer_version,
     )
 }
@@ -241,6 +364,7 @@ pub async fn check_for_updates(app: AppHandle) -> Result<About, String> {
     Ok(about_from(
         &asked,
         Opened::load(&dir).as_ref(),
+        verified(&app).as_ref(),
         Settings::load(&app).check_newer_version,
     ))
 }
@@ -387,9 +511,16 @@ mod tests {
         let about = super::about_from(
             &steamgauge_core::newer_version::Asked::default(),
             None,
+            None,
             true,
         );
-        for address in [&about.notes, about.site, about.repository, about.issues] {
+        for address in [
+            &about.notes,
+            about.site,
+            about.repository,
+            about.issues,
+            about.checking,
+        ] {
             assert!(may_open(address), "{address}");
         }
         for refused in [
@@ -398,6 +529,7 @@ mod tests {
             "https://github.com/Aureliolo/steamgauge/settings",
             "https://github.com/Aureliolo/steamgauge/issues/new?template=elsewhere",
             "https://github.com/Aureliolo/steamgauge-elsewhere",
+            "https://github.com/Aureliolo/steamgauge/security/advisories",
         ] {
             assert!(!may_open(refused), "{refused} may be opened");
         }
@@ -406,6 +538,56 @@ mod tests {
         assert_eq!(about.updated, None);
         assert_eq!(about.made_by, "Aurelio Amoroso");
         assert_eq!(about.details[0].value, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn the_build_is_said_checked_only_when_the_update_that_installed_this_version_checked_it() {
+        let asked = steamgauge_core::newer_version::Asked::default();
+        let running = env!("CARGO_PKG_VERSION");
+        let verified = |version: &str| crate::update::Verified {
+            version: version.to_owned(),
+            file: format!("steamgauge-{version}-windows-x64-setup.exe"),
+            sha256: "ab".repeat(32),
+        };
+        let build = |about: super::About| {
+            about
+                .details
+                .into_iter()
+                .find(|detail| detail.name == "Build")
+                .unwrap()
+                .value
+        };
+        assert_eq!(
+            build(super::about_from(
+                &asked,
+                None,
+                Some(&verified(running)),
+                true
+            )),
+            format!(
+                "Checked before it was installed: SteamGauge's release workflow built \
+                 steamgauge-{running}-windows-x64-setup.exe for v{running}"
+            )
+        );
+        for unchecked in [None, Some(verified("0.0.1"))] {
+            assert!(
+                build(super::about_from(&asked, None, unchecked.as_ref(), true))
+                    .starts_with("Not checked by SteamGauge")
+            );
+        }
+    }
+
+    #[test]
+    fn what_steamgauge_is_built_on_is_read_from_the_notices_contents() {
+        let head = "THIRD-PARTY SOFTWARE NOTICES\nsteamgauge for x86_64-pc-windows-msvc\n\n  \
+                    1. Rust crates\n  2. NOTICE files the crates carry\n  3. ONNX Runtime 1.31.0\n  \
+                    4. DirectML 1.15.4\n\n=====\n1. Rust crates\n=====\n\n498 crates. Each line \
+                    gives the crate\n";
+        assert_eq!(
+            super::built_on(head),
+            ["498 Rust crates", "ONNX Runtime 1.31.0", "DirectML 1.15.4"]
+        );
+        assert_eq!(super::built_on(""), Vec::<String>::new());
     }
 
     #[test]
@@ -418,18 +600,18 @@ mod tests {
         let asked = steamgauge_core::newer_version::Asked::default();
         let running = env!("CARGO_PKG_VERSION");
         assert_eq!(
-            super::about_from(&asked, Some(&opened(running, Some("0.0.1"))), true).updated,
+            super::about_from(&asked, Some(&opened(running, Some("0.0.1"))), None, true).updated,
             Some(super::Updated {
                 from: "0.0.1".to_owned(),
                 seen: false
             })
         );
         assert_eq!(
-            super::about_from(&asked, Some(&opened(running, None)), true).updated,
+            super::about_from(&asked, Some(&opened(running, None)), None, true).updated,
             None
         );
         assert_eq!(
-            super::about_from(&asked, Some(&opened("0.0.2", Some("0.0.1"))), true).updated,
+            super::about_from(&asked, Some(&opened("0.0.2", Some("0.0.1"))), None, true).updated,
             None,
             "a record another version kept"
         );

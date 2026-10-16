@@ -3485,6 +3485,11 @@ label.option:has(input:focus-visible) {
   font-variant-numeric: tabular-nums;
 }
 
+.about-checking {
+  justify-self: start;
+  margin-top: var(--s2);
+}
+
 .about-links {
   display: flex;
   flex-wrap: wrap;

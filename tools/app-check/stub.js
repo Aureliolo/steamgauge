@@ -330,12 +330,19 @@
       { name: 'System', value: 'Windows, x86-64' },
       { name: 'Installed with', value: 'the setup program' },
       { name: 'WebView', value: '141.0.3537.71' },
+      {
+        name: 'Build',
+        value: "Checked before it was installed: SteamGauge's release workflow built steamgauge-0.1.0-windows-x64-setup.exe for v0.1.0",
+      },
     ],
     notes: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0',
     site: 'https://aureliolo.github.io/steamgauge/',
     repository: 'https://github.com/Aureliolo/steamgauge',
     issues: 'https://github.com/Aureliolo/steamgauge/issues/new/choose',
+    checking: 'https://github.com/Aureliolo/steamgauge/security/policy',
     licence: 'Apache-2.0',
+    built_on: ['498 Rust crates', 'ONNX Runtime 1.31.0', 'DirectML 1.15.4'],
+    notices: true,
     by_itself: settings.check_newer_version,
   });
   let searchEveryGame = false;
@@ -778,6 +785,7 @@
       if (updated) updated.seen = true;
       return null;
     },
+    open_notices: () => null,
     update_state: () => update,
     update_now: () => {
       update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
