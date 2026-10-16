@@ -95,6 +95,34 @@ impl Graph {
         self
     }
 
+    /// `output`, shaped `[1, width]`: one at the length of `attention_mask` and nought elsewhere,
+    /// so the likeliest next token is how many tokens the caller says were read.
+    pub fn counted(&mut self, output: &str, width: i64) -> &mut Self {
+        let (shape, second, length, depth, values) = (
+            format!("{output}_shape"),
+            format!("{output}_second"),
+            format!("{output}_length"),
+            format!("{output}_depth"),
+            format!("{output}_values"),
+        );
+        self.node("Shape", &["attention_mask"], &shape, &[]);
+        self.initializer(&second, INT64, &[1], &1_i64.to_le_bytes());
+        self.node("Gather", &[&shape, &second], &length, &[]);
+        self.initializer(&depth, INT64, &[1], &width.to_le_bytes());
+        let raw: Vec<u8> = [0.0_f32, 1.0]
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect();
+        self.initializer(&values, FLOAT, &[2], &raw);
+        self.node("OneHot", &[&length, &depth, &values], output, &[]);
+        bytes(
+            &mut self.body,
+            12,
+            &value_info(output, FLOAT, &[Dim::Sized(1), Dim::Sized(width)]),
+        );
+        self
+    }
+
     fn node(&mut self, op: &str, inputs: &[&str], output: &str, attributes: &[u8]) {
         let mut node = Vec::new();
         for input in inputs {

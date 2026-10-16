@@ -664,7 +664,6 @@ mod tests {
     /// A writer whose likeliest next word after "one" is "two", after "two" "three", and after
     /// "three" "one" again, with two heads of keys and values handed back unchanged.
     fn stand_in(cache_dir: &Path, cache: &Cache) {
-        let dir = WRITER.dir(cache_dir);
         // The tokenizer's ids: [PAD], [UNK], one, two, three.
         let towards =
             |id: usize| -> Vec<f32> { (0..5).map(|at| if at == id { 1.0 } else { 0.0 }).collect() };
@@ -673,6 +672,12 @@ mod tests {
             "logits",
             &[towards(2), towards(2), towards(3), towards(4), towards(2)],
         );
+        write_stand_in(cache_dir, cache, graph);
+    }
+
+    /// `graph`, which gives the logits, with the cache and the tokenizer of one, two, three.
+    fn write_stand_in(cache_dir: &Path, cache: &Cache, mut graph: Graph) {
+        let dir = WRITER.dir(cache_dir);
         let dims = [
             Dim::Named("batch"),
             Dim::Sized(2),
@@ -714,6 +719,21 @@ mod tests {
             "a writer that never stops is cut off"
         );
         assert!(format!("{writer:?}").starts_with("Writer"));
+    }
+
+    #[test]
+    fn each_step_masks_every_token_read_before_it() {
+        let dir = crate::tempdir::Dir::new();
+        let mut graph = Graph::new();
+        graph.counted("logits", 5);
+        write_stand_in(dir.path(), &Cache::Float, graph);
+        let answer = Writer::load(dir.path())
+            .unwrap()
+            .answer("one two", &AtomicBool::new(false))
+            .unwrap()
+            .unwrap();
+        let words: Vec<&str> = answer.split_whitespace().collect();
+        assert_eq!(words[..3], ["one", "two", "three"]);
     }
 
     #[test]
@@ -940,6 +960,17 @@ mod tests {
     }
 
     #[test]
+    fn a_game_with_points_on_one_side_only_has_a_brief() {
+        let mut praised_only = themes();
+        praised_only
+            .subjects
+            .retain(|subject| subject.side == "praise");
+        let brief = brief("Lantern Keep", 14_200, &praised_only).unwrap();
+        assert!(brief.told.contains("Mixing factions keeps it fresh."));
+        assert!(!brief.told.contains("Black screen"));
+    }
+
+    #[test]
     fn a_sentence_with_a_number_or_a_quotation_it_was_not_given_is_left_out() {
         let brief = brief("Lantern Keep", 14_200, &themes()).unwrap();
         let written = "Players love mixing factions, which 1,840 reviews praise. \
@@ -970,6 +1001,11 @@ mod tests {
         assert_eq!(
             numbers("From 14,200 reviews, 4.5% and 12 say so."),
             ["14,200", "4.5%", "12"]
+        );
+        assert_eq!(
+            numbers("Rated 1, then 1,840. Now 12"),
+            ["1", "1,840", "12"],
+            "a mark not followed by a digit ends the number, as does the sentence"
         );
         assert_eq!(
             quotations("They say \"fine\" and “not fine”."),

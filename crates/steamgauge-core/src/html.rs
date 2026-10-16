@@ -3433,6 +3433,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_written_paragraph_is_shown_with_what_wrote_it_and_none_is_no_note() {
+        let mut report = sample_report("ordinary text");
+        report.apps[0].paragraph = Some("Players praise the <b>patches</b>.".to_owned());
+        let page = render(&report);
+        assert!(
+            page.contains(
+                "<p class=\"in-short\">Players praise the &lt;b&gt;patches&lt;/b&gt;.</p>"
+            ),
+            "{page}"
+        );
+        assert!(page.contains("Written by a language model"), "{page}");
+
+        let without = render(&sample_report("ordinary text"));
+        assert!(!without.contains("class=\"in-short\""));
+        assert!(!without.contains("Written by a language model"));
+    }
+
     fn two_games() -> Report {
         let mut report = sample_report("ordinary text");
         let mut second = report.apps[0].clone();
