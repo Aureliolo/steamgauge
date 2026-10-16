@@ -19,7 +19,7 @@ use rmcp::{
     model::{
         CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
         GetPromptRequestParams, GetPromptResponse, ListPromptsResult, ListToolsResult,
-        PaginatedRequestParams, ServerConfig,
+        PaginatedRequestParams, ResultType, ServerConfig,
     },
     service::{RequestContext, RunningService, ServiceError},
 };
@@ -109,6 +109,13 @@ impl Bridge {
         };
         // Never sent twice: a call the app may have started is reported, not repeated.
         match app.call_tool_once(request).await {
+            // The app answers over a session begun with `initialize`, whose results carry no
+            // `resultType`; a client of the discover protocol requires it, and rmcp takes it off
+            // again for a client of the earlier handshake.
+            Ok(CallToolResponse::Complete(mut answer)) => {
+                answer.result_type.get_or_insert(ResultType::COMPLETE);
+                Ok(answer.into())
+            }
             Ok(answer) => Ok(answer),
             Err(ServiceError::McpError(error)) => Err(error),
             Err(_) => {

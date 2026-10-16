@@ -1179,6 +1179,51 @@ mod tests {
         assert_eq!(text, crate::mcp::CLOSED);
     }
 
+    /// What a client of the given era receives for a call made through `steamgauge mcp` to an
+    /// open app.
+    async fn call_seen_by(lifecycle: rmcp::service::ClientLifecycleMode) -> CallToolResult {
+        let local = folder();
+        let _app = open_app(&local);
+        let (server_end, client_end) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let running = crate::mcp::Bridge::new(local)
+                .serve(server_end)
+                .await
+                .expect("the server starts");
+            let _ = running.waiting().await;
+        });
+        let client = rmcp::service::serve_client_with_lifecycle((), client_end, lifecycle)
+            .await
+            .expect("the handshake succeeds");
+        let answer = client
+            .call_tool_once(asking("library"))
+            .await
+            .expect("the call is answered");
+        client.cancel().await.expect("the client closes");
+        server.await.expect("the server ends");
+        let CallToolResponse::Complete(result) = answer else {
+            panic!("the call asked for more input");
+        };
+        result
+    }
+
+    #[tokio::test]
+    async fn a_client_of_the_discover_protocol_is_told_a_call_through_the_bridge_is_complete() {
+        let result = call_seen_by(rmcp::service::ClientLifecycleMode::Discover {
+            preferred_versions: vec![rmcp::model::ProtocolVersion::V_2026_07_28],
+        })
+        .await;
+        assert_eq!(result.result_type, Some(rmcp::model::ResultType::COMPLETE));
+        assert_eq!(said(result.into()), (false, "library".to_owned()));
+    }
+
+    #[tokio::test]
+    async fn a_client_of_the_earlier_handshake_gets_a_call_through_the_bridge_in_its_shape() {
+        let result = call_seen_by(rmcp::service::ClientLifecycleMode::Initialize).await;
+        assert_eq!(result.result_type, None);
+        assert_eq!(said(result.into()), (false, "library".to_owned()));
+    }
+
     #[tokio::test]
     async fn an_app_opened_again_is_reached_again() {
         let local = folder();
