@@ -1782,6 +1782,16 @@ label.choice {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
+.model-fetch {
+  display: grid;
+  gap: var(--s1);
+  justify-items: start;
+}
+
+.fetch-every {
+  justify-self: start;
+}
+
 .model .pill {
   justify-self: start;
   height: auto;

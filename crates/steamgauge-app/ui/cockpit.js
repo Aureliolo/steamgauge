@@ -25,6 +25,9 @@ import { drawSinceCard } from './since.js';
 
 let overview = null;
 let busy = false;
+/* The reader the welcome offers, and the models a job is fetching now, by the names jobs use. */
+let readerKey = null;
+let fetching = new Set();
 
 /* Waiting jobs listed before the rest are counted instead. */
 const WAITING_SHOWN = 4;
@@ -70,12 +73,23 @@ export function setUpCockpit({ openGame, openSubject }) {
     el('cockpit-work').replaceChildren(...items);
     el('cockpit-idle').hidden = items.length > 0;
     el('clear-finished').hidden = finished.length === 0;
-    /* Fetching the reader is part of the welcome, not a sign the library is under way. */
-    busy = all.some((job) => job.task.kind !== 'fetch_reader');
-    if (overview) welcome(overview);
-    drawFetch(all.filter((job) => job.task.kind === 'fetch_reader').pop());
+    /* Fetching a model is part of the welcome, not a sign the library is under way. */
+    const fetches = all.filter((job) => job.task.kind === 'fetch_model');
+    busy = all.some((job) => job.task.kind !== 'fetch_model');
+    fetching = new Set(fetches.filter(active).map((job) => job.task.model));
+    if (overview) {
+      welcome(overview);
+      drawMachine(overview);
+    }
+    drawFetch(fetches.filter((job) => job.task.model === readerKey).pop());
   });
-  el('ready-fetch').addEventListener('click', () => queue({ kind: 'fetch_reader' }));
+  el('ready-fetch').addEventListener('click', () => {
+    if (readerKey) queue({ kind: 'fetch_model', model: readerKey });
+  });
+  el('fetch-every-model').addEventListener('click', () => {
+    const missing = (overview?.machine.models ?? []).filter((model) => !model.here && model.bytes_left > 0 && !fetching.has(model.key));
+    if (missing.length > 0) queue(...missing.map((model) => ({ kind: 'fetch_model', model: model.key })));
+  });
   el('ready-later').addEventListener('click', () => {
     try {
       localStorage.setItem('reader-later', '1');
@@ -137,9 +151,10 @@ async function drawReady() {
     return;
   }
   const chosen = found.sizes.find((one) => one.name === found.reads_with);
-  const fetching = el('ready-job').childElementCount > 0;
-  el('welcome-ready').hidden = !fetching && (!chosen || !chosen.published || chosen.bytes_left === 0 || laterChosen());
-  if (el('welcome-ready').hidden || fetching) return;
+  readerKey = chosen?.name ?? null;
+  const underway = el('ready-job').childElementCount > 0;
+  el('welcome-ready').hidden = !underway && (!chosen || !chosen.published || chosen.bytes_left === 0 || laterChosen());
+  if (el('welcome-ready').hidden || underway) return;
 
   set(el('ready-title'), `The ${chosen.name} reader reads every review here`);
   set(el('ready-why'), reason(found));
@@ -373,12 +388,22 @@ function drawMachine(found) {
 
   const list = el('models');
   list.replaceChildren();
+  /* A model not here yet comes the first time it is needed, or now, so the work that needs it
+     never waits on the download and the computer can go offline holding every model. */
+  const missing = machine.models.filter((model) => !model.here && model.bytes_left > 0);
   for (const model of machine.models) {
     const where = model.here
       ? make('span', 'pill good', 'On this computer')
-      : model.bytes_left > 0
-        ? make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`)
-        : make('span', 'quiet small', 'Not published yet.');
+      : model.bytes_left === 0
+        ? make('span', 'quiet small', 'Not published yet.')
+        : fetching.has(model.key)
+          ? make('span', 'quiet small', `Downloading, ${size(model.bytes_left)}.`)
+          : make(
+              'span',
+              'model-fetch',
+              make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`),
+              button('Download now', 'quiet-button small', () => queue({ kind: 'fetch_model', model: model.key })),
+            );
     list.append(
       make(
         'li',
@@ -392,6 +417,10 @@ function drawMachine(found) {
       ),
     );
   }
+  const waiting = missing.filter((model) => !fetching.has(model.key));
+  const every = el('fetch-every-model');
+  every.hidden = waiting.length < 2;
+  set(every, `Download every model now, ${size(waiting.reduce((total, model) => total + model.bytes_left, 0))}`);
   set(
     el('models-checked'),
     machine.releases_checked > 0

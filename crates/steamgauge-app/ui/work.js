@@ -53,8 +53,8 @@ export function taskName(task) {
       return 'Save a report';
     case 'export_data':
       return 'Export the data';
-    case 'fetch_reader':
-      return 'Download the reader';
+    case 'fetch_model':
+      return 'Download a model';
     default:
       return task.kind;
   }

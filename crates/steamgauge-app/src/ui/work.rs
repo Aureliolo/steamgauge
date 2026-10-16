@@ -59,9 +59,11 @@ pub enum Task {
     /// A read game's figures and points, written as CSV and JSON into a new folder where the
     /// person chose.
     ExportData { app_id: u32, to: std::path::PathBuf },
-    /// The reader this machine reads with, fetched ahead of a first read, so a first game's
-    /// reviews and the reader download at the same time.
-    FetchReader,
+    /// A model fetched ahead of the work that needs it, by the name Storage lists it under: a
+    /// reader size (`small`, `standard`), `search-encoder`, `search-reranker` or `writer`. A first
+    /// game's reviews and its reader download at the same time this way, and a computer can hold
+    /// every model before it goes offline.
+    FetchModel { model: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,7 +79,7 @@ const LANES: [Lane; 3] = [Lane::Network, Lane::Machine, Lane::Files];
 impl Task {
     fn lane(&self) -> Lane {
         match self {
-            Self::Download { .. } | Self::Update { .. } | Self::Check | Self::FetchReader => {
+            Self::Download { .. } | Self::Update { .. } | Self::Check | Self::FetchModel { .. } => {
                 Lane::Network
             }
             Self::Read { .. } | Self::Prepare { .. } => Lane::Machine,
@@ -93,7 +95,7 @@ impl Task {
             | Self::Recount { app_id }
             | Self::Prepare { app_id }
             | Self::ExportData { app_id, .. } => Some(*app_id),
-            Self::Check | Self::Export { .. } | Self::FetchReader => None,
+            Self::Check | Self::Export { .. } | Self::FetchModel { .. } => None,
         }
     }
 }
@@ -293,8 +295,8 @@ pub struct Work {
 
 /// What a job is about, in words: the game's name where it has one on disk.
 fn name_of(app: &AppHandle, task: &Task) -> String {
-    if *task == Task::FetchReader {
-        return format!("The {} reader", reader_here(&Settings::load(app)).name);
+    if let Task::FetchModel { model } = task {
+        return Fetchable::named(model).map_or_else(|_| model.clone(), Fetchable::title);
     }
     match task.app_id() {
         Some(app_id) => steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
@@ -582,7 +584,9 @@ fn stopped_note(task: &Task) -> &'static str {
         Task::Check => "Stopped.",
         Task::Export { .. } => "Stopped before the report was saved.",
         Task::ExportData { .. } => "Stopped. Nothing was saved.",
-        Task::FetchReader => "Stopped. The first read fetches the reader instead.",
+        Task::FetchModel { .. } => {
+            "Stopped. Its files already fetched are kept; the rest comes when it is first needed."
+        }
     }
 }
 
@@ -650,12 +654,7 @@ async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Res
                 Task::Check => check(&app, id).await,
                 Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
                 Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
-                Task::FetchReader => {
-                    let size = reader_here(&Settings::load(&app));
-                    fetch_reader(&app, id, size).await.map(|()| {
-                        Ended::said(format!("The {} reader is on this computer.", size.name))
-                    })
-                }
+                Task::FetchModel { model } => fetch_model(&app, id, &model).await,
             }
         })
     };
@@ -915,6 +914,87 @@ async fn fetch_reader(
     })
     .await
     .map_err(text)
+}
+
+/// A model a job can fetch, by the name Storage lists it under.
+#[derive(Debug, Clone, Copy)]
+enum Fetchable {
+    Reader(&'static steamgauge_core::reader::Size),
+    Search(steamgauge_core::search_models::Model),
+    Writer,
+}
+
+impl Fetchable {
+    fn named(name: &str) -> Result<Self, String> {
+        use steamgauge_core::{
+            reader::Size,
+            search_models::{ENCODER, RERANKER},
+            writer::WRITER,
+        };
+
+        if let Some(size) = Size::named(name) {
+            return Ok(Self::Reader(size));
+        }
+        [ENCODER, RERANKER]
+            .into_iter()
+            .find(|model| model.name == name)
+            .map(Self::Search)
+            .or_else(|| (name == WRITER.name).then_some(Self::Writer))
+            .ok_or_else(|| format!("No model is called {name}."))
+    }
+
+    fn title(self) -> String {
+        match self {
+            Self::Reader(size) => format!("The {} reader", size.name),
+            Self::Search(model) => format!("The {}", model.name.replace('-', " ")),
+            Self::Writer => "The writer".to_owned(),
+        }
+    }
+}
+
+/// One bar across a model's files, fetching until the last byte is in and checking after.
+fn bar(
+    app: &AppHandle,
+    id: u64,
+    total: f64,
+    what: &str,
+) -> impl FnMut(steamgauge_core::model::DownloadProgress) + use<> {
+    let telling = app.clone();
+    let mut across = Across::new();
+    let (fetching, checking) = (format!("Fetching {what}"), format!("Checking {what}"));
+    tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total));
+    move |progress| {
+        let done = float(across.add(progress.file, progress.downloaded));
+        let saying = if done >= total { &checking } else { &fetching };
+        tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+    }
+}
+
+/// Fetches one model where it is not on this computer yet; one already here is left as it is.
+async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, String> {
+    let model = Fetchable::named(name)?;
+    let cache = steamgauge_core::model::default_cache_dir();
+    let title = model.title();
+    let what = title.to_lowercase();
+    match model {
+        Fetchable::Reader(size) => fetch_reader(app, id, size).await?,
+        Fetchable::Search(search) => {
+            let total = float(search.bytes_left(&cache));
+            search
+                .ensure(&cache, bar(app, id, total, &what))
+                .await
+                .map_err(text)?;
+        }
+        Fetchable::Writer => {
+            let writer = steamgauge_core::writer::WRITER;
+            let total = float(writer.bytes_left(&cache));
+            writer
+                .ensure(&cache, bar(app, id, total, &what))
+                .await
+                .map_err(text)?;
+        }
+    }
+    Ok(Ended::said(format!("{title} is on this computer.")))
 }
 
 /// The one fact about the game the reader is told, asked of the store once and kept.
@@ -1204,19 +1284,8 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
     }
     let left = WRITER.bytes_left(&cache);
     if writing && left > 0 {
-        let total = float(left);
-        let mut across = Across::new();
-        let telling = app.clone();
         WRITER
-            .ensure(&cache, move |progress| {
-                let done = float(across.add(progress.file, progress.downloaded));
-                let saying = if done >= total {
-                    "Checking the writer"
-                } else {
-                    "Fetching the writer"
-                };
-                tell(&telling, id, saying, Unit::Bytes, done, Some(total));
-            })
+            .ensure(&cache, bar(app, id, float(left), "the writer"))
             .await
             .map_err(text)?;
     }
@@ -1445,6 +1514,30 @@ pub fn open_report(app: AppHandle, work: tauri::State<'_, Work>, id: u64) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_model_is_fetched_by_the_name_storage_lists_it_under_and_no_other() {
+        let titled = |name: &str| Fetchable::named(name).map(Fetchable::title);
+        assert_eq!(titled("small").unwrap(), "The small reader");
+        assert_eq!(titled("standard").unwrap(), "The standard reader");
+        assert_eq!(titled("search-encoder").unwrap(), "The search encoder");
+        assert_eq!(titled("search-reranker").unwrap(), "The search reranker");
+        assert_eq!(titled("writer").unwrap(), "The writer");
+        assert_eq!(titled("huge").unwrap_err(), "No model is called huge.");
+    }
+
+    #[test]
+    fn fetching_a_model_waits_on_the_network_and_on_no_game() {
+        let task = Task::FetchModel {
+            model: "writer".to_owned(),
+        };
+        assert_eq!(task.lane(), Lane::Network);
+        assert_eq!(task.app_id(), None);
+        assert_eq!(
+            serde_json::to_value(&task).unwrap(),
+            serde_json::json!({"kind": "fetch_model", "model": "writer"})
+        );
+    }
 
     #[test]
     fn a_steady_count_settles_on_its_rate_and_a_new_step_starts_again() {
