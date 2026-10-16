@@ -1446,7 +1446,8 @@ label.choice {
 
 /* The cockpit. */
 
-/* Two columns that each flow on their own: what to act on, and what is happening. */
+/* What to act on beside what is running, and the machine across the whole width below them, so
+   neither column runs on long after the other has ended. */
 .panels {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
@@ -1458,6 +1459,10 @@ label.choice {
   display: grid;
   gap: var(--s5);
   min-width: 0;
+}
+
+.machine-panel {
+  grid-column: 1 / -1;
 }
 
 .machine-panel .stats {
@@ -1758,8 +1763,23 @@ label.choice {
 
 .machine {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--s5) var(--s7);
+  align-items: start;
+}
+
+.machine-facts {
+  display: grid;
   gap: var(--s5);
+}
+
+.machine-models {
+  display: grid;
+  gap: var(--s3);
+}
+
+.machine-models .models {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .model .pill {
@@ -3778,6 +3798,10 @@ table.games.cards .game-cell {
 
   .machine-panel {
     order: 1;
+  }
+
+  .machine {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .game-hero {
