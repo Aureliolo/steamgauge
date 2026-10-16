@@ -85,12 +85,13 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
   exported by `training/export_writer.py` with int4 weights rounded to nearest, and decoded in
   `writer.rs` taking the likeliest token every time, so the same themes give the same
   paragraph. It runs on the processor, about half a minute a game on a desktop one: the graph
-  is built for the processor's int4 kernels, and `DirectML` runs it slower and wrongly. It is told the eight most widely made
-  points of each side, with their counts, subjects and quotes. A sentence giving a number they
-  do not hold, or quoting words none of them holds, is left out, and a paragraph with fewer than
-  two sentences left is none. The writer is a download of its own, fetched and run only once
-  somebody asks; after that, preparing a game writes its paragraph. `paragraph.json` beside
-  the reading stands only for the themes and the writer it was written from.
+  is built for the processor's int4 kernels, and `DirectML` runs it slower and wrongly. It is
+  told the eight most widely made points of each side, with their counts, subjects and quotes. A
+  sentence giving a number they do not hold, or quoting words none of them holds, is left out,
+  and a paragraph with fewer than two sentences left is none. The writer is a download of its
+  own, fetched and run only once somebody asks; after that, preparing a game writes its
+  paragraph. `paragraph.json` beside the reading stands only for the themes and the writer it
+  was written from.
 - What counts as a change:
 
 | Comparison | Floor | Bar |

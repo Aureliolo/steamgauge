@@ -426,27 +426,29 @@ fn sentences(text: &str) -> Vec<&str> {
 }
 
 /// The numbers a sentence gives, as written: "1,840", "12%", "4.5".
+///
+/// One pass over the bytes, each looked at once, so no change to the arithmetic can make it
+/// run for ever or find a number twice.
 fn numbers(sentence: &str) -> Vec<&str> {
-    let mut found = Vec::new();
     let bytes = sentence.as_bytes();
-    let mut at = 0;
-    while at < bytes.len() {
-        if bytes[at].is_ascii_digit() {
-            let start = at;
-            while at < bytes.len()
-                && (bytes[at].is_ascii_digit()
-                    || (matches!(bytes[at], b',' | b'.')
-                        && bytes.get(at + 1).is_some_and(u8::is_ascii_digit)))
-            {
-                at += 1;
+    let mut found = Vec::new();
+    let mut start: Option<usize> = None;
+    for (at, byte) in bytes.iter().enumerate() {
+        let digit = byte.is_ascii_digit();
+        let joins =
+            matches!(byte, b',' | b'.') && bytes.get(at + 1).is_some_and(u8::is_ascii_digit);
+        match start {
+            None if digit => start = Some(at),
+            Some(from) if !digit && !joins => {
+                let end = if *byte == b'%' { at + 1 } else { at };
+                found.push(&sentence[from..end]);
+                start = None;
             }
-            if bytes.get(at) == Some(&b'%') {
-                at += 1;
-            }
-            found.push(&sentence[start..at]);
-        } else {
-            at += 1;
+            _ => {}
         }
+    }
+    if let Some(from) = start {
+        found.push(&sentence[from..]);
     }
     found
 }

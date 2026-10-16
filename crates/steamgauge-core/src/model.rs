@@ -629,8 +629,15 @@ pub fn session_on_processor(path: &Path) -> Result<Session> {
 /// a fortnight reporting "cuda" on a machine with no CUDA runtime installed, at fifty claims a
 /// second, while nvidia-smi showed it was never on the GPU at all. A backend that did not load
 /// has to say so here, so that the fallback below it is a decision rather than an accident.
+///
+/// The device policy is the same point from the other side. ort starts every session preferring
+/// the most efficient device it finds, and the processor's provider registers nothing that
+/// overrides that, so a session asked for on the processor ran on `CoreML` on a Mac. Preferring
+/// the processor leaves a named provider in charge and keeps the processor's session on it.
 fn try_session(path: &Path, provider: ort::ep::ExecutionProviderDispatch) -> Result<Session> {
     let mut builder = Session::builder(environment()?)?
+        .with_auto_device(ort::session::builder::AutoDevicePolicy::PreferCPU)
+        .map_err(ort::Error::from)?
         .with_execution_providers([provider.error_on_failure()])
         .map_err(ort::Error::from)?;
     Ok(builder.commit_from_file(path)?)
