@@ -351,8 +351,9 @@ the settings with it.
 
 ### `about`
 
-This copy's version, the newest release GitHub last named, when it was last asked and answered, and
-where SteamGauge is published. Only looks.
+This copy's version and details, who makes SteamGauge, the newest release GitHub last named, when it
+was last asked and answered, the version this copy was updated from, and where SteamGauge is
+published. Only looks.
 
 ### `check_for_updates`
 
@@ -362,6 +363,17 @@ about returns.
 ### `newer_version`
 
 The newer SteamGauge release last heard of, if there is one. Only looks.
+
+### `whats_new`
+
+What each release changes in what people download, as the About page lists it: up to the newer
+release last heard of, or, with none, since the version this copy was updated from. Asks GitHub's
+releases API. Only looks.
+
+### `saw_what_changed`
+
+Records that the person has been shown what changed since the version this copy was updated from, so
+the sidebar stops pointing at it.
 
 ### `update_state`
 

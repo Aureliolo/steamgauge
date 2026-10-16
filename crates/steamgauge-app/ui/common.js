@@ -186,7 +186,9 @@ export function go(name, ...args) {
   for (const [other, { node }] of pages) node.hidden = other !== name;
   current = name;
   const marked = pages.get(name)?.under ?? name;
-  for (const link of document.querySelectorAll('[data-go]')) {
+  /* Only the rail's list marks where the person is; the name above it and the links on a page
+     are ways in, and lit up too they would read as a second place. */
+  for (const link of document.querySelectorAll('.nav [data-go]')) {
     if (link.dataset.go === marked) link.setAttribute('aria-current', marked === name ? 'page' : 'true');
     else link.removeAttribute('aria-current');
   }

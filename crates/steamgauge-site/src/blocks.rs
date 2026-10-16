@@ -420,6 +420,8 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
             "about",
             "check_for_updates",
             "newer_version",
+            "whats_new",
+            "saw_what_changed",
             "update_state",
             "update_now",
             "show_update_file",

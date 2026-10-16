@@ -146,10 +146,18 @@ game in thirty.
 
 - **No signing key exists.** Every signature is Sigstore's, keyless and tied to the release
   workflow.
-- The app asks GitHub's `releases/latest` redirect at most once a day, on opening and on the
-  ten-minute loop, without following it, and again whenever the person chooses Check for updates
-  on the About page or Update now, so what is installed is the newest release at that moment.
-  `newer-version.json` keeps when it last asked, when GitHub last answered and what it named.
+- The app asks GitHub's `releases/latest` redirect on every opening and, on the ten-minute loop,
+  once six hours have passed, without following it, and again whenever the person chooses Check
+  for updates on the About page or Update now, so what is installed is the newest release at that
+  moment. `newer-version.json` keeps when it last asked, when GitHub last answered and what it
+  named.
+- What each release changes is the "In what you download" section of its notes, read from
+  GitHub's releases API only when About lists it (on its own where the app asks by itself,
+  otherwise on the person's word), and kept while the app runs. `opened-version.json` keeps the
+  version the app last opened as and the one before it, so a copy that opens as a newer version
+  lists what changed since, and the sidebar points at that list until About is shown.
+- The window opens SteamGauge's documentation, repository and issue forms by their exact
+  addresses alone; every other address it may open is a Steam page or a release page.
 - Update now downloads the release's file for the way this copy was installed and installs it
   only after its SLSA provenance verifies (`sigstore-verify`):
   the certificate names `release-build.yml` at the tag being installed, this repository's and

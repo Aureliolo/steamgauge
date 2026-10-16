@@ -169,13 +169,16 @@ The app makes requests to four places, and to nothing else:
 - **Hugging Face**, for the readers and the search models, each file fetched from a pinned
   commit and checked against its pinned length and SHA-256 before it is used, and, when the
   library is checked against Steam, for whether newer releases of those models are published.
-- **GitHub**, at most once a day, for whether a newer release of SteamGauge is out: one request
-  to the release page, whose redirect names the newest version. The redirect is not followed,
-  no token is involved, and a setting turns it off. **Check for updates** on the About page asks
-  the same question at once. Only when **Update now** is chosen does the app ask it once more,
-  download the newest release's file for this computer and its provenance, and ask the
-  attestations API where the release carries no provenance file. The link the window offers
-  opens only a release page of this repository.
+- **GitHub**, on opening and at most every six hours while the app is open, for whether a newer
+  release of SteamGauge is out: one request to the release page, whose redirect names the newest
+  version. The redirect is not followed, no token is involved, and a setting turns it off.
+  **Check for updates** on the About page asks the same question at once. When About lists what
+  each release changes, the releases API is asked for the releases' notes, without a token, and
+  only their text is shown. Only when **Update now** is chosen does the app ask the release page
+  once more, download the newest release's file for this computer and its provenance, and ask
+  the attestations API where the release carries no provenance file. The links the window
+  offers open only a release page of this repository, or SteamGauge's documentation, repository
+  and issue forms by their exact addresses.
 - **Sigstore**, only during an update, for its current trusted root from
   `https://tuf-repo-cdn.sigstore.dev`, which is itself signed and checked against the TUF root
   built into the app.

@@ -61,9 +61,11 @@ and commit that built it. [SECURITY.md](../SECURITY.md#releases) has the command
 
 ## Updating
 
-When a newer version is out, the window names it and offers **Update now**. SteamGauge's name at
-the top of the window opens About, which shows the version this computer has and asks GitHub at
-once through **Check for updates**. Update now asks again and installs the newest release's file
+SteamGauge asks GitHub for a newer version each time it opens and every six hours while it stays
+open. When one is out, the window names it and offers **Update now**. **About**, in the sidebar,
+shows the version this computer has, lists what each release up to the newer one changes, and
+asks GitHub at once through **Check for updates**. After an update the sidebar points at what
+changed since the version before. Update now asks again and installs the newest release's file
 only once its signed provenance shows SteamGauge's release workflow built it, for
 that version's tag, with the SHA-256 it arrived with; anything else stops the update and offers
 the release page. [SECURITY.md](../SECURITY.md#updates-from-the-window) lists every check.
@@ -77,5 +79,5 @@ the release page. [SECURITY.md](../SECURITY.md#updates-from-the-window) lists ev
 | Scoop | `scoop update steamgauge` |
 | A portable archive | **Update now** on Linux; on Windows and macOS, the new archive's program in place of the old |
 
-Your library, settings and downloaded models stay where they are. Settings turns the daily check
-for a newer version off.
+Your library, settings and downloaded models stay where they are. Settings turns the check for a
+newer version off.

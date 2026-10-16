@@ -96,6 +96,12 @@
               <button type="button" class="link small" id="newer-open">Open the release page</button>
             </div>
           </div>
+          <div class="rail-newer" id="rail-updated" role="status" hidden>
+            <p class="newer-says" id="rail-updated-says"></p>
+            <div class="newer-actions">
+              <button type="button" class="link small" id="rail-updated-show">See what changed</button>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -735,6 +741,7 @@
             <div>
               <h2>About SteamGauge</h2>
               <p>Reads every Steam review of a game on this computer, and shows what players praise and criticise.</p>
+              <p class="quiet small" id="about-made-by"></p>
             </div>
           </header>
           <section class="panel" aria-labelledby="about-version-title">
@@ -750,26 +757,36 @@
                 <button type="button" class="primary" id="about-update" hidden>Update now</button>
                 <button type="button" class="primary" id="about-check">Check for updates</button>
                 <button type="button" class="link" id="about-release" hidden>Download it from its release page</button>
-                <button type="button" class="link" id="about-notes">This version's release notes</button>
               </div>
-              <p class="quiet small" id="about-daily"></p>
+              <p class="quiet small" id="about-by-itself"></p>
+              <div class="about-changes" id="about-changes" hidden>
+                <h4 id="about-changes-title"></h4>
+                <p class="quiet small" id="about-changes-state" role="status" hidden></p>
+                <button type="button" class="quiet-button small" id="about-changes-ask" hidden>Ask GitHub what changed</button>
+                <div class="about-releases" id="about-releases"></div>
+              </div>
             </div>
           </section>
-          <section class="panel" aria-labelledby="about-where-title">
+          <section class="panel" aria-labelledby="about-details-title">
             <div class="panel-head">
-              <h3 id="about-where-title">Where it is published</h3>
+              <h3 id="about-details-title">This copy</h3>
+              <button type="button" class="quiet-button small" id="about-details-copy">Copy the details</button>
             </div>
             <div class="about-body">
-              <span class="quiet small">Documentation</span>
-              <div class="copyable">
-                <code id="about-site"></code>
-                <button type="button" class="quiet-button small" data-copies="about-site">Copy</button>
-              </div>
-              <span class="quiet small">Source code, releases and issues</span>
-              <div class="copyable">
-                <code id="about-repository"></code>
-                <button type="button" class="quiet-button small" data-copies="about-repository">Copy</button>
-              </div>
+              <dl class="about-details" id="about-details"></dl>
+            </div>
+          </section>
+          <section class="panel" aria-labelledby="about-links-title">
+            <div class="panel-head">
+              <h3 id="about-links-title">Links</h3>
+            </div>
+            <div class="about-body">
+              <ul class="about-links">
+                <li><button type="button" class="link" id="about-site" title="Opens in your browser">Documentation</button></li>
+                <li><button type="button" class="link" id="about-repository" title="Opens in your browser">Source code</button></li>
+                <li><button type="button" class="link" id="about-issues" title="Opens in your browser">Report a problem</button></li>
+                <li><button type="button" class="link" id="about-notes" title="Opens in your browser">This version's release notes</button></li>
+              </ul>
               <p class="quiet small" id="about-licence"></p>
             </div>
           </section>
@@ -860,7 +877,7 @@
               <label class="setting" for="check-newer-version">
                 <span class="setting-text">
                   <strong>Ask GitHub whether a newer SteamGauge is out</strong>
-                  <span>At most once a day, one request to SteamGauge's release page; Check for updates, on the About page, asks at once. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
+                  <span>Each time SteamGauge opens and every six hours while it stays open, one request to SteamGauge's release page, and About then asks what each newer release changes; Check for updates, on the About page, asks at once. The window names a newer version and offers to update; nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>

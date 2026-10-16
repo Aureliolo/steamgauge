@@ -1,19 +1,31 @@
 /* About SteamGauge, opened from the sidebar or from its name at the top of it: which version this
-   computer has, the newest release GitHub last named, a button that asks GitHub now, and where
-   SteamGauge is published. */
+   computer has and the newest release GitHub last named, what each release in between changes,
+   this copy's details for a report of a problem, and SteamGauge's own pages. */
 
-import { invoke, listen, el, set, page, copiers, openOutside } from './common.js';
+import { invoke, listen, el, set, page, go, openOutside } from './common.js';
 import { startUpdate } from './newer.js';
 
 let about = null;
 let update = { state: 'idle', why: null };
 let asking = false;
 let failure = null;
+/* What GitHub said changed, for the span it was asked about, so reopening the page asks nothing. */
+let changes = { span: null, list: null, asking: false, why: null };
 
 const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const at = (seconds) => when.format(new Date(seconds * 1000));
+
+/* The versions the list covers: up to the newer release where there is one, and otherwise since
+   the version this copy was updated from. */
+function span() {
+  if (about?.newer) return { from: about.running, to: about.newer.version, coming: true };
+  if (about?.updated) return { from: about.updated.from, to: about.running, coming: false };
+  return null;
+}
+
+const key = (covered) => (covered ? `${covered.from}..${covered.to}` : null);
 
 function latestLine() {
   if (asking) return 'Asking GitHub for the newest release.';
@@ -43,9 +55,90 @@ function updateLine() {
   return '';
 }
 
+function drawRelease(release) {
+  const node = document.createElement('section');
+  node.className = 'about-release';
+  const title = document.createElement('h5');
+  set(title, release.version);
+  node.append(title);
+  if (release.changes.length === 0) {
+    const none = document.createElement('p');
+    none.className = 'quiet small';
+    set(none, 'Nothing in what you download.');
+    node.append(none);
+    return node;
+  }
+  const list = document.createElement('ul');
+  for (const change of release.changes) {
+    const item = document.createElement('li');
+    set(item, change);
+    list.append(item);
+  }
+  node.append(list);
+  return node;
+}
+
+function drawChanges() {
+  const covered = span();
+  el('about-changes').hidden = covered === null;
+  if (covered === null) return;
+  set(
+    el('about-changes-title'),
+    covered.coming ? `What changes when you update to ${covered.to}` : `What changed since ${covered.from}`,
+  );
+  const kept = changes.span === key(covered) ? changes : { list: null, asking: false, why: null };
+  const state = kept.asking
+    ? 'Asking GitHub what changed.'
+    : kept.why
+      ? `GitHub did not say what changed, because ${kept.why}.`
+      : kept.list && kept.list.length === 0
+        ? 'GitHub lists no release in between.'
+        : '';
+  el('about-changes-state').hidden = !state;
+  set(el('about-changes-state'), state);
+  el('about-changes-ask').hidden = kept.asking || kept.list !== null || (about.by_itself && !kept.why);
+  set(el('about-changes-ask'), kept.why ? 'Ask again' : 'Ask GitHub what changed');
+  el('about-releases').replaceChildren(...(kept.list ?? []).map(drawRelease));
+}
+
+async function askChanges() {
+  const covered = span();
+  if (covered === null) return;
+  changes = { span: key(covered), list: null, asking: true, why: null };
+  drawChanges();
+  try {
+    const listed = await invoke('whats_new');
+    changes = { span: key(covered), list: listed?.releases ?? [], asking: false, why: null };
+  } catch (reason) {
+    changes = { span: key(covered), list: null, asking: false, why: String(reason) };
+  }
+  drawChanges();
+}
+
+function drawDetails() {
+  el('about-details').replaceChildren(
+    ...about.details.flatMap((detail) => {
+      const name = document.createElement('dt');
+      set(name, detail.name);
+      const value = document.createElement('dd');
+      set(value, detail.value);
+      return [name, value];
+    }),
+  );
+}
+
+/* The rail points at what changed after an update until the person has seen it. */
+function drawRail() {
+  const told = about?.updated && !about.updated.seen && !about.newer;
+  el('rail-updated').hidden = !told;
+  if (told) set(el('rail-updated-says'), `SteamGauge was updated to ${about.running}.`);
+}
+
 function draw() {
   set(el('brand-version'), about ? about.running : '');
+  drawRail();
   if (!about) return;
+  set(el('about-made-by'), `Made by ${about.made_by}.`);
   set(el('about-running'), `This computer has SteamGauge ${about.running}.`);
   set(el('about-latest'), latestLine());
   set(el('about-asked'), askedLine());
@@ -62,13 +155,13 @@ function draw() {
   el('about-check').classList.toggle('quiet-button', Boolean(offered));
 
   set(
-    el('about-daily'),
-    about.daily
-      ? 'SteamGauge also asks by itself, at most once a day. Settings turns that off.'
-      : 'SteamGauge does not ask by itself; Settings turns the daily question on.',
+    el('about-by-itself'),
+    about.by_itself
+      ? 'SteamGauge also asks by itself, each time it opens and every six hours while it stays open. Settings turns that off.'
+      : 'SteamGauge does not ask by itself; Settings turns that on.',
   );
-  set(el('about-site'), about.site);
-  set(el('about-repository'), about.repository);
+  drawChanges();
+  drawDetails();
   set(el('about-licence'), `SteamGauge is free software under the ${about.licence} licence.`);
 }
 
@@ -79,6 +172,19 @@ async function load() {
     about = null;
   }
   draw();
+}
+
+/* Shown: the list is asked for where the person lets SteamGauge ask by itself, and an update's
+   changes count as seen. */
+async function shown() {
+  await load();
+  const covered = span();
+  if (covered && about.by_itself && changes.span !== key(covered)) askChanges();
+  if (about?.updated && !about.updated.seen) {
+    invoke('saw_what_changed').catch(() => {});
+    about.updated.seen = true;
+    drawRail();
+  }
 }
 
 async function check() {
@@ -92,11 +198,24 @@ async function check() {
   }
   asking = false;
   draw();
+  const covered = span();
+  if (covered && changes.span !== key(covered)) askChanges();
+}
+
+async function copyDetails() {
+  const button = el('about-details-copy');
+  const text = about.details.map((detail) => `${detail.name}: ${detail.value}`).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    set(button, 'Copied');
+  } catch {
+    set(button, 'Select them to copy');
+  }
+  setTimeout(() => set(button, 'Copy the details'), 2000);
 }
 
 export function setUpAbout() {
-  page('about', el('about'), load);
-  copiers(el('about'));
+  page('about', el('about'), shown);
   el('about-check').addEventListener('click', check);
   el('about-update').addEventListener('click', () => {
     update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
@@ -106,9 +225,21 @@ export function setUpAbout() {
   el('about-release').addEventListener('click', () => {
     if (about?.newer) openOutside(about.newer.url);
   });
-  el('about-notes').addEventListener('click', () => {
-    if (about) openOutside(about.notes);
+  el('about-changes-ask').addEventListener('click', askChanges);
+  el('about-details-copy').addEventListener('click', () => {
+    if (about) copyDetails();
   });
+  for (const [id, address] of [
+    ['about-site', 'site'],
+    ['about-repository', 'repository'],
+    ['about-issues', 'issues'],
+    ['about-notes', 'notes'],
+  ]) {
+    el(id).addEventListener('click', () => {
+      if (about) openOutside(about[address]);
+    });
+  }
+  el('rail-updated-show').addEventListener('click', () => go('about'));
   listen('update', (event) => {
     update = event.payload;
     if (about) draw();

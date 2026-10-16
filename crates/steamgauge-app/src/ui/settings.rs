@@ -36,7 +36,8 @@ pub struct Settings {
     pub notify_moves: bool,
     /// Whether a downloaded game is read as soon as the download finishes.
     pub read_after_download: bool,
-    /// Whether the app asks GitHub, at most once a day, whether a newer `SteamGauge` is out.
+    /// Whether the app asks GitHub, on opening and every six hours while open, whether a newer
+    /// `SteamGauge` is out.
     pub check_newer_version: bool,
     /// Whether programs on this computer that connect to an MCP server over HTTP may steer the
     /// app, with the token the AI assistants page shows, on 127.0.0.1 and `http_port`.
@@ -237,7 +238,7 @@ pub fn save_settings(
 ) -> Result<Shown, String> {
     settings.checked().save(&app)?;
     super::mcp_http::follow(&app);
-    super::newer::check_in_background(&app);
+    super::newer::check_when_due(&app);
     super::cockpit::check_when_due(&app);
     super::cockpit::keep_up_to_date(&app);
     let library = super::library_dir(&app);
