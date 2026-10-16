@@ -174,7 +174,7 @@
             <dl class="tiles" id="health-stats"></dl>
 
             <div class="panels">
-              <div class="column main">
+              <div class="column news">
               <section class="panel since-panel" aria-labelledby="since-title">
                 <div class="panel-head">
                   <h3 id="since-title">Since you last looked</h3>
@@ -203,7 +203,9 @@
                 </p>
                 <p class="checked" id="checked"></p>
               </section>
+              </div>
 
+              <div class="column moved">
               <section class="panel moves-panel" aria-labelledby="moves-title">
                 <div class="panel-head">
                   <h3 id="moves-title">What moved lately</h3>
@@ -220,6 +222,7 @@
               </section>
               </div>
 
+              <div class="column side">
               <section class="panel work-panel" aria-labelledby="work-title">
                 <div class="panel-head">
                   <h3 id="work-title">Running</h3>
@@ -253,6 +256,7 @@
                   </div>
                 </div>
               </section>
+              </div>
             </div>
           </div>
         </section>
@@ -412,9 +416,9 @@
                 <span class="quiet small">Fetches what was written or edited since, and nothing already held.</span>
               </div>
             </header>
+            <dl class="tiles game-facts" id="game-facts"></dl>
           </div>
           <div class="since-line" id="game-since" role="status" hidden></div>
-          <dl class="tiles game-facts" id="game-facts"></dl>
           <div class="game-actions">
             <ul class="jobs" id="game-jobs"></ul>
             <p class="note" id="game-note" role="status" aria-live="polite"></p>
@@ -466,6 +470,7 @@
               <p class="quiet" id="write-offer-note"></p>
               <button type="button" class="quiet-button" id="write-it"></button>
             </div>
+            <div class="topics-split">
             <section class="said-most" id="said-most" aria-labelledby="said-most-title" hidden>
               <h4 id="said-most-title">What they praise and complain about</h4>
               <p class="quiet" id="said-most-note">
@@ -488,6 +493,7 @@
                 <button type="button" class="quiet-button" id="said-find"></button>
               </div>
             </section>
+            <div class="topics-figures">
             <form class="row search" id="search-form" role="search">
               <div class="searchbox">
                 <svg aria-hidden="true" focusable="false"><use href="#icon-search" /></svg>
@@ -570,12 +576,15 @@
               times it raises it, so they add up to more than 100% and are meant to. Every one
               of them opens.
             </p>
+            </div>
+            </div>
             <figure class="timeline" id="timeline" hidden>
               <p class="quiet" id="timeline-note"></p>
               <svg viewBox="0 0 1000 160" preserveAspectRatio="none" role="img" id="timeline-svg"></svg>
               <div class="update-strip" id="update-strip" hidden></div>
               <figcaption><span id="timeline-first"></span><span id="timeline-last"></span></figcaption>
             </figure>
+            <div class="topics-pair">
             <section class="who" id="who-found" aria-labelledby="who-found-title" hidden>
               <h4 id="who-found-title">Where kinds of reviewer differ</h4>
               <div class="who-differ" id="who-differ" hidden>
@@ -624,6 +633,7 @@
                 <p class="footnote" id="around-footnote"></p>
               </div>
             </section>
+            </div>
             <div class="induced" id="induced" hidden>
               <h3>What this game's players talk about that others' do not</h3>
               <p class="quiet">
@@ -793,6 +803,7 @@
             </div>
           </header>
           <div class="drives" id="drives"></div>
+          <div class="flow">
           <section class="panel" aria-labelledby="parts-title">
             <div class="panel-head">
               <h3 id="parts-title">What SteamGauge keeps</h3>
@@ -813,6 +824,7 @@
             </div>
             <ul class="rooms" id="model-rooms"></ul>
           </section>
+          </div>
           <div class="places">
             <div>
               <span class="quiet small">The library is kept in</span>
@@ -834,6 +846,7 @@
               <p class="quiet small" id="about-made-by"></p>
             </div>
           </header>
+          <div class="flow">
           <section class="panel" aria-labelledby="about-version-title">
             <div class="panel-head">
               <h3 id="about-version-title">Version</h3>
@@ -891,6 +904,7 @@
               <p class="quiet small" id="about-licence"></p>
             </div>
           </section>
+          </div>
         </section>
 
         <section class="settings" id="settings" hidden>
@@ -900,7 +914,7 @@
               <p>Kept on this computer. Work already running keeps the settings it started with.</p>
             </div>
           </header>
-          <form id="settings-form">
+          <form class="flow" id="settings-form">
             <fieldset id="reader-setting">
               <legend>Reader</legend>
               <p class="reader-machine" id="reader-machine"></p>
@@ -1017,7 +1031,7 @@
               <p>An assistant that speaks the Model Context Protocol can do anything this window can, while it is open, and you see it done here.</p>
             </div>
           </header>
-          <form id="assistants-form">
+          <form class="flow" id="assistants-form">
             <fieldset>
               <legend>On this computer</legend>
               <ul class="mcp-clients" id="mcp-clients"></ul>

@@ -69,7 +69,7 @@
   --r-xl: 10px;
 
   --rail: 236px;
-  --page: 1180px;
+  --gutter: clamp(20px, 2.2vw, 44px);
   --control: 36px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -448,10 +448,11 @@ code {
   scroll-behavior: smooth;
 }
 
+/* Every page takes the whole window beside the rail, with a margin that grows with it: a wide
+   screen shows more at once rather than the same column with empty sides. What has to stay a
+   readable measure (a paragraph, a form's line) holds its own width inside. */
 .stage > section {
-  max-width: var(--page);
-  margin: 0 auto;
-  padding: var(--s8) var(--s8) var(--s9);
+  padding: var(--gutter) var(--gutter) var(--s9);
 }
 
 /* A page arrives rather than appears, quickly enough never to be waited on. */
@@ -1446,11 +1447,12 @@ label.choice {
 
 /* The cockpit. */
 
-/* What to act on beside what is running, and the machine across the whole width below them, so
-   neither column runs on long after the other has ended. */
+/* Three stacks that each run as long as they need: what is new and what needs doing, what moved,
+   and the work and machine. A wide window shows all three side by side so nothing waits below
+   the fold; a middle one stacks the first two and keeps the work beside them. */
 .panels {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
   gap: var(--s5);
   align-items: start;
 }
@@ -1461,8 +1463,30 @@ label.choice {
   min-width: 0;
 }
 
-.machine-panel {
-  grid-column: 1 / -1;
+.column.news {
+  grid-area: 1 / 1;
+}
+
+.column.moved {
+  grid-area: 2 / 1;
+}
+
+.column.side {
+  grid-area: 1 / 2 / span 2;
+}
+
+@media (min-width: 1680px) {
+  .panels {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 4fr);
+  }
+
+  .column.moved {
+    grid-area: 1 / 2;
+  }
+
+  .column.side {
+    grid-area: 1 / 3;
+  }
 }
 
 .machine-panel .stats {
@@ -1559,27 +1583,28 @@ label.choice {
   font-size: var(--t-xs);
 }
 
+/* One line a move, the figures in a column of their own down the right, so a dozen of them read
+   as a list to run an eye down rather than a wall of cards. */
 .moves {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--s3);
   list-style: none;
 }
 
 .move {
   display: grid;
-  gap: var(--s2);
-  padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--s4);
+  align-items: baseline;
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.move:first-child {
+  border-top: 0;
 }
 
 .move.more {
-  display: flex;
-  align-items: center;
-  border-style: dashed;
-  background: transparent;
+  display: block;
   color: var(--ink-3);
   font-size: var(--t-sm);
 }
@@ -1593,7 +1618,7 @@ label.choice {
 }
 
 .move-what .link {
-  font-size: var(--t-md);
+  font-size: var(--t-sm);
   font-weight: 650;
 }
 
@@ -1602,15 +1627,15 @@ label.choice {
 }
 
 .move-figures {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   align-items: baseline;
-  gap: 4px var(--s2);
+  gap: var(--s1);
+  white-space: nowrap;
 }
 
 .move-from {
   color: var(--ink-3);
-  font-size: var(--t-lg);
+  font-size: var(--t-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1619,13 +1644,13 @@ label.choice {
 }
 
 .move-to {
-  font-size: var(--t-xl);
+  font-size: var(--t-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .move-when {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   color: var(--ink-4);
   font-size: var(--t-xs);
 }
@@ -1763,8 +1788,7 @@ label.choice {
 
 .machine {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--s5) var(--s7);
+  gap: var(--s5);
   align-items: start;
 }
 
@@ -2195,6 +2219,24 @@ table.games td:last-child {
   margin-bottom: var(--s6);
 }
 
+.game-hero .game-facts {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+/* A wide window has the room beside the name for the game's figures, which would otherwise
+   take a band of their own under it. */
+@media (min-width: 1680px) {
+  .game-hero {
+    grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .game-hero .game-facts {
+    grid-column: auto;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
 .game-hero .art {
   width: 100%;
   border-radius: var(--r-lg);
@@ -2222,10 +2264,6 @@ table.games td:last-child {
 
 .game-head .sweep[hidden] {
   display: none;
-}
-
-.game-facts {
-  margin-bottom: var(--s5);
 }
 
 .game-actions {
@@ -2283,6 +2321,29 @@ table.games td:last-child {
 .topics {
   display: grid;
   gap: var(--s5);
+}
+
+/* What players praise and complain about beside the table that counts them, and the two
+   closing sections beside each other, once both of a pair fit; either alone takes the width. */
+.topics-split,
+.topics-figures,
+.topics-pair {
+  display: grid;
+  gap: var(--s5);
+  align-items: start;
+  min-width: 0;
+}
+
+.topics-split {
+  grid-template-columns: repeat(auto-fit, minmax(min(680px, 100%), 1fr));
+}
+
+.topics-pair {
+  grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr));
+}
+
+.topics-pair:not(:has(> :not([hidden]))) {
+  display: none;
 }
 
 /* The heading and the way to take its figures away share a line, and part in a narrow window. */
@@ -3093,8 +3154,11 @@ figure.timeline .update-line.chosen {
   font-size: var(--t-sm);
 }
 
+/* Points side by side once two of them keep a readable line, so a page of them is a screen
+   rather than a long scroll of half-empty lines. */
 .quotes {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(560px, 100%), 1fr));
   gap: var(--s3);
   list-style: none;
 }
@@ -3383,10 +3447,21 @@ table.across td small {
 
 /* Settings: what each one is on the left, the control on the right. */
 
-.settings form,
-.assistants form {
-  display: grid;
-  gap: var(--s5);
+/* Panels that read in any order flow down as many columns as the window has room for, each
+   wide enough for a setting's sentence beside its control, so a wide screen is used across
+   rather than scrolled down. */
+.flow {
+  column-width: 560px;
+  column-gap: var(--s5);
+}
+
+.flow > * {
+  break-inside: avoid;
+  margin-bottom: var(--s5);
+}
+
+.flow > :last-child {
+  margin-bottom: 0;
 }
 
 fieldset {
@@ -4022,10 +4097,6 @@ table.games.cards .game-cell {
 }
 
 @media (max-width: 1080px) {
-  .stage > section {
-    padding: var(--s7) var(--s6) var(--s8);
-  }
-
   /* One column, in the order a person reads it: what runs, what needs doing, what moved, and
      the machine last. */
   .panels {

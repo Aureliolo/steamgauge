@@ -312,15 +312,19 @@ function more(count, what) {
   return count > 0 ? make('li', 'move more', `and ${whole.format(count)} more ${what}`) : null;
 }
 
-function figures(shift, from, to, against) {
-  return make(
-    'div',
-    'move-figures',
-    make('span', 'move-from', roundShare.format(shift.before)),
-    make('span', 'move-arrow', '→'),
-    make('span', 'move-to', roundShare.format(shift.recent)),
-    make('span', 'move-when', `of reviews, ${monthName(from)} to ${monthName(to)}${against}`),
-  );
+/* The figures, then the months they cover on a line of their own under the row; the panel says
+   once what they are set against. */
+function figures(shift, from, to) {
+  return [
+    make(
+      'div',
+      'move-figures',
+      make('span', 'move-from', roundShare.format(shift.before)),
+      make('span', 'move-arrow', '→'),
+      make('span', 'move-to', roundShare.format(shift.recent)),
+    ),
+    make('span', 'move-when', `${monthName(from)} to ${monthName(to)}`),
+  ];
 }
 
 function drawMoves(found, { openGame, openSubject }) {
@@ -340,7 +344,7 @@ function drawMoves(found, { openGame, openSubject }) {
           make('span', 'side', `${side} about`),
           button(moved.label.toLowerCase(), 'link', () => openSubject(moved.app_id, moved.subject, moved.side)),
         ),
-        figures(moved.shift, moved.from, moved.to, ' against the 12 months before'),
+        ...figures(moved.shift, moved.from, moved.to),
       ),
     );
   }
@@ -358,7 +362,7 @@ function drawMoves(found, { openGame, openSubject }) {
           button(shifted.name, 'link', () => openGame(shifted.app_id)),
           make('span', 'side', 'Recommending the game'),
         ),
-        figures(shifted.shift, shifted.from, shifted.to, ''),
+        ...figures(shifted.shift, shifted.from, shifted.to),
       ),
     );
   }
