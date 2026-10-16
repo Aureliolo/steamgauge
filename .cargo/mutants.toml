@@ -34,6 +34,10 @@ exclude_re = [
   # under it (`bytes_of`, `largest_mib`) is tested and stays mutated.
   'src[/\\]card\.rs:.*: replace (platform::)?(adapters|largest|name) -> ',
   'src[/\\]card\.rs:.* in (platform::adapters|name)$',
+  # A claim outside the sample, or one whose text is already held, is passed over to save the
+  # work of cleaning its review: fetched anyway, its text is never looked up, and a text fetched
+  # twice is the same text.
+  'src[/\\]themes\.rs:\d+:\d+: replace \|\| with && in Said::gather$',
   # How often the kept rows are cut back to the limit: cut on every row or every so often, the
   # smallest keys are the ones kept, so it bounds memory and never changes which rows come back.
   'src[/\\]bounded\.rs:\d+:\d+: replace >= with < in Smallest<K, T>::offer$',

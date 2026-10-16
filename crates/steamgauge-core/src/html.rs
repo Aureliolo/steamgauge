@@ -640,7 +640,6 @@ fn said_most(out: &mut String, app: &AppReport) {
     let Some(themes) = &app.themes else {
         return;
     };
-    let label_of = |id: &str| SHEET.iter().find(|row| row.id == id).map(|row| row.label);
     out.push_str("<h3>What they praise and complain about</h3>\n");
     out.push_str(
         "<p class=\"note\">Points that say the same thing, in the same words or others, grouped \
@@ -653,55 +652,59 @@ fn said_most(out: &mut String, app: &AppReport) {
             out.push_str("<p class=\"note\">No one point is made in enough reviews to name.</p>\n");
         } else {
             out.push_str("<ol class=\"said-list\">\n");
-        }
-        for one in ranked.iter().take(SAID_SHOWN) {
-            let said = one.said;
-            let share = if app.reading.reviews == 0 {
-                String::new()
-            } else {
-                #[expect(
-                    clippy::cast_precision_loss,
-                    reason = "review counts are far below 2^52"
-                )]
-                let rate = said.reviews as f64 / app.reading.reviews as f64;
-                format!(", {}", percent(rate))
-            };
-            let _ = write!(
-                out,
-                "<li><strong>{}</strong><span class=\"said-count\">{} {}{share} · {}</span>",
-                escape(&said.label),
-                thousands(said.reviews),
-                if said.reviews == 1 {
-                    "review"
-                } else {
-                    "reviews"
-                },
-                escape(label_of(one.subject).unwrap_or(one.subject)),
-            );
-            let also: Vec<&str> = said
-                .also_in
-                .iter()
-                .filter_map(|place| label_of(&place.subject))
-                .take(3)
-                .collect();
-            if !also.is_empty() {
-                let _ = write!(
-                    out,
-                    "<span class=\"said-also\">Also said about {}</span>",
-                    escape(&also.join(", "))
-                );
+            for one in ranked.iter().take(SAID_SHOWN) {
+                said_item(out, one, app.reading.reviews);
             }
-            if said.quote.text != said.label {
-                let _ = write!(out, "<q>{}</q>", escape(&said.quote.text));
-            }
-            out.push_str("</li>\n");
-        }
-        if !ranked.is_empty() {
             out.push_str("</ol>\n");
         }
         out.push_str("</div>\n");
     }
     out.push_str("</div>\n");
+}
+
+/// One point in a list of what players praise or complain about, out of `reviews` read.
+fn said_item(out: &mut String, one: &crate::themes::Ranked<'_>, reviews: u64) {
+    let label_of = |id: &str| SHEET.iter().find(|row| row.id == id).map(|row| row.label);
+    let said = one.said;
+    let share = if reviews == 0 {
+        String::new()
+    } else {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "review counts are far below 2^52"
+        )]
+        let rate = said.reviews as f64 / reviews as f64;
+        format!(", {}", percent(rate))
+    };
+    let _ = write!(
+        out,
+        "<li><strong>{}</strong><span class=\"said-count\">{} {}{share} · {}</span>",
+        escape(&said.label),
+        thousands(said.reviews),
+        if said.reviews == 1 {
+            "review"
+        } else {
+            "reviews"
+        },
+        escape(label_of(one.subject).unwrap_or(one.subject)),
+    );
+    let also: Vec<&str> = said
+        .also_in
+        .iter()
+        .filter_map(|place| label_of(&place.subject))
+        .take(3)
+        .collect();
+    if !also.is_empty() {
+        let _ = write!(
+            out,
+            "<span class=\"said-also\">Also said about {}</span>",
+            escape(&also.join(", "))
+        );
+    }
+    if said.quote.text != said.label {
+        let _ = write!(out, "<q>{}</q>", escape(&said.quote.text));
+    }
+    out.push_str("</li>\n");
 }
 
 /// The game in a paragraph, for the reader who will not read the table. Every clause is a

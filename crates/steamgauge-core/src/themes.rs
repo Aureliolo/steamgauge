@@ -441,8 +441,7 @@ impl Said {
                 }
                 for (other, said) in also.iter() {
                     if let Some(side) = side_of(said)
-                        && other < subjects
-                        && !left_out[other]
+                        && left_out.get(other) == Some(&false)
                     {
                         into.push(other * 2 + side);
                     }
@@ -509,7 +508,7 @@ impl Said {
                 let cleaned = cleaned.get_or_insert_with(|| crate::claims::claims_of(text));
                 let said = cleaned
                     .iter()
-                    .find(|(range, _)| range.start == at.0 as usize && range.end == at.1 as usize)
+                    .find(|(range, _)| *range == (at.0 as usize..at.1 as usize))
                     .map_or_else(
                         || raw.trim().to_owned(),
                         |(_, clean)| clean.trim().to_owned(),
@@ -867,6 +866,156 @@ mod tests {
         assert_eq!(groups, [vec![0, 1, 2, 3, 4, 5], vec![6, 7, 8]]);
     }
 
+    /// A point in the plane of the first two dimensions, `degrees` round from the first.
+    fn at(degrees: f32) -> Point {
+        let mut bytes = vec![0_i8; 32];
+        let (sin, cos) = degrees.to_radians().sin_cos();
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "a hundred times a sine or cosine fits a byte"
+        )]
+        {
+            bytes[0] = (100.0 * cos).round() as i8;
+            bytes[1] = (100.0 * sin).round() as i8;
+        }
+        Point::new(&bytes)
+    }
+
+    #[test]
+    fn a_point_leans_towards_a_centre_by_the_cosine_between_them() {
+        let point = Point::new(&{
+            let mut bytes = vec![0_i8; 32];
+            bytes[0] = 30;
+            bytes[1] = 40;
+            bytes
+        });
+        let mut centre = vec![0.0_f32; 32];
+        centre[0] = 1.0;
+        assert!((point.towards(&centre) - 0.6).abs() < 1e-6);
+        centre[0] = 0.0;
+        centre[2] = 1.0;
+        assert!(point.towards(&centre).abs() < 1e-6);
+    }
+
+    #[test]
+    fn three_claims_alike_are_the_fewest_that_make_a_theme() {
+        let points = vec![at(0.0), at(10.0), at(20.0)];
+        assert_eq!(communities(&points, Closeness::USED.alike), [vec![0, 1, 2]]);
+    }
+
+    #[test]
+    fn a_claim_already_in_a_theme_does_not_start_another() {
+        // Round a circle: the claim at 50 degrees is alike the one at 20 and the two past it, so
+        // the theme around 20 takes it, and the two left are too few for a theme of their own.
+        let points = vec![at(-10.0), at(0.0), at(20.0), at(50.0), at(75.0), at(85.0)];
+        assert_eq!(
+            communities(&points, Closeness::USED.alike),
+            [vec![2, 0, 1, 3]]
+        );
+    }
+
+    #[test]
+    fn the_closest_two_groups_are_made_one_first() {
+        let points = vec![at(0.0), at(6.0), at(13.0)];
+        let line = 7.5_f32.to_radians().cos();
+        let sorted = |mut groups: Vec<Vec<usize>>| {
+            for group in &mut groups {
+                group.sort_unstable();
+            }
+            groups.sort();
+            groups
+        };
+        let groups = merged(&points, vec![vec![0], vec![1], vec![2]], line);
+        assert_eq!(sorted(groups), [vec![0, 1], vec![2]]);
+        // Listed so the first pair over the line is not the closest one.
+        let groups = merged(&points, vec![vec![1], vec![2], vec![0]], line);
+        assert_eq!(sorted(groups), [vec![0, 1], vec![2]]);
+    }
+
+    #[test]
+    fn of_two_pairs_equally_close_the_first_is_made_one() {
+        let point = |bytes: [i8; 3]| {
+            let mut all = vec![0_i8; 32];
+            all[..3].copy_from_slice(&bytes);
+            Point::new(&all)
+        };
+        let points = vec![point([100, 0, 30]), point([100, 0, 0]), point([100, 30, 0])];
+        let groups = merged(&points, vec![vec![0], vec![1], vec![2]], 0.95);
+        assert_eq!(groups, [vec![0, 1], vec![2]]);
+    }
+
+    #[test]
+    fn a_centre_weighs_each_member_alike_whatever_its_length() {
+        let long = Point::new(&{
+            let mut bytes = vec![0_i8; 32];
+            bytes[0] = 100;
+            bytes
+        });
+        let short = Point::new(&{
+            let mut bytes = vec![0_i8; 32];
+            bytes[1] = 10;
+            bytes
+        });
+        let centre = centre(&[long, short], &[0, 1]);
+        let half = std::f32::consts::FRAC_1_SQRT_2;
+        assert!((centre[0] - half).abs() < 1e-6 && (centre[1] - half).abs() < 1e-6);
+        assert!(
+            super::centre(&[at(0.0)], &[])
+                .iter()
+                .all(|&value| value == 0.0)
+        );
+    }
+
+    /// A theme found in `group`, its centre `degrees` round, holding the claims keyed `keys`.
+    fn found_at(group: usize, degrees: f32, keys: &[u8]) -> Found {
+        let point = at(degrees);
+        Found {
+            group,
+            centre: centre(&[point], &[0]),
+            label: [0; 32],
+            quote: [0; 32],
+            keys: keys.iter().map(|&key| [key; 32]).collect(),
+        }
+    }
+
+    #[test]
+    fn a_point_under_two_subjects_shares_its_claims_or_its_centre() {
+        let group = |subject: &str, side: usize| {
+            SHEET.iter().position(|row| row.id == subject).unwrap() * 2 + side
+        };
+        let found = vec![
+            found_at(group("performance", 0), 0.0, &[1, 2, 3, 4]),
+            // Three of the four claims in common, its centre far off.
+            found_at(group("controls", 0), 90.0, &[1, 2, 3, 9]),
+            // One in four in common, nowhere near.
+            found_at(group("story", 0), 180.0, &[1, 7, 8, 10]),
+            // Nothing in common, its centre the same.
+            found_at(group("audio", 0), 0.0, &[20, 21]),
+            // The same claims and centre, on the other side.
+            found_at(group("graphics", 1), 0.0, &[1, 2, 3, 4]),
+        ];
+        let mut kept: Kept = vec![Vec::new(); SHEET.len() * 2];
+        for (at, one) in found.iter().enumerate() {
+            kept[one.group].push((theme("a point", 10, Vec::new()), at));
+        }
+        Said::link(&mut kept, &found, Closeness::USED.shared);
+        let named = |subject: &str, side: usize| -> Vec<String> {
+            kept[group(subject, side)][0]
+                .0
+                .also_in
+                .iter()
+                .map(|place| place.subject.clone())
+                .collect()
+        };
+        assert_eq!(
+            named("performance", 0),
+            ["audio", "controls"],
+            "the most strongly the same first"
+        );
+        assert_eq!(named("story", 0), Vec::<String>::new());
+        assert_eq!(named("graphics", 1), Vec::<String>::new());
+    }
+
     #[test]
     fn a_line_of_a_review_template_does_not_read_as_words() {
         assert!(reads_as_words("The UI is really rough."));
@@ -905,6 +1054,7 @@ mod tests {
             subject: "genre".to_owned(),
             theme: 0,
         };
+        let in_genre_too = in_genre.clone();
         let in_gameplay = Elsewhere {
             subject: "gameplay".to_owned(),
             theme: 1,
@@ -932,6 +1082,13 @@ mod tests {
                     vec![theme("slay the spire but better", 800, vec![in_gameplay])],
                 ),
                 side("price", "praise", vec![theme("worth it", 90, vec![])]),
+                // Named the other way only: this one names the genre's point, which does not
+                // name it back.
+                side(
+                    "content",
+                    "praise",
+                    vec![theme("plays like slay the spire", 50, vec![in_genre_too])],
+                ),
             ],
         };
         let ranked: Vec<(&str, usize, &str)> = found
@@ -1011,45 +1168,52 @@ mod tests {
         Option<&'static str>,
     );
 
-    /// Sixteen reviews: six praise how it runs on the Steam Deck, each filed under controls
-    /// too; six complain of the price; four praise the story, one review short of a theme.
+    /// Fifteen reviews: six praise how it runs on the Steam Deck, each filed under controls
+    /// too; five, the fewest a theme takes, complain of the price, each filed as a bug too; four
+    /// praise the story, one review short of a theme. Every claim on the deck or the price comes
+    /// after another in its review, so a theme quotes the claim it holds and not its neighbour.
     /// Beside them a verdict, a declined claim and a neutral one, none of which is grouped.
     fn reviews() -> Vec<Vec<Claim>> {
-        let deck = |text| (text, Some("performance"), "praise", Some("controls:praise"));
-        let price = |text| (text, Some("price"), "complaint", None);
-        let story = |text| (text, Some("story"), "praise", None);
-        vec![
+        let before = ("I played it all week.", None, "neutral", None);
+        let deck = |text| {
             vec![
-                deck("Runs great on my Steam Deck."),
-                ("Ten out of ten.", Some("verdict"), "praise", None),
-            ],
+                before,
+                (text, Some("performance"), "praise", Some("controls:praise")),
+            ]
+        };
+        let price = |text| {
             vec![
-                deck("Perfect on the Steam Deck every time."),
-                ("I bought it on sale.", None, "neutral", None),
-            ],
-            vec![
-                deck("Smooth as butter on Steam Deck."),
-                (
-                    "It is a game about trains.",
-                    Some("gameplay"),
-                    "neutral",
-                    None,
-                ),
-            ],
-            vec![deck("The Steam Deck runs it with no trouble.")],
-            vec![deck("Plays well on the Deck.")],
-            vec![deck("Flawless on my Deck after the patch.")],
-            vec![price("The price is far too high.")],
-            vec![price("Too high a price for this.")],
-            vec![price("The price should be half.")],
-            vec![price("Not worth the price asked.")],
-            vec![price("The price is a joke.")],
-            vec![price("Way too much at full price.")],
-            vec![story("The story is moving and kind.")],
-            vec![story("A story I will remember.")],
-            vec![story("Loved the story and its ending.")],
-            vec![story("The story kept me playing all night.")],
-        ]
+                before,
+                (text, Some("price"), "complaint", Some("bugs:complaint")),
+            ]
+        };
+        let story = |text| vec![(text, Some("story"), "praise", None)];
+        let mut reviews = vec![
+            deck("Runs great on my Steam Deck."),
+            deck("Perfect on the Steam Deck every time."),
+            deck("Smooth as butter on Steam Deck."),
+            deck("The Steam Deck runs it with no trouble."),
+            deck("Plays well on the Deck."),
+            deck("Flawless on my Deck after the patch."),
+            price("The price is far too high."),
+            price("Too high a price for this."),
+            price("The price should be half."),
+            price("Not worth the price asked."),
+            price("The price is a joke."),
+            story("The story is moving and kind."),
+            story("A story I will remember."),
+            story("Loved the story and its ending."),
+            story("The story kept me playing all night."),
+        ];
+        reviews[0].push(("Ten out of ten.", Some("verdict"), "praise", None));
+        reviews[1].push(("I bought it on sale.", None, "neutral", None));
+        reviews[2].push((
+            "It is a game about trains.",
+            Some("gameplay"),
+            "neutral",
+            None,
+        ));
+        reviews
     }
 
     /// [`reviews`] as a capture, a reading of it, and the vectors that prepare it for search by
@@ -1177,21 +1341,33 @@ mod tests {
             .collect();
         assert_eq!(
             named.len(),
-            3,
+            4,
             "the story is praised in four reviews, one short of a theme, and a verdict, a \
              declined claim and a neutral one are not grouped: {named:?}"
         );
-        for subject in ["performance", "controls", "price"] {
+        for (subject, topic, reviews) in [
+            ("performance", "Deck", 6),
+            ("controls", "Deck", 6),
+            ("price", "price", 5),
+            ("bugs", "price", 5),
+        ] {
             let side = found
                 .subjects
                 .iter()
                 .find(|one| one.subject == subject)
                 .unwrap_or_else(|| panic!("no themes for {subject}: {named:?}"));
-            assert_eq!(side.reviews, 6);
+            assert_eq!(side.reviews, reviews);
             assert_eq!(side.themes.len(), 1, "{subject} says one thing");
             let theme = &side.themes[0];
-            assert_eq!((theme.reviews, theme.claims), (6, 6));
-            assert_eq!(theme.members.len(), 6);
+            assert_eq!((theme.reviews, theme.claims), (reviews, reviews));
+            assert_eq!(theme.members.len(), usize::try_from(reviews).unwrap());
+            assert!(
+                theme.label.contains(topic) && theme.quote.text.contains(topic),
+                "{subject} is named and quoted from its own claims, not the one before them: \
+                 {} / {}",
+                theme.label,
+                theme.quote.text
+            );
             assert!(
                 theme
                     .members
@@ -1230,8 +1406,12 @@ mod tests {
         );
         assert_eq!(side("controls").themes[0].also_in[0].subject, "performance");
         assert_eq!(side("price").side, "complaint");
-        assert!(
-            side("price").themes[0].also_in.is_empty(),
+        assert_eq!(
+            side("price").themes[0].also_in,
+            vec![Elsewhere {
+                subject: "bugs".to_owned(),
+                theme: 0
+            }],
             "a complaint is never the same point as a praise"
         );
     }
