@@ -712,7 +712,7 @@ const PROBE = `(async function () {
     !shown('write-offer'));
   window.__stub.unwritten();
   await pause(300);
-  check('a game with themes and no paragraph offers to write one, with its cost',
+  check('a game with themes and no paragraph does not offer to write one, with its cost',
     !shown('in-short') && !shown('in-short-note') && shown('write-offer') &&
     /these points, about a minute a game on this computer's processor, after a 2\\.7 GB download, once/.test(
       $('#write-offer-note').textContent) &&
@@ -1163,8 +1163,12 @@ try {
         ? "'Saved 78,000 points and the figures in C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data.'"
         : "null") +
       ",queued:at-10,started:at-5,ended:" + (state === "done" ? "at" : "null") + "}])";
-    // Every page whole, rather than the window's height of it.
+    // Every page whole, rather than the window's height of it, and settled: a page caught part way
+    // through arriving is pictured faded, as nobody sees it.
     const unroll =
+      "var still=document.createElement('style');still.textContent=" +
+      "'*,*::before,*::after{animation:none!important;transition:none!important}';" +
+      "document.head.appendChild(still);" +
       "document.body.style.overflow='visible';document.querySelector('.frame').style.height='auto';" +
       "document.querySelector('.frame').style.minHeight='100vh';" +
       "document.getElementById('stage').style.overflow='visible';";

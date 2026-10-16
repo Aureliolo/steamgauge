@@ -1060,7 +1060,7 @@
     // Alpha's themes found again since its paragraph was written, announced as the job would.
     unwritten: () => {
       written = null;
-      send('library', null);
+      send('library', 1);
     },
     // What GitHub names when Check for updates asks next: a version, or null for out of reach.
     github: (version) => {
