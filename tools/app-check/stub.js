@@ -23,6 +23,33 @@
     criticised_terms: terms ? [{ text: 'stutters', reviews: 37 }] : [],
   });
 
+  const theme = (subjectId, theme, label, quote, reviews, alsoIn = []) => ({
+    subject: subjectId,
+    subject_label: subjectId === 'story' ? 'Story' : 'Performance',
+    theme,
+    label,
+    quote,
+    reviews,
+    share: reviews / 20_000,
+    also_in: alsoIn,
+  });
+  // Seven praised, so the first six leave one behind the way to see them all.
+  const themes = {
+    praise: [
+      theme('story', 0, 'The writing is sharp.', 'Every line of the writing is sharp and funny.', 1_200),
+      theme('performance', 0, 'Runs smooth.', null, 900, ['Story']),
+      theme('story', 1, 'The ending lands.', null, 600),
+      theme('story', 2, 'Great characters.', null, 400),
+      theme('performance', 1, 'Loads fast.', null, 300),
+      theme('story', 3, 'Funny dialogue.', null, 200),
+      theme('performance', 2, 'Works on old cards.', null, 90),
+    ],
+    complaint: [
+      theme('performance', 0, 'Stutters in towns.', 'The frame rate stutters in every town.', 700),
+      theme('story', 0, 'Act two drags.', null, 250),
+    ],
+  };
+
   const counts = (id, label, mentions, praised, criticised, mixed) => ({
     id,
     label,
@@ -426,6 +453,8 @@
       model: 'intfloat/multilingual-e5-large-instruct',
       threshold: 0.37,
       in_short: 'People mostly talk about performance and the story.',
+      // Beta is not prepared for search by meaning, so its themes are still to find.
+      themes: appId === 1 ? themes : null,
       swept_since: null,
       subjects: [
         subject('performance', 'Performance', 4_000, 900, 2_600, 300, true),

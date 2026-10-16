@@ -2320,6 +2320,114 @@ table.games td:last-child {
   letter-spacing: -0.005em;
 }
 
+.said-most {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.said-most > h4 {
+  font-size: var(--t-lg);
+  font-weight: 650;
+}
+
+.said-most > .quiet {
+  font-size: var(--t-sm);
+}
+
+.said-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--s5);
+}
+
+.said-side {
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+}
+
+.said-side h5 {
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+.said-side.praise h5 {
+  color: var(--good);
+}
+
+.said-side.complaint h5 {
+  color: var(--bad);
+}
+
+.said-list {
+  display: grid;
+  gap: var(--s1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The side's colour on the edge rather than behind the text, which keeps every line of it at
+   full contrast in both themes. */
+.said-side.praise .said-theme {
+  border-left-color: var(--good);
+}
+
+.said-side.complaint .said-theme {
+  border-left-color: var(--bad);
+}
+
+.said-theme {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-left: 3px solid var(--line);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.said-theme:hover {
+  background: var(--surface-2);
+}
+
+.said-theme .said-label {
+  font-weight: 600;
+}
+
+.said-theme .said-count,
+.said-theme .said-also {
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+.said-theme .said-quote {
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+  font-style: italic;
+}
+
+.said-none {
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+.said-offer {
+  display: grid;
+  justify-items: start;
+  gap: var(--s2);
+}
+
 .search {
   flex-wrap: nowrap;
   max-width: 720px;

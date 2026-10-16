@@ -457,6 +457,62 @@ dl.induced summary {
   line-height: 1.55;
 }
 
+.said-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.5rem;
+  max-width: var(--measure);
+  margin: 0 0 1.5rem;
+}
+
+.said-side h4 {
+  margin: 0 0 0.5rem;
+}
+
+.said-side.praise h4 {
+  color: var(--under);
+}
+
+.said-side.complaint h4 {
+  color: var(--over);
+}
+
+.said-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The side's colour on the edge rather than behind the text, which keeps every line at full
+   contrast in both themes. */
+.said-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.4rem 0 0.4rem 0.75rem;
+  border-left: 3px solid var(--line-strong);
+  margin-bottom: 0.35rem;
+}
+
+.said-side.praise li {
+  border-left-color: var(--under);
+}
+
+.said-side.complaint li {
+  border-left-color: var(--over);
+}
+
+.said-count,
+.said-also {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+
+.said-list q {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .note {
   color: var(--ink-soft);
   font-size: 0.9rem;

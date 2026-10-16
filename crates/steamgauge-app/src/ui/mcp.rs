@@ -218,6 +218,9 @@ struct ClaimsBehind {
     term: Option<String>,
     /// Only one kind of reviewer's claims.
     who: Option<String>,
+    /// Only the claims of one theme, by its place among the subject's themes on `side`, as
+    /// `reading` gives it.
+    theme: Option<usize>,
     /// How many claims to skip, for the next page.
     from: usize,
     /// How many claims to give.
@@ -454,7 +457,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "reading",
             Looks,
-            "A read game's figures: every subject its players talk about, how often, praised and criticised, with the terms that stand out and how the figures move month by month.",
+            "A read game's figures: every subject its players talk about, how often, praised and criticised, with the terms that stand out, the particular things praised and complained about where the game is prepared for search by meaning, and how the figures move month by month.",
             |app, OneGame { app_id }| off_thread_trying(move || super::reading(app, app_id)),
         ),
         tool(
@@ -477,10 +480,10 @@ fn entries() -> Vec<Entry> {
         tool(
             "claims_behind",
             Looks,
-            "A page of the claims behind one subject of a read game, with the review each comes from, narrowed to one side, a term or a kind of reviewer if asked.",
+            "A page of the claims behind one subject of a read game, with the review each comes from, narrowed to one side, a term, a kind of reviewer or one theme if asked.",
             |app, a: ClaimsBehind| {
                 super::claims_behind(
-                    app, a.app_id, a.subject, a.side, a.term, a.who, a.from, a.count,
+                    app, a.app_id, a.subject, a.side, a.term, a.who, a.theme, a.from, a.count,
                 )
             },
         ),

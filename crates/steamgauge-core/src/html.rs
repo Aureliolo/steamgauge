@@ -508,6 +508,7 @@ fn game(out: &mut String, app: &AppReport, several: bool) {
     facts(out, app);
     headline(out, app);
     in_short(out, app);
+    said_most(out, app);
     over_time(out, app);
     updates(out, app);
     categories(out, app);
@@ -628,6 +629,79 @@ fn headline(out: &mut String, app: &AppReport) {
         thousands(app.reading.reviews),
     );
     out.push_str("\n</p>\n");
+}
+
+/// Points a side lists in the report, which has no way to show more and is read top down.
+const SAID_SHOWN: usize = 8;
+
+/// The particular things praised and complained about, where the game was prepared for search
+/// by meaning, each with how many reviews make it and one of them quoted.
+fn said_most(out: &mut String, app: &AppReport) {
+    let Some(themes) = &app.themes else {
+        return;
+    };
+    let label_of = |id: &str| SHEET.iter().find(|row| row.id == id).map(|row| row.label);
+    out.push_str("<h3>What they praise and complain about</h3>\n");
+    out.push_str(
+        "<p class=\"note\">Points that say the same thing, in the same words or others, grouped \
+         by meaning, each with how many reviews make it.</p>\n<div class=\"said-sides\">\n",
+    );
+    for (side, title) in [("praise", "Praised"), ("complaint", "Complained about")] {
+        let _ = writeln!(out, "<div class=\"said-side {side}\">\n<h4>{title}</h4>");
+        let ranked = themes.ranked(side);
+        if ranked.is_empty() {
+            out.push_str("<p class=\"note\">No one point is made in enough reviews to name.</p>\n");
+        } else {
+            out.push_str("<ol class=\"said-list\">\n");
+        }
+        for one in ranked.iter().take(SAID_SHOWN) {
+            let said = one.said;
+            let share = if app.reading.reviews == 0 {
+                String::new()
+            } else {
+                #[expect(
+                    clippy::cast_precision_loss,
+                    reason = "review counts are far below 2^52"
+                )]
+                let rate = said.reviews as f64 / app.reading.reviews as f64;
+                format!(", {}", percent(rate))
+            };
+            let _ = write!(
+                out,
+                "<li><strong>{}</strong><span class=\"said-count\">{} {}{share} · {}</span>",
+                escape(&said.label),
+                thousands(said.reviews),
+                if said.reviews == 1 {
+                    "review"
+                } else {
+                    "reviews"
+                },
+                escape(label_of(one.subject).unwrap_or(one.subject)),
+            );
+            let also: Vec<&str> = said
+                .also_in
+                .iter()
+                .filter_map(|place| label_of(&place.subject))
+                .take(3)
+                .collect();
+            if !also.is_empty() {
+                let _ = write!(
+                    out,
+                    "<span class=\"said-also\">Also said about {}</span>",
+                    escape(&also.join(", "))
+                );
+            }
+            if said.quote.text != said.label {
+                let _ = write!(out, "<q>{}</q>", escape(&said.quote.text));
+            }
+            out.push_str("</li>\n");
+        }
+        if !ranked.is_empty() {
+            out.push_str("</ol>\n");
+        }
+        out.push_str("</div>\n");
+    }
+    out.push_str("</div>\n");
 }
 
 /// The game in a paragraph, for the reader who will not read the table. Every clause is a
@@ -2604,6 +2678,7 @@ mod tests {
                 ceiling: None,
                 induced: Vec::new(),
                 updates: crate::before_after::Updates::default(),
+                themes: None,
             }],
         }
     }
@@ -3245,6 +3320,66 @@ mod tests {
         ] {
             no_dangling_links(&page);
         }
+    }
+
+    #[test]
+    fn a_point_said_under_two_subjects_is_listed_once_with_the_other_named() {
+        use crate::themes::{Elsewhere, Quote, SubjectThemes, Theme, Themes};
+        let theme = |label: &str, quote: &str, reviews: u64, also: Option<(&str, usize)>| Theme {
+            label: label.to_owned(),
+            quote: Quote {
+                review_id: "1".to_owned(),
+                at: (0, 0),
+                text: quote.to_owned(),
+            },
+            reviews,
+            claims: reviews,
+            also_in: also
+                .map(|(subject, theme)| Elsewhere {
+                    subject: subject.to_owned(),
+                    theme,
+                })
+                .into_iter()
+                .collect(),
+            members: Vec::new(),
+        };
+        let mut report = sample_report("ordinary text");
+        report.apps[0].themes = Some(Themes {
+            encoder: "test".to_owned(),
+            readings: None,
+            subjects: vec![
+                SubjectThemes {
+                    subject: "bugs".to_owned(),
+                    side: "complaint".to_owned(),
+                    reviews: 80,
+                    themes: vec![theme(
+                        "Black screen on startup.",
+                        "The screen stays <black>.",
+                        50,
+                        Some(("performance", 0)),
+                    )],
+                },
+                SubjectThemes {
+                    subject: "performance".to_owned(),
+                    side: "complaint".to_owned(),
+                    reviews: 60,
+                    themes: vec![theme(
+                        "It boots to black.",
+                        "It boots to black.",
+                        30,
+                        Some(("bugs", 0)),
+                    )],
+                },
+            ],
+        });
+        let page = render(&report);
+        assert!(page.contains("<h3>What they praise and complain about</h3>"));
+        assert!(page.contains("<strong>Black screen on startup.</strong>"));
+        assert!(page.contains("50 reviews, 5.0% · Bugs"));
+        assert!(page.contains("Also said about Performance"));
+        assert!(page.contains("<q>The screen stays &lt;black&gt;.</q>"));
+        assert!(!page.contains("It boots to black."));
+        assert!(page.contains("No one point is made in enough reviews to name."));
     }
 
     /// An induced subject's evidence was never read by the counting model, and the page must

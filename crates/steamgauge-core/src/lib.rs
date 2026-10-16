@@ -47,6 +47,7 @@ pub mod state;
 pub mod taxonomy;
 #[cfg(test)]
 mod tempdir;
+pub mod themes;
 pub mod time;
 #[cfg(test)]
 mod tiny_model;

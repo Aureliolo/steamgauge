@@ -23,6 +23,7 @@ use steamgauge_core::{
     report::{AppReport, CrawlFacts, Example, InducedEvidence, Measurement, Report},
     said::{SaidAbout, Term},
     taxonomy::SHEET,
+    themes::{Elsewhere, Quote, SubjectThemes, Theme, Themes},
     updates::Update,
     who::{SEGMENTS, SegmentCount, SegmentMonth},
 };
@@ -68,6 +69,83 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::write(&path, steamgauge_core::html::render(&report))?;
     println!("{}", path.display());
     Ok(())
+}
+
+/// One point made in `reviews` reviews, quoted where the quote says more than the label.
+fn theme(label: &str, quote: Option<&str>, reviews: u64, also_in: &[(&str, usize)]) -> Theme {
+    Theme {
+        label: label.to_owned(),
+        quote: Quote {
+            review_id: "1".to_owned(),
+            at: (0, 0),
+            text: quote.unwrap_or(label).to_owned(),
+        },
+        reviews,
+        claims: reviews + reviews / 10,
+        also_in: also_in
+            .iter()
+            .map(|&(subject, theme)| Elsewhere {
+                subject: subject.to_owned(),
+                theme,
+            })
+            .collect(),
+        members: Vec::new(),
+    }
+}
+
+fn themes() -> Themes {
+    let subject = |subject: &str, side: &str, reviews: u64, themes: Vec<Theme>| SubjectThemes {
+        subject: subject.to_owned(),
+        side: side.to_owned(),
+        reviews,
+        themes,
+    };
+    Themes {
+        encoder: "sample".to_owned(),
+        readings: None,
+        subjects: vec![
+            subject(
+                "gameplay",
+                "praise",
+                900,
+                vec![
+                    theme(
+                        "Love how you can mix and match factions.",
+                        Some("Mixing two factions every run keeps it fresh after a hundred hours."),
+                        410,
+                        &[],
+                    ),
+                    theme("The combat is tight.", None, 160, &[("controls", 0)]),
+                ],
+            ),
+            subject(
+                "controls",
+                "praise",
+                300,
+                vec![theme("Controls feel tight.", None, 120, &[("gameplay", 1)])],
+            ),
+            subject(
+                "bugs",
+                "complaint",
+                250,
+                vec![
+                    theme(
+                        "Black screen on startup.",
+                        Some("Every time I start it the screen stays black <until I alt-tab>."),
+                        48,
+                        &[("performance", 0)],
+                    ),
+                    theme("Saves get corrupted.", None, 21, &[]),
+                ],
+            ),
+            subject(
+                "performance",
+                "complaint",
+                200,
+                vec![theme("Stutters in big fights.", None, 33, &[])],
+            ),
+        ],
+    }
 }
 
 fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
@@ -177,6 +255,9 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         }),
         induced: induced(app_id),
         updates: updates(app_id),
+        // An unmeasured game was not prepared for search by meaning either, so the page is
+        // driven both with the section and without it.
+        themes: measured.then(themes),
     }
 }
 

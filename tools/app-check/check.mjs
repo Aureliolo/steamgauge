@@ -668,6 +668,29 @@ const PROBE = `(async function () {
     /^Since you last looked, on .*: 1,520 new reviews\\.$/.test($('#game-since p').textContent) &&
     $('#game-since .since-move.complaint.up') !== null && $('#game-since').classList.contains('moved'));
   check('looking at a game\\'s page is not recorded', called('looked').some(function (call) { return call.args.appId === 1; }));
+  check('a prepared game does not name what its players praise and complain about', shown('said-most') &&
+    shown('said-sides') && !shown('said-offer') &&
+    document.querySelectorAll('#said-praise .said-theme').length === 6 &&
+    document.querySelectorAll('#said-complaint .said-theme').length === 2 &&
+    /^1,200 reviews, 6% · Story$/.test($('#said-praise .said-count').textContent) &&
+    /Every line of the writing/.test($('#said-praise .said-quote').textContent));
+  check('a point said under two subjects does not say so',
+    /^Also said about Story$/.test($('#said-praise li:nth-child(2) .said-also').textContent));
+  check('the way to the rest of the points made is not offered', shown('said-more') &&
+    /^Show all 9$/.test($('#said-more').textContent));
+  $('#said-more').click();
+  check('showing all the points made does not show them all',
+    document.querySelectorAll('#said-praise .said-theme').length === 7 && /^Show fewer$/.test($('#said-more').textContent));
+  $('#said-complaint .said-theme').click();
+  await pause(300);
+  var themed = last('claims_behind');
+  check('a point made does not open onto the reviews that make it', shown('evidence') && themed &&
+    themed.args.subject === 'performance' && themed.args.side === 'complaint' && themed.args.theme === 0 &&
+    /say what “Stutters in towns\\.” says/.test($('#evidence-lede').textContent));
+  check('the words that stand out over a whole subject are shown beside one point of it',
+    $('#praised-terms').hidden && $('#criticised-terms').hidden);
+  $('#back').click();
+  await pause(300);
   $('#game-since .since-move .link').click();
   await pause(300);
   check('a subject that moved since does not open onto its points', shown('evidence') &&
@@ -876,6 +899,14 @@ const PROBE = `(async function () {
   await pause(300);
   check('a game counted before reviewers were told apart does not offer to count it again',
     shown('who') && shown('who-recount') && !shown('who-pick') && !shown('who-differ'));
+  check('a game not prepared for search by meaning does not offer to find what its players say',
+    shown('said-most') && !shown('said-sides') && shown('said-offer') &&
+    /^Prepare this game$/.test($('#said-find').textContent.trim()) &&
+    /about 2 minutes on this computer's graphics card/.test($('#said-offer-note').textContent));
+  $('#said-find').click();
+  await pause();
+  check('finding what players say does not queue the game\\'s preparation', called('queue').some(function (call) {
+    return call.args.tasks.some(function (t) { return t.kind === 'prepare' && t.app_id === 2; }); }));
   check('a game with nothing new since it was last seen does not say so plainly', shown('game-since') &&
     /^Nothing new since you last looked, on .*\\.$/.test($('#game-since').textContent) &&
     !$('#game-since').classList.contains('moved'));

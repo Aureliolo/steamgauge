@@ -85,7 +85,7 @@ struct Sidecar {
     readings: Option<u64>,
 }
 
-fn readings_written(snapshot: &Path) -> Option<u64> {
+pub(crate) fn readings_written(snapshot: &Path) -> Option<u64> {
     std::fs::metadata(snapshot.join("readings.parquet"))
         .and_then(|file| file.modified())
         .ok()
@@ -533,6 +533,19 @@ fn each_row(part: &Path, mut visit: impl FnMut(Row<'_>)) -> Result<()> {
                 vector: &values[from..from + width],
             });
         }
+    }
+    Ok(())
+}
+
+/// Every distinct claim's vector held for the reading at `snapshot`: its key, the scale its bytes
+/// are divided by to give the unit vector back, and the bytes.
+///
+/// # Errors
+///
+/// Fails if a part cannot be read.
+pub fn each_vector(snapshot: &Path, mut visit: impl FnMut(&[u8; 32], f32, &[i8])) -> Result<()> {
+    for part in parts(snapshot) {
+        each_row(&part, |row| visit(&row.key, row.scale, row.vector))?;
     }
     Ok(())
 }
