@@ -422,6 +422,7 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
             "newer_version",
             "whats_new",
             "saw_what_changed",
+            "open_notices",
             "update_state",
             "update_now",
             "show_update_file",

@@ -1335,6 +1335,7 @@ pub fn run() -> anyhow::Result<()> {
             newer::check_for_updates,
             newer::whats_new,
             newer::saw_what_changed,
+            newer::open_notices,
             update::update_state,
             update::update_now,
             update::show_update_file,

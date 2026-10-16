@@ -177,8 +177,8 @@ The app makes requests to four places, and to nothing else:
   only their text is shown. Only when **Update now** is chosen does the app ask the release page
   once more, download the newest release's file for this computer and its provenance, and ask
   the attestations API where the release carries no provenance file. The links the window
-  offers open only a release page of this repository, or SteamGauge's documentation, repository
-  and issue forms by their exact addresses.
+  offers open only a release page of this repository, or SteamGauge's documentation, repository,
+  issue forms and this policy by their exact addresses.
 - **Sigstore**, only during an update, for its current trusted root from
   `https://tuf-repo-cdn.sigstore.dev`, which is itself signed and checked against the TUF root
   built into the app.
