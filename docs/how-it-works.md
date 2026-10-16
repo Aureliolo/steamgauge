@@ -57,6 +57,11 @@ language or all of them; the choice recounts from the same download.
 
 ## Looking closer
 
+- **What they praise and complain about.** The particular points made within each subject,
+  such as one bug or one mechanic, found by grouping claims that say the same thing in the same
+  words or others. Each names how many reviews make it, quotes one, says which other subjects it
+  comes up under, and opens onto its reviews. A point needs five reviews. They come with
+  preparing a game for search by meaning.
 - **Words that stand out.** Each side of a subject lists the words its complaints use far more
   than its praise, and the reverse, each with how many reviewers used it. They are compared
   within each language, and every word opens onto the claims it was counted from.

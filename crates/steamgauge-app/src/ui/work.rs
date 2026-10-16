@@ -1087,6 +1087,7 @@ async fn prepare(
     use steamgauge_core::{
         meaning::{Times, prepare},
         search_models::{ENCODER, RERANKER, SearchEncoder},
+        themes,
     };
 
     let cache = steamgauge_core::model::default_cache_dir();
@@ -1151,11 +1152,26 @@ async fn prepare(
         let mut times = Times::load(&dir);
         times.note(on_card, started.elapsed().as_secs_f64(), prepared.walked);
         times.save(&dir).map_err(text)?;
-        if prepared.finished {
-            Ok(Ended::said("Ready to search by meaning."))
-        } else {
-            Err("stopped".to_owned())
+        drop(slot);
+        if !prepared.finished {
+            return Err("stopped".to_owned());
         }
+        // From the vectors just made, so it runs no model and takes seconds beside the minutes
+        // of preparing.
+        tell(
+            &telling,
+            id,
+            "Finding what players say",
+            Unit::Points,
+            total,
+            Some(total),
+        );
+        themes::find(&snapshot, themes::Closeness::USED)
+            .and_then(|found| found.save(&snapshot))
+            .map_err(text)?;
+        Ok(Ended::said(
+            "Ready to search by meaning, with what players praise and complain about found.",
+        ))
     })
     .await
     .map_err(text)?

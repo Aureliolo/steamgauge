@@ -72,6 +72,15 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
   language and pooled by inverse variance. Chinese is cut by a dictionary (`jieba-rs`), Korean by
   stripping particles and endings, Japanese into character pairs. Two forms of one word count as
   one, and a subject's own name in any language is left out.
+- **Themes** are the particular things said within a subject: its claims on one side, grouped by
+  meaning over the vectors that prepare a game for search by meaning, so finding them runs no
+  model and ends that job. A theme starts from the claim with the most others at cosine 0.75 or
+  more and takes them; two whose centres reach 0.9 are one. Past 3,000 distinct claims a subject
+  is grouped on a sample taken by hash, and every claim is then counted under the nearest theme it
+  is that alike. A theme needs five reviews, and a subject keeps eight a side. Under two subjects
+  it is one point where half the smaller's claims are in both or the centres reach 0.9, and the
+  page lists it once with the other subjects named. Verdicts and off-topic remarks have none.
+  `themes.json` beside the reading holds them, and stands only for that reading and encoder.
 - What counts as a change:
 
 | Comparison | Floor | Bar |

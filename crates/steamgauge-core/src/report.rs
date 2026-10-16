@@ -185,6 +185,9 @@ pub struct AppReport {
     pub induced: Vec<InducedEvidence>,
     /// The game's updates as its developer posted them, each with its subjects either side.
     pub updates: crate::before_after::Updates,
+    /// The particular things praised and complained about, where they were found for this
+    /// reading.
+    pub themes: Option<crate::themes::Themes>,
 }
 
 /// One induced subject with the reviews that earned it, fetched so the page can quote them.
@@ -558,6 +561,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         ceiling,
         induced,
         updates,
+        themes: crate::themes::Themes::load(&snapshot),
     })
 }
 
@@ -867,6 +871,7 @@ mod tests {
             ceiling: None,
             induced: Vec::new(),
             updates: crate::before_after::Updates::default(),
+            themes: None,
         }
     }
 

@@ -125,14 +125,15 @@ Puts a page of the window in front of the person, bringing the window forward. O
 ### `reading`
 
 A read game's figures: every subject its players talk about, how often, praised and criticised, with
-the terms that stand out and how the figures move month by month. Only looks.
+the terms that stand out, the particular things praised and complained about where the game is
+prepared for search by meaning, and how the figures move month by month. Only looks.
 
 - `app_id`, required: The game's Steam app id, as in its store address.
 
 ### `claims_behind`
 
 A page of the claims behind one subject of a read game, with the review each comes from, narrowed to
-one side, a term or a kind of reviewer if asked. Only looks.
+one side, a term, a kind of reviewer or one theme if asked. Only looks.
 
 - `app_id`, required: The game's Steam app id.
 - `count`, required: How many claims to give.
@@ -140,6 +141,8 @@ one side, a term or a kind of reviewer if asked. Only looks.
 - `side`: "praise", "complaint" or "neutral", for one side only.
 - `subject`, required: The subject's id, as `reading` gives it.
 - `term`: Only the claims using this term, as `reading` lists under the subject.
+- `theme`: Only the claims of one theme, by its place among the subject's themes on `side`, as
+  `reading` gives it.
 - `who`: Only one kind of reviewer's claims.
 
 ### `search_game`

@@ -14,6 +14,7 @@ import {
   nothing,
   size,
   duration,
+  roughly,
   tiles,
   verdictPill,
   art,
@@ -60,6 +61,7 @@ function stageTile(stage) {
 /* A game's page. `named` stands in for a game whose download has only just been asked for and
    is not on disk yet. */
 function openGame(appId, named = null) {
+  if (appId !== chosen) saidAll = false;
   chosen = appId;
   go('game');
   return showGame(appId, named);
@@ -419,6 +421,7 @@ function drawTopics(found) {
   const summary = el('in-short');
   summary.hidden = found.in_short === '';
   set(summary, found.in_short);
+  drawSaidMost(found);
 
   const swept = el('swept-caveat');
   swept.hidden = found.swept_since === null;
@@ -564,12 +567,109 @@ function drawTopics(found) {
   }
 }
 
+/* Enough of each side to see what stands out; the rest is one click further. */
+const SAID_FIRST = 6;
+let saidAll = false;
+
+/* The particular things praised and complained about, or the way to have them found: they come
+   from the vectors that prepare a game for search by meaning. */
+function drawSaidMost(found) {
+  const section = el('said-most');
+  section.hidden = false;
+  const themes = found.themes;
+  el('said-sides').hidden = themes === null;
+  el('said-most-note').hidden = themes === null;
+  el('said-offer').hidden = true;
+  el('said-more').hidden = true;
+  if (themes === null) {
+    drawSaidOffer(found.app_id);
+    return;
+  }
+  const lists = [
+    ['said-praise', 'praise', themes.praise],
+    ['said-complaint', 'complaint', themes.complaint],
+  ];
+  for (const [id, side, said] of lists) {
+    const shown = saidAll ? said : said.slice(0, SAID_FIRST);
+    el(id).replaceChildren(
+      ...(said.length === 0
+        ? [make('li', 'said-none', 'No one point is made in enough reviews to name.')]
+        : shown.map((theme) => saidItem(found, side, theme))),
+    );
+  }
+  const most = Math.max(themes.praise.length, themes.complaint.length);
+  const more = el('said-more');
+  more.hidden = most <= SAID_FIRST;
+  set(more, saidAll ? 'Show fewer' : `Show all ${whole.format(themes.praise.length + themes.complaint.length)}`);
+  more.onclick = () => {
+    saidAll = !saidAll;
+    drawSaidMost(found);
+  };
+}
+
+function saidItem(found, side, theme) {
+  const parts = [
+    make('span', 'said-label', theme.label),
+    make(
+      'span',
+      'said-count',
+      `${whole.format(theme.reviews)} ${theme.reviews === 1 ? 'review' : 'reviews'}` +
+        (theme.share === null ? '' : `, ${share.format(theme.share)}`) +
+        ` · ${theme.subject_label}`,
+    ),
+  ];
+  if (theme.also_in.length > 0) parts.push(make('span', 'said-also', `Also said about ${theme.also_in.join(', ')}`));
+  if (theme.quote !== null) parts.push(make('span', 'said-quote', `“${theme.quote}”`));
+  const open = make('button', 'said-theme', ...parts);
+  open.type = 'button';
+  open.addEventListener('click', () => {
+    const subject = found.subjects.find((one) => one.id === theme.subject);
+    if (subject) openClaims(subject, 0, { side, term: null, theme: theme.theme, label: theme.label });
+  });
+  return make('li', null, open);
+}
+
+async function drawSaidOffer(appId) {
+  let offer;
+  try {
+    offer = await invoke('meaning_offer', { appId });
+  } catch {
+    el('said-most').hidden = true;
+    return;
+  }
+  if (appId !== chosen) return;
+  const note = el('said-offer-note');
+  const find = el('said-find');
+  find.hidden = offer.job !== null;
+  if (offer.job !== null) {
+    set(note, 'Being found as this game is prepared for search by meaning; they appear here when it finishes.');
+  } else {
+    const where = offer.on_card ? "on this computer's graphics card" : 'on this computer';
+    const download = offer.download_bytes > 0 ? `, and a ${size(offer.download_bytes)} download, once` : '';
+    set(
+      note,
+      offer.status === 'ready'
+        ? `This game is prepared for search by meaning, and finding them from that takes seconds${download}.`
+        : `Grouping what players say by meaning needs this game prepared for search by meaning: ` +
+            `${roughly(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}. ` +
+            'Search by meaning comes with it.',
+    );
+    set(find, offer.status === 'ready' ? 'Find them' : 'Prepare this game');
+    find.onclick = () => {
+      find.hidden = true;
+      queue({ kind: 'prepare', app_id: appId });
+    };
+  }
+  el('said-offer').hidden = false;
+}
+
 let reading = null;
 
 /* `narrowed` is null for every point under the subject, or `{side, term}` for the points on
-   one side, using one word from the strip where `term` is given. The same page function serves
-   both, so the strip is a filter on the evidence and not a second view of it. `who` is the kind
-   of reviewer whose reviews alone the points are drawn from, or null for everyone. */
+   one side, using one word from the strip where `term` is given, or `{side, theme, label}` for
+   the points of one theme. The same page function serves them all, so the strip is a filter on
+   the evidence and not a second view of it. `who` is the kind of reviewer whose reviews alone
+   the points are drawn from, or null for everyone. */
 async function openClaims(subject, from, narrowed = null, who = null) {
   reading = { subject, from, narrowed, who };
   go('evidence');
@@ -578,9 +678,10 @@ async function openClaims(subject, from, narrowed = null, who = null) {
   el('said-strip').hidden = true;
   el('meaning').hidden = true;
   meaningFor = null;
-  /* The words that stand out are counted over every review, so beside one kind's points they
-     would be someone else's figures. */
-  drawTerms(who === null ? subject : { ...subject, praised_terms: [], criticised_terms: [] }, narrowed);
+  /* The words that stand out are counted over every point of the subject, so beside one kind's
+     points or one theme's they would be other points' figures. */
+  const termsFit = who === null && narrowed?.theme === undefined;
+  drawTerms(termsFit ? subject : { ...subject, praised_terms: [], criticised_terms: [] }, narrowed);
   el('quotes').replaceChildren();
   el('earlier').disabled = true;
   el('later').disabled = true;
@@ -593,6 +694,7 @@ async function openClaims(subject, from, narrowed = null, who = null) {
       side: narrowed?.side ?? null,
       term: narrowed?.term ?? null,
       who: who?.id ?? null,
+      theme: narrowed?.theme ?? null,
       from,
       count: PER_PAGE,
     });
@@ -618,7 +720,10 @@ async function openClaims(subject, from, narrowed = null, who = null) {
       ? `${points} about this from ${who.phrase}, raised in ${reviews} of theirs. Each one is shown as it was written.`
       : narrowed === null
         ? `${points} about this, raised in ${reviews}. Each one is shown as it was written.`
-        : narrowed.term
+        : narrowed.theme !== undefined
+          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} that say ` +
+            `what “${narrowed.label}” says, in those words or others. Each one is shown as it was written.`
+          : narrowed.term
           ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this that ` +
             `say “${narrowed.term}”. Each one is shown as it was written.`
           : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this. ` +
@@ -704,7 +809,7 @@ function drawOffer(offer, appId) {
   const cost =
     offer.status === 'ready'
       ? `a ${size(offer.download_bytes)} download, once`
-      : `about ${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
+      : `${roughly(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
   const prepareNow = offer.recommended === 'prepare' || offer.status === 'ready';
   const label = {
     none: 'Prepare this game',

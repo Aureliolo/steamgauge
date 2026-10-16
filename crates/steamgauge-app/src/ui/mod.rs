@@ -386,12 +386,12 @@ struct Reading {
     threshold: f32,
     /// The game in a paragraph, assembled from the same counts the table shows.
     in_short: String,
+    /// The particular things praised and complained about, where they have been found for this
+    /// reading; finding them needs the game prepared for search by meaning.
+    themes: Option<SaidMost>,
     /// When the capture was last brought up to date after these counts were made, so the
     /// window can say the counts describe the corpus as it was.
     swept_since: Option<i64>,
-    /// Whether this build takes reviews apart differently from the pass that made these
-    /// readings. The counts stand; a claim quoted by its index does not, until the game is
-    /// read again.
     subjects: Vec<Subject>,
     measured: Option<Measured>,
     /// Whether this game's labels are in the model's weights, which is why it is not measured.
@@ -407,6 +407,68 @@ struct Reading {
     languages: Vec<Language>,
     /// The kinds of reviewer, and where one says something more or less often than the rest.
     who: who::Overview,
+}
+
+/// Every theme on each side, across subjects, the most widely said first.
+#[derive(Debug, Clone, Serialize)]
+struct SaidMost {
+    praise: Vec<ThemeOut>,
+    complaint: Vec<ThemeOut>,
+}
+
+/// One thing players say, as the game page lists it.
+#[derive(Debug, Clone, Serialize)]
+struct ThemeOut {
+    subject: &'static str,
+    subject_label: &'static str,
+    /// Its place among the subject's themes on its side, which is how `claims_behind` names it.
+    theme: usize,
+    label: String,
+    /// The claim nearest its centre, where it says more than the label does.
+    quote: Option<String>,
+    reviews: u64,
+    /// Of the reviews the reading counted.
+    share: Option<f64>,
+    /// The labels of the other subjects it is said under, most strongly first.
+    also_in: Vec<&'static str>,
+}
+
+/// Other subjects named beside a theme: a point said under a handful is a pattern, past that the
+/// names are a list nobody reads.
+const ALSO_IN_SHOWN: usize = 3;
+
+fn said_most(snapshot: &Path, reviews: u64) -> Option<SaidMost> {
+    let found = steamgauge_core::themes::Themes::load(snapshot)?;
+    let row = |id: &str| steamgauge_core::SHEET.iter().find(|row| row.id == id);
+    let side = |side: &str| {
+        found
+            .ranked(side)
+            .into_iter()
+            .filter_map(|ranked| {
+                let subject = row(ranked.subject)?;
+                let said = ranked.said;
+                Some(ThemeOut {
+                    subject: subject.id,
+                    subject_label: subject.label,
+                    theme: ranked.theme,
+                    quote: (said.quote.text != said.label).then(|| said.quote.text.clone()),
+                    label: said.label.clone(),
+                    reviews: said.reviews,
+                    share: share_of(said.reviews, reviews),
+                    also_in: said
+                        .also_in
+                        .iter()
+                        .filter_map(|place| row(&place.subject).map(|other| other.label))
+                        .take(ALSO_IN_SHOWN)
+                        .collect(),
+                })
+            })
+            .collect()
+    };
+    Some(SaidMost {
+        praise: side("praise"),
+        complaint: side("complaint"),
+    })
 }
 
 /// One month of the corpus, as the window draws it.
@@ -549,6 +611,7 @@ fn reading(app: AppHandle, app_id: u32) -> Result<Reading, String> {
         model: found.model.clone(),
         threshold: found.threshold,
         in_short: steamgauge_core::picture::in_short(&found),
+        themes: said_most(&snapshot, found.reviews),
         swept_since: facts
             .swept_unix
             .filter(|swept| found.captured_unix < *swept),
@@ -690,10 +753,11 @@ type Filed = (steamgauge_core::claims::Span, String, f32);
 /// Every claim filed under a subject, most helpful review first, a page at a time.
 ///
 /// Narrowed to one side when `side` is given, to the claims using a term when `term` is, which
-/// is how a word that stands out opens onto the reviews it was counted from, and to one kind of
-/// reviewer's reviews when `who` is. Off the window's thread, because a term or a kind of
-/// reviewer is found by walking the whole capture, and a window that stops answering for that
-/// long is a window a person force-quits.
+/// is how a word that stands out opens onto the reviews it was counted from, to one kind of
+/// reviewer's reviews when `who` is, and to the claims of one of the subject's themes on that
+/// side when `theme` is. Off the window's thread, because a term or a kind of reviewer is found
+/// by walking the whole capture, and a window that stops answering for that long is a window a
+/// person force-quits.
 #[tauri::command]
 #[expect(
     clippy::too_many_arguments,
@@ -706,6 +770,7 @@ async fn claims_behind(
     side: Option<String>,
     term: Option<String>,
     who: Option<String>,
+    theme: Option<usize>,
     from: usize,
     count: usize,
 ) -> Result<ClaimsBehind, String> {
@@ -717,10 +782,14 @@ async fn claims_behind(
             .as_deref()
             .map(|kind| who::written_by(&snapshot, kind))
             .transpose()?;
+        let within = theme
+            .map(|theme| theme_members(&snapshot, &subject, side.as_deref(), theme))
+            .transpose()?;
         let narrowed = Narrowed {
             subject: &subject,
             side: side.as_deref(),
             only: only.as_ref(),
+            within: within.as_ref(),
         };
 
         let (total, wanted) = match term
@@ -1141,6 +1210,37 @@ struct Narrowed<'a> {
     subject: &'a str,
     side: Option<&'a str>,
     only: Option<&'a std::collections::HashSet<String>>,
+    within: Option<&'a Members>,
+}
+
+/// The claims a theme counts, by review.
+type Members = HashMap<String, std::collections::HashSet<steamgauge_core::claims::Span>>;
+
+/// The claims of one of a subject's themes on one side, as the game's themes were last found.
+fn theme_members(
+    snapshot: &Path,
+    subject: &str,
+    side: Option<&str>,
+    theme: usize,
+) -> Result<Members, String> {
+    let side = side.ok_or_else(|| "a theme is of one side; name the side".to_owned())?;
+    let found = steamgauge_core::themes::Themes::load(snapshot).ok_or_else(|| {
+        "this game's themes were found for an earlier reading; prepare it again".to_owned()
+    })?;
+    let said = found
+        .subjects
+        .iter()
+        .find(|one| one.subject == subject && one.side == side)
+        .and_then(|one| one.themes.get(theme))
+        .ok_or_else(|| format!("{subject} has no theme {theme} on the {side} side"))?;
+    let mut members = Members::new();
+    for (id, start, end) in &said.members {
+        members
+            .entry(id.clone())
+            .or_default()
+            .insert((*start, *end));
+    }
+    Ok(members)
 }
 
 impl Narrowed<'_> {
@@ -1148,11 +1248,18 @@ impl Narrowed<'_> {
     fn polarity(
         &self,
         id: &str,
+        at: steamgauge_core::claims::Span,
         found: Option<&str>,
         polarity: &str,
         also: steamgauge_core::reader::Also,
     ) -> Option<&'static str> {
         if self.only.is_some_and(|only| !only.contains(id)) {
+            return None;
+        }
+        if self
+            .within
+            .is_some_and(|within| within.get(id).is_none_or(|spans| !spans.contains(&at)))
+        {
             return None;
         }
         let polarity = steamgauge_core::read::polarity_on(self.subject, found, polarity, also)?;
@@ -1174,7 +1281,7 @@ fn claims_under(
     steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
         |id, at, found, confidence, polarity, also| {
-            let Some(polarity) = narrowed.polarity(id, found, polarity, also) else {
+            let Some(polarity) = narrowed.polarity(id, at, found, polarity, also) else {
                 return;
             };
             total += 1;
@@ -1204,7 +1311,7 @@ fn claims_using(
     steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
         |id, at, found, confidence, polarity, also| {
-            let Some(polarity) = narrowed.polarity(id, found, polarity, also) else {
+            let Some(polarity) = narrowed.polarity(id, at, found, polarity, also) else {
                 return;
             };
             filed

@@ -72,6 +72,11 @@ export const size = (bytes) =>
       ? `${(bytes / 1e9).toFixed(1)} GB`
       : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 
+/* An estimate as a sentence says one: "about 3 minutes", but never "about under a minute". */
+export function roughly(seconds) {
+  return seconds < 60 ? duration(seconds) : `about ${duration(seconds)}`;
+}
+
 export function duration(seconds) {
   if (seconds < 60) return 'under a minute';
   const minutes = Math.round(seconds / 60);
