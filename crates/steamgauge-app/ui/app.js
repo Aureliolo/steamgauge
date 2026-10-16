@@ -14,6 +14,7 @@ import {
   nothing,
   size,
   duration,
+  roughly,
   tiles,
   verdictPill,
   art,
@@ -649,8 +650,8 @@ async function drawSaidOffer(appId) {
       note,
       offer.status === 'ready'
         ? `This game is prepared for search by meaning, and finding them from that takes seconds${download}.`
-        : `Grouping what players say by meaning needs this game prepared for search by meaning: about ` +
-            `${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}. ` +
+        : `Grouping what players say by meaning needs this game prepared for search by meaning: ` +
+            `${roughly(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}. ` +
             'Search by meaning comes with it.',
     );
     set(find, offer.status === 'ready' ? 'Find them' : 'Prepare this game');
@@ -808,7 +809,7 @@ function drawOffer(offer, appId) {
   const cost =
     offer.status === 'ready'
       ? `a ${size(offer.download_bytes)} download, once`
-      : `about ${duration(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
+      : `${roughly(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}`;
   const prepareNow = offer.recommended === 'prepare' || offer.status === 'ready';
   const label = {
     none: 'Prepare this game',
