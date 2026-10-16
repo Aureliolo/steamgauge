@@ -775,7 +775,7 @@ mod tests {
             revision: WRITER.revision,
         };
         assert!(source.is_pinned());
-        assert!(!WRITER.release.is_empty());
+        assert_ne!(WRITER.release, "");
         assert!(
             WRITER
                 .assets
