@@ -86,7 +86,7 @@ async function load() {
 async function save() {
   try {
     const now = await invoke('settings');
-    const { shares, library, clients, mcp_command, paste, http, search_every_game, ...settings } = now;
+    const { shares, check_hours, library, clients, mcp_command, paste, http, search_every_game, ...settings } = now;
     settings.answer_over_http = el('answer-over-http').checked;
     settings.http_port = Number.parseInt(el('http-port').value, 10) || now.http_port;
     shown = await invoke('save_settings', { settings, searchEveryGame: search_every_game });

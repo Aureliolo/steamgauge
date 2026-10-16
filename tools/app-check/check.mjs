@@ -539,10 +539,23 @@ const PROBE = `(async function () {
   check('turning off keeping games up to date is not saved', last('save_settings').args.settings.keep_up_to_date === false);
   $('#keep-up-to-date').click();
   await pause(250);
+  check('how often to ask Steam does not offer each choice with the default chosen',
+    $('#check-every').options.length === 4 && $('#check-every').value === '6' &&
+    /Every hour/.test($('#check-every').textContent) && /Once a week/.test($('#check-every').textContent));
+  $('#check-every').value = '1';
+  $('#check-every').dispatchEvent(new Event('change', { bubbles: true }));
+  await pause(250);
+  check('asking Steam every hour is not saved', last('save_settings').args.settings.check_every_hours === 1);
+  check('waiting for a hundredth more is not the default', $('#update-when').value === 'hundredth');
+  $('#update-when').value = 'any_new';
+  $('#update-when').dispatchEvent(new Event('change', { bubbles: true }));
+  await pause(250);
+  check('updating on any new review is not saved', last('save_settings').args.settings.update_when === 'any_new');
   $('#check-steam').click();
   await pause(250);
   check('keeping games up to date can be chosen without Steam\\'s counts to go by',
-    last('save_settings').args.settings.check_steam === false && $('#keep-up-to-date').disabled);
+    last('save_settings').args.settings.check_steam === false && $('#keep-up-to-date').disabled &&
+    $('#check-every').disabled && $('#update-when').disabled);
   $('#check-steam').click();
   await pause(250);
   check('asking Steam again does not let games be kept up to date', !$('#keep-up-to-date').disabled);

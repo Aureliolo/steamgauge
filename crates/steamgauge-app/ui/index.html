@@ -942,17 +942,40 @@
               <label class="setting" for="check-steam">
                 <span class="setting-text">
                   <strong>Ask Steam how many reviews each game has</strong>
-                  <span>When the app opens, and again while it stays open: at most every six hours, one request per game.</span>
+                  <span>When the app opens, and again while it stays open, minimised or not: one request per game each time.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-steam" />
               </label>
+              <div class="setting">
+                <div class="setting-text">
+                  <strong>How often to ask</strong>
+                  <span>The least time between two questions to Steam.</span>
+                </div>
+                <div>
+                  <label class="sr" for="check-every">How often to ask Steam</label>
+                  <select id="check-every"></select>
+                </div>
+              </div>
               <label class="setting" for="keep-up-to-date">
                 <span class="setting-text">
                   <strong>Bring games with new reviews up to date by themselves</strong>
-                  <span id="keep-up-to-date-about">Once Steam has a hundredth more reviews of a game than the library holds, the app downloads them and reads the game again with the reader and the share of the graphics card chosen on this page. It waits while any work you started runs, stops when the app is closed, and needs the question above.</span>
+                  <span id="keep-up-to-date-about">When Steam has new reviews of a game, the app downloads them and reads the game again with the reader and the share of the graphics card chosen on this page. It waits while any work you started runs, stops when the app is closed, and needs the question above.</span>
                 </span>
                 <input type="checkbox" class="switch" id="keep-up-to-date" />
               </label>
+              <div class="setting">
+                <div class="setting-text">
+                  <strong>Update a game once Steam has</strong>
+                  <span>Each update reads the whole game again; waiting for a hundredth more spares the graphics card reading a large game for a handful of reviews.</span>
+                </div>
+                <div>
+                  <label class="sr" for="update-when">How many new reviews bring a game up to date</label>
+                  <select id="update-when">
+                    <option value="hundredth">A hundredth more reviews</option>
+                    <option value="any_new">Any new review</option>
+                  </select>
+                </div>
+              </div>
             </fieldset>
             <fieldset>
               <legend>Notifications</legend>

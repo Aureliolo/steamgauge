@@ -112,8 +112,11 @@ game in thirty.
   and files. Each lane runs one job at a time, and no job starts on a game another job is using.
 - The app's own jobs (keeping games up to date, checking Steam) never run beside the person's: a
   job the person starts pauses them, and they start again afterwards.
-- Keeping up to date runs only while the app is open. Steam is asked at most every six hours; a
-  game is updated once Steam holds a hundredth more reviews than the library.
+- Keeping up to date runs while the app is open, minimised included, and never once it is
+  closed: the schedule is a loop in the core's process, not in the window. Steam is asked at most
+  every hour, six hours, day or week, as Settings chooses (six hours unless changed); a game is
+  updated once Steam holds a hundredth more reviews than the library, or on any new review where
+  Settings asks for that.
 - The window's content policy keeps every network address out of the page. The core fetches what
   the window shows, such as store pictures, and opens save dialogues itself, so the window has no
   permission to reach the network or choose a path.
