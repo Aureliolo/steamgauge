@@ -443,6 +443,51 @@ const PROBE = `(async function () {
     last('export_report') && last('export_report').args.appIds.length === 2);
   check('the comparison does not fit its page', fits());
 
+  await go('library');
+  rows().filter(function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('input').click();
+  await pause();
+  choose = $('#selected-group');
+  choose.value = 'Shooters';
+  choose.dispatchEvent(new Event('change'));
+  await pause(250);
+  tabs().filter(function (t) { return /Shooters/.test(t.textContent); })[0].click();
+  await pause();
+  check('a group\\'s figures cannot be opened from its tab', shown('open-group'));
+  $('#open-group').click();
+  await pause(300);
+  check('a group\\'s figures do not open', shown('group'));
+  check('the library is not the page marked while a group is open',
+    $('[data-go="library"]').getAttribute('aria-current') === 'true');
+  check('a group\\'s page is not named for it', $('#group-title').textContent === 'Shooters');
+  check('a group\\'s page does not count its read games', /2 read games/.test($('#group-sub').textContent));
+  check('a game not read yet is not said to be left out',
+    shown('group-unread') && /Gamma/.test($('#group-unread').textContent));
+  var firstSubject = function () { return $('#group-rows tr th').textContent; };
+  // Story is raised by 20% and 30% of the two games' reviews, performance by 27% and 12%.
+  check('each game does not weigh the same at first', firstSubject() === 'Story');
+  $('#group-weight input[value="every_review"]').click();
+  await pause();
+  // Added up, performance is raised by 4,600 of 20,000 reviews and story by 4,500.
+  check('counting every review the same does not let the larger game decide', firstSubject() === 'Performance');
+  check('a subject nobody raises is in the group', !/VR/.test($('#group-rows').textContent));
+  check('a subject does not say how many of the games raise it', /2 of 2/.test($('#group-rows').textContent));
+  check('a group\\'s figures do not fit their page', fits());
+  var disclosure = $('#group-rows tr th button');
+  disclosure.click();
+  await pause();
+  var perGame = document.querySelectorAll('#group-rows .per-game li');
+  check('a subject does not open on each game\\'s figures',
+    perGame.length === 2 && $('#group-rows tr th button').getAttribute('aria-expanded') === 'true');
+  $('#group-compare').click();
+  await pause(300);
+  check('a group\\'s read games cannot be compared from its page',
+    shown('compare') && document.querySelectorAll('#compare-head th.game-col').length === 2);
+  window.__stub.send('show', { page: 'group', group: 'Shooters' });
+  await pause(300);
+  document.querySelectorAll('#group-rows .per-game li')[1].querySelector('button').click();
+  await pause(300);
+  check('a game in a group does not open on its reviews of the subject', !shown('group') && last('claims_behind'));
+
   await go('settings');
   check('settings do not offer four shares of the card', document.querySelectorAll('#gpu-share input').length === 4);
   var checked = $('#gpu-share input:checked');
@@ -1086,6 +1131,14 @@ try {
       }
       await evaluate("document.getElementById('selected-compare').click()");
       await shoot(`compare-chosen-${scheme}`);
+      // A group of two read games and one not read yet, with one subject opened on its games.
+      await evaluate(
+        "window.__TAURI__.core.invoke('save_groups',{groups:{groups:[{name:'Rivals',app_ids:[1,2,3]}]}})" +
+          ".then(function(){window.__stub.send('show',{page:'group',group:'Rivals'})})",
+      );
+      await sleep(400);
+      await evaluate("document.querySelector('#group-rows tr th button').click()");
+      await shoot(`group-${scheme}`);
       // The cockpit's first card when nothing changed since the last look, and on a first look.
       await evaluate("document.querySelector('[data-go=\"cockpit\"]').click();window.__stub.lately('calm')");
       await shoot(`cockpit-since-calm-${scheme}`);

@@ -304,6 +304,13 @@ struct RemoveModel {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct OneGroup {
+    /// The group's name, as `groups` gives it.
+    name: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct SaveGroups {
     /// Every group, as `groups` gives them; a group left out is deleted.
     groups: cockpit::Groups,
@@ -331,6 +338,8 @@ enum Page {
     Game,
     /// Games side by side; needs `app_ids`.
     Compare,
+    /// What players say across one group of games; needs `group`.
+    Group,
     /// The reviews behind one subject of a read game; needs `app_id` and `subject`.
     Subject,
     /// A read game's claims that say something; needs `app_id` and `query`.
@@ -346,6 +355,8 @@ struct Show {
     app_id: Option<u32>,
     /// The games to compare.
     app_ids: Option<Vec<u32>>,
+    /// The group's name, as `groups` gives it.
+    group: Option<String>,
     /// The subject's id, as `reading` gives it.
     subject: Option<String>,
     /// "praise", "complaint" or "neutral", to open a subject on one side.
@@ -359,6 +370,7 @@ impl Show {
         match self.page {
             Page::Game | Page::Subject | Page::Search if self.app_id.is_none() => Some("app_id"),
             Page::Compare if self.app_ids.as_ref().is_none_or(Vec::is_empty) => Some("app_ids"),
+            Page::Group if self.group.is_none() => Some("group"),
             Page::Subject if self.subject.is_none() => Some("subject"),
             Page::Search if self.query.is_none() => Some("query"),
             _ => None,
@@ -565,6 +577,12 @@ fn entries() -> Vec<Entry> {
             Looks,
             "The groups the person sorts their games into.",
             |app, Nothing {}| off_thread(move || cockpit::groups(app)),
+        ),
+        tool(
+            "group_reading",
+            Looks,
+            "What players say across one group's read games: each subject's share of reviews and its praise and complaint, with every game counting the same and with every review counting the same, how many of the games raise it, which raises it most, and each game's own figures.",
+            |app, OneGroup { name }| cockpit::group_reading(app, name),
         ),
         tool(
             "save_groups",
@@ -1039,12 +1057,14 @@ mod tests {
             page,
             app_id: None,
             app_ids: None,
+            group: None,
             subject: None,
             side: None,
             query: None,
         };
         assert_eq!(show(Page::Game).missing(), Some("app_id"));
         assert_eq!(show(Page::Compare).missing(), Some("app_ids"));
+        assert_eq!(show(Page::Group).missing(), Some("group"));
         assert_eq!(show(Page::Library).missing(), None);
         let subject = Show {
             app_id: Some(10),

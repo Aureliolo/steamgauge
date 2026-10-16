@@ -378,6 +378,7 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
             "game_updates",
             "before_after",
             "compare",
+            "group_reading",
         ],
     ),
     (

@@ -28,6 +28,7 @@ import { startWork, onWork, jobsFor, jobItem, active, queue, drawBrief } from '.
 import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
+import { setUpGroup } from './group.js';
 import { setUpSettings } from './settings.js';
 import { setUpAssistants } from './assistants.js';
 import { setUpStorage } from './storage.js';
@@ -961,6 +962,7 @@ setUpWho({ openClaims, drawTimeline });
 setUpCockpit({ openGame, openSubject });
 setUpLibrary({ openGame, openFinder, compare: (appIds) => go('compare', appIds) });
 setUpCompare({ openGame });
+setUpGroup({ openGame, openSubject });
 setUpSettings();
 setUpAssistants();
 setUpStorage({ openGame });
@@ -1015,13 +1017,14 @@ listen('open-game', ({ payload }) => openGame(payload));
 
 /* A program steering the app through its MCP server asked to show the person a page. */
 listen('show', async ({ payload }) => {
-  const { page: name, app_id: appId, app_ids: appIds, subject, side, query } = payload;
+  const { page: name, app_id: appId, app_ids: appIds, group, subject, side, query } = payload;
   if (name === 'game') openGame(appId);
   else if (name === 'subject') openSubject(appId, subject, side ?? null);
   else if (name === 'search') {
     await openGame(appId);
     openSearch(query, 0);
   } else if (name === 'compare') go('compare', appIds);
+  else if (name === 'group') go('group', group);
   else if (name === 'finder') openFinder();
   else go(name);
 });

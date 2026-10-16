@@ -685,6 +685,70 @@ pub async fn compare(app: AppHandle, app_ids: Vec<u32>) -> Result<Vec<Compared>,
     .map_err(text)?
 }
 
+/// What players say across one group's read games, each subject counted both ways.
+#[derive(Debug, Clone, Serialize)]
+pub struct GroupReading {
+    pub name: String,
+    /// The read games, in the group's order, with no subjects: those are in `subjects`.
+    pub games: Vec<Compared>,
+    /// The group's games without a reading yet, which no figure includes.
+    pub unread: Vec<Named>,
+    pub subjects: Vec<steamgauge_core::group::Across>,
+}
+
+#[tauri::command]
+pub async fn group_reading(app: AppHandle, name: String) -> Result<GroupReading, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = library_dir(&app);
+        let group = Groups::load(&dir)
+            .groups
+            .into_iter()
+            .find(|group| group.name == name)
+            .ok_or_else(|| format!("no group is called {name}"))?;
+        let mut read = Vec::new();
+        let mut unread = Vec::new();
+        for app_id in group.app_ids {
+            let name = steamgauge_core::report::crawl_facts(&dir, app_id)
+                .map_or_else(|_| format!("App {app_id}"), |facts| facts.title());
+            let reading = steamgauge_core::embed::latest_snapshot(&dir, app_id)
+                .ok()
+                .and_then(|snapshot| read_report(&snapshot).ok());
+            match reading {
+                Some(reading) => read.push((name, reading)),
+                None => unread.push(Named { app_id, name }),
+            }
+        }
+        let counted: Vec<steamgauge_core::group::Counted> = read
+            .iter()
+            .map(|(_, reading)| steamgauge_core::group::Counted {
+                app_id: reading.app_id,
+                reviews: reading.reviews,
+                subjects: &reading.subjects,
+            })
+            .collect();
+        let subjects = steamgauge_core::group::across(&counted);
+        let games = read
+            .iter()
+            .map(|(name, reading)| Compared {
+                app_id: reading.app_id,
+                name: name.clone(),
+                reviews: reading.reviews,
+                language: reading.language.clone(),
+                recommended: share(reading.positive, reading.reviews),
+                subjects: Vec::new(),
+            })
+            .collect();
+        Ok(GroupReading {
+            name: group.name,
+            games,
+            unread,
+            subjects,
+        })
+    })
+    .await
+    .map_err(text)?
+}
+
 /// Asks where to save a report of these games, then puts writing it on the board.
 #[tauri::command]
 pub async fn export_report(app: AppHandle, app_ids: Vec<u32>) -> Result<Option<u64>, String> {

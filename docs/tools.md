@@ -102,6 +102,7 @@ Puts a page of the window in front of the person, bringing the window forward. O
 
 - `app_id`: The game, for a game's page, a subject or a search.
 - `app_ids`: The games to compare.
+- `group`: The group's name, as `groups` gives it.
 - `page`, required: Which page of the window to show.
   - `cockpit`: What moved, what is running and what needs a look.
   - `library`: Every game kept.
@@ -112,6 +113,7 @@ Puts a page of the window in front of the person, bringing the window forward. O
   - `about`: This copy's version and the newest release, with the button that asks for it.
   - `game`: One game's page; needs `app_id`.
   - `compare`: Games side by side; needs `app_ids`.
+  - `group`: What players say across one group of games; needs `group`.
   - `subject`: The reviews behind one subject of a read game; needs `app_id` and `subject`.
   - `search`: A read game's claims that say something; needs `app_id` and `query`.
 - `query`: The words to search a game for.
@@ -189,6 +191,14 @@ looks.
 Games side by side: each subject's figures for each. Only looks.
 
 - `app_ids`, required: Steam app ids.
+
+### `group_reading`
+
+What players say across one group's read games: each subject's share of reviews and its praise and
+complaint, with every game counting the same and with every review counting the same, how many of
+the games raise it, which raises it most, and each game's own figures. Only looks.
+
+- `name`, required: The group's name, as `groups` gives it.
 
 ## Search by meaning
 

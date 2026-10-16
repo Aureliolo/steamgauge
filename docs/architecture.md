@@ -84,6 +84,14 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
 The bar rises with how many shares a comparison tests, so that chance clears it on fewer than one
 game in thirty.
 
+- **A group's figures** (`group.rs`) count its read games two ways, and the window switches
+  between them. With **each game the same**, a subject's rate is the mean of the games' rates, its
+  interval comes from each game's sampling error (for these games, not games like them), and its
+  praise and complaint are the mean over games where at least 30 reviews raise it. With **every
+  review the same**, the counts are added and divided once, with Wilson's interval. Each subject
+  also says how many games raise it in at least one review in a hundred and which game raises it
+  most. A game not read yet enters no figure and is named as left out.
+
 ## The window
 
 - It opens on a **cockpit**: what moved since the last look, running work, the library, the

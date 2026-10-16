@@ -1344,6 +1344,7 @@ pub fn run() -> anyhow::Result<()> {
             cockpit::groups,
             cockpit::save_groups,
             cockpit::compare,
+            cockpit::group_reading,
             cockpit::export_report,
             cockpit::queue_reads,
             cockpit::queue_updates,
