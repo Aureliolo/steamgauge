@@ -383,7 +383,13 @@ const TOOL_GROUPS: &[(&str, &[&str])] = &[
     ),
     (
         "Search by meaning",
-        &["meaning_offer", "choose_meaning", "search_by_meaning"],
+        &[
+            "meaning_offer",
+            "choose_meaning",
+            "search_by_meaning",
+            "writer_offer",
+            "choose_writer",
+        ],
     ),
     (
         "Jobs",

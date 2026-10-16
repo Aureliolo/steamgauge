@@ -435,6 +435,11 @@
   let nextJob = 100;
   // What saving a game's data is refused with, or null where it is not.
   let refusal = null;
+  // Alpha's paragraph, or null where none is written for its themes.
+  let written =
+    'Players praise the sharp writing most, in 1,200 reviews. The clearest complaint is ' +
+    'stuttering in towns, which 700 reviews raise.';
+  let writing = false;
   const listeners = new Map();
   const calls = [];
 
@@ -454,8 +459,8 @@
       positive_baseline: game.read.recommended,
       model: 'intfloat/multilingual-e5-large-instruct',
       threshold: 0.37,
-      in_short: 'People mostly talk about performance and the story.',
       // Beta is not prepared for search by meaning, so its themes are still to find.
+      paragraph: appId === 1 ? written : null,
       themes: appId === 1 ? themes : null,
       swept_since: null,
       subjects: [
@@ -999,6 +1004,14 @@
       job: null,
       recommended: 'prepare',
     }),
+    writer_offer: () => ({
+      write: writing,
+      download_bytes: writing ? 0 : 2_664_279_746,
+      seconds: 60,
+    }),
+    choose_writer: ({ write }) => {
+      writing = write;
+    },
   };
 
   window.__TAURI__ = {
@@ -1043,6 +1056,11 @@
     },
     refuse: (why) => {
       refusal = why;
+    },
+    // Alpha's themes found again since its paragraph was written, announced as the job would.
+    unwritten: () => {
+      written = null;
+      send('library', 1);
     },
     // What GitHub names when Check for updates asks next: a version, or null for out of reach.
     github: (version) => {

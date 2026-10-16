@@ -62,6 +62,9 @@ language or all of them; the choice recounts from the same download.
   words or others. Each names how many reviews make it, quotes one, says which other subjects it
   comes up under, and opens onto its reviews. A point needs five reviews. They come with
   preparing a game for search by meaning.
+- **What stands out.** A paragraph at the top of a game's page, written from those points by
+  Qwen3-4B-Instruct-2507 on your computer, once you ask for it. A sentence giving a number or a
+  quotation the points do not give is left out.
 - **Words that stand out.** Each side of a subject lists the words its complaints use far more
   than its praise, and the reverse, each with how many reviewers used it. They are compared
   within each language, and every word opens onto the claims it was counted from.

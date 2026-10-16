@@ -226,6 +226,18 @@ best first. Only looks.
 - `app_id`, required: The game's Steam app id, which has to be prepared for search by meaning.
 - `query`, required: What to find claims meaning.
 
+### `writer_offer`
+
+Whether paragraphs are written when a game is prepared, and what the writer would take to fetch and
+to run on this machine. Only looks.
+
+### `choose_writer`
+
+Whether preparing a game for search by meaning also writes a paragraph of what stands out in what
+its players say, from its themes, with a model on this machine.
+
+- `write`, required: Whether preparing a game also writes its paragraph.
+
 ## Jobs
 
 ### `work`

@@ -12,7 +12,8 @@ locale = "en-gb"
 # LayerNormalization; the Model Context Protocol's `initialize` handshake and rmcp's name for it;
 # PowerShell's -PassThru switch; the winget manifest's UpgradeBehavior field;
 # a game's name; a partial word typed into a filter under test; hexadecimal
-# digests and Unicode escapes, which are not words; a licence quoted word for word; and the
+# digests and Unicode escapes, which are not words; a licence quoted word for word; the American
+# spellings the writer's paragraph is turned out of, and the test of it; and the
 # review text the splitter and the term lists are tested and built on, which is in the languages
 # and the spellings reviewers write in.
 extend-ignore-re = [
@@ -52,6 +53,8 @@ extend-ignore-re = [
   '\b[0-9a-f]*[0-9][0-9a-f]*\b',
   '\\u\{[0-9A-Fa-f]+\}',
   '(?s)const FILLER: &str = ".*?";',
+  '(?s)const SPELLINGS: .*?\];',
+  '(?s)fn the_paragraph_is_spelt_as_the_page_is_and_a_quotation_as_its_reviewer_wrote_it\(\).*?\n    \}',
   '"(?:performans|erros|trama|som|commandes|controles|tutoriel|tutoriales)"',
   'Stunden bis zum Ende der Kampagne',
   # Developers' post titles quoted as Steam lists them, in their spelling.

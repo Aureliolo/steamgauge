@@ -39,9 +39,8 @@ python train.py --backbone intfloat/multilingual-e5-large --context --epochs 5 \
     --learning-rate 2e-5 --run-id <id> --save
 python sweep.py --against win-128                        # every run ranked, with the noise beside it
 python export.py --run runs/<id> --categories <fingerprint> --fp16   # ONNX, with a parity assertion
-python publish.py --run runs/<id> \
-    --model-repo <you>/game-review-reader \
-    --data-repo <you>/game-review-claims                 # to Hugging Face, and pinned in the tool
+python publish.py --owner <you> --tag v<n> \
+    --reviews <export-review-facts output>               # to Hugging Face, and pinned in the tool
 ```
 
 `--context` is what ships: the model reads a claim inside a window of its review centred on it,
@@ -87,6 +86,11 @@ Publishing pins the three model files by hash in `crates/steamgauge-core/src/rea
 tool fetches exactly what went up and refuses anything else. Rebuild and commit after it runs.
 Until something is published the pin is empty, and an empty pin refuses to fetch rather than
 fetching unverified.
+
+The search models and the writer are Qwen's, exported rather than trained: `export_search.py`
+and `uv run export_writer.py --to <model cache>` write them, the tool pins their hashes, and
+`publish.py` puts up only the bytes it pins. `--only <repository>` publishes one repository
+alone, as a new one goes up at `v1` while the rest stay at their tags.
 
 What training fetches is pinned the same way. Every backbone is named in `backbones.py` with the
 commit it is read at and whether its own code may run, every script loads through it, and a

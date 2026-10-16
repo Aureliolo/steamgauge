@@ -416,11 +416,7 @@ function drawTopics(found) {
   readLanguage = found.language;
   set(el('switch-language'), found.language ? 'Count every language instead' : 'Count only English reviews instead');
 
-  /* The paragraph is assembled by the core from the same counts the table shows, so the
-     window only decides whether there is one to show. */
-  const summary = el('in-short');
-  summary.hidden = found.in_short === '';
-  set(summary, found.in_short);
+  drawParagraph(found);
   drawSaidMost(found);
 
   const swept = el('swept-caveat');
@@ -565,6 +561,47 @@ function drawTopics(found) {
     });
     rows.append(row);
   }
+}
+
+/* What stands out, as the writer put it from the game's themes, or the way to have it written
+   where the themes are found and it is not. An empty paragraph is one the check left nothing
+   of, which is not offered again for the same themes. */
+function drawParagraph(found) {
+  const written = found.paragraph ?? '';
+  set(el('in-short'), written);
+  el('in-short').hidden = written === '';
+  el('in-short-note').hidden = written === '';
+  el('write-offer').hidden = true;
+  if (found.themes !== null && found.paragraph === null) drawWriteOffer(found.app_id);
+}
+
+async function drawWriteOffer(appId) {
+  let offer;
+  try {
+    offer = await invoke('writer_offer');
+  } catch {
+    return;
+  }
+  if (appId !== chosen) return;
+  if (jobsFor(appId).some((job) => active(job) && job.task.kind === 'prepare')) return;
+  const where = "on this computer's processor";
+  const download = offer.download_bytes > 0 ? `, after a ${size(offer.download_bytes)} download, once` : '';
+  set(
+    el('write-offer-note'),
+    offer.write
+      ? `No paragraph has been written for these points yet: ${roughly(offer.seconds)} ${where}${download}.`
+      : `A language model on this computer can write a paragraph of what stands out in these points, ` +
+          `${roughly(offer.seconds)} a game ${where}${download}. Every number and quotation ` +
+          'in it is checked against the points, and a sentence with any other is left out.',
+  );
+  const write = el('write-it');
+  set(write, offer.write ? 'Write it' : 'Write it, here and for every game I prepare');
+  write.onclick = async () => {
+    el('write-offer').hidden = true;
+    if (!offer.write) await invoke('choose_writer', { write: true });
+    queue({ kind: 'prepare', app_id: appId });
+  };
+  el('write-offer').hidden = false;
 }
 
 /* Enough of each side to see what stands out; the rest is one click further. */

@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use steamgauge_core::{embed, reader, search_models, state::CrawlState};
+use steamgauge_core::{embed, reader, search_models, state::CrawlState, writer};
 use tauri::AppHandle;
 
 use super::{
@@ -213,7 +213,7 @@ pub struct Storage {
 }
 
 /// The models a computer can hold, each with the folder it lives in.
-fn models(cache: &Path, reader_in_use: &str) -> Vec<(ModelRoom, PathBuf)> {
+fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, PathBuf)> {
     let mut found: Vec<(ModelRoom, PathBuf)> = reader::SIZES
         .iter()
         .map(|size| {
@@ -246,6 +246,17 @@ fn models(cache: &Path, reader_in_use: &str) -> Vec<(ModelRoom, PathBuf)> {
             home,
         ));
     }
+    let home = writer::WRITER.dir(cache);
+    found.push((
+        ModelRoom {
+            name: "SteamGauge writer".to_owned(),
+            key: writer::WRITER.name,
+            role: "writes what stands out",
+            bytes: bytes_under(&home),
+            used: writing,
+        },
+        home,
+    ));
     found
 }
 
@@ -326,7 +337,7 @@ fn measure(app: &AppHandle) -> Storage {
         drives: drives(&library, &cache),
         parts,
         games,
-        model_rooms: models(&cache, reader_in_use)
+        model_rooms: models(&cache, reader_in_use, writer::Choice::load(&library).write)
             .into_iter()
             .map(|(room, _)| room)
             .collect(),
@@ -500,12 +511,19 @@ pub async fn remove_model(
     }
     let cache = steamgauge_core::model::default_cache_dir();
     let reader_in_use = super::work::reader_here(&super::settings::Settings::load(&app)).name;
-    let Some((_, home)) = models(&cache, reader_in_use)
+    let library = library_dir(&app);
+    let Some((_, home)) = models(&cache, reader_in_use, false)
         .into_iter()
         .find(|(room, _)| room.key == key)
     else {
         return Err(format!("No model is called {key}."));
     };
+    // Still asked for, the writer would be fetched again by the next game prepared.
+    if key == writer::WRITER.name {
+        writer::Choice { write: false }
+            .save(&library)
+            .map_err(text)?;
+    }
     // Only ever a folder inside the cache, whatever a reader size's home says: a model being
     // tried from a working tree is not the app's to delete.
     if !home.starts_with(&cache) {

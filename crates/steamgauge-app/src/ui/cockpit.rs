@@ -51,7 +51,11 @@ fn published() -> Vec<&'static str> {
     steamgauge_core::reader::SIZES
         .iter()
         .map(|size| size.published.repository)
-        .chain([ENCODER.repository, RERANKER.repository])
+        .chain([
+            ENCODER.repository,
+            RERANKER.repository,
+            steamgauge_core::writer::WRITER.repository,
+        ])
         .filter(|repository| !repository.is_empty())
         .collect()
 }
@@ -418,6 +422,16 @@ fn machine(app: &AppHandle) -> Machine {
             used: true,
         }),
     );
+    let writer = steamgauge_core::writer::WRITER;
+    models.push(ModelState {
+        name: "SteamGauge writer".to_owned(),
+        role: "writes what stands out about a game",
+        here: writer.fetched(&cache),
+        bytes_left: writer.bytes_left(&cache),
+        release: release(writer.release),
+        newer: releases.newer(writer.repository, writer.release),
+        used: steamgauge_core::writer::Choice::load(&library_dir(app)).write,
+    });
     Machine {
         card: steamgauge_core::card::name(),
         card_bytes: card.map(|card| card.bytes),

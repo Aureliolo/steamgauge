@@ -84,6 +84,8 @@ BACKBONES: dict[str, Backbone] = {
     "Qwen/Qwen3-Embedding-0.6B": Backbone("97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"),
     "Qwen/Qwen3-Reranker-0.6B": Backbone("e61197ed45024b0ed8a2d74b80b4d909f1255473"),
     "microsoft/harrier-oss-v1-0.6b": Backbone("f9b9dc8d367d443f2479d27aa5d8d2850c0774ee"),
+    # The writer, exported by export_writer.py at this commit.
+    "Qwen/Qwen3-4B-Instruct-2507": Backbone("cdbee75f17c01a7cc42f958dc650907174af0554"),
 }
 
 # What `load` decides and a caller may not.
@@ -135,6 +137,20 @@ def load(loader, name: str | Path, **options):
     if isinstance(getattr(loaded, "init_kwargs", None), dict):
         loaded.init_kwargs.pop("code_revision", None)
     return loaded
+
+
+def snapshot(name: str) -> Path:
+    """The files of a pinned backbone at its commit, as a directory, for a tool that reads a
+    model's files itself rather than through transformers."""
+    if Path(name).is_dir():
+        return Path(name)
+    backbone = BACKBONES.get(name)
+    if backbone is None or backbone.remote_code:
+        pinning(name)
+        raise UnpinnedBackbone(f"{name!r} runs code of its own; load it through `load`")
+    from huggingface_hub import snapshot_download
+
+    return Path(snapshot_download(name, revision=backbone.revision))
 
 
 def shape(name: str | Path, **options):

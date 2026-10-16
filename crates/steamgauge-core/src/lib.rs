@@ -24,7 +24,6 @@ pub mod measure;
 pub mod model;
 pub mod moves;
 pub mod newer_version;
-pub mod picture;
 pub mod query;
 pub mod rare_subjects;
 pub mod read;
@@ -53,6 +52,7 @@ pub mod time;
 mod tiny_model;
 pub mod updates;
 pub mod who;
+pub mod writer;
 
 pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;

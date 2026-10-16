@@ -188,6 +188,9 @@ pub struct AppReport {
     /// The particular things praised and complained about, where they were found for this
     /// reading.
     pub themes: Option<crate::themes::Themes>,
+    /// What stands out, as the writer put it from those themes, where it wrote anything they
+    /// bear out.
+    pub paragraph: Option<String>,
 }
 
 /// One induced subject with the reviews that earned it, fetched so the page can quote them.
@@ -562,6 +565,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         induced,
         updates,
         themes: crate::themes::Themes::load(&snapshot),
+        paragraph: crate::writer::Paragraph::shown(&snapshot),
     })
 }
 
@@ -872,6 +876,7 @@ mod tests {
             induced: Vec::new(),
             updates: crate::before_after::Updates::default(),
             themes: None,
+            paragraph: None,
         }
     }
 

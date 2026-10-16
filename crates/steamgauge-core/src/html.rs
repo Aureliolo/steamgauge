@@ -507,7 +507,7 @@ fn game(out: &mut String, app: &AppReport, several: bool) {
     let _ = writeln!(out, "<h2>{}</h2>", escape(&app.crawl.title()));
     facts(out, app);
     headline(out, app);
-    in_short(out, app);
+    paragraph(out, app);
     said_most(out, app);
     over_time(out, app);
     updates(out, app);
@@ -707,15 +707,18 @@ fn said_item(out: &mut String, one: &crate::themes::Ranked<'_>, reviews: u64) {
     out.push_str("</li>\n");
 }
 
-/// The game in a paragraph, for the reader who will not read the table. Every clause is a
-/// count from the reading with words around it, and it is drawn from the same figures the
-/// table shows, so the two cannot disagree.
-fn in_short(out: &mut String, app: &AppReport) {
-    let text = crate::picture::in_short(&app.reading);
-    if text.is_empty() {
+/// What stands out, for the reader who will not read the points, with what it was written by
+/// and from said beside it.
+fn paragraph(out: &mut String, app: &AppReport) {
+    let Some(text) = &app.paragraph else {
         return;
-    }
-    let _ = writeln!(out, "<p class=\"in-short\">{}</p>", escape(&text));
+    };
+    let _ = writeln!(out, "<p class=\"in-short\">{}</p>", escape(text));
+    out.push_str(
+        "<p class=\"note\">Written by a language model on the computer that made this page, \
+         from the points below. Every number and quotation in it is one those points give; a \
+         sentence with any other was left out.</p>\n",
+    );
 }
 
 /// The month the line falls furthest, as a sentence rather than as a shape to point at.
@@ -2682,6 +2685,7 @@ mod tests {
                 induced: Vec::new(),
                 updates: crate::before_after::Updates::default(),
                 themes: None,
+                paragraph: None,
             }],
         }
     }
@@ -3429,6 +3433,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_written_paragraph_is_shown_with_what_wrote_it_and_none_is_no_note() {
+        let mut report = sample_report("ordinary text");
+        report.apps[0].paragraph = Some("Players praise the <b>patches</b>.".to_owned());
+        let page = render(&report);
+        assert!(
+            page.contains(
+                "<p class=\"in-short\">Players praise the &lt;b&gt;patches&lt;/b&gt;.</p>"
+            ),
+            "{page}"
+        );
+        assert!(page.contains("Written by a language model"), "{page}");
+
+        let without = render(&sample_report("ordinary text"));
+        assert!(!without.contains("class=\"in-short\""));
+        assert!(!without.contains("Written by a language model"));
+    }
+
     fn two_games() -> Report {
         let mut report = sample_report("ordinary text");
         let mut second = report.apps[0].clone();
@@ -4022,11 +4044,8 @@ mod tests {
             "the term is missing its count"
         );
         // The praise side has no quoted evidence in this report, and a list of words under a
-        // heading that is not there would be a finding with nothing to open. The paragraph at
-        // the top still quotes it, because the paragraph is about the counts, not the quotes.
+        // heading that is not there would be a finding with nothing to open.
         assert!(!page.contains("<span class=\"term\">patched quickly"));
-        assert!(page.contains("the praise says \u{201c}patched quickly\u{201d}"));
-        assert!(page.contains("Bugs and crashes divides opinion"));
     }
 
     /// The declarations inside a block, given the text that opens it.

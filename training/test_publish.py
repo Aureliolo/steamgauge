@@ -47,6 +47,21 @@ def test_the_search_pins_are_read_from_the_tool_itself():
     assert all(len(digest) == 64 for digest in pins.values())
 
 
+def test_the_writer_is_pinned_and_read_from_the_tool_itself():
+    source = publish.WRITER_RS.read_text(encoding="utf-8")
+    _, repo, constant, base = publish.WRITER
+    pins = publish.pins_in(source, constant)
+    assert set(pins) == set(publish.WRITER_FILES)
+    assert all(len(digest) == 64 for digest in pins.values())
+    release = (f"someone/{repo}", COMMIT, "v7")
+    writer = publish.pin_search(source, constant, release).split(f"pub const {constant}")[1]
+    for value in release:
+        assert f'"{value}"' in writer.split("assets:")[0]
+    card = publish.writer_card(base)
+    assert f"base_model: {base}" in card
+    assert "36 layers" in card
+
+
 def test_only_the_named_fields_are_published():
     publish.checked([{"review_id": "1", "subject": "bugs"}], publish.LABEL_FIELDS, "labels")
     for leak in ("text", "review", "author_steamid", "author", "splitter"):

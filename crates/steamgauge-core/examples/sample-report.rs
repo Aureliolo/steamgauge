@@ -258,8 +258,14 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         // An unmeasured game was not prepared for search by meaning either, so the page is
         // driven both with the section and without it.
         themes: measured.then(themes),
+        paragraph: measured.then(|| PARAGRAPH.to_owned()),
     }
 }
+
+/// A measured game's paragraph, as the writer puts what its themes say.
+const PARAGRAPH: &str = "Players love mixing two factions every run, which 410 reviews praise, \
+     and many find the combat tight. The clearest complaint is a black screen on startup, raised \
+     in 48 reviews and tied to performance as well. Others say it \"stutters in big fights\".";
 
 /// Every subject counted over one game.
 fn subjects(app_id: u32, reviews: u64) -> Vec<SubjectCount> {
