@@ -9,6 +9,7 @@ import {
   make,
   whole,
   share,
+  tenth,
   day,
   nothing,
   size,
@@ -403,7 +404,7 @@ function drawTopics(found) {
   }
   parts.push(`${whole.format(found.claims)} separate points`);
   if (found.positive_baseline !== null) {
-    parts.push(`${share.format(found.positive_baseline)} recommending the game`);
+    parts.push(`${tenth.format(found.positive_baseline)} recommending the game`);
   }
   set(el('topics-counted'), `${parts.join(', ')}. `);
 
