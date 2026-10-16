@@ -12,6 +12,25 @@ use tauri::{AppHandle, Manager};
 /// The shares of the graphics card a person can give the app's reading and preparing.
 pub const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
 
+/// How often, in hours, a person can have the open app ask Steam about the library: an hour is
+/// the least, since each time is a request per game.
+pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
+
+/// How many new reviews on Steam bring a game up to date by itself. An update reads the whole
+/// game again, so waiting spares the graphics card a read of a large game for a handful.
+#[derive(
+    Debug, Clone, Copy, Default, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateWhen {
+    /// Any review Steam has that the library does not.
+    AnyNew,
+    /// A hundredth more than the library holds; a game of fewer than a hundred reviews is kept up
+    /// to date review by review.
+    #[default]
+    Hundredth,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq)]
 #[serde(default)]
 #[expect(
@@ -28,9 +47,14 @@ pub struct Settings {
     pub language: Option<String>,
     /// Whether the app asks Steam how many reviews each game has now, on opening and while open.
     pub check_steam: bool,
+    /// How many hours Steam's counts are taken as current before the app asks again, one of
+    /// [`CHECK_HOURS`].
+    pub check_every_hours: u32,
     /// Whether a game Steam has enough new reviews for is brought up to date and read again by
     /// itself while the app is open.
     pub keep_up_to_date: bool,
+    /// How many new reviews are enough.
+    pub update_when: UpdateWhen,
     /// Whether an update the app made by itself that finds a subject moved says so in a desktop
     /// notification.
     pub notify_moves: bool,
@@ -55,7 +79,9 @@ impl Default for Settings {
             reader: None,
             language: Some("english".to_owned()),
             check_steam: true,
+            check_every_hours: 6,
             keep_up_to_date: true,
+            update_when: UpdateWhen::Hundredth,
             notify_moves: false,
             read_after_download: true,
             check_newer_version: true,
@@ -96,6 +122,9 @@ impl Settings {
         self.reader = self
             .reader
             .filter(|name| steamgauge_core::reader::Size::named(name).is_some());
+        if !CHECK_HOURS.contains(&self.check_every_hours) {
+            self.check_every_hours = Self::default().check_every_hours;
+        }
         // The ports below 1024 are the system's to give out.
         if self.http_port < 1024 {
             self.http_port = HTTP_PORT;
@@ -126,6 +155,7 @@ pub struct Shown {
     pub settings: Settings,
     pub search_every_game: bool,
     pub shares: [f64; 4],
+    pub check_hours: [u32; 4],
     /// Where the library is, so a person knows where the gigabytes went.
     pub library: String,
     /// The MCP clients on this computer and whether each starts this copy.
@@ -214,6 +244,7 @@ pub fn settings(app: AppHandle) -> Shown {
         settings: Settings::load(&app),
         search_every_game: steamgauge_core::meaning::Choice::load(&library).every_game,
         shares: SHARES,
+        check_hours: CHECK_HOURS,
         library: library.display().to_string(),
         clients: clients_here(),
         mcp_command: crate::clients::Launch::this_copy()
@@ -357,6 +388,8 @@ mod tests {
         assert!(loaded.check_newer_version);
         assert!(loaded.check_steam);
         assert!(loaded.keep_up_to_date);
+        assert_eq!(loaded.check_every_hours, 6);
+        assert_eq!(loaded.update_when, UpdateWhen::Hundredth);
         assert!(
             !loaded.notify_moves,
             "a notification is something a person asks for"
@@ -381,6 +414,23 @@ mod tests {
         assert_eq!(checked(80), HTTP_PORT);
         assert_eq!(checked(0), HTTP_PORT);
         assert_eq!(checked(52_000), 52_000);
+    }
+
+    #[test]
+    fn a_wait_between_asking_steam_that_is_not_offered_is_the_default() {
+        let checked = |check_every_hours| {
+            Settings {
+                check_every_hours,
+                ..Settings::default()
+            }
+            .checked()
+            .check_every_hours
+        };
+        assert_eq!(checked(0), 6, "asking Steam without a pause is not offered");
+        assert_eq!(checked(5), 6);
+        for offered in CHECK_HOURS {
+            assert_eq!(checked(offered), offered);
+        }
     }
 
     #[test]

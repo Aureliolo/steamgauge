@@ -9,7 +9,11 @@ use std::{collections::HashMap, path::Path};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use super::{library_dir, read_report, settings::Settings, text, work};
+use super::{
+    library_dir, read_report,
+    settings::{Settings, UpdateWhen},
+    text, work,
+};
 
 /// How many reviews Steam had for each game when the library was last checked against it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -546,11 +550,9 @@ pub async fn overview(app: AppHandle) -> Result<Overview, String> {
         .map_err(text)
 }
 
-/// How long the library's counts from Steam are taken as current before the app asks again.
-const CHECK_EVERY: i64 = 6 * 60 * 60;
-
-/// How often the open app looks at whether the counts have aged past [`CHECK_EVERY`]. Asking
-/// whether is a read of two small files; asking Steam is what the six hours are for.
+/// How often the open app looks at whether the counts have aged past the hours chosen in
+/// Settings. Asking whether is a read of two small files; asking Steam is what the hours are for.
+/// The loop runs in the app rather than the window, so a minimised window keeps it going.
 pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 
 /// Asks Steam about the library, on opening and while the app stays open, where the person
@@ -558,8 +560,10 @@ pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins
 /// the person's work.
 pub fn check_when_due(app: &AppHandle) {
     let dir = library_dir(app);
-    if Settings::load(app).check_steam
-        && super::now_unix() - SteamTotals::load(&dir).checked > CHECK_EVERY
+    let settings = Settings::load(app);
+    if settings.check_steam
+        && super::now_unix() - SteamTotals::load(&dir).checked
+            > i64::from(settings.check_every_hours) * 60 * 60
         && !super::shelf(&dir).games.is_empty()
     {
         app.state::<work::Work>()
@@ -568,12 +572,14 @@ pub fn check_when_due(app: &AppHandle) {
 }
 
 /// Whether a game Steam has `new` reviews for that the library does not is brought up to date by
-/// itself, given the `held` reviews the library has of it. An update reads the whole game again,
-/// so it waits until Steam has a hundredth more than the library holds: the card is never spent
-/// re-reading a game for less than a hundredth of it, and a small game, cheap to read, is kept
-/// up to date review by review.
-pub(super) fn due(held: u64, new: u64) -> bool {
-    new > 0 && new >= held / 100
+/// itself, given the `held` reviews the library has of it and how many new ones the person
+/// asked to wait for.
+pub(super) fn due(held: u64, new: u64, when: UpdateWhen) -> bool {
+    new > 0
+        && match when {
+            UpdateWhen::AnyNew => true,
+            UpdateWhen::Hundredth => new >= held / 100,
+        }
 }
 
 /// Brings every game with enough new reviews on Steam up to date as work of the app's own, from
@@ -592,7 +598,7 @@ pub fn keep_up_to_date(app: &AppHandle) {
             .games
             .get(&game.app_id)
             .map_or(0, |now| now.saturating_sub(game.valve_total));
-        if due(game.reviews, new) {
+        if due(game.reviews, new, settings.update_when) {
             work.queue_background(
                 app,
                 work::Task::Update {
@@ -853,6 +859,7 @@ mod tests {
 
     #[test]
     fn a_game_is_brought_up_to_date_once_steam_has_a_hundredth_more() {
+        let due = |held, new| due(held, new, UpdateWhen::Hundredth);
         assert!(!due(0, 0));
         assert!(!due(50_000, 0));
         assert!(due(0, 1));
@@ -863,6 +870,12 @@ mod tests {
         assert!(!due(50_000, 499));
         assert!(due(50_000, 500));
         assert!(due(50_000, 4_000));
+    }
+
+    #[test]
+    fn asked_to_take_any_new_review_a_game_is_brought_up_to_date_for_one() {
+        assert!(due(50_000, 1, UpdateWhen::AnyNew));
+        assert!(!due(50_000, 0, UpdateWhen::AnyNew));
     }
 
     #[test]

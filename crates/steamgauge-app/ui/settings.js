@@ -12,6 +12,8 @@ const SIZE_TEXT = {
   standard: ['Standard reader', 'The most accurate.'],
 };
 
+const EVERY = { 1: 'Every hour', 6: 'Every six hours', 24: 'Once a day', 168: 'Once a week' };
+
 /* Card memory is sold in binary gigabytes: a 24 GB card reports 25.8 decimal ones. */
 const gib = (bytes) => `${Math.round(bytes / 2 ** 30)} GB`;
 
@@ -95,9 +97,20 @@ export function setUpSettings() {
     el('read-after-download').checked = shown.read_after_download;
     el('search-every-game').checked = shown.search_every_game;
     el('check-steam').checked = shown.check_steam;
+    el('check-every').replaceChildren(
+      ...shown.check_hours.map((hours) => {
+        const option = make('option', null, EVERY[hours] ?? `Every ${hours} hours`);
+        option.value = String(hours);
+        return option;
+      }),
+    );
+    el('check-every').value = String(shown.check_every_hours);
     el('keep-up-to-date').checked = shown.keep_up_to_date;
+    el('update-when').value = shown.update_when;
     /* Without Steam's counts there is nothing to tell which games have new reviews. */
+    el('check-every').disabled = !shown.check_steam;
     el('keep-up-to-date').disabled = !shown.check_steam;
+    el('update-when').disabled = !(shown.check_steam && shown.keep_up_to_date);
     el('notify-moves').checked = shown.notify_moves;
     el('check-newer-version').checked = shown.check_newer_version;
   }
@@ -112,7 +125,9 @@ export function setUpSettings() {
       reader: reader === options.recommended ? null : reader,
       language: el('first-language').value || null,
       check_steam: el('check-steam').checked,
+      check_every_hours: Number(el('check-every').value) || shown.check_every_hours,
       keep_up_to_date: el('keep-up-to-date').checked,
+      update_when: el('update-when').value,
       notify_moves: el('notify-moves').checked,
       read_after_download: el('read-after-download').checked,
       check_newer_version: el('check-newer-version').checked,
