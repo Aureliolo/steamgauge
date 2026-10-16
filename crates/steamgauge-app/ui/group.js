@@ -2,7 +2,20 @@
    complaint over the group's read games, counted with each game weighing the same or with every
    review weighing the same, and each game's own figures a click away. */
 
-import { invoke, el, set, make, button, roundShare, whole, nothing, language, page, go } from './common.js';
+import {
+  invoke,
+  el,
+  set,
+  make,
+  button,
+  roundShare,
+  whole,
+  language,
+  page,
+  go,
+  ENOUGH_TO_LEAN,
+  thin,
+} from './common.js';
 
 let name = null;
 let found = null;
@@ -25,10 +38,16 @@ export function setUpGroup({ openSubject }) {
         name = chosen;
         open.clear();
       }
+      el('group-thin').checked = thin.shown;
       load();
     },
     'library',
   );
+
+  el('group-thin').addEventListener('change', () => {
+    thin.shown = el('group-thin').checked;
+    draw();
+  });
 
   el('group-weight').addEventListener('change', (event) => {
     weight = event.target.value;
@@ -96,6 +115,7 @@ export function setUpGroup({ openSubject }) {
     toggle.setAttribute('aria-controls', detail);
 
     const most = subject.most === null ? null : names.get(subject.most);
+    const split = leaning(subject);
     const row = make(
       'tr',
       null,
@@ -104,10 +124,10 @@ export function setUpGroup({ openSubject }) {
         'td',
         'cell',
         make('span', 'rate', roundShare.format(figures.rate)),
-        bar(figures, widest),
+        bar(figures, split, widest),
         make('small', null, `${roundShare.format(figures.low)} to ${roundShare.format(figures.high)}`),
       ),
-      make('td', 'cell', lean(figures)),
+      make('td', 'cell', lean(split)),
       make(
         'td',
         'cell',
@@ -130,9 +150,11 @@ export function setUpGroup({ openSubject }) {
             'small',
             null,
             `${whole.format(game.raised)} of ${whole.format(game.reviews)} reviews` +
-              (game.praising === null
+              (game.raised === 0
                 ? ''
-                : `, ${roundShare.format(game.praising)} praise, ${roundShare.format(game.complaining)} complain`),
+                : game.raised >= ENOUGH_TO_LEAN || thin.shown
+                  ? `, ${roundShare.format(game.praising)} praise, ${roundShare.format(game.complaining)} complain`
+                  : ', too few to split'),
           ),
         ),
       ),
@@ -145,42 +167,64 @@ export function setUpGroup({ openSubject }) {
   }
 }
 
+const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+/* How the reviews raising a subject split, by the weighting shown, or null below the floor. Asked
+   to show thin splits, each game's mean takes every game raising the subject at all, where the
+   core's takes only those with enough. */
+function leaning(subject) {
+  const figures = subject[weight];
+  const raised = subject.games.reduce((sum, game) => sum + game.raised, 0);
+  if (weight === 'every_review') {
+    if (raised === 0 || (raised < ENOUGH_TO_LEAN && !thin.shown)) return { withheld: raised };
+    return { ...figures, note: raised < ENOUGH_TO_LEAN ? `from ${whole.format(raised)} reviews` : null };
+  }
+  if (!thin.shown) return figures.praising === null ? { withheld: raised } : figures;
+  const some = subject.games.filter((game) => game.raised > 0);
+  if (some.length === 0) return { withheld: 0 };
+  return {
+    praising: mean(some.map((game) => game.praising)),
+    complaining: mean(some.map((game) => game.complaining)),
+    mixed: mean(some.map((game) => game.mixed)),
+    note: some.some((game) => game.raised < ENOUGH_TO_LEAN)
+      ? `counting games with fewer than ${ENOUGH_TO_LEAN} reviews raising it`
+      : null,
+  };
+}
+
 /* The share as a bar against the widest interval on the page, coloured by how the reviews raising
    it lean, with the interval drawn across it. */
-function bar(figures, widest) {
+function bar(figures, split, widest) {
   const track = make('span', 'interval-track');
-  const split = make('span', 'split');
-  split.style.width = `${(100 * figures.rate) / widest}%`;
-  if (figures.praising !== null) {
-    const mixed = figures.mixed ?? 0;
+  const share = make('span', split.withheld === undefined ? 'split' : 'split plain');
+  share.style.width = `${(100 * figures.rate) / widest}%`;
+  if (split.withheld === undefined) {
+    const mixed = split.mixed ?? 0;
     for (const [side, part] of [
-      ['praise', figures.praising - mixed],
+      ['praise', split.praising - mixed],
       ['mixed', mixed],
-      ['complaint', figures.complaining - mixed],
+      ['complaint', split.complaining - mixed],
     ]) {
       const piece = make('i', side);
       piece.style.width = `${100 * Math.max(part, 0)}%`;
-      split.append(piece);
+      share.append(piece);
     }
   }
   const interval = make('span', 'interval');
   interval.style.left = `${(100 * figures.low) / widest}%`;
   interval.style.width = `${(100 * (figures.high - figures.low)) / widest}%`;
-  track.append(split, interval);
+  track.append(share, interval);
   return track;
 }
 
-function lean(figures) {
-  if (figures.praising === null) {
-    const none = make('span', 'faint', nothing);
-    none.title = 'No game has enough reviews raising it to say which way they lean.';
-    return none;
-  }
+function lean(split) {
+  if (split.withheld !== undefined) return make('small', null, 'Too few reviews to split');
   return make(
     'span',
     null,
-    make('span', 'praise-text', `${roundShare.format(figures.praising)} praise`),
+    make('span', 'praise-text', `${roundShare.format(split.praising)} praise`),
     ', ',
-    make('span', 'complaint-text', `${roundShare.format(figures.complaining)} complain`),
+    make('span', 'complaint-text', `${roundShare.format(split.complaining)} complain`),
+    split.note ? make('small', null, split.note) : null,
   );
 }

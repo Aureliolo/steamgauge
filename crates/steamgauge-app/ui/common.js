@@ -25,6 +25,15 @@ export const when = new Intl.DateTimeFormat(LOCALE, {
 // A cell with no number behind it, drawn as the report draws one.
 export const nothing = '–';
 
+/* Below this many reviews raising a subject, how they split between praise and complaint is a
+   handful of opinions, so it is withheld unless the person asks for it. The core's
+   `ENOUGH_FOR_A_RATE`. */
+export const ENOUGH_TO_LEAN = 30;
+
+/* Whether the person asked to see splits below the floor: one choice for every page that offers
+   it, so turning it on in one does not leave another saying something else. */
+export const thin = { shown: false };
+
 export function set(node, text) {
   node.textContent = text;
 }

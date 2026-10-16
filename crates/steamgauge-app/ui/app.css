@@ -1894,6 +1894,10 @@ label.choice {
 }
 
 .group-tools {
+  flex-wrap: wrap;
+}
+
+.group-tools form {
   flex-wrap: nowrap;
 }
 
@@ -3133,6 +3137,19 @@ table.compared td small {
   background: var(--bad);
 }
 
+/* A share whose split is withheld: the length still counts, the colours would not. */
+.split.plain {
+  background: var(--ink-3);
+}
+
+.thin-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+}
+
 .compare .footnote,
 .group .footnote {
   margin-top: var(--s4);
@@ -3225,13 +3242,11 @@ table.across td small {
   color: var(--bad);
 }
 
-.games-row > td {
-  background: var(--sunken);
-}
-
 .per-game {
   display: grid;
   gap: var(--s2);
+  padding-left: var(--s4);
+  border-left: 2px solid var(--line);
   list-style: none;
 }
 

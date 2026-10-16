@@ -671,6 +671,10 @@
               <p id="compare-sub"></p>
             </div>
             <div class="row">
+              <label class="thin-switch" for="compare-thin">
+                Show splits from fewer than 30 reviews
+                <input type="checkbox" class="switch" id="compare-thin" />
+              </label>
               <label class="sr" for="compare-add">Add a game to the comparison</label>
               <select id="compare-add"></select>
               <button type="button" class="quiet-button" id="compare-export">Save as a report</button>
@@ -694,7 +698,8 @@
           <p class="footnote" id="compare-legend" hidden>
             Each bar is the share of that game's reviews raising the subject, against the widest
             in the table. Its colours are the reviews that praise it, that do both, and that
-            complain, in that order.
+            complain, in that order. Where fewer than 30 reviews raise a subject, the split is
+            left out unless you ask for it above.
           </p>
         </section>
 
@@ -705,6 +710,10 @@
               <p id="group-sub"></p>
             </div>
             <div class="row">
+              <label class="thin-switch" for="group-thin">
+                Show splits from fewer than 30 reviews
+                <input type="checkbox" class="switch" id="group-thin" />
+              </label>
               <button type="button" class="quiet-button" id="group-compare">Compare these games</button>
             </div>
           </header>
@@ -737,8 +746,9 @@
           <p class="footnote" id="group-legend" hidden>
             Each bar is the share of reviews raising the subject, with its 95% interval drawn
             across it. Its colours are the reviews that praise it, that do both, and that
-            complain. With each game weighing the same, praise and complaint come from the games
-            where at least thirty reviews raise the subject, and a dash means none has. A game
+            complain. Praise and complaint come from at least 30 reviews raising the subject: with
+            each game weighing the same, from the games where that many do, and otherwise from all
+            of them together. Below that the split is left out unless you ask for it above. A game
             raises a subject when at least one of its reviews in a hundred does; open a subject to
             see each game's own figures.
           </p>

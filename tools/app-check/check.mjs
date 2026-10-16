@@ -437,6 +437,14 @@ const PROBE = `(async function () {
   check('a share of a subject\\'s reviews goes past the whole', !/\\d{3,}%/.test($('#compare-rows').textContent));
   check('a share in the comparison is not of the game\\'s own reviews', /20%/.test($('#compare-rows').textContent));
   check('the comparison\\'s bars go unexplained', shown('compare-legend'));
+  check('a split of 20 reviews is not withheld',
+    /Too few reviews to split \\(20\\)/.test($('#compare-rows').textContent) &&
+      !/from 20 reviews/.test($('#compare-rows').textContent));
+  $('#compare-thin').click();
+  await pause();
+  check('a split of 20 reviews asked for is not shown with its count',
+    /from 20 reviews/.test($('#compare-rows').textContent) &&
+      !/Too few reviews to split/.test($('#compare-rows').textContent));
   $('#compare-export').click();
   await pause();
   check('saving the comparison does not ask for a report of its games',
@@ -462,6 +470,13 @@ const PROBE = `(async function () {
   check('a group\\'s page does not count its read games', /2 read games/.test($('#group-sub').textContent));
   check('a game not read yet is not said to be left out',
     shown('group-unread') && /Gamma/.test($('#group-unread').textContent));
+  check('thin splits asked for in the comparison are not asked for on a group\\'s page', $('#group-thin').checked);
+  check('a mean of each game\\'s split does not say it counts games with too few',
+    /counting games with fewer than 30/.test($('#group-rows').textContent));
+  $('#group-thin').click();
+  await pause();
+  check('a mean of each game\\'s split counts a game with too few when not asked to',
+    !/counting games with fewer than 30/.test($('#group-rows').textContent));
   var firstSubject = function () { return $('#group-rows tr th').textContent; };
   // Story is raised by 20% and 30% of the two games' reviews, performance by 27% and 12%.
   check('each game does not weigh the same at first', firstSubject() === 'Story');

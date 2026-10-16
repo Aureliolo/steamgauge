@@ -594,11 +594,14 @@
           ? [
               counts('performance', 'Performance', 4_000, 900, 2_600, 300),
               counts('story', 'Story', 3_000, 2_400, 300, 200),
+              counts('audio', 'Audio', 1_200, 900, 200, 100),
               counts('vr', 'VR', 0, 0, 0, 0),
             ]
           : [
               counts('performance', 'Performance', 600, 150, 400, 30),
               counts('story', 'Story', 1_500, 1_200, 200, 50),
+              // Too few to say how they split, unless the person asks.
+              counts('audio', 'Audio', 20, 0, 20, 0),
               counts('vr', 'VR', 0, 0, 0, 0),
             ],
     };

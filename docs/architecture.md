@@ -91,6 +91,9 @@ game in thirty.
   review the same**, the counts are added and divided once, with Wilson's interval. Each subject
   also says how many games raise it in at least one review in a hundred and which game raises it
   most. A game not read yet enters no figure and is named as left out.
+- Where fewer than 30 reviews raise a subject, Compare and a group's page show its rate but
+  withhold how it splits between praise and complaint, unless the person turns on the switch
+  for thin splits; one switch serves both pages, and a split shown that way says what it rests on.
 
 ## The window
 
