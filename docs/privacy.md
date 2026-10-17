@@ -8,7 +8,7 @@ and reading needs no account and no key. A report is one file that fetches nothi
 | To | For | How often |
 |---|---|---|
 | Steam | The reviews, names and totals of the games you add, store search, and each game's store picture | When you add or update a game; review totals while the app is open, at most as often as Settings chooses (every six hours unless changed, never more than hourly), which Settings turns off |
-| Hugging Face | The readers, the search models and the writer, each checked against its pinned length and SHA-256; whether newer ones are published | Each file once, when the work that needs it first runs or when you choose **Download now** under This computer; the newer-model check whenever the library is checked against Steam |
+| Hugging Face | The readers, the search models and the writer, each checked against its pinned length and SHA-256; whether newer ones are published | Each file once, when the work that needs it first runs or when you choose **Download now** under the cockpit's Models; the newer-model check whenever the library is checked against Steam |
 | GitHub | Whether a newer SteamGauge is out, what each release changes, and the update itself | On opening and at most every six hours while the app is open, which Settings turns off; once more when you choose **Check for updates** on the About page, or **Update now**, which then downloads it. What each release changes, when About lists it |
 | Sigstore | The keys an update's signature is checked against | Only during an update |
 
