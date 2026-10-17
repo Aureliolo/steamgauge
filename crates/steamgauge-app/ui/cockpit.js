@@ -17,7 +17,6 @@ import {
   page,
   go,
   showing,
-  setPath,
 } from './common.js';
 import { onWork, jobs, jobItem, queue, stop, taskName, active, settle } from './work.js';
 import { reason } from './settings.js';
@@ -48,10 +47,6 @@ function icon(paths) {
 }
 
 const ICONS = {
-  games: ['M3 6h14v9H3z', 'M7 10.5h2M8 9.5v2', 'M12.5 10h.01M14 11.5h.01'],
-  reviews: ['M4 4h12v9H9l-4 3v-3H4z'],
-  points: ['M5 6h10M5 10h7M5 14h9'],
-  disk: ['M3 12h14l-2-7H5z', 'M3 12v3h14v-3', 'M13.5 13.5h.01'],
   fresh: ['M10 3v10', 'M5.5 8.5 10 13l4.5-4.5', 'M4 16.5h12'],
   older: ['M4 10a6 6 0 1 0 2-4.5', 'M4 3.5V6h2.5', 'M10 7v3l2 1.5'],
   unread: ['M4 5h12M4 10h8M4 15h10'],
@@ -100,6 +95,7 @@ export function setUpCockpit({ openGame, openSubject }) {
       overview = await invoke('overview');
     } catch (failure) {
       set(el('cockpit-sub'), String(failure));
+      el('cockpit-sub').hidden = false;
       return;
     }
     draw(overview, { openGame, openSubject });
@@ -210,16 +206,11 @@ function drawFetch(job) {
 }
 
 function draw(found, { openGame, openSubject }) {
-  set(
-    el('cockpit-sub'),
-    found.games === 0
-      ? 'Nothing in the library yet.'
-      : `${whole.format(found.games)} games, ${whole.format(found.reviews)} reviews held, ` +
-          `${whole.format(found.read)} read.`,
-  );
+  /* The band says what the library holds; the line under the title is for when it cannot. */
+  el('cockpit-sub').hidden = true;
   welcome(found);
   drawSinceCard(found.since, { openGame, openSubject });
-  drawTiles(found);
+  drawFigures(found);
   drawHealth(found, openGame);
   drawMoves(found, { openGame, openSubject });
   drawMachine(found);
@@ -272,27 +263,29 @@ window.addEventListener('resize', () => {
   }, 150);
 });
 
-function tile(iconName, term, value, under) {
-  return make(
-    'div',
-    'tile',
-    make('dt', null, icon(ICONS[iconName]), term),
-    make('dd', 'tile-value', value),
-    under ? make('dd', 'tile-under', under) : null,
-  );
+/* A figure is read value first; the term still comes first for a screen reader. */
+function figure(value, term) {
+  return make('div', null, make('dt', null, term), make('dd', null, value));
 }
 
-function drawTiles(found) {
+function drawFigures(found) {
   el('health-stats').replaceChildren(
-    tile('games', 'Games', whole.format(found.games), `${whole.format(found.read)} read`),
-    tile('reviews', 'Reviews held', whole.format(found.reviews), 'downloaded from Steam'),
-    tile('points', 'Points read', whole.format(found.claims), 'each filed under a subject'),
-    tile('disk', 'On disk', size(found.disk_bytes), 'reviews, readings and search'),
+    figure(
+      whole.format(found.games),
+      found.games === 0
+        ? 'games'
+        : found.read === found.games
+          ? 'games, all read'
+          : `games, ${whole.format(found.read)} read`,
+    ),
+    figure(whole.format(found.reviews), 'reviews held'),
+    figure(whole.format(found.claims), 'points read'),
+    figure(size(found.disk_bytes), 'on disk'),
   );
 }
 
-function stat(term, value, under) {
-  return make('div', 'stat', make('dt', null, term), make('dd', null, value, under ? make('small', null, under) : null));
+function fact(term, value, under) {
+  return make('div', null, make('dt', null, term), make('dd', null, value, under ? make('small', null, under) : null));
 }
 
 /* One thing the library would be better for, the games it concerns, and the one action that
@@ -324,8 +317,6 @@ function attention(iconName, tone, title, games, describe, action, openGame) {
 }
 
 function drawHealth(found, openGame) {
-  setPath(el('library-at'), found.library);
-
   const lists = el('health-lists');
   lists.replaceChildren(
     ...[
@@ -446,10 +437,21 @@ function drawMachine(found) {
   const machine = found.machine;
   /* A card's memory is sold in binary gigabytes: a 24 GB card reports 25.8 decimal ones. */
   const memory = machine.card_bytes === null ? null : `${Math.round(machine.card_bytes / 2 ** 30)} GB`;
+  /* A model that is not published yet is nobody's to download, so it is not counted. */
+  const published = machine.models.filter((model) => model.here || model.bytes_left > 0);
+  const here = published.filter((model) => model.here).length;
+  const coming = published.filter((model) => !model.here && fetching.has(model.key)).length;
   el('machine-facts').replaceChildren(
-    stat('Graphics card', machine.card ?? (memory ? 'Unnamed' : 'None reported'), memory),
-    stat('Reader', machine.reader === 'standard' ? 'Standard' : 'Small'),
-    stat('Card time', machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share)),
+    fact('Graphics card', machine.card ?? (memory ? 'Unnamed' : 'None reported'), memory),
+    fact('Reader', machine.reader === 'standard' ? 'Standard' : 'Small'),
+    fact('Card time', machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share)),
+    fact(
+      'Models',
+      here === published.length
+        ? `all ${whole.format(here)} on this computer`
+        : `${whole.format(here)} of ${whole.format(published.length)} on this computer`,
+      coming > 0 ? `${whole.format(coming)} downloading` : null,
+    ),
   );
   /* On the card the figures above say it all; on the processor a person wants to know why. */
   const reads = el('machine-reads');
@@ -466,19 +468,21 @@ function drawMachine(found) {
   /* A model not here yet comes the first time it is needed, or now, so the work that needs it
      never waits on the download and the computer can go offline holding every model. */
   const missing = machine.models.filter((model) => !model.here && model.bytes_left > 0);
-  for (const model of machine.models) {
+  /* A model here and current needs nothing, so only one still to come or with a newer release
+     takes room in the cockpit; Storage lists every one. */
+  const due = machine.models.filter((model) => (!model.here && model.bytes_left > 0) || model.newer);
+  el('models-due').hidden = due.length === 0;
+  for (const model of due) {
     const where = model.here
       ? make('span', 'pill good', 'On this computer')
-      : model.bytes_left === 0
-        ? make('span', 'quiet small', 'Not published yet.')
-        : fetching.has(model.key)
-          ? make('span', 'quiet small', `Downloading, ${size(model.bytes_left)}.`)
-          : make(
-              'span',
-              'model-fetch',
-              make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`),
-              button('Download now', 'quiet-button small', () => queue({ kind: 'fetch_model', model: model.key })),
-            );
+      : fetching.has(model.key)
+        ? make('span', 'quiet small', `Downloading, ${size(model.bytes_left)}.`)
+        : make(
+            'span',
+            'model-fetch',
+            make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`),
+            button('Download now', 'quiet-button small', () => queue({ kind: 'fetch_model', model: model.key })),
+          );
     list.append(
       make(
         'li',

@@ -86,7 +86,13 @@ const PROBE = `(async function () {
   check('the app does not open on the cockpit', shown('cockpit'));
   check('the cockpit is not the page marked in the rail',
     $('[data-go="cockpit"]').getAttribute('aria-current') === 'page');
-  check('the cockpit does not count the games', /3 games/.test($('#cockpit-sub').textContent));
+  check('the cockpit does not count the games',
+    $('#health-stats dd').textContent === '3' && /^games, 2 read$/.test($('#health-stats dt').textContent));
+  check('the cockpit repeats its figures under its title', !shown('cockpit-sub'));
+  var band = document.querySelector('.band').getBoundingClientRect();
+  check('the library\\'s figures and this computer are not one slim band at the top of the cockpit',
+    band.height < 140 && band.top < $('.panels').getBoundingClientRect().top);
+  check('the models are not counted in the band', /1 of 4 on this computer/.test($('#machine-facts').textContent));
   check('the check stands in a system that writes numbers as the window does',
     new Intl.NumberFormat().format(25900) !== '25,900');
   check('a number is written in the system\\'s format rather than the window\\'s',
@@ -125,8 +131,6 @@ const PROBE = `(async function () {
   check('the card in use goes unnamed', /RTX 4090/.test($('#machine-facts').textContent));
   check('the share of the card goes unsaid', /50%/.test($('#machine-facts').textContent));
   check('reading on the card is explained as if it were the processor', !shown('machine-reads'));
-  check('the library\\'s folder is shown without saying what it is',
-    $('#library-at').previousElementSibling.textContent === 'Library folder' && $('#library-at').textContent !== '');
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
   check('an idle board still takes a row of the cockpit', !shown('cockpit-running'));
   check('the cockpit does not fit its page', fits());
@@ -1207,6 +1211,18 @@ try {
     return attention.top - news.bottom > gap + 1 ? ['what needs doing stands apart from what is new, down at the foot of what moved'] : [];
   })()`);
 
+  // On a computer holding every model, current, the models take no room beyond their count.
+  const settled = await evaluate(`(async function () {
+    window.__stub.settleModels();
+    await new Promise(function (done) { setTimeout(done, 400); });
+    var wrong = [];
+    if (!document.getElementById('models-due').hidden) wrong.push('models that need nothing still take a panel of the cockpit');
+    if (!/all 4 on this computer/.test(document.getElementById('machine-facts').textContent)) {
+      wrong.push('the band does not say every model is on this computer');
+    }
+    return wrong;
+  })()`);
+
   // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
   await load(`${page}?first`);
   const first = await evaluate(`(async function () {
@@ -1513,6 +1529,7 @@ try {
       .concat(sideways)
       .concat(wide.result.result.value)
       .concat(middling.result.result.value)
+      .concat(settled.result.result.value)
       .concat(first.result.result.value)
       .concat(later.result.result.value)
       .concat(unreachable);

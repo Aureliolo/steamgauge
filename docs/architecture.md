@@ -127,7 +127,9 @@ game in thirty.
 ## The window
 
 - It opens on a **cockpit**: what moved since the last look, running work, the library, the
-  machine and its models. What was last seen is kept in `last-seen.json` in the library.
+  machine and its models. What was last seen is kept in `last-seen.json` in the library. The
+  library's figures and the machine are one slim band at the top; a model takes room of its own
+  only while it is still to come or has a newer release, and Storage lists every one.
 - All work is **jobs on three lanes**: downloads and updates, reads and preparations (the card),
   and files. Each lane runs one job at a time, and no job starts on a game another job is using
   or one queued before it is waiting to use, so a read queued with its game's download follows

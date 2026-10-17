@@ -192,7 +192,7 @@ select {
 }
 
 .num,
-.stat dd,
+.band dd,
 .tile-value {
   font-variant-numeric: tabular-nums;
 }
@@ -893,15 +893,7 @@ label.choice {
 
 /* Figures: a term over a value, with a line under it. */
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--s4) var(--s5);
-}
-
-.stat dt,
-.facts dt,
-.held-at .label {
+.facts dt {
   color: var(--ink-3);
   font-size: var(--t-xs);
   font-weight: 600;
@@ -909,7 +901,6 @@ label.choice {
   text-transform: uppercase;
 }
 
-.stat dd,
 .facts dd {
   margin-top: 2px;
   font-size: var(--t-lg);
@@ -917,7 +908,6 @@ label.choice {
   overflow-wrap: anywhere;
 }
 
-.stat dd small,
 .facts dd small {
   display: block;
   color: var(--ink-3);
@@ -1599,46 +1589,81 @@ label.choice {
   }
 }
 
-/* The machine and its models across the page's foot. */
-.machine-panel {
+/* What the library holds and what this computer reads with, in two lines over everything else:
+   figures a person glances at, not ones worth a tile each. */
+.band {
   display: grid;
+  gap: var(--s2);
+  margin-bottom: var(--s5);
+  padding: var(--s3) var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.band-figures,
+.band-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s6);
+}
+
+.band dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.band-figures dd {
+  order: -1;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.band-figures dt {
+  color: var(--ink-2);
+}
+
+.band-machine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-sm);
+}
+
+.band-facts dt {
+  color: var(--ink-3);
+}
+
+.band-facts dd {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.band-facts dd small {
+  margin-left: var(--s2);
+  color: var(--ink-3);
+  font-size: inherit;
+  font-weight: 450;
+}
+
+/* Only the models still to come or with a newer release, at the page's foot. */
+.models-panel {
   margin-top: var(--s5);
 }
 
-.machine-panel .panel-head {
-  margin-bottom: 0;
-}
-
-.machine-facts {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  align-items: start;
-  gap: var(--s4) var(--s5);
-}
-
-.models-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s3);
-  min-height: 28px;
-}
-
-.models-head h4 {
-  color: var(--ink-3);
-  font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 /* Shared out among however many there are, wrapping on a narrow window. */
-.machine-panel .models {
+.models-panel .models {
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
 
-.machine-panel .model-name {
+.models-panel .model-name {
   flex-wrap: wrap;
 }
 
@@ -1926,11 +1951,6 @@ label.choice {
   max-width: 560px;
 }
 
-.machine-facts {
-  display: grid;
-  gap: var(--s5);
-}
-
 .model-fetch {
   display: grid;
   gap: var(--s1);
@@ -1981,11 +2001,6 @@ label.choice {
 
 .newer {
   color: var(--accent);
-}
-
-.held-at {
-  display: grid;
-  gap: var(--s1);
 }
 
 .place {
@@ -4219,10 +4234,6 @@ table.games.cards .game-cell {
 
 @media (max-width: 1080px) {
   .panels {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .machine-facts {
     grid-template-columns: minmax(0, 1fr);
   }
 

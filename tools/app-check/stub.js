@@ -435,6 +435,8 @@
   let nextJob = 100;
   // What saving a game's data is refused with, or null where it is not.
   let refusal = null;
+  // Whether every model is on this computer and current, as on a machine that has run a while.
+  let modelsSettled = false;
   // Alpha's paragraph, or null where none is written for its themes.
   let written =
     'Players praise the sharp writing most, in 1,200 reviews. The clearest complaint is ' +
@@ -725,7 +727,7 @@
           { name: 'Game Review Reader (standard)', key: 'standard', role: 'reads every review', here: true, bytes_left: 0, release: 'v1', newer: 'v2', used: true },
           { name: 'SteamGauge search encoder', key: 'search-encoder', role: 'finds what was said in other words', here: false, bytes_left: 1_321_804_224, release: 'v1', newer: null, used: true },
           { name: 'SteamGauge writer', key: 'writer', role: 'writes what stands out about a game', here: false, bytes_left: 2_664_279_746, release: 'v1', newer: null, used: false },
-        ],
+        ].map((model) => (modelsSettled ? { ...model, here: true, bytes_left: 0, newer: null } : model)),
         releases_checked: now - DAY,
       },
       jobs: board,
@@ -1057,6 +1059,10 @@
     },
     refuse: (why) => {
       refusal = why;
+    },
+    settleModels: () => {
+      modelsSettled = true;
+      send('library', 1);
     },
     // Alpha's themes found again since its paragraph was written, announced as the job would.
     unwritten: () => {

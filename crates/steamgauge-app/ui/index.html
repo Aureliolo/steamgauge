@@ -167,11 +167,18 @@
             <header class="page-head">
               <div>
                 <h2>Cockpit</h2>
-                <p id="cockpit-sub"></p>
+                <p id="cockpit-sub" hidden></p>
               </div>
             </header>
 
-            <dl class="tiles" id="health-stats"></dl>
+            <section class="band" aria-label="The library and this computer">
+              <dl class="band-figures" id="health-stats"></dl>
+              <div class="band-machine">
+                <dl class="band-facts" id="machine-facts"></dl>
+                <button type="button" class="link quiet small" id="to-settings">Settings</button>
+              </div>
+              <p class="machine-reads" id="machine-reads"></p>
+            </section>
 
             <section class="panel work-panel" id="cockpit-running" aria-labelledby="work-title" hidden>
               <div class="panel-head">
@@ -235,21 +242,9 @@
               </div>
             </div>
 
-            <section class="panel machine-panel" aria-labelledby="machine-title">
+            <section class="panel models-panel" id="models-due" aria-labelledby="models-title" hidden>
               <div class="panel-head">
-                <h3 id="machine-title">This computer</h3>
-                <button type="button" class="link quiet small" id="to-settings">Settings</button>
-              </div>
-              <div class="machine-facts">
-                <dl class="stats" id="machine-facts"></dl>
-                <div class="held-at">
-                  <p class="label">Library folder</p>
-                  <p class="place" id="library-at"></p>
-                </div>
-              </div>
-              <p class="machine-reads" id="machine-reads"></p>
-              <div class="models-head">
-                <h4 id="models-title">Models</h4>
+                <h3 id="models-title">Models</h3>
                 <button type="button" class="quiet-button small" id="fetch-every-model" hidden></button>
               </div>
               <ul class="models" id="models" aria-labelledby="models-title"></ul>
