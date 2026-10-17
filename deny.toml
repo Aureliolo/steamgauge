@@ -25,6 +25,9 @@ ignore = [
   { id = "RUSTSEC-2024-0429", reason = "glib 0.18.5 under Tauri's GTK3 stack, Linux only; nothing reaches the unsound iterator. Evidence and expiry in osv-scanner.toml." },
   { id = "RUSTSEC-2024-0370", reason = "proc-macro-error 1.0.4 is unmaintained and runs only inside the compiler. Evidence and expiry in osv-scanner.toml." },
   { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is unmaintained and runs only inside the compiler. Evidence and expiry in osv-scanner.toml." },
+  { id = "RUSTSEC-2026-0370", reason = "zvariant 5.15.0 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names 4.3.4 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 5.15.0 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
 ]
 
 [licenses]

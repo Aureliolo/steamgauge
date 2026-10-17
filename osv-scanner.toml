@@ -25,6 +25,21 @@ ignoreUntil = 2027-03-27
 reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."
 
 [[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+ignoreUntil = 2027-01-17
+reason = "zvariant 5.15.0 is unmaintained as a standalone crate; no vulnerability is reported. Its code moved into zbus 6.0.0 as the wire module. It is compiled only for Linux, under zbus 5.19.0, which notify-rust 4.18.2, tauri-plugin-opener 2.7.0 and tauri-plugin-single-instance 2.5.3 use for D-Bus; it is absent from the Windows and macOS graphs. Each of those is its newest release and requires zbus ^5, as do the tauri-plugin-opener and tauri-plugin-single-instance 3.0 alphas, so it leaves the graph when they move to zbus 6."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+ignoreUntil = 2027-01-17
+reason = "zbus_names 4.3.4 is unmaintained as a standalone crate; no vulnerability is reported. Its code moved into zbus 6.0.0 as the names module. It arrives on Linux only, under zbus 5.19.0, by the same path as zvariant (see RUSTSEC-2026-0370), and leaves with it."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+ignoreUntil = 2027-01-17
+reason = "zvariant_derive 5.15.0 is unmaintained as a standalone crate; no vulnerability is reported. Its derive macros moved into zbus 6.0.0. It is a proc-macro, so it runs only inside the compiler on a Linux build, arriving by the same path as zvariant (see RUSTSEC-2026-0370), and leaves with it."
+
+[[IgnoredVulns]]
 id = "PYSEC-2025-217"
 ignoreUntil = 2027-03-27
 reason = "transformers 4.57.6, held below 5 until its exporter's graph runs on DirectML (training/requirements.txt says why). The flaw is in the X-CLIP checkpoint conversion script, which the published wheel does not ship: transformers/models/x_clip in 4.57.6 holds only the configuration, modelling and processing modules. Nothing in training/ uses X-CLIP."
