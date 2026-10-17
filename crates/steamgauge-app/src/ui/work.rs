@@ -263,6 +263,15 @@ impl Board {
         });
         self.next
     }
+
+    /// Gives a game's name to each of its jobs that had none.
+    fn name(&mut self, app_id: u32, name: &str) {
+        for job in &mut self.jobs {
+            if job.name.is_empty() && job.task.app_id() == Some(app_id) {
+                name.clone_into(&mut job.name);
+            }
+        }
+    }
 }
 
 impl Job {
@@ -293,16 +302,55 @@ pub struct Work {
     files: Arc<Notify>,
 }
 
-/// What a job is about, in words: the game's name where it has one on disk.
-fn name_of(app: &AppHandle, task: &Task) -> String {
+/// The names the store gave this session, for games whose download has not written one to disk
+/// yet; `None` while the store is being asked.
+fn store_names() -> std::sync::MutexGuard<'static, HashMap<u32, Option<String>>> {
+    static NAMES: std::sync::OnceLock<Mutex<HashMap<u32, Option<String>>>> =
+        std::sync::OnceLock::new();
+    NAMES
+        .get_or_init(Mutex::default)
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// What a job is about, in words: the game's name on disk or as the store gave it. None for a
+/// game whose name nobody has yet, which the store is then asked for.
+fn name_of(app: &AppHandle, task: &Task) -> Option<String> {
     if let Task::FetchModel { model } = task {
-        return Fetchable::named(model).map_or_else(|_| model.clone(), Fetchable::title);
+        return Some(Fetchable::named(model).map_or_else(|_| model.clone(), Fetchable::title));
     }
-    match task.app_id() {
-        Some(app_id) => steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
-            .map_or_else(|_| format!("App {app_id}"), |facts| facts.title()),
-        None => "Your library".to_owned(),
+    let Some(app_id) = task.app_id() else {
+        return Some("Your library".to_owned());
+    };
+    steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
+        .ok()
+        .map(|facts| facts.name)
+        .filter(|name| !name.is_empty())
+        .or_else(|| store_names().get(&app_id).cloned().flatten())
+}
+
+/// Asks the store for a game's name and gives it to every job of that game still without one.
+/// A game's number is never shown in its place, so the store is asked again for a while when it
+/// does not answer.
+fn name_from_store(app: &AppHandle, app_id: u32) {
+    if store_names().insert(app_id, None).is_some() {
+        return;
     }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        for wait in [0, 10, 60, 300, 1800] {
+            tokio::time::sleep(Duration::from_secs(wait)).await;
+            let Ok(store) = super::store() else { continue };
+            if let Some(name) = store.name(app_id).await {
+                store_names().insert(app_id, Some(name.clone()));
+                let work = app.state::<Work>();
+                work.lock().name(app_id, &name);
+                work.send(&app, true);
+                return;
+            }
+        }
+        store_names().remove(&app_id);
+    });
 }
 
 impl Work {
@@ -335,8 +383,14 @@ impl Work {
 
     fn queue_as(&self, app: &AppHandle, task: Task, name: Option<String>, background: bool) -> u64 {
         let lane = task.lane();
-        let name = name.unwrap_or_else(|| name_of(app, &task));
-        let id = self.lock().put(task, name, background, now_unix());
+        let name = name.or_else(|| name_of(app, &task));
+        let unnamed = name.is_none().then(|| task.app_id()).flatten();
+        let id = self
+            .lock()
+            .put(task, name.unwrap_or_default(), background, now_unix());
+        if let Some(app_id) = unnamed {
+            name_from_store(app, app_id);
+        }
         if !background {
             self.make_way();
         }
@@ -422,8 +476,10 @@ impl Work {
         let _ = app.emit("work", jobs);
     }
 
-    /// The first waiting job of this lane whose game no running job is working on, marked
-    /// running.
+    /// The first waiting job of this lane whose game no running job is working on and no job
+    /// queued before it is waiting to work on, marked running: a read queued with its game's
+    /// download waits for it, though the two run in different lanes. The person's work waits
+    /// only for their own.
     fn take(&self, lane: Lane) -> Option<(u64, Task, Arc<AtomicBool>)> {
         let mut board = self.lock();
         let busy: Vec<u32> = board
@@ -436,15 +492,22 @@ impl Work {
             .jobs
             .iter()
             .any(|job| !job.background && matches!(job.state, State::Queued | State::Running));
-        let job = board.jobs.iter_mut().find(|job| {
+        let jobs = &board.jobs;
+        let at = (0..jobs.len()).find(|&at| {
+            let job = &jobs[at];
             job.state == State::Queued
                 && job.task.lane() == lane
                 && !(job.background && theirs)
-                && job
-                    .task
-                    .app_id()
-                    .is_none_or(|app_id| !busy.contains(&app_id))
+                && job.task.app_id().is_none_or(|app_id| {
+                    !busy.contains(&app_id)
+                        && !jobs[..at].iter().any(|before| {
+                            before.state == State::Queued
+                                && before.task.app_id() == Some(app_id)
+                                && (job.background || !before.background)
+                        })
+                })
         })?;
+        let job = &mut board.jobs[at];
         job.state = State::Running;
         job.started = Some(now_unix());
         "Starting".clone_into(&mut job.step);
@@ -1033,6 +1096,11 @@ async fn read(
 ) -> Result<Ended, String> {
     let settings = Settings::load(app);
     let out_dir = library_dir(app);
+    if steamgauge_core::embed::latest_snapshot(&out_dir, app_id).is_err() {
+        return Err(
+            "this game has no reviews downloaded yet: download it, then read it".to_owned(),
+        );
+    }
     let size = reader_here(&settings);
     let model_dir = size.home();
     fetch_reader(app, id, size).await?;
@@ -1610,6 +1678,22 @@ mod tests {
     }
 
     #[test]
+    fn a_name_from_the_store_goes_to_that_game_s_unnamed_jobs_only() {
+        let work = Work::default();
+        let download = put(&work, Task::Download { app_id: 7 }, false);
+        let named = work
+            .lock()
+            .put(Task::Update { app_id: 7 }, "Kept".to_owned(), false, 0);
+        let other = put(&work, Task::Download { app_id: 8 }, false);
+        let library = put(&work, Task::Check, false);
+        work.lock().name(7, "Helldivers 2");
+        assert_eq!(job(&work, download).name, "Helldivers 2");
+        assert_eq!(job(&work, named).name, "Kept");
+        assert_eq!(job(&work, other).name, "");
+        assert_eq!(job(&work, library).name, "");
+    }
+
+    #[test]
     fn a_read_and_an_update_of_one_game_never_run_at_once() {
         let work = Work::default();
         put(&work, Task::Update { app_id: 7 }, false);
@@ -1619,6 +1703,35 @@ mod tests {
         let (id, _, _) = work.take(Lane::Machine).unwrap();
         assert_eq!(id, other, "the read of the game being updated waits");
         assert!(work.take(Lane::Machine).is_none());
+    }
+
+    #[test]
+    fn a_read_queued_with_its_games_download_waits_for_it() {
+        let work = Work::default();
+        put(&work, Task::Download { app_id: 7 }, false);
+        put(&work, Task::Download { app_id: 9 }, false);
+        let first = put(&work, read(7), false);
+        let other = put(&work, read(8), false);
+        assert_eq!(
+            work.take(Lane::Machine).map(|(id, _, _)| id),
+            Some(other),
+            "the read of a game still to be downloaded waits, though its own lane is free"
+        );
+        let (download, _, _) = work.take(Lane::Network).unwrap();
+        work.lock().jobs.iter_mut().for_each(|job| {
+            if job.id == download || job.id == other {
+                job.state = State::Done;
+            }
+        });
+        assert_eq!(work.take(Lane::Machine).map(|(id, _, _)| id), Some(first));
+    }
+
+    #[test]
+    fn the_persons_work_does_not_wait_for_the_apps_own_queued_before_it() {
+        let work = Work::default();
+        put(&work, Task::Update { app_id: 7 }, true);
+        let theirs = put(&work, read(7), false);
+        assert_eq!(work.take(Lane::Machine).map(|(id, _, _)| id), Some(theirs));
     }
 
     #[test]

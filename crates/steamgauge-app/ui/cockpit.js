@@ -19,7 +19,7 @@ import {
   showing,
   setPath,
 } from './common.js';
-import { onWork, jobs, jobItem, queue, active, settle } from './work.js';
+import { onWork, jobs, jobItem, queue, stop, taskName, active, settle } from './work.js';
 import { reason } from './settings.js';
 import { drawSinceCard } from './since.js';
 
@@ -29,8 +29,9 @@ let busy = false;
 let readerKey = null;
 let fetching = new Set();
 
-/* Waiting jobs listed before the rest are counted instead. */
-const WAITING_SHOWN = 4;
+/* Waiting jobs named before the rest are counted instead. */
+const WAITING_SHOWN = 6;
+const FINISHED_SHOWN = 2;
 
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -109,25 +110,41 @@ export function setUpCockpit({ openGame, openSubject }) {
   }
 }
 
-/* Everything running, the next few waiting, and the last few finished: a library-wide update
-   queues a job for every game, and listing seventy of them would bury the one running. */
+/* Everything running and the last few finished as cards, and what waits as one line of names: a
+   library-wide update queues a job for every game, and drawing seventy of them would bury the
+   one running and push everything else down the page. */
 function drawWork(all) {
   const running = all.filter((job) => job.state === 'running');
   const waiting = all.filter((job) => job.state === 'queued');
-  const finished = all.filter((job) => !active(job)).reverse().slice(0, 4);
-  const items = [...running, ...waiting.slice(0, WAITING_SHOWN)].map((job) => jobItem(job));
+  const finished = all.filter((job) => !active(job)).reverse().slice(0, FINISHED_SHOWN);
+  settle(el('cockpit-work'), [...running, ...finished].map((job) => jobItem(job)));
+  const chips = waiting.slice(0, WAITING_SHOWN).map(waitingChip);
   if (waiting.length > WAITING_SHOWN) {
-    items.push(make('li', 'job more', `and ${whole.format(waiting.length - WAITING_SHOWN)} more waiting`));
+    chips.push(make('li', 'chip more', `and ${whole.format(waiting.length - WAITING_SHOWN)} more`));
   }
-  items.push(...finished.map((job) => jobItem(job)));
-  settle(el('cockpit-work'), items);
-  el('cockpit-idle').hidden = items.length > 0;
+  settle(el('cockpit-waiting'), chips);
+  set(el('cockpit-waiting-count'), `${whole.format(waiting.length)} waiting`);
+  el('cockpit-waiting-row').hidden = waiting.length === 0;
+  el('cockpit-running').hidden = all.length === 0;
   el('clear-finished').hidden = finished.length === 0;
   if (overview) {
     welcome(overview);
     drawMachine(overview);
   }
   drawFetch(all.filter((job) => job.task.kind === 'fetch_model' && job.task.model === readerKey).pop());
+}
+
+/* A waiting job in a few words, with the way to take it off the list. */
+function waitingChip(job) {
+  const chip = make('li', 'chip queued', job.name ? make('span', 'chip-name', job.name) : null);
+  chip.dataset.job = job.id;
+  chip.append(make('span', 'chip-kind', taskName(job.task)));
+  const off = button('', 'chip-off', () => stop(job.id));
+  off.setAttribute('aria-label', `Take ${job.name || 'this job'} off the list`);
+  off.title = 'Take off the list';
+  off.append(icon(['M5 5l10 10M15 5 5 15']));
+  chip.append(off);
+  return chip;
 }
 
 /* An empty library with nothing on its way is a first visit: the welcome stands in for the

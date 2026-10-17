@@ -110,6 +110,8 @@ function speed(job) {
    be done about it. */
 export function jobItem(job, { named = true } = {}) {
   const item = make('li', `job ${job.state}`);
+  /* Two jobs can read the same, and a drawing kept in place must keep the right one's buttons. */
+  item.dataset.job = job.id;
   /* A running job says so with its bar; a pill is for how a job ended. */
   const ended = {
     done: ['Done', 'good'],
@@ -131,7 +133,7 @@ export function jobItem(job, { named = true } = {}) {
     actions.append(button('Open the folder', 'quiet-button small', () => invoke('open_report', { id: job.id })));
   }
   item.append(
-    make('div', 'job-head', make('div', 'job-title', named ? make('span', 'job-name', job.name) : null, kind), actions),
+    make('div', 'job-head', make('div', 'job-title', named && job.name ? make('span', 'job-name', job.name) : null, kind), actions),
   );
 
   if (job.state === 'running') {
@@ -168,7 +170,8 @@ export function drawBrief(holder) {
       return make(
         'div',
         'brief',
-        make('span', 'brief-name', job.name),
+        /* A game is unnamed only until the store answers. */
+        make('span', 'brief-name', job.name || taskName(job.task)),
         make('span', 'brief-step', figures),
         make('div', 'track', fill),
       );

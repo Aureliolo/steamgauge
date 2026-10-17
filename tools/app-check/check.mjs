@@ -128,7 +128,7 @@ const PROBE = `(async function () {
   check('the library\\'s folder is shown without saying what it is',
     $('#library-at').previousElementSibling.textContent === 'Library folder' && $('#library-at').textContent !== '');
   check('the card\\'s memory is not in the gigabytes it is sold in', /24 GB/.test($('#machine-facts').textContent));
-  check('an idle board does not say nothing is running', shown('cockpit-idle'));
+  check('an idle board still takes a row of the cockpit', !shown('cockpit-running'));
   check('the cockpit does not fit its page', fits());
 
   check('the cockpit does not say what changed since the last look',
@@ -364,8 +364,24 @@ const PROBE = `(async function () {
     { id: 3, task: { kind: 'export', app_ids: [1, 2], to: 'C:\\\\r.html' }, name: 'Report on 2 games',
       state: 'done', step: 'Writing the report', unit: 'games', done: 2, total: 2, rate: null,
       left: null, note: 'Saved as C:\\\\r.html.', queued: 0, started: 0, ended: 0 },
-  ]);
+  ].concat([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) {
+    return { id: 10 + n, task: { kind: 'download', app_id: 100 + n }, name: n === 0 ? '' : 'Game ' + n,
+      state: 'queued', step: 'Waiting', unit: 'pages', done: 0, total: null, rate: null, left: null,
+      note: null, queued: 0, started: null, ended: null };
+  })));
   await pause();
+  check('a busy board does not show what runs', shown('cockpit-running'));
+  check('a waiting job is drawn as a card rather than a name on the waiting line',
+    $('#cockpit-work .job.queued') === null && $('#cockpit-waiting .chip.queued') !== null);
+  check('every waiting job is named however long the queue',
+    document.querySelectorAll('#cockpit-waiting .chip.queued').length === 6 &&
+    /and 5 more/.test($('#cockpit-waiting .chip.more').textContent) &&
+    /11 waiting/.test($('#cockpit-waiting-count').textContent));
+  check('a game the store has not named yet is shown by its number',
+    !/App 100/.test($('#cockpit-running').textContent) && !/App 100/.test($('#rail-work').textContent));
+  var running = $('#cockpit-work .job.running').getBoundingClientRect();
+  var ended = $('#cockpit-work .job.done').getBoundingClientRect();
+  check('what runs and what finished are not side by side', running.top === ended.top && running.right <= ended.left);
   var job = $('#cockpit-work .job.running');
   var said = job ? job.textContent : '';
   check('a running job is not drawn', job !== null);
@@ -374,13 +390,11 @@ const PROBE = `(async function () {
   check('a download does not say how long is left', /35 s left/.test(said));
   check('the bar is not filled to the share done',
     job && Math.abs(parseFloat(job.querySelector('.fill').style.width) - 27.7) < 0.2);
-  check('a waiting job is not drawn as waiting', /waiting its turn/.test($('#cockpit-work .job.queued').textContent));
-  check('a job runs off the side of the cockpit\\'s column', Array.prototype.every.call(
+  check('a job runs off the side of its card', Array.prototype.every.call(
     document.querySelectorAll('#cockpit-work .job'), function (j) { return j.scrollWidth <= j.clientWidth + 1; }));
-  check('a busy board still says nothing is running', !shown('cockpit-idle'));
   check('the rail does not show the running job',
     shown('rail-work') && /Alpha/.test($('#rail-work').textContent));
-  check('the rail does not count what is waiting', /1 waiting/.test($('#rail-work').textContent));
+  check('the rail does not count what is waiting', /11 waiting/.test($('#rail-work').textContent));
   var open = Array.prototype.find.call(document.querySelectorAll('#cockpit-work .job.done button'),
     function (b) { return b.textContent === 'Open'; });
   check('a saved report cannot be opened', open !== undefined);
@@ -389,6 +403,10 @@ const PROBE = `(async function () {
   job.querySelector('button').click();
   await pause();
   check('stopping a job does not ask the core to stop it', last('stop_job') && last('stop_job').args.id === 1);
+  $('#cockpit-waiting .chip.queued button').click();
+  await pause();
+  check('taking a waiting job off the list does not ask the core to stop it',
+    last('stop_job') && last('stop_job').args.id === 2);
 
   await go('library');
   check('the library is not shown', shown('library'));
@@ -1122,25 +1140,30 @@ try {
     }
     document.querySelector('[data-go="cockpit"]').click();
     await new Promise(function (done) { setTimeout(done, 250); });
-    var stacks = ['since-title', 'moves-title', 'work-title'].map(function (id) {
+    var stacks = ['since-title', 'health-title', 'moves-title'].map(function (id) {
       return document.getElementById(id).closest('.panel').getBoundingClientRect();
     });
-    if (!(stacks[0].right <= stacks[1].left && stacks[1].right <= stacks[2].left && stacks[1].top === stacks[0].top)) {
-      wrong.push('the cockpit does not set what is new, what moved and what runs side by side in a wide window');
+    if (!(stacks[0].right <= stacks[1].left && stacks[1].right <= stacks[2].left &&
+      stacks[1].top === stacks[0].top && stacks[2].top === stacks[0].top)) {
+      wrong.push('the cockpit does not set what is new, what needs doing and what moved side by side in a wide window');
     }
     return wrong;
   })()`);
 
-  // At the usual width the side column is the tallest, and what moved still follows what is new.
+  // At the usual width what is new stands beside the other two, and when it is the taller, what
+  // moved still follows straight after what needs doing.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
   const middling = await evaluate(`(async function () {
+    var since = document.querySelector('.since-panel');
+    since.style.minHeight = '1600px';
     await new Promise(function (done) { setTimeout(done, 250); });
-    var news = document.querySelector('.column.news').getBoundingClientRect();
-    var moved = document.querySelector('.column.moved').getBoundingClientRect();
-    var side = document.querySelector('.column.side').getBoundingClientRect();
+    var news = since.getBoundingClientRect();
+    var attention = document.querySelector('.attention-panel').getBoundingClientRect();
+    var moved = document.querySelector('.moves-panel').getBoundingClientRect();
     var gap = parseFloat(getComputedStyle(document.querySelector('.panels')).rowGap);
-    if (side.height <= news.height + gap + moved.height) return ['the side column is not the tallest, so the cockpit check proves nothing'];
-    return moved.top - news.bottom > gap + 1 ? ['what moved stands apart from what is new, down at the side column\\'s foot'] : [];
+    since.style.minHeight = '';
+    if (!(news.right <= attention.left && attention.left === moved.left)) return ['what is new does not stand beside what needs doing and what moved'];
+    return moved.top - attention.bottom > gap + 1 ? ['what moved stands apart from what needs doing, down at the foot of what is new'] : [];
   })()`);
 
   // The first visit: an empty library, where the cockpit is a welcome that finds the first game.

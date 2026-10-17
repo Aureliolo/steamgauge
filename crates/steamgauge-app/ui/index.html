@@ -173,8 +173,19 @@
 
             <dl class="tiles" id="health-stats"></dl>
 
+            <section class="panel work-panel" id="cockpit-running" aria-labelledby="work-title" hidden>
+              <div class="panel-head">
+                <h3 id="work-title">Running</h3>
+                <button type="button" class="link quiet small" id="clear-finished" hidden>Clear finished</button>
+              </div>
+              <ul class="jobs strip" id="cockpit-work"></ul>
+              <div class="waiting" id="cockpit-waiting-row" hidden>
+                <p class="waiting-count" id="cockpit-waiting-count"></p>
+                <ul class="chips" id="cockpit-waiting"></ul>
+              </div>
+            </section>
+
             <div class="panels">
-              <div class="column news">
               <section class="panel since-panel" aria-labelledby="since-title">
                 <div class="panel-head">
                   <h3 id="since-title">Since you last looked</h3>
@@ -203,9 +214,7 @@
                 </p>
                 <p class="checked" id="checked"></p>
               </section>
-              </div>
 
-              <div class="column moved">
               <section class="panel moves-panel" aria-labelledby="moves-title">
                 <div class="panel-head">
                   <h3 id="moves-title">What moved lately</h3>
@@ -220,44 +229,28 @@
                   Nothing has moved beyond what chance would explain.
                 </p>
               </section>
-              </div>
-
-              <div class="column side">
-              <section class="panel work-panel" aria-labelledby="work-title">
-                <div class="panel-head">
-                  <h3 id="work-title">Running</h3>
-                  <button type="button" class="link quiet small" id="clear-finished" hidden>Clear finished</button>
-                </div>
-                <ul class="jobs" id="cockpit-work"></ul>
-                <p class="calm" id="cockpit-idle">
-                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7" /><path d="m7 10 2 2 4-4" /></svg>
-                  Nothing is running.
-                </p>
-              </section>
-
-              <section class="panel machine-panel" aria-labelledby="machine-title">
-                <div class="panel-head">
-                  <h3 id="machine-title">This computer</h3>
-                  <button type="button" class="link quiet small" id="to-settings">Settings</button>
-                </div>
-                <div class="machine">
-                  <div class="machine-facts">
-                    <dl class="stats" id="machine-facts"></dl>
-                    <p class="machine-reads" id="machine-reads"></p>
-                    <div class="held-at">
-                      <p class="label">Library folder</p>
-                      <p class="place" id="library-at"></p>
-                    </div>
-                  </div>
-                  <div class="machine-models">
-                    <ul class="models" id="models"></ul>
-                    <button type="button" class="quiet-button small fetch-every" id="fetch-every-model" hidden></button>
-                    <p class="checked" id="models-checked"></p>
-                  </div>
-                </div>
-              </section>
-              </div>
             </div>
+
+            <section class="panel machine-panel" aria-labelledby="machine-title">
+              <div class="panel-head">
+                <h3 id="machine-title">This computer</h3>
+                <button type="button" class="link quiet small" id="to-settings">Settings</button>
+              </div>
+              <div class="machine-facts">
+                <dl class="stats" id="machine-facts"></dl>
+                <div class="held-at">
+                  <p class="label">Library folder</p>
+                  <p class="place" id="library-at"></p>
+                </div>
+              </div>
+              <p class="machine-reads" id="machine-reads"></p>
+              <div class="models-head">
+                <h4 id="models-title">Models</h4>
+                <button type="button" class="quiet-button small" id="fetch-every-model" hidden></button>
+              </div>
+              <ul class="models" id="models" aria-labelledby="models-title"></ul>
+              <p class="checked" id="models-checked"></p>
+            </section>
           </div>
         </section>
 
