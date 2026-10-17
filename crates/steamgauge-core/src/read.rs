@@ -2374,13 +2374,14 @@ pub(crate) mod tests {
             assert_eq!(asked, 0, "nothing changed, so nothing is asked");
             assert_eq!(again, read);
 
-            // One review edited, one new: only their claims are asked.
+            // One review edited, one new: only their claims are asked. The edit keeps the
+            // claim's span, so only the text says it changed.
             capture_these(
                 out.path(),
                 1,
                 &[
                     steam_review("1", "Bugs everywhere. The music is lovely."),
-                    steam_review("2", "The story is bug-free."),
+                    steam_review("2", "The story is bugs."),
                     steam_review("3", "Great music."),
                 ],
             );
