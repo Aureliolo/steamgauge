@@ -198,10 +198,12 @@ jobs:
           "${RUNNER_TEMP}/cargo-about" --version
 
       # Side by side: each target takes about a minute on one core, and every build waits for all
-      # three.
+      # three. The pinned toolchain is installed first, by one cargo, since three installing it
+      # at once collide in rustup's downloads.
       - name: Write the notices
         run: |
           set -euo pipefail
+          cargo --version
           writing=()
           for archive in ${ARCHIVES}; do
             target="${archive%%:*}"
