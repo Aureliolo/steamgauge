@@ -145,7 +145,9 @@ game in thirty.
   JSON with a `README.txt`, by the page's own floors.
 - Every page is held to WCAG 2.2 AA in light and dark and at its narrowest width.
 - Every page takes the whole window beside the sidebar, with no fixed page width. What would
-  run on down a wide screen goes into columns instead: the cockpit's three stacks, panels that
+  run on down a wide screen goes into columns instead: the cockpit's work across the top and,
+  below it, what is new beside what moved, with what needs doing under whichever leaves the
+  shorter page, chosen when the figures are drawn and never as work ticks; panels that
   read in any order (settings, storage, about), a game's themes beside its table, and the points
   behind a figure. Only a paragraph keeps a reading measure.
 

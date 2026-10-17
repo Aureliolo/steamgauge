@@ -1143,27 +1143,45 @@ try {
     var stacks = ['since-title', 'health-title', 'moves-title'].map(function (id) {
       return document.getElementById(id).closest('.panel').getBoundingClientRect();
     });
-    if (!(stacks[0].right <= stacks[1].left && stacks[1].right <= stacks[2].left &&
-      stacks[1].top === stacks[0].top && stacks[2].top === stacks[0].top)) {
-      wrong.push('the cockpit does not set what is new, what needs doing and what moved side by side in a wide window');
+    if (!(stacks[0].right <= stacks[2].left && stacks[2].top === stacks[0].top && stacks[2].width > stacks[0].width)) {
+      wrong.push('the cockpit does not set what moved in a wider column beside what is new');
     }
+    // What needs doing follows whichever of the two leaves the shorter page.
+    var gap = parseFloat(getComputedStyle(document.querySelector('.panels')).rowGap);
+    var under = async function (tall) {
+      var panel = document.getElementById(tall).closest('.panel');
+      panel.style.minHeight = '1600px';
+      window.dispatchEvent(new Event('resize'));
+      await new Promise(function (done) { setTimeout(done, 400); });
+      var at = document.getElementById('health-title').closest('.panel').getBoundingClientRect();
+      var other = document.getElementById(tall === 'since-title' ? 'moves-title' : 'since-title').closest('.panel').getBoundingClientRect();
+      panel.style.minHeight = '';
+      window.dispatchEvent(new Event('resize'));
+      await new Promise(function (done) { setTimeout(done, 400); });
+      return at.left === other.left && at.top - other.bottom <= gap + 1;
+    };
+    if (!(await under('since-title'))) wrong.push('what needs doing does not go under what moved when what is new runs long');
+    if (!(await under('moves-title'))) wrong.push('what needs doing does not go under what is new when what moved runs long');
     return wrong;
   })()`);
 
-  // At the usual width what is new stands beside the other two, and when it is the taller, what
-  // moved still follows straight after what needs doing.
+  // At the usual width too, and when what moved runs long, what needs doing still follows
+  // straight after what is new.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
   const middling = await evaluate(`(async function () {
-    var since = document.querySelector('.since-panel');
-    since.style.minHeight = '1600px';
-    await new Promise(function (done) { setTimeout(done, 250); });
-    var news = since.getBoundingClientRect();
+    var moves = document.querySelector('.moves-panel');
+    moves.style.minHeight = '1600px';
+    window.dispatchEvent(new Event('resize'));
+    await new Promise(function (done) { setTimeout(done, 400); });
+    var news = document.querySelector('.since-panel').getBoundingClientRect();
     var attention = document.querySelector('.attention-panel').getBoundingClientRect();
-    var moved = document.querySelector('.moves-panel').getBoundingClientRect();
+    var moved = moves.getBoundingClientRect();
     var gap = parseFloat(getComputedStyle(document.querySelector('.panels')).rowGap);
-    since.style.minHeight = '';
-    if (!(news.right <= attention.left && attention.left === moved.left)) return ['what is new does not stand beside what needs doing and what moved'];
-    return moved.top - attention.bottom > gap + 1 ? ['what moved stands apart from what needs doing, down at the foot of what is new'] : [];
+    moves.style.minHeight = '';
+    window.dispatchEvent(new Event('resize'));
+    await new Promise(function (done) { setTimeout(done, 400); });
+    if (!(news.right <= moved.left && attention.left === news.left)) return ['what is new and what needs doing do not stand beside what moved'];
+    return attention.top - news.bottom > gap + 1 ? ['what needs doing stands apart from what is new, down at the foot of what moved'] : [];
   })()`);
 
   // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
