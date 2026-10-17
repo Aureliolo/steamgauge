@@ -1001,26 +1001,35 @@ label.choice {
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 400ms var(--ease);
 }
 
 .fill.working {
-  background: linear-gradient(90deg, var(--accent-soft) 0%, var(--accent) 50%, var(--accent-soft) 100%);
-  background-size: 200% 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+/* Moved rather than repainted, so a bar with no total to fill costs the page nothing while it
+   waits. */
+.fill.working::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
   animation: working 1.4s linear infinite;
 }
 
 @keyframes working {
   from {
-    background-position: 100% 0;
+    transform: translateX(-100%);
   }
   to {
-    background-position: -100% 0;
+    transform: translateX(100%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fill.working,
+  .fill.working::after,
   .stage > section:not([hidden]) {
     animation: none;
   }
@@ -1453,6 +1462,9 @@ label.choice {
 .panels {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  /* The side column spans both rows, and what it is taller by goes to the second, so what moved
+     follows straight after what is new rather than below the side column's foot. */
+  grid-template-rows: auto 1fr;
   gap: var(--s5);
   align-items: start;
 }
@@ -1478,6 +1490,7 @@ label.choice {
 @media (min-width: 1680px) {
   .panels {
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 4fr);
+    grid-template-rows: none;
   }
 
   .column.moved {
@@ -4101,6 +4114,7 @@ table.games.cards .game-cell {
      the machine last. */
   .panels {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
   }
 
   .column {

@@ -119,6 +119,13 @@ pub const SHOWN_FROM: f32 = 0.1;
 const ENCODE_TOKENS: usize = 512;
 /// A search and a claim in the reranker's prompt, which is about sixty tokens on its own.
 const RERANK_TOKENS: usize = 320;
+/// Claims the encoder is handed a run, which is what a preparation batches them by.
+pub const CLAIMS_A_RUN: usize = 64;
+/// On a card a batch is padded to at least this many tokens, and past it to the next power of
+/// two. `DirectML` prepares itself afresh for every shape of input it has not met, at hundreds
+/// of milliseconds a time, and a batch padded only to its longest text met a new one nearly
+/// every time: a handful of shapes prepares a game more than twice as fast as one per batch.
+const SHORTEST_ON_A_CARD: usize = 64;
 
 impl Model {
     /// The folder this model's files are kept in.
@@ -189,6 +196,8 @@ impl Model {
             session,
             tokenizer,
             device,
+            pad: i64::from(pad),
+            limit,
         })
     }
 }
@@ -197,11 +206,24 @@ struct Loaded {
     session: Session,
     tokenizer: Tokenizer,
     device: &'static str,
+    pad: i64,
+    limit: usize,
 }
 
 impl Loaded {
-    /// The graph's one output for each text, as rows of `width` numbers.
-    fn run(&mut self, texts: Vec<String>, output: &str, width: usize) -> Result<Vec<Vec<f32>>> {
+    /// The graph's one output for each text, as rows of `width` numbers, `rows` texts a run.
+    ///
+    /// On a card every run is handed `rows` rows, the last filled out with copies of its first
+    /// text that are read and thrown away, and a length from [`SHORTEST_ON_A_CARD`]'s few: what
+    /// that wastes is far less than what a new shape costs there. A processor meets no such
+    /// cost and is handed only what there is.
+    fn run(
+        &mut self,
+        texts: Vec<String>,
+        rows: usize,
+        output: &str,
+        width: usize,
+    ) -> Result<Vec<Vec<f32>>> {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
@@ -211,23 +233,43 @@ impl Loaded {
             .tokenizer
             .encode_batch(texts, true)
             .map_err(|e| Error::Tokenizer(e.to_string()))?;
-        let rows = encodings.len();
-        let cols = encodings.first().map_or(0, |e| e.get_ids().len());
-        let ids: Vec<i64> = encodings
-            .iter()
-            .flat_map(|e| e.get_ids().iter().map(|&id| i64::from(id)))
-            .collect();
-        let mask: Vec<i64> = encodings
-            .iter()
-            .flat_map(|e| e.get_attention_mask().iter().map(|&m| i64::from(m)))
-            .collect();
-        let outputs = self.session.run(ort::inputs![
-            "input_ids" => Tensor::from_array(Array2::from_shape_vec((rows, cols), ids)?)?,
-            "attention_mask" => Tensor::from_array(Array2::from_shape_vec((rows, cols), mask)?)?,
-        ])?;
-        let values = outputs[output].try_extract_array::<f32>()?;
-        let flat: Vec<f32> = values.iter().copied().collect();
+        let longest = encodings.first().map_or(0, |e| e.get_ids().len());
+        let on_card = self.device != "cpu";
+        let (rows, cols) = shape(on_card, rows, encodings.len(), longest, self.limit);
+        let mut flat: Vec<f32> = Vec::with_capacity(encodings.len() * width);
+        for chunk in encodings.chunks(rows) {
+            let filled =
+                std::iter::repeat_n(&chunk[0], if on_card { rows - chunk.len() } else { 0 });
+            let shown = chunk.len() + filled.len();
+            let mut ids: Vec<i64> = Vec::with_capacity(shown * cols);
+            let mut mask: Vec<i64> = Vec::with_capacity(shown * cols);
+            for encoding in chunk.iter().chain(filled) {
+                ids.extend(encoding.get_ids().iter().map(|&id| i64::from(id)));
+                ids.resize(ids.len() + cols - longest, self.pad);
+                mask.extend(encoding.get_attention_mask().iter().map(|&m| i64::from(m)));
+                mask.resize(mask.len() + cols - longest, 0);
+            }
+            let outputs = self.session.run(ort::inputs![
+                "input_ids" => Tensor::from_array(Array2::from_shape_vec((shown, cols), ids)?)?,
+                "attention_mask" => Tensor::from_array(Array2::from_shape_vec((shown, cols), mask)?)?,
+            ])?;
+            let values = outputs[output].try_extract_array::<f32>()?;
+            flat.extend(values.iter().copied().take(chunk.len() * width));
+        }
         Ok(flat.chunks(width).map(<[f32]>::to_vec).collect())
+    }
+}
+
+/// The rows and tokens of each run for `texts` texts whose longest is `longest` tokens, cut at
+/// `limit`.
+fn shape(on_card: bool, rows: usize, texts: usize, longest: usize, limit: usize) -> (usize, usize) {
+    if on_card {
+        let cols = longest
+            .next_power_of_two()
+            .clamp(SHORTEST_ON_A_CARD, limit.max(longest));
+        (rows.max(1), cols)
+    } else {
+        (texts, longest)
     }
 }
 
@@ -261,7 +303,8 @@ impl SearchEncoder {
     ///
     /// Fails if tokenisation or the forward pass fails.
     pub fn claims(&mut self, claims: &[String]) -> Result<Vec<Vec<f32>>> {
-        self.0.run(claims.to_vec(), "vector", DIMENSIONS)
+        self.0
+            .run(claims.to_vec(), CLAIMS_A_RUN, "vector", DIMENSIONS)
     }
 
     /// A search's unit vector, asked in the instruction the encoder was trained to be asked in:
@@ -276,7 +319,7 @@ impl SearchEncoder {
             .replace("{instruction}", &PROMPTS.instruction)
             .replace("{query}", query);
         self.0
-            .run(vec![asked], "vector", DIMENSIONS)?
+            .run(vec![asked], 1, "vector", DIMENSIONS)?
             .into_iter()
             .next()
             .ok_or(Error::MalformedPayload {
@@ -328,7 +371,12 @@ impl SearchReranker {
                 .iter()
                 .map(|claim| asked.replace("{claim}", claim))
                 .collect();
-            scores.extend(self.0.run(prompts, "score", 1)?.into_iter().flatten());
+            scores.extend(
+                self.0
+                    .run(prompts, RERANK_BATCH, "score", 1)?
+                    .into_iter()
+                    .flatten(),
+            );
         }
         Ok(scores)
     }
@@ -401,6 +449,24 @@ mod tests {
             graph.write(&dir.join(model.graph.local));
             crate::tiny_model::write_json(&dir.join(model.tokenizer.local), &tokenizer);
         }
+    }
+
+    #[test]
+    fn a_card_is_handed_a_few_shapes_and_a_processor_only_what_there_is() {
+        let lengths: std::collections::BTreeSet<usize> = (1..=ENCODE_TOKENS)
+            .map(|longest| shape(true, CLAIMS_A_RUN, 5, longest, ENCODE_TOKENS).1)
+            .collect();
+        assert_eq!(lengths.into_iter().collect::<Vec<_>>(), [64, 128, 256, 512]);
+        assert_eq!(
+            shape(true, CLAIMS_A_RUN, 5, 9, ENCODE_TOKENS),
+            (CLAIMS_A_RUN, 64)
+        );
+        assert_eq!(
+            shape(true, RERANK_BATCH, 3, 300, RERANK_TOKENS),
+            (RERANK_BATCH, RERANK_TOKENS),
+            "never past the length a text is cut at"
+        );
+        assert_eq!(shape(false, CLAIMS_A_RUN, 5, 9, ENCODE_TOKENS), (5, 9));
     }
 
     fn texts(texts: &[&str]) -> Vec<String> {

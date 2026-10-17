@@ -32,6 +32,18 @@ export async function startWork() {
   drawAll();
 }
 
+/* Puts `items` in `list`, leaving each node already there that would be drawn the same. The core
+   sends the board four times a second while a job moves, so a tick then lays out only the job
+   that moved, and a bar's animation runs on instead of starting over at every tick. */
+export function settle(list, items) {
+  items.forEach((item, at) => {
+    const there = list.children[at];
+    if (!there) list.append(item);
+    else if (there.outerHTML !== item.outerHTML) there.replaceWith(item);
+  });
+  while (list.children.length > items.length) list.lastElementChild.remove();
+}
+
 export const queue = (...tasks) => invoke('queue', { tasks });
 export const stop = (id) => invoke('stop_job', { id });
 
@@ -143,9 +155,8 @@ export function drawBrief(holder) {
   onWork((all) => {
     const running = all.filter((job) => job.state === 'running');
     const waiting = all.filter((job) => job.state === 'queued').length;
-    holder.replaceChildren();
     holder.hidden = running.length === 0 && waiting === 0;
-    for (const job of running) {
+    const items = running.map((job) => {
       const fill = make('span', 'fill');
       if (job.total === null || job.total <= 0) {
         fill.classList.add('working');
@@ -154,16 +165,15 @@ export function drawBrief(holder) {
         fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
       }
       const figures = job.left === null ? job.step : `${job.step}, ${left(job.left)}`;
-      holder.append(
-        make(
-          'div',
-          'brief',
-          make('span', 'brief-name', job.name),
-          make('span', 'brief-step', figures),
-          make('div', 'track', fill),
-        ),
+      return make(
+        'div',
+        'brief',
+        make('span', 'brief-name', job.name),
+        make('span', 'brief-step', figures),
+        make('div', 'track', fill),
       );
-    }
-    if (waiting > 0) holder.append(make('p', 'brief-waiting', `${whole.format(waiting)} waiting`));
+    });
+    if (waiting > 0) items.push(make('p', 'brief-waiting', `${whole.format(waiting)} waiting`));
+    settle(holder, items);
   });
 }

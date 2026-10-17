@@ -8,6 +8,7 @@
 mod cockpit;
 mod data_export;
 mod game_updates;
+mod kept;
 mod mcp;
 mod mcp_http;
 mod newer;
@@ -30,6 +31,8 @@ use steamgauge_core::{
     DEFAULT_PACE, Listing, SteamClient, embed, reading_time::ReadingTimes, report,
 };
 use tauri::{AppHandle, Manager};
+
+use kept::Kept;
 
 /// Where corpora live when nobody has said.
 ///
@@ -1007,13 +1010,29 @@ fn words_found(
     Ok(said)
 }
 
-/// The encoder that searches by meaning and the reranker that orders what it finds, each loaded
-/// once and kept: together they are well over a gigabyte, and a search that loaded them every
-/// time would spend seconds before looking at anything.
+/// The models kept between uses: each takes seconds to load, which a search would spend before
+/// looking at anything and a queue of games would spend on every one.
 #[derive(Default)]
-struct Meaning {
-    embedder: Arc<Mutex<Option<steamgauge_core::search_models::SearchEncoder>>>,
-    reranker: Arc<Mutex<Option<steamgauge_core::search_models::SearchReranker>>>,
+struct Models {
+    /// The encoder that prepares games and searches them by meaning.
+    encoder: Kept<steamgauge_core::search_models::SearchEncoder>,
+    /// The reranker that orders what a search by meaning finds.
+    reranker: Kept<steamgauge_core::search_models::SearchReranker>,
+    reader: Kept<steamgauge_core::reader::ClaimReader>,
+}
+
+impl Models {
+    fn let_go_if_idle(&self) {
+        self.encoder.let_go_if_idle();
+        self.reranker.let_go_if_idle();
+        self.reader.let_go_if_idle();
+    }
+
+    fn let_go(&self) {
+        self.encoder.let_go();
+        self.reranker.let_go();
+        self.reader.let_go();
+    }
 }
 
 /// Whether this machine reads on a card, which is what decides how long preparing takes.
@@ -1130,18 +1149,6 @@ fn choose_writer(app: AppHandle, write: bool) -> Result<(), String> {
         .map_err(text)
 }
 
-/// Loads a search model into `slot` unless it is there already.
-fn loaded<T>(
-    slot: &mut Option<T>,
-    load: impl FnOnce(&Path) -> steamgauge_core::Result<T>,
-) -> Result<&mut T, String> {
-    if slot.is_none() {
-        *slot = Some(load(&steamgauge_core::model::default_cache_dir()).map_err(text)?);
-    }
-    slot.as_mut()
-        .ok_or_else(|| "the search model did not load".to_owned())
-}
-
 /// One claim near in meaning to what was searched, with the review it came from.
 #[derive(Debug, Clone, Serialize)]
 struct NearClaim {
@@ -1155,7 +1162,7 @@ struct NearClaim {
 #[tauri::command]
 async fn search_by_meaning(
     app: AppHandle,
-    meaning: tauri::State<'_, Meaning>,
+    models: tauri::State<'_, Models>,
     last: tauri::State<'_, LastSearch>,
     app_id: u32,
     query: String,
@@ -1169,22 +1176,23 @@ async fn search_by_meaning(
     const MOST: usize = 50;
 
     let dir = library_dir(&app);
-    let embedder = Arc::clone(&meaning.embedder);
-    let reranker = Arc::clone(&meaning.reranker);
+    let encoder = models.encoder.clone();
+    let reranker = models.reranker.clone();
     let last = Arc::clone(&last.0);
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
-        let mut reranking = reranker.lock().map_err(text)?;
-        let reranker = loaded(&mut reranking, SearchReranker::load)?;
+        let cache = steamgauge_core::model::default_cache_dir();
+        let mut reranking = reranker.lock()?;
+        let reranker = reranking.get(&cache, SearchReranker::load)?;
         let wanted = {
             // A preparation holds the encoder for as long as it runs, which on a processor is
             // hours, and a search that waited for it would look like one that had hung.
-            let mut slot = embedder.try_lock().map_err(|_| {
+            let mut slot = encoder.try_lock()?.ok_or_else(|| {
                 "a game is being prepared; search by meaning is back when it finishes or is \
                  stopped"
                     .to_owned()
             })?;
-            loaded(&mut slot, SearchEncoder::load)?
+            slot.get(&cache, SearchEncoder::load)?
                 .search(&query)
                 .map_err(text)?
         };
@@ -1418,7 +1426,7 @@ pub fn run() -> anyhow::Result<()> {
         }))
         .plugin(tauri_plugin_opener::init())
         .manage(LastSearch::default())
-        .manage(Meaning::default())
+        .manage(Models::default())
         .manage(work::Work::default())
         .manage(update::Updating::default())
         .manage(since::Baseline::default())
@@ -1441,6 +1449,13 @@ pub fn run() -> anyhow::Result<()> {
                     tokio::time::sleep(cockpit::LOOK_AGAIN_EVERY).await;
                     cockpit::check_when_due(&open);
                     newer::check_when_due(&open);
+                }
+            });
+            let idle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(kept::LOOK_EVERY).await;
+                    idle.state::<Models>().let_go_if_idle();
                 }
             });
             Ok(())

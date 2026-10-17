@@ -54,6 +54,9 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
 - Claims are sorted by length in windows of 16,384 and read in batches of 256; the next batch is
   tokenised while the card runs this one. A reading at a fixed batch size is reproducible to the
   bit, and records the batch size.
+- On a card the search encoder and reranker run in a few shapes only: a fixed number of texts, a
+  batch short of them filled out with copies of its first, at 64, 128, 256 or 512 tokens. `DirectML`
+  prepares itself afresh for each shape it has not met, which cost more than the padding does.
 - An answer is cached by review text, claim position and language, so a review posted many times
   is read once.
 - **Abstention.** Confidence is the highest class probability. A claim is answered only when it
@@ -121,6 +124,9 @@ game in thirty.
   machine and its models. What was last seen is kept in `last-seen.json` in the library.
 - All work is **jobs on three lanes**: downloads and updates, reads and preparations (the card),
   and files. Each lane runs one job at a time, and no job starts on a game another job is using.
+- The reader, the search encoder and the reranker stay loaded between the jobs and searches that
+  use them, and are let go after two minutes unused. A read lets go of the encoder first and a
+  preparation of the reader, so the card holds no more than one of the two.
 - The app's own jobs (keeping games up to date, checking Steam) never run beside the person's: a
   job the person starts pauses them, and they start again afterwards.
 - Keeping up to date runs while the app is open, minimised included, and never once it is

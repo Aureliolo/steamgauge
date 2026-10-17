@@ -1131,8 +1131,19 @@ try {
     return wrong;
   })()`);
 
-  // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
+  // At the usual width the side column is the tallest, and what moved still follows what is new.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  const middling = await evaluate(`(async function () {
+    await new Promise(function (done) { setTimeout(done, 250); });
+    var news = document.querySelector('.column.news').getBoundingClientRect();
+    var moved = document.querySelector('.column.moved').getBoundingClientRect();
+    var side = document.querySelector('.column.side').getBoundingClientRect();
+    var gap = parseFloat(getComputedStyle(document.querySelector('.panels')).rowGap);
+    if (side.height <= news.height + gap + moved.height) return ['the side column is not the tallest, so the cockpit check proves nothing'];
+    return moved.top - news.bottom > gap + 1 ? ['what moved stands apart from what is new, down at the side column\\'s foot'] : [];
+  })()`);
+
+  // The first visit: an empty library, where the cockpit is a welcome that finds the first game.
   await load(`${page}?first`);
   const first = await evaluate(`(async function () {
     var wrong = [];
@@ -1437,6 +1448,7 @@ try {
       .concat(narrow.result.result.value)
       .concat(sideways)
       .concat(wide.result.result.value)
+      .concat(middling.result.result.value)
       .concat(first.result.result.value)
       .concat(later.result.result.value)
       .concat(unreachable);

@@ -25,7 +25,7 @@ import {
   bcp47,
   language,
 } from './common.js';
-import { startWork, onWork, jobsFor, jobItem, active, queue, drawBrief } from './work.js';
+import { startWork, onWork, jobsFor, jobItem, active, queue, drawBrief, settle } from './work.js';
 import { setUpCockpit } from './cockpit.js';
 import { setUpLibrary } from './library.js';
 import { setUpCompare } from './compare.js';
@@ -123,9 +123,9 @@ function drawGameJobs() {
   const mine = jobsFor(chosen);
   const exporting = mine.filter((job) => job.task.kind === 'export_data');
   const shown = current(mine.filter((job) => job.task.kind !== 'export_data'));
-  el('game-jobs').replaceChildren(...shown.map((job) => jobItem(job, { named: false })));
+  settle(el('game-jobs'), shown.map((job) => jobItem(job, { named: false })));
   const exports = current(exporting);
-  el('export-jobs').replaceChildren(...exports.map((job) => jobItem(job, { named: false })));
+  settle(el('export-jobs'), exports.map((job) => jobItem(job, { named: false })));
   el('export-jobs').hidden = exports.length === 0;
   el('export-data').disabled = exporting.some(active);
   const reading = mine.some((job) => active(job) && job.task.kind === 'read');
@@ -829,7 +829,7 @@ function drawMeaningJobs() {
   if (!meaningFor) return;
   const preparing = jobsFor(meaningFor.appId).filter((job) => job.task.kind === 'prepare');
   const shown = preparing.filter(active).concat(preparing.filter((job) => !active(job)).slice(0, 1));
-  el('meaning-jobs').replaceChildren(...shown.map((job) => jobItem(job, { named: false })));
+  settle(el('meaning-jobs'), shown.map((job) => jobItem(job, { named: false })));
 }
 
 function choiceButton(label, detail, recommended, onClick) {
