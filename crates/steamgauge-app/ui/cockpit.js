@@ -223,7 +223,31 @@ function draw(found, { openGame, openSubject }) {
   drawHealth(found, openGame);
   drawMoves(found, { openGame, openSubject });
   drawMachine(found);
+  balance();
 }
+
+/* What needs doing goes under what is new or under what moved, whichever leaves the shorter
+   page. Measured only when the figures are drawn or the window is resized, never as work moves,
+   so no panel shifts under the pointer. */
+function balance() {
+  const panels = document.querySelector('.panels');
+  panels.classList.remove('attention-under-moves');
+  const since = el('since-title').closest('.panel');
+  const attention = el('health-title').closest('.panel');
+  const moves = el('moves-title').closest('.panel');
+  if (moves.offsetLeft <= since.offsetLeft) return;
+  const gap = parseFloat(getComputedStyle(panels).rowGap);
+  const [s, a, m] = [since, attention, moves].map((panel) => panel.offsetHeight);
+  if (Math.max(s, m + gap + a) < Math.max(s + gap + a, m)) panels.classList.add('attention-under-moves');
+}
+
+let resizing = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizing);
+  resizing = setTimeout(() => {
+    if (showing() === 'cockpit') balance();
+  }, 150);
+});
 
 function tile(iconName, term, value, under) {
   return make(

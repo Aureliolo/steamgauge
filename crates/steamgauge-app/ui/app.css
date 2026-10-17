@@ -1558,16 +1558,16 @@ label.choice {
   stroke-linecap: round;
 }
 
-/* What is new, what needs doing and what moved, side by side in a wide window. A middle one puts
-   what is new beside the other two, and what it is taller by goes to the second row, so what
-   moved follows straight after what needs doing. */
+/* What is new and what needs doing stack on the left, and what moved, the one that runs long,
+   takes the wider column beside them. What moved being the taller gives its extra to the second
+   row, so what needs doing follows straight after what is new. */
 .panels {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   grid-template-rows: auto 1fr;
   grid-template-areas:
-    'since attention'
-    'since moves';
+    'since moves'
+    'attention moves';
   gap: var(--s5);
   align-items: start;
 }
@@ -1582,13 +1582,32 @@ label.choice {
 
 .moves-panel {
   grid-area: moves;
+  container-type: inline-size;
 }
 
-@media (min-width: 1680px) {
-  .panels {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: none;
-    grid-template-areas: 'since attention moves';
+/* What needs doing goes under what moved where that leaves the shorter page: decided by
+   cockpit.js when the figures are drawn, so it never moves as work ticks. */
+@media (min-width: 1081px) {
+  .panels.attention-under-moves {
+    grid-template-areas:
+      'since moves'
+      'since attention';
+  }
+}
+
+/* A wide column of what moved reads in two, half as long. */
+@container (min-width: 820px) {
+  .moves {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--s6);
+  }
+
+  .move:nth-child(2):not(.more) {
+    border-top: 0;
+  }
+
+  .move.more {
+    grid-column: 1 / -1;
   }
 }
 
