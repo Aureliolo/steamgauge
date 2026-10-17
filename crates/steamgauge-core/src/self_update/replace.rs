@@ -11,6 +11,7 @@ use std::{
     io::{self, Read},
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 /// A folder holding what was unpacked, removed with everything in it when dropped.
@@ -20,14 +21,34 @@ pub struct Staging {
 }
 
 impl Staging {
-    /// A new, empty folder inside `beside`.
+    /// A new, empty folder inside `beside`. Named by a count this process keeps, since two
+    /// stagings can start within one tick of the clock; a folder a killed run left under the
+    /// same name is passed over for the next.
     fn new(beside: &Path) -> io::Result<Self> {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |since| since.as_nanos());
-        let root = beside.join(format!(".steamgauge-update-{}-{nanos}", std::process::id()));
-        fs::create_dir(&root)?;
-        Ok(Self { root })
+        static STARTED: AtomicU64 = AtomicU64::new(0);
+        Self::first_free(
+            beside,
+            std::iter::repeat_with(|| {
+                format!(
+                    ".steamgauge-update-{}-{}",
+                    std::process::id(),
+                    STARTED.fetch_add(1, Ordering::Relaxed)
+                )
+            }),
+        )
+    }
+
+    /// The first of `names` that can be made a new folder inside `beside`.
+    fn first_free(beside: &Path, names: impl IntoIterator<Item = String>) -> io::Result<Self> {
+        for name in names {
+            let root = beside.join(name);
+            match fs::create_dir(&root) {
+                Ok(()) => return Ok(Self { root }),
+                Err(taken) if taken.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(failed) => return Err(failed),
+            }
+        }
+        Err(io::Error::from(io::ErrorKind::AlreadyExists))
     }
 
     #[must_use]
@@ -330,6 +351,41 @@ mod tests {
             .unwrap();
         swap(&staged, &bundle).unwrap();
         assert!(fs::metadata(&bundle).unwrap().modified().unwrap() > long_ago);
+    }
+
+    #[test]
+    fn stagings_started_at_once_each_get_a_folder_of_their_own() {
+        let dir = Dir::new();
+        let all: Vec<Staging> = (0..64).map(|_| Staging::new(dir.path()).unwrap()).collect();
+        let mut roots: Vec<&Path> = all.iter().map(Staging::path).collect();
+        roots.sort();
+        roots.dedup();
+        assert_eq!(roots.len(), all.len());
+        assert!(roots.iter().all(|root| root.is_dir()));
+    }
+
+    #[test]
+    fn a_staging_folder_left_by_a_killed_run_is_passed_over() {
+        let dir = Dir::new();
+        fs::create_dir(dir.path().join("left")).unwrap();
+        fs::write(dir.path().join("left").join("old"), b"old").unwrap();
+        let staging = Staging::first_free(dir.path(), ["left".into(), "next".into()]).unwrap();
+        assert_eq!(staging.path(), dir.path().join("next"));
+        assert!(
+            dir.path().join("left").join("old").exists(),
+            "the left folder is not touched"
+        );
+        let none = Staging::first_free(dir.path(), ["left".into()]).unwrap_err();
+        assert_eq!(none.kind(), io::ErrorKind::AlreadyExists);
+    }
+
+    #[test]
+    fn a_staging_where_no_folder_can_be_made_says_why() {
+        let dir = Dir::new();
+        let missing = dir.path().join("not-there");
+        let failed = Staging::first_free(&missing, ["a".into(), "b".into()]).unwrap_err();
+        assert_eq!(failed.kind(), io::ErrorKind::NotFound);
+        assert!(!missing.exists());
     }
 
     #[test]
