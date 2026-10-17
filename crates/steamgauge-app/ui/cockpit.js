@@ -19,7 +19,7 @@ import {
   showing,
   setPath,
 } from './common.js';
-import { onWork, jobItem, queue, active } from './work.js';
+import { onWork, jobs, jobItem, queue, active, settle } from './work.js';
 import { reason } from './settings.js';
 import { drawSinceCard } from './since.js';
 
@@ -62,26 +62,11 @@ export function setUpCockpit({ openGame, openSubject }) {
   /* Everything running, the next few waiting, and the last few finished: a library-wide update
      queues a job for every game, and listing seventy of them would bury the one running. */
   onWork((all) => {
-    const running = all.filter((job) => job.state === 'running');
-    const waiting = all.filter((job) => job.state === 'queued');
-    const finished = all.filter((job) => !active(job)).reverse().slice(0, 4);
-    const items = [...running, ...waiting.slice(0, WAITING_SHOWN)].map((job) => jobItem(job));
-    if (waiting.length > WAITING_SHOWN) {
-      items.push(make('li', 'job more', `and ${whole.format(waiting.length - WAITING_SHOWN)} more waiting`));
-    }
-    items.push(...finished.map((job) => jobItem(job)));
-    el('cockpit-work').replaceChildren(...items);
-    el('cockpit-idle').hidden = items.length > 0;
-    el('clear-finished').hidden = finished.length === 0;
     /* Fetching a model is part of the welcome, not a sign the library is under way. */
-    const fetches = all.filter((job) => job.task.kind === 'fetch_model');
     busy = all.some((job) => job.task.kind !== 'fetch_model');
-    fetching = new Set(fetches.filter(active).map((job) => job.task.model));
-    if (overview) {
-      welcome(overview);
-      drawMachine(overview);
-    }
-    drawFetch(fetches.filter((job) => job.task.model === readerKey).pop());
+    fetching = new Set(all.filter((job) => job.task.kind === 'fetch_model' && active(job)).map((job) => job.task.model));
+    /* Drawn again when the cockpit is shown, so a hidden one is not laid out at every tick. */
+    if (showing() === 'cockpit') drawWork(all);
   });
   el('ready-fetch').addEventListener('click', () => {
     if (readerKey) queue({ kind: 'fetch_model', model: readerKey });
@@ -109,6 +94,7 @@ export function setUpCockpit({ openGame, openSubject }) {
   });
 
   async function load() {
+    drawWork(jobs());
     try {
       overview = await invoke('overview');
     } catch (failure) {
@@ -121,6 +107,27 @@ export function setUpCockpit({ openGame, openSubject }) {
       invoke('looked', { appId: null }).catch(() => {});
     }
   }
+}
+
+/* Everything running, the next few waiting, and the last few finished: a library-wide update
+   queues a job for every game, and listing seventy of them would bury the one running. */
+function drawWork(all) {
+  const running = all.filter((job) => job.state === 'running');
+  const waiting = all.filter((job) => job.state === 'queued');
+  const finished = all.filter((job) => !active(job)).reverse().slice(0, 4);
+  const items = [...running, ...waiting.slice(0, WAITING_SHOWN)].map((job) => jobItem(job));
+  if (waiting.length > WAITING_SHOWN) {
+    items.push(make('li', 'job more', `and ${whole.format(waiting.length - WAITING_SHOWN)} more waiting`));
+  }
+  items.push(...finished.map((job) => jobItem(job)));
+  settle(el('cockpit-work'), items);
+  el('cockpit-idle').hidden = items.length > 0;
+  el('clear-finished').hidden = finished.length === 0;
+  if (overview) {
+    welcome(overview);
+    drawMachine(overview);
+  }
+  drawFetch(all.filter((job) => job.task.kind === 'fetch_model' && job.task.model === readerKey).pop());
 }
 
 /* An empty library with nothing on its way is a first visit: the welcome stands in for the

@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::{
-    LastSearch, Meaning, cockpit, data_export, game_updates, newer, settings, since, storage, text,
+    LastSearch, Models, cockpit, data_export, game_updates, newer, settings, since, storage, text,
     update, who, work,
 };
 use crate::mcp::{rendezvous, socket_name};
@@ -551,9 +551,9 @@ fn entries() -> Vec<Entry> {
             Looks,
             "The claims of a prepared game nearest in meaning to what was searched, beyond those its words found, best first.",
             |app, a: ByMeaning| async move {
-                let meaning = app.state::<Meaning>();
+                let models = app.state::<Models>();
                 let last = app.state::<LastSearch>();
-                super::search_by_meaning(app.clone(), meaning, last, a.app_id, a.query).await
+                super::search_by_meaning(app.clone(), models, last, a.app_id, a.query).await
             },
         ),
         tool(

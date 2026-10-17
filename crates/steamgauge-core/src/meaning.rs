@@ -56,7 +56,7 @@ const PART_MOST: usize = 20_000;
 /// Texts are sorted by length within a window before they are batched, so a batch is padded to
 /// a length its members share rather than to its longest.
 const WINDOW: usize = 1_024;
-const BATCH: usize = 64;
+const BATCH: usize = crate::search_models::CLAIMS_A_RUN;
 
 /// Bytes on disk for each distinct claim, at most: a byte for each of the vector's dimensions,
 /// the scale that restores it, the reader's confidence, the claim's key and where it was said.

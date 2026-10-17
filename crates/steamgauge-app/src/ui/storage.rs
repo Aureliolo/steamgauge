@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use steamgauge_core::{embed, reader, search_models, state::CrawlState, writer};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use super::{
     library_dir, shelf, text,
@@ -529,7 +529,10 @@ pub async fn remove_model(
     if !home.starts_with(&cache) {
         return Err("That model is not in the app's model folder.".to_owned());
     }
+    let models = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        // A model still loaded holds its files open, and Windows removes no file held open.
+        models.state::<super::Models>().let_go();
         if home.exists() {
             std::fs::remove_dir_all(&home)
         } else {

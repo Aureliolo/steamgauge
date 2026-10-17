@@ -1059,11 +1059,17 @@ async fn read(
         0.0,
         Some(capture),
     );
+    let models = app.state::<super::Models>();
+    let (reader, encoder) = (models.reader.clone(), models.encoder.clone());
     let report = tauri::async_runtime::spawn_blocking(move || {
         // From before the model loads: the estimate is of the wait, and loading is part of it.
         let started = Instant::now();
-        let mut model = steamgauge_core::reader::ClaimReader::load(&model_dir).map_err(text)?;
-        let report = steamgauge_core::read::read_corpus(&mut model, app_id, &options, |progress| {
+        // Reads and preparations take turns on the card, and one sized for the reader need not
+        // hold the encoder beside it.
+        encoder.let_go();
+        let mut held = reader.lock()?;
+        let model = held.get(&model_dir, steamgauge_core::reader::ClaimReader::load)?;
+        let report = steamgauge_core::read::read_corpus(model, app_id, &options, |progress| {
             tell(
                 &telling,
                 id,
@@ -1175,7 +1181,8 @@ async fn prepare(
     fetch_for_prepare(app, id, writing).await?;
 
     let share = Settings::load(app).gpu_share;
-    let embedder = Arc::clone(&app.state::<super::Meaning>().embedder);
+    let models = app.state::<super::Models>();
+    let (encoder, reader) = (models.encoder.clone(), models.reader.clone());
     let telling = app.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<Ended, String> {
         let snapshot = steamgauge_core::embed::latest_snapshot(&dir, app_id).map_err(text)?;
@@ -1189,8 +1196,12 @@ async fn prepare(
             0.0,
             Some(total),
         );
-        let mut slot = embedder.lock().map_err(text)?;
-        let encoder = super::loaded(&mut slot, SearchEncoder::load)?;
+        reader.let_go();
+        let mut slot = encoder.lock()?;
+        let encoder = slot.get(
+            &steamgauge_core::model::default_cache_dir(),
+            SearchEncoder::load,
+        )?;
         let on_card = encoder.device() != "cpu";
         let started = Instant::now();
         let prepared = prepare(
