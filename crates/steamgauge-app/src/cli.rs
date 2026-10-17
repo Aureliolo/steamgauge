@@ -770,6 +770,11 @@ enum Command {
         /// are the same; only how long they take changes.
         #[arg(long, default_value_t = 1.0, value_parser = card_share)]
         card_share: f64,
+        /// Read every claim again. Without it a game read before by the same reader keeps the
+        /// answers of every review whose text is unchanged and reads only the rest. A fresh
+        /// reading at one batch size is the same to the bit each time it is made.
+        #[arg(long)]
+        afresh: bool,
     },
 
     /// Count a corpus again from the readings already on disk, without the model.
@@ -945,11 +950,9 @@ pub async fn run() -> Result<()> {
             top_helpful,
             depth,
             card_share,
+            afresh,
         } => {
-            let size = reader_size(reader.as_deref())?;
-            let model_dir = model.unwrap_or_else(|| size.home());
-            fetch_reader(size, &model_dir).await?;
-            ask_the_store_where_unknown(&app_ids, &out).await?;
+            let model_dir = ready_to_read(reader.as_deref(), model, &app_ids, &out).await?;
             let options = steamgauge_core::read::ReadOptions {
                 out_dir: out,
                 top_helpful,
@@ -957,6 +960,7 @@ pub async fn run() -> Result<()> {
                 language,
                 depth: depth.into(),
                 card_share,
+                afresh,
                 ..steamgauge_core::read::ReadOptions::default()
             };
             run_read(&app_ids, &model_dir, &options)
@@ -1992,6 +1996,21 @@ async fn fetch_reader(
     })
     .await?;
     Ok(())
+}
+
+/// The reader a read uses, fetched where it is not here yet, with the store asked about each
+/// game what the reader needs told.
+async fn ready_to_read(
+    reader: Option<&str>,
+    model: Option<PathBuf>,
+    app_ids: &[u32],
+    out: &std::path::Path,
+) -> Result<PathBuf> {
+    let size = reader_size(reader)?;
+    let model_dir = model.unwrap_or_else(|| size.home());
+    fetch_reader(size, &model_dir).await?;
+    ask_the_store_where_unknown(app_ids, out).await?;
+    Ok(model_dir)
 }
 
 fn run_read(

@@ -26,7 +26,7 @@ use std::{
 };
 
 use arrow::{
-    array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
+    array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder, UInt64Builder},
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -109,6 +109,9 @@ pub struct ReadOptions {
     /// each batch it rests as long again as the batch kept the card busy, times
     /// (1 - share) / share. What it reads is the same; only how long it takes changes.
     pub card_share: f64,
+    /// Reads every claim again rather than keeping the answers of the reading on disk for
+    /// reviews whose text has not changed since.
+    pub afresh: bool,
     /// Set by somebody who wants the read to end now. The reading already on disk is left as
     /// it was, because the new one is written beside it and only takes its place on finishing.
     pub stop: Arc<AtomicBool>,
@@ -188,6 +191,7 @@ impl Default for ReadOptions {
             language: None,
             depth: Depth::Deep,
             card_share: 1.0,
+            afresh: false,
             stop: Arc::default(),
         }
     }
@@ -544,6 +548,10 @@ fn reading_schema() -> Arc<Schema> {
         // none, and absent from readings written by a reader that named one subject per claim,
         // which read as none.
         Field::new("also", DataType::Utf8, true),
+        // The review's text as it was read, as a fingerprint, so a later read keeps this answer
+        // only while the review still says the same. Absent from readings written before it
+        // existed, whose answers a read then cannot keep.
+        Field::new("text_key", DataType::UInt64, false),
     ]))
 }
 
@@ -590,12 +598,18 @@ fn read_with(
     // Written beside the reading it replaces and moved over it only once complete, so a read
     // that is stopped, fails or dies with the machine leaves the last one standing.
     let partial = snapshot.join("readings.partial.parquet");
+    let kept = if options.afresh {
+        None
+    } else {
+        kept_answers(&snapshot, model.provenance(), options.depth, context)
+    };
     let (counted, forward_passes) = match read_and_count(
         model,
         app_id,
         (&snapshot, &partial),
         options,
         (context, headset_only),
+        kept.as_ref(),
         &mut on_progress,
     ) {
         Ok(read) => {
@@ -676,6 +690,7 @@ pub fn recount_corpus(
         language: earlier.language.clone(),
         depth: earlier.depth,
         card_share: 1.0,
+        afresh: false,
         stop: Arc::default(),
     };
     let context = earlier.context;
@@ -742,6 +757,64 @@ pub fn recount_corpus(
 
 /// Every stored answer of a corpus, by review id and then by the span each names.
 type Stored = HashMap<String, Vec<((u32, u32), Reading)>>;
+
+/// The answers of the reading on disk a read keeps, by review id: the fingerprint of the text
+/// they answered, and each answer by the span it names.
+type Kept = HashMap<String, (u64, Vec<((u32, u32), Reading)>)>;
+
+/// The answers a read may keep from the reading on disk, which are the ones this reader gave at
+/// this depth in this mode; an answer is kept only for a review whose text is still what it
+/// was. None where the reading is another reader's, or was written before readings carried the
+/// text they answered, and then every claim is read.
+fn kept_answers(
+    snapshot: &Path,
+    provenance: &crate::reader::Provenance,
+    depth: Depth,
+    context: bool,
+) -> Option<Kept> {
+    let earlier: ReadReport =
+        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).ok()?).ok()?;
+    if earlier.read_with != provenance.run_id
+        || earlier.read_by_rule != provenance.lines_fingerprint
+        || earlier.context != context
+        || earlier.depth != depth
+    {
+        return None;
+    }
+    let position = |name: &str| SHEET.iter().position(|category| category.id == name);
+    let mut kept: Kept = HashMap::new();
+    let mut keyed = true;
+    walk_readings(
+        &snapshot.join("readings.parquet"),
+        |id, text_key, at, subject, confidence, polarity, also| {
+            let Some(text_key) = text_key else {
+                keyed = false;
+                return;
+            };
+            let reading = Reading {
+                subject: subject.and_then(position),
+                confidence,
+                polarity: Polarity::from_name(polarity),
+                also,
+            };
+            kept.entry(id.to_owned())
+                .or_insert_with(|| (text_key, Vec::new()))
+                .1
+                .push((at, reading));
+        },
+    )
+    .ok()?;
+    keyed.then_some(kept)
+}
+
+/// What a review's text is, in eight bytes: enough to tell one review's text from the same
+/// review's after an edit.
+fn text_key(text: &str) -> u64 {
+    let key = review_key(text);
+    u64::from_le_bytes([
+        key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7],
+    ])
+}
 
 /// Reviews a recount counts between two reports of how far it has got.
 const RECOUNT_TELLS_EVERY: u64 = 25_000;
@@ -814,6 +887,7 @@ fn recount_rows(
             &Pending {
                 row,
                 text: joined,
+                text_key: text_key(text),
                 spans,
                 at: origin,
                 fingerprint,
@@ -904,6 +978,8 @@ impl Queued {
 struct Pending {
     row: crate::capture::Row,
     text: Arc<str>,
+    /// The review as it was captured, as [`text_key`] gives it.
+    text_key: u64,
     spans: Vec<(usize, usize)>,
     /// The same claims as byte ranges into the review as it was captured, which is what a
     /// reading records and what a label names. `spans` above indexes the rejoined text the
@@ -939,6 +1015,7 @@ fn read_and_count(
     (snapshot, readings): (&Path, &Path),
     options: &ReadOptions,
     (context, headset_only): (bool, bool),
+    kept: Option<&Kept>,
     on_progress: &mut impl FnMut(ReadProgress),
 ) -> Result<(ReadReport, u64)> {
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
@@ -991,6 +1068,11 @@ fn read_and_count(
                 )
             })
             .collect();
+        let text_key = text_key(text);
+        let kept_here = kept
+            .and_then(|kept| kept.get(&row.recommendationid))
+            .filter(|(answered, _)| *answered == text_key)
+            .map(|(_, readings)| readings);
         let mut spans = Vec::with_capacity(claims.len());
         let mut at = 0;
         for (index, claim) in claims.iter().enumerate() {
@@ -999,6 +1081,14 @@ fn read_and_count(
             spans.push((starts, starts + claim.len()));
             let key = key(context, &fingerprint, index, claim, &language);
             if answers.contains_key(&key) {
+                continue;
+            }
+            let earlier = kept_here.and_then(|readings| {
+                let span = origin.get(index)?;
+                readings.iter().find(|(at, _)| at == span)
+            });
+            if let Some((_, reading)) = earlier {
+                answers.insert(key, *reading);
                 continue;
             }
             // Reserved immediately, so a claim repeated later in the same window is not
@@ -1023,6 +1113,7 @@ fn read_and_count(
         pending.push(Pending {
             row,
             text: joined,
+            text_key,
             spans,
             at: origin,
             fingerprint,
@@ -1363,6 +1454,7 @@ impl Counting {
             }
             self.rows.push(
                 &row.recommendationid,
+                review.text_key,
                 review.at.get(index).copied().unwrap_or((0, 0)),
                 reading,
             );
@@ -1526,7 +1618,18 @@ pub fn for_each_full_reading(
     path: &Path,
     mut visit: impl FnMut(&str, (u32, u32), Option<&str>, f32, &str, crate::reader::Also),
 ) -> Result<()> {
-    use arrow::array::{Array, Float32Array, StringArray, UInt32Array};
+    walk_readings(path, |id, _, at, subject, confidence, polarity, also| {
+        visit(id, at, subject, confidence, polarity, also);
+    })
+}
+
+/// Every row of a readings file with the fingerprint of the review text it answered, None
+/// where the file was written before readings carried it.
+fn walk_readings(
+    path: &Path,
+    mut visit: impl FnMut(&str, Option<u64>, (u32, u32), Option<&str>, f32, &str, crate::reader::Also),
+) -> Result<()> {
+    use arrow::array::{Array, Float32Array, StringArray, UInt32Array, UInt64Array};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
     let file = std::fs::File::open(path).map_err(|_| crate::Error::NoClassifications {
@@ -1581,10 +1684,20 @@ pub fn for_each_full_reading(
             ),
             None => None,
         };
+        let text_keys = match batch.column_by_name("text_key") {
+            Some(found) => Some(
+                found
+                    .as_any()
+                    .downcast_ref::<UInt64Array>()
+                    .ok_or_else(|| another_build("text_key"))?,
+            ),
+            None => None,
+        };
 
         for row in 0..batch.num_rows() {
             visit(
                 ids.value(row),
+                text_keys.map(|column| column.value(row)),
                 (starts.value(row), ends.value(row)),
                 (!subjects.is_null(row)).then(|| subjects.value(row)),
                 confidences.value(row),
@@ -1601,6 +1714,7 @@ pub fn for_each_full_reading(
 #[derive(Default)]
 struct ReadingRows {
     ids: Vec<String>,
+    text_keys: Vec<u64>,
     starts: Vec<u32>,
     ends: Vec<u32>,
     subjects: Vec<Option<&'static str>>,
@@ -1614,8 +1728,9 @@ impl ReadingRows {
         self.ids.len()
     }
 
-    fn push(&mut self, id: &str, at: (u32, u32), reading: Option<&Reading>) {
+    fn push(&mut self, id: &str, text_key: u64, at: (u32, u32), reading: Option<&Reading>) {
         self.ids.push(id.to_owned());
+        self.text_keys.push(text_key);
         self.starts.push(at.0);
         self.ends.push(at.1);
         self.subjects.push(
@@ -1643,9 +1758,11 @@ impl ReadingRows {
         let mut confidences = Float32Builder::new();
         let mut polarities = StringBuilder::new();
         let mut also = StringBuilder::new();
+        let mut text_keys = UInt64Builder::new();
 
         for row in 0..self.len() {
             ids.append_value(&self.ids[row]);
+            text_keys.append_value(self.text_keys[row]);
             starts.append_value(self.starts[row]);
             ends.append_value(self.ends[row]);
             subjects.append_option(self.subjects[row]);
@@ -1654,6 +1771,7 @@ impl ReadingRows {
             also.append_option(self.also[row].as_deref());
         }
         self.ids.clear();
+        self.text_keys.clear();
         self.starts.clear();
         self.ends.clear();
         self.subjects.clear();
@@ -1669,6 +1787,7 @@ impl ReadingRows {
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
             Arc::new(also.finish()),
+            Arc::new(text_keys.finish()),
         ];
         Ok(RecordBatch::try_new(Arc::clone(schema), columns)?)
     }
@@ -1891,6 +2010,16 @@ pub(crate) mod tests {
     /// These reviews of `app_id` under `out`, as Steam's API serves them, read by the table at the
     /// default options with the reading saved beside them.
     pub(crate) fn read_these(out: &Path, app_id: u32, reviews: &[serde_json::Value]) -> PathBuf {
+        let snapshot = capture_these(out, app_id, reviews);
+        read_with(&mut Table::new(false), app_id, &options(out), |_| {})
+            .unwrap()
+            .save(&snapshot.join("reading.json"))
+            .unwrap();
+        snapshot
+    }
+
+    /// These reviews of `app_id` under `out` as its capture, in place of any captured before.
+    fn capture_these(out: &Path, app_id: u32, reviews: &[serde_json::Value]) -> PathBuf {
         let snapshot = out
             .join(format!("appid={app_id}"))
             .join(format!("snapshot={CRAWLED}"));
@@ -1909,11 +2038,16 @@ pub(crate) mod tests {
             .to_string(),
         )
         .unwrap();
-        read_with(&mut Table::new(false), app_id, &options(out), |_| {})
-            .unwrap()
-            .save(&snapshot.join("reading.json"))
-            .unwrap();
         snapshot
+    }
+
+    /// A review as Steam's API serves it.
+    fn steam_review(id: &str, text: &str) -> serde_json::Value {
+        serde_json::json!({
+            "recommendationid": id, "review": text, "language": "english", "voted_up": true,
+            "weighted_vote_score": "0.5", "votes_up": 3, "timestamp_created": CRAWLED,
+            "author": {"steamid": format!("7656{id}"), "playtime_at_review": 3_000},
+        })
     }
 
     pub(crate) fn options(out: &Path) -> ReadOptions {
@@ -2199,6 +2333,147 @@ pub(crate) mod tests {
             assert!(again.elapsed > Duration::ZERO);
             assert!(!snapshot.join("readings.recount.parquet").exists());
         }
+    }
+
+    /// One row of the readings: the review, the claim's span and the subject it was filed under.
+    type Row = (String, (u32, u32), Option<String>);
+
+    /// Reads app 1 under `out` with a fresh table, saves the reading, and says how many claims
+    /// the table was asked and every row of the readings.
+    fn read_and_save(out: &Path, context: bool, options: &ReadOptions) -> (usize, Vec<Row>) {
+        let snapshot = crate::embed::latest_snapshot(out, 1).unwrap();
+        let mut model = Table::new(context);
+        read_with(&mut model, 1, options, |_| {})
+            .unwrap()
+            .save(&snapshot.join("reading.json"))
+            .unwrap();
+        let mut rows = Vec::new();
+        for_each_reading(
+            &snapshot.join("readings.parquet"),
+            |id, at, subject, _, _| {
+                rows.push((id.to_owned(), at, subject.map(str::to_owned)));
+            },
+        )
+        .unwrap();
+        (model.asked, rows)
+    }
+
+    #[test]
+    fn a_read_keeps_the_answers_of_every_review_whose_text_is_unchanged() {
+        for context in [false, true] {
+            let out = crate::tempdir::Dir::new();
+            let first = [
+                steam_review("1", "Bugs everywhere. The music is lovely."),
+                steam_review("2", "The story is good."),
+            ];
+            capture_these(out.path(), 1, &first);
+            let (asked, read) = read_and_save(out.path(), context, &options(out.path()));
+            assert_eq!(asked, 3, "the first read asks every claim");
+
+            let (asked, again) = read_and_save(out.path(), context, &options(out.path()));
+            assert_eq!(asked, 0, "nothing changed, so nothing is asked");
+            assert_eq!(again, read);
+
+            // One review edited, one new: only their claims are asked. The edit keeps the
+            // claim's span, so only the text says it changed.
+            capture_these(
+                out.path(),
+                1,
+                &[
+                    steam_review("1", "Bugs everywhere. The music is lovely."),
+                    steam_review("2", "The story is bugs."),
+                    steam_review("3", "Great music."),
+                ],
+            );
+            let (asked, updated) = read_and_save(out.path(), context, &options(out.path()));
+            assert_eq!(
+                asked, 2,
+                "the edited review and the new one are read, context {context}"
+            );
+            assert_eq!(
+                updated[..2],
+                read[..2],
+                "the unchanged review keeps its answers"
+            );
+            assert_eq!(
+                updated[2].2.as_deref(),
+                Some("bugs"),
+                "the edit is read as it is now"
+            );
+            assert_eq!(updated.len(), 4);
+        }
+    }
+
+    #[test]
+    fn a_read_afresh_or_by_another_reader_reads_every_claim() {
+        let out = crate::tempdir::Dir::new();
+        capture_these(
+            out.path(),
+            1,
+            &[steam_review("1", "Bugs everywhere. The music is lovely.")],
+        );
+        read_and_save(out.path(), false, &options(out.path()));
+        let afresh = ReadOptions {
+            afresh: true,
+            ..options(out.path())
+        };
+        assert_eq!(read_and_save(out.path(), false, &afresh).0, 2);
+        assert_eq!(
+            read_and_save(out.path(), true, &options(out.path())).0,
+            2,
+            "a reading made out of context is no answer to a question asked in it"
+        );
+        let shallow = ReadOptions {
+            depth: Depth::Shallow,
+            ..options(out.path())
+        };
+        assert_eq!(read_and_save(out.path(), true, &shallow).0, 1);
+
+        let snapshot = crate::embed::latest_snapshot(out.path(), 1).unwrap();
+        let mut other = Table::new(true);
+        other.provenance.run_id = "run-2".to_owned();
+        assert!(kept_answers(&snapshot, &other.provenance, Depth::Shallow, true).is_none());
+        let mut lines = Table::new(true);
+        lines.provenance.lines_fingerprint = "lines-2".to_owned();
+        assert!(kept_answers(&snapshot, &lines.provenance, Depth::Shallow, true).is_none());
+        assert!(
+            kept_answers(
+                &snapshot,
+                &Table::new(true).provenance,
+                Depth::Shallow,
+                true
+            )
+            .is_some()
+        );
+    }
+
+    #[test]
+    fn readings_written_before_they_carried_the_text_are_read_again_whole() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = capture_these(out.path(), 1, &[steam_review("1", "Bugs everywhere.")]);
+        read_and_save(out.path(), false, &options(out.path()));
+        // The same rows without the column, as an earlier build wrote them.
+        let file = std::fs::File::open(snapshot.join("readings.parquet")).unwrap();
+        let batches: Vec<RecordBatch> =
+            parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+                .unwrap()
+                .build()
+                .unwrap()
+                .map(|batch| batch.unwrap())
+                .collect();
+        let older = batches[0].project(&[0, 1, 2, 3, 4, 5, 6]).unwrap();
+        let mut writer = ArrowWriter::try_new(
+            std::fs::File::create(snapshot.join("readings.parquet")).unwrap(),
+            older.schema(),
+            None,
+        )
+        .unwrap();
+        writer.write(&older).unwrap();
+        writer.close().unwrap();
+        assert!(
+            kept_answers(&snapshot, &Table::new(false).provenance, Depth::Deep, false).is_none()
+        );
+        assert_eq!(read_and_save(out.path(), false, &options(out.path())).0, 1);
     }
 
     #[test]
@@ -2608,6 +2883,7 @@ pub(crate) mod tests {
             }
             let held = Pending {
                 at: Vec::new(),
+                text_key: 0,
                 row: crate::capture::Row {
                     recommendationid: "1".to_owned(),
                     helpfulness: 0.0,
@@ -2660,6 +2936,7 @@ pub(crate) mod tests {
         }
         let review = Pending {
             at: Vec::new(),
+            text_key: 0,
             row: crate::capture::Row {
                 recommendationid: "1".to_owned(),
                 helpfulness: 0.0,
@@ -2679,6 +2956,7 @@ pub(crate) mod tests {
         let unanswered = Depth::Deep.claims_of("Nothing anybody asked about.");
         let quiet = Pending {
             at: Vec::new(),
+            text_key: 0,
             row: crate::capture::Row {
                 recommendationid: "2".to_owned(),
                 voted_up: true,

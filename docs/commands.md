@@ -76,6 +76,9 @@ steamgauge read [OPTIONS] <APP_IDS>...
 - `--card-share <CARD_SHARE>`: The share of the card's time the read may take, for a card other work
   is using: 0.5 rests after each batch as long as the batch kept the card busy. The readings are the
   same; only how long they take changes. Default: `1`.
+- `--afresh`: Read every claim again. Without it a game read before by the same reader keeps the
+  answers of every review whose text is unchanged and reads only the rest. A fresh reading at one
+  batch size is the same to the bit each time it is made.
 
 ### `recount`
 
