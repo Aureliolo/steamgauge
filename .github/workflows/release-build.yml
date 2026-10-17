@@ -197,13 +197,20 @@ jobs:
           tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}" --strip-components=1 "${archive%.tar.gz}/cargo-about"
           "${RUNNER_TEMP}/cargo-about" --version
 
+      # Side by side: each target takes about a minute on one core, and every build waits for all
+      # three.
       - name: Write the notices
         run: |
           set -euo pipefail
+          writing=()
           for archive in ${ARCHIVES}; do
             target="${archive%%:*}"
             node tools/release/notices.mjs write "${RUNNER_TEMP}/cargo-about" "${target}" "${archive#*:}" \
-              "${RUNNER_TEMP}/notices/${target}/THIRD-PARTY-NOTICES.txt"
+              "${RUNNER_TEMP}/notices/${target}/THIRD-PARTY-NOTICES.txt" &
+            writing+=("$!")
+          done
+          for each in "${writing[@]}"; do
+            wait "${each}"
           done
 
       - name: Verify the notices left the source as it was
