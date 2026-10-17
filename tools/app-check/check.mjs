@@ -403,10 +403,10 @@ const PROBE = `(async function () {
   job.querySelector('button').click();
   await pause();
   check('stopping a job does not ask the core to stop it', last('stop_job') && last('stop_job').args.id === 1);
-  $('#cockpit-waiting .chip.queued button').click();
+  $('#cockpit-waiting .chip.queued[data-job="11"] button').click();
   await pause();
   check('taking a waiting job off the list does not ask the core to stop it',
-    last('stop_job') && last('stop_job').args.id === 2);
+    last('stop_job') && last('stop_job').args.id === 11);
 
   await go('library');
   check('the library is not shown', shown('library'));
