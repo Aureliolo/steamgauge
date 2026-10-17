@@ -52,8 +52,14 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
   reads it that way and "same here" means nothing alone. A VR-only game's window opens with
   "Played in a VR headset."
 - Claims are sorted by length in windows of 16,384 and read in batches of 256; the next batch is
-  tokenised while the card runs this one. A reading at a fixed batch size is reproducible to the
-  bit, and records the batch size.
+  tokenised while the card runs this one. A fresh reading at a fixed batch size is reproducible
+  to the bit, and records the batch size.
+- A read of a game this reader has read before, at the same depth and in the same mode, keeps
+  the answer of every claim whose review text is unchanged and whose span is the same, and asks
+  the model only the rest: after an update, the new and edited reviews. Each row of the readings
+  carries a fingerprint of its review's text for this. A reading kept that way can differ from a
+  fresh one in about one claim in 2,000, the batching's own noise, which does not grow with
+  later updates; `read --afresh` reads every claim again, and so does a new reader.
 - On a card the search encoder and reranker run in a few shapes only: a fixed number of texts, a
   batch short of them filled out with copies of its first, at 64, 128, 256 or 512 tokens. `DirectML`
   prepares itself afresh for each shape it has not met, which cost more than the padding does.
