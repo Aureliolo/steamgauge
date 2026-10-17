@@ -226,19 +226,42 @@ function draw(found, { openGame, openSubject }) {
   balance();
 }
 
-/* What needs doing goes under what is new or under what moved, whichever leaves the shorter
-   page. Measured only when the figures are drawn or the window is resized, never as work moves,
-   so no panel shifts under the pointer. */
+/* One lane on a window narrower than this, as app.css lays it out. */
+const ONE_LANE = window.matchMedia('(max-width: 1080px)');
+
+/* How much nearer level the lanes must come before a panel changes lane, so one that moved
+   stays put while what it holds grows and shrinks by a line or two. */
+const SETTLED = 96;
+
+/* Puts each panel in whichever lane leaves the two closest to level, in the order a person
+   reads them, what is new always first on the left. Placed only when the figures are drawn or
+   the window is resized, never as work moves, so no panel shifts under the pointer. */
 function balance() {
-  const panels = document.querySelector('.panels');
-  panels.classList.remove('attention-under-moves');
-  const since = el('since-title').closest('.panel');
-  const attention = el('health-title').closest('.panel');
-  const moves = el('moves-title').closest('.panel');
-  if (moves.offsetLeft <= since.offsetLeft) return;
-  const gap = parseFloat(getComputedStyle(panels).rowGap);
-  const [s, a, m] = [since, attention, moves].map((panel) => panel.offsetHeight);
-  if (Math.max(s, m + gap + a) < Math.max(s + gap + a, m)) panels.classList.add('attention-under-moves');
+  const left = el('lane-left');
+  const right = el('lane-right');
+  const panels = ['since-title', 'health-title', 'moves-title'].map((id) => el(id).closest('.panel'));
+  if (ONE_LANE.matches) {
+    left.append(...panels);
+    return;
+  }
+  /* A page out of sight has nothing laid out to measure. */
+  if (panels[0].offsetParent === null) return;
+  const gap = parseFloat(getComputedStyle(left).rowGap);
+  const heights = panels.map((panel) => panel.offsetHeight);
+  /* Bit i of a placement set is panel i in the right lane. */
+  const tallest = (placing) => {
+    const lanes = [[], []];
+    heights.forEach((height, at) => lanes[(placing >> at) & 1].push(height));
+    return Math.max(...lanes.map((lane) => lane.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, lane.length - 1)));
+  };
+  const now = panels.reduce((placing, panel, at) => (panel.parentElement === right ? placing | (1 << at) : placing), 0);
+  /* Even placings from two: what is new stays on the left, and the right lane is never empty. */
+  let best = 2;
+  for (let placing = 4; placing < 1 << panels.length; placing += 2) {
+    if (tallest(placing) < tallest(best)) best = placing;
+  }
+  if (now !== 0 && tallest(now) - tallest(best) < SETTLED) best = now;
+  panels.forEach((panel, at) => ((best >> at) & 1 ? right : left).append(panel));
 }
 
 let resizing = null;

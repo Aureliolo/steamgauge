@@ -1098,6 +1098,19 @@ try {
       return next && mark.getBoundingClientRect().right > next.getBoundingClientRect().left;
     });
     if (overlap) wrong.push('two marks under the chart overlap in the narrowest window');
+    var rail = document.querySelector('.rail');
+    var shownBefore = ['rail-work', 'newer-version', 'rail-updated'].map(function (id) {
+      var item = document.getElementById(id);
+      var was = item.hidden;
+      item.hidden = false;
+      return function () { item.hidden = was; };
+    });
+    rail.scrollTop = rail.scrollHeight;
+    if (document.getElementById('rail-updated-show').getBoundingClientRect().bottom > window.innerHeight + 1) {
+      wrong.push('the foot of the rail is cut off in the narrowest window, with no way to scroll to it');
+    }
+    rail.scrollTop = 0;
+    shownBefore.forEach(function (put) { put(); });
     return wrong;
   })()`);
   // The library's table scrolls inside its own frame, so the page never shows it running off;
@@ -1143,25 +1156,35 @@ try {
     var stacks = ['since-title', 'health-title', 'moves-title'].map(function (id) {
       return document.getElementById(id).closest('.panel').getBoundingClientRect();
     });
-    if (!(stacks[0].right <= stacks[2].left && stacks[2].top === stacks[0].top && stacks[2].width > stacks[0].width)) {
-      wrong.push('the cockpit does not set what moved in a wider column beside what is new');
+    var beside = stacks.filter(function (box) { return box.left >= stacks[0].right; });
+    if (!(beside.length > 0 && beside[0].top === stacks[0].top && stacks[0].left < stacks[1].right)) {
+      wrong.push('the cockpit does not set two lanes side by side with what is new first on the left');
     }
-    // What needs doing follows whichever of the two leaves the shorter page.
-    var gap = parseFloat(getComputedStyle(document.querySelector('.panels')).rowGap);
-    var under = async function (tall) {
+    // Each panel goes in the lane that leaves the two closest to level.
+    var gap = parseFloat(getComputedStyle(document.getElementById('lane-left')).rowGap);
+    var laid = async function (tall) {
       var panel = document.getElementById(tall).closest('.panel');
       panel.style.minHeight = '1600px';
       window.dispatchEvent(new Event('resize'));
       await new Promise(function (done) { setTimeout(done, 400); });
-      var at = document.getElementById('health-title').closest('.panel').getBoundingClientRect();
-      var other = document.getElementById(tall === 'since-title' ? 'moves-title' : 'since-title').closest('.panel').getBoundingClientRect();
+      var boxes = ['since-title', 'health-title', 'moves-title'].map(function (id) {
+        return document.getElementById(id).closest('.panel').getBoundingClientRect();
+      });
       panel.style.minHeight = '';
       window.dispatchEvent(new Event('resize'));
       await new Promise(function (done) { setTimeout(done, 400); });
-      return at.left === other.left && at.top - other.bottom <= gap + 1;
+      return boxes;
     };
-    if (!(await under('since-title'))) wrong.push('what needs doing does not go under what moved when what is new runs long');
-    if (!(await under('moves-title'))) wrong.push('what needs doing does not go under what is new when what moved runs long');
+    var newsLong = await laid('since-title');
+    if (!(newsLong[1].left >= newsLong[0].right && newsLong[2].left === newsLong[1].left &&
+      newsLong[2].top - newsLong[1].bottom <= gap + 1)) {
+      wrong.push('what needs doing and what moved do not share the other lane when what is new runs long');
+    }
+    var movesLong = await laid('moves-title');
+    if (!(movesLong[1].left === movesLong[0].left && movesLong[1].top - movesLong[0].bottom <= gap + 1 &&
+      movesLong[2].left >= movesLong[0].right)) {
+      wrong.push('what needs doing does not go under what is new when what moved runs long');
+    }
     return wrong;
   })()`);
 

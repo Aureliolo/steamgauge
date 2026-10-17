@@ -238,6 +238,7 @@ code {
   flex-direction: column;
   gap: var(--s5);
   min-height: 0;
+  overflow-y: auto;
   padding: var(--s5) var(--s3) var(--s3);
   background: var(--surface);
   border-right: 1px solid var(--line);
@@ -1558,45 +1559,32 @@ label.choice {
   stroke-linecap: round;
 }
 
-/* What is new and what needs doing stack on the left, and what moved, the one that runs long,
-   takes the wider column beside them. What moved being the taller gives its extra to the second
-   row, so what needs doing follows straight after what is new. */
+/* Two lanes of one width, and cockpit.js puts each panel in the one that leaves them closest to
+   level; a narrow window has the one lane. */
 .panels {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  grid-template-rows: auto 1fr;
-  grid-template-areas:
-    'since moves'
-    'attention moves';
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s5);
   align-items: start;
 }
 
-.since-panel {
-  grid-area: since;
+.lane {
+  display: grid;
+  gap: var(--s5);
+  align-content: start;
+  min-width: 0;
 }
 
-.attention-panel {
-  grid-area: attention;
+.lane:empty {
+  display: none;
 }
 
 .moves-panel {
-  grid-area: moves;
   container-type: inline-size;
 }
 
-/* What needs doing goes under what moved where that leaves the shorter page: decided by
-   cockpit.js when the figures are drawn, so it never moves as work ticks. */
-@media (min-width: 1081px) {
-  .panels.attention-under-moves {
-    grid-template-areas:
-      'since moves'
-      'since attention';
-  }
-}
-
-/* A wide column of what moved reads in two, half as long. */
-@container (min-width: 820px) {
+/* What moved reads in two columns wherever a lane is wide enough, half as long. */
+@container (min-width: 680px) {
   .moves {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--s6);
@@ -4232,11 +4220,6 @@ table.games.cards .game-cell {
 @media (max-width: 1080px) {
   .panels {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-    grid-template-areas:
-      'since'
-      'attention'
-      'moves';
   }
 
   .machine-facts {
