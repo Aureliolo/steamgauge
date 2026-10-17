@@ -387,11 +387,9 @@ fn busy_game(work: &Work, app_id: u32) -> Option<String> {
             Task::Export { app_ids, .. } if app_ids.contains(&app_id) => {
                 Some("A report of this game is being written.".to_owned())
             }
-            task if task.app_id() == Some(app_id) => Some(format!(
-                "{} is working on this game: {}.",
-                job.name,
-                job.step.to_lowercase()
-            )),
+            task if task.app_id() == Some(app_id) => {
+                Some(format!("This game is busy: {}.", job.step.to_lowercase()))
+            }
             _ => None,
         })
 }

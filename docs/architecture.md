@@ -123,7 +123,10 @@ game in thirty.
 - It opens on a **cockpit**: what moved since the last look, running work, the library, the
   machine and its models. What was last seen is kept in `last-seen.json` in the library.
 - All work is **jobs on three lanes**: downloads and updates, reads and preparations (the card),
-  and files. Each lane runs one job at a time, and no job starts on a game another job is using.
+  and files. Each lane runs one job at a time, and no job starts on a game another job is using
+  or one queued before it is waiting to use, so a read queued with its game's download follows
+  it. A job is named as the store names its game, asked for when it is queued where the game has
+  no name on disk yet; never by the game's number.
 - The reader, the search encoder and the reranker stay loaded between the jobs and searches that
   use them, and are let go after two minutes unused. A read lets go of the encoder first and a
   preparation of the reader, so the card holds no more than one of the two.
