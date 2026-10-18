@@ -172,7 +172,7 @@ def dataset_card(
     games: int,
     agreed: dict,
     reviews: int = 0,
-    gold: int = 0,
+    gold: dict[str, int] | None = None,
     labellers: dict[str, int] | None = None,
 ) -> str:
     twice = (
@@ -191,6 +191,15 @@ def dataset_card(
         else ["No claim has a second label."]
     )
     by = ", ".join(f"{name} ({count:,})" for name, count in (labellers or {}).items())
+    people = gold or {}
+    answered = ", ".join(f"{name} ({count:,})" for name, count in people.items())
+    gold_file = (
+        f"- `gold.jsonl`: {sum(people.values()):,} answers from {len(people)} people, "
+        f"each named in `produced_by`: {answered}. Where two people answered a claim, both "
+        "answers are kept."
+        if len(people) > 1
+        else f"- `gold.jsonl`: {sum(people.values()):,} claims labelled by one person."
+    )
     return "\n".join(
         [
             "---",
@@ -221,9 +230,9 @@ def dataset_card(
             "",
             "- `claims.jsonl`: one label per claim.",
             "- `second-labels.jsonl`: a second label, from a different model, for some claims.",
-            f"- `gold.jsonl`: {gold:,} claims labelled by one person.",
+            gold_file,
             "- `acceptable.jsonl`: for some gold claims, whether a subject other than the gold",
-            "  one is also acceptable, judged by the same person.",
+            "  one is also acceptable, judged by the person who gave it.",
             "- `reviews.jsonl`: one row per labelled review.",
             "- `fetch_text.py`: adds the text to the claims. Python standard library only.",
             "",
@@ -476,9 +485,11 @@ def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], li
                 if (key := tuple(row[name] for name in KEY)) not in answered:
                     answered.add(key)
                     again.append(row)
-        gold.extend(load(game / "gold" / "labels.json"))
         app = int(game.name)
-        acceptable.extend({"app_id": app, **one} for one in load(game / "gold" / "acceptable.json"))
+        people = sorted(path for path in (game / "gold").glob("*") if path.is_dir())
+        for person in people:
+            gold.extend(load(person / "labels.json"))
+            acceptable.extend({"app_id": app, **one} for one in load(person / "acceptable.json"))
     return rows, again, gold, acceptable
 
 
@@ -719,7 +730,7 @@ def stage_dataset(reference: str, reviews_file: str, staging: Path) -> list[tupl
             len({row["app_id"] for row in rows}),
             agreement(rows, again),
             reviews=len(reviews),
-            gold=len(gold),
+            gold=dict(sorted(Counter(row["produced_by"] for row in gold).items())),
             labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
         ),
         encoding="utf-8",

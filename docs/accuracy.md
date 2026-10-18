@@ -100,7 +100,10 @@ one. A language with fewer than 100 labelled claims declines rather than borrowi
   (Cohen's kappa 0.87) and on praise or complaint 94.9% (0.92).
 - `declined` and `rare-claims` draw teaching sets where the reader is weakest. They are marked as
   such and never measured on.
-- `gold` and `ingest-gold` take a person's answers; `measure-claims` and `ceiling` score readings.
+- `gold --for <name>` writes the page one person answers, and `ingest-gold` files what it exports
+  under `gold/<name>` in each set, beside anyone else's answers to the same claims;
+  `compare-labels --base gold/<one> --labels gold/<other>` says how often two people agree.
+  `measure-claims` and `ceiling` score readings.
 - Whole games are held out, chosen by a hash of their app ID, so two claims from one review never
   sit on both sides.
 

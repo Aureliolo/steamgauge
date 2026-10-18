@@ -84,7 +84,7 @@ fn main() {
             agreed: 40,
             ..GoldDraw::default()
         };
-        std::fs::write(&to, render(&acceptability(), &found))
+        std::fs::write(&to, render(&acceptability(), &found, "sample"))
             .expect("the page could not be written");
         println!("{to}");
         return;
@@ -164,6 +164,7 @@ fn main() {
         ..GoldDraw::default()
     };
 
-    std::fs::write(&to, render(&questions, &found)).expect("the page could not be written");
+    std::fs::write(&to, render(&questions, &found, "sample"))
+        .expect("the page could not be written");
     println!("{to}");
 }

@@ -354,9 +354,10 @@ enum Command {
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Which labels to score against, as a directory inside each set: `gold` for the ones
-        /// a person adjudicated, `second` for the second labeller's. The set's own labels by
-        /// default. Only a gold figure may be called accuracy; the rest are agreement.
+        /// Which labels to score against, as a directory inside each set: `gold/<name>` for
+        /// the ones a person adjudicated, `second` for the second labeller's. The set's own
+        /// labels by default. Only a gold figure may be called accuracy; the rest are
+        /// agreement.
         #[arg(long)]
         labels: Option<String>,
     },
@@ -453,6 +454,11 @@ enum Command {
         /// so the answer is only meaningful beside the name of the reading it came from.
         #[arg(long, default_value = "second")]
         labels: String,
+        /// Which labels the reading is compared with, as a directory inside each set: the set's
+        /// own by default, `gold/<name>` for a person's, so `--base gold/one --labels gold/two`
+        /// says how often two people answer a claim alike.
+        #[arg(long)]
+        base: Option<String>,
     },
 
     /// Score the model against a label two labellers both reached, and say how often they
@@ -554,6 +560,11 @@ enum Command {
     /// ratification, and the claims two labellers answered differently, with both answers
     /// shown, which settles a boundary rather than measuring one.
     Gold {
+        /// Who answers the page: lowercase letters, digits and hyphens, as a GitHub handle is
+        /// written. Every answer it exports carries the name, and `ingest-gold` files it under
+        /// `gold/<name>` in each set, beside anyone else's answers to the same claims.
+        #[arg(long = "for", value_parser = a_person)]
+        person: String,
         /// Where the claim reference sets live.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
@@ -599,8 +610,9 @@ enum Command {
         #[arg(long)]
         serve: bool,
         /// Where the answers are written while serving. `ingest-gold` reads this file. Unless
-        /// named, `gold-answers.json`, or `gold-acceptable.json` with `--acceptable`, because the
-        /// page writes the whole file on every answer and one kind must not replace the other.
+        /// named, `gold-answers-<name>.json`, or `gold-acceptable-<name>.json` with
+        /// `--acceptable`, because the page writes the whole file on every answer and one kind
+        /// must not replace the other.
         #[arg(long)]
         answers: Option<PathBuf>,
         /// Port to serve on. 0 picks a free one.
@@ -642,9 +654,6 @@ enum Command {
         /// missing one, because it is scored as truth.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Who adjudicated. Recorded per label, like every other labeller.
-        #[arg(long, default_value = "a person")]
-        by: String,
     },
 
     /// Write every labelled claim, with its text, as JSONL for training.
@@ -1225,6 +1234,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             batch_size,
         } => run_revisit(words, subjects, app_ids, reference, out, *batch_size),
         Command::Gold {
+            person,
             reference,
             out,
             to,
@@ -1243,6 +1253,7 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             reference,
             out,
             &Asking {
+                person,
                 blind: *blind,
                 splits: (*splits).into(),
                 seed: *seed,
@@ -1255,8 +1266,8 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             if *serve {
                 Delivery::Served {
                     answers: answers
-                        .as_deref()
-                        .unwrap_or_else(|| answers_file(*acceptable)),
+                        .clone()
+                        .unwrap_or_else(|| answers_file(*acceptable, person)),
                     port: *port,
                 }
             } else {
@@ -1299,8 +1310,7 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
             from,
             reference,
             out,
-            by,
-        } => run_ingest_gold(from, reference, out, by),
+        } => run_ingest_gold(from, reference, out),
         Command::IngestInduced {
             app_id,
             from,
@@ -1335,7 +1345,8 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
             app_ids,
             reference,
             labels,
-        } => run_compare_labels(app_ids, reference, labels),
+            base,
+        } => run_compare_labels(app_ids, reference, base.as_deref(), labels),
         Command::Ceiling {
             app_ids,
             out,
@@ -2356,12 +2367,15 @@ fn run_revisit(
 /// Where a served page writes its answers unless told. The page writes the whole file on every
 /// answer, so judgements of what else is acceptable get a file of their own and never replace
 /// a file of gold answers.
-fn answers_file(acceptable: bool) -> &'static std::path::Path {
-    std::path::Path::new(if acceptable {
-        "gold-acceptable.json"
-    } else {
-        "gold-answers.json"
-    })
+fn answers_file(acceptable: bool, person: &str) -> PathBuf {
+    let kind = if acceptable { "acceptable" } else { "answers" };
+    PathBuf::from(format!("gold-{kind}-{person}.json"))
+}
+
+fn a_person(written: &str) -> std::result::Result<String, String> {
+    steamgauge_core::gold::person(written)
+        .map(ToOwned::to_owned)
+        .map_err(|error| error.to_string())
 }
 
 /// How the adjudication page reaches the person answering it.
@@ -2369,18 +2383,15 @@ fn answers_file(acceptable: bool) -> &'static std::path::Path {
 /// An enum rather than a flag beside the paths, because the two are exclusive: a served page
 /// writes its answers as they are made and has nowhere to put an HTML file, and a written one
 /// has no port.
-#[derive(Clone, Copy)]
 enum Delivery<'a> {
     Written(&'a std::path::Path),
-    Served {
-        answers: &'a std::path::Path,
-        port: u16,
-    },
+    Served { answers: PathBuf, port: u16 },
 }
 
-/// What a person is asked: how many of each kind of claim, in which languages, against which
+/// Who is asked, and what: how many of each kind of claim, in which languages, against which
 /// second reading.
 struct Asking<'a> {
+    person: &'a str,
     blind: usize,
     splits: steamgauge_core::gold::Splits,
     seed: u64,
@@ -2431,6 +2442,7 @@ fn run_gold(
     delivery: Delivery<'_>,
 ) -> Result<()> {
     let Asking {
+        person,
         blind,
         splits,
         seed,
@@ -2441,11 +2453,11 @@ fn run_gold(
         boundaries,
     } = *asking;
     if acceptable {
-        let (questions, found) = steamgauge_core::gold::offered(reference, out)?;
+        let (questions, found) = steamgauge_core::gold::offered(reference, out, person)?;
         if questions.is_empty() {
             anyhow::bail!(
-                "the library's reader agrees with every gold answer under {}, or every other \
-                 subject it gave has been judged already; nothing to ask",
+                "the library's reader agrees with every answer {person} gave under {}, or every \
+                 other subject it gave has been judged already; nothing to ask",
                 reference.display()
             );
         }
@@ -2454,13 +2466,17 @@ fn run_gold(
              asked whether that subject would also do; {} it answered the same are not asked",
             found.split, found.games, found.agreed
         );
-        return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
+        return deliver(
+            steamgauge_core::gold::render(&questions, &found, person),
+            delivery,
+        );
     }
     if rejudge {
-        let (questions, found) = steamgauge_core::gold::rejudge(reference, reading)?;
+        let (questions, found) = steamgauge_core::gold::rejudge(reference, reading, person)?;
         if questions.is_empty() {
             anyhow::bail!(
-                "no gold answer under {} differs from the first labeller's; nothing to judge again",
+                "no answer {person} gave under {} differs from the first labeller's; nothing to \
+                 judge again",
                 reference.display()
             );
         }
@@ -2470,7 +2486,10 @@ fn run_gold(
              and are not asked",
             found.split, found.agreed
         );
-        return deliver(steamgauge_core::gold::render(&questions, &found), delivery);
+        return deliver(
+            steamgauge_core::gold::render(&questions, &found, person),
+            delivery,
+        );
     }
     let (questions, found) = steamgauge_core::gold::draw(
         reference,
@@ -2490,7 +2509,7 @@ fn run_gold(
             reference.display()
         );
     }
-    let page = steamgauge_core::gold::render(&questions, &found);
+    let page = steamgauge_core::gold::render(&questions, &found, person);
 
     say_what_was_drawn(&found, reading);
 
@@ -2576,7 +2595,7 @@ fn deliver(page: String, delivery: Delivery<'_>) -> Result<()> {
             );
         }
         Delivery::Served { answers, port } => {
-            let already = steamgauge_core::serve::answers_held(answers);
+            let already = steamgauge_core::serve::answers_held(&answers);
             if already > 0 {
                 println!(
                     "answers    {already} already on disk, and the page picks up where they end"
@@ -2586,7 +2605,7 @@ fn deliver(page: String, delivery: Delivery<'_>) -> Result<()> {
                 "\nNothing leaves this machine: the page is served on the loopback address and \
                  the only thing written is the answers file."
             );
-            steamgauge_core::serve::Adjudication::new(page, answers.to_path_buf())
+            steamgauge_core::serve::Adjudication::new(page, answers)
                 .serve(port, &|said| println!("{said}"))?;
         }
     }
@@ -2667,6 +2686,8 @@ struct Adjudicated {
     offered: Option<String>,
     #[serde(default)]
     acceptable: Option<bool>,
+    /// Who gave it, as the page was made out to them.
+    by: String,
 }
 
 impl Adjudicated {
@@ -2812,24 +2833,55 @@ fn adjudicate_one_game(
         );
     }
 
+    let given = gold.len();
+    let held = file_gold(dir, by, gold)?;
+    println!("{app_id:>9}  {given} adjudicated, {held} held for {by}");
+    Ok((given, agreed))
+}
+
+/// Files `given` with what `by` answered before, by claim, and returns how many they hold.
+///
+/// Merged rather than replaced because one person answers several pages over the same games,
+/// one per language: a file replacing the whole game would lose every answer from the page
+/// before. An answer given again replaces the old one.
+fn file_gold(
+    dir: &std::path::Path,
+    by: &str,
+    mut given: Vec<steamgauge_core::claimset::ClaimLabel>,
+) -> Result<usize> {
+    let out = steamgauge_core::gold::answers_of(dir, by);
+    let before: Vec<steamgauge_core::claimset::ClaimLabel> =
+        match std::fs::read(out.join("labels.json")) {
+            Ok(bytes) => serde_json::from_slice(&bytes)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(error) => return Err(error.into()),
+        };
+    let now: std::collections::HashSet<(String, u16)> = given
+        .iter()
+        .map(|label| (label.review_id.clone(), label.index))
+        .collect();
+    given.extend(
+        before
+            .into_iter()
+            .filter(|label| !now.contains(&(label.review_id.clone(), label.index))),
+    );
     // The answers file is in the order the page wrote and the server merged, which moves
     // whenever an answer is given again; filed by claim, the next commit's diff is the answers
     // that changed and nothing else.
-    gold.sort_by(|a, b| (&a.review_id, a.index).cmp(&(&b.review_id, b.index)));
-    let out = dir.join("gold");
+    given.sort_by(|a, b| (&a.review_id, a.index).cmp(&(&b.review_id, b.index)));
     std::fs::create_dir_all(&out)?;
-    std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&gold)?)?;
-    println!("{app_id:>9}  {} adjudicated", gold.len());
-    Ok((gold.len(), agreed))
+    std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&given)?)?;
+    Ok(given.len())
 }
 
 fn run_ingest_gold(
     from: &std::path::Path,
     reference: &std::path::Path,
     out: &std::path::Path,
-    by: &str,
 ) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
+    let person = answered_by(&answers)?.to_owned();
+    let by = person.as_str();
 
     let (judged, answers): (Vec<Adjudicated>, Vec<Adjudicated>) = answers
         .into_iter()
@@ -2911,6 +2963,23 @@ fn run_ingest_gold(
 
 /// Files each judgement of whether a reader's other subject would also do beside the gold
 /// labels of its set, leaving the labels themselves as they are.
+/// The one person a file of answers is from. A page is made for one person and stamps every
+/// answer with their name, so a file naming two was put together by hand, and filing it under
+/// either would put one person's answers in the other's place.
+fn answered_by(answers: &[Adjudicated]) -> Result<&str> {
+    let people: std::collections::BTreeSet<&str> =
+        answers.iter().map(|answer| answer.by.as_str()).collect();
+    match people.into_iter().collect::<Vec<_>>()[..] {
+        [one] => Ok(steamgauge_core::gold::person(one)?),
+        [] => anyhow::bail!("the file holds no answers"),
+        ref several => anyhow::bail!(
+            "the file holds answers from {}; a page is answered by one person, so ingest each \
+             person's file on its own",
+            several.join(" and ")
+        ),
+    }
+}
+
 fn keep_judged(judged: &[Adjudicated], reference: &std::path::Path, by: &str) -> Result<()> {
     let mut by_game: std::collections::BTreeMap<u32, Vec<steamgauge_core::gold::Acceptable>> =
         std::collections::BTreeMap::new();
@@ -2931,7 +3000,7 @@ fn keep_judged(judged: &[Adjudicated], reference: &std::path::Path, by: &str) ->
     }
     let (mut yes, mut no) = (0, 0);
     for (app_id, rows) in &by_game {
-        steamgauge_core::gold::keep_acceptable(&reference.join(app_id.to_string()), rows)?;
+        steamgauge_core::gold::keep_acceptable(&reference.join(app_id.to_string()), by, rows)?;
         yes += rows.iter().filter(|row| row.acceptable).count();
         no += rows.iter().filter(|row| !row.acceptable).count();
     }
@@ -3253,8 +3322,22 @@ fn print_ceiling_block(
     );
 }
 
-fn run_compare_labels(app_ids: &[u32], reference: &std::path::Path, labels: &str) -> Result<()> {
-    let wanted = read_twice(app_ids, reference, labels)?;
+fn run_compare_labels(
+    app_ids: &[u32],
+    reference: &std::path::Path,
+    base: Option<&str>,
+    labels: &str,
+) -> Result<()> {
+    let base_of = |dir: &std::path::Path| {
+        base.map_or_else(
+            || dir.join("labels.json"),
+            |base| dir.join(base).join("labels.json"),
+        )
+    };
+    let mut wanted = read_twice(app_ids, reference, labels)?;
+    if app_ids.is_empty() {
+        wanted.retain(|app_id| base_of(&reference.join(app_id.to_string())).is_file());
+    }
 
     let pct =
         |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
@@ -3285,7 +3368,7 @@ fn run_compare_labels(app_ids: &[u32], reference: &std::path::Path, labels: &str
     for app_id in wanted {
         let dir = reference.join(app_id.to_string());
         let pairs = steamgauge_core::reliability::paired(
-            &dir.join("labels.json"),
+            &base_of(&dir),
             &dir.join(labels).join("labels.json"),
         )?;
         let found = steamgauge_core::reliability::over(&pairs);
@@ -3484,7 +3567,10 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
 
 /// The one paragraph that decides whether a reader may call these numbers accuracy.
 fn print_what_these_figures_are(labels: Option<&str>) {
-    if labels == Some("gold") {
+    if labels.is_some_and(|labels| {
+        std::path::Path::new(labels).parent()
+            == Some(std::path::Path::new(steamgauge_core::gold::GOLD))
+    }) {
         println!(
             "\nThese are ACCURACY figures. The labels were adjudicated by a person, so what is\n\
              measured is whether the model is right rather than whether two models are\n\
@@ -3498,7 +3584,8 @@ fn print_what_these_figures_are(labels: Option<&str>) {
          this measures consistency between two models rather than correctness. Two models can\n\
          agree and both be wrong, most easily on sarcasm and on the boundaries between\n\
          subjects, which is exactly where this one is weakest.\n\n\
-         Where a person has adjudicated a set, `--labels gold` scores against that instead."
+         Where a person has adjudicated a set, `--labels gold/<name>` scores against that \
+         instead."
     );
 }
 
@@ -4211,5 +4298,153 @@ mod tests {
         assert_eq!(thousands(2909), "2,909");
         assert_eq!(thousands(986_295), "986,295");
         assert_eq!(thousands(1_700_000), "1,700,000");
+    }
+
+    mod gold {
+        use std::path::{Path, PathBuf};
+
+        use serde_json::{Value, json};
+
+        use super::super::run_ingest_gold;
+
+        struct Scratch(PathBuf);
+
+        impl Scratch {
+            fn new(name: &str) -> Self {
+                let path = std::env::temp_dir()
+                    .join(format!("steamgauge-gold-{name}-{}", std::process::id()));
+                let _ = std::fs::remove_dir_all(&path);
+                std::fs::create_dir_all(&path).unwrap();
+                Self(path)
+            }
+        }
+
+        impl Drop for Scratch {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+
+        /// A set of one review with two claims, labelled by a model.
+        fn a_set(reference: &Path) -> PathBuf {
+            let set = reference.join("7");
+            std::fs::create_dir_all(&set).unwrap();
+            let sample = json!([{
+                "id": "r1", "app_id": 7, "language": "russian", "subset": "random",
+                "claims": [
+                    {"index": 0, "start": 0, "end": 10, "text": "Runs badly"},
+                    {"index": 1, "start": 11, "end": 19, "text": "Worth it"}
+                ]
+            }]);
+            std::fs::write(set.join("sample.json"), sample.to_string()).unwrap();
+            let label = |index: u16, start: u32, end: u32| {
+                json!({
+                    "review_id": "r1", "index": index, "app_id": 7,
+                    "language": "russian", "subset": "random", "start": start, "end": end,
+                    "taxonomy": "a-sheet", "produced_by": "a-model",
+                    "subject": "performance", "polarity": "complaint", "ironic": false,
+                    "confidence": "high", "ambiguous": false, "split_wrong": false
+                })
+            };
+            std::fs::write(
+                set.join("labels.json"),
+                json!([label(0, 0, 10), label(1, 11, 19)]).to_string(),
+            )
+            .unwrap();
+            set
+        }
+
+        fn answer(index: u16, subject: &str, by: &str) -> Value {
+            json!({
+                "app_id": 7, "review_id": "r1", "index": index,
+                "subject": subject, "polarity": "complaint",
+                "sheet": steamgauge_core::taxonomy::sheet(), "by": by
+            })
+        }
+
+        fn ingest(scratch: &Scratch, name: &str, answers: &[Value]) -> anyhow::Result<()> {
+            let file = scratch.0.join(name);
+            std::fs::write(&file, serde_json::to_vec(answers).unwrap()).unwrap();
+            run_ingest_gold(
+                &file,
+                &scratch.0.join("reference"),
+                &scratch.0.join("no-captures"),
+            )
+        }
+
+        fn held(set: &Path, who: &str) -> Vec<(u16, String, String)> {
+            let labels: Vec<Value> = serde_json::from_slice(
+                &std::fs::read(steamgauge_core::gold::answers_of(set, who).join("labels.json"))
+                    .unwrap(),
+            )
+            .unwrap();
+            labels
+                .iter()
+                .map(|label| {
+                    (
+                        u16::try_from(label["index"].as_u64().unwrap()).unwrap(),
+                        label["subject"].as_str().unwrap().to_owned(),
+                        label["produced_by"].as_str().unwrap().to_owned(),
+                    )
+                })
+                .collect()
+        }
+
+        #[test]
+        fn a_persons_second_file_adds_to_their_first_and_an_answer_given_again_replaces_it() {
+            let scratch = Scratch::new("merged");
+            let set = a_set(&scratch.0.join("reference"));
+
+            ingest(&scratch, "first.json", &[answer(0, "story", "one")]).unwrap();
+            ingest(
+                &scratch,
+                "second.json",
+                &[answer(1, "price", "one"), answer(0, "graphics", "one")],
+            )
+            .unwrap();
+
+            assert_eq!(
+                held(&set, "one"),
+                [
+                    (0, "graphics".to_owned(), "one".to_owned()),
+                    (1, "price".to_owned(), "one".to_owned())
+                ]
+            );
+        }
+
+        #[test]
+        fn two_people_answering_the_same_claim_are_both_kept() {
+            let scratch = Scratch::new("two");
+            let set = a_set(&scratch.0.join("reference"));
+
+            ingest(&scratch, "one.json", &[answer(0, "story", "one")]).unwrap();
+            ingest(&scratch, "two.json", &[answer(0, "price", "two")]).unwrap();
+
+            assert_eq!(
+                held(&set, "one"),
+                [(0, "story".to_owned(), "one".to_owned())]
+            );
+            assert_eq!(
+                held(&set, "two"),
+                [(0, "price".to_owned(), "two".to_owned())]
+            );
+        }
+
+        #[test]
+        fn a_file_from_two_people_or_from_a_name_that_is_no_handle_is_refused() {
+            let scratch = Scratch::new("refused");
+            let set = a_set(&scratch.0.join("reference"));
+
+            let mixed = ingest(
+                &scratch,
+                "mixed.json",
+                &[answer(0, "story", "one"), answer(1, "price", "two")],
+            )
+            .unwrap_err();
+            assert!(mixed.to_string().contains("one and two"), "{mixed}");
+            assert!(ingest(&scratch, "climbs.json", &[answer(0, "story", "../one")]).is_err());
+            assert!(ingest(&scratch, "empty.json", &[]).is_err());
+            assert!(!set.join("gold").exists(), "nothing was filed");
+        }
     }
 }

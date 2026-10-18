@@ -88,6 +88,36 @@ def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path):
     assert [(row["index"], row["subject"]) for row in again] == [(0, "story"), (1, "price")]
 
 
+def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_path):
+    for person, subject in (("one", "story"), ("two", "bugs")):
+        folder = tmp_path / "7" / "gold" / person
+        folder.mkdir(parents=True)
+        (folder / "labels.json").write_text(
+            f'[{{"app_id": 7, "review_id": "r", "index": 0, "subject": "{subject}",'
+            f' "produced_by": "{person}"}}]',
+            encoding="utf-8",
+        )
+        (folder / "acceptable.json").write_text(
+            f'[{{"review_id": "r", "index": 0, "subject": "price", "acceptable": true,'
+            f' "by": "{person}"}}]',
+            encoding="utf-8",
+        )
+    _, _, gold, acceptable = publish.read_labels(tmp_path)
+    assert [(row["produced_by"], row["subject"]) for row in gold] == [
+        ("one", "story"),
+        ("two", "bugs"),
+    ]
+    assert [(row["app_id"], row["by"]) for row in acceptable] == [(7, "one"), (7, "two")]
+
+
+def test_the_card_names_each_person_once_there_is_more_than_one():
+    agreed = {"claims": 0}
+    assert "by one person" in publish.dataset_card(1, 1, agreed, gold={"one": 200})
+    card = publish.dataset_card(1, 1, agreed, gold={"one": 200, "two": 580})
+    assert "780 answers from 2 people" in card
+    assert "one (200), two (580)" in card
+
+
 def row(subject, polarity="praise", ambiguous=False, index=0):
     return {
         "app_id": 1,

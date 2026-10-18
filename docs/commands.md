@@ -232,7 +232,7 @@ steamgauge disconnect <CLIENT>
 - `measure-claims <APP_IDS>...`: Score stored readings against a claim reference set.
 - `ceiling [APP_IDS]...`: Score the model against a label two labellers both reached, and say how
   often they reached one at all.
-- `gold`: Write the page a person adjudicates claims on, from the held-out games.
+- `gold --for <PERSON>`: Write the page a person adjudicates claims on, from the held-out games.
 - `ingest-gold --from <FROM>`: Merge adjudicated answers back, as the only labels in the set written
   by a person.
 - `export-training`: Write every labelled claim, with its text, as JSONL for training.

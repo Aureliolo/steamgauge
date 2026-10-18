@@ -56,6 +56,8 @@ const PROBE = `(function () {
   check('the export dropped the judgements', out.length === 2);
   check('an exported judgement does not say which sheet it answered',
     out.every(function (row) { return row.sheet === data.taxonomy; }));
+  check('an exported judgement does not say who gave it',
+    out.every(function (row) { return row.by === data.for; }) && !!data.for);
 
   press('ArrowLeft');
   check('an answered question does not show its answer again',

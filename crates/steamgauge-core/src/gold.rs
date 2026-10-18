@@ -19,17 +19,54 @@
 //!
 //! The page is one self-contained file that fetches nothing and sends nothing. It holds review
 //! text, so it is written outside the repository and never committed, exactly like a report.
+//!
+//! Each person's answers are kept in a directory of their own, `gold/<name>` inside a set, as
+//! each labelling model's are: two people answering the same claim is the one measure of how
+//! far a person's answer is itself the truth, and it needs both answers kept.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Result,
+    Error, Result,
     claimset::{ClaimLabel, DrawnReview},
     measure::{Role, SPLIT_SEED, role},
     taxonomy::SHEET,
 };
+
+/// The directory inside each set that holds the people's answers, one directory per person.
+pub const GOLD: &str = "gold";
+
+/// A person's name as it names their directory: lowercase letters, digits and hyphens, as a
+/// GitHub handle is written.
+///
+/// # Errors
+///
+/// Refuses anything else. The name becomes a path, and one that climbs out of the set or
+/// differs only in case on one system and not another files answers where nobody looks.
+pub fn person(name: &str) -> Result<&str> {
+    let fits = !name.is_empty()
+        && name.len() <= 39
+        && !name.starts_with('-')
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
+    if fits {
+        Ok(name)
+    } else {
+        Err(Error::Refused(format!(
+            "{name:?} cannot name a person's answers: use lowercase letters, digits and hyphens, \
+             as a GitHub handle is written"
+        )))
+    }
+}
+
+/// Where `who` keeps their answers for the set in `set`.
+#[must_use]
+pub fn answers_of(set: &Path, who: &str) -> PathBuf {
+    set.join(GOLD).join(who)
+}
 
 /// One claim put in front of a person, with everything needed to judge it and nothing else.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -493,7 +530,7 @@ pub fn draw(
 /// # Errors
 ///
 /// Fails if a reference set cannot be read.
-pub fn rejudge(reference: &Path, reading: &str) -> Result<(Vec<Question>, GoldDraw)> {
+pub fn rejudge(reference: &Path, reading: &str, who: &str) -> Result<(Vec<Question>, GoldDraw)> {
     let mut questions = Vec::new();
     let mut found = GoldDraw::default();
 
@@ -509,7 +546,7 @@ pub fn rejudge(reference: &Path, reading: &str) -> Result<(Vec<Question>, GoldDr
         let (Ok(sample), Ok(first), Ok(gold)) = (
             std::fs::read(dir.join("sample.json")),
             std::fs::read(dir.join("labels.json")),
-            std::fs::read(dir.join("gold").join("labels.json")),
+            std::fs::read(answers_of(&dir, who).join("labels.json")),
         ) else {
             continue;
         };
@@ -590,13 +627,13 @@ pub struct Acceptable {
     pub by: String,
 }
 
-/// The file the judgements are kept in, in a set's `gold` directory.
+/// The file the judgements are kept in, beside the person's answers.
 pub const ACCEPTABLE: &str = "acceptable.json";
 
-/// The judgements kept for the set in `set`, or none.
+/// The judgements `who` has made for the set in `set`, or none.
 #[must_use]
-pub fn acceptable_in(set: &Path) -> Vec<Acceptable> {
-    std::fs::read(set.join("gold").join(ACCEPTABLE))
+pub fn acceptable_in(set: &Path, who: &str) -> Vec<Acceptable> {
+    std::fs::read(answers_of(set, who).join(ACCEPTABLE))
         .ok()
         .and_then(|raw| serde_json::from_slice(&raw).ok())
         .unwrap_or_default()
@@ -608,8 +645,8 @@ pub fn acceptable_in(set: &Path) -> Vec<Acceptable> {
 /// # Errors
 ///
 /// Fails if the file cannot be written.
-pub fn keep_acceptable(set: &Path, judged: &[Acceptable]) -> Result<usize> {
-    let mut kept = acceptable_in(set);
+pub fn keep_acceptable(set: &Path, who: &str, judged: &[Acceptable]) -> Result<usize> {
+    let mut kept = acceptable_in(set, who);
     for one in judged {
         kept.retain(|old| {
             (&old.review_id, old.index, &old.subject) != (&one.review_id, one.index, &one.subject)
@@ -619,7 +656,7 @@ pub fn keep_acceptable(set: &Path, judged: &[Acceptable]) -> Result<usize> {
     kept.sort_by(|a, b| {
         (&a.review_id, a.index, &a.subject).cmp(&(&b.review_id, b.index, &b.subject))
     });
-    let dir = set.join("gold");
+    let dir = answers_of(set, who);
     std::fs::create_dir_all(&dir)?;
     std::fs::write(dir.join(ACCEPTABLE), serde_json::to_vec_pretty(&kept)?)?;
     Ok(kept.len())
@@ -634,7 +671,7 @@ pub fn keep_acceptable(set: &Path, judged: &[Acceptable]) -> Result<usize> {
 /// # Errors
 ///
 /// Fails if a reference set or a reading cannot be read.
-pub fn offered(reference: &Path, library: &Path) -> Result<(Vec<Question>, GoldDraw)> {
+pub fn offered(reference: &Path, library: &Path, who: &str) -> Result<(Vec<Question>, GoldDraw)> {
     let mut questions = Vec::new();
     let mut found = GoldDraw::default();
 
@@ -649,7 +686,7 @@ pub fn offered(reference: &Path, library: &Path) -> Result<(Vec<Question>, GoldD
         };
         let (Ok(sample), Ok(gold)) = (
             std::fs::read(dir.join("sample.json")),
-            std::fs::read(dir.join("gold").join("labels.json")),
+            std::fs::read(answers_of(&dir, who).join("labels.json")),
         ) else {
             continue;
         };
@@ -658,7 +695,7 @@ pub fn offered(reference: &Path, library: &Path) -> Result<(Vec<Question>, GoldD
         };
         let drawn: Vec<DrawnReview> = serde_json::from_slice(&sample)?;
         let gold: Vec<ClaimLabel> = serde_json::from_slice(&gold)?;
-        let judged: std::collections::HashSet<(String, u16, String)> = acceptable_in(&dir)
+        let judged: std::collections::HashSet<(String, u16, String)> = acceptable_in(&dir, who)
             .into_iter()
             .map(|one| (one.review_id, one.index, one.subject))
             .collect();
@@ -800,9 +837,11 @@ fn answered(label: &ClaimLabel) -> Answered {
 const STYLE: &str = include_str!("gold.css");
 const SCRIPT: &str = include_str!("gold.js");
 
-/// Renders the page a person adjudicates on: one file, fetching nothing, sending nothing.
+/// Renders the page `who` adjudicates on: one file, fetching nothing, sending nothing. Every
+/// answer it exports carries their name, so a file handed back is filed under the person it
+/// was made for whoever runs the ingest.
 #[must_use]
-pub fn render(questions: &[Question], found: &GoldDraw) -> String {
+pub fn render(questions: &[Question], found: &GoldDraw, who: &str) -> String {
     let categories: Vec<serde_json::Value> = SHEET
         .iter()
         .map(|category| {
@@ -825,6 +864,7 @@ pub fn render(questions: &[Question], found: &GoldDraw) -> String {
         "games": found.games,
         "agreed": found.agreed,
         "languages": found.languages,
+        "for": who,
     });
 
     format!(
@@ -1647,7 +1687,7 @@ mod tests {
         let root = crate::tempdir::Dir::new();
         a_reference_set(root.path());
         let set = root.path().join("214490");
-        std::fs::create_dir_all(set.join("gold")).unwrap();
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
         let gold = |index: u16, subject: &str| {
             serde_json::json!({
                 "review_id": "r1", "index": index, "app_id": 214_490,
@@ -1658,12 +1698,16 @@ mod tests {
             })
         };
         std::fs::write(
-            set.join("gold").join("labels.json"),
+            answers_of(&set, "one").join("labels.json"),
             serde_json::json!([gold(0, "performance"), gold(2, "content")]).to_string(),
         )
         .unwrap();
 
-        let (questions, found) = rejudge(root.path(), "second").unwrap();
+        assert!(
+            rejudge(root.path(), "second", "two").unwrap().0.is_empty(),
+            "nobody is asked again about another person's answers"
+        );
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
         assert_eq!((found.games, found.agreed, found.split), (1, 1, 1));
         let asked = &questions[0];
         assert_eq!((asked.app_id, asked.index), (214_490, 2));
@@ -1701,8 +1745,12 @@ mod tests {
             was: None,
             offered: None,
         }];
-        let page = render(&questions, &GoldDraw::default());
+        let page = render(&questions, &GoldDraw::default(), "one");
         assert!(page.contains("Runs badly"));
+        assert!(
+            page.contains("\"for\":\"one\""),
+            "the page says whose answers it collects"
+        );
         for category in SHEET {
             assert!(page.contains(category.id), "{} is missing", category.id);
         }
@@ -1726,7 +1774,7 @@ mod tests {
             was: None,
             offered: None,
         }];
-        let page = render(&questions, &GoldDraw::default());
+        let page = render(&questions, &GoldDraw::default(), "one");
         assert!(
             page.contains("\"shown\":null"),
             "an answer on the page is an answer in the reader's head"
@@ -1790,17 +1838,46 @@ mod tests {
 
         keep_acceptable(
             set.path(),
+            "one",
             &[judged("1", "story", false), judged("1", "gameplay", true)],
         )
         .unwrap();
-        let kept = keep_acceptable(set.path(), &[judged("1", "story", true)]).unwrap();
+        let kept = keep_acceptable(set.path(), "one", &[judged("1", "story", true)]).unwrap();
+        keep_acceptable(set.path(), "two", &[judged("1", "story", false)]).unwrap();
 
         assert_eq!(kept, 2);
-        let story = acceptable_in(set.path())
+        let story = acceptable_in(set.path(), "one")
             .into_iter()
             .find(|one| one.subject == "story")
             .unwrap();
         assert!(story.acceptable, "the later judgement is the one kept");
+        assert_eq!(
+            acceptable_in(set.path(), "two").len(),
+            1,
+            "a second person's judgement sits beside the first's"
+        );
+    }
+
+    #[test]
+    fn a_person_is_named_as_a_github_handle_is_written_and_nothing_else() {
+        for fits in ["aureliolo", "pexp13", "a-b", "x"] {
+            assert_eq!(person(fits).unwrap(), fits);
+        }
+        let long = "a".repeat(40);
+        for refused in [
+            "",
+            "../x",
+            "Aureliolo",
+            "a b",
+            "-a",
+            "a/b",
+            "a\\b",
+            ".",
+            long.as_str(),
+        ] {
+            assert!(person(refused).is_err(), "{refused:?} was taken");
+        }
+        assert_eq!(person(&"a".repeat(39)).unwrap().len(), 39);
     }
 
     #[test]
@@ -1812,7 +1889,7 @@ mod tests {
         read_library(&snapshot);
 
         let set = root.path().join("reference").join("7");
-        std::fs::create_dir_all(set.join("gold")).unwrap();
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
         let claim = |index: u16, start: u32, end: u32, text: &str| crate::claimset::DrawnClaim {
             index,
             start,
@@ -1865,13 +1942,18 @@ mod tests {
             gold("2", 0, 0, 25, "compatibility"),
         ];
         std::fs::write(
-            set.join("gold").join("labels.json"),
+            answers_of(&set, "one").join("labels.json"),
             serde_json::to_vec(&labels).unwrap(),
         )
         .unwrap();
-        keep_acceptable(&set, &[judged("2", "performance", true)]).unwrap();
+        keep_acceptable(&set, "one", &[judged("2", "performance", true)]).unwrap();
 
-        let (questions, found) = offered(&root.path().join("reference"), &library).unwrap();
+        let reference = root.path().join("reference");
+        assert!(
+            offered(&reference, &library, "two").unwrap().0.is_empty(),
+            "nobody is asked about another person's answers"
+        );
+        let (questions, found) = offered(&reference, &library, "one").unwrap();
 
         assert_eq!(questions.len(), 1, "{questions:?}");
         let asked = &questions[0];
