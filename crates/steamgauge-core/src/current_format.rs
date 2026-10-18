@@ -29,13 +29,6 @@ pub struct Brought {
     pub failed: Vec<(PathBuf, String)>,
 }
 
-impl Brought {
-    #[must_use]
-    pub fn changed_anything(&self) -> bool {
-        !(self.keyed.is_empty() && self.renamed.is_empty() && self.removed.is_empty())
-    }
-}
-
 /// Brings every reading in the library at `library` to the current format.
 ///
 /// # Errors
@@ -108,7 +101,9 @@ fn bring_reading(snapshot: &Path, brought: &mut Brought) -> Result<()> {
 }
 
 fn remove_reading(snapshot: &Path, why: &str, brought: &mut Brought) -> Result<()> {
-    for file in ["reading.json", "readings.parquet"] {
+    // The readings first: the reading is what makes a game read, so a failure part way
+    // leaves it whole rather than a game counted as unread beside answers nobody can open.
+    for file in ["readings.parquet", "reading.json"] {
         match std::fs::remove_file(snapshot.join(file)) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                 return Err(error.into());
@@ -148,7 +143,7 @@ mod tests {
         let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
         let before = std::fs::read(snapshot.join("readings.parquet")).unwrap();
         let brought = bring_library(out.path()).unwrap();
-        assert!(!brought.changed_anything(), "{brought:?}");
+        assert_eq!(brought, Brought::default());
         assert_eq!(
             std::fs::read(snapshot.join("readings.parquet")).unwrap(),
             before
@@ -174,7 +169,7 @@ mod tests {
             crate::read::for_each_reading(&snapshot.join("readings.parquet"), |_, _, _, _, _| {})
                 .is_ok()
         );
-        assert!(!bring_library(out.path()).unwrap().changed_anything());
+        assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
     }
 
     #[test]
@@ -218,6 +213,41 @@ mod tests {
     }
 
     #[test]
+    fn a_reading_whose_readings_are_already_gone_is_removed_all_the_same() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        edit_reading(&snapshot, |fields| {
+            fields.remove("who");
+        });
+        std::fs::remove_file(snapshot.join("readings.parquet")).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!((brought.removed.len(), brought.failed.len()), (1, 0));
+        assert!(!snapshot.join("reading.json").exists());
+    }
+
+    #[test]
+    fn a_reading_that_cannot_be_removed_is_said_to_have_failed() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        edit_reading(&snapshot, |fields| {
+            fields.remove("who");
+        });
+        // A folder where the readings file is: removing it as a file fails, and not because
+        // it is missing.
+        std::fs::remove_file(snapshot.join("readings.parquet")).unwrap();
+        std::fs::create_dir(snapshot.join("readings.parquet")).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!((brought.removed.len(), brought.failed.len()), (0, 1));
+        assert!(snapshot.join("readings.parquet").is_dir());
+        assert!(
+            snapshot.join("reading.json").exists(),
+            "the reading is left whole"
+        );
+    }
+
+    #[test]
     fn a_reading_that_names_reviews_its_capture_never_held_is_removed() {
         let out = crate::tempdir::Dir::new();
         let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
@@ -234,6 +264,6 @@ mod tests {
     fn a_library_that_is_not_there_has_nothing_to_bring() {
         let out = crate::tempdir::Dir::new();
         let brought = bring_library(&out.path().join("never-made")).unwrap();
-        assert!(!brought.changed_anything());
+        assert_eq!(brought, Brought::default());
     }
 }

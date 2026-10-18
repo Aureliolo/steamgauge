@@ -1231,6 +1231,47 @@ mod tests {
     }
 
     #[test]
+    fn the_text_as_of_a_moment_is_each_reviews_newest_copy_among_the_files_written_by_then() {
+        let scratch = Scratch::new("as-of");
+        let dir = &scratch.0;
+        // The crawl's copy of 2 claims a later edit than either sweep's, and still loses to
+        // them: a swept copy always counts over the crawl's.
+        write(
+            &dir.join("shard-0000.parquet"),
+            &[review("1", "one", 10, 10), review("2", "crawled", 10, 50)],
+        );
+        // The later sweep fetched an older edit of 2, so the earlier sweep's copy counts.
+        write(&dir.join(sweep_file(100)), &[review("2", "edited", 10, 9)]);
+        write(
+            &dir.join(sweep_file(200)),
+            &[
+                review("2", "fetched late", 10, 3),
+                review("3", "three", 4, 4),
+            ],
+        );
+        // Written after the moment asked about, so nothing in it counts.
+        write(
+            &dir.join(sweep_file(300)),
+            &[review("2", "too late", 10, 20)],
+        );
+
+        let mut seen: Vec<(String, String)> = Vec::new();
+        for_each_text_as_of(dir, 200, |id, text| {
+            seen.push((id.to_owned(), text.to_owned()));
+        })
+        .unwrap();
+        seen.sort();
+        assert_eq!(
+            seen,
+            [
+                ("1".to_owned(), "one".to_owned()),
+                ("2".to_owned(), "edited".to_owned()),
+                ("3".to_owned(), "three".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
     fn every_reader_counts_the_newest_copy_of_a_swept_review_and_only_that() {
         let scratch = Scratch::new("newest");
         let dir = &scratch.0;
