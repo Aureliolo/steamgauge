@@ -614,9 +614,9 @@ pub struct Comparison {
 ///
 /// # Errors
 ///
-/// Refused where a kind is unknown, where the reading was counted before reviewers were told
-/// apart, where the two are answers to different facts and so share reviews, and where either
-/// side holds fewer than [`ENOUGH`] reviews.
+/// Refused where a kind is unknown or the reading holds no count of it, where the two are
+/// answers to different facts and so share reviews, and where either side holds fewer than
+/// [`ENOUGH`] reviews.
 pub fn compare(
     report: &ReadReport,
     these: &str,
@@ -625,13 +625,8 @@ pub fn compare(
     let refused = |why: String| crate::Error::Refused(why);
     let unknown = |id: &str| refused(format!("no kind of reviewer is called {id}"));
     let first = segment(these).ok_or_else(|| unknown(these))?;
-    let counted = stored(report, first.id).ok_or_else(|| {
-        refused(
-            "this game was counted before its reviewers were told apart; reading it again \
-             counts them"
-                .to_owned(),
-        )
-    })?;
+    let counted = stored(report, first.id)
+        .ok_or_else(|| refused(format!("this reading holds no count of {}", first.id)))?;
     let (against, (label, who)) = match others {
         Some(id) => {
             let second = segment(id).ok_or_else(|| unknown(id))?;
@@ -828,13 +823,9 @@ pub struct Kinds {
     pub kinds: Vec<Kind>,
 }
 
-/// Every kind of reviewer the reading counted, by the fact that makes it; nothing where the
-/// reading was counted before reviewers were told apart.
+/// Every kind of reviewer the reading counted, by the fact that makes it.
 #[must_use]
 pub fn kinds(report: &ReadReport) -> Vec<Kinds> {
-    if report.who.is_empty() {
-        return Vec::new();
-    }
     SPLITS
         .iter()
         .map(|split| Kinds {
@@ -885,13 +876,7 @@ mod tests {
 
     /// A reading whose kinds of reviewer were counted as given, the rest empty.
     fn reading(counts: Vec<SegmentCount>) -> ReadReport {
-        let mut report: ReadReport = serde_json::from_value(serde_json::json!({
-            "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-            "model": "m", "threshold": 0.5, "device": "cpu", "context": false,
-            "subjects": [], "languages": [], "months": []
-        }))
-        .unwrap();
+        let mut report = crate::read::tests::reading_with(&serde_json::json!({}));
         let mut given: std::collections::HashMap<String, SegmentCount> = counts
             .into_iter()
             .map(|count| (count.id.clone(), count))
@@ -1248,11 +1233,11 @@ mod tests {
             "a kind nobody wrote in is too few, not missing"
         );
 
-        let mut before = reading(Vec::new());
-        before.who.clear();
+        let mut partial = reading(Vec::new());
+        partial.who.retain(|count| count.id != "under-2-hours");
         assert!(matches!(
-            compare(&before, "under-2-hours", None),
-            Err(crate::Error::Refused(why)) if why.contains("reading it again")
+            compare(&partial, "under-2-hours", None),
+            Err(crate::Error::Refused(why)) if why.contains("no count of under-2-hours")
         ));
     }
 
@@ -1441,10 +1426,6 @@ mod tests {
             listed[3].kinds[1].recommended.is_some(),
             "everyone else at exactly enough is enough"
         );
-
-        let mut before = reading(Vec::new());
-        before.who.clear();
-        assert_eq!(kinds(&before), []);
     }
 
     #[test]

@@ -1269,61 +1269,19 @@ mod tests {
     }
 
     fn write_readings(dir: &Path, reviews: &[Vec<Claim>], texts: &[String]) {
-        use std::sync::Arc;
-
-        use arrow::{
-            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
-            datatypes::{DataType, Field, Schema},
-            record_batch::RecordBatch,
-        };
-        use parquet::arrow::ArrowWriter;
-
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("recommendationid", DataType::Utf8, false),
-            Field::new("start", DataType::UInt32, false),
-            Field::new("end", DataType::UInt32, false),
-            Field::new("subject", DataType::Utf8, true),
-            Field::new("confidence", DataType::Float32, false),
-            Field::new("polarity", DataType::Utf8, false),
-            Field::new("also", DataType::Utf8, true),
-        ]));
-        let (mut ids, mut starts, mut ends, mut subjects) = (
-            StringBuilder::new(),
-            UInt32Builder::new(),
-            UInt32Builder::new(),
-            StringBuilder::new(),
-        );
-        let (mut confidences, mut polarities, mut also) = (
-            Float32Builder::new(),
-            StringBuilder::new(),
-            StringBuilder::new(),
-        );
-        for (at, (claims, text)) in reviews.iter().zip(texts).enumerate() {
+        let ids: Vec<String> = (1..=reviews.len()).map(|id| id.to_string()).collect();
+        let mut rows = Vec::new();
+        for ((claims, text), id) in reviews.iter().zip(texts).zip(&ids) {
             for &(said, subject, polarity, other) in claims {
                 let start = text.find(said).unwrap();
-                ids.append_value((at + 1).to_string());
-                starts.append_value(u32::try_from(start).unwrap());
-                ends.append_value(u32::try_from(start + said.len()).unwrap());
-                subjects.append_option(subject);
-                confidences.append_value(0.9);
-                polarities.append_value(polarity);
-                also.append_option(other);
+                let at = (
+                    u32::try_from(start).unwrap(),
+                    u32::try_from(start + said.len()).unwrap(),
+                );
+                rows.push((id.as_str(), text.as_str(), at, subject, polarity, other));
             }
         }
-        let columns: Vec<ArrayRef> = vec![
-            Arc::new(ids.finish()),
-            Arc::new(starts.finish()),
-            Arc::new(ends.finish()),
-            Arc::new(subjects.finish()),
-            Arc::new(confidences.finish()),
-            Arc::new(polarities.finish()),
-            Arc::new(also.finish()),
-        ];
-        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
-        let file = std::fs::File::create(dir.join("readings.parquet")).unwrap();
-        let mut readings = ArrowWriter::try_new(file, schema, None).unwrap();
-        readings.write(&batch).unwrap();
-        readings.close().unwrap();
+        crate::read::tests::write_readings(&dir.join("readings.parquet"), &rows);
     }
 
     #[test]

@@ -71,27 +71,19 @@ impl Default for ReportOptions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CrawlFacts {
     pub app_id: u32,
-    /// The store's name for the app. Captures made before the crawler asked for it have
-    /// none, and a report falls back to the id rather than inventing one.
-    #[serde(default)]
+    /// The store's name for the app; empty where the store did not answer, and a report then
+    /// falls back to the id rather than inventing one.
     pub name: String,
-    #[serde(default)]
     pub review_score_desc: String,
-    #[serde(default)]
     pub rows_unique: u64,
-    #[serde(default)]
     pub valve_total_reviews: u64,
-    #[serde(default)]
     pub valve_total_positive: u64,
-    #[serde(default)]
     pub valve_total_negative: u64,
-    #[serde(default)]
     pub coverage: f64,
-    #[serde(default)]
     pub snapshot_unix: i64,
-    #[serde(default)]
     pub shards: u64,
-    /// When the capture was last brought up to date, where it has been.
+    /// When the capture was last brought up to date, where it has been. The three sweep
+    /// fields are written by the first sweep, so a capture never brought up to date has none.
     #[serde(default)]
     pub swept_unix: Option<i64>,
     #[serde(default)]
@@ -827,7 +819,7 @@ mod tests {
                 corpus_reviews: 100_000,
                 language: None,
                 depth: crate::read::Depth::Deep,
-                batch_size: Some(crate::read::DEFAULT_READ_BATCH),
+                batch_size: crate::read::DEFAULT_READ_BATCH,
                 claims: 300_000,
                 forward_passes: 300_000,
                 unclassified_claims: 0,
@@ -868,6 +860,7 @@ mod tests {
                 months: Vec::new(),
                 who: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
+                kept: 0,
             },
             examples: Vec::new(),
             top: Vec::new(),

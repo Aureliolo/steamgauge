@@ -10,6 +10,7 @@ pub mod card;
 pub mod claims;
 pub mod claimset;
 pub mod crawl;
+pub mod current_format;
 pub mod diverse;
 pub mod embed;
 pub mod export;

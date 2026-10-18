@@ -136,7 +136,6 @@ pub struct ClaimAgreement {
     /// reading corresponds to them. A label names a span of a review; a splitter that cuts
     /// that review differently leaves the label pointing at nothing, and it is counted here
     /// rather than at whatever now sits at its old index.
-    #[serde(default)]
     pub unjoined: u64,
     /// Of those, the ones the model would put a subject on.
     pub answered: u64,
@@ -153,7 +152,6 @@ pub struct ClaimAgreement {
     /// The subjects beyond each claim's first, over the claims whose labels say what else they
     /// cover: how many the labels give, how many the reader names, and how many of those agree.
     /// All zero for a reader that names one subject per claim, which names none.
-    #[serde(default)]
     pub beyond_the_first: Beyond,
 }
 

@@ -10,8 +10,7 @@ use super::{MonthOut, corrected_share, library_dir, measurement, read_report, te
 /// Who wrote a game's reviews, as its page opens.
 #[derive(Debug, Clone, Serialize)]
 pub(super) struct Overview {
-    /// By the fact that makes them; empty where the reading was counted before reviewers were
-    /// told apart.
+    /// By the fact that makes them.
     kinds: Vec<who::Kinds>,
     /// Clearest first.
     findings: Vec<who::Finding>,

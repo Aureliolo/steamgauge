@@ -155,8 +155,7 @@ pub struct Reading {
 )]
 pub struct Provenance {
     /// Which categories the model was trained against, so it cannot be read as
-    /// answering a question it was never asked. Accepts the name the sheet used to
-    /// carry, because every reader and reading already on disk records that.
+    /// answering a question it was never asked.
     pub subjects: Vec<String>,
     /// Below this the model says nothing. Chosen on validation claims, never on the held-out
     /// ones, because a threshold tuned against the test set makes the test set an opinion.
@@ -171,9 +170,8 @@ pub struct Provenance {
     /// subject's own predictions instead.
     ///
     /// `None` where a subject has no threshold that keeps the promise: that subject is
-    /// declined outright, which is the honest answer and not the same as a low one. Absent
-    /// entirely on a reader exported before this existed, and then `threshold` governs.
-    #[serde(default)]
+    /// declined outright, which is the honest answer and not the same as a low one. `None` as a
+    /// whole on a reader exported without lines, and then `threshold` governs.
     pub thresholds: Option<Vec<Option<f32>>>,
     /// One line per language, and a claim answers only when it clears this as well as its
     /// subject's.
@@ -186,9 +184,8 @@ pub struct Provenance {
     ///
     /// A language absent from the map declines every claim: below a hundred labelled claims
     /// nothing here can be promised, and the alternative already measured is Indonesian
-    /// answering three quarters of its eight claims at a third right. Absent as a whole on a
-    /// reader exported before this existed, and then the subject lines govern alone.
-    #[serde(default)]
+    /// answering three quarters of its eight claims at a third right. `None` as a whole on a
+    /// reader exported without lines, and then the subject lines govern alone.
     pub language_thresholds: Option<std::collections::HashMap<String, Option<f32>>>,
     /// On a reader with an aspect head, how sure it must be that a claim covers each subject,
     /// in `subjects` order, before it names that subject beside the one the claim is chiefly
@@ -199,34 +196,25 @@ pub struct Provenance {
     pub max_tokens: usize,
     /// The most claims the graph can be handed at once. `DirectML` multiplies a batch by each
     /// weight as one tensor of batch by rows by columns and refuses one of 2^32 elements or
-    /// more: the 4B's MLP weights are 2560 by 9728, so 173 claims fail where 172 read. Absent
-    /// on a reader exported before this existed, whose weights are small enough that no batch
-    /// the tool asks for comes near it.
-    #[serde(default)]
+    /// more: the 4B's MLP weights are 2560 by 9728, so 173 claims fail where 172 read. `None`
+    /// on a graph with no weight large enough for any batch the tool asks for to come near it.
     pub max_batch: Option<usize>,
     /// Whether the model was trained on the claim with its review around it. A model trained
     /// one way and read the other is answering a question in a form it has never seen, and
     /// nothing about the output would look wrong, so the graph carries the answer.
-    #[serde(default)]
     pub context: bool,
     /// Whether the claim is marked where it sits inside the window, as well as being given as
     /// the first sequence. Travels with the graph for the same reason `context` does: a model
     /// trained to look for the marks and read without them is answering a question in a form
     /// it has never seen, and every answer still looks plausible.
-    #[serde(default)]
     pub mark: bool,
     /// Whether the pair is written the way `multilingual-e5-*` was pre-trained on it, as
     /// "query: " and "passage: ". Travels with the graph for the same reason the other two do.
-    #[serde(default)]
     pub prefix: bool,
     /// Whether the window of a claim from a game played only in a headset opens by saying so.
-    /// Travels with the graph for the same reason the others do; absent on every reader
-    /// trained before it existed, which then reads every game alike.
-    #[serde(default)]
+    /// Travels with the graph for the same reason the others do.
     pub headset_marker: bool,
-    #[serde(default)]
     pub trained_from: String,
-    #[serde(default)]
     pub data_fingerprint: String,
     /// A hash of the rule this reader abstains by: the one threshold, every subject's line and
     /// every language's.
@@ -236,25 +224,21 @@ pub struct Provenance {
     /// a `run_id`, a set of weights and a label set and still answer differently. A reading that
     /// carried only the run id could not be reconciled with one made under the other rule, and
     /// the two would sit in the same library looking like the same measurement.
-    #[serde(default)]
     pub lines_fingerprint: String,
     /// The training run this reader came out of. Every candidate of one generation shares a
     /// backbone and a label set, so this is the only thing that tells two of them apart.
-    #[serde(default)]
     pub run_id: String,
     /// What the reader is called, for a page to say who read the corpus. A run id names
     /// weights for the index; a name is what somebody downloads and cites.
-    #[serde(default)]
     pub name: String,
     /// The share of claims this model declined on games it never saw. A corpus declined at
     /// far above this is a corpus about something the taxonomy lacks, and the only way a
     /// reader of one game's report can know that is if the reader carries the comparison.
-    #[serde(default)]
+    /// `None` on a reader no held-out games measured.
     pub usual_declined: Option<f32>,
     /// What this model did on the games it never saw. Carried with the graph so that a report
     /// of a game nobody has labelled can still say what its rates are worth: without it the
     /// only honest thing such a report could say is nothing at all.
-    #[serde(default)]
     pub held_out: Option<HeldOut>,
 }
 
@@ -289,8 +273,8 @@ impl Provenance {
 
     /// The line this language has to clear, on top of its subject's.
     ///
-    /// Zero where the reader carries no language lines at all, so a graph exported before this
-    /// existed reads exactly as it did. Infinity where the reader carries them and this
+    /// Zero where the reader carries no language lines at all, so a reader exported without
+    /// lines answers at its one threshold alone. Infinity where the reader carries them and this
     /// language is not among them, because a language with too little evidence to draw a line
     /// has too little to make a promise with either.
     #[must_use]
@@ -1199,7 +1183,7 @@ fn pieces(rows: usize, most: Option<usize>) -> Vec<std::ops::Range<usize>> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::stand_in;
 
@@ -1262,20 +1246,38 @@ mod tests {
         );
     }
 
+    /// A reader's record as the export writes it, every field present, with `given` laid over
+    /// it: a reader of no subjects without lines, an aspect head or a held-out figure.
+    pub(crate) fn reader_record(given: &serde_json::Value) -> serde_json::Value {
+        let mut record = serde_json::json!({
+            "subjects": [], "threshold": 0.5, "thresholds": null, "language_thresholds": null,
+            "max_tokens": 128, "max_batch": null, "context": false, "mark": false,
+            "prefix": false, "headset_marker": false, "trained_from": "a backbone",
+            "data_fingerprint": "labels-1", "lines_fingerprint": "lines-1", "run_id": "run-1",
+            "name": "Test Reader", "usual_declined": null, "held_out": null,
+        });
+        for (key, value) in given.as_object().expect("fields") {
+            record[key] = value.clone();
+        }
+        record
+    }
+
+    /// [`reader_record`] read as a reader's provenance.
+    pub(crate) fn provenance_from(given: &serde_json::Value) -> serde_json::Result<Provenance> {
+        serde_json::from_value(reader_record(given))
+    }
+
     fn provenance(lines: Option<Vec<Option<f32>>>) -> Provenance {
-        let mut written = serde_json::json!({
+        let mut given = serde_json::json!({
             "subjects": ["verdict", "vr", "licensing"],
             "threshold": 0.69,
-            "max_tokens": 128,
         });
-        if let Some(lines) = lines {
-            written["thresholds"] = serde_json::to_value(lines).expect("lines are values");
-        }
-        serde_json::from_value(written).expect("a provenance")
+        given["thresholds"] = serde_json::to_value(lines).expect("lines are values");
+        provenance_from(&given).expect("a provenance")
     }
 
     #[test]
-    fn a_reader_exported_before_the_lines_existed_keeps_its_one_line() {
+    fn a_reader_exported_without_lines_keeps_its_one_line() {
         let found = provenance(None);
         assert!((found.line_for(0) - 0.69).abs() < f32::EPSILON);
         assert!((found.line_for(2) - 0.69).abs() < f32::EPSILON);
@@ -1300,23 +1302,21 @@ mod tests {
     }
 
     fn speaking(lines: &[Option<f32>], spoken: serde_json::Value) -> Provenance {
-        let mut written = serde_json::json!({
-            "categories": crate::taxonomy::categories(),
+        let mut given = serde_json::json!({
             "subjects": ["verdict", "vr", "licensing"],
             "threshold": 0.69,
-            "max_tokens": 128,
             "thresholds": lines,
         });
-        written["language_thresholds"] = spoken;
-        serde_json::from_value(written).expect("a provenance")
+        given["language_thresholds"] = spoken;
+        provenance_from(&given).expect("a provenance")
     }
 
     #[test]
-    fn a_reader_with_no_language_lines_reads_exactly_as_it_did() {
+    fn a_reader_with_no_language_lines_answers_by_its_subject_lines_alone() {
         let found = provenance(Some(vec![Some(0.55), Some(0.94), None]));
         assert!(
             found.line_for_language("koreana").abs() < f32::EPSILON,
-            "a graph exported before the language axis existed must not start declining"
+            "a reader without language lines declines nothing for its language"
         );
         assert!((found.bar(0, "koreana") - 0.55).abs() < f32::EPSILON);
     }
@@ -1366,8 +1366,8 @@ mod tests {
         let silent = speaking(&[Some(0.55)], serde_json::json!({}));
         assert!(silent.bar(0, "english").is_infinite());
 
-        let old = speaking(&[Some(0.55)], serde_json::Value::Null);
-        assert!((old.bar(0, "english") - 0.55).abs() < f32::EPSILON);
+        let unlined = speaking(&[Some(0.55)], serde_json::Value::Null);
+        assert!((unlined.bar(0, "english") - 0.55).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -1553,7 +1553,7 @@ mod tests {
                 .position(|row| row.id == id)
                 .unwrap()
         };
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = provenance_from(&serde_json::json!({
             "subjects": ["audio", "offtopic", "controls"],
             "threshold": 0.5,
             "aspect_thresholds": [0.5, 0.5, 0.5],
@@ -1578,7 +1578,7 @@ mod tests {
 
     #[test]
     fn a_reader_says_what_it_scored_on_the_held_out_games() {
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = provenance_from(&serde_json::json!({
             "subjects": ["audio"],
             "threshold": 0.5,
             "max_tokens": 64,
@@ -1596,7 +1596,7 @@ mod tests {
 
     #[test]
     fn a_subject_below_its_line_is_not_named_beside_another() {
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = provenance_from(&serde_json::json!({
             "subjects": ["audio", "controls"],
             "threshold": 0.5,
             "aspect_thresholds": [0.5, 0.99],
@@ -1619,7 +1619,7 @@ mod tests {
 
     #[test]
     fn a_subject_is_named_beside_another_only_above_its_own_line() {
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = provenance_from(&serde_json::json!({
             "subjects": ["audio", "controls"],
             "threshold": 0.5,
             "aspect_thresholds": [0.7, null],
@@ -1631,12 +1631,12 @@ mod tests {
             provenance.aspect_bar(1, "english").is_infinite(),
             "a subject with no line is never named beside another"
         );
-        let older: Provenance = serde_json::from_value(serde_json::json!({
+        let headless = provenance_from(&serde_json::json!({
             "subjects": ["audio"], "threshold": 0.5, "max_tokens": 64,
         }))
         .unwrap();
         assert!(
-            older.aspect_bar(0, "english").is_infinite(),
+            headless.aspect_bar(0, "english").is_infinite(),
             "a reader without the head names one subject per claim"
         );
     }
@@ -1813,17 +1813,6 @@ mod tests {
         // Written out rather than shared: `HEADSET` in training/train.py holds the same string,
         // and training/test_headset.py checks it the same way from the other side.
         assert_eq!(HEADSET, "Played in a VR headset.");
-    }
-
-    #[test]
-    fn a_reader_trained_before_the_fact_existed_is_told_nothing() {
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
-            "subjects": ["verdict"],
-            "threshold": 0.5,
-            "max_tokens": 128,
-        }))
-        .unwrap();
-        assert!(!provenance.headset_marker);
     }
 
     #[test]
@@ -2044,11 +2033,10 @@ mod tests {
             &dir.join("tokenizer.json"),
             &crate::tiny_model::word_tokenizer(&READER_WORDS),
         );
-        let mut record = serde_json::json!({
+        let mut record = reader_record(&serde_json::json!({
             "subjects": subjects,
-            "threshold": 0.5,
             "max_tokens": 512,
-        });
+        }));
         for (key, value) in settings.as_object().unwrap() {
             record[key] = value.clone();
         }

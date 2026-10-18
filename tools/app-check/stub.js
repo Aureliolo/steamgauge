@@ -474,8 +474,8 @@
       held_out: { games: 10, claims: 5_080, coverage: 0.98, accuracy: 0.78 },
       months: calendar,
       languages: [{ name: 'english', reviews: 15_000, share: 0.75 }],
-      // Beta was read before reviewers were told apart.
-      who: appId === 1 ? { kinds: kinds(), findings: findings() } : { kinds: [], findings: [] },
+      // No kind of Beta's reviewers differs from everyone else by more than chance.
+      who: { kinds: kinds(), findings: appId === 1 ? findings() : [] },
     };
   };
 
@@ -1073,8 +1073,8 @@
     github: (version) => {
       github = version;
     },
-    // The kept answer as a build that did not time GitHub's answers left it.
-    untimed: () => {
+    // Every question to GitHub so far failed.
+    neverAnswered: () => {
       answeredAt = null;
     },
     // This copy opening as a version newer than the one it last opened as.

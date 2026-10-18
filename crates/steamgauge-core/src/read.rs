@@ -280,12 +280,10 @@ pub struct Month {
     /// Reviews raising each subject, in taxonomy order.
     pub subjects: Vec<u64>,
     /// Reviews praising each subject, in taxonomy order, whether or not they also complain
-    /// about it. Empty on a reading counted before months carried sides.
-    #[serde(default)]
+    /// about it.
     pub praising: Vec<u64>,
     /// Reviews complaining about each subject, in taxonomy order, whether or not they also
-    /// praise it. Empty on a reading counted before months carried sides.
-    #[serde(default)]
+    /// praise it.
     pub complaining: Vec<u64>,
 }
 
@@ -337,22 +335,17 @@ pub struct ReadReport {
     /// How each review was taken apart. A draw that lists a review's claims beside its
     /// readings has to take the review apart the same way, so this is recorded rather than
     /// assumed.
-    #[serde(default)]
     pub depth: Depth,
     /// Claims per forward pass. A batch is padded to its longest member, so its composition
     /// decides where half precision rounds, and each doubling moves about 75 answers of a
     /// game's 216,778. Three in ten thousand is not a reason to hold the size still, and it is
     /// a reason for a reading to say which size answered it.
-    ///
-    /// `None` on a reading written before this was recorded, which is not the same as zero.
-    #[serde(default)]
-    pub batch_size: Option<usize>,
+    pub batch_size: usize,
     pub claims: u64,
     /// How many claims the model was actually asked about. A claim written a thousand times
     /// is one question, and this is what says how much of the corpus was repetition rather
     /// than reading. The whole case for reading a library locally is what it costs, so what
     /// it cost is recorded rather than argued.
-    #[serde(default)]
     pub forward_passes: u64,
     /// Claims the model would not put a subject on. Reported rather than filed under
     /// whatever scored highest, which is the whole point of the rebuild.
@@ -362,7 +355,6 @@ pub struct ReadReport {
     /// Reviews the splitter found no claim in: markup, a row of emoji, a single punctuation
     /// mark. They are reviews of the corpus and are counted as such, and they write no rows,
     /// so without this the counts and the rows beside them cannot be reconciled.
-    #[serde(default)]
     pub claimless_reviews: u64,
     pub positive: u64,
     pub top_helpful: u64,
@@ -370,47 +362,35 @@ pub struct ReadReport {
     /// Which labels the model was trained from. Two readers with the same backbone and the
     /// same threshold trained on different label sets give different numbers, and a reading
     /// that recorded only the backbone could not say which it was.
-    #[serde(default)]
     pub trained_on: String,
     /// Which training run produced the reader. The backbone and the labels are shared by every
     /// candidate of one generation, so without this a library read with a new model skips every
     /// game the old one read and the corpus quietly holds two models' answers.
-    #[serde(default)]
     pub read_with: String,
-    /// What the reader is called, where it has a name; empty on a reading made before it did.
-    #[serde(default)]
+    /// What the reader is called.
     pub reader: String,
     /// Which abstention rule the reader was carrying. The run id names the weights; the lines
     /// are drawn separately and can be redrawn without retraining, so two readings of one
     /// corpus by one run id can hold different answers and this is what says why.
-    #[serde(default)]
     pub read_by_rule: String,
     /// What this model usually declines, on games it never saw, so this corpus's share can be
-    /// read against something.
-    #[serde(default)]
+    /// read against something; None for a reader that was never measured so.
     pub usual_declined: Option<f32>,
-    /// What the reader scored on games nobody involved in it had seen. Copied into the
-    /// reading so a report can say what its rates are worth without the model being present;
-    /// [`ReadReport::load`] takes it from the reader that read the game when the reading has
-    /// none.
-    #[serde(default)]
+    /// What the reader scored on games nobody involved in it had seen, copied into the reading
+    /// so a report can say what its rates are worth without the model being present; None for
+    /// a reader that was never held to such games.
     pub held_out: Option<crate::reader::HeldOut>,
     /// Whether each claim was read with its review around it. The same model cannot be asked
     /// both ways, so this says which question the corpus was actually asked.
-    #[serde(default)]
     pub context: bool,
-    /// Which categories the model was trained against, so it cannot be read as
-    /// answering a question it was never asked. Accepts the name the sheet used to
-    /// carry, because every reader and reading already on disk records that.
+    /// The reader's overall threshold, one part of the rule `read_by_rule` names.
     pub threshold: f32,
     pub device: String,
     /// When the capture this describes was last changed: its crawl, or the last sweep that
     /// brought it up to date. A capture swept since is one these counts no longer describe.
-    #[serde(default)]
     pub captured_unix: i64,
     pub subjects: Vec<SubjectCount>,
     /// The terms that separate each subject's praise from its complaints, in taxonomy order.
-    #[serde(default)]
     pub said: Vec<crate::said::SaidAbout>,
     pub languages: Vec<(String, u64)>,
     /// The languages in this corpus the reader has no line for, and the reviews written in
@@ -418,7 +398,6 @@ pub struct ReadReport {
     /// corpus declined far above the usual rate and offers no reason: the reason is that the
     /// reference set holds too few claims in that language to promise anything, which is a
     /// fact about the labels rather than about the game.
-    #[serde(default)]
     pub unread_languages: Vec<(String, u64)>,
     /// The languages in this corpus the reader has to be surer about than English before it
     /// will answer, and the reviews written in them.
@@ -428,50 +407,31 @@ pub struct ReadReport {
     /// languages the reference set covers worst. The first wants a category and the second
     /// wants labels. Silenced languages are usually a rounding error next to this one, so
     /// without it the page offers the rarer explanation for the commoner cause.
-    #[serde(default)]
     pub strict_languages: Vec<(String, u64)>,
     /// What was said month by month, oldest first.
     pub months: Vec<Month>,
     /// Every subject counted again for each kind of reviewer, in the order of
-    /// [`crate::who::SEGMENTS`]. Empty on a reading counted before reviewers were told apart.
-    #[serde(default)]
+    /// [`crate::who::SEGMENTS`].
     pub who: Vec<crate::who::SegmentCount>,
     #[serde(skip)]
     pub elapsed: Duration,
+    /// Of the distinct claims, how many this read answered from the last reading rather than
+    /// asking the model; known only to the read that did it.
+    #[serde(skip)]
+    pub kept: u64,
 }
 
 impl ReadReport {
-    /// The reading stored beside a snapshot, with the held-out figure of the reader that made it.
-    ///
-    /// The figure belongs to the reader, and a reading carries a copy only so a report can say
-    /// what its rates are worth with no model present. A reading without one takes it from the
-    /// reader on this computer that read the game, which is the one drawing the same lines.
+    /// The reading stored beside a snapshot.
     ///
     /// # Errors
     ///
     /// Fails if the snapshot holds no reading or it cannot be parsed.
     pub fn load(snapshot: &Path) -> Result<Self> {
         let path = snapshot.join("reading.json");
-        let mut report: Self = serde_json::from_slice(
-            &std::fs::read(&path).map_err(|_| Error::NoClassifications { path: path.clone() })?,
-        )?;
-        report.take_held_out_from(
-            crate::reader::SIZES
-                .iter()
-                .filter_map(|size| crate::reader::Provenance::load(&size.home()).ok()),
-        );
-        Ok(report)
-    }
-
-    /// Fills the held-out figure, where the reading has none, from whichever of `readers` drew
-    /// the lines it was read with.
-    fn take_held_out_from(&mut self, readers: impl IntoIterator<Item = crate::reader::Provenance>) {
-        if self.held_out.is_none() {
-            self.held_out = readers
-                .into_iter()
-                .find(|reader| reader.lines_fingerprint == self.read_by_rule)
-                .and_then(|reader| reader.held_out);
-        }
+        Ok(serde_json::from_slice(&std::fs::read(&path).map_err(
+            |_| Error::NoClassifications { path: path.clone() },
+        )?)?)
     }
 
     /// Share of claims the model declined to put a subject on.
@@ -545,12 +505,10 @@ fn reading_schema() -> Arc<Schema> {
         Field::new("confidence", DataType::Float32, false),
         Field::new("polarity", DataType::Utf8, false),
         // Every other subject the claim covers, as "audio:praise,controls:complaint"; null for
-        // none, and absent from readings written by a reader that named one subject per claim,
-        // which read as none.
+        // none.
         Field::new("also", DataType::Utf8, true),
         // The review's text as it was read, as a fingerprint, so a later read keeps this answer
-        // only while the review still says the same. Absent from readings written before it
-        // existed, whose answers a read then cannot keep.
+        // only while the review still says the same.
         Field::new("text_key", DataType::UInt64, false),
     ]))
 }
@@ -603,7 +561,7 @@ fn read_with(
     } else {
         kept_answers(&snapshot, model.provenance(), options.depth, context)
     };
-    let (counted, forward_passes) = match read_and_count(
+    let (counted, (forward_passes, kept)) = match read_and_count(
         model,
         app_id,
         (&snapshot, &partial),
@@ -626,6 +584,7 @@ fn read_with(
     Ok(ReadReport {
         elapsed: started.elapsed(),
         forward_passes,
+        kept,
         device: model.device().to_owned(),
         threshold: model.provenance().threshold,
         model: model.provenance().trained_from.clone(),
@@ -686,7 +645,7 @@ pub fn recount_corpus(
     let options = ReadOptions {
         out_dir: out_dir.to_path_buf(),
         top_helpful,
-        batch_size: earlier.batch_size.unwrap_or_default(),
+        batch_size: earlier.batch_size,
         language: earlier.language.clone(),
         depth: earlier.depth,
         card_share: 1.0,
@@ -743,8 +702,8 @@ pub fn recount_corpus(
         trained_on: earlier.trained_on,
         read_with: earlier.read_with,
         // The name the reader carries now: the run id is the identity, and the recount has
-        // already checked the reading is this reader's, so a reading made before it had a
-        // name, or under an earlier one, is called what it is called today.
+        // already checked the reading is this reader's, so a reading made under an earlier
+        // name is called what it is called today.
         reader: provenance.name.clone(),
         read_by_rule: earlier.read_by_rule,
         usual_declined: earlier.usual_declined,
@@ -764,8 +723,7 @@ type Kept = HashMap<String, (u64, Vec<((u32, u32), Reading)>)>;
 
 /// The answers a read may keep from the reading on disk, which are the ones this reader gave at
 /// this depth in this mode; an answer is kept only for a review whose text is still what it
-/// was. None where the reading is another reader's, or was written before readings carried the
-/// text they answered, and then every claim is read.
+/// was. None where the reading is another reader's, and then every claim is read.
 fn kept_answers(
     snapshot: &Path,
     provenance: &crate::reader::Provenance,
@@ -783,14 +741,9 @@ fn kept_answers(
     }
     let position = |name: &str| SHEET.iter().position(|category| category.id == name);
     let mut kept: Kept = HashMap::new();
-    let mut keyed = true;
     walk_readings(
         &snapshot.join("readings.parquet"),
         |id, text_key, at, subject, confidence, polarity, also| {
-            let Some(text_key) = text_key else {
-                keyed = false;
-                return;
-            };
             let reading = Reading {
                 subject: subject.and_then(position),
                 confidence,
@@ -804,7 +757,89 @@ fn kept_answers(
         },
     )
     .ok()?;
-    keyed.then_some(kept)
+    Some(kept)
+}
+
+/// Gives a readings file written before readings carried the text they answered its
+/// `text_key` column, from the capture as it stood when it was read, so a later read keeps
+/// exactly the answers it would have kept had the column always been there. True where the file
+/// needed it; a file that carries it is left as it is.
+///
+/// # Errors
+///
+/// Fails if the reading, its readings or the capture cannot be read, or if a reading names a
+/// review the capture did not hold when it was read; the readings are then left as they were.
+pub(crate) fn key_readings(snapshot: &Path) -> Result<bool> {
+    use arrow::array::{Array, StringArray};
+    use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+
+    let path = snapshot.join("readings.parquet");
+    let builder = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(&path)?)?;
+    if builder.schema().column_with_name("text_key").is_some() {
+        return Ok(false);
+    }
+    let stale = |field: &'static str| Error::StaleClassifications {
+        path: path.clone(),
+        field,
+    };
+    let reading: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json"))?)?;
+    let as_of = reading
+        .get("captured_unix")
+        .and_then(serde_json::Value::as_i64)
+        .ok_or_else(|| stale("captured_unix"))?;
+    let mut keys: HashMap<String, u64> = HashMap::new();
+    crate::capture::for_each_text_as_of(snapshot, as_of, |id, text| {
+        keys.insert(id.to_owned(), text_key(text));
+    })?;
+
+    let schema = reading_schema();
+    let partial = snapshot.join("readings.partial.parquet");
+    let written = (|| -> Result<()> {
+        let mut writer = ArrowWriter::try_new(
+            std::fs::File::create(&partial)?,
+            Arc::clone(&schema),
+            Some(
+                WriterProperties::builder()
+                    .set_compression(Compression::ZSTD(ZstdLevel::default()))
+                    .build(),
+            ),
+        )?;
+        for batch in builder.build()? {
+            let batch = batch?;
+            let ids = batch
+                .column_by_name("recommendationid")
+                .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+                .ok_or_else(|| stale("recommendationid"))?;
+            let mut text_keys = UInt64Builder::with_capacity(batch.num_rows());
+            for row in 0..batch.num_rows() {
+                let id = ids.value(row);
+                let key = keys.get(id).ok_or_else(|| {
+                    Error::Refused(format!(
+                        "{} answers review {id}, which its capture did not hold when it was \
+                         read; read the game again",
+                        path.display()
+                    ))
+                })?;
+                text_keys.append_value(*key);
+            }
+            let mut columns = batch.columns().to_vec();
+            columns.push(Arc::new(text_keys.finish()));
+            writer.write(&RecordBatch::try_new(Arc::clone(&schema), columns)?)?;
+        }
+        writer.close()?;
+        Ok(())
+    })();
+    match written {
+        Ok(()) => {
+            std::fs::rename(&partial, &path)?;
+            Ok(true)
+        }
+        Err(failed) => {
+            let _ = std::fs::remove_file(&partial);
+            Err(failed)
+        }
+    }
 }
 
 /// What a review's text is, in eight bytes: enough to tell one review's text from the same
@@ -1009,6 +1044,22 @@ const PENDING_CAP: usize = 16_384;
 /// review a second time and tally with the card idle; now a review is counted at the first
 /// drain after its last claim was queued, which is the same arithmetic in the same order
 /// against answers that are already final.
+/// Where each claim sits in the review as captured. A reading is joined to a label by this and
+/// by nothing else, so it is taken from the same splitter run that produced the claims rather
+/// than recovered later from a second one.
+fn spans_in(depth: Depth, text: &str) -> Vec<(u32, u32)> {
+    depth
+        .spans_of(text)
+        .into_iter()
+        .map(|span| {
+            (
+                u32::try_from(span.start).unwrap_or(u32::MAX),
+                u32::try_from(span.end).unwrap_or(u32::MAX),
+            )
+        })
+        .collect()
+}
+
 fn read_and_count(
     model: &mut impl Model,
     app_id: u32,
@@ -1017,9 +1068,10 @@ fn read_and_count(
     (context, headset_only): (bool, bool),
     kept: Option<&Kept>,
     on_progress: &mut impl FnMut(ReadProgress),
-) -> Result<(ReadReport, u64)> {
+) -> Result<(ReadReport, (u64, u64))> {
     let mut answers: HashMap<[u8; 32], Reading> = HashMap::new();
     let mut window: Vec<Queued> = Vec::with_capacity(LENGTH_WINDOW);
+    let (mut asked, mut reused) = (0_u64, 0_u64);
     let mut pending: Vec<Pending> = Vec::new();
     let mut counting = Counting::new(readings, options.top_helpful)?;
     // One allocation for every review a model that reads claims alone will ever queue.
@@ -1054,20 +1106,7 @@ fn read_and_count(
             Arc::clone(&nothing)
         };
         let language: Arc<str> = Arc::from(row.language.as_str());
-        // Where each claim sits in the review as captured. A reading is joined to a label by
-        // this and by nothing else, so it is taken from the same splitter run that produced
-        // the claims rather than recovered later from a second one.
-        let origin: Vec<(u32, u32)> = options
-            .depth
-            .spans_of(text)
-            .into_iter()
-            .map(|span| {
-                (
-                    u32::try_from(span.start).unwrap_or(u32::MAX),
-                    u32::try_from(span.end).unwrap_or(u32::MAX),
-                )
-            })
-            .collect();
+        let origin = spans_in(options.depth, text);
         let text_key = text_key(text);
         let kept_here = kept
             .and_then(|kept| kept.get(&row.recommendationid))
@@ -1089,11 +1128,13 @@ fn read_and_count(
             });
             if let Some((_, reading)) = earlier {
                 answers.insert(key, *reading);
+                reused += 1;
                 continue;
             }
             // Reserved immediately, so a claim repeated later in the same window is not
             // queued twice. The reading is filled in when the window drains.
             answers.insert(key, Reading::default());
+            asked += 1;
             window.push(Queued {
                 key,
                 claim: claim.to_string(),
@@ -1127,10 +1168,9 @@ fn read_and_count(
 
     drain(model, options, &mut window, &mut answers)?;
     settle(&mut pending, &mut counting, context, &answers, on_progress)?;
-    let forward_passes = answers.len() as u64;
     Ok((
         counting.finish(app_id, options, model.provenance())?,
-        forward_passes,
+        (asked, reused),
     ))
 }
 
@@ -1525,7 +1565,7 @@ impl Counting {
             corpus_reviews: self.corpus_reviews,
             language: options.language.clone(),
             depth: options.depth,
-            batch_size: Some(options.batch_size),
+            batch_size: options.batch_size,
             claims: self.claims,
             forward_passes: 0,
             unclassified_claims: self.unclassified,
@@ -1569,6 +1609,7 @@ impl Counting {
             months,
             who: self.who.finish(),
             elapsed: Duration::default(),
+            kept: 0,
         })
     }
 }
@@ -1608,9 +1649,6 @@ pub fn polarity_on(
 /// [`for_each_reading`], with every other subject the claim covers as a stored reading wrote
 /// it, for the passes that count them.
 ///
-/// Readings written by a reader that named one subject per claim carry no such column, and
-/// read as covering nothing else, which is what that reader said.
-///
 /// # Errors
 ///
 /// Fails if the file is missing or was written by another build.
@@ -1623,11 +1661,10 @@ pub fn for_each_full_reading(
     })
 }
 
-/// Every row of a readings file with the fingerprint of the review text it answered, None
-/// where the file was written before readings carried it.
+/// Every row of a readings file with the fingerprint of the review text it answered.
 fn walk_readings(
     path: &Path,
-    mut visit: impl FnMut(&str, Option<u64>, (u32, u32), Option<&str>, f32, &str, crate::reader::Also),
+    mut visit: impl FnMut(&str, u64, (u32, u32), Option<&str>, f32, &str, crate::reader::Also),
 ) -> Result<()> {
     use arrow::array::{Array, Float32Array, StringArray, UInt32Array, UInt64Array};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
@@ -1675,36 +1712,28 @@ fn walk_readings(
             .as_any()
             .downcast_ref::<StringArray>()
             .ok_or_else(|| another_build("polarity"))?;
-        let also = match batch.column_by_name("also") {
-            Some(found) => Some(
-                found
-                    .as_any()
-                    .downcast_ref::<StringArray>()
-                    .ok_or_else(|| another_build("also"))?,
-            ),
-            None => None,
-        };
-        let text_keys = match batch.column_by_name("text_key") {
-            Some(found) => Some(
-                found
-                    .as_any()
-                    .downcast_ref::<UInt64Array>()
-                    .ok_or_else(|| another_build("text_key"))?,
-            ),
-            None => None,
-        };
+        let also = column("also")?
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| another_build("also"))?;
+        let text_keys = column("text_key")?
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .ok_or_else(|| another_build("text_key"))?;
 
         for row in 0..batch.num_rows() {
             visit(
                 ids.value(row),
-                text_keys.map(|column| column.value(row)),
+                text_keys.value(row),
                 (starts.value(row), ends.value(row)),
                 (!subjects.is_null(row)).then(|| subjects.value(row)),
                 confidences.value(row),
                 polarities.value(row),
-                also.filter(|column| !column.is_null(row))
-                    .map(|column| crate::reader::Also::from_text(column.value(row)))
-                    .unwrap_or_default(),
+                if also.is_null(row) {
+                    crate::reader::Also::default()
+                } else {
+                    crate::reader::Also::from_text(also.value(row))
+                },
             );
         }
     }
@@ -1815,7 +1844,7 @@ pub(crate) mod tests {
     impl Table {
         pub(crate) fn new(context: bool) -> Self {
             Self {
-                provenance: serde_json::from_value(serde_json::json!({
+                provenance: crate::reader::tests::provenance_from(&serde_json::json!({
                     "subjects": crate::taxonomy::categories(),
                     "threshold": 0.5,
                     "max_tokens": 128,
@@ -2019,7 +2048,7 @@ pub(crate) mod tests {
     }
 
     /// These reviews of `app_id` under `out` as its capture, in place of any captured before.
-    fn capture_these(out: &Path, app_id: u32, reviews: &[serde_json::Value]) -> PathBuf {
+    pub(crate) fn capture_these(out: &Path, app_id: u32, reviews: &[serde_json::Value]) -> PathBuf {
         let snapshot = out
             .join(format!("appid={app_id}"))
             .join(format!("snapshot={CRAWLED}"));
@@ -2033,6 +2062,7 @@ pub(crate) mod tests {
             serde_json::json!({
                 "app_id": app_id, "name": "Test Game", "review_score_desc": "Mixed",
                 "rows_unique": reviews.len(), "valve_total_reviews": reviews.len(),
+                "valve_total_positive": reviews.len(), "valve_total_negative": 0,
                 "coverage": 1.0, "snapshot_unix": CRAWLED, "shards": 1,
             })
             .to_string(),
@@ -2343,10 +2373,12 @@ pub(crate) mod tests {
     fn read_and_save(out: &Path, context: bool, options: &ReadOptions) -> (usize, Vec<Row>) {
         let snapshot = crate::embed::latest_snapshot(out, 1).unwrap();
         let mut model = Table::new(context);
-        read_with(&mut model, 1, options, |_| {})
-            .unwrap()
-            .save(&snapshot.join("reading.json"))
-            .unwrap();
+        let report = read_with(&mut model, 1, options, |_| {}).unwrap();
+        assert_eq!(
+            report.forward_passes, model.asked as u64,
+            "a reading records what the model was asked, not what it kept"
+        );
+        report.save(&snapshot.join("reading.json")).unwrap();
         let mut rows = Vec::new();
         for_each_reading(
             &snapshot.join("readings.parquet"),
@@ -2405,6 +2437,19 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_read_says_how_many_answers_it_kept_beside_how_many_it_asked() {
+        let out = crate::tempdir::Dir::new();
+        capture_these(
+            out.path(),
+            1,
+            &[steam_review("1", "Bugs everywhere. The music is lovely.")],
+        );
+        read_and_save(out.path(), false, &options(out.path()));
+        let again = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+        assert_eq!((again.forward_passes, again.kept), (0, 2));
+    }
+
+    #[test]
     fn a_read_afresh_or_by_another_reader_reads_every_claim() {
         let out = crate::tempdir::Dir::new();
         capture_these(
@@ -2447,12 +2492,79 @@ pub(crate) mod tests {
         );
     }
 
-    #[test]
-    fn readings_written_before_they_carried_the_text_are_read_again_whole() {
-        let out = crate::tempdir::Dir::new();
-        let snapshot = capture_these(out.path(), 1, &[steam_review("1", "Bugs everywhere.")]);
-        read_and_save(out.path(), false, &options(out.path()));
-        // The same rows without the column, as an earlier build wrote them.
+    /// A reading of nothing in the current format with `given` laid over it, for a test that
+    /// needs a reading with a few fields set.
+    pub(crate) fn reading_with(given: &serde_json::Value) -> ReadReport {
+        let mut fields = serde_json::json!({
+            "app_id": 1, "reviews": 0, "corpus_reviews": 0, "language": null, "depth": "deep",
+            "batch_size": DEFAULT_READ_BATCH, "claims": 0, "forward_passes": 0,
+            "unclassified_claims": 0, "silent_reviews": 0, "claimless_reviews": 0,
+            "positive": 0, "top_helpful": 0, "model": "m", "trained_on": "labels-a",
+            "read_with": "run-a", "reader": "Reader", "read_by_rule": "lines-a",
+            "usual_declined": null, "held_out": null, "context": false, "threshold": 0.5,
+            "device": "cpu", "captured_unix": 0, "subjects": [], "said": [], "languages": [],
+            "unread_languages": [], "strict_languages": [], "months": [], "who": [],
+        });
+        for (key, value) in given.as_object().expect("fields") {
+            fields[key] = value.clone();
+        }
+        serde_json::from_value(fields).expect("a reading in the current format")
+    }
+
+    /// One stored answer, as a test lays it out: the review, the text it was read from, the
+    /// claim's span, the subject named or none for declined, the polarity, and the other
+    /// subjects it covers as the `also` column writes them.
+    pub(crate) type StoredRow<'a> = (
+        &'a str,
+        &'a str,
+        (u32, u32),
+        Option<&'a str>,
+        &'a str,
+        Option<&'a str>,
+    );
+
+    /// `rows` as the readings file at `path`, in the format a read writes, each answer at a
+    /// confidence of 0.9.
+    pub(crate) fn write_readings(path: &Path, rows: &[StoredRow<'_>]) {
+        let mut ids = StringBuilder::new();
+        let mut starts = UInt32Builder::new();
+        let mut ends = UInt32Builder::new();
+        let mut subjects = StringBuilder::new();
+        let mut confidences = Float32Builder::new();
+        let mut polarities = StringBuilder::new();
+        let mut also = StringBuilder::new();
+        let mut text_keys = UInt64Builder::new();
+        for &(id, text, (start, end), subject, polarity, other) in rows {
+            ids.append_value(id);
+            starts.append_value(start);
+            ends.append_value(end);
+            subjects.append_option(subject);
+            confidences.append_value(0.9);
+            polarities.append_value(polarity);
+            also.append_option(other);
+            text_keys.append_value(text_key(text));
+        }
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(ids.finish()),
+            Arc::new(starts.finish()),
+            Arc::new(ends.finish()),
+            Arc::new(subjects.finish()),
+            Arc::new(confidences.finish()),
+            Arc::new(polarities.finish()),
+            Arc::new(also.finish()),
+            Arc::new(text_keys.finish()),
+        ];
+        let batch = RecordBatch::try_new(reading_schema(), columns).unwrap();
+        let mut writer =
+            ArrowWriter::try_new(std::fs::File::create(path).unwrap(), reading_schema(), None)
+                .unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+    }
+
+    /// The readings beside `snapshot` without their `text_key` column, as builds before 0.3.0
+    /// wrote them.
+    pub(crate) fn unkey_readings(snapshot: &Path) {
         let file = std::fs::File::open(snapshot.join("readings.parquet")).unwrap();
         let batches: Vec<RecordBatch> =
             parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
@@ -2461,19 +2573,112 @@ pub(crate) mod tests {
                 .unwrap()
                 .map(|batch| batch.unwrap())
                 .collect();
-        let older = batches[0].project(&[0, 1, 2, 3, 4, 5, 6]).unwrap();
+        let older: Vec<RecordBatch> = batches
+            .iter()
+            .map(|batch| batch.project(&[0, 1, 2, 3, 4, 5, 6]).unwrap())
+            .collect();
         let mut writer = ArrowWriter::try_new(
             std::fs::File::create(snapshot.join("readings.parquet")).unwrap(),
-            older.schema(),
+            older[0].schema(),
             None,
         )
         .unwrap();
-        writer.write(&older).unwrap();
+        for batch in &older {
+            writer.write(batch).unwrap();
+        }
         writer.close().unwrap();
-        assert!(
-            kept_answers(&snapshot, &Table::new(false).provenance, Depth::Deep, false).is_none()
+    }
+
+    #[test]
+    fn readings_keyed_after_the_fact_keep_every_answer_their_text_still_bears() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = capture_these(
+            out.path(),
+            1,
+            &[
+                steam_review("1", "Bugs everywhere. The music is lovely."),
+                steam_review("2", "The story is good."),
+            ],
         );
-        assert_eq!(read_and_save(out.path(), false, &options(out.path())).0, 1);
+        let (_, read) = read_and_save(out.path(), false, &options(out.path()));
+        unkey_readings(&snapshot);
+
+        assert!(
+            key_readings(&snapshot).unwrap(),
+            "the readings needed the column"
+        );
+        assert!(
+            !key_readings(&snapshot).unwrap(),
+            "readings that carry it are left alone"
+        );
+        let (asked, again) = read_and_save(out.path(), false, &options(out.path()));
+        assert_eq!(
+            asked, 0,
+            "every answer is kept, as if the column had always been there"
+        );
+        assert_eq!(again, read);
+    }
+
+    #[test]
+    fn readings_keyed_after_a_sweep_answer_for_the_text_they_read_and_not_the_edit() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = capture_these(
+            out.path(),
+            1,
+            &[
+                steam_review("1", "Bugs everywhere. The music is lovely."),
+                steam_review("2", "The story is good."),
+            ],
+        );
+        read_and_save(out.path(), false, &options(out.path()));
+        unkey_readings(&snapshot);
+
+        // A sweep after the read brings an edit to the second review that keeps its claim's
+        // span, so only the text it was read from can tell the two apart.
+        let swept = CRAWLED + 100;
+        let mut writer = crate::capture::CaptureWriter::create(
+            &snapshot.join(crate::capture::sweep_file(swept)),
+            1,
+        )
+        .unwrap();
+        writer
+            .write(&[&steam_review("2", "The story is bugs.")])
+            .unwrap();
+        writer.close().unwrap();
+        let mut newest = crate::capture::Newest::default();
+        newest.record("2", 0, swept);
+        newest.save(&snapshot).unwrap();
+        let mut crawl: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(snapshot.join("crawl.json")).unwrap()).unwrap();
+        crawl["swept_unix"] = serde_json::json!(swept);
+        crawl["sweeps"] = serde_json::json!(1);
+        std::fs::write(snapshot.join("crawl.json"), crawl.to_string()).unwrap();
+
+        assert!(key_readings(&snapshot).unwrap());
+        let (asked, again) = read_and_save(out.path(), false, &options(out.path()));
+        assert_eq!(
+            asked, 1,
+            "the edited review is read again and the other kept"
+        );
+        assert_eq!(again[2].2.as_deref(), Some("bugs"));
+    }
+
+    #[test]
+    fn readings_naming_a_review_their_capture_never_held_are_left_as_they_were() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = capture_these(out.path(), 1, &[steam_review("1", "Bugs everywhere.")]);
+        read_and_save(out.path(), false, &options(out.path()));
+        unkey_readings(&snapshot);
+        let before = std::fs::read(snapshot.join("readings.parquet")).unwrap();
+        capture_these(out.path(), 1, &[steam_review("9", "Bugs everywhere.")]);
+
+        let refused = key_readings(&snapshot).unwrap_err().to_string();
+        assert!(refused.contains("review 1"), "{refused}");
+        assert_eq!(
+            std::fs::read(snapshot.join("readings.parquet")).unwrap(),
+            before
+        );
+        assert!(!snapshot.join("readings.partial.parquet").exists());
     }
 
     #[test]
@@ -2638,13 +2843,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_reading_of_no_claims_has_no_share_declined_rather_than_an_undefined_one() {
-        let mut found: ReadReport = serde_json::from_value(serde_json::json!({
-            "app_id": 1, "reviews": 0, "corpus_reviews": 0, "language": null, "claims": 0,
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-            "model": "m", "threshold": 0.5, "device": "cpu", "usual_declined": 0.25,
-            "subjects": [], "languages": [], "months": []
-        }))
-        .unwrap();
+        let mut found = reading_with(&serde_json::json!({"usual_declined": 0.25}));
         assert_eq!(found.unclassified_share(), None);
         assert_eq!(found.declined_against_usual(), None);
         found.claims = 10;
@@ -2681,7 +2880,7 @@ pub(crate) mod tests {
                 });
             }
         }
-        let provenance: Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = crate::reader::tests::provenance_from(&serde_json::json!({
             "subjects": [], "threshold": 0.5, "max_tokens": 128,
             "language_thresholds": {"english": 0.5, "german": 0.7, "french": 0.4,
                                     "spanish": 0.5, "korean": null},
@@ -2974,7 +3173,7 @@ pub(crate) mod tests {
             fingerprint: [1; 32],
         };
         counting.count(&quiet, false, &answers).unwrap();
-        let provenance: crate::reader::Provenance = serde_json::from_value(serde_json::json!({
+        let provenance = crate::reader::tests::provenance_from(&serde_json::json!({
             "subjects": [], "threshold": 0.5, "max_tokens": 128
         }))
         .unwrap();
@@ -3088,21 +3287,6 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_reading_written_before_depth_existed_reads_back_as_deep() {
-        // Every reading on disk before this field was deep, and a missing field must say so
-        // rather than fail, or every existing corpus would need re-reading to open.
-        let stored = serde_json::json!({
-            "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "threshold": 0.5, "device": "cpu",
-            "subjects": [], "languages": [], "months": []
-        });
-        let found: ReadReport = serde_json::from_value(stored).expect("an older reading opens");
-        assert_eq!(found.depth, Depth::Deep);
-        assert_eq!(found.trained_on, "");
-    }
-
-    #[test]
     fn a_corpus_declined_far_above_usual_is_a_corpus_about_something_missing() {
         let mut found = ReadReport {
             app_id: 1,
@@ -3110,7 +3294,7 @@ pub(crate) mod tests {
             corpus_reviews: 100,
             language: None,
             depth: Depth::Deep,
-            batch_size: None,
+            batch_size: DEFAULT_READ_BATCH,
             claims: 1_000,
             forward_passes: 1_000,
             unclassified_claims: 900,
@@ -3137,6 +3321,7 @@ pub(crate) mod tests {
             months: Vec::new(),
             who: Vec::new(),
             elapsed: Duration::ZERO,
+            kept: 0,
         };
         let ratio = found
             .declined_against_usual()
@@ -3170,15 +3355,11 @@ pub(crate) mod tests {
 
     #[test]
     fn the_depth_a_reading_was_made_at_travels_with_it() {
-        let stored = serde_json::json!({
-            "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
-            "depth": "shallow",
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 1, "top_helpful": 1,
-            "model": "m", "threshold": 0.5, "device": "cpu",
-            "subjects": [], "languages": [], "months": []
-        });
-        let found: ReadReport = serde_json::from_value(stored).expect("a shallow reading opens");
+        let found = reading_with(&serde_json::json!({"depth": "shallow"}));
         assert_eq!(found.depth, Depth::Shallow);
+        let stored: ReadReport =
+            serde_json::from_str(&serde_json::to_string(&found).unwrap()).unwrap();
+        assert_eq!(stored.depth, Depth::Shallow);
     }
 
     /// A readings file that names its claims some other way cannot be joined to anything, and
@@ -3237,47 +3418,5 @@ pub(crate) mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn a_reading_without_the_held_out_figure_takes_it_from_the_reader_that_made_it() {
-        let reading = |held_out: serde_json::Value| -> ReadReport {
-            serde_json::from_value(serde_json::json!({
-                "app_id": 1, "reviews": 5, "corpus_reviews": 5, "language": null, "claims": 5,
-                "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-                "model": "m", "threshold": 0.5, "device": "cpu", "subjects": [],
-                "languages": [], "months": [], "read_by_rule": "lines-a", "held_out": held_out,
-            }))
-            .unwrap()
-        };
-        let reader = |lines: &str, claims: u32| -> crate::reader::Provenance {
-            serde_json::from_value(serde_json::json!({
-                "subjects": ["audio"], "threshold": 0.5, "max_tokens": 64,
-                "lines_fingerprint": lines,
-                "held_out": {
-                    "games": 10, "claims": claims, "coverage": 0.9, "accuracy": 0.8,
-                    "macro_f1": 0.7,
-                },
-            }))
-            .unwrap()
-        };
-
-        let mut bare = reading(serde_json::Value::Null);
-        bare.take_held_out_from([reader("lines-b", 2), reader("lines-a", 1)]);
-        assert_eq!(
-            bare.held_out.map(|held_out| held_out.claims),
-            Some(1),
-            "the figure comes from the reader drawing the reading's lines and no other"
-        );
-
-        let mut copied = reading(serde_json::json!(
-            {"games": 10, "claims": 7, "coverage": 0.9, "accuracy": 0.8, "macro_f1": 0.7}
-        ));
-        copied.take_held_out_from([reader("lines-a", 1)]);
-        assert_eq!(copied.held_out.map(|held_out| held_out.claims), Some(7));
-
-        let mut unknown = reading(serde_json::Value::Null);
-        unknown.take_held_out_from([reader("lines-b", 2)]);
-        assert!(unknown.held_out.is_none());
     }
 }

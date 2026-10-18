@@ -280,10 +280,10 @@ const PROBE = `(async function () {
   check('About does not say which version this computer has', /This computer has SteamGauge 0\\.1\\.0\\./.test($('#about-running').textContent));
   check('About does not name the newer release kept', /SteamGauge 0\\.2\\.0 is out\\./.test($('#about-latest').textContent));
   check('About does not say when GitHub last answered', /^GitHub last answered on /.test($('#about-asked').textContent));
-  window.__stub.untimed();
+  window.__stub.neverAnswered();
   await go('cockpit');
   await go('about');
-  check('an answer kept by an older build is said to be GitHub out of reach',
+  check('a GitHub that never answered is not said to have been only asked',
     /^GitHub was last asked on [^;]+\\.$/.test($('#about-asked').textContent));
   check('About does not offer the newer release', visible('about-update') && /Update to 0\\.2\\.0/.test($('#about-update').textContent));
   check('About does not say SteamGauge asks on opening', /each time it opens and every six hours/.test($('#about-by-itself').textContent));
@@ -904,7 +904,7 @@ const PROBE = `(async function () {
   $('#back').click();
   await pause(300);
 
-  check('a read game does not say who wrote its reviews', shown('who') && shown('who-pick') && !shown('who-recount'));
+  check('a read game does not say who wrote its reviews', shown('who') && shown('who-pick'));
   check('the kinds of reviewer are not offered under the questions that make them',
     document.querySelectorAll('#who-first optgroup').length === 4);
   check('a kind with too few reviews to count can be chosen', $('#who-first option[value="steam-deck"]').disabled);
@@ -976,8 +976,8 @@ const PROBE = `(async function () {
   await pause(250);
   rows().filter(function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click();
   await pause(300);
-  check('a game counted before reviewers were told apart does not offer to count it again',
-    shown('who') && shown('who-recount') && !shown('who-pick') && !shown('who-differ'));
+  check('a game where no kind of reviewer differs does not say so',
+    shown('who') && shown('who-pick') && shown('who-none') && !shown('who-differ'));
   check('a game not prepared for search by meaning does not offer to find what its players say',
     shown('said-most') && !shown('said-sides') && shown('said-offer') &&
     /^Prepare this game$/.test($('#said-find').textContent.trim()) &&
@@ -989,10 +989,6 @@ const PROBE = `(async function () {
   check('a game with nothing new since it was last seen does not say so plainly', shown('game-since') &&
     /^Nothing new since you last looked, on .*\\.$/.test($('#game-since').textContent) &&
     !$('#game-since').classList.contains('moved'));
-  $('#do-recount').click();
-  await pause();
-  check('counting again does not queue a recount of the game', called('queue').some(function (call) {
-    return call.args.tasks.some(function (t) { return t.kind === 'recount' && t.app_id === 2; }); }));
   $('#game-back').click();
   await pause(250);
   check('the way back from a game does not lead to the library', shown('library'));

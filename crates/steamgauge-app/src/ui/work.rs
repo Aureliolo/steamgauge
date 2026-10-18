@@ -1151,7 +1151,9 @@ async fn read(
         let snapshot =
             steamgauge_core::embed::latest_snapshot(&options.out_dir, app_id).map_err(text)?;
         report.save(&snapshot.join("reading.json")).map_err(text)?;
-        if model.device() == "cpu" {
+        // A read that kept answers took the time of the claims it asked, not of the game, and
+        // would teach a pace no fresh read keeps.
+        if model.device() == "cpu" && report.kept == 0 {
             let mut times = steamgauge_core::reading_time::ReadingTimes::load(&options.out_dir);
             times.note(
                 size,

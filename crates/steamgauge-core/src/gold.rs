@@ -1736,14 +1736,6 @@ mod tests {
     /// A game read by the reader: two reviews, the first cut into a claim about the Deck and one
     /// about the story, the second into one about the Deck, all three put under a subject.
     fn read_library(snapshot: &Path) {
-        use std::sync::Arc;
-
-        use arrow::{
-            array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
-            datatypes::{DataType, Field, Schema},
-            record_batch::RecordBatch,
-        };
-
         let reviews = [
             serde_json::json!({"recommendationid": "1", "review": "Runs badly on Steam Deck. Great story.",
                 "language": "english", "timestamp_created": 1, "timestamp_updated": 1,
@@ -1757,50 +1749,29 @@ mod tests {
         writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
         writer.close().unwrap();
 
-        let rows = [
-            ("1", 0, 25, "performance"),
-            ("1", 26, 38, "story"),
-            ("2", 0, 25, "performance"),
-        ];
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("recommendationid", DataType::Utf8, false),
-            Field::new("start", DataType::UInt32, false),
-            Field::new("end", DataType::UInt32, false),
-            Field::new("subject", DataType::Utf8, true),
-            Field::new("confidence", DataType::Float32, false),
-            Field::new("polarity", DataType::Utf8, false),
-        ]));
-        let (mut ids, mut starts, mut ends) = (
-            StringBuilder::new(),
-            UInt32Builder::new(),
-            UInt32Builder::new(),
+        let text = |at: usize| reviews[at]["review"].as_str().unwrap();
+        crate::read::tests::write_readings(
+            &snapshot.join("readings.parquet"),
+            &[
+                (
+                    "1",
+                    text(0),
+                    (0, 25),
+                    Some("performance"),
+                    "complaint",
+                    None,
+                ),
+                ("1", text(0), (26, 38), Some("story"), "complaint", None),
+                (
+                    "2",
+                    text(1),
+                    (0, 25),
+                    Some("performance"),
+                    "complaint",
+                    None,
+                ),
+            ],
         );
-        let (mut subjects, mut sure, mut polarities) = (
-            StringBuilder::new(),
-            Float32Builder::new(),
-            StringBuilder::new(),
-        );
-        for (id, start, end, subject) in rows {
-            ids.append_value(id);
-            starts.append_value(start);
-            ends.append_value(end);
-            subjects.append_value(subject);
-            sure.append_value(0.9);
-            polarities.append_value("complaint");
-        }
-        let columns: Vec<ArrayRef> = vec![
-            Arc::new(ids.finish()),
-            Arc::new(starts.finish()),
-            Arc::new(ends.finish()),
-            Arc::new(subjects.finish()),
-            Arc::new(sure.finish()),
-            Arc::new(polarities.finish()),
-        ];
-        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
-        let file = std::fs::File::create(snapshot.join("readings.parquet")).unwrap();
-        let mut writer = parquet::arrow::ArrowWriter::try_new(file, schema, None).unwrap();
-        writer.write(&batch).unwrap();
-        writer.close().unwrap();
     }
 
     fn judged(review: &str, subject: &str, acceptable: bool) -> Acceptable {

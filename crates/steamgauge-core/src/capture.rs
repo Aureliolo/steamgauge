@@ -502,6 +502,53 @@ pub fn for_each_row(snapshot: &Path, mut visit: impl FnMut(Row, &str) -> Result<
     })
 }
 
+/// Every review's text as the capture held it at `as_of`: the crawl's shards and the sweeps
+/// started by then, with each review's newest copy among them counting, as [`for_each_row`]
+/// would have handed it over at that moment. A reading records `as_of` as when its capture last
+/// changed, so this is the text that reading read.
+///
+/// # Errors
+///
+/// Fails if a shard cannot be read, or if the visitor does.
+pub fn for_each_text_as_of(
+    snapshot: &Path,
+    as_of: i64,
+    mut visit: impl FnMut(&str, &str),
+) -> Result<()> {
+    let shards: Vec<(std::path::PathBuf, i64)> = shards_of(snapshot)?
+        .into_iter()
+        .filter(|(_, file)| *file <= as_of)
+        .collect();
+    let mut newest = Newest::default();
+    for (shard, file) in shards.iter().filter(|(_, file)| *file > 0) {
+        each_batch_of(shard, *file, &Newest::default(), &[], |batch, kept| {
+            for row in 0..batch.num_rows() {
+                let updated = kept
+                    .updated
+                    .filter(|column| !column.is_null(row))
+                    .map_or(0, |column| column.value(row));
+                newest.record(kept.ids.value(row), updated, *file);
+            }
+            Ok(())
+        })?;
+    }
+    for (shard, file) in &shards {
+        each_batch_of(shard, *file, &newest, &["review"], |batch, kept| {
+            let texts = batch
+                .column_by_name("review")
+                .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+                .ok_or(Error::MalformedPayload { field: "review" })?;
+            for row in 0..batch.num_rows() {
+                if !texts.is_null(row) && kept.row(row) {
+                    visit(kept.ids.value(row), texts.value(row));
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
 /// [`for_each_row`], with the Steam id of each review's writer beside it, which is what a link
 /// to the review on Steam is made from; empty where Steam did not say.
 ///
@@ -517,11 +564,16 @@ pub fn for_each_row_with_author(
     each_batch(snapshot, &columns, |batch, kept| {
         let authors = batch
             .column_by_name("author_steamid")
-            .and_then(|column| column.as_any().downcast_ref::<StringArray>());
+            .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+            .ok_or(Error::MalformedPayload {
+                field: "author_steamid",
+            })?;
         rows_of(batch, kept, &mut |at, row, text| {
-            let author = authors
-                .filter(|column| !column.is_null(at))
-                .map_or("", |column| column.value(at));
+            let author = if authors.is_null(at) {
+                ""
+            } else {
+                authors.value(at)
+            };
             visit(row, author, text)
         })
     })
@@ -658,24 +710,25 @@ fn rows_of(
         .ok_or(Error::MalformedPayload {
             field: "timestamp_created",
         })?;
-    // Optional rather than required: a capture written by hand for a test, or by a build that
-    // never asked Steam for them, still counts, with its reviewers unknown.
-    let played = batch
-        .column_by_name("author_playtime_at_review")
-        .and_then(|column| column.as_any().downcast_ref::<UInt32Array>());
-    let flag = |name: &str| {
-        batch
-            .column_by_name(name)
-            .and_then(|column| column.as_any().downcast_ref::<BooleanArray>())
+    let played = field("author_playtime_at_review")?
+        .as_any()
+        .downcast_ref::<UInt32Array>()
+        .ok_or(Error::MalformedPayload {
+            field: "author_playtime_at_review",
+        })?;
+    let flag = |name: &'static str| -> Result<&BooleanArray> {
+        field(name)?
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .ok_or(Error::MalformedPayload { field: name })
     };
     let (deck, early, free) = (
-        flag("primarily_steam_deck"),
-        flag("written_during_early_access"),
-        flag("received_for_free"),
+        flag("primarily_steam_deck")?,
+        flag("written_during_early_access")?,
+        flag("received_for_free")?,
     );
-    let set = |column: Option<&BooleanArray>, row: usize| {
-        column.is_some_and(|column| !column.is_null(row) && column.value(row))
-    };
+    // Null where Steam did not say, which counts as not.
+    let set = |column: &BooleanArray, row: usize| !column.is_null(row) && column.value(row);
 
     for row in 0..batch.num_rows() {
         if texts.is_null(row) || texts.value(row).trim().is_empty() || !kept.row(row) {
@@ -708,9 +761,7 @@ fn rows_of(
                     created.value(row)
                 },
                 reviewer: crate::who::Reviewer {
-                    played_minutes: played
-                        .filter(|column| !column.is_null(row))
-                        .map(|column| column.value(row)),
+                    played_minutes: (!played.is_null(row)).then(|| played.value(row)),
                     deck: set(deck, row),
                     early_access: set(early, row),
                     free: set(free, row),
@@ -1296,37 +1347,15 @@ mod tests {
     }
 
     #[test]
-    fn a_capture_without_the_reviewer_columns_still_counts_with_its_reviewers_unknown() {
-        use arrow::array::{BooleanArray, Float64Array, UInt32Array};
-
+    fn a_review_steam_says_nothing_about_the_writer_of_counts_with_its_reviewer_unknown() {
         let scratch = Scratch::new("no-reviewer");
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("recommendationid", DataType::Utf8, false),
-            Field::new("review", DataType::Utf8, true),
-            Field::new("language", DataType::Utf8, true),
-            Field::new("weighted_vote_score", DataType::Float64, true),
-            Field::new("votes_up", DataType::UInt32, true),
-            Field::new("voted_up", DataType::Boolean, true),
-            Field::new("timestamp_created", DataType::Int64, true),
-            Field::new("timestamp_updated", DataType::Int64, true),
-        ]));
-        let batch = RecordBatch::try_new(
-            Arc::clone(&schema),
-            vec![
-                Arc::new(StringArray::from(vec!["1"])),
-                Arc::new(StringArray::from(vec!["fine"])),
-                Arc::new(StringArray::from(vec!["english"])),
-                Arc::new(Float64Array::from(vec![0.5])),
-                Arc::new(UInt32Array::from(vec![1])),
-                Arc::new(BooleanArray::from(vec![true])),
-                Arc::new(Int64Array::from(vec![1])),
-                Arc::new(Int64Array::from(vec![1])),
-            ],
-        )
-        .unwrap();
-        let file = File::create(scratch.0.join("shard-0000.parquet")).unwrap();
-        let mut writer = ArrowWriter::try_new(file, schema, None).unwrap();
-        writer.write(&batch).unwrap();
+        let mut writer = CaptureWriter::create(&scratch.0.join("shard-0000.parquet"), 1).unwrap();
+        writer
+            .write(&[&json!({
+                "recommendationid": "1", "review": "fine", "language": "english",
+                "voted_up": true, "timestamp_created": 1, "timestamp_updated": 1,
+            })])
+            .unwrap();
         writer.close().unwrap();
 
         let mut seen = Vec::new();
