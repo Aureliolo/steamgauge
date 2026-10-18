@@ -13,7 +13,8 @@
   var questions = data.questions || [];
   var categories = data.categories || [];
   var app = document.getElementById("app");
-  var STORE = "steamgauge-gold-" + questions.length + "-" + (data.taxonomy || "");
+  // Per person as well as per draw: two people answering on one browser keep apart.
+  var STORE = "steamgauge-gold-" + data.for + "-" + questions.length + "-" + (data.taxonomy || "");
   var SERVED = location.protocol === "http:" || location.protocol === "https:";
 
   var answers = load();
@@ -751,8 +752,15 @@
       });
       var taken = 0;
       var strangers = 0;
+      var others = 0;
       rows.forEach(function (row) {
         if (!row || (!row.subject && typeof row.acceptable !== "boolean")) return;
+        // Loaded here they would be exported again under this page's name, one person's
+        // answers filed as another's.
+        if (row.by && row.by !== data.for) {
+          others += 1;
+          return;
+        }
         var key = row.app_id + "#" + row.review_id + "#" + row.index;
         // A file from another draw would fill the store with answers to questions this page
         // never asks, and the count in the corner would climb while nothing got adjudicated.
@@ -766,7 +774,10 @@
       save();
       at = firstUnanswered();
       notice =
-        taken + " answers loaded" + (strangers ? ", " + strangers + " from another draw ignored" : "");
+        taken +
+        " answers loaded" +
+        (strangers ? ", " + strangers + " from another draw ignored" : "") +
+        (others ? ", " + others + " given by someone else ignored" : "");
       render();
     };
     reader.readAsText(file);
@@ -782,6 +793,7 @@
       // whose sheet nobody can name is the one label here that cannot be checked against
       // anything, and an unnamed one already cost 39 answers.
       mine.sheet = data.taxonomy;
+      mine.by = data.for;
       rows.push(mine);
     });
     return rows;
@@ -795,7 +807,7 @@
     var blob = new Blob([JSON.stringify(exportable(), null, 2)], { type: "application/json" });
     var link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "gold-answers.json";
+    link.download = "gold-answers-" + data.for + ".json";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -5,7 +5,7 @@
 // nothing, an answer that does not survive a reload, or an export that drops a field would all
 // be discovered after somebody had read a thousand claims, which is exactly too late.
 //
-//   steamgauge gold --to gold.html
+//   steamgauge gold --for <name> --to gold.html
 //   node tools/gold-check/check.mjs gold.html
 //
 // `served.mjs` is the other half: this one asserts the page fetches nothing and keeps its own
@@ -169,6 +169,8 @@ const PROBE = `(function () {
   check('nothing was exported, so the stamp went unchecked', out !== null && out.length > 0);
   if (out && out.length) {
     check('an exported answer does not say which sheet it answered', out[0].sheet === data.taxonomy);
+    // Filed under this name when it comes back, whoever runs the ingest.
+    check('an exported answer does not say who gave it', out[0].by === data.for && !!data.for);
     // Where the claim is, which is the whole of what an answer has to carry to be joined back
     // to anything. A name for the rules that cut it would be a second thing to keep in step.
     var asked = {};
@@ -335,8 +337,13 @@ const restoring = (saved) => `(function () {
 
   var stranger = { app_id: 999999, review_id: 'not-in-this-draw', index: 0, subject: 'price',
                    polarity: 'praise', ambiguous: false, split_wrong: false, unsure: false };
+  // The first claim answered again by somebody else, after the page's own answer to it.
+  var first = rows[0];
+  var firstKey = first.app_id + '#' + first.review_id + '#' + first.index;
+  var other = Object.assign({}, first, { by: 'someone-else',
+                                         subject: first.subject === 'price' ? 'story' : 'price' });
   var transfer = new DataTransfer();
-  transfer.items.add(new File([JSON.stringify(rows.concat([stranger]))], 'gold-answers.json',
+  transfer.items.add(new File([JSON.stringify(rows.concat([stranger, other]))], 'gold-answers.json',
                               { type: 'application/json' }));
   input.files = transfer.files;
   input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -351,6 +358,9 @@ const restoring = (saved) => `(function () {
       }
       if (back['999999#not-in-this-draw#0']) {
         wrong.push('an answer from another draw was taken into this one');
+      }
+      if (back[firstKey] && back[firstKey].subject !== first.subject) {
+        wrong.push("somebody else's answer replaced the page's own");
       }
       var said = document.querySelector('.note.loaded');
       if (!said) {
