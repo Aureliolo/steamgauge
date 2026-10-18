@@ -315,12 +315,6 @@ fn commonest<K: Ord>(counts: HashMap<K, u64>) -> Vec<(K, u64)> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use arrow::{
-        array::{ArrayRef, Float32Builder, StringBuilder, UInt32Builder},
-        datatypes::{DataType, Field, Schema},
-        record_batch::RecordBatch,
-    };
-    use parquet::arrow::ArrowWriter;
     use serde_json::json;
 
     use super::*;
@@ -405,53 +399,24 @@ pub(crate) mod tests {
         writer.write(&reviews.iter().collect::<Vec<_>>()).unwrap();
         writer.close().unwrap();
 
-        // (review, start, end, subject, polarity)
-        let rows: [(&str, u32, u32, Option<&str>, &str); 5] = [
-            ("1", 0, 25, Some("performance"), "complaint"),
-            ("1", 26, 38, Some("story"), "praise"),
-            ("2", 0, 25, Some("performance"), "praise"),
-            ("3", 0, 20, None, "neutral"),
-            ("3", 21, 32, Some("verdict"), "praise"),
-        ];
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("recommendationid", DataType::Utf8, false),
-            Field::new("start", DataType::UInt32, false),
-            Field::new("end", DataType::UInt32, false),
-            Field::new("subject", DataType::Utf8, true),
-            Field::new("confidence", DataType::Float32, false),
-            Field::new("polarity", DataType::Utf8, false),
-        ]));
-        let (mut ids, mut starts, mut ends) = (
-            StringBuilder::new(),
-            UInt32Builder::new(),
-            UInt32Builder::new(),
+        let text = |at: usize| reviews[at]["review"].as_str().unwrap();
+        crate::read::tests::write_readings(
+            &dir.join("readings.parquet"),
+            &[
+                (
+                    "1",
+                    text(0),
+                    (0, 25),
+                    Some("performance"),
+                    "complaint",
+                    None,
+                ),
+                ("1", text(0), (26, 38), Some("story"), "praise", None),
+                ("2", text(1), (0, 25), Some("performance"), "praise", None),
+                ("3", text(2), (0, 20), None, "neutral", None),
+                ("3", text(2), (21, 32), Some("verdict"), "praise", None),
+            ],
         );
-        let (mut subjects, mut confidences, mut polarities) = (
-            StringBuilder::new(),
-            Float32Builder::new(),
-            StringBuilder::new(),
-        );
-        for (id, start, end, subject, polarity) in rows {
-            ids.append_value(id);
-            starts.append_value(start);
-            ends.append_value(end);
-            subjects.append_option(subject);
-            confidences.append_value(0.9);
-            polarities.append_value(polarity);
-        }
-        let columns: Vec<ArrayRef> = vec![
-            Arc::new(ids.finish()),
-            Arc::new(starts.finish()),
-            Arc::new(ends.finish()),
-            Arc::new(subjects.finish()),
-            Arc::new(confidences.finish()),
-            Arc::new(polarities.finish()),
-        ];
-        let batch = RecordBatch::try_new(Arc::clone(&schema), columns).unwrap();
-        let file = std::fs::File::create(dir.join("readings.parquet")).unwrap();
-        let mut writer = ArrowWriter::try_new(file, schema, None).unwrap();
-        writer.write(&batch).unwrap();
-        writer.close().unwrap();
     }
 
     #[test]

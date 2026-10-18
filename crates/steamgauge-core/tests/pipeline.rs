@@ -10,7 +10,7 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use arrow::{
     array::{
         ArrayRef, BooleanBuilder, FixedSizeListBuilder, Float32Builder, Float64Builder,
-        Int64Builder, StringBuilder, UInt32Builder,
+        Int64Builder, StringBuilder, UInt32Builder, UInt64Builder,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -240,20 +240,53 @@ fn sha256_hex(text: &str) -> String {
         })
 }
 
-/// The readings a model would have produced, written by hand.
-///
-/// Every review here makes one claim, which is the only shape that lets a test assert exact
-/// counts without also asserting how the splitter happens to cut prose today. The point of
-/// this file is the join between the stages, not the arithmetic inside any one of them.
-fn write_readings(snapshot: &Path) {
-    let schema = Arc::new(Schema::new(vec![
+/// The fingerprint a readings file keeps of the text each answer was read from: the first
+/// eight bytes of its SHA-256, little-endian.
+fn text_key(text: &str) -> u64 {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(text.as_bytes());
+    u64::from_le_bytes(digest[..8].try_into().unwrap())
+}
+
+/// The columns of a readings file, as `steamgauge read` writes them.
+fn readings_schema() -> Arc<Schema> {
+    Arc::new(Schema::new(vec![
         Field::new("recommendationid", DataType::Utf8, false),
         Field::new("start", DataType::UInt32, false),
         Field::new("end", DataType::UInt32, false),
         Field::new("subject", DataType::Utf8, true),
         Field::new("confidence", DataType::Float32, false),
         Field::new("polarity", DataType::Utf8, false),
-    ]));
+        Field::new("also", DataType::Utf8, true),
+        Field::new("text_key", DataType::UInt64, false),
+    ]))
+}
+
+/// A reading of nothing with `given` laid over it, every field present as `steamgauge read`
+/// writes it.
+fn reading_json(given: &serde_json::Value) -> Vec<u8> {
+    let mut fields = serde_json::json!({
+        "app_id": 1, "reviews": 0, "corpus_reviews": 0, "language": null, "depth": "deep",
+        "batch_size": 256, "claims": 0, "forward_passes": 0, "unclassified_claims": 0,
+        "silent_reviews": 0, "claimless_reviews": 0, "positive": 0, "top_helpful": 0,
+        "model": MODEL, "trained_on": "labels-a", "read_with": "run-a", "reader": "Reader",
+        "read_by_rule": "lines-a", "usual_declined": null, "held_out": null, "context": false,
+        "threshold": 0.5, "device": "cpu", "captured_unix": 0, "subjects": [], "said": [],
+        "languages": [], "unread_languages": [], "strict_languages": [], "months": [], "who": [],
+    });
+    for (key, value) in given.as_object().unwrap() {
+        fields[key] = value.clone();
+    }
+    serde_json::to_vec_pretty(&fields).unwrap()
+}
+
+/// The readings a model would have produced, written by hand.
+///
+/// Every review here makes one claim, which is the only shape that lets a test assert exact
+/// counts without also asserting how the splitter happens to cut prose today. The point of
+/// this file is the join between the stages, not the arithmetic inside any one of them.
+fn write_readings(snapshot: &Path) {
+    let schema = readings_schema();
 
     let mut ids = StringBuilder::new();
     let mut starts = arrow::array::UInt32Builder::new();
@@ -261,6 +294,8 @@ fn write_readings(snapshot: &Path) {
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
+    let mut also = StringBuilder::new();
+    let mut text_keys = UInt64Builder::new();
 
     let mut counted = 0_u64;
     let mut positive = 0_u64;
@@ -288,6 +323,8 @@ fn write_readings(snapshot: &Path) {
         subjects.append_value(SHEET[seed.category].id);
         confidences.append_value(0.9);
         polarities.append_value(if seed.voted_up { "praise" } else { "complaint" });
+        also.append_null();
+        text_keys.append_value(text_key(seed.text));
     }
 
     let batch = RecordBatch::try_new(
@@ -299,6 +336,8 @@ fn write_readings(snapshot: &Path) {
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
+            Arc::new(also.finish()),
+            Arc::new(text_keys.finish()),
         ],
     )
     .unwrap();
@@ -328,24 +367,15 @@ fn write_readings(snapshot: &Path) {
 
     std::fs::write(
         snapshot.join("reading.json"),
-        serde_json::to_vec_pretty(&serde_json::json!({
-            "app_id": 1,
+        reading_json(&serde_json::json!({
             "reviews": counted,
             "corpus_reviews": counted,
-            "language": serde_json::Value::Null,
             "claims": counted,
-            "unclassified_claims": 0,
-            "silent_reviews": 0,
             "positive": positive,
             "top_helpful": 2,
-            "model": MODEL,
-            "threshold": 0.5,
-            "device": "cpu",
             "subjects": subjects,
             "languages": [["english", 4], ["schinese", 1]],
-            "months": [],
-        }))
-        .unwrap(),
+        })),
     )
     .unwrap();
 }
@@ -477,15 +507,17 @@ fn corpus_with_declines(name: &str) -> (std::path::PathBuf, std::path::PathBuf) 
     (root, snapshot)
 }
 
+const TWO_REVIEWS: [(&str, &str); 2] = [
+    (
+        "10",
+        "The combat is superb. It runs badly. Worth the money.",
+    ),
+    ("11", "Great game."),
+];
+
 fn write_two_reviews(snapshot: &Path) {
     let schema = steamgauge_core::capture::schema();
-    let bodies = [
-        (
-            "10",
-            "The combat is superb. It runs badly. Worth the money.",
-        ),
-        ("11", "Great game."),
-    ];
+    let bodies = TWO_REVIEWS;
     let mut ids = StringBuilder::new();
     let mut appids = UInt32Builder::new();
     let mut languages = StringBuilder::new();
@@ -527,9 +559,8 @@ fn write_two_reviews(snapshot: &Path) {
 }
 
 fn write_two_declines(snapshot: &Path) {
-    let first =
-        steamgauge_core::claims::spans("The combat is superb. It runs badly. Worth the money.");
-    let second = steamgauge_core::claims::spans("Great game.");
+    let first = steamgauge_core::claims::spans(TWO_REVIEWS[0].1);
+    let second = steamgauge_core::claims::spans(TWO_REVIEWS[1].1);
     write_declines(
         snapshot,
         &[
@@ -544,20 +575,15 @@ fn write_two_declines(snapshot: &Path) {
 /// The reading rows for the two-review corpus, spans and all, so a test can write a row that
 /// names bytes no claim covers and watch it go unasked.
 fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) {
-    let reading_schema = Arc::new(Schema::new(vec![
-        Field::new("recommendationid", DataType::Utf8, false),
-        Field::new("start", DataType::UInt32, false),
-        Field::new("end", DataType::UInt32, false),
-        Field::new("subject", DataType::Utf8, true),
-        Field::new("confidence", DataType::Float32, false),
-        Field::new("polarity", DataType::Utf8, false),
-    ]));
+    let reading_schema = readings_schema();
     let mut ids = StringBuilder::new();
     let mut starts = arrow::array::UInt32Builder::new();
     let mut ends = arrow::array::UInt32Builder::new();
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
+    let mut also = StringBuilder::new();
+    let mut text_keys = UInt64Builder::new();
     for (id, start, end, subject) in rows {
         ids.append_value(id);
         starts.append_value(u32::try_from(*start).unwrap());
@@ -565,6 +591,12 @@ fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) 
         subjects.append_option(*subject);
         confidences.append_value(if subject.is_some() { 0.9 } else { 0.2 });
         polarities.append_value("praise");
+        also.append_null();
+        let (_, text) = TWO_REVIEWS
+            .iter()
+            .find(|(review, _)| review == id)
+            .expect("one of the two reviews");
+        text_keys.append_value(text_key(text));
     }
     let batch = RecordBatch::try_new(
         Arc::clone(&reading_schema),
@@ -575,6 +607,8 @@ fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) 
             Arc::new(subjects.finish()),
             Arc::new(confidences.finish()),
             Arc::new(polarities.finish()),
+            Arc::new(also.finish()),
+            Arc::new(text_keys.finish()),
         ],
     )
     .unwrap();
@@ -585,24 +619,15 @@ fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) 
 
     std::fs::write(
         snapshot.join("reading.json"),
-        serde_json::to_vec_pretty(&serde_json::json!({
-            "app_id": 1,
+        reading_json(&serde_json::json!({
             "reviews": 2,
             "corpus_reviews": 2,
-            "language": serde_json::Value::Null,
             "claims": 4,
             "unclassified_claims": 2,
-            "silent_reviews": 0,
             "positive": 2,
             "top_helpful": 2,
-            "model": MODEL,
-            "threshold": 0.5,
-            "device": "cpu",
-            "subjects": [],
             "languages": [["english", 2]],
-            "months": [],
-        }))
-        .unwrap(),
+        })),
     )
     .unwrap();
 }

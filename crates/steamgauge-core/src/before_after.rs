@@ -808,13 +808,7 @@ mod tests {
 
     #[test]
     fn reviews_are_held_up_to_the_capture_or_else_past_the_newest() {
-        let mut reading: ReadReport = serde_json::from_value(serde_json::json!({
-            "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-            "model": "m", "threshold": 0.5, "device": "cpu", "context": false,
-            "subjects": [], "languages": [], "months": []
-        }))
-        .unwrap();
+        let mut reading: ReadReport = crate::read::tests::reading_with(&serde_json::json!({}));
         let reviews = written(500, 3, 0, 0);
         assert_eq!(held_until(&reading, &reviews), 500 + 60 + 1);
         assert_eq!(held_until(&reading, &[]), 0);

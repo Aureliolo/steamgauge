@@ -43,6 +43,12 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
   the reader alike.
 - The library is under the local app data folder (`%LOCALAPPDATA%\com.aureliolo.steamgauge\data`
   on Windows); `STEAMGAUGE_DATA` moves it.
+- Every pass reads the current format and nothing else. `current_format` brings what an earlier
+  release kept to it, once, before anything reads it: the app the first time anything asks for
+  the library or the settings, the command line before each command that works in a library.
+  Each step knows its file by its shape and leaves a file already current as it is. What the
+  current format cannot express is removed rather than guessed at, and a game whose reading
+  goes is a game downloaded and not yet read.
 
 ## Reading
 

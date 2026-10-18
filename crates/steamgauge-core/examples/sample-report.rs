@@ -179,7 +179,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             corpus_reviews: reviews + 200,
             language: None,
             depth: Depth::Deep,
-            batch_size: Some(steamgauge_core::read::DEFAULT_READ_BATCH),
+            batch_size: steamgauge_core::read::DEFAULT_READ_BATCH,
             claims: reviews * 3,
             forward_passes: reviews * 2,
             // Over half, as every real reading currently is, so the page renders the caveat
@@ -193,7 +193,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             trained_on: "0123456789abcdef".to_owned(),
             read_with: "a-reader".to_owned(),
             reader: "Game Review Reader".to_owned(),
-            read_by_rule: String::new(),
+            read_by_rule: "fedcba9876543210".to_owned(),
             usual_declined: Some(0.53),
             held_out: Some(steamgauge_core::reader::HeldOut {
                 games: 8,
@@ -226,6 +226,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             months: months(app_id),
             who: who(app_id, reviews, &subjects, &months(app_id)),
             elapsed: std::time::Duration::from_secs(90),
+            kept: 0,
         },
         examples: examples(app_id, &subjects),
         top: vec![example(

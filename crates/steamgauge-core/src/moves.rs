@@ -155,11 +155,10 @@ pub(crate) fn label_of(index: i64) -> String {
 /// says what was moving a year ago rather than reporting an empty quarter as a collapse.
 #[must_use]
 pub fn recent(report: &ReadReport) -> Option<Recent> {
-    let last = if report.captured_unix > 0 {
-        index_of(&crate::time::year_month(report.captured_unix))?
-    } else {
-        index_of(&report.months.last()?.label)?
-    };
+    if report.months.is_empty() {
+        return None;
+    }
+    let last = index_of(&crate::time::year_month(report.captured_unix))?;
     let first_recent = last - RECENT_MONTHS + 1;
     let first_before = first_recent - BEFORE_MONTHS;
 
@@ -167,7 +166,6 @@ pub fn recent(report: &ReadReport) -> Option<Recent> {
     let mut positive = [0_u64; 2];
     let mut praising = [vec![0_u64; SHEET.len()], vec![0_u64; SHEET.len()]];
     let mut complaining = [vec![0_u64; SHEET.len()], vec![0_u64; SHEET.len()]];
-    let mut sided = true;
     for month in &report.months {
         let Some(at) = index_of(&month.label) else {
             continue;
@@ -181,35 +179,29 @@ pub fn recent(report: &ReadReport) -> Option<Recent> {
         };
         reviews[window] += month.reviews;
         positive[window] += month.positive;
-        // A month counted before months carried sides holds none, and a window missing some of
-        // its months' sides would compare a part against a whole.
-        if month.praising.len() != SHEET.len() || month.complaining.len() != SHEET.len() {
-            sided = false;
-            continue;
+        for (total, count) in praising[window].iter_mut().zip(&month.praising) {
+            *total += count;
         }
-        for slot in 0..SHEET.len() {
-            praising[window][slot] += month.praising[slot];
-            complaining[window][slot] += month.complaining[slot];
+        for (total, count) in complaining[window].iter_mut().zip(&month.complaining) {
+            *total += count;
         }
     }
 
     let mut moves = Vec::new();
-    if sided {
-        for (slot, category) in SHEET.iter().enumerate() {
-            for (side, counts) in [(Side::Praise, &praising), (Side::Complaint, &complaining)] {
-                let Some(shift) =
-                    Shift::of((counts[0][slot], reviews[0]), (counts[1][slot], reviews[1]))
-                else {
-                    continue;
-                };
-                if shift.clear() {
-                    moves.push(Move {
-                        subject: category.id,
-                        label: category.label,
-                        side,
-                        shift,
-                    });
-                }
+    for (slot, category) in SHEET.iter().enumerate() {
+        for (side, counts) in [(Side::Praise, &praising), (Side::Complaint, &complaining)] {
+            let Some(shift) =
+                Shift::of((counts[0][slot], reviews[0]), (counts[1][slot], reviews[1]))
+            else {
+                continue;
+            };
+            if shift.clear() {
+                moves.push(Move {
+                    subject: category.id,
+                    label: category.label,
+                    side,
+                    shift,
+                });
             }
         }
     }
@@ -247,13 +239,7 @@ mod tests {
     const MID_MARCH_2024: i64 = 1_710_504_000;
 
     fn reading(months: Vec<Month>) -> ReadReport {
-        let mut report: ReadReport = serde_json::from_value(serde_json::json!({
-            "app_id": 1, "reviews": 1, "corpus_reviews": 1, "language": null, "claims": 1,
-            "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-            "model": "m", "threshold": 0.5, "device": "cpu", "context": false,
-            "subjects": [], "languages": [], "months": []
-        }))
-        .unwrap();
+        let mut report = crate::read::tests::reading_with(&serde_json::json!({}));
         report.months = months;
         report.captured_unix = MID_MARCH_2024;
         report
@@ -308,16 +294,6 @@ mod tests {
             found.recommended.is_some(),
             "the recommendation share needs no sides"
         );
-    }
-
-    #[test]
-    fn a_month_missing_either_side_gives_no_subject_moves() {
-        let mut months: Vec<Month> = (1..=12)
-            .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
-            .collect();
-        months.extend((1..=3).map(|m| month(&format!("2024-{m:02}"), 100, 60, 15)));
-        months[0].complaining.clear();
-        assert_eq!(recent(&reading(months)).unwrap().moves, [] as [Move; 0]);
     }
 
     #[test]
@@ -399,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn the_recent_window_ends_where_the_capture_was_made_or_else_at_the_last_month() {
+    fn the_recent_window_ends_where_the_capture_was_made() {
         let months: Vec<Month> = (1..=12)
             .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))
             .chain((1..=3).map(|m| month(&format!("2024-{m:02}"), 100, 60, 15)))
@@ -415,10 +391,7 @@ mod tests {
             found.moves.is_empty(),
             "a quarter with no reviews in it moved nothing"
         );
-
-        let mut undated = reading(months);
-        undated.captured_unix = 0;
-        assert_eq!(recent(&undated).unwrap().to, "2024-03");
+        assert_eq!(recent(&reading(months)).unwrap().to, "2024-03");
     }
 
     #[test]

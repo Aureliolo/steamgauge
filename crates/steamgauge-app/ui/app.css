@@ -2947,19 +2947,6 @@ figure.timeline .update-line.chosen {
   white-space: nowrap;
 }
 
-.who-recount {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s3);
-}
-
-.who-recount .quiet {
-  flex: 1 1 320px;
-  font-size: var(--t-sm);
-}
-
 .who-table .who-name {
   display: block;
   color: var(--ink);

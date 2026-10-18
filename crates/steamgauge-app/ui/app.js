@@ -36,7 +36,7 @@ import { setUpStorage } from './storage.js';
 import { setUpNewer } from './newer.js';
 import { setUpAbout } from './about.js';
 import { setUpFinder, openFinder } from './finder.js';
-import { setUpWho, drawWho, drawRecount } from './who.js';
+import { setUpWho, drawWho } from './who.js';
 import { setUpUpdates, loadUpdates, markUpdates } from './updates.js';
 import { drawSinceLine } from './since.js';
 
@@ -131,7 +131,6 @@ function drawGameJobs() {
   const reading = mine.some((job) => active(job) && job.task.kind === 'read');
   el('do-read').disabled = reading;
   el('do-sweep').disabled = mine.some((job) => active(job) && job.task.kind === 'update');
-  drawRecount();
 }
 
 async function loadTopics(appId) {

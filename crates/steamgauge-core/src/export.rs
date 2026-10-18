@@ -1097,19 +1097,13 @@ fn what_was_read(game: &Game<'_>, written: Written) -> String {
         thousands(report.unclassified_claims),
         thousands(report.silent_reviews)
     );
-    let reader = if report.reader.is_empty() {
-        &report.model
-    } else {
-        &report.reader
-    };
     let _ = write!(
         out,
-        "Read by {reader} on {}",
-        day_or_unknown(game.read_unix)
+        "Read by {} on {}, run {}",
+        report.reader,
+        day_or_unknown(game.read_unix),
+        report.read_with
     );
-    if !report.read_with.is_empty() {
-        let _ = write!(out, ", run {}", report.read_with);
-    }
     if report.depth == crate::read::Depth::Shallow {
         let _ = write!(
             out,
@@ -1157,18 +1151,9 @@ fn what_was_read(game: &Game<'_>, written: Written) -> String {
 fn the_files(game: &Game<'_>, written: Written) -> String {
     let report = game.report;
     let mut out = String::new();
-    let mut subjects = String::from(
-        "One row per subject for everyone, then one per subject for each kind of reviewer: by \
-         time played when they wrote it, where they played, when they wrote it, and how they got \
-         the game.",
-    );
-    if report.who.is_empty() {
-        subjects.push_str(
-            " This game was counted before reviewers were told apart, so only everyone's rows are \
-             here; Count again on its page, or steamgauge recount, adds the rest without reading \
-             again.",
-        );
-    }
+    let subjects = "One row per subject for everyone, then one per subject for each kind of \
+                    reviewer: by time played when they wrote it, where they played, when they \
+                    wrote it, and how they got the game.";
     let updates = match &game.updates {
         None => {
             "Steam has not been asked for this game's posts, so there are none here; \
@@ -1194,7 +1179,7 @@ fn the_files(game: &Game<'_>, written: Written) -> String {
     for (files, about, columns) in [
         (
             "subjects.csv and subjects.json",
-            subjects.as_str(),
+            subjects,
             subject_columns(report),
         ),
         (
@@ -2026,7 +2011,6 @@ mod tests {
         assert_eq!(updates.json[1]["posted"], "2024-03-02");
 
         let readme = std::fs::read_to_string(folder.join("README.txt")).unwrap();
-        assert!(!readme.contains("counted before reviewers were told apart"));
         assert!(readme.contains("Each post the game's developer made on Steam that is an update"));
     }
 
@@ -2266,13 +2250,9 @@ mod tests {
         let english = ReadReport {
             language: Some("english".to_owned()),
             reviews: 6,
-            reader: String::new(),
-            model: "a model".to_owned(),
-            read_with: String::new(),
             depth: crate::read::Depth::Shallow,
             unclassified_claims: report.claims / 2,
             claims: report.claims / 2 * 2,
-            who: Vec::new(),
             ..report.clone()
         };
         let said = readme_of(
@@ -2285,8 +2265,9 @@ mod tests {
             Some(MARCH + 2 * 86_400),
         );
         assert!(said.contains("6 English reviews of the 7 downloaded"));
-        assert!(said.contains("Read by a model on 2024-03-01, each review read whole"));
-        assert!(!said.contains(", run "));
+        assert!(
+            said.contains("Read by Table Reader on 2024-03-01, run run-1, each review read whole")
+        );
         assert!(said.contains("brought up to date on 2024-03-03"));
         assert!(
             said.contains("every rate here is a floor"),
@@ -2294,7 +2275,6 @@ mod tests {
         );
         assert!(said.contains("2 points are left out of points.csv"));
         assert!(said.contains("a sheet in Excel holds"));
-        assert!(said.contains("counted before reviewers were told apart"));
 
         let fewer = ReadReport {
             unclassified_claims: report.claims / 2 - 1,
@@ -2330,8 +2310,10 @@ mod tests {
         let crawl = |swept: i64| {
             std::fs::write(
                 snapshot.join("crawl.json"),
-                json!({"app_id": 3, "name": "Three", "rows_unique": 2, "snapshot_unix": CRAWLED,
-                       "swept_unix": swept})
+                json!({"app_id": 3, "name": "Three", "review_score_desc": "Mixed",
+                       "rows_unique": 2, "valve_total_reviews": 2, "valve_total_positive": 2,
+                       "valve_total_negative": 0, "coverage": 1.0, "snapshot_unix": CRAWLED,
+                       "shards": 1, "swept_unix": swept})
                 .to_string(),
             )
             .unwrap();

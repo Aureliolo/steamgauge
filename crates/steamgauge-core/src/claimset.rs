@@ -2859,13 +2859,10 @@ mod tests {
         writer.close().unwrap();
         std::fs::write(
             snapshot.join("reading.json"),
-            serde_json::json!({
-                "app_id": 1, "reviews": 5, "corpus_reviews": 5, "language": null, "claims": 5,
-                "unclassified_claims": 0, "silent_reviews": 0, "positive": 0, "top_helpful": 0,
-                "model": "m", "threshold": 0.5, "device": "cpu", "subjects": [],
-                "languages": [], "months": []
-            })
-            .to_string(),
+            serde_json::to_string(&crate::read::tests::reading_with(&serde_json::json!({
+                "reviews": 5, "corpus_reviews": 5, "claims": 5,
+            })))
+            .unwrap(),
         )
         .unwrap();
 

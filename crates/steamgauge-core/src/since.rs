@@ -437,15 +437,11 @@ mod tests {
     /// A reading of `reviews` reviews, `positive` recommending, with bugs complained about in
     /// `bugs` of them, captured at `captured`, over a year of 1,200 reviews before March 2024.
     fn reading(captured: i64, reviews: u64, positive: u64, bugs: u64) -> ReadReport {
-        let mut report: ReadReport = serde_json::from_value(serde_json::json!({
-            "app_id": 1, "reviews": reviews, "corpus_reviews": reviews, "language": "english",
-            "claims": 1, "unclassified_claims": 0, "silent_reviews": 0, "positive": positive,
-            "top_helpful": 0, "model": "m", "threshold": 0.5, "device": "cpu", "context": false,
-            "read_with": "run-a", "read_by_rule": "lines-a",
+        let mut report = crate::read::tests::reading_with(&serde_json::json!({
+            "reviews": reviews, "corpus_reviews": reviews, "language": "english",
+            "claims": 1, "positive": positive,
             "subjects": [subject("bugs", 0, bugs, 0), subject("story", 50, 0, 0)],
-            "languages": [], "months": []
-        }))
-        .unwrap();
+        }));
         report.captured_unix = captured;
         report.months = (3..=12)
             .map(|m| month(&format!("2023-{m:02}"), 100, 80, 5))

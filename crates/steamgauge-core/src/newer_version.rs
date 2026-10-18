@@ -29,13 +29,11 @@ const FILE: &str = "newer-version.json";
 
 /// The last time the release page was asked, and what it said.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
 pub struct Asked {
     /// When it was last asked, in Unix seconds; zero for never.
     pub at: i64,
     /// When an answer last came back, in Unix seconds. Behind `at` when the last question went
-    /// unanswered; none where no answer has, or where the file was kept by a build that did not
-    /// record it, so an old file is never read as GitHub out of reach.
+    /// unanswered; none where no answer ever has.
     pub answered: Option<i64>,
     /// The version of the newest release, from the last answer that came back.
     pub latest: Option<String>,
@@ -429,29 +427,6 @@ mod tests {
         let loaded = Asked::load(dir.path());
         assert_eq!(loaded, asked);
         assert!(!loaded.due(1_000_000 + 60));
-    }
-
-    #[test]
-    fn a_file_kept_before_answers_were_timed_does_not_say_github_was_out_of_reach() {
-        let dir = crate::tempdir::Dir::new();
-        std::fs::write(
-            dir.path().join(FILE),
-            r#"{ "at": 1000000, "latest": "0.2.0" }"#,
-        )
-        .unwrap();
-        let loaded = Asked::load(dir.path());
-        assert_eq!(
-            loaded,
-            Asked {
-                at: 1_000_000,
-                answered: None,
-                latest: Some("0.2.0".to_owned()),
-            }
-        );
-        assert!(
-            !loaded.due(1_000_000 + 60),
-            "the last question still counts"
-        );
     }
 
     #[test]

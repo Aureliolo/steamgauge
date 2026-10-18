@@ -1550,13 +1550,6 @@ fn who_said_it(out: &mut String, app: &AppReport) {
 
     out.push_str("<h3>Who said it</h3>\n");
     let listed = crate::who::kinds(&app.reading);
-    if listed.is_empty() {
-        out.push_str(
-            "<p class=\"note\">Who wrote each review was not counted when this game was read. \
-             Reading it again counts it.</p>\n",
-        );
-        return;
-    }
     let _ = writeln!(
         out,
         "<p class=\"note\">Steam records beside every review how long its writer had played, \
@@ -1939,36 +1932,16 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
 ///
 /// The rule is the promise the page is making. Two reports produced by the same weights under
 /// different lines are not comparable, and a reader given the numbers without it cannot tell
-/// which they have. A reader with a name is named, with its run beside it, because the name
-/// is what somebody cites and the run is what the index knows it as.
+/// which they have. The reader is named with its run beside it, because the name is what
+/// somebody cites and the run is what the index knows it as.
 fn built_from(app: &AppReport) -> String {
     // Plain text: the fact it lands in escapes it, and a tag written here would be read out.
     let reading = &app.reading;
-    let who = match (reading.reader.is_empty(), reading.read_with.is_empty()) {
-        (true, _) => reading.model.clone(),
-        (false, true) => format!("{}, a fine-tune of {}", reading.reader, reading.model),
-        (false, false) => format!(
-            "{} (run {}), a fine-tune of {}",
-            reading.reader, reading.read_with, reading.model
-        ),
-    };
-    let labels = if reading.trained_on.is_empty() {
-        String::new()
-    } else {
-        format!(" trained on label set {},", reading.trained_on)
-    };
-    // A reader carrying a rule draws a line per subject and per language; the one threshold
-    // is all an older reading can say about itself.
-    let rule = if reading.read_by_rule.is_empty() {
-        format!("answering only above {:.2} confidence", reading.threshold)
-    } else {
-        format!(
-            "answering a claim only where it clears the line drawn for its subject and the one \
-             for its language (rule {})",
-            reading.read_by_rule
-        )
-    };
-    format!("{who},{labels} {rule}")
+    format!(
+        "{} (run {}), a fine-tune of {}, trained on label set {}, answering a claim only where \
+         it clears the line drawn for its subject and the one for its language (rule {})",
+        reading.reader, reading.read_with, reading.model, reading.trained_on, reading.read_by_rule
+    )
 }
 
 /// Why a corpus in these languages declines more than usual, which is two different answers.
@@ -2638,7 +2611,7 @@ mod tests {
                     corpus_reviews: 1_000,
                     language: None,
                     depth: crate::read::Depth::Deep,
-                    batch_size: Some(crate::read::DEFAULT_READ_BATCH),
+                    batch_size: crate::read::DEFAULT_READ_BATCH,
                     claims: 3_000,
                     forward_passes: 3_000,
                     unclassified_claims: 300,
@@ -2650,7 +2623,7 @@ mod tests {
                     trained_on: "0123456789abcdef".to_owned(),
                     read_with: "a-reader".to_owned(),
                     reader: "Game Review Reader".to_owned(),
-                    read_by_rule: String::new(),
+                    read_by_rule: "fedcba9876543210".to_owned(),
                     usual_declined: Some(0.1),
                     held_out: Some(crate::reader::HeldOut {
                         games: 8,
@@ -2675,8 +2648,12 @@ mod tests {
                         calendar("2024-01", 400, 320, vec![40, 100]),
                         calendar("2024-02", 600, 380, vec![60, 300]),
                     ],
-                    who: Vec::new(),
+                    who: crate::who::SEGMENTS
+                        .iter()
+                        .map(|segment| kind_of_reviewer(segment.id, 0, 0, (&[], 0)))
+                        .collect(),
                     elapsed: std::time::Duration::ZERO,
+                    kept: 0,
                 },
                 examples: vec![("bugs".to_owned(), vec![example])],
                 top: Vec::new(),
@@ -4684,7 +4661,8 @@ mod tests {
     fn the_page_says_who_read_the_corpus_and_by_what_rule() {
         assert!(render(&sample_report("ordinary text")).contains(
             "<dt>Read by</dt><dd>Game Review Reader (run a-reader), a fine-tune of test-reader, \
-             trained on label set 0123456789abcdef, answering only above 0.50 confidence</dd>"
+             trained on label set 0123456789abcdef, answering a claim only where it clears the \
+             line drawn for its subject and the one for its language (rule fedcba9876543210)</dd>"
         ));
     }
 
@@ -4810,17 +4788,6 @@ mod tests {
             })
             .collect();
         render(&report)
-    }
-
-    #[test]
-    fn a_game_read_before_reviewers_were_told_apart_says_so() {
-        let page = render(&sample_report("ordinary text"));
-        let section = between(&page, "<h3>Who said it</h3>", "<h3>");
-        assert!(
-            section.contains("not counted when this game was read"),
-            "{section}"
-        );
-        assert!(!section.contains("<table"));
     }
 
     #[test]

@@ -902,6 +902,77 @@ enum Command {
     },
 }
 
+impl Command {
+    /// The library the command works in, for the commands that work in one.
+    fn library(&self) -> Option<&Path> {
+        match self {
+            Self::Crawl { out, .. }
+            | Self::Sweep { out, .. }
+            | Self::Claims { out, .. }
+            | Self::Embed { out, .. }
+            | Self::SampleClaims { out, .. }
+            | Self::Declined { out, .. }
+            | Self::RareClaims { out, .. }
+            | Self::MeasureClaims { out, .. }
+            | Self::Distinct { out, .. }
+            | Self::Ceiling { out, .. }
+            | Self::Revisit { out, .. }
+            | Self::Gold { out, .. }
+            | Self::IngestGold { out, .. }
+            | Self::ExportTraining { out, .. }
+            | Self::ExportReviewFacts { out, .. }
+            | Self::ExportPool { out, .. }
+            | Self::StoreFacts { out, .. }
+            | Self::Read { out, .. }
+            | Self::Recount { out, .. }
+            | Self::Report { out, .. }
+            | Self::ExportData { out, .. } => Some(out),
+            Self::SecondOpinion { .. }
+            | Self::IngestInduced { .. }
+            | Self::CompareLabels { .. }
+            | Self::IngestRevisit { .. }
+            | Self::IngestClaims { .. }
+            | Self::Update
+            | Self::Mcp
+            | Self::Clients
+            | Self::Connect { .. }
+            | Self::Disconnect { .. }
+            | Self::Brief { .. } => None,
+        }
+    }
+}
+
+/// Brings the library to the current format before a command reads it, as the app does when
+/// it opens, and says on stderr what that changed.
+fn bring_library(library: &Path) -> Result<()> {
+    let brought = steamgauge_core::current_format::bring_library(library)?;
+    for snapshot in &brought.keyed {
+        eprintln!(
+            "{}: readings given the text each answer was read from",
+            snapshot.display()
+        );
+    }
+    for snapshot in &brought.renamed {
+        eprintln!(
+            "{}: held-out figure moved to its current name",
+            snapshot.display()
+        );
+    }
+    for (snapshot, why) in &brought.removed {
+        eprintln!(
+            "{}: reading removed, read the game again: {why}",
+            snapshot.display()
+        );
+    }
+    for (snapshot, failed) in &brought.failed {
+        eprintln!(
+            "{}: reading left in an earlier format: {failed}",
+            snapshot.display()
+        );
+    }
+    Ok(())
+}
+
 /// The command line as clap builds it, for the documentation's reference.
 pub(crate) fn command() -> clap::Command {
     <Cli as clap::CommandFactory>::command()
@@ -909,6 +980,7 @@ pub(crate) fn command() -> clap::Command {
 
 pub async fn run() -> Result<()> {
     let command = Cli::parse().command;
+    command.library().map_or(Ok(()), bring_library)?;
     if let Some(done) = reference_work(&command) {
         return done;
     }
@@ -2039,6 +2111,29 @@ fn run_read(
     Ok(())
 }
 
+/// What the model was asked, and what the read answered without it: a claim written before
+/// in the corpus, or one the last reading answered for a review unchanged since.
+fn print_asked(report: &steamgauge_core::read::ReadReport) {
+    if report.forward_passes > 0 && report.claims > 0 {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a corpus is millions of claims, not 2^53 of them"
+        )]
+        let repeated = 1.0 - (report.forward_passes + report.kept) as f64 / report.claims as f64;
+        println!(
+            "asked        {} of them ({:.0}% of the corpus was written before)",
+            thousands(report.forward_passes),
+            repeated * 100.0
+        );
+    }
+    if report.kept > 0 {
+        println!(
+            "kept         {} answers from the last reading, their reviews unchanged",
+            thousands(report.kept)
+        );
+    }
+}
+
 fn read_one(
     model: &mut steamgauge_core::reader::ClaimReader,
     app_id: u32,
@@ -2076,18 +2171,7 @@ fn read_one(
         println!("counted      {} reviews", thousands(report.reviews));
     }
     println!("claims       {}", thousands(report.claims));
-    if report.forward_passes > 0 && report.claims > 0 {
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "a corpus is millions of claims, not 2^53 of them"
-        )]
-        let repeated = 1.0 - report.forward_passes as f64 / report.claims as f64;
-        println!(
-            "asked        {} of them ({:.0}% of the corpus was written before)",
-            thousands(report.forward_passes),
-            repeated * 100.0
-        );
-    }
+    print_asked(&report);
     if let Some(share) = report.unclassified_share() {
         println!(
             "no subject   {} claims ({:.1}%), and {} reviews that name nothing at all",
@@ -2152,9 +2236,6 @@ fn read_one(
 /// Where one kind of reviewer says something more or less often than everyone else, by more
 /// than chance: what the report lists under "Who said it".
 fn print_differences(report: &steamgauge_core::read::ReadReport) {
-    if report.who.is_empty() {
-        return;
-    }
     let found = steamgauge_core::who::findings(report);
     println!("\nwhere reviewers differ");
     if found.is_empty() {

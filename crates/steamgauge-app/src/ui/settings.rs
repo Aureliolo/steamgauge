@@ -4,7 +4,7 @@
 //! pointed elsewhere and shared, and how much of this machine's graphics card to take is a fact
 //! about this machine.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
@@ -32,7 +32,6 @@ pub enum UpdateWhen {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq)]
-#[serde(default)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "each is one switch in Settings; no two of them name one state"
@@ -91,7 +90,7 @@ impl Default for Settings {
     }
 }
 
-fn file(app: &AppHandle) -> Option<PathBuf> {
+pub(super) fn file(app: &AppHandle) -> Option<PathBuf> {
     app.path()
         .app_config_dir()
         .ok()
@@ -101,6 +100,9 @@ fn file(app: &AppHandle) -> Option<PathBuf> {
 impl Settings {
     /// What was chosen, or the defaults where nothing was or the file cannot be read.
     pub fn load(app: &AppHandle) -> Self {
+        // The settings are brought to the current format with the library, the first time
+        // either is asked for.
+        super::library_dir(app);
         file(app)
             .and_then(|path| std::fs::read(path).ok())
             .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
@@ -134,6 +136,11 @@ impl Settings {
 
     fn save(&self, app: &AppHandle) -> Result<(), String> {
         let path = file(app).ok_or("this system gives the app nowhere to keep settings")?;
+        self.write_to(&path)
+    }
+
+    /// Written beside `path` and moved over it, so the file is never half one set of settings.
+    pub(super) fn write_to(&self, path: &Path) -> Result<(), String> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
@@ -383,8 +390,8 @@ mod tests {
     }
 
     #[test]
-    fn a_file_written_before_a_setting_existed_takes_its_default() {
-        let loaded: Settings = serde_json::from_str(r#"{"gpu_share": 0.5}"#).unwrap();
+    fn nothing_chosen_is_the_defaults() {
+        let loaded = Settings::default();
         assert!(loaded.check_newer_version);
         assert!(loaded.check_steam);
         assert!(loaded.keep_up_to_date);

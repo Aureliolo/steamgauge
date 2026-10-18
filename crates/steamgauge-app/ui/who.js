@@ -6,7 +6,6 @@
    A kind with too few reviews is offered no figure at all. */
 
 import { invoke, el, set, make, button, whole, tenth as percent } from './common.js';
-import { queue, jobsFor, active } from './work.js';
 
 /* Differences listed before the rest wait behind a button. */
 const FINDINGS_SHOWN = 6;
@@ -28,9 +27,6 @@ export function setUpWho(given) {
     showingAll = true;
     drawFindings();
   });
-  el('do-recount').addEventListener('click', () => {
-    if (reading) queue({ kind: 'recount', app_id: reading.app_id });
-  });
 }
 
 /* Drawn with every reading the page shows; a choice made on the same game is kept, so coming back
@@ -41,25 +37,10 @@ export function drawWho(found) {
     showingAll = false;
   }
   reading = found;
-  const counted = found.who.kinds.length > 0;
   el('who').hidden = false;
-  el('who-pick').hidden = !counted;
-  el('who-recount').hidden = counted;
-  drawRecount();
-  if (!counted) {
-    choice.these = '';
-    showEveryone();
-    return;
-  }
   if (choice.these && !kindOf(choice.these)?.kind.enough) choice = { ...choice, these: '', others: '' };
   fillFirst();
   choose(choice.these, choice.others);
-}
-
-/* Whether counting again is under way for the game, which the button says by being unavailable. */
-export function drawRecount() {
-  if (!reading) return;
-  el('do-recount').disabled = jobsFor(reading.app_id).some((job) => active(job) && job.task.kind === 'recount');
 }
 
 /* The kind of reviewer the page shows, as its id and the label it is listed under, or null for
@@ -159,21 +140,17 @@ function showEveryone() {
   el('who-wrap').hidden = true;
   el('who-legend').hidden = true;
   hooks.drawTimeline(reading.months);
-  const counted = reading.who.kinds.length > 0;
-  el('who-note').hidden = !counted;
+  el('who-note').hidden = false;
   set(
     el('who-note'),
-    counted
-      ? 'Steam records beside every review how long its writer had played, whether mostly on a Steam Deck, ' +
-          'whether the game was in early access and whether they got it free. Choose one kind of reviewer ' +
-          'to see their reviews alone.'
-      : '',
+    'Steam records beside every review how long its writer had played, whether mostly on a Steam Deck, ' +
+      'whether the game was in early access and whether they got it free. Choose one kind of reviewer ' +
+      'to see their reviews alone.',
   );
   drawFindings();
 }
 
 function drawFindings() {
-  const counted = reading.who.kinds.length > 0;
   const everyone = choice.these === '';
   const findings = reading.who.findings;
   const shown = showingAll ? findings : findings.slice(0, FINDINGS_SHOWN);
@@ -187,8 +164,8 @@ function drawFindings() {
       ),
     ),
   );
-  el('who-differ').hidden = !counted || !everyone || findings.length === 0;
-  el('who-none').hidden = !counted || !everyone || findings.length > 0;
+  el('who-differ').hidden = !everyone || findings.length === 0;
+  el('who-none').hidden = !everyone || findings.length > 0;
   el('who-found').hidden = el('who-differ').hidden && el('who-none').hidden;
   el('who-more').hidden = !everyone || showingAll || findings.length <= FINDINGS_SHOWN;
   set(el('who-more'), `Show ${whole.format(findings.length - FINDINGS_SHOWN)} more`);
