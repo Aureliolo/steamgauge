@@ -721,6 +721,22 @@ type Stored = HashMap<String, Vec<((u32, u32), Reading)>>;
 /// they answered, and each answer by the span it names.
 type Kept = HashMap<String, (u64, Vec<((u32, u32), Reading)>)>;
 
+/// The answers kept for one review: none unless its text is what they answered and the
+/// splitter cuts it at exactly the spans they name. A claim is read beside its neighbours, so
+/// where a splitter change joins or parts two claims, an answer at a span that stayed was
+/// given beside neighbours the review no longer has.
+fn kept_for<'a>(
+    kept: &'a Kept,
+    id: &str,
+    text_key: u64,
+    origin: &[(u32, u32)],
+) -> Option<&'a Vec<((u32, u32), Reading)>> {
+    let (answered, readings) = kept.get(id)?;
+    let same_cut =
+        readings.len() == origin.len() && readings.iter().all(|(span, _)| origin.contains(span));
+    (*answered == text_key && same_cut).then_some(readings)
+}
+
 /// The answers a read may keep from the reading on disk, which are the ones this reader gave at
 /// this depth in this mode; an answer is kept only for a review whose text is still what it
 /// was. None where the reading is another reader's, and then every claim is read.
@@ -1108,10 +1124,8 @@ fn read_and_count(
         let language: Arc<str> = Arc::from(row.language.as_str());
         let origin = spans_in(options.depth, text);
         let text_key = text_key(text);
-        let kept_here = kept
-            .and_then(|kept| kept.get(&row.recommendationid))
-            .filter(|(answered, _)| *answered == text_key)
-            .map(|(_, readings)| readings);
+        let kept_here =
+            kept.and_then(|kept| kept_for(kept, &row.recommendationid, text_key, &origin));
         let mut spans = Vec::with_capacity(claims.len());
         let mut at = 0;
         for (index, claim) in claims.iter().enumerate() {
@@ -2447,6 +2461,36 @@ pub(crate) mod tests {
         read_and_save(out.path(), false, &options(out.path()));
         let again = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
         assert_eq!((again.forward_passes, again.kept), (0, 2));
+    }
+
+    #[test]
+    fn a_review_the_splitter_now_cuts_differently_is_read_again_whole() {
+        let out = crate::tempdir::Dir::new();
+        let first = "Bugs everywhere. The music is lovely.";
+        let second = "The story is good.";
+        let snapshot = capture_these(
+            out.path(),
+            1,
+            &[steam_review("1", first), steam_review("2", second)],
+        );
+        read_and_save(out.path(), false, &options(out.path()));
+        // As an earlier splitter left it: the first claim where it is today, the second cut
+        // short. Only the second span moved, and the first was still read beside it.
+        write_readings(
+            &snapshot.join("readings.parquet"),
+            &[
+                ("1", first, (0, 16), Some("performance"), "complaint", None),
+                ("1", first, (17, 30), Some("audio"), "praise", None),
+                ("2", second, (0, 18), Some("story"), "praise", None),
+            ],
+        );
+
+        let again = read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+        assert_eq!(
+            (again.forward_passes, again.kept),
+            (2, 1),
+            "both claims of the recut review are asked, and the other review's answer is kept"
+        );
     }
 
     #[test]
