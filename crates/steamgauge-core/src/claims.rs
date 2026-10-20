@@ -2127,6 +2127,12 @@ mod tests {
         assert!(!ends_on_the_word("мост.е", "т.е"));
         assert!(ends_on_the_word("сразу, т.е", "т.е"));
         assert!(ends_on_the_word("т.е", "т.е"));
+        // Counting claims cannot tell where the cut fell, so the first stop is asked directly:
+        // a word ending on "т" is no "т.", and "т. б." is no form at all.
+        let text = "Главное тут результат. е. потом";
+        assert!(!a_russian_abbreviation(text, text.find(". е").unwrap()));
+        let text = "Взял т. б. и ушёл";
+        assert!(!a_russian_abbreviation(text, text.find(". б").unwrap()));
         let claims = split("Лучшая игра года, вот. Купите её, не пожалеете ни разу.");
         assert_eq!(claims.len(), 2, "got {claims:?}");
     }
