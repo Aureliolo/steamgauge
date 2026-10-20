@@ -507,7 +507,7 @@ enum Command {
         reference: PathBuf,
         /// Directory holding the captures, which say whether this build still cuts a claim
         /// where a label names one: a claim it no longer cuts is not asked again, as the
-        /// training export does not keep it. A game with no capture here holds nothing back.
+        /// training export does not keep it. Every game drawn from needs its capture here.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Reviews per batch file.
@@ -667,7 +667,7 @@ enum Command {
         /// Directory holding the captures, which is what says whether this build still cuts a
         /// claim where a label names one. A label whose span it no longer cuts is not a label
         /// of anything the reader will be handed, and training on it teaches a string that
-        /// cannot come back. A game with no capture here holds nothing back.
+        /// cannot come back. Every labelled game needs its capture here.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the JSONL.

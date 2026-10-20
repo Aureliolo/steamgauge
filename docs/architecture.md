@@ -25,7 +25,9 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
   one test for a piece with nothing in it (no word, an unticked ballot option). The gold draw, the
   gold ingest, the revisit draw and the training export all use both.
 - A splitter change moves some spans. Labels at a span the build no longer cuts are left out of
-  measurement and training, and counted; the library is read again.
+  measurement and training, and counted; the library is read again. Only the review itself says
+  where this build cuts, so the training export, the revisit and gold draws and the gold ingest
+  refuse a game whose capture is not on the machine.
 
 ## Downloading
 

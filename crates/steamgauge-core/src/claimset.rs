@@ -654,8 +654,7 @@ impl Question {
 /// `cut` holds this build's cut of the set's reviews. The set's sample was cut when it was
 /// drawn, often by older rules, and a revisit that asks about a blank ballot option or a
 /// fragment the splitter has since folded into a larger claim pays a labeller for a label the
-/// export then throws away. With no `cut`, a game with no capture on this machine, only the
-/// first test holds anything back, as in the export.
+/// export then throws away.
 ///
 /// # Errors
 ///
@@ -663,7 +662,7 @@ impl Question {
 pub fn draw_revisit(
     dir: &Path,
     questions: &[Question],
-    cut: Option<&CutSpans>,
+    cut: &CutSpans,
 ) -> Result<Vec<DrawnReview>> {
     let drawn: Vec<DrawnReview> =
         serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
@@ -697,7 +696,7 @@ pub fn draw_revisit(
                         && filed
                             .get(&(review.id.as_str(), claim.index))
                             .is_some_and(|label| {
-                                cut.is_none_or(|cut| cut_at(cut, label).is_some())
+                                cut_at(cut, label).is_some()
                                     && questions.iter().any(|question| {
                                         question.asks(review.app_id, label, &claim.text)
                                     })
@@ -773,7 +772,8 @@ pub struct RevisitDraw {
 /// # Errors
 ///
 /// Refuses a question with no words, subjects or flags, which asks the whole reference set again
-/// and is never what a revision needs. Fails if a set cannot be read or its handout written.
+/// and is never what a revision needs. Fails if a set cannot be read or its handout written, or
+/// a game asked about has no capture.
 pub fn draw_revisits(
     reference: &Path,
     captures: &Path,
@@ -814,12 +814,12 @@ pub fn draw_revisits(
                 reviews.extend(labels.into_iter().map(|label| label.review_id));
             }
         }
-        let cut = spans_cut_now(captures, app_id, &reviews).ok();
+        let cut = spans_cut_now(captures, app_id, &reviews)?;
         for (set, dir) in sets_of(app_id) {
             if !dir.join("labels.json").is_file() {
                 continue;
             }
-            let drawn = draw_revisit(&dir, &asking, cut.as_ref())?;
+            let drawn = draw_revisit(&dir, &asking, &cut)?;
             if drawn.is_empty() {
                 continue;
             }
@@ -1581,25 +1581,21 @@ fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<Labell
 /// splitters over the run. A row whose span this build cuts no claim at is not a label of any
 /// claim the reader will ever be handed: at best it is a true label of a sentence that now
 /// sits inside a larger claim, at worst one label over what are now two claims, taught under
-/// one subject. The adjudication page has refused to ask about them since it was written;
-/// training kept learning them, because the export joined a label to the text the draw stored
-/// rather than to the text the splitter produces.
+/// one subject. The adjudication page refuses to ask about them; training must not learn them
+/// either, so the export joins each label to the cut the splitter produces now.
 ///
-/// A game with no capture on this machine holds nothing back, exactly as in the adjudication
-/// draw: the alternative is an export that silently shrinks depending on what was crawled.
+/// Every labelled game needs its capture. Without it nothing says which of its rows sit on a
+/// span this build still cuts, and an export that kept them all would teach whatever the older
+/// splitters cut on the machines that hold fewest captures.
 ///
 /// # Errors
 ///
-/// Fails if a reference set cannot be read or the destination cannot be written.
+/// Fails if a reference set cannot be read, a labelled game has no capture, or the destination
+/// cannot be written.
 pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Result<ExportReport> {
     use std::io::Write as _;
 
-    if let Some(parent) = to.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut report = ExportReport::default();
-
     let found = read_once(labelled_claims(reference_root)?, &mut report);
     let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
         std::collections::BTreeMap::new();
@@ -1609,10 +1605,15 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
             .or_default()
             .insert(claim.label.review_id.clone());
     }
-    let cuts: std::collections::HashMap<u32, CutSpans> = wanted
+    let cuts = wanted
         .into_iter()
-        .filter_map(|(app_id, ids)| Some((app_id, spans_cut_now(captures, app_id, &ids).ok()?)))
-        .collect();
+        .map(|(app_id, ids)| Ok((app_id, spans_cut_now(captures, app_id, &ids)?)))
+        .collect::<Result<std::collections::HashMap<u32, CutSpans>>>()?;
+
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut facts: std::collections::HashMap<u32, Option<bool>> = std::collections::HashMap::new();
 
     for claim in found {
@@ -1639,7 +1640,7 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
         }
         if cuts
             .get(&label.app_id)
-            .is_some_and(|cut| cut_at(cut, label).is_none())
+            .is_none_or(|cut| cut_at(cut, label).is_none())
         {
             report.recut += 1;
             continue;
@@ -1907,7 +1908,7 @@ mod tests {
                 dir.join("labels.json"),
                 serde_json::json!([{
                     "review_id": id, "index": 0, "app_id": app_id, "language": "english",
-                    "subset": subset, "start": 0, "end": 0, "subject": "gameplay",
+                    "subset": subset, "start": 0, "end": 21, "subject": "gameplay",
                     "polarity": "praise", "ironic": false, "confidence": "high",
                     "ambiguous": false, "split_wrong": false
                 }])
@@ -1915,11 +1916,24 @@ mod tests {
             )
             .unwrap();
         }
+        let captures = root.join("captures");
+        for app_id in [trains_on, held_back] {
+            let ids = ["random", "keyword"].map(|subset| format!("{app_id}-{subset}"));
+            captured(
+                &captures,
+                app_id,
+                &ids.each_ref()
+                    .map(|id| (id.as_str(), "The combat is superb.")),
+            );
+        }
 
         let to = root.join("claims.jsonl");
-        // No captures, so nothing is held back for being cut differently: this test is about
-        // which game a teaching row sits on.
-        let report = export_training(&root, &root.join("no-captures"), &to).unwrap();
+        assert!(
+            export_training(&root, &root.join("no-captures"), &to).is_err(),
+            "without the captures nothing says which rows sit on a span this build still cuts"
+        );
+        assert!(!to.exists(), "a refused export left a file behind");
+        let report = export_training(&root, &captures, &to).unwrap();
         let written = std::fs::read_to_string(&to).unwrap();
 
         assert_eq!(report.measured_on, 1, "the held-back game's keyword row");
@@ -1983,33 +1997,82 @@ mod tests {
         );
     }
 
+    /// A capture of `app_id` under `out` holding these reviews, as a crawl leaves one.
+    fn captured(out: &Path, app_id: u32, reviews: &[(&str, &str)]) {
+        let snapshot = out.join(format!("appid={app_id}")).join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        let rows: Vec<serde_json::Value> = reviews
+            .iter()
+            .map(|(id, text)| {
+                serde_json::json!({"recommendationid": id, "review": text,
+                    "language": "english", "timestamp_created": 1, "timestamp_updated": 1,
+                    "voted_up": true, "votes_up": 0})
+            })
+            .collect();
+        let mut writer =
+            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), app_id)
+                .unwrap();
+        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+    }
+
+    /// A review this build cuts exactly where the draw did: its claims joined by spaces, and
+    /// where each one sits.
+    fn cut_as_drawn(id: &str, claims: &[&str]) -> (CutSpans, Vec<(u32, u32)>) {
+        let mut text = String::new();
+        let mut spans = Vec::new();
+        for claim in claims {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            let start = u32::try_from(text.len()).unwrap();
+            text.push_str(claim);
+            spans.push((start, u32::try_from(text.len()).unwrap()));
+        }
+        let cut = spans
+            .iter()
+            .filter_map(|&(start, end)| crate::claims::words_at(&text, start, end))
+            .collect();
+        (
+            std::iter::once((id.to_owned(), Cut { text, spans: cut })).collect(),
+            spans,
+        )
+    }
+
     #[test]
     fn a_revisit_with_no_words_asks_about_every_claim_under_the_subjects() {
         let dir = std::env::temp_dir().join(format!("steamgauge-revisit-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
+        let claims = [
+            "No subtitle size setting.",
+            "The combat is superb.",
+            "It runs at nine frames.",
+        ];
         let drawn = DrawnReview {
             app_id: 1,
-            ..review(
-                "r1",
-                &[
-                    "No subtitle size setting.",
-                    "The combat is superb.",
-                    "It runs at nine frames.",
-                ],
-            )
+            ..review("r1", &claims)
         };
         std::fs::write(
             dir.join("sample.json"),
             serde_json::to_vec(&[drawn]).unwrap(),
         )
         .unwrap();
+        let (cut, spans) = cut_as_drawn("r1", &claims);
+        let at = |index: u16, subject: &str| {
+            let (start, end) = spans[usize::from(index)];
+            ClaimLabel {
+                start,
+                end,
+                ..a_label(1, "r1", index, "random", subject)
+            }
+        };
         std::fs::write(
             dir.join("labels.json"),
             serde_json::to_vec(&[
-                a_label(1, "r1", 0, "random", "accessibility"),
-                a_label(1, "r1", 1, "random", "accessibility"),
-                a_label(1, "r1", 2, "random", "performance"),
+                at(0, "accessibility"),
+                at(1, "accessibility"),
+                at(2, "performance"),
             ])
             .unwrap(),
         )
@@ -2019,11 +2082,11 @@ mod tests {
             words: words.iter().map(|word| (*word).to_owned()).collect(),
             ..Question::default()
         };
-        let by_word = draw_revisit(&dir, &[words(&["subtitle"])], None).unwrap();
+        let by_word = draw_revisit(&dir, &[words(&["subtitle"])], &cut).unwrap();
         assert_eq!(by_word[0].asked, Some(vec![0]));
 
         // A phrase made of filler words is still a phrase somebody wrote.
-        let by_phrase = draw_revisit(&dir, &[words(&["it runs at"])], None).unwrap();
+        let by_phrase = draw_revisit(&dir, &[words(&["it runs at"])], &cut).unwrap();
         assert_eq!(by_phrase[0].asked, Some(vec![2]));
 
         // A row redefined rather than renamed puts every claim under it back in question, and
@@ -2032,19 +2095,19 @@ mod tests {
             subjects: vec!["accessibility".to_owned()],
             ..Question::default()
         };
-        let whole_row = draw_revisit(&dir, std::slice::from_ref(&row), None).unwrap();
+        let whole_row = draw_revisit(&dir, std::slice::from_ref(&row), &cut).unwrap();
         assert_eq!(whole_row[0].asked, Some(vec![0, 1]));
 
         // Two rules revised at once ask a claim if either does, and a question about other
         // games asks nothing here.
         let both =
-            draw_revisit(&dir, &[words(&["subtitle"]), words(&["it runs at"])], None).unwrap();
+            draw_revisit(&dir, &[words(&["subtitle"]), words(&["it runs at"])], &cut).unwrap();
         assert_eq!(both[0].asked, Some(vec![0, 2]));
         let elsewhere = Question {
             apps: vec![2],
             ..row
         };
-        assert!(draw_revisit(&dir, &[elsewhere], None).unwrap().is_empty());
+        assert!(draw_revisit(&dir, &[elsewhere], &cut).unwrap().is_empty());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2086,22 +2149,33 @@ mod tests {
             ..Question::default()
         };
 
-        let without_a_capture = draw_revisit(&dir, std::slice::from_ref(&row), None).unwrap();
+        let every_span = |spans: &[(u32, u32)]| -> CutSpans {
+            std::iter::once((
+                "r1".to_owned(),
+                Cut {
+                    text: text.to_owned(),
+                    spans: spans
+                        .iter()
+                        .filter_map(|&(start, end)| crate::claims::words_at(text, start, end))
+                        .collect(),
+                },
+            ))
+            .collect()
+        };
+        let all_cut = draw_revisit(
+            &dir,
+            std::slice::from_ref(&row),
+            &every_span(&[(0, 21), (22, 45)]),
+        )
+        .unwrap();
         assert_eq!(
-            without_a_capture[0].asked,
+            all_cut[0].asked,
             Some(vec![1, 2]),
-            "a blank option is never asked, capture or none"
+            "a blank option is never asked, wherever this build cuts"
         );
 
-        let cut: CutSpans = std::iter::once((
-            "r1".to_owned(),
-            Cut {
-                text: text.to_owned(),
-                spans: crate::claims::words_at(text, 22, 45).into_iter().collect(),
-            },
-        ))
-        .collect();
-        let handed = draw_revisit(&dir, std::slice::from_ref(&row), Some(&cut)).unwrap();
+        let cut = every_span(&[(22, 45)]);
+        let handed = draw_revisit(&dir, std::slice::from_ref(&row), &cut).unwrap();
         assert_eq!(
             handed[0].asked,
             Some(vec![2]),
@@ -2123,8 +2197,11 @@ mod tests {
             serde_json::to_vec(&[review("r1", &texts)]).unwrap(),
         )
         .unwrap();
+        let (cut, spans) = cut_as_drawn("r1", &texts);
         let labels: Vec<ClaimLabel> = (0..400)
             .map(|index| ClaimLabel {
+                start: spans[usize::from(index)].0,
+                end: spans[usize::from(index)].1,
                 split_wrong: index % 2 == 0,
                 ambiguous: index % 4 == 0,
                 also: (index % 3 == 0).then(Vec::new),
@@ -2143,7 +2220,7 @@ mod tests {
             ..Question::default()
         };
         let asked = |question: &Question| {
-            draw_revisit(&dir, std::slice::from_ref(question), None).unwrap()[0]
+            draw_revisit(&dir, std::slice::from_ref(question), &cut).unwrap()[0]
                 .asked
                 .clone()
                 .unwrap()
@@ -2200,9 +2277,13 @@ mod tests {
                 serde_json::to_vec(&[drawn]).unwrap(),
             )
             .unwrap();
+            let label = ClaimLabel {
+                end: 26,
+                ..a_label(app_id, "r1", 0, "random", subject)
+            };
             std::fs::write(
                 dir.join("labels.json"),
-                serde_json::to_vec(&[a_label(app_id, "r1", 0, "random", subject)]).unwrap(),
+                serde_json::to_vec(&[label]).unwrap(),
             )
             .unwrap();
         };
@@ -2217,8 +2298,17 @@ mod tests {
             subjects: vec!["controls".to_owned()],
             ..Question::default()
         };
-        // No capture under this root, so nothing is held back for being cut differently now.
         let captures = root.join("data");
+        assert!(
+            matches!(
+                draw_revisits(&root, &captures, std::slice::from_ref(&remap), 40),
+                Err(crate::Error::NoCapture { .. })
+            ),
+            "without the captures nothing says which labels sit on a claim this build cuts"
+        );
+        for app_id in [1, 2] {
+            captured(&captures, app_id, &[("r1", "You cannot remap the keys.")]);
+        }
         let drawn = draw_revisits(&root, &captures, std::slice::from_ref(&remap), 40).unwrap();
         let drew: Vec<(u32, &str)> = drawn
             .sets
