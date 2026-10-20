@@ -25,8 +25,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 sha2 = "=0.11.1"
 # An update is installed only where Sigstore verifies the release's build provenance. The trust
-# root comes through TUF over the client this crate makes, so no TLS of Sigstore's own is built.
-sigstore-verify = { version = "=0.15.0", default-features = false, features = ["tuf"], optional = true }
+# root comes through TUF over the client this crate makes, so no TLS of Sigstore's own is built;
+# its signature checks run on aws-lc.
+sigstore-verify = { version = "=0.15.0", default-features = false, features = ["tuf", "aws-lc-rs"], optional = true }
 thiserror = "=2.0.21"
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
 tokio = { version = "=1.54.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
