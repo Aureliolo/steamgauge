@@ -44,6 +44,9 @@ exclude_re = [
   # A span from a byte to the same byte is turned away at the door or found empty at the end,
   # and both give no span.
   'src[/\\]claims\.rs:\d+:\d+: replace > with >= in tidied$',
+  # Every Russian form ends on a Cyrillic letter, so a stop after any other letter matches none
+  # of them whether or not it is let through; the check spares every other script the work.
+  'src[/\\]claims\.rs:\d+:\d+: replace is_cyrillic -> bool with true$',
   # `plan` only hands Valve's count to the planner under it, and no test reaches Valve; the
   # planner (`plan_by`) is tested against counts written by hand and stays mutated.
   'src[/\\]shard\.rs:.*: replace plan -> ',

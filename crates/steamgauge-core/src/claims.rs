@@ -189,6 +189,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             !numbers_a_list(&text[start..at])
                 && !continues_a_number(text, at)
                 && !abbreviates(text, at)
+                && !a_russian_abbreviation(text, at)
                 && !continues_a_word(text, at)
         } else {
             TERMINATORS.contains(&ch)
@@ -857,6 +858,100 @@ fn abbreviates(text: &str, at: usize) -> bool {
         .map(|ch| ch.to_ascii_lowercase())
         .collect();
     ABBREVIATIONS.contains(&word.as_str())
+}
+
+/// Russian abbreviations, which hold wherever they stand.
+///
+/// Apart from [`ABBREVIATIONS`] because Russian writes them two ways, "т.е." and, as its
+/// typography asks, "т. е.", and the spaced form is two words to [`abbreviates`]: the stop
+/// after "е" alone says nothing about what came before it. A review in capitals writes
+/// "Т.К.", so the Cyrillic is read in either case; nothing else is.
+const RUSSIAN_ABBREVIATIONS: [&str; 4] = ["т.е", "т.к", "т.ч", "напр"];
+
+/// The Russian abbreviations that end the sentence about as often as they sit inside it: the
+/// forms that close a list, "и т.д." and "и т.п." (also written "тд", "тп"), "см." and "др.",
+/// and the units reviews give after a number, hours, minutes, roubles, thousands and years.
+/// "крафт, стройка и т.д. Играть интересно" is two points and "крафт, стройка и т.д. и всё это
+/// затягивает" is one, as "вышла в 2015 г. Выглядит отлично" is two and "игра 2015 г. выпуска"
+/// one. Like an ellipsis, they hold only before a lowercase word.
+const RUSSIAN_ENDINGS_BEFORE_A_CAPITAL: [&str; 15] = [
+    "т.д", "т.п", "тд", "тп", "см", "др", "ч", "мин", "сек", "руб", "р", "тыс", "млн", "млрд", "г",
+];
+
+/// Whether the stop at `at` belongs to one of the Russian abbreviations, either half of it.
+///
+/// Asked only after a Cyrillic letter, so no review in another script is split any differently.
+fn a_russian_abbreviation(text: &str, at: usize) -> bool {
+    if !text[..at].chars().next_back().is_some_and(is_cyrillic) {
+        return false;
+    }
+    // The longest form is four letters and a stop; a few more characters leave room for the
+    // spaces of "т. е." and the boundary in front of it.
+    let from = text[..at]
+        .char_indices()
+        .rev()
+        .nth(11)
+        .map_or(0, |(index, _)| index);
+    let before = closed_up(&text[from..at]);
+    let rest = text[at + 1..].trim_start();
+
+    if RUSSIAN_ABBREVIATIONS
+        .iter()
+        .any(|form| ends_on_the_word(&before, form))
+    {
+        return true;
+    }
+    if RUSSIAN_ENDINGS_BEFORE_A_CAPITAL
+        .iter()
+        .any(|form| ends_on_the_word(&before, form))
+    {
+        return rest.chars().next().is_some_and(char::is_lowercase);
+    }
+    // The first stop of "т. е.": which form it begins, and so whether it holds, is answered at
+    // the second.
+    let mut ahead = rest.chars();
+    let (Some(half), Some('.')) = (ahead.next(), ahead.next()) else {
+        return false;
+    };
+    let form = format!("т.{}", lowercase_cyrillic(half));
+    ends_on_the_word(&before, "т")
+        && RUSSIAN_ABBREVIATIONS
+            .iter()
+            .chain(&RUSSIAN_ENDINGS_BEFORE_A_CAPITAL)
+            .any(|known| *known == form)
+}
+
+/// Text with Cyrillic capitals lowered and the spaces after a stop taken out, so "Т. Е" and
+/// "т.е" read alike.
+fn closed_up(text: &str) -> String {
+    let mut closed = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if ch.is_whitespace() && closed.ends_with('.') {
+            continue;
+        }
+        closed.push(lowercase_cyrillic(ch));
+    }
+    closed
+}
+
+/// Whether `text` ends on `form` as a whole word, not as the end of a longer one.
+fn ends_on_the_word(text: &str, form: &str) -> bool {
+    text.strip_suffix(form)
+        .is_some_and(|start| !start.chars().next_back().is_some_and(char::is_alphabetic))
+}
+
+/// Whether a character is a letter of the Cyrillic block.
+fn is_cyrillic(ch: char) -> bool {
+    matches!(ch, '\u{0400}'..='\u{04FF}')
+}
+
+/// A Cyrillic capital lowered, and any other character as it is.
+fn lowercase_cyrillic(ch: char) -> char {
+    if is_cyrillic(ch) {
+        ch.to_lowercase().next().unwrap_or(ch)
+    } else {
+        ch
+    }
 }
 
 /// Whether a full stop is a decimal point rather than the end of a thought, as in "9.5/10"
@@ -1944,6 +2039,102 @@ mod tests {
     fn an_abbreviation_before_a_lowercase_word_still_holds() {
         let claims = split("Takes approx. ten hours, and about 20 min. per run after that.");
         assert_eq!(claims.len(), 1, "got {claims:?}");
+    }
+
+    #[test]
+    fn a_russian_abbreviation_does_not_end_a_point() {
+        for review in [
+            "Оптимизация ужасная, т.е. на слабом ПК игра даже не запустится.",
+            "Не советую, т.к. разработчики давно забросили игру.",
+            "Много мелких багов, напр. враги застревают в текстурах.",
+            "В игре куча режимов, в т.ч. кооператив на четверых.",
+        ] {
+            assert_eq!(split(review), vec![review]);
+        }
+    }
+
+    #[test]
+    fn a_russian_abbreviation_holds_with_a_space_inside_it() {
+        for review in [
+            "Оптимизация ужасная, т. е. на слабом ПК игра даже не запустится.",
+            "Не советую, т. к. разработчики давно забросили игру.",
+            "В игре куча режимов, в т. ч. кооператив на четверых.",
+            "Есть крафт, стройка, рыбалка и т. д. и всё это затягивает надолго.",
+        ] {
+            assert_eq!(split(review), vec![review]);
+        }
+    }
+
+    #[test]
+    fn a_russian_abbreviation_holds_in_capitals() {
+        let review = "ВСЁ ЛАГАЕТ, Т.К. ДВИЖОК УСТАРЕЛ ЕЩЁ В ПРОШЛОМ ВЕКЕ.";
+        assert_eq!(split(review), vec![review]);
+        let review = "ВСЁ ЛАГАЕТ, Т. Е. ДВИЖОК УСТАРЕЛ ЕЩЁ В ПРОШЛОМ ВЕКЕ.";
+        assert_eq!(split(review), vec![review]);
+    }
+
+    #[test]
+    fn the_end_of_a_russian_list_ends_the_point_before_a_capital() {
+        let claims =
+            split("Есть крафт, стройка, рыбалка и т.д. Играть интересно первые часов двадцать.");
+        assert_eq!(
+            claims,
+            vec![
+                "Есть крафт, стройка, рыбалка и т.д.",
+                "Играть интересно первые часов двадцать."
+            ]
+        );
+        let claims =
+            split("Есть крафт, стройка, рыбалка и т.п. Играть интересно первые часов двадцать.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        let review = "Есть крафт, стройка и т.п. и всё это затягивает надолго.";
+        assert_eq!(split(review), vec![review]);
+        let review = "Есть крафт, стройка, рыбалка, охота и т.д.";
+        assert_eq!(split(review), vec![review]);
+        let review = "Есть крафт, стройка и тд и тп. и всё это затягивает надолго.";
+        assert_eq!(split(review), vec![review]);
+    }
+
+    #[test]
+    fn a_russian_unit_or_reference_holds_before_a_lowercase_word() {
+        for review in [
+            "Наиграл 200 ч. и ни разу не пожалел о покупке.",
+            "Брал за 500 руб. на распродаже, за такие деньги отличная игра.",
+            "Брал за 300 р. на распродаже, за такие деньги отличная игра.",
+            "Тут больше 10 тыс. предметов и в каждом свои механики.",
+            "Игра 2015 г. выпуска, но выглядит до сих пор отлично.",
+            "Загрузка длится около 5 мин. и это просто издевательство.",
+            "Багов много, см. обсуждения в сообществе, там всё расписано.",
+            "Спасибо разработчикам и др. людям, которые помогали с переводом.",
+        ] {
+            assert_eq!(split(review), vec![review]);
+        }
+        let claims = split("Вышла в 2015 г. Выглядит до сих пор отлично, но бывают вылеты.");
+        assert_eq!(
+            claims,
+            vec![
+                "Вышла в 2015 г.",
+                "Выглядит до сих пор отлично, но бывают вылеты."
+            ]
+        );
+    }
+
+    #[test]
+    fn a_russian_word_that_ends_like_an_abbreviation_still_ends_a_point() {
+        // "результат" ends on "т", and an initial after it looks like the second half of "т. е.".
+        let claims = split("Главное тут результат. Е. Петров написал отличный сценарий.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert!(!ends_on_the_word("мост.е", "т.е"));
+        assert!(ends_on_the_word("сразу, т.е", "т.е"));
+        assert!(ends_on_the_word("т.е", "т.е"));
+        // Counting claims cannot tell where the cut fell, so the first stop is asked directly:
+        // a word ending on "т" is no "т.", and "т. б." is no form at all.
+        let text = "Главное тут результат. е. потом";
+        assert!(!a_russian_abbreviation(text, text.find(". е").unwrap()));
+        let text = "Взял т. б. и ушёл";
+        assert!(!a_russian_abbreviation(text, text.find(". б").unwrap()));
+        let claims = split("Лучшая игра года, вот. Купите её, не пожалеете ни разу.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
     }
 
     #[test]
