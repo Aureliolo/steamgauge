@@ -174,6 +174,7 @@ def dataset_card(
     reviews: int = 0,
     gold: dict[str, int] | None = None,
     labellers: dict[str, int] | None = None,
+    names: dict[str, str] | None = None,
 ) -> str:
     twice = (
         [
@@ -192,13 +193,16 @@ def dataset_card(
     )
     by = ", ".join(f"{name} ({count:,})" for name, count in (labellers or {}).items())
     people = gold or {}
-    answered = ", ".join(f"{name} ({count:,})" for name, count in people.items())
+    credited = [(f"{(names or {})[handle]} (`{handle}`", count) for handle, count in people.items()]
+    answered = ", ".join(f"{name}, {count:,})" for name, count in credited)
     gold_file = (
         f"- `gold.jsonl`: {sum(people.values()):,} answers from {len(people)} people, "
         f"each named in `produced_by`: {answered}. Where two people answered a claim, both "
         "answers are kept."
         if len(people) > 1
-        else f"- `gold.jsonl`: {sum(people.values()):,} claims labelled by one person."
+        else f"- `gold.jsonl`: {sum(people.values()):,} claims labelled by one person"
+        + "".join(f", {name})" for name, _ in credited)
+        + "."
     )
     return "\n".join(
         [
@@ -518,6 +522,11 @@ def main() -> None:
         "stay where they are; may be given more than once, and every one is published without it",
     )
     parser.add_argument("--reference", default=str(REPO / "reference" / "claims"))
+    parser.add_argument(
+        "--people",
+        default=str(REPO / "reference" / "people.json"),
+        help="each gold labeller's handle and the name the dataset card credits",
+    )
     parser.add_argument("--runs", default=str(HERE / "runs"), help="where the exported runs are")
     parser.add_argument(
         "--cache",
@@ -620,7 +629,10 @@ def main() -> None:
     if DATASET in wanted:
         if not args.reviews:
             raise SystemExit("the dataset needs --reviews")
-        uploads[DATASET] = ("dataset", stage_dataset(args.reference, args.reviews, staging))
+        uploads[DATASET] = (
+            "dataset",
+            stage_dataset(args.reference, args.reviews, staging, args.people),
+        )
 
     for repo, (kind, contents) in uploads.items():
         print(
@@ -674,7 +686,9 @@ def main() -> None:
     print(f"\npinned in {pinned_in}")
 
 
-def stage_dataset(reference: str, reviews_file: str, staging: Path) -> list[tuple[str, Path]]:
+def stage_dataset(
+    reference: str, reviews_file: str, staging: Path, people_file: str
+) -> list[tuple[str, Path]]:
     """The dataset's files, written into `staging`, as (path in the repository, path here)."""
     # The dataset is built from the reference sets, not from the training export. The export
     # carries each claim's text because training needs it; the reference sets carry the claim's
@@ -714,6 +728,12 @@ def stage_dataset(reference: str, reviews_file: str, staging: Path) -> list[tupl
             f"{len(bare):,} labelled reviews have no facts in {reviews_file}; a label nobody can "
             "check against its text is not one to publish. Run export-review-facts again."
         )
+    names = json.loads(Path(people_file).read_text(encoding="utf-8"))
+    # A person's answers go up under the name they asked to be credited by, so one with no
+    # name written down is not published under a guess.
+    unnamed = sorted({row["produced_by"] for row in gold} - names.keys())
+    if unnamed:
+        raise SystemExit(f"no name to credit in {people_file} for {', '.join(unnamed)}")
     files = {
         "claims.jsonl": rows,
         "second-labels.jsonl": again,
@@ -730,7 +750,8 @@ def stage_dataset(reference: str, reviews_file: str, staging: Path) -> list[tupl
             len({row["app_id"] for row in rows}),
             agreement(rows, again),
             reviews=len(reviews),
-            gold=dict(sorted(Counter(row["produced_by"] for row in gold).items())),
+            gold=dict(Counter(row["produced_by"] for row in gold).most_common()),
+            names=names,
             labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
         ),
         encoding="utf-8",

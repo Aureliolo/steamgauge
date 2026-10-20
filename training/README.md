@@ -80,7 +80,9 @@ The held-out games are read once, by the soup that was chosen on the validation 
 `claims.jsonl` holds review text and is never committed. What gets published is the model and a
 label set of review ids, claim offsets and labels, built from `reference/claims/` rather than
 from the training export, which anyone can rehydrate with `steamgauge` itself. Reviews belong to
-the people who wrote them, and `publish.py` refuses a row that carries text.
+the people who wrote them, and `publish.py` refuses a row that carries text. The dataset card
+credits each person who gave gold answers by the name `reference/people.json` gives their
+handle, and `publish.py` refuses gold answers from a handle it does not name.
 
 Publishing pins the three model files by hash in `crates/steamgauge-core/src/reader.rs`, so the
 tool fetches exactly what went up and refuses anything else. Rebuild and commit after it runs.
