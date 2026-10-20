@@ -570,8 +570,8 @@ enum Command {
         reference: PathBuf,
         /// Directory holding the captures. A label names a byte span, and only the capture can
         /// say whether this build's splitter still cuts one there: where it does not, the claim
-        /// the label was written about no longer exists and nobody is asked about it. Without
-        /// the captures every stored label is asked.
+        /// the label was written about no longer exists and nobody is asked about it. The page
+        /// shows each review from its capture, so every game drawn from needs one.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the page. It holds review text, so it is never committed; the
@@ -2466,13 +2466,14 @@ fn run_gold(
              asked whether that subject would also do; {} it answered the same are not asked",
             found.split, found.games, found.agreed
         );
+        print_recut(found.recut);
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
         );
     }
     if rejudge {
-        let (questions, found) = steamgauge_core::gold::rejudge(reference, reading, person)?;
+        let (questions, found) = steamgauge_core::gold::rejudge(reference, out, reading, person)?;
         if questions.is_empty() {
             anyhow::bail!(
                 "no answer {person} gave under {} differs from the first labeller's; nothing to \
@@ -2486,6 +2487,7 @@ fn run_gold(
              and are not asked",
             found.split, found.agreed
         );
+        print_recut(found.recut);
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
@@ -2565,18 +2567,21 @@ fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
             found.declined
         );
     }
-    if found.recut > 0 {
-        println!(
-            "recut      {} labels name bytes this build cuts no claim at, so what they were \
-             written about is not something anybody would be handed now",
-            found.recut
-        );
-    }
+    print_recut(found.recut);
     if found.mistagged > 0 {
         println!(
             "mistagged  {} claims are written in a script their Steam language tag does not \
              use, which the language filter reads and a person cannot",
             found.mistagged
+        );
+    }
+}
+
+fn print_recut(recut: usize) {
+    if recut > 0 {
+        println!(
+            "recut      {recut} labels name bytes this build cuts no claim at, so what they \
+             were written about is not something anybody would be handed now"
         );
     }
 }
@@ -2738,7 +2743,7 @@ fn adjudicate_one_game(
     app_id: u32,
     dir: &std::path::Path,
     rows: &[&Adjudicated],
-    cut: Option<&steamgauge_core::claimset::CutSpans>,
+    cut: &steamgauge_core::claimset::CutSpans,
     by: &str,
     useless: &mut Vec<AnswerKey>,
 ) -> Result<(usize, usize)> {
@@ -2921,9 +2926,10 @@ fn run_ingest_gold(
         let dir = reference.join(app_id.to_string());
         let answered: std::collections::HashSet<String> =
             rows.iter().map(|answer| answer.review_id.clone()).collect();
-        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id, &answered).ok();
-        let (wrote, matched) =
-            adjudicate_one_game(app_id, &dir, &rows, cut.as_ref(), by, &mut useless)?;
+        // Without the capture nothing says which answers sit on a span this build still cuts,
+        // and one that does not is scored as truth about a claim no reader is handed.
+        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id, &answered)?;
+        let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, &cut, by, &mut useless)?;
         written += wrote;
         agreed += matched;
     }
@@ -4325,15 +4331,36 @@ mod tests {
             }
         }
 
-        /// A set of one review with two claims, labelled by a model.
+        /// The review the set is drawn from, which this build cuts into two claims.
+        const REVIEW: &str = "The game runs badly on my laptop. It is worth the full price.";
+
+        /// A capture of game 7 under `out` holding [`REVIEW`].
+        fn captured(out: &Path) {
+            let snapshot = out.join("appid=7").join("snapshot=1");
+            std::fs::create_dir_all(&snapshot).unwrap();
+            let row = json!({"recommendationid": "r1", "review": REVIEW, "language": "russian",
+                "timestamp_created": 1, "timestamp_updated": 1, "voted_up": true,
+                "votes_up": 0});
+            let mut writer = steamgauge_core::capture::CaptureWriter::create(
+                &snapshot.join("shard-0000.parquet"),
+                7,
+            )
+            .unwrap();
+            writer.write(&[&row]).unwrap();
+            writer.close().unwrap();
+        }
+
+        /// A set of one review with two claims, labelled by a model, and its capture.
         fn a_set(reference: &Path) -> PathBuf {
+            captured(&reference.with_file_name("data"));
             let set = reference.join("7");
             std::fs::create_dir_all(&set).unwrap();
             let sample = json!([{
                 "id": "r1", "app_id": 7, "language": "russian", "subset": "random",
                 "claims": [
-                    {"index": 0, "start": 0, "end": 10, "text": "Runs badly"},
-                    {"index": 1, "start": 11, "end": 19, "text": "Worth it"}
+                    {"index": 0, "start": 0, "end": 33,
+                     "text": "The game runs badly on my laptop."},
+                    {"index": 1, "start": 34, "end": 61, "text": "It is worth the full price."}
                 ]
             }]);
             std::fs::write(set.join("sample.json"), sample.to_string()).unwrap();
@@ -4348,7 +4375,7 @@ mod tests {
             };
             std::fs::write(
                 set.join("labels.json"),
-                json!([label(0, 0, 10), label(1, 11, 19)]).to_string(),
+                json!([label(0, 0, 33), label(1, 34, 61)]).to_string(),
             )
             .unwrap();
             set
@@ -4365,11 +4392,35 @@ mod tests {
         fn ingest(scratch: &Scratch, name: &str, answers: &[Value]) -> anyhow::Result<()> {
             let file = scratch.0.join(name);
             std::fs::write(&file, serde_json::to_vec(answers).unwrap()).unwrap();
-            run_ingest_gold(
-                &file,
-                &scratch.0.join("reference"),
-                &scratch.0.join("no-captures"),
-            )
+            run_ingest_gold(&file, &scratch.0.join("reference"), &scratch.0.join("data"))
+        }
+
+        #[test]
+        fn an_answer_is_filed_only_where_the_capture_says_its_span_is_still_a_claim() {
+            let scratch = Scratch::new("captured");
+            let set = a_set(&scratch.0.join("reference"));
+            let file = scratch.0.join("answers.json");
+            std::fs::write(&file, json!([answer(0, "story", "one")]).to_string()).unwrap();
+            assert!(
+                run_ingest_gold(&file, &scratch.0.join("reference"), &scratch.0.join("none"))
+                    .is_err(),
+                "without the capture nothing says the answer is about a claim this build cuts"
+            );
+
+            // An older splitter kept the review whole; this build cuts it in two, so an answer
+            // about the whole review is about no claim the reader is handed.
+            let labels = json!([{
+                "review_id": "r1", "index": 0, "app_id": 7, "language": "russian",
+                "subset": "random", "start": 0, "end": 61, "taxonomy": "a-sheet",
+                "produced_by": "a-model", "subject": "performance", "polarity": "complaint",
+                "ironic": false, "confidence": "high", "ambiguous": false, "split_wrong": false
+            }]);
+            std::fs::write(set.join("labels.json"), labels.to_string()).unwrap();
+            ingest(&scratch, "stale.json", &[answer(0, "story", "one")]).unwrap();
+            assert!(
+                held(&set, "one").is_empty(),
+                "an answer on a span this build no longer cuts was filed"
+            );
         }
 
         fn held(set: &Path, who: &str) -> Vec<(u16, String, String)> {
