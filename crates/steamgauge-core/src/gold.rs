@@ -1790,9 +1790,13 @@ mod tests {
             answer["produced_by"] = "a person".into();
             answer
         };
+        // Answered under an older splitter that kept the whole review as one claim.
+        let mut stale = gold(1, "content");
+        stale["start"] = 0.into();
+        stale["end"] = THREE.len().into();
         std::fs::write(
             answers_of(&set, "one").join("labels.json"),
-            serde_json::json!([gold(0, "performance"), gold(2, "content")]).to_string(),
+            serde_json::json!([gold(0, "performance"), stale, gold(2, "content")]).to_string(),
         )
         .unwrap();
 
@@ -1812,7 +1816,11 @@ mod tests {
             "an answer is judged again only where the capture says its span is still a claim"
         );
         let (questions, found) = rejudge(root.path(), &captures, "second", "one").unwrap();
-        assert_eq!((found.games, found.agreed, found.split), (1, 1, 1));
+        assert_eq!(
+            (found.games, found.agreed, found.split, found.recut),
+            (1, 1, 1, 1),
+            "the answer on a span this build no longer cuts is counted, not asked again"
+        );
         let asked = &questions[0];
         assert_eq!((asked.app_id, asked.index), (214_490, 2));
         assert_eq!(asked.claim, "It is worth the full price.");
@@ -1917,6 +1925,15 @@ mod tests {
                     None,
                 ),
                 ("1", text(0), (26, 38), Some("story"), "complaint", None),
+                // An older splitter's cut of the whole review, which this build cuts in two.
+                (
+                    "1",
+                    text(0),
+                    (0, 38),
+                    Some("performance"),
+                    "complaint",
+                    None,
+                ),
                 (
                     "2",
                     text(1),
@@ -2047,6 +2064,7 @@ mod tests {
             gold("1", 0, 0, 25, "compatibility"),
             gold("1", 1, 26, 38, "story"),
             gold("2", 0, 0, 25, "compatibility"),
+            gold("1", 2, 0, 38, "story"),
         ];
         std::fs::write(
             answers_of(&set, "one").join("labels.json"),
@@ -2080,5 +2098,9 @@ mod tests {
             "the story claim the reader answered as the person did"
         );
         assert_eq!(found.games, 1);
+        assert_eq!(
+            found.recut, 1,
+            "the answer on the whole review, which this build cuts in two, is counted, not asked"
+        );
     }
 }
