@@ -296,8 +296,8 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.2
-          TAURI_CLI_SHA256: bef439eb1a0edd5192ed0009945e5de660b642a51519efe7d6953d70c5ab1939
+          TAURI_CLI_TAG: tauri-cli-v2.12.3
+          TAURI_CLI_SHA256: 563cb2aef280c393688cebaff1a9fd4a2f6df4fdb9be2c665ff3c798a4ffe7c2
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"
@@ -311,8 +311,8 @@ jobs:
         if: runner.os == 'macOS'
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.2
-          TAURI_CLI_SHA256: 4a27a61b06e688308a5c17333008b6df52fd5780fa7a313a9ce8fb4a80dfb9ac
+          TAURI_CLI_TAG: tauri-cli-v2.12.3
+          TAURI_CLI_SHA256: 35e3b339bfb5f2061023bf5646dc969e5fa53b6fc4347daf467e7f6743692494
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"
@@ -480,8 +480,8 @@ jobs:
       - name: Install syft
         env:
           # renovate: datasource=github-release-attachments depName=anchore/syft versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          SYFT_TAG: v1.54.1
-          SYFT_SHA256: c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47
+          SYFT_TAG: v1.55.0
+          SYFT_SHA256: bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/syft_${SYFT_TAG#v}_linux_amd64.tar.gz"
