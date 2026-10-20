@@ -837,11 +837,16 @@ impl Rejoined {
             let (Ok(start), Ok(end)) = (u32::try_from(at.start), u32::try_from(at.end)) else {
                 continue;
             };
+            // Each box ticked under one heading is a claim that starts at the heading, so two
+            // claims can share their first bytes: those stand a line apart, as the options do.
             if let Some(last) = last {
-                match review[last..at.start].matches('\n').count() {
-                    0 => text.push(' '),
-                    1 => text.push('\n'),
-                    _ => text.push_str("\n\n"),
+                match review
+                    .get(last..at.start)
+                    .map(|gap| gap.matches('\n').count())
+                {
+                    Some(0) => text.push(' '),
+                    Some(1) | None => text.push('\n'),
+                    Some(_) => text.push_str("\n\n"),
                 }
             }
             claims.push(((start, end), text.len(), claim.len()));
@@ -1431,6 +1436,22 @@ mod tests {
         assert_ne!(
             first, second,
             "two claims with the same words were given the same place in the review"
+        );
+    }
+
+    #[test]
+    fn options_ticked_under_one_heading_stand_a_line_apart() {
+        let ballot = "---{ Audience }---\n\u{2611} Kids\n\u{2610} Everyone\n\u{2611} Adults";
+        let claims = crate::claims::claims_of(ballot);
+        assert!(
+            claims[1].0.start < claims[0].0.end,
+            "the two options no longer share the heading, so this tests nothing: {claims:?}"
+        );
+        let rejoined = Rejoined::of(ballot);
+        assert_eq!(
+            rejoined.text,
+            format!("{}\n{}", claims[0].1, claims[1].1),
+            "each ticked option is shown on a line of its own"
         );
     }
 
