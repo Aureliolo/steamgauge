@@ -7,12 +7,11 @@
     // padded one and keeps a row's diff to the cells that changed.
     "MD060": false
   },
-  // Every Markdown file, so a run on a developer's machine lints what CI lints.
+  // Every Markdown file git tracks, so a run on a developer's machine lints what CI lints and
+  // not what a build or a virtual environment leaves beside it.
   "globs": ["**/*.md"],
+  "gitignore": true,
   "ignores": [
-    "target/**",
-    "fuzz/target/**",
-    "**/node_modules/**",
     // The model cards export.py writes for the Hugging Face hub, kept beside each run as it wrote
     // them.
     "training/runs/*/**"

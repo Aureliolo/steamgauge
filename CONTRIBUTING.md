@@ -29,7 +29,7 @@ whose version `ci.yml` pins:
 
 ```sh
 cargo deny --workspace --locked check                              # advisories, licences, sources
-cargo deny --manifest-path fuzz/Cargo.toml --workspace --locked check
+cp Cargo.lock fuzz/ && cargo deny --manifest-path fuzz/Cargo.toml --workspace check   # the harness builds on the product's lock
 cargo machete                                                      # dependencies nothing uses
 typos                                                              # British spelling, _typos.toml
 npx markdownlint-cli2                                              # .markdownlint-cli2.jsonc
