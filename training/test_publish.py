@@ -110,12 +110,35 @@ def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_pa
     assert [(row["app_id"], row["by"]) for row in acceptable] == [(7, "one"), (7, "two")]
 
 
-def test_the_card_names_each_person_once_there_is_more_than_one():
+def test_the_card_credits_each_person_by_the_name_they_gave_beside_their_handle():
     agreed = {"claims": 0}
-    assert "by one person" in publish.dataset_card(1, 1, agreed, gold={"one": 200})
-    card = publish.dataset_card(1, 1, agreed, gold={"one": 200, "two": 580})
+    names = {"one": "Ann One", "two": "Bo Two"}
+    alone = publish.dataset_card(1, 1, agreed, gold={"one": 200}, names=names)
+    assert "200 claims labelled by one person, Ann One (`one`)." in alone
+    card = publish.dataset_card(1, 1, agreed, gold={"two": 580, "one": 200}, names=names)
     assert "780 answers from 2 people" in card
-    assert "one (200), two (580)" in card
+    assert "Bo Two (`two`, 580), Ann One (`one`, 200)" in card
+
+
+def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path):
+    claim = '"app_id": 7, "review_id": "r", "index": 0, "start": 0, "end": 4, "subject": "bugs"'
+    game = tmp_path / "claims" / "7"
+    (game / "gold" / "stranger").mkdir(parents=True)
+    (game / "labels.json").write_text(
+        f'[{{{claim}, "polarity": "praise", "produced_by": "a model"}}]', encoding="utf-8"
+    )
+    (game / "gold" / "stranger" / "labels.json").write_text(
+        f'[{{{claim}, "polarity": "praise", "produced_by": "stranger", "taxonomy": "t"}}]',
+        encoding="utf-8",
+    )
+    facts = tmp_path / "reviews.jsonl"
+    facts.write_text('{"app_id": 7, "review_id": "r"}\n', encoding="utf-8")
+    people = tmp_path / "people.json"
+    people.write_text('{"one": "Ann One"}', encoding="utf-8")
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    with pytest.raises(SystemExit, match="for stranger"):
+        publish.stage_dataset(str(game.parent), str(facts), staging, str(people))
 
 
 def row(subject, polarity="praise", ambiguous=False, index=0):
