@@ -25,7 +25,7 @@ steamgauge-core = { path = "../crates/steamgauge-core", default-features = false
 # Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
 # newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
 # model, so nothing is ever loaded.
-ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dynamic"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic"] }
 libloading = "=0.9.0"
 
 # A workspace of its own. The product's workspace never builds, tests, lints or ships this

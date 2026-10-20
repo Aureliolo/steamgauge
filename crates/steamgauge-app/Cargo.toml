@@ -29,10 +29,10 @@ anyhow = "=1.0.104"
 steamgauge-core.workspace = true
 clap = { version = "=4.6.7", features = ["derive"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.151"
-tauri = { version = "=2.12.1", features = [] }
-tauri-plugin-opener = "=2.7.0"
-tokio = { version = "=1.53.2", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
+serde_json = "=1.0.154"
+tauri = { version = "=2.12.4", features = [] }
+tauri-plugin-opener = "=2.7.2"
+tokio = { version = "=1.54.0", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
 # Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
 # notification plugin wraps this crate and drops the click on every desktop system.
 notify-rust = "=4.18.2"
@@ -43,18 +43,18 @@ dirs = "=7.0.0"
 # The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
 # pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
 # standard input and output and is itself a client of the open app.
-rmcp = { version = "=3.5.1", default-features = false, features = ["server", "client", "transport-io", "transport-streamable-http-server"] }
-interprocess = { version = "=2.4.5", features = ["tokio"] }
-schemars = "=1.2.2"
+rmcp = { version = "=3.6.0", default-features = false, features = ["server", "client", "transport-io", "transport-streamable-http-server"] }
+interprocess = { version = "=2.4.6", features = ["tokio"] }
+schemars = "=1.2.3"
 base64 = "=0.23.1"
 getrandom = "=0.4.3"
 # The same server over HTTP on 127.0.0.1, for clients that connect no other way: off until it is
 # switched on in Settings, and every request carries a token.
-hyper = { version = "=1.11.1", features = ["server", "http1"] }
+hyper = { version = "=1.12.0", features = ["server", "http1"] }
 hyper-util = { version = "=0.1.21", features = ["tokio"] }
 http-body-util = "=0.1.5"
 bytes = "=1.12.1"
-tokio-util = "=0.7.19"
+tokio-util = "=0.7.20"
 # Adding the app to an MCP client's own configuration in place, keeping that file's comments,
 # formatting and every other server: JSON with comments, TOML and YAML, each through a syntax
 # tree. serde-saphyr reads YAML strictly, so a written file is checked by a parser other than the
@@ -64,13 +64,13 @@ toml_edit = { version = "=0.25.17", features = ["serde"] }
 yaml-edit = "=0.3.2"
 serde-saphyr = "=2.0.0"
 # One app per user, so a client and the person share one library, one work board and one window.
-tauri-plugin-single-instance = "=2.5.3"
+tauri-plugin-single-instance = "=2.5.4"
 
 [dev-dependencies]
 glob = "=0.3.4"
 
 [build-dependencies]
-tauri-build = { version = "=2.7.1", features = [] }
+tauri-build = { version = "=2.7.3", features = [] }
 
 [features]
 default = []

@@ -17,7 +17,7 @@ pulldown-cmark = { version = "=0.13.4", default-features = false, features = ["h
 # Each page's Markdown twin, written back from the same events the HTML is rendered from, so
 # both carry the same rewritten links.
 pulldown-cmark-to-cmark = "=23.0.0"
-serde_json = "=1.0.151"
+serde_json = "=1.0.154"
 steamgauge-app = { path = "../steamgauge-app" }
 
 [lints]
