@@ -32,7 +32,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 tauri = { version = "=2.12.4", features = [] }
 tauri-plugin-opener = "=2.7.2"
-tokio = { version = "=1.54.0", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
 # Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
 # notification plugin wraps this crate and drops the click on every desktop system.
 notify-rust = "=4.18.2"

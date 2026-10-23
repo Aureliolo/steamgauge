@@ -30,7 +30,7 @@ sha2 = "=0.11.1"
 sigstore-verify = { version = "=0.15.0", default-features = false, features = ["tuf", "aws-lc-rs"], optional = true }
 thiserror = "=2.0.21"
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
-tokio = { version = "=1.54.0", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "=0.56.0"
