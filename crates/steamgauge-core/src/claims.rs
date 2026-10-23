@@ -467,20 +467,19 @@ fn carries_no_proposition(claim: &str) -> bool {
 /// a review.
 fn an_ornament(claim: &str) -> bool {
     let chars: Vec<char> = claim.chars().filter(|ch| *ch != CENSORED).collect();
-    let beside_another = |at: Option<usize>| {
-        at.and_then(|at| chars.get(at))
-            .is_some_and(|ch| ch.is_alphanumeric())
-    };
     let mut letter = None;
     for (at, ch) in chars.iter().enumerate() {
         if !ch.is_alphanumeric() {
             continue;
         }
+        // Two letters side by side are a word, which the second of them finds behind it.
+        let follows_another = at
+            .checked_sub(1)
+            .is_some_and(|before| chars[before].is_alphanumeric());
         if ch.is_numeric()
             || writes_a_word_in_one_character(*ch)
             || letter.is_some_and(|seen| seen != *ch)
-            || beside_another(at.checked_sub(1))
-            || beside_another(Some(at + 1))
+            || follows_another
         {
             return false;
         }
@@ -2182,7 +2181,14 @@ mod tests {
                 "{face:?} was handed back as a claim"
             );
         }
-        for kept in ["N/A", "o.k.", "5/5", "\u{597D} \u{597D}", "I hate it"] {
+        for kept in [
+            "N/A",
+            "o.k.",
+            "5/5",
+            "\u{597D} \u{597D}",
+            "I hate it",
+            "zzz",
+        ] {
             assert_eq!(split(kept).len(), 1, "{kept:?} was dropped");
         }
     }
