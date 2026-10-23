@@ -1,6 +1,6 @@
 {
   "measured": {
-    "frontier": "458 claims from ten games held out of training, labelled under the current category sheet. Each reader answers the given share of claims it is most confident about, scored on DirectML against `reference/frontier-key.json` (`frontier.py reader`).",
+    "frontier": "457 claims from ten games held out of training, labelled under the current category sheet. Each reader answers the given share of claims it is most confident about, scored on DirectML against `reference/frontier-key.json` (`frontier.py reader`).",
     "card": "one read of game 920210 (117,664 claims) through the desktop app on DirectML, on an otherwise idle NVIDIA GeForce RTX 4090. Memory is the peak during the read minus what the GPU held before.",
     "processor": "1,416 claims of game 1888930 on the CPU only, loading included, on an AMD Ryzen 9 5950X with other work running."
   },
@@ -12,8 +12,8 @@
       "backbone": "intfloat/multilingual-e5-small",
       "parameters": 117517085,
       "download_mib": 233,
-      "right_at_80": 0.7787,
-      "right_at_90": 0.7379,
+      "right_at_80": 0.7814,
+      "right_at_90": 0.7397,
       "card_mib": 1219,
       "card_seconds": 62,
       "processor_seconds": 36.0
@@ -25,8 +25,8 @@
       "backbone": "intfloat/multilingual-e5-large-instruct",
       "parameters": 558870557,
       "download_mib": 1075,
-      "right_at_80": 0.847,
-      "right_at_90": 0.8204,
+      "right_at_80": 0.8443,
+      "right_at_90": 0.82,
       "card_mib": 2686,
       "card_seconds": 125,
       "processor_seconds": 284.9
@@ -39,7 +39,7 @@
       "parameters": 4021848605,
       "download_mib": 8403,
       "right_at_80": 0.8361,
-      "right_at_90": 0.7985,
+      "right_at_90": 0.7981,
       "card_mib": 12851,
       "card_seconds": 1399,
       "processor_seconds": 2912.0

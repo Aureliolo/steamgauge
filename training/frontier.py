@@ -221,7 +221,7 @@ def accuracy_at_shares(wanted: list[dict], given: dict) -> dict[str, dict] | Non
 def readable(key: Path, data: str) -> tuple[list[dict], list]:
     """The key rows a reader can be handed, with their claims, out of the export in `data`.
 
-    A key row the export no longer holds is a span this build cuts no claim at, 29 of the 487
+    A key row the export no longer holds is a span this build cuts no claim at, 30 of the 487
     when it was last counted. Every row of the benchmark is scored over the same survivors, the
     frontier model's as much as the reader's: a frontier model answered all 487 when it was
     asked, and scored over all of them it sits on a different denominator from every reader.

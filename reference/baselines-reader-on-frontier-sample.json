@@ -1,44 +1,64 @@
 {
-  "claims": 471,
+  "claims": 457,
   "unanswered_rows": 0,
-  "coverage": 0.7919320594479831,
-  "accuracy_where_answered": 0.7721179624664879,
+  "coverage": 0.925601750547046,
+  "accuracy_where_answered": 0.806146572104019,
   "accuracy_interval": [
-    0.726901224069026,
-    0.8117866490320329
+    0.7657871158711346,
+    0.8409953533164987
   ],
-  "polarity_where_subject_right": 0.875,
-  "macro_f1": 0.65152243190996,
+  "polarity_where_subject_right": 0.9032258064516129,
+  "macro_f1": 0.7649543162600154,
   "off_sheet_subjects": {},
-  "model": "intfloat/multilingual-e5-large",
-  "trained_on": "8a01195c332f2484",
-  "threshold": 0.64,
+  "accuracy_at_coverage": {
+    "80%": {
+      "claims": 366,
+      "accuracy": 0.8442622950819673,
+      "interval": [
+        0.8035578903060909,
+        0.8778148919877343
+      ]
+    },
+    "90%": {
+      "claims": 411,
+      "accuracy": 0.8199513381995134,
+      "interval": [
+        0.7798953022120066,
+        0.8540816181354225
+      ]
+    }
+  },
+  "unreadable": 30,
+  "model": "intfloat/multilingual-e5-large-instruct",
+  "scored_on": "DmlExecutionProvider",
+  "trained_on": "ee81c9ae0b75fd1b",
+  "threshold": 0.37,
   "thresholds": {
-    "accessibility": 0.9392,
-    "atmosphere": 0.9656,
-    "audio": 0.3083,
-    "bugs": 0.764,
-    "community": 0.6497,
-    "compatibility": 0.3606,
-    "content": 0.9134,
-    "controls": 0.6384,
-    "difficulty": 0.9451,
-    "gameplay": 0.7785,
-    "genre": 0.9626,
-    "graphics": 0.7147,
-    "language": 0.3907,
-    "licensing": 0.9099,
-    "mods": 0.1789,
-    "monetisation": 0.8122,
-    "multiplayer": 0.8959,
-    "offtopic": 0.5515,
-    "performance": 0.2638,
-    "policy": 0.9454,
-    "price": 0.4611,
-    "story": 0.8369,
-    "tutorial": 0.8357,
-    "updates": 0.7579,
-    "verdict": 0.2,
-    "vr": 0.9907
+    "accessibility": 0.6678,
+    "atmosphere": 0.8214,
+    "audio": 0.2937,
+    "bugs": 0.2906,
+    "community": 0.2096,
+    "compatibility": 0.2591,
+    "content": 0.6072,
+    "controls": 0.5409,
+    "difficulty": 0.6161,
+    "gameplay": 0.1547,
+    "genre": 0.7572,
+    "graphics": 0.4968,
+    "language": 0.3653,
+    "licensing": 0.6543,
+    "mods": 0.2586,
+    "monetisation": 0.5769,
+    "multiplayer": 0.5028,
+    "offtopic": 0.4437,
+    "performance": 0.2542,
+    "policy": 0.5994,
+    "price": 0.2312,
+    "story": 0.5482,
+    "tutorial": 0.5468,
+    "updates": 0.5586,
+    "verdict": 0.172,
+    "vr": 0.164
   }
 }
