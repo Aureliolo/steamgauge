@@ -44,6 +44,11 @@ pub struct DrawnReview {
     /// review must still show the review.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asked: Option<Vec<u16>>,
+    /// The review as the capture held it when it was drawn, which every offset above counts in.
+    /// Kept beside the game's sets rather than in the sample (see [`REVIEWS`]), so a review
+    /// drawn into several sets is kept once; empty for a review read back from a sample.
+    #[serde(skip)]
+    pub text: String,
 }
 
 impl DrawnReview {
@@ -142,6 +147,7 @@ pub fn draw(
             subset: subset.to_owned(),
             claims,
             asked: None,
+            text: text.to_owned(),
         };
         let key = crate::bounded::rank(seed, "claims", id);
         if language == "english" {
@@ -204,15 +210,34 @@ pub fn write_set(
 /// in question and the ingest keeps them, and hands out only the rest. The report counts what
 /// is handed out, because that is the labeller's work.
 ///
+/// The text of every review drawn from a capture is kept beside the game's sets before
+/// anything is handed out, so the labels that come back count bytes in a text that cannot
+/// change under them.
+///
 /// # Errors
 ///
-/// Fails if the directory cannot be created or a file cannot be written.
+/// Refuses a review whose kept copy reads differently from the one drawn. Fails if the
+/// directory cannot be created or a file cannot be written.
 pub fn write_set_handing_out<S: std::hash::BuildHasher>(
     dir: &Path,
     drawn: &[DrawnReview],
     reviews_per_batch: usize,
     answered: &std::collections::HashSet<String, S>,
 ) -> Result<DrawReport> {
+    let captured: Vec<&DrawnReview> = drawn
+        .iter()
+        .filter(|review| !review.text.is_empty())
+        .collect();
+    if let Some(first) = captured.first() {
+        keep_reviews(
+            &game_of(dir, first.app_id),
+            captured.iter().map(|review| KeptReview {
+                review_id: review.id.clone(),
+                language: review.language.clone(),
+                text: review.text.clone(),
+            }),
+        )?;
+    }
     std::fs::create_dir_all(dir)?;
     std::fs::write(dir.join("sample.json"), serde_json::to_vec_pretty(&drawn)?)?;
     let to_hand_out: Vec<&DrawnReview> = drawn
@@ -766,17 +791,16 @@ pub struct RevisitDraw {
 /// work to hand out, and nothing about them says they answer a question nobody is asking any
 /// more. A draw whose questions all name their games leaves the other games alone.
 ///
-/// Each game's reviews are cut from its capture under `captures`, so that only claims this build
+/// Each game's reviews are cut from the text kept for them, so that only claims this build
 /// still cuts are asked; see [`draw_revisit`].
 ///
 /// # Errors
 ///
 /// Refuses a question with no words, subjects or flags, which asks the whole reference set again
 /// and is never what a revision needs. Fails if a set cannot be read or its handout written, or
-/// a game asked about has no capture.
+/// a game asked about keeps no review text.
 pub fn draw_revisits(
     reference: &Path,
-    captures: &Path,
     questions: &[Question],
     reviews_per_batch: usize,
 ) -> Result<RevisitDraw> {
@@ -814,7 +838,7 @@ pub fn draw_revisits(
                 reviews.extend(labels.into_iter().map(|label| label.review_id));
             }
         }
-        let cut = spans_cut_now(captures, app_id, &reviews)?;
+        let cut = spans_cut_in(&reference.join(app_id.to_string()), &reviews)?;
         for (set, dir) in sets_of(app_id) {
             if !dir.join("labels.json").is_file() {
                 continue;
@@ -924,17 +948,142 @@ pub fn draw_declined(
     handouts(&snapshot, app_id, reading.depth, &picks, "declined")
 }
 
-/// What this build cuts from one review: its text as the capture holds it now, and the spans
-/// of the claims cut from it. The text travels with the spans because a label's span is met
-/// only once it is brought to its words, and that needs the review it was written about.
+/// What this build cuts from one review: its text, and the spans of the claims cut from it.
+/// The text travels with the spans because a label's span is met only once it is brought to
+/// its words, and that needs the review it was written about.
 #[derive(Debug, Clone, Default)]
 pub struct Cut {
     pub text: String,
     pub spans: std::collections::HashSet<crate::claims::Span>,
 }
 
+impl Cut {
+    fn of(text: &str) -> Self {
+        Self {
+            text: text.to_owned(),
+            spans: crate::claims::claims_of(text)
+                .into_iter()
+                .filter_map(|(at, _)| {
+                    Some((u32::try_from(at.start).ok()?, u32::try_from(at.end).ok()?))
+                })
+                .collect(),
+        }
+    }
+}
+
 /// What this build cuts, keyed by review id, for the reviews that were asked about.
 pub type CutSpans = std::collections::HashMap<String, Cut>;
+
+/// The file in a game's reference directory that keeps the text of every review drawn from it.
+///
+/// A label names bytes, and a reviewer can edit a review at any time: an edit moves every
+/// offset after it, and a capture taken later holds only the edited copy. Read against that,
+/// a label either falls off its claim or, worse, lands on another one. So the text a review
+/// was drawn from is kept with its labels, one JSON object a line in review id order, and
+/// everything that asks what a label names reads it here rather than from a capture.
+pub const REVIEWS: &str = "reviews.jsonl";
+
+/// One review as it read when it was drawn.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeptReview {
+    pub review_id: String,
+    pub language: String,
+    pub text: String,
+}
+
+/// The game directory a set sits in: the nearest one named by the game's id, which is the set
+/// itself for a random draw and its parent or grandparent for a teaching set or a reading of one.
+fn game_of(dir: &Path, app_id: u32) -> std::path::PathBuf {
+    let name = app_id.to_string();
+    dir.ancestors()
+        .find(|at| at.file_name().is_some_and(|own| own == name.as_str()))
+        .unwrap_or(dir)
+        .to_path_buf()
+}
+
+/// The reviews kept for the game in `game`, by id.
+///
+/// # Errors
+///
+/// Fails if the game keeps no review text, or the file cannot be read.
+pub fn kept_reviews(game: &Path) -> Result<std::collections::HashMap<String, KeptReview>> {
+    let path = game.join(REVIEWS);
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|_| crate::Error::NoKeptText { path: path.clone() })?;
+    raw.lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let review: KeptReview = serde_json::from_str(line)?;
+            Ok((review.review_id.clone(), review))
+        })
+        .collect()
+}
+
+/// Keeps the text of each review not kept yet, and says how many were new.
+///
+/// A review already kept stays as it was kept: its labels count bytes in that copy.
+///
+/// # Errors
+///
+/// Refuses a review whose kept copy reads differently. Fails if the file cannot be read or
+/// written.
+pub fn keep_reviews(game: &Path, reviews: impl IntoIterator<Item = KeptReview>) -> Result<usize> {
+    let mut kept = match kept_reviews(game) {
+        Ok(kept) => kept,
+        Err(crate::Error::NoKeptText { .. }) => std::collections::HashMap::new(),
+        Err(other) => return Err(other),
+    };
+    let mut new = 0;
+    for review in reviews {
+        match kept.get(&review.review_id) {
+            Some(was) if was.text == review.text => {}
+            Some(_) => {
+                return Err(crate::Error::EditedSinceDrawn {
+                    path: game.join(REVIEWS),
+                    review_id: review.review_id,
+                });
+            }
+            None => {
+                kept.insert(review.review_id.clone(), review);
+                new += 1;
+            }
+        }
+    }
+    if new == 0 {
+        return Ok(0);
+    }
+    let mut ordered: Vec<&KeptReview> = kept.values().collect();
+    ordered.sort_by(|left, right| left.review_id.cmp(&right.review_id));
+    let mut body = Vec::new();
+    for review in ordered {
+        serde_json::to_writer(&mut body, review)?;
+        body.push(b'\n');
+    }
+    std::fs::create_dir_all(game)?;
+    let partial = game.join(format!("{REVIEWS}.partial"));
+    std::fs::write(&partial, body)?;
+    std::fs::rename(&partial, game.join(REVIEWS))?;
+    Ok(new)
+}
+
+/// What this build cuts from the named reviews of the game in `game`, out of the text kept for
+/// them. A review with no kept text is left out, so every label on it reads as one this build
+/// cuts no claim at.
+///
+/// # Errors
+///
+/// Fails if the game keeps no review text, or it cannot be read.
+pub fn spans_cut_in<S: std::hash::BuildHasher>(
+    game: &Path,
+    ids: &std::collections::HashSet<String, S>,
+) -> Result<CutSpans> {
+    let kept = kept_reviews(game)?;
+    Ok(ids
+        .iter()
+        .filter_map(|id| kept.get(id))
+        .map(|review| (review.review_id.clone(), Cut::of(&review.text)))
+        .collect())
+}
 
 /// Which claims of which reviews a draw wants, named by the bytes they cover.
 pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Span>>;
@@ -942,14 +1091,9 @@ pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Spa
 /// One subject's share of a draw: the claims found for it, in the order it ranked them.
 pub(crate) type Found = Vec<(String, crate::claims::Span)>;
 
-/// What this build's splitter cuts from the named reviews of one game's capture.
-///
-/// A stored label names a byte span, and the sets here were cut by four different splitters.
-/// Where this build no longer cuts a label's span, the words it names are still in the review
-/// but they are not a claim any more: usually a template heading the splitter has since joined
-/// to the option it labels, sometimes a comma list it has since taken apart. That is not a hard
-/// question, it is one with nothing to answer, and it costs whoever is asked the same as a real
-/// one.
+/// What this build's splitter cuts from the named reviews of one game's capture, as a library
+/// holds them: for joining a reference label to a reading of the same capture. A label is asked
+/// about against its kept text, [`spans_cut_in`].
 ///
 /// Only the reviews named are split. The capture is walked whole, which is cheap; splitting a
 /// game of three million claims to check a few hundred labels is not.
@@ -965,22 +1109,9 @@ pub fn spans_cut_now<S: std::hash::BuildHasher>(
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let mut cut = CutSpans::new();
     crate::capture::for_each_body(&snapshot, |id, _, text| {
-        if !ids.contains(id) {
-            return Ok(());
+        if ids.contains(id) {
+            cut.insert(id.to_owned(), Cut::of(text));
         }
-        let spans = crate::claims::claims_of(text)
-            .into_iter()
-            .filter_map(|(at, _)| {
-                Some((u32::try_from(at.start).ok()?, u32::try_from(at.end).ok()?))
-            })
-            .collect();
-        cut.insert(
-            id.to_owned(),
-            Cut {
-                text: text.to_owned(),
-                spans,
-            },
-        );
         Ok(())
     })?;
     Ok(cut)
@@ -1198,6 +1329,7 @@ pub(crate) fn handouts(
             subset: subset.to_owned(),
             claims,
             asked: Some(asked),
+            text: text.to_owned(),
         });
         Ok(())
     })?;
@@ -1577,22 +1709,19 @@ fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<Labell
 /// The file it writes holds review text and never leaves the machine: what gets published is
 /// the label set, which carries ids and offsets and no text at all.
 ///
-/// The captures are read because a label names bytes, and the sets were cut by several
-/// splitters over the run. A row whose span this build cuts no claim at is not a label of any
-/// claim the reader will ever be handed: at best it is a true label of a sentence that now
-/// sits inside a larger claim, at worst one label over what are now two claims, taught under
-/// one subject. The adjudication page refuses to ask about them; training must not learn them
-/// either, so the export joins each label to the cut the splitter produces now.
-///
-/// Every labelled game needs its capture. Without it nothing says which of its rows sit on a
-/// span this build still cuts, and an export that kept them all would teach whatever the older
-/// splitters cut on the machines that hold fewest captures.
+/// Each review is cut again from its kept text ([`REVIEWS`]), because a label names bytes and
+/// the sets were cut by several splitters over the run. A row whose span this build cuts no
+/// claim at is not a label of any claim the reader will ever be handed: at best it is a true
+/// label of a sentence that now sits inside a larger claim, at worst one label over what are
+/// now two claims, taught under one subject. The adjudication page refuses to ask about them;
+/// training must not learn them either, so the export joins each label to the cut the splitter
+/// produces now.
 ///
 /// # Errors
 ///
-/// Fails if a reference set cannot be read, a labelled game has no capture, or the destination
-/// cannot be written.
-pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Result<ExportReport> {
+/// Fails if a reference set cannot be read, a labelled game keeps no review text, or the
+/// destination cannot be written.
+pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport> {
     use std::io::Write as _;
 
     let mut report = ExportReport::default();
@@ -1607,7 +1736,12 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
     }
     let cuts = wanted
         .into_iter()
-        .map(|(app_id, ids)| Ok((app_id, spans_cut_now(captures, app_id, &ids)?)))
+        .map(|(app_id, ids)| {
+            Ok((
+                app_id,
+                spans_cut_in(&reference_root.join(app_id.to_string()), &ids)?,
+            ))
+        })
         .collect::<Result<std::collections::HashMap<u32, CutSpans>>>()?;
 
     if let Some(parent) = to.parent() {
@@ -1646,12 +1780,8 @@ pub fn export_training(reference_root: &Path, captures: &Path, to: &Path) -> Res
             continue;
         }
         let headset_only = *facts.entry(label.app_id).or_insert_with(|| {
-            crate::facts::of_game(
-                captures,
-                &reference_root.join(label.app_id.to_string()),
-                label.app_id,
-            )
-            .map(|facts| facts.headset_only)
+            crate::facts::Facts::load(&reference_root.join(label.app_id.to_string()))
+                .map(|facts| facts.headset_only)
         });
         let row = serde_json::json!({
             "text": claim.text,
@@ -1809,6 +1939,7 @@ mod tests {
 
     fn review(id: &str, claims: &[&str]) -> DrawnReview {
         DrawnReview {
+            text: String::new(),
             id: id.to_owned(),
             app_id: 1,
             language: "english".to_owned(),
@@ -1916,24 +2047,24 @@ mod tests {
             )
             .unwrap();
         }
-        let captures = root.join("captures");
+        let to = root.join("claims.jsonl");
+        assert!(
+            matches!(
+                export_training(&root, &to),
+                Err(crate::Error::NoKeptText { .. })
+            ),
+            "without the reviews' text nothing says which rows sit on a span this build still cuts"
+        );
+        assert!(!to.exists(), "a refused export left a file behind");
         for app_id in [trains_on, held_back] {
             let ids = ["random", "keyword"].map(|subset| format!("{app_id}-{subset}"));
-            captured(
-                &captures,
-                app_id,
+            kept(
+                &root.join(app_id.to_string()),
                 &ids.each_ref()
                     .map(|id| (id.as_str(), "The combat is superb.")),
             );
         }
-
-        let to = root.join("claims.jsonl");
-        assert!(
-            export_training(&root, &root.join("no-captures"), &to).is_err(),
-            "without the captures nothing says which rows sit on a span this build still cuts"
-        );
-        assert!(!to.exists(), "a refused export left a file behind");
-        let report = export_training(&root, &captures, &to).unwrap();
+        let report = export_training(&root, &to).unwrap();
         let written = std::fs::read_to_string(&to).unwrap();
 
         assert_eq!(report.measured_on, 1, "the held-back game's keyword row");
@@ -1997,23 +2128,17 @@ mod tests {
         );
     }
 
-    /// A capture of `app_id` under `out` holding these reviews, as a crawl leaves one.
-    fn captured(out: &Path, app_id: u32, reviews: &[(&str, &str)]) {
-        let snapshot = out.join(format!("appid={app_id}")).join("snapshot=1");
-        std::fs::create_dir_all(&snapshot).unwrap();
-        let rows: Vec<serde_json::Value> = reviews
-            .iter()
-            .map(|(id, text)| {
-                serde_json::json!({"recommendationid": id, "review": text,
-                    "language": "english", "timestamp_created": 1, "timestamp_updated": 1,
-                    "voted_up": true, "votes_up": 0})
-            })
-            .collect();
-        let mut writer =
-            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), app_id)
-                .unwrap();
-        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
-        writer.close().unwrap();
+    /// These reviews kept beside the game's sets in `game`, as a draw keeps them.
+    fn kept(game: &Path, reviews: &[(&str, &str)]) {
+        keep_reviews(
+            game,
+            reviews.iter().map(|(id, text)| KeptReview {
+                review_id: (*id).to_owned(),
+                language: "english".to_owned(),
+                text: (*text).to_owned(),
+            }),
+        )
+        .unwrap();
     }
 
     /// A review this build cuts exactly where the draw did: its claims joined by spaces, and
@@ -2298,18 +2423,20 @@ mod tests {
             subjects: vec!["controls".to_owned()],
             ..Question::default()
         };
-        let captures = root.join("data");
         assert!(
             matches!(
-                draw_revisits(&root, &captures, std::slice::from_ref(&remap), 40),
-                Err(crate::Error::NoCapture { .. })
+                draw_revisits(&root, std::slice::from_ref(&remap), 40),
+                Err(crate::Error::NoKeptText { .. })
             ),
-            "without the captures nothing says which labels sit on a claim this build cuts"
+            "without the reviews' text nothing says which labels sit on a claim this build cuts"
         );
         for app_id in [1, 2] {
-            captured(&captures, app_id, &[("r1", "You cannot remap the keys.")]);
+            kept(
+                &root.join(app_id.to_string()),
+                &[("r1", "You cannot remap the keys.")],
+            );
         }
-        let drawn = draw_revisits(&root, &captures, std::slice::from_ref(&remap), 40).unwrap();
+        let drawn = draw_revisits(&root, std::slice::from_ref(&remap), 40).unwrap();
         let drew: Vec<(u32, &str)> = drawn
             .sets
             .iter()
@@ -2329,13 +2456,74 @@ mod tests {
             apps: vec![2],
             ..remap
         };
-        let drawn = draw_revisits(&root, &captures, &[named], 40).unwrap();
+        let drawn = draw_revisits(&root, &[named], 40).unwrap();
         assert_eq!(drawn.sets.len(), 1);
         assert_eq!(drawn.cleared, 0);
         assert!(stale.is_dir());
 
-        assert!(draw_revisits(&root, &captures, &[Question::default()], 40).is_err());
+        assert!(draw_revisits(&root, &[Question::default()], 40).is_err());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_draw_keeps_the_text_it_cut_and_refuses_a_copy_edited_since() {
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path().join("7");
+        let text = "The combat is superb. It runs badly.";
+        let drawn = DrawnReview {
+            app_id: 7,
+            text: text.to_owned(),
+            ..review("r1", &["The combat is superb.", "It runs badly."])
+        };
+        write_set(&game.join("keyword"), std::slice::from_ref(&drawn), 40).unwrap();
+        assert_eq!(
+            kept_reviews(&game).unwrap()["r1"].text,
+            text,
+            "a teaching set keeps its text beside the game's other sets, not inside its own"
+        );
+        let sample: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(game.join("keyword").join("sample.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            sample[0].get("text").is_none(),
+            "the review's text is kept once, not in every sample that draws it"
+        );
+
+        write_set(&game, std::slice::from_ref(&drawn), 40).unwrap();
+        assert_eq!(kept_reviews(&game).unwrap().len(), 1);
+
+        let edited = DrawnReview {
+            text: "The combat is superb. It runs well now.".to_owned(),
+            ..drawn
+        };
+        assert!(
+            matches!(
+                write_set(&game.join("declined"), &[edited], 40),
+                Err(crate::Error::EditedSinceDrawn { .. })
+            ),
+            "an edited copy would move every offset the review's labels name"
+        );
+        assert!(
+            !game.join("declined").exists(),
+            "a refused draw left a set behind"
+        );
+        assert_eq!(kept_reviews(&game).unwrap()["r1"].text, text);
+    }
+
+    #[test]
+    fn a_review_with_no_kept_text_cuts_no_claim_its_labels_could_name() {
+        let dir = crate::tempdir::Dir::new();
+        kept(
+            dir.path(),
+            &[("r1", "The combat is superb. It runs badly.")],
+        );
+        let asked: std::collections::HashSet<String> =
+            ["r1", "r2"].map(str::to_owned).into_iter().collect();
+        let cut = spans_cut_in(dir.path(), &asked).unwrap();
+        assert_eq!(cut["r1"].spans.len(), 2);
+        assert!(!cut.contains_key("r2"));
+        assert!(cut_at(&cut, &a_label(1, "r2", 0, "random", "bugs")).is_none());
     }
 
     #[test]
@@ -3125,9 +3313,14 @@ mod tests {
     #[test]
     fn the_export_holds_back_a_row_with_no_claim_in_it_and_one_this_build_does_not_cut() {
         let dir = crate::tempdir::Dir::new();
-        let captures = dir.path().join("captures");
-        crate::read::tests::corpus(&captures);
         let set = dir.path().join("reference").join("1");
+        kept(
+            &set,
+            &[
+                ("1", "Bugs everywhere. The music is lovely."),
+                ("3", "Bugs everywhere."),
+            ],
+        );
         let mut drawn = review("1", &["Bugs everywhere.", "."]);
         drawn.claims[0].end = 16;
         let mut whole = review("3", &["Bugs everywhere."]);
@@ -3148,7 +3341,7 @@ mod tests {
         .unwrap();
 
         let to = dir.path().join("train.jsonl");
-        let report = export_training(&dir.path().join("reference"), &captures, &to).unwrap();
+        let report = export_training(&dir.path().join("reference"), &to).unwrap();
         assert_eq!((report.written, report.no_claim, report.recut), (1, 1, 1));
         assert_eq!(std::fs::read_to_string(&to).unwrap().lines().count(), 1);
     }

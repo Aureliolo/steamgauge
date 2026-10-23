@@ -502,14 +502,10 @@ enum Command {
         /// Steam app IDs to draw from. Every labelled set when none are named.
         #[arg(num_args = 0..)]
         app_ids: Vec<u32>,
-        /// Where the claim reference sets live.
+        /// Where the claim reference sets live. A claim this build no longer cuts in the
+        /// review's kept text is not asked again, as the training export does not keep it.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Directory holding the captures, which say whether this build still cuts a claim
-        /// where a label names one: a claim it no longer cuts is not asked again, as the
-        /// training export does not keep it. Every game drawn from needs its capture here.
-        #[arg(short, long, default_value = "data")]
-        out: PathBuf,
         /// Reviews per batch file.
         #[arg(long, default_value_t = 40)]
         batch_size: usize,
@@ -565,13 +561,12 @@ enum Command {
         /// `gold/<name>` in each set, beside anyone else's answers to the same claims.
         #[arg(long = "for", value_parser = a_person)]
         person: String,
-        /// Where the claim reference sets live.
+        /// Where the claim reference sets live. A label names a byte span of its review's kept
+        /// text, and where this build's splitter no longer cuts a claim there, the claim the
+        /// label was written about no longer exists and nobody is asked about it.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Directory holding the captures. A label names a byte span, and only the capture can
-        /// say whether this build's splitter still cuts one there: where it does not, the claim
-        /// the label was written about no longer exists and nobody is asked about it. The page
-        /// shows each review from its capture, so every game drawn from needs one.
+        /// The library whose readings `--acceptable` asks about.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the page. It holds review text, so it is never committed; the
@@ -645,15 +640,12 @@ enum Command {
         /// The file the adjudication page exported.
         #[arg(long)]
         from: PathBuf,
-        /// Where the claim reference sets live.
+        /// Where the claim reference sets live. An answer on a span this build no longer cuts
+        /// in the review's kept text is not filed: a gold label on a claim the splitter has
+        /// since joined to its neighbour is worse than a missing one, because it is scored as
+        /// truth.
         #[arg(long, default_value = "reference/claims")]
         reference: PathBuf,
-        /// Directory holding the captures, which is what says whether this build still cuts a
-        /// claim where a label names one. An answers file can be older than that rule, and a
-        /// gold label on a span the splitter has since joined to its neighbour is worse than a
-        /// missing one, because it is scored as truth.
-        #[arg(short, long, default_value = "data")]
-        out: PathBuf,
     },
 
     /// Write every labelled claim, with its text, as JSONL for training.
@@ -661,15 +653,11 @@ enum Command {
     /// The file holds review text and is not for publishing. What gets published is the
     /// label set: ids, offsets and labels, which anyone can rehydrate with this tool.
     ExportTraining {
-        /// Where the claim reference sets live.
+        /// Where the claim reference sets live. A label whose span this build no longer cuts in
+        /// the review's kept text is not a label of anything the reader will be handed, and
+        /// training on it teaches a string that cannot come back.
         #[arg(long, default_value = "reference/claims")]
         from: PathBuf,
-        /// Directory holding the captures, which is what says whether this build still cuts a
-        /// claim where a label names one. A label whose span it no longer cuts is not a label
-        /// of anything the reader will be handed, and training on it teaches a string that
-        /// cannot come back. Every labelled game needs its capture here.
-        #[arg(short, long, default_value = "data")]
-        out: PathBuf,
         /// Where to write the JSONL.
         #[arg(long, default_value = "training/data/claims.jsonl")]
         to: PathBuf,
@@ -925,10 +913,7 @@ impl Command {
             | Self::MeasureClaims { out, .. }
             | Self::Distinct { out, .. }
             | Self::Ceiling { out, .. }
-            | Self::Revisit { out, .. }
             | Self::Gold { out, .. }
-            | Self::IngestGold { out, .. }
-            | Self::ExportTraining { out, .. }
             | Self::ExportReviewFacts { out, .. }
             | Self::ExportPool { out, .. }
             | Self::StoreFacts { out, .. }
@@ -941,6 +926,9 @@ impl Command {
             | Self::CompareLabels { .. }
             | Self::IngestRevisit { .. }
             | Self::IngestClaims { .. }
+            | Self::Revisit { .. }
+            | Self::IngestGold { .. }
+            | Self::ExportTraining { .. }
             | Self::Update
             | Self::Mcp
             | Self::Clients
@@ -1059,7 +1047,7 @@ pub async fn run() -> Result<()> {
             };
             run_recount(&app_ids, &out, &model_dir, top_helpful)
         }
-        Command::ExportTraining { from, out, to } => run_export_training(&from, &out, &to),
+        Command::ExportTraining { from, to } => run_export_training(&from, &to),
         Command::ExportReviewFacts { from, out, to } => run_export_review_facts(&from, &out, &to),
         Command::ExportPool {
             app_ids,
@@ -1230,9 +1218,8 @@ fn reference_work(command: &Command) -> Option<Result<()>> {
             subjects,
             app_ids,
             reference,
-            out,
             batch_size,
-        } => run_revisit(words, subjects, app_ids, reference, out, *batch_size),
+        } => run_revisit(words, subjects, app_ids, reference, *batch_size),
         Command::Gold {
             person,
             reference,
@@ -1306,11 +1293,7 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
             by,
             to,
         } => run_ingest_revisit(*app_id, from, by, to.clone()),
-        Command::IngestGold {
-            from,
-            reference,
-            out,
-        } => run_ingest_gold(from, reference, out),
+        Command::IngestGold { from, reference } => run_ingest_gold(from, reference),
         Command::IngestInduced {
             app_id,
             from,
@@ -1760,12 +1743,8 @@ fn run_export_review_facts(
     Ok(())
 }
 
-fn run_export_training(
-    from: &std::path::Path,
-    captures: &std::path::Path,
-    to: &std::path::Path,
-) -> Result<()> {
-    let report = steamgauge_core::claimset::export_training(from, captures, to)?;
+fn run_export_training(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+    let report = steamgauge_core::claimset::export_training(from, to)?;
     println!("{} labelled claims -> {}", report.written, to.display());
     if report.no_claim > 0 {
         println!(
@@ -2314,7 +2293,6 @@ fn run_revisit(
     subjects: &[String],
     app_ids: &[u32],
     reference: &std::path::Path,
-    captures: &std::path::Path,
     batch_size: usize,
 ) -> Result<()> {
     let question = steamgauge_core::claimset::Question {
@@ -2323,8 +2301,7 @@ fn run_revisit(
         apps: app_ids.to_vec(),
         ..steamgauge_core::claimset::Question::default()
     };
-    let drawn =
-        steamgauge_core::claimset::draw_revisits(reference, captures, &[question], batch_size)?;
+    let drawn = steamgauge_core::claimset::draw_revisits(reference, &[question], batch_size)?;
     if drawn.sets.is_empty() {
         anyhow::bail!("no labelled claim uses any of those words; nothing to revisit");
     }
@@ -2473,7 +2450,7 @@ fn run_gold(
         );
     }
     if rejudge {
-        let (questions, found) = steamgauge_core::gold::rejudge(reference, out, reading, person)?;
+        let (questions, found) = steamgauge_core::gold::rejudge(reference, reading, person)?;
         if questions.is_empty() {
             anyhow::bail!(
                 "no answer {person} gave under {} differs from the first labeller's; nothing to \
@@ -2495,7 +2472,6 @@ fn run_gold(
     }
     let (questions, found) = steamgauge_core::gold::draw(
         reference,
-        out,
         &steamgauge_core::gold::Asked {
             blind,
             splits,
@@ -2879,11 +2855,7 @@ fn file_gold(
     Ok(given.len())
 }
 
-fn run_ingest_gold(
-    from: &std::path::Path,
-    reference: &std::path::Path,
-    out: &std::path::Path,
-) -> Result<()> {
+fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
     let person = answered_by(&answers)?.to_owned();
     let by = person.as_str();
@@ -2926,9 +2898,9 @@ fn run_ingest_gold(
         let dir = reference.join(app_id.to_string());
         let answered: std::collections::HashSet<String> =
             rows.iter().map(|answer| answer.review_id.clone()).collect();
-        // Without the capture nothing says which answers sit on a span this build still cuts,
-        // and one that does not is scored as truth about a claim no reader is handed.
-        let cut = steamgauge_core::claimset::spans_cut_now(out, app_id, &answered)?;
+        // An answer on a span this build no longer cuts would be scored as truth about a claim
+        // no reader is handed, and only the review's kept text says which spans it cuts.
+        let cut = steamgauge_core::claimset::spans_cut_in(&dir, &answered)?;
         let (wrote, matched) = adjudicate_one_game(app_id, &dir, &rows, &cut, by, &mut useless)?;
         written += wrote;
         agreed += matched;
@@ -4334,27 +4306,18 @@ mod tests {
         /// The review the set is drawn from, which this build cuts into two claims.
         const REVIEW: &str = "The game runs badly on my laptop. It is worth the full price.";
 
-        /// A capture of game 7 under `out` holding [`REVIEW`].
-        fn captured(out: &Path) {
-            let snapshot = out.join("appid=7").join("snapshot=1");
-            std::fs::create_dir_all(&snapshot).unwrap();
-            let row = json!({"recommendationid": "r1", "review": REVIEW, "language": "russian",
-                "timestamp_created": 1, "timestamp_updated": 1, "voted_up": true,
-                "votes_up": 0});
-            let mut writer = steamgauge_core::capture::CaptureWriter::create(
-                &snapshot.join("shard-0000.parquet"),
-                7,
+        /// A set of one review with two claims, labelled by a model, and the review's kept text.
+        fn a_set(reference: &Path) -> PathBuf {
+            let set = reference.join("7");
+            steamgauge_core::claimset::keep_reviews(
+                &set,
+                [steamgauge_core::claimset::KeptReview {
+                    review_id: "r1".to_owned(),
+                    language: "russian".to_owned(),
+                    text: REVIEW.to_owned(),
+                }],
             )
             .unwrap();
-            writer.write(&[&row]).unwrap();
-            writer.close().unwrap();
-        }
-
-        /// A set of one review with two claims, labelled by a model, and its capture.
-        fn a_set(reference: &Path) -> PathBuf {
-            captured(&reference.with_file_name("data"));
-            let set = reference.join("7");
-            std::fs::create_dir_all(&set).unwrap();
             let sample = json!([{
                 "id": "r1", "app_id": 7, "language": "russian", "subset": "random",
                 "claims": [
@@ -4392,20 +4355,23 @@ mod tests {
         fn ingest(scratch: &Scratch, name: &str, answers: &[Value]) -> anyhow::Result<()> {
             let file = scratch.0.join(name);
             std::fs::write(&file, serde_json::to_vec(answers).unwrap()).unwrap();
-            run_ingest_gold(&file, &scratch.0.join("reference"), &scratch.0.join("data"))
+            run_ingest_gold(&file, &scratch.0.join("reference"))
         }
 
         #[test]
-        fn an_answer_is_filed_only_where_the_capture_says_its_span_is_still_a_claim() {
-            let scratch = Scratch::new("captured");
+        fn an_answer_is_filed_only_where_the_kept_text_says_its_span_is_still_a_claim() {
+            let scratch = Scratch::new("kept");
             let set = a_set(&scratch.0.join("reference"));
+            let kept = set.join(steamgauge_core::claimset::REVIEWS);
+            let held_text = std::fs::read(&kept).unwrap();
+            std::fs::remove_file(&kept).unwrap();
             let file = scratch.0.join("answers.json");
             std::fs::write(&file, json!([answer(0, "story", "one")]).to_string()).unwrap();
             assert!(
-                run_ingest_gold(&file, &scratch.0.join("reference"), &scratch.0.join("none"))
-                    .is_err(),
-                "without the capture nothing says the answer is about a claim this build cuts"
+                run_ingest_gold(&file, &scratch.0.join("reference")).is_err(),
+                "without the review's text nothing says the answer is about a claim this build cuts"
             );
+            std::fs::write(&kept, held_text).unwrap();
 
             // An older splitter kept the review whole; this build cuts it in two, so an answer
             // about the whole review is about no claim the reader is handed.

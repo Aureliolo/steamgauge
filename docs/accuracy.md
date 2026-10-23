@@ -101,9 +101,9 @@ one. A language with fewer than 100 labelled claims declines rather than borrowi
 - `declined` and `rare-claims` draw teaching sets where the reader is weakest. They are marked as
   such and never measured on.
 - `gold --for <name>` writes the page one person answers, and `ingest-gold` files what it exports
-  under `gold/<name>` in each set, beside anyone else's answers to the same claims. Both need the
-  captures: the page shows each review as this build cuts it, with its own line breaks, and asks
-  only about claims this build still cuts;
+  under `gold/<name>` in each set, beside anyone else's answers to the same claims. The page shows
+  each review from the text kept with its labels, as this build cuts it and with its own line
+  breaks, and asks only about claims this build still cuts;
   `compare-labels --base gold/<one> --labels gold/<other>` says how often two people agree.
   `measure-claims` and `ceiling` score readings.
 - Whole games are held out, chosen by a hash of their app ID, so two claims from one review never
