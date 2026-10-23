@@ -47,8 +47,10 @@ small one and offers the standard one.
 
 ## Checked by a person
 
-One person answered 200 claims on the page `steamgauge gold --serve` writes: 169 drawn blind, in
-English, from the held-out games, and 30 the two labellers disagreed about.
+Two people answered claims from the held-out games on the page `steamgauge gold --serve` writes.
+
+**English.** One person answered 200 claims: 169 drawn blind and 30 the two labellers disagreed
+about.
 
 | | Agreement |
 |---|---|
@@ -62,6 +64,15 @@ English, from the held-out games, and 30 the two labellers disagreed about.
 A claim can fairly sit under two subjects, so the person also judged whether the reader's
 subject, where it differed, would do as well. The reader's figures count the set as filed after
 the person read each difference again beside the sheet's rules.
+
+**Russian.** A second person answered 255 Russian claims, blind.
+
+| | Agreement |
+|---|---|
+| The person and the labels | 68.6% (63% to 74%) |
+| The person and the second labeller | 70.2% |
+| The person and the labels on praise or complaint | 85.1% |
+| The reader names the person's subject, of the 230 it answers | **70.4%** (64% to 76%) |
 
 ## In each language
 
