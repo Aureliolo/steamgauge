@@ -250,8 +250,7 @@ type Indexed<'a> = (
 );
 
 fn indexed<'a>(
-    captures: &Path,
-    app_id: u32,
+    game: &Path,
     drawn: &'a [DrawnReview],
     first: &[ClaimLabel],
     second: &'a [ClaimLabel],
@@ -259,7 +258,7 @@ fn indexed<'a>(
     let labelled: std::collections::HashSet<String> =
         first.iter().map(|label| label.review_id.clone()).collect();
     Ok((
-        crate::claimset::spans_cut_now(captures, app_id, &labelled)?,
+        crate::claimset::spans_cut_in(game, &labelled)?,
         drawn
             .iter()
             .flat_map(|review| {
@@ -402,19 +401,15 @@ fn as_written<'a>(
 /// adjudicating the games the model trained on would produce a number that flatters every part
 /// of the chain at once.
 ///
-/// Every game drawn from needs its capture. The sets were cut by several splitters, so a
-/// stored span may be one this build joins to its neighbour or takes apart, and only the
-/// review itself can tell which; it is also what shows the review with its own line breaks
-/// rather than as the labeller's pieces.
+/// Each review is cut again from the text kept for it. The sets were cut by several
+/// splitters, so a stored span may be one this build joins to its neighbour or takes apart,
+/// and only the review itself can tell which; it is also what shows the review with its own
+/// line breaks rather than as the labeller's pieces.
 ///
 /// # Errors
 ///
-/// Fails if a reference set cannot be read, or a game drawn from has no capture.
-pub fn draw(
-    reference: &Path,
-    captures: &Path,
-    asked: &Asked<'_>,
-) -> Result<(Vec<Question>, GoldDraw)> {
+/// Fails if a reference set cannot be read, or a game drawn from keeps no review text.
+pub fn draw(reference: &Path, asked: &Asked<'_>) -> Result<(Vec<Question>, GoldDraw)> {
     let Asked {
         blind: blind_wanted,
         splits,
@@ -448,7 +443,7 @@ pub fn draw(
             continue;
         };
         found.games += usize::from(held_out);
-        let (cut, handed, twice) = indexed(captures, app_id, &drawn, &first, &second)?;
+        let (cut, handed, twice) = indexed(&dir, &drawn, &first, &second)?;
         let mut shown = std::collections::HashMap::new();
 
         for label in &first {
@@ -551,18 +546,14 @@ pub fn draw(
 /// the first answer sitting in the same file under the same claim, and how the ingest counts
 /// them.
 ///
-/// Shown as [`draw`] shows a claim, from the game's capture, and only where this build still
-/// cuts it: an answer about a span the splitter has since moved is about no claim at all.
+/// Shown as [`draw`] shows a claim, from the review's kept text, and only where this build
+/// still cuts it: an answer about a span the splitter has since moved is about no claim at all.
 ///
 /// # Errors
 ///
-/// Fails if a reference set cannot be read, or a game with answers to judge has no capture.
-pub fn rejudge(
-    reference: &Path,
-    captures: &Path,
-    reading: &str,
-    who: &str,
-) -> Result<(Vec<Question>, GoldDraw)> {
+/// Fails if a reference set cannot be read, or a game with answers to judge keeps no review
+/// text.
+pub fn rejudge(reference: &Path, reading: &str, who: &str) -> Result<(Vec<Question>, GoldDraw)> {
     let mut questions = Vec::new();
     let mut found = GoldDraw::default();
 
@@ -591,7 +582,7 @@ pub fn rejudge(
 
         let reviews: std::collections::HashSet<String> =
             gold.iter().map(|label| label.review_id.clone()).collect();
-        let cut = crate::claimset::spans_cut_now(captures, app_id, &reviews)?;
+        let cut = crate::claimset::spans_cut_in(&dir, &reviews)?;
         let mut shown = std::collections::HashMap::new();
         let by_claim =
             |labels: &[ClaimLabel]| -> std::collections::HashMap<(String, u16), Answered> {
@@ -936,22 +927,19 @@ mod tests {
     /// A review this build cuts into three claims.
     const THREE: &str = "The game runs badly on my laptop. The art style looks great to me. It is worth the full price.";
 
-    /// A capture of `app_id` under `out` holding these reviews, as a crawl leaves one.
-    fn captured(out: &Path, app_id: u32, reviews: &[(&str, &str)]) {
-        let snapshot = out.join(format!("appid={app_id}")).join("snapshot=1");
-        std::fs::create_dir_all(&snapshot).unwrap();
-        let rows: Vec<serde_json::Value> = reviews
-            .iter()
-            .map(|(id, text)| {
-                serde_json::json!({"recommendationid": id, "review": text,
-                    "language": "english", "timestamp_created": 1, "timestamp_updated": 1,
-                    "voted_up": true, "votes_up": 0})
-            })
-            .collect();
-        let mut writer =
-            crate::capture::CaptureWriter::create(&snapshot.join("shard-0000.parquet"), 1).unwrap();
-        writer.write(&rows.iter().collect::<Vec<_>>()).unwrap();
-        writer.close().unwrap();
+    /// These reviews kept beside the game's sets in `game`, as a draw keeps them.
+    fn kept(game: &Path, reviews: &[(&str, &str)]) {
+        crate::claimset::keep_reviews(
+            game,
+            reviews
+                .iter()
+                .map(|(id, text)| crate::claimset::KeptReview {
+                    review_id: (*id).to_owned(),
+                    language: "english".to_owned(),
+                    text: (*text).to_owned(),
+                }),
+        )
+        .unwrap();
     }
 
     /// Where this build cuts claim `index` of `text`.
@@ -985,7 +973,7 @@ mod tests {
         })
     }
 
-    /// A reference set on disk, with the captures it was drawn from under `data`: one held-out
+    /// A reference set on disk, with the text of the review it was drawn from: one held-out
     /// game and one training game, each with three claims. The second labeller reads two of
     /// them, agreeing on one and differing on the other, and never sees the third, which is
     /// therefore the only one left to read blind.
@@ -993,7 +981,7 @@ mod tests {
         for app_id in [214_490_u32, 296_970_u32] {
             let dir = root.join(app_id.to_string());
             std::fs::create_dir_all(dir.join("second")).unwrap();
-            captured(&root.join("data"), app_id, &[("r1", THREE)]);
+            kept(&dir, &[("r1", THREE)]);
 
             let drawn = serde_json::json!([drawn_from("r1", app_id, "random", THREE)]);
             std::fs::write(dir.join("sample.json"), drawn.to_string()).unwrap();
@@ -1028,8 +1016,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         a_reference_set(&root);
 
-        let (held_out_only, counts) =
-            draw(&root, &root.join("data"), &asking(100, Splits::HeldOut)).unwrap();
+        let (held_out_only, counts) = draw(&root, &asking(100, Splits::HeldOut)).unwrap();
         assert!(
             held_out_only
                 .iter()
@@ -1057,8 +1044,7 @@ mod tests {
             "only the held-out game counts as a game read"
         );
 
-        let (everywhere, wider) =
-            draw(&root, &root.join("data"), &asking(100, Splits::Everywhere)).unwrap();
+        let (everywhere, wider) = draw(&root, &asking(100, Splits::Everywhere)).unwrap();
         assert_eq!(
             wider.split, 1,
             "the training game's disagreement was left out; the held-out game's own went into the \
@@ -1077,7 +1063,7 @@ mod tests {
             "a claim from a training game may only appear as a disagreement"
         );
 
-        let (none, quiet) = draw(&root, &root.join("data"), &asking(100, Splits::None)).unwrap();
+        let (none, quiet) = draw(&root, &asking(100, Splits::None)).unwrap();
         assert_eq!(quiet.split, 0);
         assert!(none.iter().all(|question| question.shown.is_none()));
 
@@ -1095,7 +1081,6 @@ mod tests {
         let asked = |boundaries: &[(String, String)]| {
             draw(
                 &root,
-                &root.join("data"),
                 &Asked {
                     boundaries,
                     ..asking(0, Splits::Everywhere)
@@ -1141,7 +1126,7 @@ mod tests {
         // also held out and has no second labelling at all.
         let bare = root.join("1274570");
         std::fs::create_dir_all(&bare).unwrap();
-        captured(&root.join("data"), 1_274_570, &[("r1", THREE)]);
+        kept(&bare, &[("r1", THREE)]);
         std::fs::copy(
             root.join("214490").join("sample.json"),
             bare.join("sample.json"),
@@ -1152,8 +1137,7 @@ mod tests {
             .replace("214490", "1274570");
         std::fs::write(bare.join("labels.json"), relabelled).unwrap();
 
-        let (questions, counts) =
-            draw(&root, &root.join("data"), &asking(100, Splits::None)).unwrap();
+        let (questions, counts) = draw(&root, &asking(100, Splits::None)).unwrap();
         let asked: std::collections::HashSet<u32> =
             questions.iter().map(|question| question.app_id).collect();
         assert!(
@@ -1184,8 +1168,7 @@ mod tests {
 
         // blind_wanted of 0 keeps the held-out game's disagreement out of the blind sample, so it
         // stays a split and the ordering has something to order.
-        let (questions, counts) =
-            draw(&root, &root.join("data"), &asking(0, Splits::Everywhere)).unwrap();
+        let (questions, counts) = draw(&root, &asking(0, Splits::Everywhere)).unwrap();
         assert_eq!(counts.blind, 0);
         assert!(counts.contested_sure > 0, "nothing sharp to put first");
         assert!(
@@ -1212,8 +1195,7 @@ mod tests {
         a_reference_set(&root);
 
         // One claim short of the three the held-out game has, so the draw has to choose.
-        let (questions, counts) =
-            draw(&root, &root.join("data"), &asking(3, Splits::Everywhere)).unwrap();
+        let (questions, counts) = draw(&root, &asking(3, Splits::Everywhere)).unwrap();
         let blind: Vec<&Question> = questions
             .iter()
             .filter(|question| question.shown.is_none())
@@ -1245,7 +1227,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("steamgauge-sharp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
-        captured(&root.join("data"), 214_490, &[("r1", THREE)]);
+        kept(&root.join("214490"), &[("r1", THREE)]);
         let drawn = serde_json::json!([drawn_from("r1", 214_490, "random", THREE)]);
         std::fs::write(root.join("214490").join("sample.json"), drawn.to_string()).unwrap();
 
@@ -1267,8 +1249,7 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) =
-            draw(&root, &root.join("data"), &asking(0, Splits::HeldOut)).unwrap();
+        let (questions, counts) = draw(&root, &asking(0, Splits::HeldOut)).unwrap();
         assert_eq!(counts.split, 2);
         assert_eq!(
             counts.contested_sure, 1,
@@ -1465,7 +1446,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("214490").join("second")).unwrap();
         let ballot = "\u{2610} Worth the price\n\u{2611} The game runs badly on my laptop";
-        captured(&root.join("data"), 214_490, &[("r1", ballot)]);
+        kept(&root.join("214490"), &[("r1", ballot)]);
         let (ticked, ticked_end) = span_of(ballot, 0);
         let spans = [(0, ticked - 1), (ticked, ticked_end)];
 
@@ -1501,8 +1482,7 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, counts) =
-            draw(&root, &root.join("data"), &asking(10, Splits::HeldOut)).unwrap();
+        let (questions, counts) = draw(&root, &asking(10, Splits::HeldOut)).unwrap();
         assert_eq!(counts.declined, 1, "the blank option was not held back");
         assert!(
             questions
@@ -1560,25 +1540,25 @@ mod tests {
     }
 
     #[test]
-    fn a_page_is_drawn_only_from_games_whose_capture_says_what_this_build_cuts() {
+    fn a_page_is_drawn_only_from_games_whose_kept_text_says_what_this_build_cuts() {
         let root = crate::tempdir::Dir::new();
         a_reference_set(root.path());
+        let set = root.path().join("214490");
+        let kept = set.join(crate::claimset::REVIEWS);
+        let held = std::fs::read(&kept).unwrap();
+        std::fs::remove_file(&kept).unwrap();
         assert!(
             matches!(
-                draw(
-                    root.path(),
-                    &root.path().join("elsewhere"),
-                    &asking(100, Splits::HeldOut)
-                ),
-                Err(Error::NoCapture { .. })
+                draw(root.path(), &asking(100, Splits::HeldOut)),
+                Err(Error::NoKeptText { .. })
             ),
-            "without the capture nothing says which stored spans this build still cuts, and \
-             the page would ask about all of them"
+            "without the review's text nothing says which stored spans this build still cuts, \
+             and the page would ask about all of them"
         );
+        std::fs::write(&kept, held).unwrap();
 
         // The held-out set was cut by an older splitter that kept the whole review as one
         // claim; this build cuts it in three, so the one stored label names no claim at all.
-        let set = root.path().join("214490");
         let whole = u32::try_from(THREE.len()).unwrap();
         let drawn = serde_json::json!([{
             "id": "r1", "app_id": 214_490, "language": "english", "subset": "random",
@@ -1594,12 +1574,7 @@ mod tests {
         .unwrap();
         std::fs::remove_dir_all(set.join("second")).unwrap();
 
-        let (questions, found) = draw(
-            root.path(),
-            &root.path().join("data"),
-            &asking(100, Splits::HeldOut),
-        )
-        .unwrap();
+        let (questions, found) = draw(root.path(), &asking(100, Splits::HeldOut)).unwrap();
         assert!(questions.is_empty(), "{questions:?}");
         assert_eq!(found.recut, 1);
     }
@@ -1611,7 +1586,7 @@ mod tests {
         std::fs::create_dir_all(&set).unwrap();
         let review = "The game runs badly on my laptop.\nThe art style looks great to me.\n\n\
                       It is worth the full price.";
-        captured(&root.path().join("data"), 214_490, &[("r1", review)]);
+        kept(&set, &[("r1", review)]);
         let drawn = serde_json::json!([drawn_from("r1", 214_490, "random", review)]);
         std::fs::write(set.join("sample.json"), drawn.to_string()).unwrap();
         std::fs::write(
@@ -1620,12 +1595,7 @@ mod tests {
         )
         .unwrap();
 
-        let (questions, _) = draw(
-            root.path(),
-            &root.path().join("data"),
-            &asking(100, Splits::HeldOut),
-        )
-        .unwrap();
+        let (questions, _) = draw(root.path(), &asking(100, Splits::HeldOut)).unwrap();
         let asked = &questions[0];
         assert_eq!(asked.claim, "The art style looks great to me.");
         assert_eq!(asked.before, "The game runs badly on my laptop.\n");
@@ -1734,7 +1704,6 @@ mod tests {
         let languages = |asked: &[String]| {
             draw(
                 root.path(),
-                &root.path().join("data"),
                 &Asked {
                     languages: asked,
                     ..asking(100, Splits::HeldOut)
@@ -1756,7 +1725,7 @@ mod tests {
         std::fs::create_dir_all(&set).unwrap();
         let review = "The game runs badly on my laptop.\n\
                       \u{D080}\u{C2A4}\u{D2B8} \u{C790}\u{CCB4}\u{C5D0}\u{C11C}";
-        captured(&root.path().join("data"), 214_490, &[("r1", review)]);
+        kept(&set, &[("r1", review)]);
         let drawn = serde_json::json!([drawn_from("r1", 214_490, "held-out", review)]);
         std::fs::write(set.join("sample.json"), drawn.to_string()).unwrap();
         let label = |index: u16| label_of(214_490, review, index, "performance");
@@ -1767,7 +1736,6 @@ mod tests {
         .unwrap();
         let (questions, found) = draw(
             root.path(),
-            &root.path().join("data"),
             &Asked {
                 languages: &["english".to_owned()],
                 ..asking(10, Splits::HeldOut)
@@ -1800,22 +1768,23 @@ mod tests {
         )
         .unwrap();
 
-        let captures = root.path().join("data");
         assert!(
-            rejudge(root.path(), &captures, "second", "two")
-                .unwrap()
-                .0
-                .is_empty(),
+            rejudge(root.path(), "second", "two").unwrap().0.is_empty(),
             "nobody is asked again about another person's answers"
         );
+        let kept = set.join(crate::claimset::REVIEWS);
+        let held = std::fs::read(&kept).unwrap();
+        std::fs::remove_file(&kept).unwrap();
         assert!(
             matches!(
-                rejudge(root.path(), &root.path().join("elsewhere"), "second", "one"),
-                Err(Error::NoCapture { .. })
+                rejudge(root.path(), "second", "one"),
+                Err(Error::NoKeptText { .. })
             ),
-            "an answer is judged again only where the capture says its span is still a claim"
+            "an answer is judged again only where the review's kept text says its span is still \
+             a claim"
         );
-        let (questions, found) = rejudge(root.path(), &captures, "second", "one").unwrap();
+        std::fs::write(&kept, held).unwrap();
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
         assert_eq!(
             (found.games, found.agreed, found.split, found.recut),
             (1, 1, 1, 1),
@@ -2031,6 +2000,7 @@ mod tests {
                     claim(1, 26, 38, "Great story."),
                 ],
                 asked: None,
+                text: String::new(),
             },
             DrawnReview {
                 id: "2".to_owned(),
@@ -2039,6 +2009,7 @@ mod tests {
                 subset: "random".to_owned(),
                 claims: vec![claim(0, 0, 25, "Perfect on my Steam Deck!")],
                 asked: None,
+                text: String::new(),
             },
         ];
         std::fs::write(set.join("sample.json"), serde_json::to_vec(&drawn).unwrap()).unwrap();

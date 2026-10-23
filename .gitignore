@@ -8,6 +8,9 @@ data/
 # the seed recorded in the manifest, so nothing is lost by keeping them out.
 reference/**/sample.json
 reference/**/batches/
+# The text each review's labels count bytes in, kept beside them so an edit on Steam cannot
+# move a label. It goes public with the dataset it belongs to, not ahead of it.
+reference/**/reviews.jsonl
 # What a labeller hands back, before the ingest checks it against the draw and writes
 # `labels.json`. Every field survives the merge, so the accepted labelling is the record and
 # these are the working copy it was built from.

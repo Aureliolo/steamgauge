@@ -119,6 +119,21 @@ pub enum Error {
     #[error("no capture found at {path}; run `steamgauge crawl` first")]
     NoCapture { path: std::path::PathBuf },
 
+    #[error(
+        "no review text kept at {path}; the game's labels have no text to count their bytes in"
+    )]
+    NoKeptText { path: std::path::PathBuf },
+
+    /// A review drawn again from a capture that holds an edited copy of it. Keeping the new copy
+    /// would move every offset its labels name, so the draw is refused instead.
+    #[error(
+        "review {review_id} reads differently from the copy kept at {path}; it was edited after it was drawn"
+    )]
+    EditedSinceDrawn {
+        path: std::path::PathBuf,
+        review_id: String,
+    },
+
     #[error("the capture at {path} is complete and holds no reviews; Valve serves none for it")]
     EmptyCapture { path: std::path::PathBuf },
 

@@ -24,10 +24,13 @@ and [Accuracy](accuracy.md) how well; this page says how the parts fit and the r
 - `claims::words_at` is the one way a stored span becomes text, and `claims::is_not_a_claim` the
   one test for a piece with nothing in it (no word, an unticked ballot option). The gold draw, the
   gold ingest, the revisit draw and the training export all use both.
-- A splitter change moves some spans. Labels at a span the build no longer cuts are left out of
-  measurement and training, and counted; the library is read again. Only the review itself says
-  where this build cuts, so the training export, the revisit and gold draws and the gold ingest
-  refuse a game whose capture is not on the machine.
+- A label's span counts bytes in the review as it read when it was drawn, and a reviewer can
+  edit a review at any time. So each game's reference directory keeps that text,
+  `reviews.jsonl`, written by the draw before anything is handed out; a later draw that meets an
+  edited copy is refused. The training export, the revisit and gold draws, rejudging and the gold
+  ingest cut each review from its kept text and need no capture.
+- A splitter change moves some spans. Labels at a span the build no longer cuts in the kept text
+  are left out of measurement and training, and counted; the library is read again.
 
 ## Downloading
 
