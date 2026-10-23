@@ -183,14 +183,17 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
         } else if quoted || open_brackets > 0 || inside_a_link(text, at) {
             false
         } else if ch == '.' {
-            // The only ambiguous terminator. Every other one in TERMINATORS ends a thought
-            // wherever it appears, including the full-width stops, which sit between
-            // characters with no space anywhere near them.
+            // The ambiguous terminator, with the ellipsis below. Every other one in TERMINATORS
+            // ends a thought wherever it appears, including the full-width stops, which sit
+            // between characters with no space anywhere near them.
             !numbers_a_list(&text[start..at])
                 && !continues_a_number(text, at)
                 && !abbreviates(text, at)
                 && !a_russian_abbreviation(text, at)
                 && !continues_a_word(text, at)
+        } else if ch == '\u{2026}' {
+            // The ellipsis typed as one character trails off as the three stops do.
+            !trails_off(past_markup(text, at + ch.len_utf8()))
         } else {
             TERMINATORS.contains(&ch)
         };
@@ -451,7 +454,38 @@ fn carries_no_proposition(claim: &str) -> bool {
             whole_word |= writes_a_word_in_one_character(ch);
         }
     }
-    words == 0 || (words == 1 && !whole_word)
+    words == 0 || (words == 1 && !whole_word) || an_ornament(claim)
+}
+
+/// Whether a piece's only letters are one letter repeated, each standing alone among marks.
+///
+/// A rule drawn as `══ஜ۩۞۩ஜ══` has a Tamil letter at each end of its middle, which is two
+/// alphanumerics and passed for a claim, and `T_T` is a face with the same letter for both eyes.
+/// A letter drawn into a line is not a word, and the same one twice is not two. Different
+/// letters still count, since "N/A" and "o.k." say something, and so do digits, since "5/5" is
+/// a score; so does a script that writes a word in a character, where the same one twice can be
+/// a review.
+fn an_ornament(claim: &str) -> bool {
+    let chars: Vec<char> = claim.chars().filter(|ch| *ch != CENSORED).collect();
+    let mut letter = None;
+    for (at, ch) in chars.iter().enumerate() {
+        if !ch.is_alphanumeric() {
+            continue;
+        }
+        // Two letters side by side are a word, which the second of them finds behind it.
+        let follows_another = at
+            .checked_sub(1)
+            .is_some_and(|before| chars[before].is_alphanumeric());
+        if ch.is_numeric()
+            || writes_a_word_in_one_character(*ch)
+            || letter.is_some_and(|seen| seen != *ch)
+            || follows_another
+        {
+            return false;
+        }
+        letter = Some(*ch);
+    }
+    letter.is_some()
 }
 
 /// Whether one character of this script is a word on its own.
@@ -866,7 +900,7 @@ fn abbreviates(text: &str, at: usize) -> bool {
 /// typography asks, "т. е.", and the spaced form is two words to [`abbreviates`]: the stop
 /// after "е" alone says nothing about what came before it. A review in capitals writes
 /// "Т.К.", so the Cyrillic is read in either case; nothing else is.
-const RUSSIAN_ABBREVIATIONS: [&str; 4] = ["т.е", "т.к", "т.ч", "напр"];
+const RUSSIAN_ABBREVIATIONS: [&str; 5] = ["т.е", "т.к", "т.ч", "напр", "доп"];
 
 /// The Russian abbreviations that end the sentence about as often as they sit inside it: the
 /// forms that close a list, "и т.д." and "и т.п." (also written "тд", "тп"), "см." and "др.",
@@ -973,26 +1007,44 @@ fn continues_a_number(text: &str, at: usize) -> bool {
 /// the shift key: their whole review came out as one claim, three per cent of every draw and
 /// two to three times the length of the rest, and the labellers flagged them as mis-cut. The
 /// abbreviations are a list, and the list is what protects them. The one stop that does keep
-/// going into a lowercase word is an ellipsis, "nails it perfectly... the aesthetics, the
-/// execution": a trailing-off, not an end.
+/// going is an ellipsis, see [`trails_off`].
+///
+/// A tag straight after the stop is markup closing around the sentence, "[b]Игра не шибко
+/// стабильная.[/b] Сразу бросаются", and says nothing about whether the stop is inside a word;
+/// what follows the tag does.
 fn continues_a_word(text: &str, at: usize) -> bool {
-    let rest = &text[at + 1..];
+    let rest = past_markup(text, at + 1);
     let mut before = text[..at].chars().rev();
     let glued = rest.len() == rest.trim_start().len();
     if !glued {
-        let an_ellipsis = before.next() == Some('.');
-        return an_ellipsis
-            && rest
-                .trim_start()
-                .chars()
-                .next()
-                .is_some_and(char::is_lowercase);
+        return before.next() == Some('.') && trails_off(rest);
     }
     // A single letter before the stop is an initial, and the capital after it is the next
     // one: "z.B.", "P.S.", "U.S.A." are one word each.
     let an_initial = before.next().is_some_and(char::is_alphabetic)
         && before.next().is_none_or(|ch| !ch.is_alphabetic());
     an_initial || rest.chars().next().is_some_and(|next| !next.is_uppercase())
+}
+
+/// Whether what follows an ellipsis carries its sentence on: a lowercase word, "nails it
+/// perfectly... the aesthetics, the execution", or a number, "потратить плюс минус... 12.150
+/// гривен?!" and "it cost me... 60 dollars". A trailing-off, not an end. A capital after it
+/// is the next sentence, and a line break after it still ends the line.
+fn trails_off(rest: &str) -> bool {
+    rest.trim_start()
+        .chars()
+        .next()
+        .is_some_and(|next| next.is_lowercase() || next.is_numeric())
+}
+
+/// The text from `at` on, past any tags that open it.
+fn past_markup(text: &str, mut at: usize) -> &str {
+    while text[at..].starts_with('[')
+        && let Some((after, _)) = markup_at(text, at)
+    {
+        at = after;
+    }
+    &text[at..]
 }
 
 /// How much a piece says, in Latin characters or their equivalent.
@@ -1120,10 +1172,20 @@ fn asks_a_question(so_far: &str) -> bool {
 /// One letter at most, because "D:" is an emoticon and "ok" is a verdict, and never a letter
 /// alone, because "A" after a full stop is the next sentence starting. "xD" is the one
 /// two-letter emoticon common enough to name.
+///
+/// A bracket opened before a letter and not closed is an aside beginning, not a face: "(Я" in
+/// "на платину. (Я ненавижу свою жизнь)" is the first word of a sentence of its own.
 fn is_an_emoticon(token: &str) -> bool {
     let length = token.chars().count();
     let letters = token.chars().filter(|ch| ch.is_alphanumeric()).count();
+    let mut chars = token.chars();
+    let opens_an_aside = chars
+        .next()
+        .is_some_and(|ch| matches!(ch, '(' | '\u{FF08}'))
+        && chars.next().is_some_and(char::is_alphabetic)
+        && !token.contains([')', '\u{FF09}']);
     (1..=4).contains(&length)
+        && !opens_an_aside
         && ((letters <= 1 && letters < length) || token.eq_ignore_ascii_case("xd"))
 }
 
@@ -2033,6 +2095,102 @@ mod tests {
         let claims =
             split("Enough about the values though... right? First off, it is about survival.");
         assert_eq!(claims.len(), 2, "got {claims:?}");
+    }
+
+    /// The cases below came from a person adjudicating Russian claims, who marked each as cut
+    /// in the wrong place.
+    #[test]
+    fn an_ellipsis_trailing_into_a_number_is_not_an_end() {
+        let claims = split(
+            "И в общей сложности, ради всех DLC, мне потребуется потратить плюс минус... 12.150 \
+             гривен?! В рублях это очень много!",
+        );
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert!(claims[0].ends_with("12.150 гривен?!"), "got {claims:?}");
+        let claims = split("It cost me... 60 dollars for the whole season. Not worth it at all.");
+        assert!(claims[0].contains("60 dollars"), "got {claims:?}");
+    }
+
+    #[test]
+    fn an_ellipsis_typed_as_one_character_trails_off_as_three_stops_do() {
+        for review in [
+            "It cost me\u{2026} 60 dollars for the whole season.",
+            "Overall the game nails Alien perfectly\u{2026} the aesthetics, the execution.",
+        ] {
+            assert_eq!(split(review), vec![review]);
+        }
+        let claims = split("The campaign is short\u{2026} Then the multiplayer takes over.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+    }
+
+    #[test]
+    fn a_bracket_opened_before_a_word_after_a_stop_is_an_aside_and_not_a_face() {
+        assert_eq!(
+            split(
+                "Если вам дорога ваша жизнь, то даже не пытайтесь закрыть эту игру на платину. (Я \
+                 ненавижу свою жизнь)"
+            ),
+            vec![
+                "Если вам дорога ваша жизнь, то даже не пытайтесь закрыть эту игру на платину.",
+                "(Я ненавижу свою жизнь)"
+            ]
+        );
+        let claims = split("Do not even try to get every achievement. (I hate my life)");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert!(!is_an_emoticon("(I"));
+        assert!(is_an_emoticon("(:"));
+    }
+
+    #[test]
+    fn a_stop_before_a_closing_tag_still_ends_the_sentence() {
+        let claims = split(
+            "[b]Игра не шибко стабильная.[/b] Сразу бросаются в глаза, а точнее в уши, заикания \
+             звука.",
+        );
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+        assert_eq!(claims[0], "Игра не шибко стабильная.");
+        let claims = split("[b]It crashes a lot.[/b] The sound stutters every few minutes.");
+        assert_eq!(claims.len(), 2, "got {claims:?}");
+    }
+
+    #[test]
+    fn dop_is_a_russian_abbreviation() {
+        let claims = split(
+            "Очень занимательная игра. Приятная графика, Большое разнообразие взаимодействий \
+             между персонажами, Огромный выбор доп. контента.",
+        );
+        assert!(
+            claims.iter().any(|claim| claim.contains("доп. контента")),
+            "got {claims:?}"
+        );
+    }
+
+    #[test]
+    fn a_rule_drawn_with_a_letter_in_it_is_not_a_claim() {
+        let claims = split(
+            "══════ஜ۩۞۩ஜ══════\n[h2][b]Обзор игры \"Content Warning\"[/b] [/h2]\n══════ஜ۩۞۩ஜ══════\n\
+             Веселая игра, интересно снимать как твоих друзей украл слизень.",
+        );
+        assert!(
+            claims.iter().all(|claim| !claim.contains('ஜ')),
+            "got {claims:?}"
+        );
+        for face in ["T_T", "Q_Q", "ஜ۩۞۩ஜ"] {
+            assert!(
+                split(face).is_empty(),
+                "{face:?} was handed back as a claim"
+            );
+        }
+        for kept in [
+            "N/A",
+            "o.k.",
+            "5/5",
+            "\u{597D} \u{597D}",
+            "I hate it",
+            "zzz",
+        ] {
+            assert_eq!(split(kept).len(), 1, "{kept:?} was dropped");
+        }
     }
 
     #[test]
