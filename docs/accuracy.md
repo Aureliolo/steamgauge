@@ -6,18 +6,18 @@ marked as such.
 
 ## Against the alternatives
 
-458 claims from the ten held-out games, twenty per subject. Every row answers only where it is
+457 claims from the ten held-out games, twenty per subject. Every row answers only where it is
 sure enough and is scored on what it answers. The answers are in `reference/frontier-key.json`.
 
 | | Answers | Agreement where it answers | Macro F1 |
 |---|---|---|---|
 | The commonest subject | never reaches three in four | 5.9% | 0.004 |
-| TF-IDF bag of words | 48% | 75.9% | 0.508 |
-| Nearest subject over an untuned encoder | 3% | 83.3% | 0.448 |
-| **The reader, 560M parameters** | **93%** | **80.7%** | **0.765** |
+| TF-IDF bag of words | 48% | 75.5% | 0.508 |
+| Nearest subject over an untuned encoder | 3% | 83.3% | 0.450 |
+| **The reader, 560M parameters** | **93%** | **80.6%** | **0.765** |
 | Claude Opus 5, given the same sheet | 99.3% | 85.9% | 0.860 |
 
-On all 5,080 held-out claims as they come, the reader answers 91.5% and agrees on 81.5% of
+On all 5,029 held-out claims as they come, the reader answers 91.6% and agrees on 81.5% of
 those (macro F1 0.707).
 
 Claude Opus 5 does better, at about 800 tokens a claim; a large game holds millions of claims,
@@ -32,10 +32,10 @@ small one and offers the standard one.
 <!-- reader sizes: rendered from reference/reader-sizes.json by training/sizes.py -->
 | Reader | Parameters | Download | Accuracy at 80% coverage | Accuracy at 90% coverage | GPU memory | One large game on the GPU | One small game on the CPU |
 |---|---|---|---|---|---|---|---|
-| small | 118M | 244 MB | 77.9% | 73.8% | 1.2 GB | 62 s | 36 s |
-| standard | 559M | 1.1 GB | 84.7% | 82.0% | 2.6 GB | 125 s | 285 s |
+| small | 118M | 244 MB | 78.1% | 74.0% | 1.2 GB | 62 s | 36 s |
+| standard | 559M | 1.1 GB | 84.4% | 82.0% | 2.6 GB | 125 s | 285 s |
 
-- **Accuracy at a coverage:** 458 claims from ten games held out of training, labelled under the
+- **Accuracy at a coverage:** 457 claims from ten games held out of training, labelled under the
   current category sheet. Each reader answers the given share of claims it is most confident about,
   scored on DirectML against `reference/frontier-key.json` (`frontier.py reader`).
 - **GPU memory and one large game on the GPU:** one read of game 920210 (117,664 claims) through the

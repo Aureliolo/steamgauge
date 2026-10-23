@@ -1,14 +1,15 @@
 {
-  "claims": 471,
+  "claims": 457,
   "unanswered_rows": 0,
-  "coverage": 0.9957537154989384,
-  "accuracy_where_answered": 0.8699360341151386,
+  "coverage": 0.9934354485776805,
+  "accuracy_where_answered": 0.8590308370044053,
   "accuracy_interval": [
-    0.8364625001953991,
-    0.8973984798875717
+    0.8240002126066583,
+    0.8880364393707941
   ],
-  "polarity_where_subject_right": 0.9411764705882353,
-  "macro_f1": 0.8727811764251949,
+  "polarity_where_subject_right": 0.9512820512820512,
+  "macro_f1": 0.8602275929279359,
   "off_sheet_subjects": {},
+  "unreadable": 30,
   "answered_by": "claude-opus-5"
 }
