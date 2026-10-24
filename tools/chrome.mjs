@@ -41,6 +41,9 @@ export const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const START_LIMIT_MS = 90_000;
 
+// What the page calls when it goes hidden, on every document it loads.
+const HIDDEN = "steamgaugeCheckWentHidden";
+
 /// Starts Chrome on the page, in a profile of its own, and waits for it to say which port it
 /// listens on. Throws with whatever Chrome said if it dies first.
 export async function open(url, { prefix = "steamgauge-check-" } = {}) {
@@ -57,6 +60,12 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
       // A runner's /dev/shm is small enough that Chrome's renderer falls over on it, and the
       // fall is silent.
       "--disable-dev-shm-usage",
+      // Every page checked is a file or is served from 127.0.0.1, and holds to fetching nothing
+      // else, so no name needs resolving. Closing that off also keeps out an extension a
+      // machine's policy force-installs into every profile, a fresh headless one included: it
+      // downloads from the Web Store and opens a sign-in page in front of the one under test,
+      // which hides it.
+      "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
       url,
     ],
     { stdio: ["ignore", "ignore", "pipe"] },
@@ -137,10 +146,17 @@ export async function connect(url) {
   // markup can be free of every http:// this tool would have written and still pull a font
   // in from a stylesheet nobody read closely.
   const asked = [];
+  // A hidden page has its timers fired once a minute and the window records no look nobody
+  // could see, so a check run on one crawls and then fails on something else. Nothing in a
+  // check hides the page; something that does has been put in front of it, and is named.
+  let hidden = false;
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data);
     if (message.method === "Network.requestWillBeSent") {
       asked.push(message.params.request.url);
+    }
+    if (message.method === "Runtime.bindingCalled" && message.params.name === HIDDEN) {
+      hidden = true;
     }
     // Only a reply to a command this side sent: an id it numbered, answered once. Anything
     // else on the socket, events included, settles nothing.
@@ -159,11 +175,31 @@ export async function connect(url) {
       waiting.set(id, ok);
       socket.send(JSON.stringify({ id, method, params }));
     });
-  const evaluate = (expression) =>
-    send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-  // On a Windows desktop headless Chrome reports its page hidden within seconds. A hidden page
-  // gets its timers fired once a minute, and the window records no look nobody could see, so
-  // a check run there crawled for half an hour and failed. Emulated focus keeps it visible.
-  await send("Emulation.setFocusEmulationEnabled", { enabled: true });
+  const evaluate = async (expression) => {
+    if (hidden) {
+      const pages = await fetch(`${new URL(url).origin.replace("ws:", "http:")}/json/list`)
+        .then((r) => r.json())
+        .then((list) => list.filter((t) => t.type === "page").map((t) => t.url))
+        .catch(() => []);
+      throw new Error(`the page under test went hidden; the browser's pages:\n  ${pages.join("\n  ")}`);
+    }
+    return send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+  };
+  // A page being left goes hidden on its way out, and by then its binding may be gone too.
+  const watch = `{
+    let leaving = false;
+    addEventListener("pagehide", () => { leaving = true; });
+    const tell = () => {
+      if (!leaving && document.visibilityState === "hidden" && typeof ${HIDDEN} === "function") {
+        ${HIDDEN}("");
+      }
+    };
+    document.addEventListener("visibilitychange", tell);
+    tell();
+  }`;
+  await send("Runtime.addBinding", { name: HIDDEN });
+  await send("Runtime.enable", {});
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: watch });
+  await send("Runtime.evaluate", { expression: watch });
   return { socket, send, asked, evaluate };
 }
