@@ -1,0 +1,19 @@
+[
+  {
+    "review_id": "104532431",
+    "index": 0,
+    "app_id": 1466860,
+    "language": "russian",
+    "subset": "random",
+    "start": 0,
+    "end": 2,
+    "taxonomy": "14d11a13721e",
+    "produced_by": "pexp13",
+    "subject": "offtopic",
+    "polarity": "complaint",
+    "ironic": false,
+    "confidence": "high",
+    "ambiguous": false,
+    "split_wrong": false
+  }
+]
