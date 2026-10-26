@@ -70,7 +70,7 @@ jobs:
       # The .deb is linted on Debian and the .rpm linted and installed on Fedora, each pinned by
       # digest so the check is the same each run.
       # renovate: datasource=docker depName=debian
-      DEBIAN_IMAGE: debian:13@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
+      DEBIAN_IMAGE: debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
       # renovate: datasource=docker depName=fedora
       FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
@@ -110,8 +110,8 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.3
-          TAURI_CLI_SHA256: 563cb2aef280c393688cebaff1a9fd4a2f6df4fdb9be2c665ff3c798a4ffe7c2
+          TAURI_CLI_TAG: tauri-cli-v2.12.4
+          TAURI_CLI_SHA256: 3e8687fb184bd7f10ebd8642f7715f79f4a605c0694c142a21507e8a24dc0f8b
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"
@@ -125,8 +125,8 @@ jobs:
         if: runner.os == 'macOS' && needs.scope.outputs.code != 'false'
         env:
           # renovate: datasource=github-release-attachments depName=tauri-apps/tauri versioning=regex:^tauri-cli-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          TAURI_CLI_TAG: tauri-cli-v2.12.3
-          TAURI_CLI_SHA256: 35e3b339bfb5f2061023bf5646dc969e5fa53b6fc4347daf467e7f6743692494
+          TAURI_CLI_TAG: tauri-cli-v2.12.4
+          TAURI_CLI_SHA256: f71a34ada728ca2d1a51c28d6d21639e1e080898ec69ec8d49c5da3b7e8bc1be
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/cargo-tauri.zip"

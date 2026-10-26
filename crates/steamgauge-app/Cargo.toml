@@ -30,7 +30,7 @@ steamgauge-core.workspace = true
 clap = { version = "=4.6.7", features = ["derive"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
-tauri = { version = "=2.12.4", features = [] }
+tauri = { version = "=2.12.5", features = [] }
 tauri-plugin-opener = "=2.7.2"
 tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
 # Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
@@ -43,8 +43,8 @@ dirs = "=7.0.0"
 # The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
 # pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
 # standard input and output and is itself a client of the open app.
-rmcp = { version = "=3.6.0", default-features = false, features = ["server", "client", "transport-io", "transport-streamable-http-server"] }
-interprocess = { version = "=2.4.6", features = ["tokio"] }
+rmcp = { version = "=3.7.0", default-features = false, features = ["server", "client", "transport-io", "transport-streamable-http-server"] }
+interprocess = { version = "=2.4.7", features = ["tokio"] }
 schemars = "=1.2.3"
 base64 = "=0.23.1"
 getrandom = "=0.4.3"
@@ -61,7 +61,7 @@ tokio-util = "=0.7.20"
 # one that wrote it.
 jsonc-parser = { version = "=0.34.0", features = ["cst", "serde"] }
 toml_edit = { version = "=0.25.17", features = ["serde"] }
-yaml-edit = "=0.3.2"
+yaml-edit = "=0.3.5"
 serde-saphyr = "=2.0.0"
 # One app per user, so a client and the person share one library, one work board and one window.
 tauri-plugin-single-instance = "=2.5.4"
@@ -70,7 +70,7 @@ tauri-plugin-single-instance = "=2.5.4"
 glob = "=0.3.4"
 
 [build-dependencies]
-tauri-build = { version = "=2.7.3", features = [] }
+tauri-build = { version = "=2.7.4", features = [] }
 
 [features]
 default = []
