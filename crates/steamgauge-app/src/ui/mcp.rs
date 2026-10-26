@@ -204,6 +204,69 @@ fn as_asked(found: &impl Serialize, asked: &ReadingAsked) -> Result<serde_json::
     Ok(reading)
 }
 
+/// What `work` gives of the board. Two hundred queued jobs come to some 60,000 characters, more
+/// than a client can take in one answer, so a state with many jobs gives its nearest few.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct WorkAsked {
+    /// Only the jobs about this game, every one of them.
+    app_id: Option<u32>,
+    /// How many jobs of each state: the next to run of those queued, the latest of those ended;
+    /// 10 when not given. Every running job is given.
+    jobs: Option<usize>,
+}
+
+/// How many jobs of each state `work` gives when not asked for a number.
+const JOBS_GIVEN: usize = 10;
+
+/// The board cut to what was asked for, with how many of each state were left out.
+fn work_as_asked(board: Vec<work::Job>, asked: &WorkAsked) -> serde_json::Value {
+    let board: Vec<work::Job> = board
+        .into_iter()
+        .filter(|job| {
+            asked
+                .app_id
+                .is_none_or(|app_id| job.task.app_id() == Some(app_id))
+        })
+        .collect();
+    let given = if asked.app_id.is_some() {
+        usize::MAX
+    } else {
+        asked.jobs.unwrap_or(JOBS_GIVEN)
+    };
+    let mut jobs = Vec::new();
+    let mut left_out = serde_json::Map::new();
+    for state in [
+        work::State::Running,
+        work::State::Queued,
+        work::State::Failed,
+        work::State::Stopped,
+        work::State::Done,
+    ] {
+        let mut these: Vec<&work::Job> = board.iter().filter(|job| job.state == state).collect();
+        let keep = if state == work::State::Running {
+            these.len()
+        } else {
+            given
+        };
+        if state != work::State::Queued {
+            these.sort_by_key(|job| std::cmp::Reverse(job.ended));
+        }
+        if these.len() > keep {
+            left_out.insert(
+                serde_json::to_value(state)
+                    .ok()
+                    .and_then(|name| name.as_str().map(str::to_owned))
+                    .unwrap_or_default(),
+                (these.len() - keep).into(),
+            );
+            these.truncate(keep);
+        }
+        jobs.extend(these.into_iter().cloned());
+    }
+    serde_json::json!({ "jobs": jobs, "left_out": left_out })
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SomeGames {
@@ -676,8 +739,10 @@ fn entries() -> Vec<Entry> {
         tool(
             "work",
             Looks,
-            "Every job on the board: what it is, where it stands, how far it has got and how long is left.",
-            |app, Nothing {}| off_thread(move || work::work(app.state::<work::Work>())),
+            "The jobs on the board: what each is, where it stands, how far it has got and how long is left. Every running job, and of the others the ten next to run and the ten latest to end in each state unless more are asked for, with how many were left out; every job of one game when it is named.",
+            |app, asked: WorkAsked| {
+                off_thread(move || work_as_asked(work::work(app.state::<work::Work>()), &asked))
+            },
         ),
         tool(
             "queue",
@@ -1120,6 +1185,62 @@ mod tests {
         let one = as_asked(&found, &asked(Some(1), false, true, false)).unwrap();
         assert_eq!(one["themes"]["praise"], serde_json::json!([0]));
         assert!(one.get("who").is_some() && one.get("months").is_none());
+    }
+
+    #[test]
+    fn the_board_gives_every_running_job_and_ten_of_each_other_state_unless_asked() {
+        let job = |id: u64, app_id: u32, state: work::State, ended: Option<i64>| work::Job {
+            id,
+            task: work::Task::Download { app_id },
+            name: String::new(),
+            state,
+            step: String::new(),
+            unit: work::Unit::Reviews,
+            done: 0.0,
+            total: None,
+            rate: None,
+            left: None,
+            note: None,
+            queued: 0,
+            started: None,
+            ended,
+            background: false,
+        };
+        let mut board: Vec<work::Job> = (0..12)
+            .map(|id| job(id, 1, work::State::Running, None))
+            .collect();
+        board.extend((12..42).map(|id| job(id, 2, work::State::Queued, None)));
+        board.extend((42..57).map(|id| {
+            let ended = i64::try_from(id).unwrap();
+            job(id, 3, work::State::Done, Some(ended))
+        }));
+        board.push(job(57, 3, work::State::Failed, Some(1)));
+        let ids = |given: &serde_json::Value| -> Vec<u64> {
+            given["jobs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|job| job["id"].as_u64().unwrap())
+                .collect()
+        };
+        let asked = |app_id, jobs| WorkAsked { app_id, jobs };
+
+        let brief = work_as_asked(board.clone(), &asked(None, None));
+        let mut wanted: Vec<u64> = (0..22).collect();
+        wanted.push(57);
+        wanted.extend((47..57).rev());
+        assert_eq!(ids(&brief), wanted);
+        assert_eq!(
+            brief["left_out"],
+            serde_json::json!({ "queued": 20, "done": 5 })
+        );
+
+        let one_game = work_as_asked(board.clone(), &asked(Some(3), Some(1)));
+        assert_eq!(ids(&one_game).len(), 16);
+        assert_eq!(one_game["left_out"], serde_json::json!({}));
+
+        let fewer = work_as_asked(board, &asked(None, Some(2)));
+        assert_eq!(ids(&fewer).len(), 12 + 2 + 1 + 2);
     }
 
     #[test]
