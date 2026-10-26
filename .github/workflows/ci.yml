@@ -60,7 +60,7 @@ jobs:
       # WebKitGTK, and without it the workspace does not build at all: the failure is
       # `glib-sys` failing its build script, which names nothing about Tauri.
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - uses: $/.github/actions/onnx-runtime
       - run: cargo fmt --all -- --check
       # Deliberately not --all-features: the cuda and coreml backends need vendor toolchains
@@ -160,7 +160,7 @@ jobs:
         with:
           persist-credentials: false
       - if: needs.scope.outputs.code != 'false'
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - if: needs.scope.outputs.code != 'false'
         uses: $/.github/actions/onnx-runtime
         with:
@@ -200,7 +200,7 @@ jobs:
       - if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - if: needs.scope.outputs.code != 'false'
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - if: needs.scope.outputs.code != 'false'
         uses: $/.github/actions/onnx-runtime
       - if: needs.scope.outputs.code != 'false'
@@ -222,7 +222,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           python-version: "3.14"
           activate-environment: true
@@ -253,7 +253,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - uses: $/.github/actions/onnx-runtime
       # axe-core, which checks every page and state of the report and the window against WCAG
       # 2.2 at levels A and AA, at the version and hash the lock file pins, with no install
@@ -296,8 +296,8 @@ jobs:
       - name: Install Vale
         env:
           # renovate: datasource=github-release-attachments depName=errata-ai/vale versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          VALE_TAG: v3.24.0
-          VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
+          VALE_TAG: v3.25.1
+          VALE_SHA256: 4bf5c5176b682b1da0830f471584d3494f1c2e27ee3029e1ad6f6661d4962182
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/vale.tar.gz"
@@ -508,7 +508,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint
-        uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
 
   # Every shell script in the repository, with every optional check on. actionlint reads the
   # shell inside the workflows' run: blocks, and nothing reads the scripts beside them.

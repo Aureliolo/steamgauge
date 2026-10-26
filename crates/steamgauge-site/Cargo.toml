@@ -13,7 +13,7 @@ publish.workspace = true
 [dependencies]
 anyhow = "=1.0.104"
 clap = { version = "=4.6.7", features = ["derive"] }
-pulldown-cmark = { version = "=0.13.4", default-features = false, features = ["html"] }
+pulldown-cmark = { version = "=0.13.5", default-features = false, features = ["html"] }
 # Each page's Markdown twin, written back from the same events the HTML is rendered from, so
 # both carry the same rewritten links.
 pulldown-cmark-to-cmark = "=23.0.0"
