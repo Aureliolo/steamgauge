@@ -295,19 +295,19 @@ args = ["mcp"]
 Goose:
 
 ```yaml
-extensions: {steamgauge: {name: "steamgauge", type: "stdio", cmd: "<path to steamgauge>", args: [mcp], enabled: true, timeout: 300}}
+extensions: {steamgauge: {name: steamgauge, type: stdio, cmd: '<path to steamgauge>', args: [mcp], enabled: true, timeout: 300}}
 ```
 
 Hermes Agent:
 
 ```yaml
-mcp_servers: {steamgauge: {command: "<path to steamgauge>", args: [mcp]}}
+mcp_servers: {steamgauge: {command: '<path to steamgauge>', args: [mcp]}}
 ```
 
 Continue:
 
 ```yaml
-mcpServers: [{name: "steamgauge", type: "stdio", command: "<path to steamgauge>", args: [mcp]}]
+mcpServers: [{name: steamgauge, type: stdio, command: '<path to steamgauge>', args: [mcp]}]
 ```
 
 OpenClaw:
