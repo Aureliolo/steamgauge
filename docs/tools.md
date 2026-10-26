@@ -249,8 +249,13 @@ its players say, from its themes, with a model on this machine.
 
 ### `work`
 
-Every job on the board: what it is, where it stands, how far it has got and how long is left. Only
-looks.
+The jobs on the board: what each is, where it stands, how far it has got and how long is left. Every
+running job, and of the others the ten next to run and the ten latest to end in each state unless
+more are asked for, with how many were left out; every job of one game when it is named. Only looks.
+
+- `app_id`: Only the jobs about this game, every one of them.
+- `jobs`: How many jobs of each state: the next to run of those queued, the latest of those ended;
+  10 when not given. Every running job is given.
 
 ### `read_offer`
 
