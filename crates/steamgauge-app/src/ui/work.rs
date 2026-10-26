@@ -1475,13 +1475,26 @@ async fn export(
         if stop.load(Ordering::Relaxed) {
             return Err("stopped".to_owned());
         }
-        let partial = written.with_extension("partial");
-        std::fs::write(&partial, steamgauge_core::html::render(&report)).map_err(text)?;
-        std::fs::rename(&partial, &written).map_err(text)
+        saved(&written, &steamgauge_core::html::render(&report))
     })
     .await
     .map_err(text)??;
     Ok(Ended::said(format!("Saved as {}.", to.display())))
+}
+
+/// Writes a file whole at `to`, by way of a `.partial` beside it, making the folders above it as
+/// the path names them: an assistant queueing a report names a path rather than picking one that
+/// exists in a dialog. What cannot be made or written is named.
+fn saved(to: &std::path::Path, contents: &str) -> Result<(), String> {
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("{} cannot be made: {error}", parent.display()))?;
+    }
+    let partial = to.with_extension("partial");
+    std::fs::write(&partial, contents)
+        .map_err(|error| format!("{} cannot be written: {error}", partial.display()))?;
+    std::fs::rename(&partial, to)
+        .map_err(|error| format!("{} cannot be written: {error}", to.display()))
 }
 
 async fn export_data(
@@ -1705,6 +1718,22 @@ mod tests {
         let (id, _, _) = work.take(Lane::Machine).unwrap();
         assert_eq!(id, other, "the read of the game being updated waits");
         assert!(work.take(Lane::Machine).is_none());
+    }
+
+    #[test]
+    fn a_report_is_saved_whole_into_folders_made_for_it_and_a_folder_it_cannot_make_is_named() {
+        let scratch = std::env::temp_dir().join(format!("steamgauge-saved-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let to = scratch.join("comparables").join("data").join("report.html");
+        saved(&to, "<p>whole</p>").unwrap();
+        assert_eq!(std::fs::read_to_string(&to).unwrap(), "<p>whole</p>");
+        assert!(!to.with_extension("partial").exists());
+
+        let a_file = scratch.join("a file");
+        std::fs::write(&a_file, "").unwrap();
+        let refused = saved(&a_file.join("report.html"), "").unwrap_err();
+        assert!(refused.contains(&a_file.display().to_string()), "{refused}");
+        std::fs::remove_dir_all(&scratch).unwrap();
     }
 
     #[test]

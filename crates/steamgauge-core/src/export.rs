@@ -77,7 +77,8 @@ pub struct Exported {
 ///
 /// # Errors
 ///
-/// Refused where something is already at `to`, or a `.partial` folder is left beside it; fails
+/// Refused where something is already at `to`, a `.partial` folder is left beside it, or a folder
+/// on the way to it cannot be made, which the refusal names; fails
 /// where the game has not been read, or a file cannot be read or written; and stops, leaving
 /// nothing, once `stop` is set.
 pub fn game(
@@ -121,15 +122,27 @@ pub fn game(
     let mut partial_name = name.to_os_string();
     partial_name.push(".partial");
     let partial = to.with_file_name(partial_name);
+    // The folders above the new one are made as the path names them: an assistant queueing an
+    // export names a path rather than picking one that exists in a dialog.
+    if let Some(parent) = to.parent()
+        && let Err(error) = std::fs::create_dir_all(parent)
+    {
+        return Err(Error::Refused(format!(
+            "{} cannot be made: {error}",
+            parent.display()
+        )));
+    }
     if let Err(error) = std::fs::create_dir(&partial) {
-        return Err(if error.kind() == std::io::ErrorKind::AlreadyExists {
-            Error::Refused(format!(
-                "{} is left from an export that did not finish; remove it and export again",
-                partial.display()
-            ))
-        } else {
-            error.into()
-        });
+        return Err(Error::Refused(
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                format!(
+                    "{} is left from an export that did not finish; remove it and export again",
+                    partial.display()
+                )
+            } else {
+                format!("{} cannot be made: {error}", partial.display())
+            },
+        ));
     }
     let written = write(&game, &snapshot, &partial, stop, &mut on_progress).and_then(|written| {
         std::fs::rename(&partial, to)
@@ -2377,6 +2390,22 @@ mod tests {
         assert!(
             !to.exists() && !partial.exists(),
             "a stopped export leaves nothing"
+        );
+
+        let deeper = out.path().join("comparables").join("data").join("1");
+        let exported = game(out.path(), 1, &deeper, &never, |_, _| {}).unwrap();
+        assert_eq!(exported.folder, deeper);
+        assert!(
+            deeper.join("README.txt").is_file(),
+            "the folders above a new one are made"
+        );
+
+        let a_file = out.path().join("a file");
+        std::fs::write(&a_file, "").unwrap();
+        let refused = game(out.path(), 1, &a_file.join("data"), &never, |_, _| {}).unwrap_err();
+        assert!(
+            matches!(refused, Error::Refused(ref why) if why.contains(&a_file.display().to_string())),
+            "a folder that cannot be made is named: {refused}"
         );
 
         let unread = crate::read::tests::corpus_of(out.path(), 4);
