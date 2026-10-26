@@ -151,6 +151,59 @@ struct OneGame {
     app_id: u32,
 }
 
+/// What `reading` gives of a game. The whole game page is some 70,000 characters on a game with
+/// many themes, more than a client can take in one answer, so the parts a question about the
+/// game seldom needs come only when asked for.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ReadingAsked {
+    /// The game's Steam app id, as in its store address.
+    app_id: u32,
+    /// How many themes on each side, the most widely said first; 10 when not given.
+    /// `claims_behind` with a theme gives the reviews behind one.
+    themes: Option<usize>,
+    /// Also how the figures move month by month.
+    #[serde(default)]
+    months: bool,
+    /// Also the kinds of reviewer, and where one says something more or less often than the rest.
+    #[serde(default)]
+    who: bool,
+    /// Also the languages the reviews are written in.
+    #[serde(default)]
+    languages: bool,
+}
+
+/// How many themes a side `reading` gives when not asked for a number.
+const THEMES_GIVEN: usize = 10;
+
+/// A reading cut to what was asked for.
+fn as_asked(found: &impl Serialize, asked: &ReadingAsked) -> Result<serde_json::Value, String> {
+    let mut reading = serde_json::to_value(found).map_err(text)?;
+    let Some(fields) = reading.as_object_mut() else {
+        return Ok(reading);
+    };
+    if let Some(sides) = fields
+        .get_mut("themes")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for side in sides.values_mut() {
+            if let Some(themes) = side.as_array_mut() {
+                themes.truncate(asked.themes.unwrap_or(THEMES_GIVEN));
+            }
+        }
+    }
+    for (part, wanted) in [
+        ("months", asked.months),
+        ("who", asked.who),
+        ("languages", asked.languages),
+    ] {
+        if !wanted {
+            fields.remove(part);
+        }
+    }
+    Ok(reading)
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SomeGames {
@@ -464,8 +517,12 @@ fn entries() -> Vec<Entry> {
         tool(
             "reading",
             Looks,
-            "A read game's figures: every subject its players talk about, how often, praised and criticised, with the terms that stand out, the particular things praised and complained about where the game is prepared for search by meaning, and how the figures move month by month.",
-            |app, OneGame { app_id }| off_thread_trying(move || super::reading(app, app_id)),
+            "A read game's figures: every subject its players talk about, how often, praised and criticised, with the terms that stand out; what stands out, as the writer put it; and the things praised and complained about most widely, ten a side unless more are asked for, where the game is prepared for search by meaning. How the figures move month by month, the kinds of reviewer and the languages come when asked for.",
+            |app, asked: ReadingAsked| {
+                off_thread_trying(move || {
+                    super::reading(app, asked.app_id).and_then(|found| as_asked(&found, &asked))
+                })
+            },
         ),
         tool(
             "induced",
@@ -1027,6 +1084,42 @@ mod tests {
             })
             .filter(|name| !name.is_empty())
             .collect()
+    }
+
+    #[test]
+    fn a_reading_gives_ten_themes_a_side_and_the_rest_only_when_asked() {
+        let found = serde_json::json!({
+            "app_id": 1,
+            "subjects": [{ "id": "price" }],
+            "themes": {
+                "praise": (0..15).collect::<Vec<u32>>(),
+                "complaint": (0..3).collect::<Vec<u32>>(),
+            },
+            "months": [1],
+            "who": { "kinds": [] },
+            "languages": [1],
+        });
+        let asked = |themes, months, who, languages| ReadingAsked {
+            app_id: 1,
+            themes,
+            months,
+            who,
+            languages,
+        };
+
+        let brief = as_asked(&found, &asked(None, false, false, false)).unwrap();
+        assert_eq!(brief["themes"]["praise"].as_array().unwrap().len(), 10);
+        assert_eq!(brief["themes"]["complaint"].as_array().unwrap().len(), 3);
+        assert_eq!(brief["subjects"], found["subjects"]);
+        for part in ["months", "who", "languages"] {
+            assert!(brief.get(part).is_none(), "{part} given unasked");
+        }
+
+        let whole = as_asked(&found, &asked(Some(100), true, true, true)).unwrap();
+        assert_eq!(whole, found);
+        let one = as_asked(&found, &asked(Some(1), false, true, false)).unwrap();
+        assert_eq!(one["themes"]["praise"], serde_json::json!([0]));
+        assert!(one.get("who").is_some() && one.get("months").is_none());
     }
 
     #[test]
