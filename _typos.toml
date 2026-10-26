@@ -10,7 +10,7 @@ locale = "en-gb"
 # by their names, rustc's sanitiser flag, BinSkim's rule names and its analyse command; the
 # in-toto file extension; syft's catalogers; GitHub's artifact actions; ONNX's
 # LayerNormalization; the Model Context Protocol's `initialize` handshake and rmcp's name for it;
-# PowerShell's -PassThru switch; the winget manifest's UpgradeBehavior field;
+# PowerShell's -PassThru switch; the winget manifest's UpgradeBehavior field; the include-flate crate;
 # a game's name; a partial word typed into a filter under test; hexadecimal
 # digests and Unicode escapes, which are not words; a licence quoted word for word; the American
 # spellings the writer's paragraph is turned out of, and the test of it; and the
@@ -49,6 +49,7 @@ extend-ignore-re = [
   'ClientLifecycleMode::Initialize\b',
   '-PassThru\b',
   '(?m)^UpgradeBehavior: ',
+  '\binclude-flate\b',
   '(?i)\bbeat[ _]saber\b',
   '\b[0-9a-f]*[0-9][0-9a-f]*\b',
   '\\u\{[0-9A-Fa-f]+\}',

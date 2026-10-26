@@ -28,3 +28,11 @@ pedantic = { level = "warn", priority = -1 }
 [profile.release]
 lto = "thin"
 strip = true
+
+# jieba-rs's dictionary comes through include-flate, whose latest release builds on zstd 0.13, a
+# line with no fix for RUSTSEC-2026-0391 or the zstd-safe 7 advisories; its main is on zstd 0.14.
+# The fuzz workspace carries the same patch.
+[patch.crates-io]
+include-flate = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
+include-flate-codegen = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
+include-flate-compress = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
