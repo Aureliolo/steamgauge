@@ -125,10 +125,17 @@ Puts a page of the window in front of the person, bringing the window forward. O
 ### `reading`
 
 A read game's figures: every subject its players talk about, how often, praised and criticised, with
-the terms that stand out, the particular things praised and complained about where the game is
-prepared for search by meaning, and how the figures move month by month. Only looks.
+the terms that stand out; what stands out, as the writer put it; and the things praised and
+complained about most widely, ten a side unless more are asked for, where the game is prepared for
+search by meaning. How the figures move month by month, the kinds of reviewer and the languages come
+when asked for. Only looks.
 
 - `app_id`, required: The game's Steam app id, as in its store address.
+- `languages`: Also the languages the reviews are written in.
+- `months`: Also how the figures move month by month.
+- `themes`: How many themes on each side, the most widely said first; 10 when not given.
+  `claims_behind` with a theme gives the reviews behind one.
+- `who`: Also the kinds of reviewer, and where one says something more or less often than the rest.
 
 ### `claims_behind`
 
