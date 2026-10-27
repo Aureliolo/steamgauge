@@ -33,5 +33,7 @@ jobs:
           allow-licenses: >-
             MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-2-Clause, BSD-3-Clause, ISC, Zlib,
             0BSD, Unlicense, CC0-1.0, BSL-1.0, Python-2.0, MPL-2.0, Unicode-3.0, CDLA-Permissive-2.0
-          # They declare "Apache-2.0/MIT", which GitHub cannot parse; it means MIT OR Apache-2.0.
-          allow-dependencies-licenses: pkg:cargo/dbus, pkg:cargo/libdbus-sys
+          # They declare "Apache-2.0/MIT" and "BSD-3-Clause/MIT", which GitHub cannot parse; each
+          # means either licence, and cargo deny reads them so.
+          allow-dependencies-licenses: >-
+            pkg:cargo/dbus, pkg:cargo/libdbus-sys, pkg:cargo/brotli-decompressor
