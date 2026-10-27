@@ -107,9 +107,13 @@ jobs:
       # cargo-mutants exits 3 for a timeout before 2 for a survivor, so the exit code can hide a
       # survivor behind a mutant that hung; what fails the check is missed.txt. A timeout is a
       # test noticing: the suite would not have finished.
+      #
+      # rust-cache turns incremental compilation off for the job, which suits a build done once;
+      # each mutant rebuilds the core crate, which takes about a third as long incrementally.
       - name: Mutate what the pull request changed
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CARGO_INCREMENTAL: "1"
         run: |
           set -euo pipefail
           git diff "${BASE_SHA}...HEAD" > "${RUNNER_TEMP}/change.diff"
@@ -136,9 +140,10 @@ jobs:
           path: mutants.out/
           if-no-files-found: ignore
 
-  # About 3,600 mutants at five to ten seconds each, two at a time on four cores, is five to ten
-  # hours on one runner, so the crate is dealt out over sixteen, round robin so that a slow file
-  # is spread across all of them: a shard is some 225 mutants, half an hour or so.
+  # About 4,800 mutants at some twenty seconds each, two at a time on four cores, is about
+  # thirteen hours on one runner, so the crate is dealt out over sixteen, round robin so that a
+  # slow file is spread across all of them: a shard is some 300 mutants, under an hour. A shard
+  # nearing its two hours is the sign to deal the crate over more.
   shard:
     # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
     # without one.
@@ -184,10 +189,11 @@ jobs:
         run: cargo test --locked --tests -p steamgauge-core --no-run
 
       # Survivors and timeouts are what the report job gathers; anything else, a baseline that
-      # fails or a tree that does not build, fails the shard.
+      # fails or a tree that does not build, fails the shard. Incremental, as for a pull request.
       - name: Mutate one shard of the crate
         env:
           SHARD: ${{ matrix.shard }}
+          CARGO_INCREMENTAL: "1"
         run: |
           set -euo pipefail
           status=0
