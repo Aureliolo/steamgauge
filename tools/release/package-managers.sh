@@ -143,7 +143,7 @@ jq -n \
 # entry's publisher is the one that setup program writes there, tauri.conf.json's, so winget
 # knows an installed SteamGauge as this package. The package itself is published under the
 # GitHub account that releases it.
-manifest_version=1.12.0
+manifest_version=1.28.0
 schema="https://aka.ms/winget-manifest"
 identifier=Aureliolo.SteamGauge
 
