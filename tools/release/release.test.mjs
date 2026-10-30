@@ -382,7 +382,7 @@ test("the check refuses notices that leave out a crate, a file or a licence", ()
 
 test("the C++ runtime beside the Windows binary has its part in the notices, and only there", () => {
   const notices = renderFor(WINDOWS);
-  assert.match(notices, new RegExp(`^  5\\. ${CPP_RUNTIME.heading.replace(/\+/g, "\\+")}$`, "m"));
+  assert.ok(notices.split("\n").includes(`  5. ${CPP_RUNTIME.heading}`));
   assert.ok(notices.includes(CPP_RUNTIME.redistribution) && notices.includes(CPP_RUNTIME.terms));
   assert.match(renderFor(WINDOWS, { directml: false }), /^4\. Microsoft Visual C\+\+ runtime$/m);
   assert.doesNotMatch(renderFor("x86_64-unknown-linux-gnu", { directml: false }), /Visual C\+\+/);

@@ -356,8 +356,13 @@ export function checkNotices({ target, notices, crates, lock, files }) {
     problems.push(`THIRD-PARTY-NOTICES.txt does not carry ONNX Runtime ${ONNX_RUNTIME.version}'s licence.`);
   }
   const hasDirectmlSection = notices.includes(`${RULE}\n4. ${DIRECTML.heading} ${DIRECTML.version}\n${RULE}`);
-  const hasCppSection = new RegExp(`${RULE}\\n\\d\\. ${CPP_RUNTIME.heading.replace(/\+/g, "\\+")}\\n${RULE}`).test(
-    notices,
+  const lines = notices.split("\n");
+  const hasCppSection = lines.some(
+    (line, index) =>
+      lines[index - 1] === RULE &&
+      lines[index + 1] === RULE &&
+      /^\d+\. /.test(line) &&
+      line.slice(line.indexOf(" ") + 1) === CPP_RUNTIME.heading,
   );
   const cppFiles = [...files.keys()].filter((file) => CPP_RUNTIME.dll.test(file));
   if (cppFiles.length > 0 && !hasCppSection) {
