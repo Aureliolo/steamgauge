@@ -240,7 +240,7 @@ jobs:
             $said = (& steamgauge --version | Out-String).Trim()
             if ($said -ne "steamgauge $version") { throw "steamgauge --version said '$said', not 'steamgauge $version'." }
             Write-Output $said
-            foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
+            foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'msvcp140.dll', 'vcruntime140.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
               if (-not (Test-Path "$installed\$file")) { throw "Scoop put no $file in $installed." }
             }
             $shortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Scoop Apps\SteamGauge.lnk"
@@ -366,7 +366,7 @@ jobs:
             throw "winget install failed with $($install.ExitCode)."
           }
           $installed = "$env:LOCALAPPDATA\SteamGauge"
-          foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
+          foreach ($file in 'steamgauge.exe', 'DirectML.dll', 'msvcp140.dll', 'vcruntime140.dll', 'LICENSE', 'THIRD-PARTY-NOTICES.txt') {
             if (-not (Test-Path "$installed\$file")) { throw "winget's install put no $file in $installed." }
           }
           # PowerShell hands a windowed program a pipe, and waits for it, only when something
