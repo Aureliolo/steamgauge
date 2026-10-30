@@ -21,8 +21,8 @@ FunctionEnd
 ; for as long as the assistant runs, and one that is closed stays cut off until the person
 ; restarts the assistant. Tauri's own check closes every process the installed program runs in, so
 ; only the uninstaller asks it. Installing closes just the window, found by the class
-; tauri.conf.json gives it, asking first as Tauri's check does, and moves the program and
-; DirectML.dll aside where something still holds them: Windows lets a file a running program was
+; tauri.conf.json gives it, asking first as Tauri's check does, and moves the program and the
+; DLLs beside it aside where something still holds them: Windows lets a file a running program was
 ; loaded from be moved within its drive, though not written. Each install moves them into a
 ; folder of its own under replaced, and the next install or the uninstaller removes what nothing
 ; holds any more.
@@ -87,19 +87,31 @@ FunctionEnd
   ${Do}
     !insertmacro SteamGaugeFree "${MAINBINARYNAME}.exe"
     StrCpy $R6 $R5
-    !insertmacro SteamGaugeFree "DirectML.dll"
-    ${If} $R5 = 1
-    ${AndIf} $R6 = 1
+    FindFirst $R4 $R3 "$INSTDIR\*.dll"
+    ${DoWhile} $R3 != ""
+      !insertmacro SteamGaugeFree "$R3"
+      ${IfThen} $R5 = 0 ${|} StrCpy $R6 0 ${|}
+      FindNext $R4 $R3
+    ${Loop}
+    FindClose $R4
+    ${If} $R6 = 1
       ${Break}
     ${EndIf}
     IntOp $R9 $R9 + 1
     ${If} $R9 >= 240
-      Rename "$INSTDIR\replaced\$R7\${MAINBINARYNAME}.exe" "$INSTDIR\${MAINBINARYNAME}.exe"
-      Rename "$INSTDIR\replaced\$R7\DirectML.dll" "$INSTDIR\DirectML.dll"
+      FindFirst $R4 $R3 "$INSTDIR\replaced\$R7\*"
+      ${DoWhile} $R3 != ""
+        ${If} $R3 != "."
+        ${AndIf} $R3 != ".."
+          Rename "$INSTDIR\replaced\$R7\$R3" "$INSTDIR\$R3"
+        ${EndIf}
+        FindNext $R4 $R3
+      ${Loop}
+      FindClose $R4
       RMDir "$INSTDIR\replaced\$R7"
       RMDir "$INSTDIR\replaced"
       SetErrorLevel 5
-      Abort "$INSTDIR\${MAINBINARYNAME}.exe or DirectML.dll is held open by another program and cannot be replaced."
+      Abort "$INSTDIR\${MAINBINARYNAME}.exe or a DLL beside it is held open by another program and cannot be replaced."
     ${EndIf}
     Sleep 250
   ${Loop}

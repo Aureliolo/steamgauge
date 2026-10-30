@@ -23,9 +23,9 @@ import { compareVersions, parseVersion } from "./version.mjs";
 // What decides the bytes of a release archive. Everything under crates/ is compiled in or
 // shipped beside the binary, except the examples and tests, which are neither. The toolchain
 // file picks the compiler, release-build.yml and package.sh assemble the archives and the
-// installers and say what goes in, third-party/ with notices.mjs writes the
-// THIRD-PARTY-NOTICES.txt each archive carries, and package-managers.sh writes the Scoop
-// manifest the release carries.
+// installers and say what goes in, runtime-dlls.mjs picks the C++ runtime that ships beside the
+// Windows binary, third-party/ with notices.mjs writes the THIRD-PARTY-NOTICES.txt each archive
+// carries, and package-managers.sh writes the Scoop manifest the release carries.
 const SHIPPED = [
   "crates/",
   "Cargo.toml",
@@ -37,6 +37,7 @@ const SHIPPED = [
   "tools/release/notices.mjs",
   "tools/release/package.sh",
   "tools/release/package-managers.sh",
+  "tools/release/runtime-dlls.mjs",
   ".github/workflows/release-build.yml",
 ];
 const NEVER_SHIPPED = /^crates\/[^/]+\/(examples|tests|benches)\//;

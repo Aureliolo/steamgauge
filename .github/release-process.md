@@ -182,9 +182,10 @@ none of them can pass for a release's.
 - One portable archive per platform holding the same program: `steamgauge-X.Y.Z-<platform>.zip`
   for Windows and `steamgauge-X.Y.Z-<platform>.tar.gz` for the others, where `<platform>` is the
   Rust target without its placeholder vendor: `x86_64-pc-windows-msvc`, `aarch64-apple-darwin`
-  and `x86_64-linux-gnu` (`tools/release/names.sh`). Each holds the binary, `DirectML.dll` on
-  Windows, `README.md`, `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Linux one needs WebKitGTK
-  4.1 installed.
+  and `x86_64-linux-gnu` (`tools/release/names.sh`). Each holds the binary, `README.md`,
+  `LICENSE` and `THIRD-PARTY-NOTICES.txt`; the Windows one also `DirectML.dll` and the C++
+  runtime DLLs (`msvcp140*.dll`, `vcruntime140*.dll`) the binary imports, so it starts on a
+  Windows without the Visual C++ Redistributable; the Linux one needs WebKitGTK 4.1 installed.
 - An SPDX SBOM of each platform's program, `steamgauge-X.Y.Z-<platform>.spdx.json`.
 - `steamgauge.json`, the Scoop manifest, which `scoop install` reads by the release's address.
 - `SHA256SUMS`, over the installers, the archives, the SBOMs and the Scoop manifest.
@@ -253,9 +254,10 @@ Most of the crates in the binary are under MIT, BSD or Apache licences, and each
 that its notice travel with a binary built from the code. `THIRD-PARTY-NOTICES.txt` is that: a
 line per crate with the licence it is used under and where its source is, each licence text once
 with the crates it is the text for, the NOTICE files the crates carry, then ONNX Runtime's
-licence and third-party notices and, in the Windows archive, DirectML's. `tools/release/notices.mjs`
-writes it through cargo-about, and `third-party/README.md` says where each text comes from and
-what DirectML's licence asks of whoever passes the DLL on.
+licence and third-party notices and, in the Windows archive, DirectML's and a part naming the
+C++ runtime DLLs and the Microsoft terms they ship under. `tools/release/notices.mjs` writes it
+through cargo-about, and `third-party/README.md` says where each text comes from and what
+DirectML's licence asks of whoever passes the DLL on.
 
 It is refused rather than written short. cargo-about stops on a crate whose licence
 `third-party/about.toml` does not accept, and the script on a crate whose only text would be
@@ -425,6 +427,12 @@ exists.
   `DirectML.dll` its notices do not account for, and the lines above it say which. A new runtime
   library beside the binary needs its licence in `third-party/` and in `notices.mjs` before it
   can ship.
+- **... imports ..., which is neither beside it nor part of Windows**, in the build job's
+  packaging or as **... does not carry every DLL its program needs** in the sbom job: the
+  binary, or a DLL beside it, now imports a DLL that no Windows without extra runtimes has.
+  `tools/release/runtime-dlls.mjs` places what the Visual C++ redistributable folder holds; any
+  other library has to ship beside the binary with its licence in the notices, and one that is
+  Windows' own goes into `WINDOWS` there.
 - **Expected exactly one file matching ...**, in the build job: Tauri's bundler wrote no
   installer of that kind, or more than one, usually after a tauri-cli upgrade changed its file
   names. Fix `tools/release/package.sh` on `main` and prepare the next version.

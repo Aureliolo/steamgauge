@@ -48,6 +48,16 @@ export const DIRECTML = {
   dll: new Map([["x86_64-pc-windows-msvc", "9c9e6d822561c6c41b90e6994b3e8857cf1d66dbfb1e0c4c799c7c89b4e92da1"]]),
 };
 
+// The C++ runtime tools/release/runtime-dlls.mjs places beside the Windows binary: whatever of
+// these the binary and DirectML.dll import, copied unmodified from the Visual C++ redistributable
+// folder of the Visual Studio that built them, so its version follows that Visual Studio's.
+export const CPP_RUNTIME = {
+  heading: "Microsoft Visual C++ runtime",
+  dll: /^(msvcp140(_[a-z0-9_]+)?|vcruntime140(_[a-z0-9_]+)?|concrt140|vccorlib140)\.dll$/i,
+  redistribution: "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+  terms: "https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/",
+};
+
 // Licences whose text names no copyright holder, so SPDX's copy of one is the licence itself.
 const WITHOUT_A_HOLDER = new Set(["Apache-2.0", "MPL-2.0", "CDLA-Permissive-2.0"]);
 
@@ -183,8 +193,10 @@ export function withTexts(component) {
 
 // `about` is cargo-about's JSON and `notices` the NOTICE files found in the crates, as
 // { text, crates }. `onnxRuntime` and `directml` are the entries above with their texts read
-// into `texts`, and `directml` is null for an archive DirectML.dll is not in.
+// into `texts`, and `directml` is null for an archive DirectML.dll is not in. Every Windows
+// archive carries the C++ runtime, last.
 export function renderNotices({ target, about, notices, onnxRuntime, directml }) {
+  const cppRuntime = target.endsWith("-windows-msvc") ? (directml ? 5 : 4) : null;
   const used = new Map();
   for (const licence of about.licenses) {
     for (const use of licence.used_by) {
@@ -198,7 +210,9 @@ export function renderNotices({ target, about, notices, onnxRuntime, directml })
     `steamgauge for ${target}`,
     "",
     "The steamgauge binary in this archive is built from the Rust crates in part 1 and linked with",
-    `ONNX Runtime, part 3.${directml ? " DirectML.dll beside it is Microsoft DirectML, part 4." : ""}`,
+    `ONNX Runtime, part 3.${directml ? " DirectML.dll beside it is Microsoft DirectML, part 4." : ""}${
+      cppRuntime ? ` The C++ runtime DLLs beside it are Microsoft's, part ${cppRuntime}.` : ""
+    }`,
     "This file carries the licence each of them is used under here and the notices those licences",
     "ask to accompany a copy. The program's own licence is LICENSE, beside this file.",
     "",
@@ -206,6 +220,7 @@ export function renderNotices({ target, about, notices, onnxRuntime, directml })
     "  2. NOTICE files the crates carry",
     `  3. ${onnxRuntime.heading} ${onnxRuntime.version}`,
     ...(directml ? [`  4. ${directml.heading} ${directml.version}`] : []),
+    ...(cppRuntime ? [`  ${cppRuntime}. ${CPP_RUNTIME.heading}`] : []),
     "",
     section(CRATES_HEADING),
     `${crates.length} crates. Each line gives the crate and version, the licence it is used under here,`,
@@ -262,6 +277,20 @@ export function renderNotices({ target, about, notices, onnxRuntime, directml })
       "contains.",
       "",
       ...directml.texts,
+    );
+  }
+  if (cppRuntime) {
+    parts.push(
+      section(`${cppRuntime}. ${CPP_RUNTIME.heading}`),
+      "The msvcp140 and vcruntime140 DLLs beside the binary are the C++ runtime that ONNX Runtime's",
+      "prebuilt library is compiled against, copied unmodified from the Visual C++ redistributable",
+      "folder of the Visual Studio that built this release; each file's version is in its",
+      "properties. Copyright (c) Microsoft Corporation. Visual Studio's licence terms let a program",
+      "distribute these files with it, as listed at",
+      `${CPP_RUNTIME.redistribution}.`,
+      "The runtime's own licence terms are at",
+      `${CPP_RUNTIME.terms}.`,
+      "",
     );
   }
   return `${parts.join("\n").replace(/\n+$/, "")}\n`;
@@ -327,7 +356,20 @@ export function checkNotices({ target, notices, crates, lock, files }) {
     problems.push(`THIRD-PARTY-NOTICES.txt does not carry ONNX Runtime ${ONNX_RUNTIME.version}'s licence.`);
   }
   const hasDirectmlSection = notices.includes(`${RULE}\n4. ${DIRECTML.heading} ${DIRECTML.version}\n${RULE}`);
+  const hasCppSection = new RegExp(`${RULE}\\n\\d\\. ${CPP_RUNTIME.heading.replace(/\+/g, "\\+")}\\n${RULE}`).test(
+    notices,
+  );
+  const cppFiles = [...files.keys()].filter((file) => CPP_RUNTIME.dll.test(file));
+  if (cppFiles.length > 0 && !hasCppSection) {
+    problems.push(`${cppFiles.join(", ")} ship without the C++ runtime's part in THIRD-PARTY-NOTICES.txt.`);
+  }
+  if (hasCppSection && cppFiles.length === 0) {
+    problems.push("THIRD-PARTY-NOTICES.txt has a part for the C++ runtime in an archive without it.");
+  }
   for (const [file, digest] of files) {
+    if (CPP_RUNTIME.dll.test(file)) {
+      continue;
+    }
     if (file === "DirectML.dll") {
       if (!hasDirectmlSection) {
         problems.push("DirectML.dll ships without DirectML's licence in THIRD-PARTY-NOTICES.txt.");

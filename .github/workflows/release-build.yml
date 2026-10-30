@@ -456,7 +456,8 @@ jobs:
       # the build resolved that is not this repository's own, carries ONNX Runtime's licence, and
       # DirectML's exactly where DirectML.dll is, and nothing is in the archive whose licence is
       # not in the notices or LICENSE. The installers carry the same notices file, which the
-      # install check finds where each one puts it.
+      # install check finds where each one puts it. The Windows archive also has to import no DLL
+      # that is neither in it nor part of Windows (tools/release/runtime-dlls.mjs).
       - name: Check the notices in each archive
         run: |
           set -euo pipefail
@@ -470,6 +471,10 @@ jobs:
             if ! node tools/release/notices.mjs check "${target}" "${unpacked}/${name}/THIRD-PARTY-NOTICES.txt" \
               "dist/${name}.crates" Cargo.lock "${unpacked}/${name}"; then
               echo "The notices in $(archive "${target}") do not cover what it carries." >&2
+              failed=1
+            fi
+            if [[ "${target}" == *-windows-* ]] && ! node tools/release/runtime-dlls.mjs check "${unpacked}/${name}"; then
+              echo "$(archive "${target}") does not carry every DLL its program needs." >&2
               failed=1
             fi
           done

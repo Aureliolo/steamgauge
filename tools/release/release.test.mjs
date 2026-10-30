@@ -12,6 +12,7 @@ import { answered } from "./github.mjs";
 import { createRef, refState, resetRef } from "./github-ref.mjs";
 import { lockSubset, parseCrates } from "./lock-subset.mjs";
 import {
+  CPP_RUNTIME,
   DIRECTML,
   ONNX_RUNTIME,
   checkNotices,
@@ -23,6 +24,7 @@ import {
   withTexts,
 } from "./notices.mjs";
 import { previousRelease, pullRequestNumber, renderNotes, shipsInDownload } from "./notes.mjs";
+import { check as checkRuntime, imports, isWindows, place } from "./runtime-dlls.mjs";
 import { checkedCode } from "./checked.mjs";
 import { scopeOf } from "./scope.mjs";
 import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from "./version.mjs";
@@ -322,6 +324,8 @@ const shipped = (extra = []) =>
     ["LICENSE", "00"],
     ["THIRD-PARTY-NOTICES.txt", "00"],
     ["DirectML.dll", DIRECTML.dll.get(WINDOWS)],
+    ["msvcp140.dll", "00"],
+    ["vcruntime140.dll", "00"],
     ...extra,
   ]);
 
@@ -374,6 +378,105 @@ test("the check refuses notices that leave out a crate, a file or a licence", ()
       .join("\n")
       .includes(`ONNX Runtime ${ONNX_RUNTIME.version}'s licence`),
   );
+});
+
+test("the C++ runtime beside the Windows binary has its part in the notices, and only there", () => {
+  const notices = renderFor(WINDOWS);
+  assert.match(notices, new RegExp(`^  5\\. ${CPP_RUNTIME.heading.replace(/\+/g, "\\+")}$`, "m"));
+  assert.ok(notices.includes(CPP_RUNTIME.redistribution) && notices.includes(CPP_RUNTIME.terms));
+  assert.match(renderFor(WINDOWS, { directml: false }), /^4\. Microsoft Visual C\+\+ runtime$/m);
+  assert.doesNotMatch(renderFor("x86_64-unknown-linux-gnu", { directml: false }), /Visual C\+\+/);
+  const crates = parseCrates("serde 1.0.0\nserde 2.0.0\n");
+  const check = (overrides) => checkNotices({ target: WINDOWS, notices, crates, lock: LOCK, files: shipped(), ...overrides });
+  assert.deepEqual(check({ files: shipped([["msvcp140_1.dll", "00"], ["vcruntime140_1.dll", "00"]]) }), []);
+  assert.match(
+    check({ notices: notices.replaceAll(CPP_RUNTIME.heading, "Something") }).join("\n"),
+    /msvcp140\.dll, vcruntime140\.dll ship without the C\+\+ runtime's part/,
+  );
+  const withoutRuntime = shipped();
+  withoutRuntime.delete("msvcp140.dll");
+  withoutRuntime.delete("vcruntime140.dll");
+  assert.match(check({ files: withoutRuntime }).join("\n"), /part for the C\+\+ runtime in an archive without it/);
+  assert.match(check({ files: shipped([["msvcp140d.dll", "00"]]) }).join("\n"), /msvcp140d\.dll ships, and nothing says/);
+});
+
+// A 64-bit PE image of one section holding an import table and a delay-load table naming
+// `direct` and `delayed`, which is all of a program the import reader looks at.
+function portableExecutable(direct, delayed = []) {
+  const image = Buffer.alloc(0x400);
+  image.write("MZ", 0, "latin1");
+  image.writeUInt32LE(0x40, 0x3c);
+  image.writeUInt32LE(0x4550, 0x40);
+  image.writeUInt16LE(0x8664, 0x44);
+  image.writeUInt16LE(1, 0x46);
+  image.writeUInt16LE(0xf0, 0x54);
+  const optional = 0x58;
+  image.writeUInt16LE(0x20b, optional);
+  image.writeUInt32LE(16, optional + 108);
+  const sectionAddress = 0x1000;
+  const sectionOffset = 0x200;
+  const header = optional + 0xf0;
+  image.writeUInt32LE(0x200, header + 8);
+  image.writeUInt32LE(sectionAddress, header + 12);
+  image.writeUInt32LE(0x200, header + 16);
+  image.writeUInt32LE(sectionOffset, header + 20);
+  const importAt = 0;
+  const delayAt = (direct.length + 1) * 20;
+  let nameAt = delayAt + (delayed.length + 1) * 32;
+  const name = (text) => {
+    const rva = sectionAddress + nameAt;
+    image.write(`${text}\0`, sectionOffset + nameAt, "latin1");
+    nameAt += text.length + 1;
+    return rva;
+  };
+  direct.forEach((dll, index) => image.writeUInt32LE(name(dll), sectionOffset + importAt + index * 20 + 12));
+  delayed.forEach((dll, index) => image.writeUInt32LE(name(dll), sectionOffset + delayAt + index * 32 + 4));
+  if (direct.length > 0) {
+    image.writeUInt32LE(sectionAddress + importAt, optional + 112 + 8);
+  }
+  if (delayed.length > 0) {
+    image.writeUInt32LE(sectionAddress + delayAt, optional + 112 + 13 * 8);
+  }
+  return image;
+}
+
+test("a program's imports are read from its import and delay-load tables", () => {
+  assert.deepEqual(imports(portableExecutable(["KERNEL32.dll", "MSVCP140.dll"], ["dbghelp.dll"])), [
+    "KERNEL32.dll",
+    "MSVCP140.dll",
+    "dbghelp.dll",
+  ]);
+  assert.deepEqual(imports(portableExecutable([])), []);
+  assert.throws(() => imports(Buffer.from("not a program at all, just text that is long enough")), /no MZ header/);
+  assert.ok(isWindows("KERNEL32.dll") && isWindows("api-ms-win-crt-runtime-l1-1-0.dll"));
+  assert.ok(!isWindows("MSVCP140.dll") && !isWindows("DirectML.dll"));
+});
+
+test("the C++ runtime a program needs is placed beside it, and a folder missing one is refused", () => {
+  const root = mkdtempSync(join(tmpdir(), "runtime-dlls-"));
+  try {
+    const folder = join(root, "payload");
+    const redist = join(root, "redist");
+    mkdirSync(folder);
+    mkdirSync(redist);
+    writeFileSync(join(folder, "steamgauge.exe"), portableExecutable(["KERNEL32.dll", "MSVCP140.dll", "DirectML.dll"]));
+    writeFileSync(join(folder, "DirectML.dll"), portableExecutable(["d3d12.dll"]));
+    writeFileSync(join(redist, "msvcp140.dll"), portableExecutable(["VCRUNTIME140.dll", "KERNEL32.dll"]));
+    writeFileSync(join(redist, "vcruntime140.dll"), portableExecutable(["KERNEL32.dll"]));
+    writeFileSync(join(redist, "concrt140.dll"), portableExecutable(["KERNEL32.dll"]));
+
+    assert.deepEqual(checkRuntime(folder), ["steamgauge.exe imports MSVCP140.dll, which is neither beside it nor part of Windows."]);
+    assert.deepEqual(place(folder, redist), ["msvcp140.dll", "vcruntime140.dll"]);
+    assert.deepEqual(checkRuntime(folder), []);
+    assert.deepEqual(place(folder, redist), []);
+
+    writeFileSync(join(folder, "DirectML.dll"), portableExecutable(["d3d12.dll", "WebView2Loader.dll"]));
+    assert.deepEqual(checkRuntime(folder), [
+      "DirectML.dll imports WebView2Loader.dll, which is neither beside it nor part of Windows.",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("the changelog splits on what reaches the download", () => {
