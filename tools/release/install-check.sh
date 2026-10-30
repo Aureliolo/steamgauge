@@ -198,7 +198,7 @@ case "${target}" in
     expect_version "${home}/steamgauge.exe"
     step "Installing silently over it" "${setup}" //S
     ls -la "${home}"
-    for file in steamgauge.exe DirectML.dll LICENSE THIRD-PARTY-NOTICES.txt; do
+    for file in steamgauge.exe DirectML.dll msvcp140.dll vcruntime140.dll LICENSE THIRD-PARTY-NOTICES.txt; do
       test -f "${home}/${file}" || { echo "The installer put no ${file} in ${home}." >&2; exit 1; }
     done
     version_details "${home}/steamgauge.exe" "CompanyName=${publisher}" "FileDescription=SteamGauge" \
@@ -250,8 +250,9 @@ case "${target}" in
     # Windows keeps the path a process was started from, so where the copy runs from now is told
     # by what holds the program moved aside.
     moved=("${home}"/replaced/*/steamgauge.exe)
-    if [[ "${#moved[@]}" -ne 1 || ! -f "${moved[0]}" || ! -f "$(dirname "${moved[0]}")/DirectML.dll" ]]; then
-      echo "Installing did not move the program and DirectML.dll aside into one folder under replaced." >&2
+    if [[ "${#moved[@]}" -ne 1 || ! -f "${moved[0]}" || ! -f "$(dirname "${moved[0]}")/DirectML.dll" ||
+      ! -f "$(dirname "${moved[0]}")/msvcp140.dll" ]]; then
+      echo "Installing did not move the program and the DLLs it holds aside into one folder under replaced." >&2
       ls -laR "${home}" >&2
       exit 1
     fi

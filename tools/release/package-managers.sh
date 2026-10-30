@@ -141,8 +141,9 @@ jq -n \
 # and none is carried over from whatever the last version in winget-pkgs said. The product code
 # is the key Tauri's setup program writes its uninstall entry under, its product name, and the
 # entry's publisher is the one that setup program writes there, tauri.conf.json's, so winget
-# knows an installed SteamGauge as this package. The package itself is published under the
-# GitHub account that releases it.
+# knows an installed SteamGauge as this package. The package's publisher is that same name, which
+# winget's validation compares with the installed entry; its identifier and publisher address are
+# the GitHub account that releases it.
 manifest_version=1.28.0
 schema="https://aka.ms/winget-manifest"
 identifier=Aureliolo.SteamGauge
@@ -186,7 +187,7 @@ cat > "${out}/winget/${identifier}.locale.en-GB.yaml" << LOCALE
 PackageIdentifier: ${identifier}
 PackageVersion: ${version}
 PackageLocale: en-GB
-Publisher: Aureliolo
+Publisher: Aurelio Amoroso
 PublisherUrl: https://github.com/Aureliolo
 PublisherSupportUrl: ${repository}/issues
 PackageName: SteamGauge

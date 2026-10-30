@@ -56,6 +56,33 @@ while IFS= read -r library; do
 done < <(find "${release}" -maxdepth 1 \( -type f -o -type l \) \
   \( -name '*.dll' -o -name '*.dylib' -o -name '*.so' -o -name '*.so.*' \) | LC_ALL=C sort)
 
+# The C++ runtime the program imports, which a Windows without the Visual C++ Redistributable
+# lacks, from the redistributable folder of the newest Visual Studio here (tools/release/
+# runtime-dlls.mjs says why). Each copied file has to carry Microsoft's valid signature, and the
+# payload then has to import nothing that is neither in it nor part of Windows.
+if [[ "${target}" == *-windows-* ]]; then
+  # Where the Visual Studio Installer always puts vswhere, whichever editions are installed.
+  vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+  redist="$("${vswhere}" -latest -products '*' -find 'VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT' |
+    tr -d '\r' | LC_ALL=C sort -V | tail -n 1)"
+  if [[ -z "${redist}" ]]; then
+    echo "No Visual C++ redistributable folder found through vswhere." >&2
+    exit 1
+  fi
+  echo "C++ runtime from ${redist}"
+  placed_list="$(node "$(dirname "${BASH_SOURCE[0]}")/runtime-dlls.mjs" place "${payload}" "${redist}" | tr -d '\r')"
+  while IFS= read -r placed; do
+    [[ -z "${placed}" ]] && continue
+    signer="$(powershell -NoProfile -Command "\$s = Get-AuthenticodeSignature -LiteralPath '$(cygpath -w "${payload}/${placed}")'; if (\$s.Status -eq 'Valid') { \$s.SignerCertificate.Subject }" | tr -d '\r')"
+    if [[ "${signer}" != *"O=Microsoft Corporation"* ]]; then
+      echo "${placed} from ${redist} does not carry a valid Microsoft signature (${signer:-none})." >&2
+      exit 1
+    fi
+    libraries+=("${placed}")
+  done <<< "${placed_list}"
+  node "$(dirname "${BASH_SOURCE[0]}")/runtime-dlls.mjs" check "${payload}"
+fi
+
 # Windows Explorer opens a zip and nothing else without help; every other system opens a tarball.
 # macOS tar otherwise adds an AppleDouble `._` file for every file carrying extended attributes.
 case "${target}" in

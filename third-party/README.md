@@ -2,9 +2,11 @@
 
 Every release archive carries `THIRD-PARTY-NOTICES.txt` beside `LICENSE`: the licence of each
 crate compiled into the binary, the NOTICE files those crates carry, and the licences and notices
-of ONNX Runtime and, in the Windows archive, DirectML. `tools/release/notices.mjs` writes it for
-each archive's target and GPU feature from `Cargo.lock`, and the release checks it against the
-archive it is in (`.github/release-process.md` says how).
+of ONNX Runtime and, in the Windows archive, DirectML, and there a part naming the Microsoft
+Visual C++ runtime DLLs beside the binary, with the address of the Microsoft terms that let a
+program carry them. `tools/release/notices.mjs` writes it for each archive's target and GPU
+feature from `Cargo.lock`, and the release checks it against the archive it is in
+(`.github/release-process.md` says how).
 
 ## The crates
 
