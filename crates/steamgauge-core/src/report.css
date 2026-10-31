@@ -334,7 +334,7 @@ table.matrix .num {
 }
 
 /* The summary of a row, so it is read before the grid rather than found in it. The rate comes
-   first so that every one of them sits at the same place down the column; a Steam title runs
+   first so that every one of them sits at the same place down the column. A Steam title runs
    to forty characters and wraps after it, for the same reason the column headings do. */
 table.matrix .leader {
   white-space: normal;

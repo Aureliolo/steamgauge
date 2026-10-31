@@ -148,7 +148,7 @@ export async function connect(url) {
   const asked = [];
   // A hidden page has its timers fired once a minute and the window records no look nobody
   // could see, so a check run on one crawls and then fails on something else. Nothing in a
-  // check hides the page; something that does has been put in front of it, and is named.
+  // check hides the page. Something that does has been put in front of it, and is named.
   let hidden = false;
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data);

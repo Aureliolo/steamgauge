@@ -31,7 +31,7 @@ from train import ClaimReader
 HERE = Path(__file__).resolve().parent
 
 # The reader's name says what it reads. A run id names an experiment by its encoder and label
-# count and is the right name for the index; a thing somebody downloads and cites wants a
+# count and is the right name for the index. A thing somebody downloads and cites wants a
 # name that is not a serial and needs no explaining.
 READER_NAME = "Game Review Reader"
 
@@ -143,7 +143,7 @@ def trace_graph(model, input_ids, attention_mask, path, opset: int):
 class InFullPrecisionOut(torch.nn.Module):
     """Runs the model in half precision and hands back full-precision numbers.
 
-    The arithmetic is where the saving is; the small tensors that come out are not. A graph
+    The arithmetic is where the saving is. The small tensors that come out are not. A graph
     whose outputs are half precision forces every reader of it to know that, and the tool that
     runs this graph should not have to care which precision it was exported at.
     """
@@ -216,7 +216,7 @@ def full_precision_answers(model: torch.nn.Module, input_ids, attention_mask) ->
 
     # Only the trunk goes a layer at a time. The reader casts its pooled vector to its heads'
     # precision before calling them, so a head widened only while it runs is read as narrow
-    # first and hands back narrow answers; the heads are a few thousand weights and are widened
+    # first and hands back narrow answers. The heads are a few thousand weights and are widened
     # for the whole call.
     trunk = getattr(model, "trunk", None)
     layered = set(trunk.modules()) if isinstance(trunk, torch.nn.Module) else set()
@@ -355,7 +355,7 @@ def gather_weights(traced: Path, graph: Path) -> None:
     """Writes a traced graph as `graph` and one `model.onnx.data` beside it, a weight at a time.
 
     Over 2 GB the tracer leaves every weight in a file of its own. Loading them all to save them
-    again as one held the 4B's eight gigabytes in memory a second time, beside the model; copied
+    again as one held the 4B's eight gigabytes in memory a second time, beside the model. Copied
     across one by one, the weights never need to be in memory at all.
     """
     import onnx
@@ -533,7 +533,7 @@ def model_card(run: Path, metadata: dict | None = None, title: str = READER_NAME
             + ".",
             *(["- No answers in: " + ", ".join(silent) + "."] if silent else []),
             "",
-            # Every size's card carries every size; the same table as docs/accuracy.md's.
+            # Every size's card carries every size. The same table as docs/accuracy.md's.
             *(["## Sizes", "", sizes.table(sizes.load()), ""] if sizes.SIZES.is_file() else []),
             "## Training",
             "",
@@ -707,7 +707,7 @@ def abstention_lines(
 
     Fitted on every game but the held-out ones at once rather than leave-one-game-out, because
     this is the threshold that ships and it should see every claim there is. What a line is
-    *worth* is a different question, and `confidence.py` answers it out-of-fold; fitting the
+    *worth* is a different question, and `confidence.py` answers it out-of-fold. Fitting the
     shipped one the same way would throw away a fifth of the evidence for no gain.
 
     The folds carry a class order of their own, so the lines are remapped onto the order this
@@ -739,7 +739,7 @@ def abstention_lines(
         mine = spoken == name
         # A language with too little labelled evidence declines rather than borrowing the line
         # its neighbours were given. Pooling is right on the subject axis, where the rare
-        # subjects share a reader; here it produced Indonesian answering three quarters of its
+        # subjects share a reader. Here it produced Indonesian answering three quarters of its
         # eight claims at a third right, under a line fitted almost entirely on English.
         if int(mine.sum()) < min_claims:
             by_language[name] = None
@@ -1070,7 +1070,7 @@ def main():
                 # What this model did on games it never saw, carried so that a report of a
                 # game with no reference set can still say what its rates are worth. Without
                 # it, the only honest thing such a report can say is nothing. Under the rule
-                # that ships: with lines, the folds; without them, the held-out games at the one
+                # that ships: with lines, the folds, and without them, the held-out games at the one
                 # threshold, which is the same rule the reader then applies.
                 "held_out": carried,
             },

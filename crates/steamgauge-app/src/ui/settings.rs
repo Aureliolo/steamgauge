@@ -25,7 +25,7 @@ pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
 pub enum UpdateWhen {
     /// Any review Steam has that the library does not.
     AnyNew,
-    /// A hundredth more than the library holds; a game of fewer than a hundred reviews is kept up
+    /// A hundredth more than the library holds. A game of fewer than a hundred reviews is kept up
     /// to date review by review.
     #[default]
     Hundredth,

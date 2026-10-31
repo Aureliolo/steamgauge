@@ -27,7 +27,7 @@ pub struct Shard {
     pub expected: u64,
 }
 
-/// Probes Valve for counts, halving any window holding more than `target` reviews.
+/// Probes Valve for counts and halves any window that holds more than `target` reviews.
 ///
 /// # Errors
 ///

@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn the_contested_flag_is_checked_against_what_it_claims_to_mean() {
-        // Two claims neither labeller flagged, agreed on; two that one of them flagged, one
+        // Two claims neither labeller flagged, agreed on. Two that one of them flagged, one
         // agreed and one not. If the flag means what the sheet says, the unflagged ones are
         // the ones the rules settle, and 100% on them is what "settled" looks like.
         let rows = vec![

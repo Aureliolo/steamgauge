@@ -206,7 +206,7 @@ function drawFetch(job) {
 }
 
 function draw(found, { openGame, openSubject }) {
-  /* The band says what the library holds; the line under the title is for when it cannot. */
+  /* The band says what the library holds. The line under the title is for when it cannot. */
   el('cockpit-sub').hidden = true;
   welcome(found);
   drawSinceCard(found.since, { openGame, openSubject });
@@ -263,7 +263,7 @@ window.addEventListener('resize', () => {
   }, 150);
 });
 
-/* A figure is read value first; the term still comes first for a screen reader. */
+/* A figure is read value first. The term still comes first for a screen reader. */
 function figure(value, term) {
   return make('div', null, make('dt', null, term), make('dd', null, value));
 }
@@ -374,7 +374,7 @@ function more(count, what) {
   return count > 0 ? make('li', 'move more', `and ${whole.format(count)} more ${what}`) : null;
 }
 
-/* The figures, then the months they cover on a line of their own under the row; the panel says
+/* The figures, then the months they cover on a line of their own under the row. The panel says
    once what they are set against. */
 function figures(shift, from, to) {
   return [
@@ -453,7 +453,7 @@ function drawMachine(found) {
       coming > 0 ? `${whole.format(coming)} downloading` : null,
     ),
   );
-  /* On the card the figures above say it all; on the processor a person wants to know why. */
+  /* On the card the figures above say it all. On the processor a person wants to know why. */
   const reads = el('machine-reads');
   reads.hidden = !machine.on_processor;
   set(
@@ -469,7 +469,7 @@ function drawMachine(found) {
      never waits on the download and the computer can go offline holding every model. */
   const missing = machine.models.filter((model) => !model.here && model.bytes_left > 0);
   /* A model here and current needs nothing, so only one still to come or with a newer release
-     takes room in the cockpit; Storage lists every one. */
+     takes room in the cockpit. Storage lists every one. */
   const due = machine.models.filter((model) => (!model.here && model.bytes_left > 0) || model.newer);
   el('models-due').hidden = due.length === 0;
   for (const model of due) {

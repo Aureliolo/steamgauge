@@ -350,7 +350,7 @@ fn matrix(out: &mut String, report: &Report) {
             match *rate {
                 Some(rate) => {
                     // Square-rooted so the common categories do not wash every other cell
-                    // out; the number is always there for anyone reading exactly.
+                    // out. The number is always there for anyone reading exactly.
                     let heat = (rate * 2.0).sqrt().min(1.0);
                     let top = if loudest == Some(index) {
                         " loudest"
@@ -537,7 +537,7 @@ fn facts(out: &mut String, app: &AppReport) {
     out.push_str("<dl class=\"facts\">\n");
     // Two different numbers, and a reader who sees only the smaller one beside a coverage
     // figure taken over the larger one is left to work out why they disagree. Rates are over
-    // what was counted; coverage is over what was captured, blank reviews included.
+    // what was counted. Coverage is over what was captured, blank reviews included.
     fact(out, "Reviews counted", &thousands(app.reading.reviews));
     fact(
         out,
@@ -886,7 +886,7 @@ fn month_targets(out: &mut String, months: &[Month], step: f64) {
 }
 
 /// A line down the chart where each update was posted, `step` wide a month. Drawn under the
-/// pointer's targets, so a month stays readable where an update falls in it; the list under the
+/// pointer's targets, so a month stays readable where an update falls in it. The list under the
 /// chart names each one.
 fn update_marks(out: &mut String, app: &AppReport, step: f64) {
     for around in &app.updates.around {
@@ -902,7 +902,7 @@ fn update_marks(out: &mut String, app: &AppReport, step: f64) {
     }
 }
 
-/// Updates whose four weeks either side the page sets out; the rest are listed.
+/// Updates whose four weeks either side the page sets out. The rest are listed.
 const UPDATES_COMPARED: usize = 4;
 
 /// The updates the developer posted, and what changed across the biggest of them.
@@ -1266,7 +1266,7 @@ fn thinly_measured(measured: &crate::measure::SubjectAgreement) -> String {
 
 /// What the reference set says about this row alone.
 ///
-/// The page carries one figure for how often the model agrees overall, and that figure is no
+/// The page carries one overall figure for how often the model agrees, and that figure is no
 /// guide at all to a particular row: the same run finds nine claims in ten of one subject and
 /// one in twenty of another.
 fn how_well_this_row_is_known(
@@ -1425,7 +1425,7 @@ fn sparkline(out: &mut String, app: &AppReport, id: &str) {
     );
 }
 
-/// A rate, carrying the number it was formatted from so the table can be reordered by it.
+/// A rate that carries the number it was formatted from, so the table can be reordered by it.
 fn rate_cell(out: &mut String, rate: Option<f64>) {
     match rate {
         Some(rate) => {
@@ -1474,12 +1474,12 @@ fn bias_cell(out: &mut String, factor: Option<f64>) {
 ///
 /// Coloured against the interval the count is entitled to rather than against a fixed
 /// distance from the baseline. Eight reviews all recommending the game is 100% and says
-/// nothing; a fixed threshold paints it the same green as a thousand reviews at 98%, which
+/// nothing. A fixed threshold paints it the same green as a thousand reviews at 98%, which
 /// is the one reading the column exists to prevent.
 /// What the reviews raising a subject actually say about it, as three shares in one bar.
 ///
 /// The mixed share is the point of the column. A subject a third of players praise and a third
-/// complain about is a fight; one where every review says both is a subject with a real
+/// complain about is a fight. One where every review says both is a subject with a real
 /// trade-off in it, and a single positive share renders those two identically.
 ///
 /// Sorted on the complaint share, because a table of subjects is read looking for what is
@@ -2483,7 +2483,7 @@ fn bcp47(steam: &str) -> Option<&'static str> {
         .map(|(_, tag, _)| *tag)
 }
 
-/// What to call a Steam language on screen, falling back to whatever Steam called it.
+/// What to call a Steam language on screen. Falls back to whatever Steam called it.
 pub(crate) fn language_name(steam: &str) -> String {
     LANGUAGES
         .iter()
@@ -2984,7 +2984,7 @@ mod tests {
     #[test]
     fn a_month_too_small_to_carry_a_rate_stays_out_of_the_sparkline() {
         // One review in a five-review month is 20% and would set the scale for every month
-        // that has something to say. The categories are the same in both cases; only the
+        // that has something to say. The categories are the same in both cases. Only the
         // month sizes differ, and only the second should reach the chart.
         let noisy = vec![
             month("2024-01", 100, 10),
@@ -3028,7 +3028,7 @@ mod tests {
             page.contains("&lt;script&gt;alert(1)"),
             "the text itself is missing"
         );
-        // The game's own name is equally untrusted, coming from the store.
+        // The game's own name is equally untrusted, as it comes from the store.
         assert!(page.contains("A Game &lt;&amp; Friends&gt;"));
     }
 
@@ -3161,7 +3161,7 @@ mod tests {
         );
         assert!(well.contains("from 100 labels"), "{well}");
 
-        // Twelve labels describe a row; the sensitivity they measure has an interval
+        // Twelve labels describe a row. The sensitivity they measure has an interval
         // twenty-five points wide, and a share divided by it would move by more than itself.
         let mut thin = String::new();
         how_well_this_row_is_known(&mut thin, &scored(12, 10), Some(0.2));
@@ -3534,7 +3534,7 @@ mod tests {
         );
 
         // Four reviews and none of them a thumb up is 0% and is not the month a game was
-        // hated in; thirty in a hundred is.
+        // hated in. Thirty in a hundred is.
         let mut noisy = vec![
             month("2024-01", 100, 10),
             month("2024-02", 4, 1),
@@ -3720,7 +3720,7 @@ mod tests {
         );
 
         // A subject the second game's most-helpful reviews are full of and its corpus is not.
-        // Reading either game alone still names bugs; only pooling moves the claim.
+        // Reading either game alone still names bugs. Only pooling moves the claim.
         report.apps[1].reading.subjects[1].top_mention_reviews = 45;
         let moved = sentence(&render(&report));
         assert!(
@@ -3809,7 +3809,7 @@ mod tests {
     #[test]
     fn a_report_of_several_games_says_what_they_disagree_about() {
         let mut report = two_games();
-        // Bugs is level across both; performance is the row that separates them.
+        // Bugs is level across both. Performance is the row that separates them.
         report.apps[1].reading.subjects[1].mention_reviews = 20;
 
         let page = render(&report);
@@ -3865,7 +3865,7 @@ mod tests {
 
     #[test]
     fn the_games_disagree_most_by_the_widest_gap_in_points_not_the_largest_ratio() {
-        // Bugs at 40% against 20% is twenty points apart; performance at 10% against 3% is
+        // Bugs at 40% against 20% is twenty points apart. Performance at 10% against 3% is
         // seven, though more than three times over.
         let mut report = two_games();
         report.apps[1].reading.subjects[0].mention_reviews = 200;

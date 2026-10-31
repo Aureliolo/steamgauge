@@ -2,12 +2,12 @@
 //! counted two ways.
 //!
 //! **Each game the same.** A figure is the mean of the games' own figures, so a game with a
-//! hundred times the reviews of another weighs the same; this answers what players of these
+//! hundred times the reviews of another weighs the same. This answers what players of these
 //! games talk about. Its interval is the sampling error within each game, for these games as
 //! they are, not for games like them.
 //!
 //! **Every review the same.** The games' counts are added and divided once, so the game with the
-//! most reviews decides most of each figure; its interval is Wilson's on the pooled counts.
+//! most reviews decides most of each figure. Its interval is Wilson's on the pooled counts.
 //!
 //! A subject also says in how many of the games at least one review in a hundred raises it, and
 //! which game raises it most, so a figure one loud game makes is told from one every game shares.
@@ -20,7 +20,7 @@ use crate::{measure::wilson, read::SubjectCount};
 pub const RAISED_IN: f64 = 0.01;
 
 /// Reviews raising a subject a game needs before its praise and complaint shares enter the mean
-/// of each game's; fewer would let a handful of reviews weigh as much as a game's thousands.
+/// of each game's. Fewer would let a handful of reviews weigh as much as a game's thousands.
 pub const ENOUGH_TO_LEAN: u64 = 30;
 
 const Z: f64 = 1.959_963_985;
@@ -175,7 +175,7 @@ fn every_review(games: &[Counted], id: &str, shares: &[GameShare]) -> Figures {
 }
 
 /// Every subject any of `games` counted, in the order the first game to count it lists it, over
-/// the games with reviews; none where no game has any.
+/// the games with reviews. None where no game has any.
 #[must_use]
 pub fn across(games: &[Counted]) -> Vec<Across> {
     let games: Vec<Counted> = games

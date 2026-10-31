@@ -6,7 +6,7 @@
 //! What the sidecar cannot hold is review text. A report that says 14% of reviews complain
 //! about performance is a claim a reader should be able to check, so a bounded, deterministic
 //! handful of the claims behind every number is fetched from the capture and shown. Bounded
-//! because a million reviews will not fit in a page; deterministic because two runs against
+//! because a million reviews will not fit in a page, deterministic because two runs against
 //! the same corpus should show the same evidence.
 //!
 //! The evidence is claims rather than whole reviews, because a claim is what the count is made
@@ -71,7 +71,7 @@ impl Default for ReportOptions {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CrawlFacts {
     pub app_id: u32,
-    /// The store's name for the app; empty where the store did not answer, and a report then
+    /// The store's name for the app. Empty where the store did not answer, and a report then
     /// falls back to the id rather than inventing one.
     pub name: String,
     pub review_score_desc: String,
@@ -138,7 +138,7 @@ pub struct Example {
 
 impl Example {
     /// Whether the model read this. An induced subject's evidence is whole reviews a
-    /// language model picked out, and the counting model has never seen them; they carry no
+    /// language model picked out, and the counting model has never seen them. They carry no
     /// polarity and no confidence, and the page must not invent either.
     #[must_use]
     pub fn was_read(&self) -> bool {
@@ -170,7 +170,7 @@ pub struct AppReport {
     pub agreement: Measurement,
     /// What two labellers reached together on this game, where a second of them has read part
     /// of the set. Agreement with one labeller cannot say whether a disagreement is the
-    /// model's; agreement on the claims two of them reached the same answer for can.
+    /// model's. Agreement on the claims two of them reached the same answer for can.
     pub ceiling: Option<crate::measure::Ceiling>,
     /// What this game's players talk about that the sheet has no row for, where a reading
     /// has induced any, with the reviews behind each.
@@ -709,7 +709,7 @@ struct DrawnClaim {
 }
 
 /// A game's measured agreement, when it has a claim reference set and stored readings to
-/// compare. A report without one still renders; it just cannot say how often it is wrong.
+/// compare. A report without one still renders. It just cannot say how often it is wrong.
 ///
 /// A set that exists and cannot be scored says why, rather than passing as no set: the
 /// difference is whether a reader is sent to label the game or to read it again.
@@ -952,7 +952,7 @@ mod tests {
     #[test]
     fn the_report_wide_headline_is_held_to_the_floor_scaled_to_every_games_top() {
         // Over the two games the top of the pile is a hundred reviews. Story's one mention there
-        // is a hundredfold "bias" out of a single review; bugs clears the floor of ten.
+        // is a hundredfold "bias" out of a single review. Bugs clears the floor of ten.
         let report = Report {
             apps: vec![
                 app(50, vec![("bugs", 3_000, 6), ("story", 20, 1)]),

@@ -61,12 +61,12 @@ const TICKED: [char; 6] = [
 const CENSORED: char = '\u{2665}';
 
 /// How many boxes make a template rather than a turn of phrase. Two could be somebody typing
-/// a checkmark to agree with themselves; three is a form.
+/// a checkmark to agree with themselves. Three is a form.
 const BOXES_OF_A_TEMPLATE: usize = 3;
 
 /// The most a comma-separated part may weigh for a sentence of three or more of them to be
 /// read as a list of points. "Stunning visual, calm music, epic story" is three of weight
-/// fifteen and under; "The combat, which took a while to click, is superb" has a middle
+/// fifteen and under. "The combat, which took a while to click, is superb" has a middle
 /// twice that and stays one thought.
 const SHORT_PART: usize = 18;
 
@@ -79,7 +79,7 @@ const LEAST_PART: usize = 6;
 /// paragraph after a question is a paragraph.
 const SHORT_ANSWER: usize = 30;
 
-/// Below this much of a piece it is not a point, it is the tail of one. "Yes." and "10/10."
+/// Below this much of a piece it is only the tail of a point. "Yes." and "10/10."
 /// are joined to what they qualify rather than counted as opinions of their own.
 const MIN_CLAIM_WEIGHT: usize = 12;
 
@@ -89,9 +89,9 @@ const MIN_CLAIM_WEIGHT: usize = 12;
 const DENSE_CHARACTER: usize = 3;
 
 /// Where a sentence can end, across the scripts Steam reviews arrive in. Latin and Cyrillic
-/// share the first three; the rest are the full-width forms used in Chinese, Japanese and
+/// share the first three. The rest are the full-width forms used in Chinese, Japanese and
 /// Korean, Arabic's full stop, and the Devanagari danda.
-/// A semicolon is deliberately absent. "It's not just a game; it's an experience" is one
+/// A semicolon is deliberately absent. `It's not just a game; it's an experience` is one
 /// thought with a hinge in it, and cutting there leaves two halves that each say nothing.
 const TERMINATORS: [char; 9] = [
     '.', '!', '?', '\u{2026}', '\u{3002}', '\u{FF01}', '\u{FF1F}', '\u{06D4}', '\u{0964}',
@@ -202,7 +202,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             continue;
         }
 
-        // A run with no words in it, a blank line or a bare `[list]`, is not a piece; it
+        // A run with no words in it, a blank line or a bare `[list]`, is not a piece. It
         // stays in front of the next one, which is where its markup belongs.
         let end = run_out(text, &mut chars, at + ch.len_utf8(), ch == '\n');
         if !says_nothing(&text[start..end]) {
@@ -234,7 +234,7 @@ pub fn claims_of(text: &str) -> Vec<(std::ops::Range<usize>, std::borrow::Cow<'_
             let cleaned = without_markup(piece);
             // The span runs from the heading to the answer and passes over the options in
             // between, which are lines the reviewer declined. They are inside it because a
-            // span is one range of bytes; they are not inside what anybody said.
+            // span is one range of bytes. They are not inside what anybody said.
             let cleaned = if filled_in.is_some() {
                 the_heading_and_its_answer(&cleaned)
             } else {
@@ -280,7 +280,7 @@ fn without_the_declined(piece: String) -> String {
 ///
 /// The span runs from the heading to a ticked option and passes over everything between: the
 /// options the reviewer declined, and any they ticked that already have a piece of their own.
-/// Both sit inside the bytes; neither is inside what this claim says.
+/// Both sit inside the bytes. Neither is inside what this claim says.
 fn the_heading_and_its_answer(piece: &str) -> String {
     let lines: Vec<&str> = piece.lines().collect();
     let answer = lines
@@ -305,7 +305,7 @@ fn the_heading_and_its_answer(piece: &str) -> String {
 /// Steam reviews are full of a copypasta: a heading, then a column of options with one
 /// ticked. Split by sentence it comes back as dozens of claims, nearly all of them options
 /// the reviewer passed over, and four labellers in a row flagged every fragment. The ticked
-/// boxes are the review; the blank ones are the ones somebody else would have ticked, and
+/// boxes are the review. The blank ones are the ones somebody else would have ticked, and
 /// the heading above them is what says whether ticking one was praise or a complaint.
 ///
 /// Drawings are not handled here. Braille art and hands made of brackets arrive as a column of
@@ -427,7 +427,7 @@ pub fn is_not_a_claim(text: &str) -> bool {
 /// empty remainder of a template whose options were all declined.
 ///
 /// Digits survive, because a review that is only `9/10` is a verdict, and `666` is a Chinese
-/// reviewer saying the game is excellent. A number is a claim; a full stop is not.
+/// reviewer saying the game is excellent. A number is a claim. A full stop is not.
 ///
 /// What it looks for is a word, not a letter. A face drawn out of punctuation usually has one
 /// letter buried in it, `\u{0296}` in the lenny face and `\u{30C4}` in the shrug, so anything
@@ -463,7 +463,7 @@ fn carries_no_proposition(claim: &str) -> bool {
 /// alphanumerics and passed for a claim, and `T_T` is a face with the same letter for both eyes.
 /// A letter drawn into a line is not a word, and the same one twice is not two. Different
 /// letters still count, since "N/A" and "o.k." say something, and so do digits, since "5/5" is
-/// a score; so does a script that writes a word in a character, where the same one twice can be
+/// a score. So does a script that writes a word in a character, where the same one twice can be
 /// a review.
 fn an_ornament(claim: &str) -> bool {
     let chars: Vec<char> = claim.chars().filter(|ch| *ch != CENSORED).collect();
@@ -513,8 +513,8 @@ fn is_a_drawn_line(line: &str) -> bool {
 /// Runs a boundary that begins at `end` out over any further terminators and the whitespace
 /// after them, so "Wait... what?!" is one boundary rather than five, and over an emoticon
 /// after those, which colours the sentence it follows: "Great fun. :D If you like Vermintide"
-/// smiles about the fun. Not past a line break, where a lone dash is the next line's bullet;
-/// the boundary itself may be that line break, which is how a heading with no full stop ends.
+/// smiles about the fun. Not past a line break, where a lone dash is the next line's bullet.
+/// The boundary itself may be that line break, which is how a heading with no full stop ends.
 fn run_out(
     text: &str,
     chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
@@ -627,14 +627,14 @@ fn says_something_about_a_thing(part: &str) -> bool {
     part.split_whitespace().nth(1).is_some() || part.chars().any(writes_without_spaces)
 }
 
-/// Recognises Steam's markup at `at`, returning where it ends and what it does.
+/// Recognises Steam's markup at `at` and returns where it ends and what it does.
 ///
 /// Reviews are written with `BBCode` and the tags are not what anybody said. Left in, `[h3]`
 /// and `[/list]` are tokens the model sees in every category and learns nothing from, and a
 /// labeller was handed a heading tag and its closing tag as though they were a claim.
 ///
 /// A tag is written on one line. A bracket opened on a template's heading and closed at the
-/// end of an answer two lines down is two brackets somebody typed; read as one tag, it would
+/// end of an answer two lines down is two brackets somebody typed. Read as one tag, it would
 /// swallow the answers in between and cut the later claim back to before the earlier one
 /// ends, which is two claims out of order and one inside the other.
 fn markup_at(text: &str, at: usize) -> Option<(usize, Markup)> {
@@ -683,7 +683,7 @@ fn says_nothing(piece: &str) -> bool {
     without_markup(piece).trim().is_empty()
 }
 
-/// Removes Steam's markup from a claim, leaving what was written.
+/// Removes Steam's markup from a claim and leaves what was written.
 fn without_markup(piece: &str) -> String {
     let mut clean = String::with_capacity(piece.len());
     let mut at = 0;
@@ -899,7 +899,7 @@ fn abbreviates(text: &str, at: usize) -> bool {
 /// Apart from [`ABBREVIATIONS`] because Russian writes them two ways, "т.е." and, as its
 /// typography asks, "т. е.", and the spaced form is two words to [`abbreviates`]: the stop
 /// after "е" alone says nothing about what came before it. A review in capitals writes
-/// "Т.К.", so the Cyrillic is read in either case; nothing else is.
+/// "Т.К.", so the Cyrillic is read in either case. Nothing else is.
 const RUSSIAN_ABBREVIATIONS: [&str; 5] = ["т.е", "т.к", "т.ч", "напр", "доп"];
 
 /// The Russian abbreviations that end the sentence about as often as they sit inside it: the
@@ -919,7 +919,7 @@ fn a_russian_abbreviation(text: &str, at: usize) -> bool {
     if !text[..at].chars().next_back().is_some_and(is_cyrillic) {
         return false;
     }
-    // The longest form is four letters and a stop; a few more characters leave room for the
+    // The longest form is four letters and a stop. A few more characters leave room for the
     // spaces of "т. е." and the boundary in front of it.
     let from = text[..at]
         .char_indices()
@@ -1000,7 +1000,7 @@ fn continues_a_number(text: &str, at: usize) -> bool {
 /// Whether a full stop with no space after it sits inside a word or a number, "example.com",
 /// "v1.2b", "9.5/10", rather than between two sentences a reviewer typed without a space,
 /// "great game.Would recommend". A capital straight after the stop is the second kind, and it
-/// is common; a digit is never a capital, so a decimal point always carries on.
+/// is common. A digit is never a capital, so a decimal point always carries on.
 ///
 /// A lowercase letter after a stop and a space is not a reason to keep going. It once was, to
 /// protect abbreviations, and what it protected instead was every reviewer who never touches
@@ -1010,8 +1010,8 @@ fn continues_a_number(text: &str, at: usize) -> bool {
 /// going is an ellipsis, see [`trails_off`].
 ///
 /// A tag straight after the stop is markup closing around the sentence, "[b]Игра не шибко
-/// стабильная.[/b] Сразу бросаются", and says nothing about whether the stop is inside a word;
-/// what follows the tag does.
+/// стабильная.[/b] Сразу бросаются", and says nothing about whether the stop is inside a word.
+/// What follows the tag does.
 fn continues_a_word(text: &str, at: usize) -> bool {
     let rest = past_markup(text, at + 1);
     let mut before = text[..at].chars().rev();
@@ -1429,7 +1429,7 @@ mod tests {
 
     #[test]
     fn a_trailing_verdict_joins_what_it_qualifies() {
-        // "Buy it." on its own is not a point about anything; attached, it is the verdict on
+        // "Buy it." on its own is not a point about anything. Attached, it is the verdict on
         // the point before it.
         let claims = split("The combat finally feels weighty and fast. Buy it.");
         assert_eq!(claims.len(), 1);

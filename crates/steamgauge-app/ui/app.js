@@ -178,7 +178,7 @@ async function drawReadCost(appId) {
   set(el('read-cost'), parts.join(' '));
 }
 
-/* The core opens the system's save dialog, so the page never names a path; what it writes runs
+/* The core opens the system's save dialog, so the page never names a path. What it writes runs
    as a job, drawn under the button. */
 async function exportData() {
   if (chosen === null) return;
@@ -225,7 +225,7 @@ function shape(name, attributes) {
 /* Reviews per month as bars against the busiest month, and the share recommending the game
    as a line from none at the bottom to all at the top. The same two shapes the report page
    draws, in the same coordinate space, so a reader moving between them sees one chart. A
-   rate is drawn only for a month big enough to carry one; the core decides which those are. */
+   rate is drawn only for a month big enough to carry one. The core decides which those are. */
 function drawTimeline(months) {
   const figure = el('timeline');
   figure.hidden = months.length < 2;
@@ -238,7 +238,7 @@ function drawTimeline(months) {
   const tallest = Math.max(peak.reviews, 1);
   const step = CHART.width / months.length;
   /* A bar no wider than a column of a busy year, so two months read as two months and not as
-     two walls; each sits centred on its month, where the line's point for it is. */
+     two walls. Each sits centred on its month, where the line's point for it is. */
   const bar = Math.max(Math.min(step * 0.82, 56), 0.5);
   const svg = el('timeline-svg');
   svg.replaceChildren();
@@ -462,7 +462,7 @@ function drawTopics(found) {
       ? heldOut
         ? /* Most games anyone opens are in exactly this position, and saying only that
              nothing is measured invites the reader to distrust everything or to trust
-             everything. The model does have a measurement; it is about other games, and the
+             everything. The model does have a measurement. It is about other games, and the
              wording has to say so. */
           `${why} What is measured is ${heldOut.games} games it had never seen, ` +
           `over ${whole.format(heldOut.claims)} labelled claims: it answers ` +
@@ -554,7 +554,7 @@ function drawTopics(found) {
       cell(whole.format(subject.mixed), 'faint'),
       gauge,
     );
-    /* The whole row opens the points behind it; the name stays the button a keyboard reaches. */
+    /* The whole row opens the points behind it. The name stays the button a keyboard reaches. */
     row.addEventListener('click', (event) => {
       if (event.target !== open) openClaims(subject, 0);
     });
@@ -603,7 +603,7 @@ async function drawWriteOffer(appId) {
   el('write-offer').hidden = false;
 }
 
-/* Enough of each side to see what stands out; the rest is one click further. */
+/* Enough of each side to see what stands out. The rest is one click further. */
 const SAID_FIRST = 6;
 let saidAll = false;
 
@@ -921,7 +921,7 @@ async function showNear(appId, query) {
 }
 
 /* What reviewers said in the words somebody typed. The counts are always of every point that
-   says it; a side or a subject narrows only the points listed, so the figures at the top never
+   says it. A side or a subject narrows only the points listed, so the figures at the top never
    change under the reader's hand. */
 async function openSearch(query, from, narrow = NARROW_NONE) {
   const appId = chosen;

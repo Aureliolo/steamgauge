@@ -3,7 +3,7 @@
 //
 // A flat list of pull request titles, which is what `gh release create --generate-notes`
 // writes, describes each change and not its reach. Most of what lands here is training runs,
-// reference data, the browser checks and CI; a reader deciding whether a release is worth
+// reference data, the browser checks and CI. A reader deciding whether a release is worth
 // taking has to guess which titles changed the program they run, and a wrong guess costs both
 // ways: an upgrade for a change that touches nothing they install, and a skipped release that
 // fixed their problem. So the split is computed from the files each pull request touched, not
@@ -12,7 +12,7 @@
 //   GH_TOKEN="$(gh auth token)" GITHUB_REPOSITORY=Aureliolo/steamgauge \
 //     node tools/release/notes.mjs v0.1.0 [<commit>]
 //
-// The commit defaults to the tag; a dry run passes the commit it built, whose tag does not exist
+// The commit defaults to the tag. A dry run passes the commit it built, whose tag does not exist
 // yet. Needs the history down to the previous release, so a checkout with fetch-depth 0.
 import { execFileSync } from "node:child_process";
 import process from "node:process";
@@ -63,7 +63,7 @@ export function pullRequestNumber(subject) {
 }
 
 // The newest release strictly below `version`, rather than simply the newest one. At release
-// time those agree, since the tag has no release yet; pointed at a tag already published, the
+// time those agree, since the tag has no release yet. Pointed at a tag already published, the
 // second compares against the release itself, finds nothing between, and says a release changed
 // nothing. A changelog that is only right at one moment cannot be checked afterwards.
 export function previousRelease(tags, version) {

@@ -38,9 +38,9 @@ claim in them with a model on this machine, then shows what players praise and c
 the reviews behind every figure. Each tool here is something the SteamGauge window can do, and \
 the person sees its effects there. A game is named by its Steam app id: find_games looks one up \
 by name. Downloads, reads, updates and exports are jobs: queue starts them and returns at once, \
-work shows where each stands. A game is read once its download is done; reading then gives its \
+work shows where each stands. A game is read once its download is done. Then reading gives its \
 subjects and figures, and claims_behind and search_game the reviews behind them. show puts a \
-page in front of the person. SteamGauge answers only while its window is open; when a tool says it \
+page in front of the person. SteamGauge answers only while its window is open. When a tool says it \
 is not open, ask the person to open it rather than trying to start it.";
 
 /// What a tool does to the app, which tells a client how carefully to call it.
@@ -147,7 +147,7 @@ struct OneClient {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct OneGame {
-    /// The game's Steam app id, as in its store address.
+    /// The game's Steam app id.
     app_id: u32,
 }
 
@@ -157,15 +157,15 @@ struct OneGame {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ReadingAsked {
-    /// The game's Steam app id, as in its store address.
+    /// The game's Steam app id.
     app_id: u32,
-    /// How many themes on each side, the most widely said first; 10 when not given.
+    /// How many themes on each side, the most widely said first, 10 by default.
     /// `claims_behind` with a theme gives the reviews behind one.
     themes: Option<usize>,
     /// Also how the figures move month by month.
     #[serde(default)]
     months: bool,
-    /// Also the kinds of reviewer, and where one says something more or less often than the rest.
+    /// Also the kinds of reviewer, and where each differs from the rest.
     #[serde(default)]
     who: bool,
     /// Also the languages the reviews are written in.
@@ -211,8 +211,7 @@ fn as_asked(found: &impl Serialize, asked: &ReadingAsked) -> Result<serde_json::
 struct WorkAsked {
     /// Only the jobs about this game, every one of them.
     app_id: Option<u32>,
-    /// How many jobs of each state: the next to run of those queued, the latest of those ended;
-    /// 10 when not given. Every running job is given.
+    /// How many jobs of each other state: the next queued, the latest ended. The default is 10.
     jobs: Option<usize>,
 }
 
@@ -305,8 +304,8 @@ struct OneJob {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct Tasks {
-    /// The jobs to start, run in the order given within each lane: downloads and checks share
-    /// the network, reads and preparations the graphics card, exports the disk.
+    /// The jobs to start. Jobs that share the network, the graphics card or the disk run one
+    /// after another, in the order given.
     tasks: Vec<work::Task>,
 }
 
@@ -372,16 +371,16 @@ struct SearchGame {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ByMeaning {
-    /// The game's Steam app id, which has to be prepared for search by meaning.
+    /// A prepared game's Steam app id.
     app_id: u32,
-    /// What to find claims meaning.
+    /// The meaning to find claims for.
     query: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ChooseMeaning {
-    /// Whether every game read from now on is prepared for search by meaning too.
+    /// True to prepare every game read from now on.
     every_game: bool,
 }
 
@@ -438,7 +437,7 @@ struct OneGroup {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SaveGroups {
-    /// Every group, as `groups` gives them; a group left out is deleted.
+    /// Every group, as `groups` gives them. A group left out is deleted.
     groups: cockpit::Groups,
 }
 
@@ -454,21 +453,21 @@ enum Page {
     Finder,
     /// How the app runs.
     Settings,
-    /// The assistants it is added to, and answering over HTTP.
+    /// The AI assistants it is added to, and the HTTP server.
     Assistants,
     /// What the library and the models take on disk.
     Storage,
-    /// This copy's version and the newest release, with the button that asks for it.
+    /// This copy's version and the newest release.
     About,
-    /// One game's page; needs `app_id`.
+    /// One game's page. Needs `app_id`.
     Game,
-    /// Games side by side; needs `app_ids`.
+    /// Games side by side. Needs `app_ids`.
     Compare,
-    /// What players say across one group of games; needs `group`.
+    /// What players say across one group of games. Needs `group`.
     Group,
-    /// The reviews behind one subject of a read game; needs `app_id` and `subject`.
+    /// The reviews behind one subject of a read game. Needs `app_id` and `subject`.
     Subject,
-    /// A read game's claims that say something; needs `app_id` and `query`.
+    /// A search of a read game's claims. Needs `app_id` and `query`.
     Search,
 }
 
@@ -543,13 +542,13 @@ fn entries() -> Vec<Entry> {
         tool(
             "games",
             Looks,
-            "Every game kept, with its figures, its newest movement and whether Steam has new reviews for it: the library page's rows.",
+            "Every game kept, with its figures, its latest change and whether Steam has new reviews for it.",
             |app, Nothing {}| cockpit::games(app),
         ),
         tool(
             "overview",
             Looks,
-            "The cockpit: what moved since last looked, what is running, what needs a look, and what this machine reads with.",
+            "The cockpit: what changed since the person last looked, what is running, what needs a look and what this machine reads with.",
             |app, Nothing {}| cockpit::overview(app),
         ),
         tool(
@@ -580,7 +579,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "reading",
             Looks,
-            "A read game's figures: every subject its players talk about, how often, praised and criticised, with the terms that stand out; what stands out, as the writer put it; and the things praised and complained about most widely, ten a side unless more are asked for, where the game is prepared for search by meaning. How the figures move month by month, the kinds of reviewer and the languages come when asked for.",
+            "A read game's figures: every subject, how often players raise, praise and criticise it, and the terms that stand out. Where the game is prepared for search by meaning, also the writer's paragraph and the themes said most widely on each side. Monthly figures, kinds of reviewer and languages come when asked for.",
             |app, asked: ReadingAsked| {
                 off_thread_trying(move || {
                     super::reading(app, asked.app_id).and_then(|found| as_asked(&found, &asked))
@@ -607,7 +606,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "claims_behind",
             Looks,
-            "A page of the claims behind one subject of a read game, with the review each comes from, narrowed to one side, a term, a kind of reviewer or one theme if asked.",
+            "A page of the claims behind one subject of a read game, each with its review. It can narrow to one side, term, kind of reviewer or theme.",
             |app, a: ClaimsBehind| {
                 super::claims_behind(
                     app, a.app_id, a.subject, a.side, a.term, a.who, a.theme, a.from, a.count,
@@ -647,7 +646,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "choose_meaning",
             Changes,
-            "Whether every game read from now on is also prepared for search by meaning.",
+            "Sets whether every game read from now on is also prepared for search by meaning.",
             |app, ChooseMeaning { every_game }| {
                 off_thread_trying(move || super::choose_meaning(app, every_game))
             },
@@ -655,13 +654,13 @@ fn entries() -> Vec<Entry> {
         tool(
             "writer_offer",
             Looks,
-            "Whether paragraphs are written when a game is prepared, and what the writer would take to fetch and to run on this machine.",
+            "Whether a paragraph is written when a game is prepared, and what the writer would take to download and run on this machine.",
             |app, Nothing {}| off_thread(move || super::writer_offer(app)),
         ),
         tool(
             "choose_writer",
             Changes,
-            "Whether preparing a game for search by meaning also writes a paragraph of what stands out in what its players say, from its themes, with a model on this machine.",
+            "Sets whether preparing a game for search by meaning also writes a paragraph of what stands out, with a model on this machine.",
             |app, ChooseWriter { write }| {
                 off_thread_trying(move || super::choose_writer(app, write))
             },
@@ -707,7 +706,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "looked",
             Changes,
-            "Marks a game's page, or the cockpit where no game is named, as seen by the person now, which resets what counts as new there.",
+            "Marks a game's page, or the cockpit when no game is named, as seen now, so only later changes count as new there.",
             |app, MaybeGame { app_id }| since::looked(app, app_id),
         ),
         tool(
@@ -725,7 +724,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "group_reading",
             Looks,
-            "What players say across one group's read games: each subject's share of reviews and its praise and complaint, with every game counting the same and with every review counting the same, how many of the games raise it, which raises it most, and each game's own figures.",
+            "What players say across one group's read games: each subject's share, praise and complaint, how many games raise it and which most. Shares come with every game counting the same and with every review counting the same, beside each game's own figures.",
             |app, OneGroup { name }| cockpit::group_reading(app, name),
         ),
         tool(
@@ -739,7 +738,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "work",
             Looks,
-            "The jobs on the board: what each is, where it stands, how far it has got and how long is left. Every running job, and of the others the ten next to run and the ten latest to end in each state unless more are asked for, with how many were left out; every job of one game when it is named.",
+            "The jobs on the board: what each is, where it stands, how far it has got and how long is left. Gives every running job and the nearest few of each other state, with how many were left out.",
             |app, asked: WorkAsked| {
                 off_thread(move || work_as_asked(work::work(app.state::<work::Work>()), &asked))
             },
@@ -747,7 +746,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "queue",
             Changes,
-            "Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, and exports written to a path given here. Returns their ids at once; work follows them.",
+            "Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, and exports to a given path. Returns their ids at once. `work` shows how they go.",
             |app, Tasks { tasks }| {
                 off_thread(move || work::queue(app.clone(), app.state::<work::Work>(), tasks))
             },
@@ -755,13 +754,13 @@ fn entries() -> Vec<Entry> {
         tool(
             "queue_reads",
             Changes,
-            "Reads these games, each in the language it was last read in, or in the one chosen for first readings.",
+            "Queues a read of each game, in the language it was last read in or the one set for first readings.",
             |app, SomeGames { app_ids }| off_thread(move || cockpit::queue_reads(app, app_ids)),
         ),
         tool(
             "queue_updates",
             Changes,
-            "Updates these games, or every game: what was written or edited since, then a read where one was read.",
+            "Queues an update of these games, or every game: new and edited reviews, then a new read of any game read before.",
             |app, MaybeGames { app_ids }| off_thread(move || cockpit::queue_updates(app, app_ids)),
         ),
         tool(
@@ -793,25 +792,25 @@ fn entries() -> Vec<Entry> {
         tool(
             "export_data",
             Changes,
-            "Asks the person, in the system's save dialog, where to save a read game's data, then starts writing it. queue with an export_data task writes to a path without asking.",
+            "Asks the person where to save a read game's data, then starts writing it. To write to a known path without asking, use `queue` with an export_data task.",
             |app, OneGame { app_id }| data_export::export_data(app, app_id),
         ),
         tool(
             "export_report",
             Changes,
-            "Asks the person, in the system's save dialog, where to save a report of these games, then starts writing it. queue with an export task writes to a path without asking.",
+            "Asks the person where to save a report of these games, then starts writing it. To write to a known path without asking, use `queue` with an export task.",
             |app, SomeGames { app_ids }| cockpit::export_report(app, app_ids),
         ),
         tool(
             "settings",
             Looks,
-            "How the app runs: the share of the graphics card a read may take, the reader size, the first-reading language, the checks it makes, and where the library is.",
+            "The app's settings: the share of the graphics card a read may take, reader size, first-reading language, checks and library folder.",
             |app, Nothing {}| off_thread(move || settings::settings(app)),
         ),
         tool(
             "save_settings",
             Changes,
-            "Replaces every setting; give all of them, as settings returns them.",
+            "Replaces every setting at once, so give all of them.",
             |app,
              SaveSettings {
                  settings: chosen,
@@ -823,13 +822,13 @@ fn entries() -> Vec<Entry> {
         tool(
             "new_http_token",
             Changes,
-            "Draws a new token for the HTTP server, shutting out every client that holds the old one, and returns the settings with it.",
+            "Draws a new token for the HTTP server and returns the settings with it. Clients holding the old token are shut out.",
             |app, Nothing {}| off_thread_trying(move || settings::new_http_token(app)),
         ),
         tool(
             "connect_client",
             Changes,
-            "Adds this copy of the app to another MCP client's own configuration, as settings lists the clients on this computer, leaving every other entry in it; the client reaches the open app from then on. Returns the settings with it.",
+            "Adds this copy of the app to an MCP client's configuration and returns the settings. The client can reach the open app from then on.",
             |app, OneClient { client }| {
                 off_thread_trying(move || settings::connect_client(app, client))
             },
@@ -837,7 +836,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "disconnect_client",
             Changes,
-            "Takes the app out of an MCP client's configuration, leaving every other entry in it, and returns the settings without it.",
+            "Takes the app out of an MCP client's configuration and returns the settings.",
             |app, OneClient { client }| {
                 off_thread_trying(move || settings::disconnect_client(app, client))
             },
@@ -857,7 +856,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "free_room",
             Removes,
-            "Removes part of a game, or of every game: its readings, its preparation for search by meaning, its earlier downloads, what work stopped part way left, or the whole game.",
+            "Removes a part of one game or of every game, or a whole game, to free disk space.",
             |app, FreeRoom { app_id, what }| async move {
                 let work = app.state::<work::Work>();
                 storage::free_room(app.clone(), work, app_id, what).await
@@ -866,7 +865,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "remove_model",
             Removes,
-            "Removes a downloaded model; a read that needs it downloads it again.",
+            "Removes a downloaded model.",
             |app, RemoveModel { key }| async move {
                 let work = app.state::<work::Work>();
                 storage::remove_model(app.clone(), work, key).await
@@ -881,31 +880,31 @@ fn entries() -> Vec<Entry> {
         tool(
             "about",
             Looks,
-            "This copy's version and details, whether its build was checked as it was installed, who makes SteamGauge and what it is built on, the newest release GitHub last named, when it was last asked and answered, the version this copy was updated from, and where SteamGauge is published.",
+            "This copy's version, whether its build was checked on install, and the version it was updated from. Also the newest release GitHub last named, who makes SteamGauge, what it is built on and where it is published.",
             |app, Nothing {}| off_thread(move || newer::about(app)),
         ),
         tool(
             "whats_new",
             Looks,
-            "What each release changes in what people download, as the About page lists it: up to the newer release last heard of, or, with none, since the version this copy was updated from. Asks GitHub's releases API.",
+            "What each release up to the newest changes, as the About page lists it. With no newer release, it gives the changes since the version this copy was updated from. Asks GitHub's releases API.",
             |app, Nothing {}| newer::whats_new(app),
         ),
         tool(
             "saw_what_changed",
             Changes,
-            "Records that the person has been shown what changed since the version this copy was updated from, so the sidebar stops pointing at it.",
+            "Records that the person has seen what changed in the last update, so the sidebar stops pointing at it.",
             |app, Nothing {}| off_thread_trying(move || newer::saw_what_changed(app)),
         ),
         tool(
             "open_notices",
             Looks,
-            "Opens the licences and notices of the open-source software SteamGauge is built on, which every release carries, in the system's viewer for text.",
+            "Opens the licences and notices of the open-source software SteamGauge is built on, in the system's text viewer.",
             |app, Nothing {}| off_thread_trying(move || newer::open_notices(app)),
         ),
         tool(
             "check_for_updates",
             Changes,
-            "Asks GitHub now for the newest SteamGauge release, as the About page's button does, and returns what about returns.",
+            "Asks GitHub now for the newest SteamGauge release and returns what `about` returns.",
             |app, Nothing {}| newer::check_for_updates(app),
         ),
         tool(
@@ -919,7 +918,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "update_now",
             Changes,
-            "Updates SteamGauge to the newest release once its build provenance verifies, then restarts it; the next call reaches the new version.",
+            "Updates SteamGauge to the newest release once its build provenance verifies, then restarts it. The next call reaches the new version.",
             |app, Nothing {}| {
                 off_thread(move || update::update_now(app.clone(), app.state::<update::Updating>()))
             },
@@ -927,7 +926,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "show_update_file",
             Changes,
-            "Shows a verified update the app could not install in the system's file manager, for installing it by hand.",
+            "Opens the system's file manager at a verified update the app could not install, so the person can install it by hand.",
             |app, Nothing {}| {
                 off_thread_trying(move || update::show_update_file(app.state::<update::Updating>()))
             },
@@ -935,7 +934,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "show",
             Looks,
-            "Puts a page of the window in front of the person, bringing the window forward.",
+            "Brings the window forward on the page asked for.",
             |app, page: Show| async move {
                 if let Some(missing) = page.missing() {
                     return Err(format!("that page needs {missing}"));
@@ -1079,7 +1078,7 @@ pub(super) fn hex(bytes: &[u8]) -> String {
 }
 
 /// A pipe only this user can reach. Its name is drawn at random each time the app opens and is
-/// told only through the user's own folder, so nobody else can find it or take it first; pipes
+/// told only through the user's own folder, so nobody else can find it or take it first. Pipes
 /// refuse other machines, and other users are given read access alone, which sends nothing.
 #[cfg(windows)]
 fn bind(_local: &Path) -> io::Result<(Listener, String)> {
@@ -1323,7 +1322,7 @@ mod tests {
         assert_eq!(hex(&[0, 15, 255]), "000fff");
     }
 
-    /// A folder of its own for one test, standing in for the app's local data.
+    /// A folder of its own for one test. It stands in for the app's local data.
     fn folder() -> std::path::PathBuf {
         let mut drawn = [0_u8; 8];
         getrandom::fill(&mut drawn).unwrap();

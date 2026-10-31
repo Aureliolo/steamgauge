@@ -2,7 +2,7 @@
 //!
 //! A rate per subject answers "what do players talk about". It cannot answer "do they say this",
 //! and that is the question a reader of a report reaches for the moment a number surprises them.
-//! A subject is twenty-six buckets; a phrase is what somebody actually wrote.
+//! A subject is twenty-six buckets. A phrase is what somebody actually wrote.
 //!
 //! Counted by reviewer as well as by claim, because one person saying a thing nine times is one
 //! person, which is the same distortion the headline rate exists to avoid.

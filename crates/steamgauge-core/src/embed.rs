@@ -119,7 +119,7 @@ impl Embedder {
     ///
     /// A review's vector must not depend on which reviews were embedded alongside it, or a
     /// corpus means something slightly different depending on how it was cut into batches.
-    /// Both float builds satisfy that; a quantised build did not, which is why one is not
+    /// Both float builds satisfy that. A quantised build did not, which is why one is not
     /// offered. Batch size is recorded alongside the vectors regardless, so two corpora can
     /// always be compared knowingly.
     ///
@@ -294,7 +294,7 @@ pub fn embed_corpus(
 
     let path = snapshot.join(vectors_file(unit));
     // Written aside and renamed at the end. An empty embeddings.parquet left by an interrupted
-    // run would read as a finished artefact and fail confusingly everywhere downstream; a
+    // run would read as a finished artefact and fail confusingly everywhere downstream. A
     // partial file under its own name cannot be mistaken for one.
     let partial = snapshot.join(format!("{}.partial", vectors_file(unit)));
     let schema = embedding_schema(embedder.dimensions());
@@ -422,7 +422,7 @@ fn vectors_per_row_group(dimensions: usize) -> usize {
 /// Every sequence in a batch is padded to the longest member, so batching a ten-character
 /// review with a three-thousand-character one processes both as though they were three
 /// thousand characters. Sorting the whole corpus by length removes that waste and costs a
-/// corpus-sized allocation; sorting a window of this size removes nearly all of it, because
+/// corpus-sized allocation. Sorting a window of this size removes nearly all of it, because
 /// a window drawn in corpus order has the corpus's own spread of lengths and cutting it into
 /// batches still puts similar lengths together.
 const LENGTH_WINDOW: usize = 16_384;
@@ -466,7 +466,7 @@ fn embedding_schema(dimensions: usize) -> Arc<Schema> {
         Field::new("appid", DataType::UInt32, false),
         Field::new("n_reviews", DataType::UInt32, false),
         Field::new("model", DataType::Utf8, false),
-        // The inner field is nullable to match what FixedSizeListBuilder produces; the
+        // The inner field is nullable to match what FixedSizeListBuilder produces. The
         // values themselves are never null, since a vector is written or the row is not.
         Field::new(
             "embedding",
@@ -700,7 +700,7 @@ pub fn vectors_for<S: std::hash::BuildHasher + Sync>(
 /// vectors the corpus already holds.
 ///
 /// This is the path that makes an encoder measurable before a corpus is committed to it. A
-/// reference set is a thousand-odd reviews and costs seconds; re-embedding six corpora to
+/// reference set is a thousand-odd reviews and costs seconds. Re-embedding six corpora to
 /// find out whether a candidate was worth having costs hours and cannot be undone cheaply.
 ///
 /// Blank reviews are skipped, as everywhere else: an empty string embeds to a point that

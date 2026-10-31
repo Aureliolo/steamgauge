@@ -1113,8 +1113,8 @@ try {
     shownBefore.forEach(function (put) { put(); });
     return wrong;
   })()`);
-  // The library's table scrolls inside its own frame, so the page never shows it running off;
-  // every width from the narrowest to a common laptop's is asked whether the table fits.
+  // The library's table scrolls inside its own frame, so the page never shows it running off.
+  // Every width from the narrowest to a common laptop's is asked whether the table fits.
   const sideways = [];
   for (const width of [760, 900, 1080, 1180, 1220, 1280, 1366]) {
     await send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });

@@ -253,7 +253,7 @@ impl Graph {
 }
 
 /// A tokenizer of whole words, one id each in the order given, splitting on whitespace and
-/// punctuation; any word not given is `[UNK]`. `[PAD]` is id 0 and `[UNK]` id 1.
+/// punctuation. Any word not given is `[UNK]`. `[PAD]` is id 0 and `[UNK]` id 1.
 pub fn word_tokenizer(words: &[&str]) -> serde_json::Value {
     let mut vocab = serde_json::Map::new();
     for (id, word) in ["[PAD]", "[UNK]"].iter().chain(words).enumerate() {

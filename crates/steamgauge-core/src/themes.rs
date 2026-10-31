@@ -52,7 +52,7 @@ impl Closeness {
     };
 }
 
-/// Distinct claims grouped for one subject on one side; past this a sample is.
+/// Distinct claims grouped for one subject on one side. Past this a sample is.
 pub const SAMPLE: usize = 3_000;
 
 /// Themes kept for one subject on one side, the most widely said first.
@@ -589,7 +589,7 @@ impl Said {
                     keys: Vec::new(),
                 });
             }
-            // The sample's vectors are not wanted again; another group may share a few.
+            // The sample's vectors are not wanted again. Another group may share a few.
             for (key, point) in keys.into_iter().zip(held) {
                 points.insert(key, point);
             }
@@ -1169,7 +1169,7 @@ mod tests {
     );
 
     /// Fifteen reviews: six praise how it runs on the Steam Deck, each filed under controls
-    /// too; five, the fewest a theme takes, complain of the price, each filed as a bug too; four
+    /// too. Five, the fewest a theme takes, complain of the price, each filed as a bug too. Four
     /// praise the story, one review short of a theme. Every claim on the deck or the price comes
     /// after another in its review, so a theme quotes the claim it holds and not its neighbour.
     /// Beside them a verdict, a declined claim and a neutral one, none of which is grouped.

@@ -152,8 +152,8 @@ impl Said {
     /// as `(id, label)`. A subject's own name is never one of its words: "graphics" under
     /// graphics and "tutorial" under tutorial say what the row label already said.
     pub(crate) fn finish(self, subjects: &[(&str, &str)]) -> Vec<SaidAbout> {
-        // The languages pooled, for the candidates, the totals and the words of the language;
-        // the languages apart, for the comparison.
+        // The languages pooled, for the candidates, the totals and the words of the language.
+        // The languages apart, for the comparison.
         let mut pooled: Vec<[Counter; 2]> = (0..self.subjects)
             .map(|_| [Counter::default(), Counter::default()])
             .collect();
@@ -225,7 +225,7 @@ pub fn mentions(claim: &str, term: &str) -> bool {
     found
 }
 
-/// Term counts for one side of one subject, forgetting the rarest when it has to.
+/// Term counts for one side of one subject, with the rarest forgotten when it has to.
 #[derive(Debug, Default)]
 struct Counter {
     reviews: u64,
@@ -291,7 +291,7 @@ fn distinctive(
         .terms
         .iter()
         .filter(|(_, here)| **here >= FEWEST_REVIEWS)
-        // The row's own name says nothing new alone; in a phrase ("no bugs") it does.
+        // The row's own name says nothing new alone. In a phrase ("no bugs") it does.
         .filter(|(term, _)| !own_words.iter().any(|word| word == *term))
         .filter(|(term, here)| {
             let counted = everywhere.get(term.as_str()).copied().unwrap_or(**here);
@@ -323,7 +323,7 @@ fn distinctive(
         // it takes the word's place unless it was noticeably rarer. A phrase a modifier turns
         // takes it at half: "no microtransactions" said by half the reviewers who said
         // "microtransactions" in praise is what the word meant there, and the word alone
-        // reads as the opposite; and "no micro transactions" takes "no micro" the same way,
+        // reads as the opposite, and "no micro transactions" takes "no micro" the same way,
         // because the shorter is the phrase cut off.
         if let Some(at) = shown
             .iter()
@@ -338,7 +338,7 @@ fn distinctive(
                 term.clone_into(&mut kept.text);
                 kept.reviews = reviews;
                 // The phrase that took the place of "micro transactions" also holds "no
-                // micro", shown separately until now; a term that is a part of another shown
+                // micro", shown separately until now. A term that is a part of another shown
                 // term is one finding, not two.
                 let whole = term.to_owned();
                 shown.retain(|other| other.text == whole || !shares_a_word(&other.text, &whole));
@@ -386,7 +386,7 @@ fn distinctive(
 /// same reviewers are one word.
 ///
 /// A run taken into another is emptied where it stands and dropped at the end, so no run moves
-/// while the walk is over them; an empty run neither joins nor is joined.
+/// while the walk is over them. An empty run neither joins nor is joined.
 fn coalesce(shown: &mut Vec<Term>) {
     for at in 0..shown.len() {
         while let Some(other) = (0..shown.len()).find(|&other| {
@@ -774,7 +774,7 @@ impl Terms {
 
         for ch in claim.chars() {
             // Korean is written with spaces between words, so it goes the way of a spaced
-            // script and only its particles need taking off; the other scripts here do not.
+            // script and only its particles need taking off. The other scripts here do not.
             if crate::claims::writes_without_spaces(ch) && !is_hangul(ch) {
                 self.close_word(&mut visit);
                 self.previous.clear();
@@ -793,7 +793,7 @@ impl Terms {
             } else {
                 self.close_word(&mut visit);
                 // A pair of words straddling a comma or a bracket is not a phrase anybody
-                // used; only a space carries the chain on, and a hyphen, because "full-price"
+                // used. Only a space carries the chain on, and a hyphen, because "full-price"
                 // and "full price" are the same two words.
                 if !ch.is_whitespace() && ch != '-' {
                     self.previous.clear();
@@ -843,8 +843,8 @@ impl Terms {
                 }
                 // A lone character is a syllable more often than a word, so it is heard in
                 // the pair it makes with what came before it and not on its own. Two lone
-                // characters in a row are a word the dictionary lacks (掉帧), so they pair;
-                // a lone character before a whole word is the tail of something (手 out of
+                // characters in a row are a word the dictionary lacks (掉帧), so they pair.
+                // A lone character before a whole word is the tail of something (手 out of
                 // 上手 before 难度), and does not lead a pair.
                 let whole = word.chars().count() >= 2;
                 if whole {
@@ -1611,7 +1611,7 @@ const MODIFIERS: &[&str] = &[
 
 /// Function words, and the handful of words that are function words in a Steam review:
 /// every claim is about a game somebody played. English, Chinese and a short list each for
-/// the next six languages Steam is written in; the rest mostly fail the ownership bar on
+/// the next six languages Steam is written in. The rest mostly fail the ownership bar on
 /// their own, and a list for each of forty languages would be a maintenance burden with no
 /// measured return. Sentiment words are not here: "great" fails the ownership bar by itself,
 /// and "worth" is what the price subject is made of. The Chinese entries are the words the
@@ -1801,7 +1801,7 @@ mod tests {
     fn chinese_is_cut_into_words_and_a_lone_character_is_heard_only_in_its_pair() {
         // 很 turns 好 the way "very" turns "good"; 卡 alone is a syllable.
         assert_eq!(terms("画面很好 lags 卡"), ["画面", "很好", "lags"]);
-        // Two words and the pair they make, written solid; the pair is what a reader wants
+        // Two words and the pair they make, written solid. The pair is what a reader wants
         // where the two are one thing (操作手感, "the feel of the controls").
         assert_eq!(
             terms("操作手感不错"),
@@ -1812,7 +1812,7 @@ mod tests {
         // Modifiers stack, and the pair keeps all of them: "not too friendly" is not "too
         // friendly".
         assert_eq!(terms("不太友好"), ["友好", "不太友好"]);
-        // Two lone characters are a word the dictionary lacks; a lone character before a
+        // Two lone characters are a word the dictionary lacks. A lone character before a
         // whole word does not lead into it.
         assert_eq!(terms("帧数很低"), ["帧数", "很低"]);
         assert_eq!(terms("画面渣"), ["画面", "画面渣"]);
@@ -1909,7 +1909,7 @@ mod tests {
     fn a_language_that_leans_one_way_does_not_make_its_words_distinctive() {
         // Spanish speakers praise the story three times as often as they complain about it,
         // and every one of them calls it "historia" either way. Against the whole other side
-        // the word is twelve times likelier in praise; within Spanish it is even, and even is
+        // the word is twelve times likelier in praise. Within Spanish it is even, and even is
         // what it is.
         let mut said = Said::new(1);
         for turn in 0..120 {
@@ -2149,7 +2149,7 @@ mod tests {
             reviews,
         };
         // ほん and んご are too far apart in reviewers to join each other, and にほ takes ほん
-        // first; the run that makes is near enough to んご to take it as well.
+        // first. The run that makes is near enough to んご to take it as well.
         let mut shown = vec![term("ほん", 100), term("にほ", 96), term("んご", 94)];
         coalesce(&mut shown);
         assert_eq!(shown, [term("にほんご", 94)]);

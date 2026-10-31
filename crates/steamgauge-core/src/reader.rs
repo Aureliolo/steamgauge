@@ -142,7 +142,7 @@ pub struct Reading {
     pub confidence: f32,
     pub polarity: Polarity,
     /// Every other subject the claim covers that cleared its own line, on a reader trained to
-    /// say so; empty on one that names a single subject per claim.
+    /// say so. Empty on one that names a single subject per claim.
     pub also: Also,
 }
 
@@ -229,7 +229,7 @@ pub struct Provenance {
     /// backbone and a label set, so this is the only thing that tells two of them apart.
     pub run_id: String,
     /// What the reader is called, for a page to say who read the corpus. A run id names
-    /// weights for the index; a name is what somebody downloads and cites.
+    /// weights for the index. A name is what somebody downloads and cites.
     pub name: String,
     /// The share of claims this model declined on games it never saw. A corpus declined at
     /// far above this is a corpus about something the taxonomy lacks, and the only way a
@@ -327,7 +327,7 @@ pub struct HeldOut {
 ///
 /// Every size reads the same claims into the same subjects under the same sheet. A larger one
 /// answers more of them and agrees with the labels more often, and needs more of the card to
-/// do it. On a card, which one to run is a question about the card, and [`fits`] answers it; on
+/// do it. On a card, which one to run is a question about the card, and [`fits`] answers it. On
 /// a processor it is a question of how long somebody will wait, which only they can answer.
 #[derive(Debug, Clone, Copy)]
 pub struct Size {
@@ -339,8 +339,8 @@ pub struct Size {
     /// above what the card held before the read began.
     pub needs: u64,
     /// Seconds one processor took over the same 1,416 claims of app 1888930 as every other
-    /// size's figure, with nothing else running. Nobody else's processor takes these seconds;
-    /// only the ratio between two sizes is used, to say what a size not yet run on a machine
+    /// size's figure, with nothing else running. Nobody else's processor takes these seconds.
+    /// Only the ratio between two sizes is used, to say what a size not yet run on a machine
     /// would take there beside one that has been.
     pub processor_seconds: f64,
     pub published: Published,
@@ -500,7 +500,7 @@ pub struct Published {
     pub repository: &'static str,
     pub revision: &'static str,
     /// The release tag that commit carries, `v1` and on, to name it to a person. The commit is
-    /// what is fetched; a tag can be moved.
+    /// what is fetched. A tag can be moved.
     pub release: &'static str,
     /// The Hub's origin, [`crate::model::HUB`] everywhere but a test. After the three above,
     /// which `training/publish.py` finds together to pin.
@@ -527,7 +527,7 @@ impl Published {
                 .all(|file| !file.sha256.is_empty() && file.bytes > 0)
     }
 
-    /// What fetching this size into `dir` would download, counting only the files not there.
+    /// What fetching this size into `dir` would download. Only the files not there count.
     #[must_use]
     pub fn bytes_left(&self, dir: &Path) -> u64 {
         crate::model::bytes_left(self.files, dir)
@@ -587,7 +587,7 @@ pub struct Encoder {
     provenance: Arc<Provenance>,
 }
 
-/// A batch tokenised and laid out, waiting for the card.
+/// A batch tokenised and laid out, ready for the card.
 pub struct Prepared {
     rows: usize,
     cols: usize,
@@ -608,7 +608,7 @@ impl std::fmt::Debug for Encoder {
     }
 }
 
-/// The shape is the part worth seeing; the numbers are a batch of token ids.
+/// The shape is the part worth seeing. The numbers are a batch of token ids.
 impl std::fmt::Debug for Prepared {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Prepared")
@@ -898,7 +898,7 @@ impl Encoder {
         as_passage(self.provenance.prefix, window)
     }
 
-    /// Every claim's window, tokenising each review once however many claims it holds.
+    /// Every claim's window. Each review is tokenised once however many claims it holds.
     ///
     /// Finding where a claim sits means knowing where the review's tokens fall, and that is
     /// the same answer for every claim of one review. Asking per claim tokenised a review of
@@ -927,7 +927,7 @@ impl Encoder {
     ///
     /// Truncating a pair from the end spends the whole budget on the opening of the review,
     /// so a claim at the foot of a long one would be read beside paragraphs it is nowhere
-    /// near. The budget is the same either way; where it is spent is not, and it is worth
+    /// near. The budget is the same either way. Where it is spent is not, and it is worth
     /// the most immediately around the claim.
     fn window(&self, asked: &Asked<'_>, offsets: &[(usize, usize)]) -> String {
         let cut = window_around(
@@ -1131,7 +1131,7 @@ fn also_named(
             continue;
         }
         let answers: Vec<f32> = answers.to_vec();
-        // Covered is every answer but absent, which is the line's measure; the polarity is the
+        // Covered is every answer but absent, which is the line's measure. The polarity is the
         // likeliest of the three, however absent compares.
         let covered = 1.0 - softmax_at(&answers, 0);
         if covered >= provenance.aspect_bar(class, language) {
@@ -1169,7 +1169,7 @@ fn softmax_best(logits: &[f32]) -> (usize, f32) {
     }
     let total: f32 = logits.iter().map(|value| (value - highest).exp()).sum();
     // The best class contributes one to the total, so it is at least one unless a logit was
-    // infinite or not a number; the NaN that leaves reads as no confidence, which `max` gives.
+    // infinite or not a number. The NaN that leaves reads as no confidence, which `max` gives.
     (best, (1.0 / total).max(0.0))
 }
 
@@ -1360,7 +1360,7 @@ pub(crate) mod tests {
     fn a_reader_whose_languages_all_declined_says_nothing_rather_than_everything() {
         // The two empty cases mean opposite things and the difference is the whole promise. No
         // map at all is a reader exported before the axis existed and it reads as it always
-        // did; an empty map is a reader that drew the axis and found no language it could keep
+        // did. An empty map is a reader that drew the axis and found no language it could keep
         // a promise in, and answering those claims anyway is the failure the axis was added for.
         // It costs every answer, which is the loudest a mistake here can be, and that is wanted.
         let silent = speaking(&[Some(0.55)], serde_json::json!({}));

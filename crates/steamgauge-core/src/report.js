@@ -32,7 +32,7 @@
     try {
       localStorage.setItem(STORED, next);
     } catch (error) {
-      // The page still switches; it just will not remember.
+      // The page still switches. It just will not remember.
     }
   }
 
@@ -75,7 +75,7 @@
       button.addEventListener('click', function () {
         var header = button.parentNode;
         // A first click on a number sorts largest first, which is what anyone reading a
-        // rate wants; a first click on a name sorts A to Z.
+        // rate wants. A first click on a name sorts A to Z.
         var numeric = header.classList.contains('num');
         var current = header.getAttribute('aria-sort');
         var descending = current === 'none' ? numeric : current === 'ascending';

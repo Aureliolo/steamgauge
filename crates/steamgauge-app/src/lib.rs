@@ -27,7 +27,7 @@ pub const CLI_STACK: usize = 32 * 1024 * 1024;
 /// Fails where the window cannot open or the command given fails.
 pub fn run() -> anyhow::Result<()> {
     if std::env::args_os().nth(1).is_some() {
-        // The window has to stay on the main thread; the pipeline does not, so only it moves.
+        // The window has to stay on the main thread. The pipeline does not, so only it moves.
         return std::thread::Builder::new()
             .stack_size(CLI_STACK)
             .name("steamgauge-cli".to_owned())

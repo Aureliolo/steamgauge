@@ -38,7 +38,7 @@ pub fn splitter(text: &str) {
         );
         if let Some(before) = previous {
             // A heading above a template's options stays in front of every answer ticked under
-            // it, so those claims share their first byte; nothing else may overlap.
+            // it, so those claims share their first byte. Nothing else may overlap.
             assert!(
                 before.start <= span.start && before.end < span.end,
                 "claims out of order: {before:?} and then {span:?}"

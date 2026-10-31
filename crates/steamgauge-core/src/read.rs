@@ -91,7 +91,7 @@ impl Model for ClaimReader {
 /// the card watched throughout: 183s at 128 against 165s at both 256 and 512. The two larger
 /// sizes are the same speed to within the spread of a single size, and 256 asks the card for
 /// 2.5 GB where 512 asks for 3.9 GB, so the smaller of two equals wins. The window is sorted by
-/// length before it is cut into batches, so a larger batch saves no padding; what it buys is a
+/// length before it is cut into batches, so a larger batch saves no padding. What it buys is a
 /// card that is not waiting on the next launch, and by 256 it is no longer waiting.
 pub const DEFAULT_READ_BATCH: usize = 256;
 
@@ -100,14 +100,14 @@ pub struct ReadOptions {
     pub out_dir: PathBuf,
     pub top_helpful: usize,
     pub batch_size: usize,
-    /// Which language to count. The capture is always the whole census; this decides what is
+    /// Which language to count. The capture is always the whole census. This decides what is
     /// counted from it, so the choice can change without re-downloading anything and every
     /// figure can say which reviews it is about.
     pub language: Option<String>,
     pub depth: Depth,
     /// The share of the card's time the read may take, for a card other work is using: after
     /// each batch it rests as long again as the batch kept the card busy, times
-    /// (1 - share) / share. What it reads is the same; only how long it takes changes.
+    /// (1 - share) / share. What it reads is the same. Only how long it takes changes.
     pub card_share: f64,
     /// Reads every claim again rather than keeping the answers of the reading on disk for
     /// reviews whose text has not changed since.
@@ -230,7 +230,7 @@ pub struct SubjectCount {
     pub mention_reviews: u64,
     /// Reviews whose main subject this is, which are exhaustive across subjects.
     pub primary_reviews: u64,
-    /// Claims about this subject. Verbosity-weighted; never a headline.
+    /// Claims about this subject. Verbosity-weighted. Never a headline.
     pub claims: u64,
     pub praised: u64,
     pub criticised: u64,
@@ -369,15 +369,15 @@ pub struct ReadReport {
     pub read_with: String,
     /// What the reader is called.
     pub reader: String,
-    /// Which abstention rule the reader was carrying. The run id names the weights; the lines
+    /// Which abstention rule the reader was carrying. The run id names the weights. The lines
     /// are drawn separately and can be redrawn without retraining, so two readings of one
     /// corpus by one run id can hold different answers and this is what says why.
     pub read_by_rule: String,
     /// What this model usually declines, on games it never saw, so this corpus's share can be
-    /// read against something; None for a reader that was never measured so.
+    /// read against something. None for a reader that was never measured so.
     pub usual_declined: Option<f32>,
     /// What the reader scored on games nobody involved in it had seen, copied into the reading
-    /// so a report can say what its rates are worth without the model being present; None for
+    /// so a report can say what its rates are worth without the model being present. None for
     /// a reader that was never held to such games.
     pub held_out: Option<crate::reader::HeldOut>,
     /// Whether each claim was read with its review around it. The same model cannot be asked
@@ -416,7 +416,7 @@ pub struct ReadReport {
     #[serde(skip)]
     pub elapsed: Duration,
     /// Of the distinct claims, how many this read answered from the last reading rather than
-    /// asking the model; known only to the read that did it.
+    /// asking the model. Known only to the read that did it.
     #[serde(skip)]
     pub kept: u64,
 }
@@ -458,7 +458,7 @@ impl ReadReport {
     /// game rather than a detail of the run.
     ///
     /// A ratio on its own stopped meaning what it meant. When the reader declined 45% of an
-    /// ordinary corpus, 1.2 times that was nine points more; against a reader that declines
+    /// ordinary corpus, 1.2 times that was nine points more. Against a reader that declines
     /// 16%, the same ratio is three, which is the difference between one hard game and
     /// another. So the gap has to be wide in points as well as in proportion.
     #[must_use]
@@ -604,7 +604,7 @@ fn read_with(
 ///
 /// What a page shows is added up at read time, and a change to the adding up (which words
 /// stand out, how a month is cut) would otherwise cost every game a reading again, five hours
-/// of the card for a library. The answers do not change; only what is counted from them does,
+/// of the card for a library. The answers do not change. Only what is counted from them does,
 /// so they are replayed from `readings.parquet` through the same counting a reading goes
 /// through, and the counts land in `reading.json` as before. The readings themselves are
 /// never rewritten: what the replay writes goes to a file beside them and is thrown away.
@@ -616,8 +616,8 @@ fn read_with(
 ///
 /// Fails if the capture, the readings or the reading are missing, if the readings were
 /// answered under other lines than the reader named, or if this build takes a review apart
-/// differently from the build that read it, so the answers no longer name its claims; and
-/// stops, leaving the reading as it was, once `stop` is set.
+/// differently from the build that read it, so the answers no longer name its claims.
+/// Stops, leaving the reading as it was, once `stop` is set.
 pub fn recount_corpus(
     out_dir: &Path,
     app_id: u32,
@@ -738,7 +738,7 @@ fn kept_for<'a>(
 }
 
 /// The answers a read may keep from the reading on disk, which are the ones this reader gave at
-/// this depth in this mode; an answer is kept only for a review whose text is still what it
+/// this depth in this mode. An answer is kept only for a review whose text is still what it
 /// was. None where the reading is another reader's, and then every claim is read.
 fn kept_answers(
     snapshot: &Path,
@@ -779,12 +779,12 @@ fn kept_answers(
 /// Gives a readings file written before readings carried the text they answered its
 /// `text_key` column, from the capture as it stood when it was read, so a later read keeps
 /// exactly the answers it would have kept had the column always been there. True where the file
-/// needed it; a file that carries it is left as it is.
+/// needed it. A file that carries it is left as it is.
 ///
 /// # Errors
 ///
 /// Fails if the reading, its readings or the capture cannot be read, or if a reading names a
-/// review the capture did not hold when it was read; the readings are then left as they were.
+/// review the capture did not hold when it was read. The readings are then left as they were.
 pub(crate) fn key_readings(snapshot: &Path) -> Result<bool> {
     use arrow::array::{Array, StringArray};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
@@ -1021,7 +1021,7 @@ impl Queued {
     }
 }
 
-/// A review whose claims have been queued, waiting for the model to answer them.
+/// A review whose claims have been queued and wait for the model to answer them.
 ///
 /// Held by its claims rejoined rather than as it was captured: that is the form a labeller read
 /// and the form the model is asked in, and slicing it gives the claims back without splitting
@@ -1057,7 +1057,7 @@ const PENDING_CAP: usize = 16_384;
 /// Asks the model about every distinct claim, and adds up each review as its answers arrive.
 ///
 /// One walk rather than two. The counting pass used to open the capture again, split every
-/// review a second time and tally with the card idle; now a review is counted at the first
+/// review a second time and tally with the card idle. Now a review is counted at the first
 /// drain after its last claim was queued, which is the same arithmetic in the same order
 /// against answers that are already final.
 /// Where each claim sits in the review as captured. A reading is joined to a label by this and
@@ -1213,14 +1213,14 @@ fn settle(
 /// two-word ones costs as much as a hundred long ones. Sorting a window before cutting it
 /// into batches puts claims of a size together, and on a corpus of mostly short claims that
 /// is most of the arithmetic. The embedding pass has done this since a million-review game
-/// took a day; this pass was missing it.
+/// took a day. This pass was missing it.
 const LENGTH_WINDOW: usize = 16_384;
 
 /// Asks the model about a window of claims, a batch at a time.
 ///
 /// The batch after next is tokenised while the card works on the one in hand. Tokenising is
 /// most of what a reading spends its processor on, and taking turns with the card left both at
-/// about half duty; the batches, their order and their answers are the same either way.
+/// about half duty. The batches, their order and their answers are the same either way.
 fn drain<M: Model>(
     model: &mut M,
     options: &ReadOptions,
@@ -2024,7 +2024,7 @@ pub(crate) mod tests {
                     "votes_up": match *id { "1" | "2" => 50, "4" => 20, "6" => 30, "7" => 40,
                                             _ => 10 },
                     "timestamp_created": 1_709_294_400 + days * 86_400,
-                    // The first reviewer played an hour and a half, on a Deck; the rest fifty.
+                    // The first reviewer played an hour and a half, on a Deck. The rest fifty.
                     "author": {"steamid": format!("7656{id}"),
                                "playtime_at_review": if *id == "1" { 90 } else { 3_000 }},
                     "primarily_steam_deck": *id == "1",
@@ -2289,7 +2289,7 @@ pub(crate) mod tests {
         assert!(report.context);
         // Every claim of every review is its own question now, "Bugs everywhere." included.
         assert_eq!(report.forward_passes, 10);
-        // "It is great." beside the music is about the audio; beside the story it is not.
+        // "It is great." beside the music is about the audio. Beside the story it is not.
         assert_eq!((report.claims, report.unclassified_claims), (10, 2));
         let audio = report.subjects.iter().find(|s| s.id == "audio").unwrap();
         assert_eq!((audio.mention_reviews, audio.claims), (2, 3));

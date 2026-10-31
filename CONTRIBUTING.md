@@ -1,14 +1,14 @@
 # Contributing
 
-Before starting anything substantial, open an issue so the design is settled first.
+Before starting anything substantial, open an issue so the design is settled first. Read the
+section of [Architecture](docs/architecture.md) that names what you are changing.
 
 ## Working on it
 
-`main` is protected. Everything lands through a pull request, including maintainer changes
-and dependency bumps. Branches must be current with `main` before merging, and history is
-linear, so merges are squashed or rebased rather than committed as merges.
+`main` is protected. Everything lands through a pull request that is current with `main`, and
+history is linear, so merges are squashed or rebased.
 
-Run the same gates CI runs before pushing:
+Run the gates CI runs before pushing:
 
 ```sh
 cargo fmt --all -- --check
@@ -19,146 +19,78 @@ bash -c "cd training && python -m pytest -q"
 node --test tools/release/release.test.mjs
 ```
 
-`--locked` fails when `Cargo.lock` no longer matches the manifests. The release build refuses
-that too, but only once the tag is made, and a tag cannot be taken back. The last line tests
-the scripts that raise the version and write each release's changelog;
-`.github/release-process.md` says how a release is cut.
+- Clippy runs without `--all-features`, because the cuda and coreml backends need vendor
+  toolchains.
+- Run pytest from inside `training/`. Given a path from elsewhere on Windows, its collection
+  breaks.
 
-CI also holds the dependencies, the spelling and the Markdown to a standard, each with a tool
-whose version `ci.yml` pins:
+CI also checks the dependencies, the spelling and the Markdown, with the versions `ci.yml` pins:
 
 ```sh
 cargo deny --workspace --locked check                              # advisories, licences, sources
-cp Cargo.lock fuzz/ && cargo deny --manifest-path fuzz/Cargo.toml --workspace check   # the harness builds on the product's lock
+cp Cargo.lock fuzz/ && cargo deny --manifest-path fuzz/Cargo.toml --workspace check
 cargo machete                                                      # dependencies nothing uses
 typos                                                              # British spelling, _typos.toml
 npx markdownlint-cli2                                              # .markdownlint-cli2.jsonc
 git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
 ```
 
-No file may carry an em dash, except the ONNX Runtime notices, which are Microsoft's text. An
-advisory cargo-deny is told to ignore is ignored in `osv-scanner.toml` too, with the evidence
-and an expiry: the deny job fails on one that is not, or whose date has passed.
+- **No em dash** in any file, except the ONNX Runtime notices, which are Microsoft's text.
+- **Ignored advisories.** An advisory cargo-deny ignores is ignored in `osv-scanner.toml` too,
+  with the evidence and an expiry date.
+- **CI fails on a crate whose licence** `third-party/about.toml` does not accept. To accept
+  another, change `about.toml`, `deny.toml` and `fuzz/deny.toml` in the pull request that needs it.
 
-A new dependency brings its licence into every release archive. CI's notices job writes each
-archive's `THIRD-PARTY-NOTICES.txt` on every pull request and fails on a crate whose licence
-`third-party/about.toml` does not accept, or whose licence text cargo-about cannot find; the
-message says which, and `third-party/README.md` says what to do. Accepting another licence is a
-decision about what the binary may contain, so make it in the pull request that needs it, in
-`deny.toml` and `fuzz/deny.toml` as well, which hold every other crate to the same list. The
-dependency review on every pull request holds the Python packages and workflow actions to a
-permissive list of the maintainer's too, and accepts no other licence.
+## The pages in a browser
 
-Not `--all-features`: the cuda and coreml backends need vendor toolchains, and the default set
-is what ships. The Rust tests run on Linux, macOS and Windows; the Python ones on Windows,
-which is the platform `training/requirements.lock` is resolved for. Clippy warnings fail the
-build. Run pytest from inside `training/`: given a path from elsewhere on Windows it walks every
-sibling of every ancestor, and a shared temp directory changing underneath aborts collection.
-
-The report page carries scripting no Rust test can reach, and rendering no Rust test can see:
-a stylesheet rule can flatten a chart or turn a printed page into blocks of ink while the
-markup stays exactly right. A fourth gate therefore drives the page in a real browser four
-times: on a desktop window, at 420 pixels where the tables are wider than the screen, under
-print media with the machine asking for a dark one, and again with the script cut out, which
-is what a reader with scripting off is served. It needs Chrome and Node, and nothing else: no
-corpus, no model, no network beyond installing axe-core once.
-
-Both browser checks also hold every page to WCAG 2.2 at levels A and AA through axe-core, light
-and dark and at the narrowest width: contrast, labels, names, structure and keyboard reach. A
-finding fails the check like any broken promise. axe-core is the one package `tools/` installs,
-pinned by its lock file:
+The window, the report and the site are checked in headless Chrome against axe-core's WCAG 2.2
+A and AA rules. They need Chrome (or `CHROME_PATH`) and Node:
 
 ```sh
 (cd tools && npm ci --ignore-scripts)
 cargo run -p steamgauge-core --example sample-report -- report.html
 node tools/report-check/check.mjs report.html
-```
-
-Chrome is found in the usual places per platform, or wherever `CHROME_PATH` says. Every
-check in it is a promise the page makes in its own prose; if you change what the page says
-it does, change the check with it.
-
-The desktop app's window is held to the same bar. `tools/app-check` serves it in headless
-Chrome with `stub.js` standing in for the core, answering every command from fixtures shaped as
-the Rust side sends them, and presses every page's controls. It then walks every page and state,
-light and dark and at the narrowest window, checking each for accessibility; `--shots <folder>`
-saves a picture of each stop for a person to look at. A command or a field added on the Rust
-side is added to the stub in the same change.
-
-```sh
-node tools/app-check/check.mjs
-```
-
-The documentation site is held to it too. `crates/steamgauge-site` builds its front page in
-`home.rs` and every other page from `docs/`, and writes the parts that describe the program, its
-commands, its MCP tools and the clients it adds itself to, from the program's own tables; `write`
-refreshes them, and a test fails while a copy is behind. A page under `docs/` is reference: what
-something is and how to use it, in as few words as that takes; how the parts fit is in
-`docs/architecture.md`. The build refuses a link to a file or heading that does not exist and anything
-fetched from another host, and `tools/site-check` serves the built site and holds every page to
-WCAG 2.2 A and AA, light, dark and at a phone's width:
-
-```sh
-cargo run -p steamgauge-site -- write
 node tools/app-check/check.mjs --shots shots
-cargo run -p steamgauge-core --example sample-report -- report.html
+cargo run -p steamgauge-site -- write
 cargo run -p steamgauge-site -- build --out site --shots shots --report report.html
 node tools/site-check/check.mjs site
 ```
 
-The words a person reads are held to plain prose by [Vale](https://vale.sh) with the style in
-`.vale/`: no inflated praise, filler, chatbot asides, unnamed authorities, or a thing framed
-against what it is not. It reads the README, the docs and SECURITY, the report pages, and every
-page of the window as its check renders it with `--pages`; reviews quoted from players are left
-out.
+- **The report check** holds the page to what its own text promises. Change the check when you
+  change what the page says it does.
+- **The window check** runs against `tools/app-check/stub.js`, which stands in for the core. A
+  command or field added on the Rust side is added to the stub in the same change.
+- **The site** writes the program's commands, MCP tools and clients into `docs/` with `write`. A
+  test fails while a copy is behind, and the build refuses a link to a missing file or heading.
+
+The words a person reads are held to plain prose by [Vale](https://vale.sh), with the style in
+`.vale/`:
 
 ```sh
 node tools/app-check/check.mjs --pages pages
 vale README.md docs SECURITY.md training/README.md reference/README.md report.html pages
 ```
 
-### One build directory
+## The release binary
 
-`target/`, and nothing beside it. The gates above build test binaries under `target/debug` and
-never produce a release one, so the only binary anyone runs for real work is
-`target/release/steamgauge.exe`. That one binary is both front ends: opened with no arguments it
-is the desktop application, and given arguments it is the pipeline. Where there is a GPU,
-build it with the backend for it, because embedding a million reviews on a CPU is the
-difference between an afternoon and a week:
+`target/` is the only build directory. Where there is a GPU, build with its backend:
 
 ```sh
 cargo build --release -p steamgauge-app --features directml
 ```
 
-Two things follow. A build without that flag replaces the same file with a CPU one, and the
-only sign is the device `steamgauge embed` prints on its third line: read it. And on Windows a
-running `steamgauge.exe` holds its own binary open, so a build started mid-crawl fails with
-"Access is denied": wait for the run rather than reaching for `--target-dir`, which is how
-this repository once ended up with four build trees and twenty gigabytes in them.
+A build without the flag replaces the binary with a CPU one. The device `steamgauge embed` prints
+on its third line says which you have. On Windows a running `steamgauge.exe` holds its binary
+open, so a build fails with "Access is denied" until the run stops.
 
-Two of those promises are watched rather than read. The page is reloaded with the network
-being listened to and fails on any request but the file itself, because a stylesheet pulling
-a font would pass any amount of reading the markup for URLs. And every piece of text on it is
-measured against whatever is composited behind it, in both themes, because a palette is a set
-of tokens until a browser draws it.
+## Fuzzing
 
-### Fuzzing
+The splitter (`splitter`), a stored span brought to its words (`stored_span`), the reader's window
+(`reader_window`) and the terms a claim is counted under (`terms`) are fuzzed. `fuzz/src/lib.rs`
+says what each target asserts. CI runs them for ten minutes on every pull request and an hour
+every Monday. A crash fails the check and attaches its input as an artefact.
 
-Everything that reads text a stranger wrote is fuzzed, because a panic in any of it stops the
-reading of a whole library: the splitter over a review (`splitter`), a stored span brought to
-its words (`stored_span`), the window the reader reads a claim in (`reader_window`) and the
-terms a claim is counted under (`terms`). Not crashing is the least of it. `fuzz/src/lib.rs`
-says what each target asserts, and most of it is what the join between labels, readings and
-claims relies on: a span brought to its words again stays where it is, claims come in order and
-never share a span, and a claim holds nothing its span does not.
-
-CI runs them with ClusterFuzzLite (`.clusterfuzzlite/`, `.github/workflows/fuzz.yml`): ten
-minutes on every pull request, an hour every Monday on `main`. A crash fails the check,
-attaches the input that caused it to the run as an artefact, and shows in code scanning.
-
-`fuzz/` is a workspace of its own, so none of the gates above builds it, and none of it ships.
-Running a target needs a nightly toolchain and cargo-fuzz, and it builds the core crate with a
-sanitiser, which is not a build to start beside a training run:
+`fuzz/` is a workspace of its own. It needs a nightly toolchain and cargo-fuzz:
 
 ```sh
 cargo install cargo-fuzz
@@ -168,24 +100,18 @@ cargo +nightly fuzz tmin splitter path/to/crash-input       # cuts it to the lea
 cargo +nightly fuzz list                                    # the other targets
 ```
 
-New inputs go to `fuzz/corpus/<target>/` and crashes to `fuzz/artifacts/<target>/`, both kept
-out of git. `fuzz/seeds/` is the committed start, and it is synthetic: never a review from
-`data/`, which is other people's writing. A crash is fixed where it happens, with a test beside
-the code that reproduces it; the fuzz target is not where it is made to pass.
+- `fuzz/seeds/` is synthetic. Never add a review from `data/`, which is other people's writing.
+- Fix a crash where it happens, with a test beside the code that reproduces it.
 
-### Coverage and mutants
+## Coverage and mutants
 
-Two more checks hold the core's tests to what they are for. `coverage.yml` runs
-steamgauge-core's tests under cargo-llvm-cov and fails when the share of lines they run falls
-under the floor it names; the floor is raised as the figure rises and never lowered to let a
-change through. `mutants.yml` runs cargo-mutants over the lines a pull request changes in the
-core, and fails on every mutant the tests still pass: write the test that fails on it, or, where
-no test could tell it from the original, add it to `.cargo/mutants.toml` with the reason. Every
-Tuesday the whole crate is run, and what survives there is listed in one issue, "Mutants the
-tests miss". Both need their tool installed (`cargo install cargo-llvm-cov cargo-mutants`), and
-cargo-mutants needs its compiler count held down, or it starts one per processor at once:
+- **`coverage.yml`** fails when the core's tests run fewer of its lines than the floor it names,
+  and the floor only rises.
+- **`mutants.yml`** fails on a mutant the tests pass in the core's changed lines. Write the test
+  that kills it, or add it to `.cargo/mutants.toml` with the reason.
 
 ```sh
+cargo install cargo-llvm-cov cargo-mutants
 cargo llvm-cov -p steamgauge-core --summary-only
 git diff origin/main... > change.diff
 cargo mutants -p steamgauge-core --in-diff change.diff --jobserver-tasks 4
@@ -193,19 +119,15 @@ cargo mutants -p steamgauge-core --in-diff change.diff --jobserver-tasks 4
 
 ## What is held to a higher bar
 
-This tool exists to make a percentage mean what it appears to mean, so anything affecting a
-reported number needs more than passing tests:
+Anything affecting a reported number needs more than passing tests:
 
-- **Ingestion parameters.** The census depends on overriding Valve's defaults. A change here
-  silently changes every downstream figure and can make existing corpora incomparable.
-- **Denominators.** A percentage is a mention rate unless labelled otherwise. Do not add a
-  figure to the interface, the README or the docs without stating which denominator it uses.
-- **Taxonomy, classifier and gold set.** Changing any of these changes the numbers. Say by
-  how much.
-- **Claims in the README and the docs.** Every figure quoted must be reproducible, and the pull
-  request should say how to reproduce it.
+- **Ingestion parameters** override Valve's defaults for the census. A change here changes every
+  figure and can make existing corpora incomparable.
+- **Denominators**: a percentage is a mention rate unless labelled otherwise, and a new figure
+  states its denominator.
+- **The taxonomy, classifier and gold set** change the numbers when they change. Say by how much.
+- **Figures in the README and the docs** are reproducible, and the pull request says how.
 
 ## Licence
 
-Contributions are accepted under the Apache License 2.0, as covered by section 5 of the
-licence.
+Contributions are accepted under the Apache License 2.0, as covered by section 5 of the licence.

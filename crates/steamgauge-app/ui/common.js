@@ -180,7 +180,7 @@ function artUrl(appId) {
   return pictures.get(appId);
 }
 
-/* The picture's frame, filled in when the picture arrives; a game with none keeps the frame. */
+/* The picture's frame, filled in when the picture arrives. A game with none keeps the frame. */
 export function art(appId, holder = make('span', 'art')) {
   holder.replaceChildren();
   holder.dataset.app = String(appId);
@@ -196,7 +196,7 @@ export function art(appId, holder = make('span', 'art')) {
   return holder;
 }
 
-/* Pages register what to do when they are shown; anything can ask to go to one. A page with no
+/* Pages register what to do when they are shown. Anything can ask to go to one. A page with no
    place of its own in the sidebar, a game's, names the one it is reached from, which stays marked
    while it is open. */
 const pages = new Map();
@@ -210,7 +210,7 @@ export function go(name, ...args) {
   for (const [other, { node }] of pages) node.hidden = other !== name;
   current = name;
   const marked = pages.get(name)?.under ?? name;
-  /* Only the rail's list marks where the person is; the name above it and the links on a page
+  /* Only the rail's list marks where the person is. The name above it and the links on a page
      are ways in, and lit up too they would read as a second place. */
   for (const link of document.querySelectorAll('.nav [data-go]')) {
     if (link.dataset.go === marked) link.setAttribute('aria-current', marked === name ? 'page' : 'true');
@@ -243,7 +243,7 @@ export function openOutside(url) {
   else invoke('plugin:opener|open_url', { url });
 }
 
-/* Steam's language codes are its own; the ones a browser needs for hyphenation and font
+/* Steam's language codes are its own. The ones a browser needs for hyphenation and font
    selection are not, and getting this wrong renders Chinese in a Japanese face. */
 export function bcp47(steam) {
   const known = {

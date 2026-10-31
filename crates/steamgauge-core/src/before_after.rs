@@ -5,7 +5,7 @@
 //! reviews praising it and the share complaining about it. The rules are those of what moved
 //! lately ([`crate::moves`]): a share is compared only where both windows hold enough reviews for
 //! it to mean something, and a difference is called a change only where it spans three standard
-//! errors and two points. A change found here happened across the update; nothing here says the
+//! errors and two points. A change found here happened across the update. Nothing here says the
 //! update is why.
 
 use std::{collections::HashMap, path::Path};
@@ -23,9 +23,9 @@ use crate::{
 };
 
 /// Days in each window. Four whole weeks, so each window holds every day of the week four times
-/// and neither leans on an extra weekend; close to the thirty days Steam's own recent reviews
-/// cover, which players already read as lately; and short enough that a game patched every month
-/// has most of each window to itself.
+/// and neither leans on an extra weekend. That is close to the thirty days Steam's own recent
+/// reviews cover, which players already read as lately, and short enough that a game patched
+/// every month has most of each window to itself.
 pub const WINDOW_DAYS: i64 = 28;
 
 const WINDOW: i64 = WINDOW_DAYS * 86_400;
@@ -185,7 +185,7 @@ pub struct Around {
     pub update: Update,
     pub before: Window,
     pub after: Window,
-    /// Whether the capture holds all four weeks after the update; a capture made soon after one
+    /// Whether the capture holds all four weeks after the update. A capture made soon after one
     /// holds only the days since.
     pub after_whole: bool,
     /// Whether both windows hold enough reviews to compare. Where they do not, nothing is
@@ -322,7 +322,7 @@ pub struct Updates {
     pub around: Vec<Around>,
 }
 
-/// Every update a library keeps for a game, each with its subjects either side; nothing is
+/// Every update a library keeps for a game, each with its subjects either side. Nothing is
 /// walked where Steam has not been asked about the game or named no update.
 ///
 /// # Errors

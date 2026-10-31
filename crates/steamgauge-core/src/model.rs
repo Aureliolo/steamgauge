@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use crate::{Error, Result};
 
 /// Tokens a review is cut to. Every encoder here allows at least this many, and several
-/// allow far more; they are held to the same limit so a comparison between them is about
+/// allow far more. They are held to the same limit so a comparison between them is about
 /// the encoder rather than about how much text each was allowed to read. Truncation affects
 /// roughly the top 1% of reviews by length.
 pub const MAX_TOKENS: usize = 512;
@@ -64,7 +64,7 @@ pub enum Encoder {
 pub enum Pooling {
     /// The mean over real tokens, which is what the e5 family is trained to produce.
     Mean,
-    /// The leading token's vector, which these encoders are trained to summarise into.
+    /// The leading token's vector, where these encoders are trained to put a summary of the text.
     Cls,
 }
 
@@ -93,7 +93,7 @@ impl Encoder {
 
     /// The commit the pinned files are fetched from: the newest at which every one of them has
     /// the hash pinned below. A branch name would let whoever controls the repository decide
-    /// what is downloaded; the hashes would refuse it, and the commit means nothing else is
+    /// what is downloaded. The hashes would refuse it, and the commit means nothing else is
     /// ever asked for.
     fn revision(self) -> &'static str {
         match self {
@@ -123,7 +123,7 @@ impl Encoder {
     /// Text put in front of every review before tokenising.
     ///
     /// e5 models are trained with an instruction prefix and produce measurably worse vectors
-    /// without one; their cards specify `query:` for symmetric similarity, which is what
+    /// without one. Their cards specify `query:` for symmetric similarity, which is what
     /// classification needs. The others prefix queries only, so comparing reviews to
     /// reviews means no prefix at all.
     #[must_use]
@@ -228,14 +228,14 @@ pub(crate) struct Asset {
 }
 
 impl Asset {
-    /// Whether the copy in `dir` is at least the right length. The hash is what decides; this
+    /// Whether the copy in `dir` is at least the right length. The hash is what decides. This
     /// is what a window can ask about without reading a gigabyte.
     pub(crate) fn present_in(self, dir: &Path) -> bool {
         std::fs::metadata(dir.join(self.local)).is_ok_and(|found| found.len() == self.bytes)
     }
 }
 
-/// What fetching these files into `dir` would download, counting only the ones not there.
+/// What fetching these files into `dir` would download. Only the ones not there count.
 pub(crate) fn bytes_left(assets: &[Asset], dir: &Path) -> u64 {
     assets
         .iter()
@@ -248,7 +248,7 @@ pub(crate) fn bytes_left(assets: &[Asset], dir: &Path) -> u64 {
 ///
 /// Measured on a 2,875-text corpus under e5-small rather than assumed, because the obvious
 /// assumption was wrong. Quantising was expected to trade a little accuracy for speed and
-/// size; it cost accuracy and bought no speed at all. Downloads scale with the encoder, but
+/// size. It cost accuracy and bought no speed at all. Downloads scale with the encoder, but
 /// fp32 is twice fp16 for all of them.
 ///
 /// | build | `DirectML` | CPU | download | batch-invariant | mean cosine to fp32 |
@@ -444,7 +444,7 @@ pub async fn newest_release(hub: &str, repository: &str) -> Result<Option<String
         .map(|(_, name)| name))
 }
 
-/// The number of a release tag, `v1` and on; none for any other tag.
+/// The number of a release tag, `v1` and on. None for any other tag.
 #[must_use]
 pub fn release_number(tag: &str) -> Option<u32> {
     let digits = tag.strip_prefix('v')?;

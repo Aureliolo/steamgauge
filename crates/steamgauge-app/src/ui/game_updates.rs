@@ -1,5 +1,5 @@
 //! A game's own updates on its timeline, and each subject either side of the one chosen. The
-//! core decides what an update is and what changed across it; this hands the window what is
+//! core decides what an update is and what changed across it. This hands the window what is
 //! kept on disk, and nothing here reaches the network.
 
 use std::{
@@ -34,7 +34,7 @@ pub struct UpdateOut {
 /// A game's updates, oldest first.
 #[derive(Debug, Clone, Serialize)]
 pub struct GameUpdates {
-    /// When Steam was last asked; none where it never was.
+    /// When Steam was last asked. None where it never was.
     asked: Option<i64>,
     updates: Vec<UpdateOut>,
     window_days: i64,
@@ -74,7 +74,7 @@ pub fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
 type Walked = (PathBuf, Option<SystemTime>, Arc<Vec<Dated>>);
 
 /// The last game walked. Choosing one update after another is the common case, and a large
-/// game's walk takes seconds; one game is kept, since only one page is open.
+/// game's walk takes seconds. One game is kept, since only one page is open.
 static WALKED: Mutex<Option<Walked>> = Mutex::new(None);
 
 fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<Vec<Dated>>, String> {

@@ -5,43 +5,36 @@ opens onto the reviews behind it.
 
 ## Every review
 
-- **The whole census.** It downloads every review Steam serves for a game, in every language,
-  including reviews of activated keys and reviews posted during review bombs, which Steam's
-  defaults leave out.
-- **Checked against Valve's total.** Steam sometimes stops serving a stretch of reviews early, so
-  each date window is checked against Valve's count for it and walked again when short. Each game
-  shows how much of Valve's total it holds; reviews by deleted and private accounts are counted
-  by Valve and cannot be fetched by anyone.
-- **Kept up to date.** Bringing a game up to date fetches only what was written or edited since.
-  An edited review is kept in both forms. While the app is open it does this by itself once
-  Steam has 1% more reviews of a game than the library holds, then reads the new ones; Settings
-  turns it off.
+- **The whole census** is every review Steam serves for a game, in every language. It includes
+  reviews of activated keys and review bombs, which Steam's defaults leave out.
+- **Each game shows how much of Valve's total it holds.** Reviews by deleted and private accounts
+  count in that total and cannot be fetched by anyone.
+- **An update** fetches only what was written or edited since. While the app is open, it updates
+  a game once Steam has 1% more reviews, which Settings turns off.
 
 ## Reading a review
 
 A review is split into the points it makes, its **claims**: "looks incredible, runs like a
 slideshow" is two. The reader then gives each claim:
 
-- the subject it is chiefly about, one of 26, and any others it covers;
-- whether it praises, criticises or neither, for each subject;
-- how sure it is.
+- the subject it is chiefly about, one of 26, and any others it covers
+- whether it praises, criticises or neither, for each subject
+- how sure it is
 
 A claim the reader is not sure enough of stays unfiled, and the share left unfiled is shown
-beside every figure. The line is drawn for each subject and each language, so that what the
-reader does answer is right three times in four on games it never trained on.
+beside every figure. What the reader does answer is right three times in four on games it never
+trained on. [Accuracy](accuracy.md) has the figures.
 
-The 26 subjects: performance; bugs and crashes; gameplay and mechanics; genre and comparisons;
-overall verdict; says nothing about the game; story and writing; atmosphere and feel; graphics
-and art; audio and music; controls and interface; difficulty and balance; amount of content; mods
-and user content; price and value; monetisation and DLC; multiplayer and online; community and
-players; updates and developer support; publisher and platform policy; hardware and
-compatibility; accessibility and options; language and localisation; tutorial and learning;
-licensed content; VR and headsets.
+The 26 subjects are performance, bugs and crashes, gameplay and mechanics, genre and
+comparisons, overall verdict, says nothing about the game, story and writing, atmosphere and
+feel, graphics and art, audio and music, controls and interface, difficulty and balance, amount
+of content, mods and user content, price and value, monetisation and DLC, multiplayer and online,
+community and players, updates and developer support, publisher and platform policy, hardware and
+compatibility, accessibility and options, language and localisation, tutorial and learning,
+licensed content, and VR and headsets.
 
-The reader is a multilingual encoder fine-tuned on labelled claims and run as an ONNX graph on
-your computer: through DirectML on Windows, Core ML on macOS, and the processor on Linux. It
-comes in two sizes, and the app uses the largest the graphics card has room for.
-[Accuracy](accuracy.md) has how often each is right.
+The reader runs on your computer and comes in two sizes. The app uses the largest the graphics
+card has room for, and without a card starts with the small one.
 
 ## What a figure counts
 
@@ -53,40 +46,31 @@ comes in two sizes, and the app uses the largest the graphics card has room for.
 | Unfiled | The share of claims the reader declined. |
 
 Every rate carries a 95% interval. Figures count English reviews unless you choose another
-language or all of them; the choice recounts from the same download.
+language or all of them. The choice recounts from the same download.
 
 ## Looking closer
 
-- **What they praise and complain about.** The particular points made within each subject,
-  such as one bug or one mechanic, found by grouping claims that say the same thing in the same
-  words or others. Each names how many reviews make it, quotes one, says which other subjects it
-  comes up under, and opens onto its reviews. A point needs five reviews. They come with
-  preparing a game for search by meaning.
-- **What stands out.** A paragraph at the top of a game's page, written from those points by
-  Qwen3-4B-Instruct-2507 on your computer, once you ask for it. A sentence giving a number or a
-  quotation the points do not give is left out.
-- **Words that stand out.** Each side of a subject lists the words its complaints use far more
-  than its praise, and the reverse, each with how many reviewers used it. They are compared
-  within each language, and every word opens onto the claims it was counted from.
-- **Search.** A word or phrase finds and counts the reviews and claims that use it, by side and
-  subject. Words of four letters or more also find longer forms: "stutter" finds "stuttering".
-- **Search by meaning.** Finds where reviewers said the same thing in other words or languages,
-  ranked by Qwen3-Embedding-0.6B and Qwen3-Reranker-0.6B and never counted. A game is prepared
-  for it once: minutes on a graphics card, hours on the processor.
-- **Who wrote it.** Every figure splits by time played (under 2 hours, 2 to 10, 10 to 30, 30 to
-  100, over 100), Steam Deck, early access and a free copy. A kind of reviewer with fewer than
-  100 reviews shows no figure.
-- **Around an update.** A game's own update posts sit on its timeline, and each subject is
-  compared over the 28 days before and after. A difference is called a change only when it is
-  wider than chance and at least two points.
+- **What they praise and complain about** lists the points within each subject, such as one bug,
+  with a count and a quote. A point needs five reviews.
+- **What stands out** is a paragraph at the top of a game's page, written from those points on
+  your computer. A sentence with a number or quote the points do not hold is left out.
+- **Words that stand out** are the words a subject's complaints use far more than its praise, and
+  the reverse.
+- **Search** finds and counts the reviews and claims that use a word or phrase. Words of four
+  letters or more also find longer forms, so "stutter" finds "stuttering".
+- **Search by meaning** finds where reviewers said the same thing in other words or languages.
+  Preparing a game for it takes minutes on a graphics card and hours on the processor.
+- **Who wrote it** splits every figure by time played, Steam Deck, early access and a free copy.
+  A kind of reviewer with fewer than 100 reviews shows no figure.
+- **Around an update** compares each subject over the 28 days before and after an update post. A
+  difference counts as a change only when it is wider than chance and at least two points.
 
 ## What you get
 
-- **The window**: a cockpit of what moved since you last looked, the library, each game's page,
-  and games side by side.
-- **A report**: one self-contained page with every figure and the reviews behind it, which
-  fetches nothing and prints. See the [sample report](https://aureliolo.github.io/steamgauge/sample-report.html).
-- **The data**: a folder of CSV and JSON per game, with every subject's figures, the timeline,
-  every claim read and the game's updates, and a `README.txt` saying what each column holds.
-
-`steamgauge recount` recomputes every figure from the readings already on disk, in seconds.
+- **The window** shows what moved since you last looked, the library, each game's page, and games
+  side by side.
+- **A report** is one self-contained page with every figure and the reviews behind it, which
+  fetches nothing and prints. See the
+  [sample report](https://aureliolo.github.io/steamgauge/sample-report.html).
+- **The data** is a folder of CSV and JSON per game, with a `README.txt` saying what each column
+  holds.

@@ -46,7 +46,7 @@ enum Empty {
     /// An option the reviewer did take, cut away from the heading that says what it answers.
     /// "Graphics" under "What I enjoy" is a claim; "Graphics" alone is a word.
     Orphaned,
-    /// Only Steam's censorship hearts, so the content is not merely absent but deleted.
+    /// Only Steam's censorship hearts, so the content is deleted.
     Censored,
     /// Markup the splitter was meant to strip and did not.
     Markup,

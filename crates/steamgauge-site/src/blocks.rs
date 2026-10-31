@@ -193,7 +193,7 @@ fn assistants() -> Vec<Assistant> {
     all
 }
 
-/// Every assistant as a list, which is how the page reads on GitHub; the site shows the same as
+/// Every assistant as a list, which is how the page reads on GitHub. The site shows the same as
 /// a picker, from `clients_picker`.
 fn clients() -> String {
     let mut text = String::new();

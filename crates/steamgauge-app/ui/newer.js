@@ -1,8 +1,8 @@
 /* The notice that a newer SteamGauge is out, and the update it offers. The core asks GitHub on
-   opening and every six hours after, and keeps the answer; the window shows what it kept, and looks again when a
-   fresh answer arrives. Update now asks once more, so the version the notice names can rise as
-   it starts, then downloads the release's file for this system and installs it only once its
-   build provenance verifies; the core says how far it has got. */
+   opening and every six hours after, and keeps the answer. The window shows what it kept, and
+   looks again when a fresh answer arrives. Update now asks once more, so the version the notice
+   names can rise as it starts, then downloads the release's file for this system and installs it
+   only once its build provenance verifies. The core says how far it has got. */
 
 import { invoke, listen, el, set, size, left, openOutside } from './common.js';
 

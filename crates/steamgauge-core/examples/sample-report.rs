@@ -482,7 +482,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
 /// Every subject counted again for each kind of reviewer, in shares of the game's own counts.
 ///
 /// Veterans complain about the amount of content and newcomers praise the tutorial far more than
-/// anybody else, so the page has findings to list; the Deck holds a dozen reviews, so it has a
+/// anybody else, so the page has findings to list. The Deck holds a dozen reviews, so it has a
 /// kind too small to say anything about. The unmeasured game was read before reviewers were told
 /// apart, which is a page that says so instead.
 fn who(

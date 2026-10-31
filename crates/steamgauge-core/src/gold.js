@@ -37,7 +37,7 @@
     try {
       localStorage.setItem(STORE, JSON.stringify(answers));
     } catch (whatever) {
-      /* A full or blocked store is not a reason to stop; the file on disk is the copy. */
+      /* A full or blocked store is not a reason to stop. The file on disk is the copy. */
     }
     if (SERVED) post();
   }
@@ -191,7 +191,7 @@
   }
 
   // Whether a reader's other answer would also do. The person's own answer stands whatever they
-  // say here; this asks what they would accept, which is a different thing from what they would
+  // say here. This asks what they would accept, which is a different thing from what they would
   // say, and human writing often fairly carries two subjects.
   function renderOffered(question, mine, html) {
     html.push(
@@ -244,7 +244,7 @@
     return nextUnanswered(0);
   }
 
-  // The next question nobody has answered, wrapping once before giving up.
+  // The next question nobody has answered. The search wraps once, then gives up.
   //
   // An answered set is not a prefix. Claims are set aside and asked again when a rule moves
   // under them, a draw made later holds back what an earlier one asked, and either leaves

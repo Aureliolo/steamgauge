@@ -210,7 +210,7 @@ pub struct Row {
     /// What moved lately, where the game has been read with months to compare.
     pub recent: Option<steamgauge_core::moves::Recent>,
     pub groups: Vec<String>,
-    /// The reading itself, for what moved since a look; the window is sent what it needs of it.
+    /// The reading itself, for what moved since a look. The window is sent what it needs of it.
     #[serde(skip)]
     pub report: Option<steamgauge_core::read::ReadReport>,
 }
@@ -570,7 +570,7 @@ pub async fn overview(app: AppHandle) -> Result<Overview, String> {
 }
 
 /// How often the open app looks at whether the counts have aged past the hours chosen in
-/// Settings. Asking whether is a read of two small files; asking Steam is what the hours are for.
+/// Settings. Asking whether is a read of two small files. Asking Steam is what the hours are for.
 /// The loop runs in the app rather than the window, so a minimised window keeps it going.
 pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 

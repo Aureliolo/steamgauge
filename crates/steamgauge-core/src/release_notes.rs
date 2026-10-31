@@ -2,7 +2,7 @@
 //!
 //! The release workflow writes each release's notes with a section listing the pull requests
 //! whose files reach the download (`tools/release/notes.mjs`), each by a title that says what is
-//! true after it. That section is what a person deciding whether to update needs; the rest
+//! true after it. That section is what a person deciding whether to update needs. The rest
 //! changes nothing they run. GitHub's releases API gives many releases' notes in one answer,
 //! without a token, at sixty questions an hour per address, so it is asked only when a page
 //! shows the list.
@@ -19,14 +19,14 @@ pub const RELEASES_API: &str = "https://api.github.com/repos/Aureliolo/steamgaug
 /// The heading `tools/release/notes.mjs` gives the changes that reach the download.
 const SECTION: &str = "### In what you download";
 
-/// The most releases one page holds; a shorter page is the last.
+/// The most releases one page holds. A shorter page is the last.
 const PER_PAGE: usize = 100;
 
 /// Pages asked at most. Far more releases than an update ever spans, and a bound on the sixty an
 /// hour the address is allowed.
 const PAGES: usize = 5;
 
-/// The largest page read. A page of a hundred releases is a few hundred kilobytes; this only
+/// The largest page read. A page of a hundred releases is a few hundred kilobytes. This only
 /// stops a server that never stops sending.
 const MOST: usize = 8 << 20;
 

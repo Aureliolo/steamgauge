@@ -56,7 +56,7 @@ SHARED = (
 
 
 class Soup:
-    """A running mean of saved weights, holding one ingredient at a time.
+    """A running mean of saved weights. It holds one ingredient at a time.
 
     A 560M encoder is 2.2 GB of weights and the card is shared, so the ingredients are summed
     as they are read rather than all held and averaged at the end. The sum stays in the dtype

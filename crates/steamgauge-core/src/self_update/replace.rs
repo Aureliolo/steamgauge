@@ -22,7 +22,7 @@ pub struct Staging {
 
 impl Staging {
     /// A new, empty folder inside `beside`. Named by a count this process keeps, since two
-    /// stagings can start within one tick of the clock; a folder a killed run left under the
+    /// stagings can start within one tick of the clock. A folder a killed run left under the
     /// same name is passed over for the next.
     fn new(beside: &Path) -> io::Result<Self> {
         static STARTED: AtomicU64 = AtomicU64::new(0);
@@ -114,7 +114,7 @@ pub struct StagedApp {
 }
 
 impl StagedApp {
-    /// The new bundle, until [`swap`] puts it in place; the previous one is here after.
+    /// The new bundle, until [`swap`] puts it in place. The previous one is here after.
     #[must_use]
     pub fn app(&self) -> &Path {
         &self.app
@@ -160,7 +160,7 @@ pub fn stage_app(archive: impl Read, bundle: &Path) -> io::Result<StagedApp> {
 }
 
 /// Puts the staged app in place of `bundle`. The two are exchanged in one step where the file
-/// system can, so `bundle` is never missing; elsewhere `bundle` is moved aside, the new one
+/// system can, so `bundle` is never missing. Elsewhere `bundle` is moved aside, the new one
 /// moved in, and the old one put back if that fails. Either way the previous app is left in the
 /// staging folder, which is removed with it.
 ///

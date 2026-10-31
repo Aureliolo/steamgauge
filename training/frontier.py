@@ -189,7 +189,7 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
 
 
 # The shares every reader is compared at. Each reader's own lines put it at its own coverage, so
-# two readers' accuracies where answered are figures for different amounts of work; answering
+# two readers' accuracies where answered are figures for different amounts of work. Answering
 # the same share of the same claims, most confident first, they are figures for the same work.
 SHARES = (0.8, 0.9)
 

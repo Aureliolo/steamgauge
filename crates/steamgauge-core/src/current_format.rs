@@ -22,7 +22,7 @@ pub struct Brought {
     pub keyed: Vec<PathBuf>,
     /// Readings whose held-out figure was under the name releases before 0.2.0 gave it.
     pub renamed: Vec<PathBuf>,
-    /// Readings removed, each with why, leaving their game to be read again.
+    /// Readings removed, each with why. Their game is left to be read again.
     pub removed: Vec<(PathBuf, String)>,
     /// Readings that could not be read or written, each with the error, left as they were. A
     /// pass that reads one says it was written by another build.

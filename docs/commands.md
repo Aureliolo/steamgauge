@@ -1,11 +1,7 @@
 # Command line
 
-Started with no arguments, `steamgauge` opens the window; given a command, it runs it and exits.
+Started with no arguments, `steamgauge` opens the window. Given a command, it runs it and exits.
 On Windows it prints only into a pipe, so in PowerShell add one: `steamgauge --help | Out-Host`.
-Scoop and Homebrew put it on the `PATH`; [Install](install.md) has the rest.
-
-Every command that reads or writes a game takes `--out`, the folder that holds its downloads,
-`data` by default.
 
 <!-- steamgauge-site: commands -->
 
@@ -13,8 +9,8 @@ Every command that reads or writes a game takes `--out`, the folder that holds i
 
 ### `crawl`
 
-Download every review Valve will serve for an app into an immutable Parquet capture, and the titles
-and dates of what its developer has posted on Steam.
+Download every review Steam serves for a game into a Parquet capture, with the titles and dates of
+its developer's posts.
 
 ```text
 steamgauge crawl [OPTIONS] <APP_ID>
@@ -22,24 +18,19 @@ steamgauge crawl [OPTIONS] <APP_ID>
 
 - `<APP_ID>`: Steam app ID, as it appears in the store URL.
 - `-o, --out <OUT>`: Directory to write captures and crawl state into. Default: `data`.
-- `--pace-ms <PACE_MS>`: Milliseconds between requests, enforced globally across all shards.
-  Default: `250`.
-- `--concurrency <CONCURRENCY>`: Shards to crawl at once. Pacing is global, so this reorders work
-  rather than increasing load on Valve. Default: `4`.
-- `--shard-target <SHARD_TARGET>`: Reviews per shard before a date window is split further. Default:
+- `--pace-ms <PACE_MS>`: Milliseconds between requests. Default: `250`.
+- `--concurrency <CONCURRENCY>`: Date ranges to download at once. Requests keep the same pace.
+  Default: `4`.
+- `--shard-target <SHARD_TARGET>`: Reviews in one date range before it is split further. Default:
   `40000`.
 - `--restart`: Plan a fresh crawl instead of continuing an unfinished one.
 
 ### `sweep`
 
-Bring a capture up to date: fetch every review written or edited since it was crawled, or since it
-was last brought up to date, and write them beside what is held.
+Fetch every review written or edited since a capture was downloaded or last updated.
 
-One walk in last-edit order finds both arrivals and edits and stops at the watermark, so this is a
-few pages rather than a crawl. Nothing already captured is overwritten: an edited review is held in
-both forms, and every pass that reads the capture counts the newer one. Read the corpus again
-afterwards, since the readings describe the capture as it was. What the developer has posted on
-Steam is asked for again too, so the report marks the game's newest updates.
+An edited review counts in its newer form. Run `read` afterwards so the figures include the new
+reviews. The developer's posts are fetched again too.
 
 ```text
 steamgauge sweep [OPTIONS] <APP_ID>
@@ -51,67 +42,61 @@ steamgauge sweep [OPTIONS] <APP_ID>
 
 ### `read`
 
-Read every claim in a corpus with the trained model.
+Read every claim in each game's newest capture with the trained model.
 
 ```text
 steamgauge read [OPTIONS] <APP_IDS>...
 ```
 
-- `<APP_IDS>`: Steam app IDs whose most recent captures should be read.
-- `-o, --out <OUT>`: Directory holding the capture. Default: `data`.
-- `--reader <READER>`: Which size of reader, `small` or `standard`. Defaults to the largest this
-  machine's card has room for, and to `small` where the build reaches no card.
-- `--model <MODEL>`: Directory holding model.onnx, tokenizer.json and reader.json, in place of the
-  size's own: models/\<size\> in the working tree if there is one, else the platform cache.
-- `--batch-size <BATCH_SIZE>`: Claims per forward pass. The default reads about a tenth faster than
-  half of it and asks the card for 2.5 GB; doubling it again buys nothing. Lower it on a small card.
-  Default: `256`.
-- `--language <LANGUAGE>`: Count only reviews written in this language. The capture stays whole
-  either way.
+- `<APP_IDS>`: Steam app IDs to read.
+- `-o, --out <OUT>`: Directory holding the captures. Default: `data`.
+- `--reader <READER>`: Reader size, `small` or `standard`. Defaults to the largest the graphics card
+  has room for, or `small` without a card.
+- `--model <MODEL>`: Directory holding `model.onnx`, `tokenizer.json` and `reader.json`, used in
+  place of the size's own.
+- `--batch-size <BATCH_SIZE>`: Claims per batch. Lower it on a card with less than 2.5 GB of memory
+  free. Default: `256`.
+- `--language <LANGUAGE>`: Count only reviews written in this language.
 - `--top-helpful <TOP_HELPFUL>`: How many of the most-helpful reviews count as the top of the pile.
   Default: `50`.
-- `--depth <DEPTH>`: How closely to read. `deep` takes each review apart into the points it makes;
-  `shallow` reads each review as one point, which is faster and understates anyone who wrote more
-  than a sentence. Neither drops a review. One of `deep` or `shallow`. Default: `deep`.
-- `--card-share <CARD_SHARE>`: The share of the card's time the read may take, for a card other work
-  is using: 0.5 rests after each batch as long as the batch kept the card busy. The readings are the
-  same; only how long they take changes. Default: `1`.
-- `--afresh`: Read every claim again. Without it a game read before by the same reader keeps the
-  answers of every review whose text is unchanged and reads only the rest. A fresh reading at one
-  batch size is the same to the bit each time it is made.
+- `--depth <DEPTH>`: How closely to read. `deep` splits each review into the points it makes.
+  `shallow` is faster and reads each review as one point. One of `deep` or `shallow`. Default:
+  `deep`.
+- `--card-share <CARD_SHARE>`: The share of the graphics card's time the read may take, above 0 and
+  at most 1. Lower it when other work needs the card. The results stay the same. Default: `1`.
+- `--afresh`: Read every claim again. Without it, a game the same reader read before has only its
+  new and edited reviews read.
 
 ### `recount`
 
-Count a corpus again from the readings already on disk, without the model.
+Count games again from their saved readings, without the model.
 
-Everything the page shows is added up when a game is read, so a change to the adding up (which words
-stand out, how a month is cut) would otherwise cost every game the hours of a reading again. The
-answers do not change; only the counts do. Refused where this build takes a review apart differently
-from the build that read it, or the reader named is not the one that answered.
+Use it when only the counting has changed, since it skips the hours a read takes. Refused where this
+build splits reviews differently from the build that read them, or another reader read them.
 
 ```text
 steamgauge recount [OPTIONS] <APP_IDS>...
 ```
 
-- `<APP_IDS>`: Steam app IDs whose readings should be counted again.
+- `<APP_IDS>`: Steam app IDs to count again.
 - `-o, --out <OUT>`: Directory holding the captures and their readings. Default: `data`.
-- `--reader <READER>`: Which size of reader answered, `small` or `standard`. Defaults to the one
+- `--reader <READER>`: The reader size that read them, `small` or `standard`. Defaults to the one
   `read` would choose on this machine.
-- `--model <MODEL>`: Directory holding the reader.json of the reader that answered, in place of the
-  size's own.
+- `--model <MODEL>`: Directory holding the `reader.json` of the reader that read them, in place of
+  the size's own.
 - `--top-helpful <TOP_HELPFUL>`: How many of the most-helpful reviews count as the top of the pile.
   Default: `50`.
 
 ### `report`
 
-Render a self-contained page from what the reading pass found.
+Write a self-contained HTML page of what the reading found.
 
 ```text
 steamgauge report [OPTIONS] <APP_IDS>...
 ```
 
 - `<APP_IDS>`: Steam app IDs to report on. Several become one page, a section each.
-- `-o, --out <OUT>`: Directory holding the captures and their classifications. Default: `data`.
+- `-o, --out <OUT>`: Directory holding the captures and their readings. Default: `data`.
 - `--to <TO>`: Where to write the page. Default: `steamgauge-report.html`.
 - `--examples <EXAMPLES>`: Claims quoted per subject, as the evidence behind its rate. Default: `8`.
 - `--seed <SEED>`: Changing this quotes different claims. The same seed always quotes the same ones.
@@ -121,19 +106,11 @@ steamgauge report [OPTIONS] <APP_IDS>...
 
 Write a read game's data as CSV and JSON, for a spreadsheet or your own analysis.
 
-Makes a new folder at --to, the same files the window's "Export data" saves: subjects.csv and .json
-(every subject's mention rate, praise, complaints and both, the share of points and its corrected
-share, for everyone and for each kind of reviewer), months.csv and .json (reviews, the share
-recommending and each subject, month by month), points.csv and .json (every point read, with its
-subject, side, sureness and words, and the review it is in: its id, link, day, language, verdict,
-time played, Steam Deck, early access, free copy and helpful votes), updates.csv and .json (the
-game's updates on Steam), and a README.txt saying what every column holds, which reader read the
-game, when, and how far its figures can be trusted. A figure the window does not show as a number is
-left empty, and a column says why.
+The folder holds the files the window's "Export data" saves: subjects, months, points and updates,
+each as CSV and JSON. Its `README.txt` says what every column holds.
 
-The CSV is UTF-8 with a byte order mark, comma-separated with a CRLF after each row, a field in
-double quotes where it must be. A text that starts like a spreadsheet formula (=, +, -, @, a tab or
-a carriage return) carries a ' before it in the CSV; the JSON holds it as written.
+The CSV is UTF-8 with a byte order mark. A text that starts like a spreadsheet formula gets a ' in
+front of it in the CSV only.
 
 ```text
 steamgauge export-data [OPTIONS] --to <TO> <APP_ID>
@@ -149,10 +126,8 @@ steamgauge export-data [OPTIONS] --to <TO> <APP_ID>
 
 Update this copy to the newest release, as Update now does in the window.
 
-The release's file for the way this copy was installed is downloaded and installed once its build
-provenance verifies; nothing is installed otherwise. A setup program installs over this copy after
-it exits, a package is installed by its manager after the system's password prompt, and an app or a
-folder is replaced in place. The window is not opened afterwards.
+Only a release whose build provenance verifies is installed. A package install asks for the system
+password. The window does not open afterwards.
 
 ```text
 steamgauge update
@@ -160,12 +135,10 @@ steamgauge update
 
 ### `mcp`
 
-Steer the app from a Model Context Protocol client, which starts this command and speaks to it on
-standard input and output.
+Let a Model Context Protocol client steer the app, over standard input and output.
 
-Every tool is something the window can do, and the person sees it done there. The open app answers,
-over a local socket only this user can reach; while it is closed every tool says so, and the
-assistant asks the person to open it. `connect` adds this command to a client's configuration.
+The client starts this command. The tools answer only while the app's window is open. `connect` adds
+this command to a client's configuration.
 
 ```text
 steamgauge mcp
@@ -173,8 +146,7 @@ steamgauge mcp
 
 ### `clients`
 
-The MCP clients this command can add the app to, whether each is on this computer, and whether it
-starts this copy.
+List the MCP clients `connect` knows, whether each is installed, and whether it starts this copy.
 
 ```text
 steamgauge clients
@@ -182,11 +154,10 @@ steamgauge clients
 
 ### `connect`
 
-Add this copy to an MCP client's own configuration, so the client starts it.
+Add this copy to an MCP client's configuration, so the client starts it.
 
-Only the app's own entry is written: every other server, every comment and the file's layout stay as
-they were, and a file that does not parse is left alone. An entry that starts another copy is
-pointed at this one. Any other client takes the command `<this program> mcp` in its own settings.
+Only the app's own entry changes, and a file that does not parse is left alone. Any other client
+takes the command `<this program> mcp` in its own settings.
 
 ```text
 steamgauge connect <CLIENT>
@@ -196,7 +167,7 @@ steamgauge connect <CLIENT>
 
 ### `disconnect`
 
-Take the app out of an MCP client's configuration, leaving everything else in it.
+Remove the app's entry from an MCP client's configuration.
 
 ```text
 steamgauge disconnect <CLIENT>
@@ -216,8 +187,8 @@ steamgauge disconnect <CLIENT>
   on.
 - `rare-claims <APP_IDS>...`: Draw claims that look like the subjects the labelled set has fewest
   labels for.
-- `distinct <APP_ID>`: Draw the reviews of a corpus that are least like each other, for finding what
-  this game's players talk about that the fixed taxonomy has no row for.
+- `distinct <APP_ID>`: Draw the reviews of a game least like each other, to find subjects the fixed
+  taxonomy lacks.
 - `ingest-induced --from <FROM> <APP_ID>`: Check a returned list of induced subjects against the
   handout it came from, and keep the ones that survive.
 - `ingest-claims --from <FROM> --by <BY> <APP_ID>`: Merge returned claim labels into a reference
@@ -227,8 +198,8 @@ steamgauge disconnect <CLIENT>
 - `compare-labels [APP_IDS]...`: Compare two labellings of the same claims, field by field.
 - `revisit [APP_IDS]...`: Draw the claims of a labelled set that a revision of the sheet puts back
   in question.
-- `ingest-revisit --from <FROM> --by <BY> <APP_ID>`: Merge revisited labels back, replacing only the
-  claims that were asked about.
+- `ingest-revisit --from <FROM> --by <BY> <APP_ID>`: Merge revisited labels back. Only the claims
+  that were asked about are replaced.
 - `measure-claims <APP_IDS>...`: Score stored readings against a claim reference set.
 - `ceiling [APP_IDS]...`: Score the model against a label two labellers both reached, and say how
   often they reached one at all.

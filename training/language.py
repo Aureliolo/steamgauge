@@ -10,7 +10,7 @@ Every game outside the held-out set is left out by exactly one fold, so pooling 
 roughly thirty thousand claims answered by a model that never trained on the game they came
 from, and the language of each one is in the label set beside it.
 
-This is not the held-out figure and does not replace it. It is the same out-of-fold evidence
+This does not replace the held-out figure. It is the same out-of-fold evidence
 the shipped abstention lines are drawn from, asked a question nobody had asked it.
 
     python language.py --oof <dir of cv-*.npz>
@@ -131,7 +131,7 @@ def main() -> None:
         f"against english at {100 * english[2]:.1f}%, the measured spread runs from "
         f"{worst[1]} at {100 * worst[2]:.1f}% to {best[1]} at {100 * best[2]:.1f}%"
     )
-    # A gap that shrinks once the hedged claims are dropped was partly the labelling; one that
+    # A gap that shrinks once the hedged claims are dropped was partly the labelling. One that
     # survives is the reading. They want different work and the difference is not visible in an
     # agreement figure, which is the whole reason this column exists.
     print("\nhow much of each gap survives on the claims the labeller was sure of:")

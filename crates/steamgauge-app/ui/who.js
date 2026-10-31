@@ -29,7 +29,7 @@ export function setUpWho(given) {
   });
 }
 
-/* Drawn with every reading the page shows; a choice made on the same game is kept, so coming back
+/* Drawn with every reading the page shows. A choice made on the same game is kept, so coming back
    from the points behind a figure comes back to the same view. */
 export function drawWho(found) {
   if (choice.appId !== found.app_id) {
@@ -280,7 +280,7 @@ function drawBeside(view) {
         ]),
         figuresCell(subject.others, widest, subject.others_corrected, []),
       );
-      /* The whole row opens the points behind the first kind's figures; the name stays the button
+      /* The whole row opens the points behind the first kind's figures. The name stays the button
          a keyboard reaches. */
       row.addEventListener('click', (event) => {
         if (event.target !== open) open.click();

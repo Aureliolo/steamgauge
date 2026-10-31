@@ -4,7 +4,7 @@
 // The release commit only raises the version (scope.mjs), so the code it ships is its parent's.
 // A parent that itself holds no code, the package managers' manifests merged after the last
 // release or another version raise, ships its own parent's code, and its pull request had its
-// builds skipped for that reason; so the walk goes back over those to the first commit that
+// builds skipped for that reason. So the walk goes back over those to the first commit that
 // changed code. That commit's pull request has to have run every required check to success on a
 // head whose tree is the commit's own: main requires a branch to be up to date before it merges,
 // so the squash of a passing head is exactly what was checked.

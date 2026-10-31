@@ -11,7 +11,7 @@
 //! file's layout stay as they were, a file that does not parse is refused rather than replaced,
 //! and the file is written beside itself and renamed into place, so a crash leaves the old one.
 //! Before anything is written, the old and the new text are both read as plain values by a strict
-//! parser, and the new has to be the old with the app's entry and nothing more; anything else is
+//! parser, and the new has to be the old with the app's entry and nothing more. Anything else is
 //! refused. A client that rewrites its own file while it runs is added through its own command
 //! instead, and the file is read back to confirm it.
 
@@ -517,7 +517,7 @@ pub const CLIENTS: &[Client] = &[
         id: "amazon-q",
         name: "Amazon Q Developer",
         // The file its MCP panel writes, `default.json`, is an agent whose tools must also name a
-        // server; this one, which the IDE plugins read unless `useLegacyMcpJson` is turned off,
+        // server. This one, which the IDE plugins read unless `useLegacyMcpJson` is turned off,
         // takes the entry alone.
         file: |folders| folders.home.join(".aws").join("amazonq").join("mcp.json"),
         format: JSON_MCP_SERVERS,
@@ -922,7 +922,7 @@ fn read_or_empty(file: &Path) -> Result<String> {
 ///
 /// # Errors
 ///
-/// Fails if the file does not parse, cannot be read or written, or would change in any other way;
+/// Fails if the file does not parse, cannot be read or written, or would change in any other way,
 /// and for a client added through its own command, where the command is not here or fails.
 pub fn add(client: &Client, folders: &Folders, launch: &Launch) -> Result<Added> {
     let file = (client.file)(folders);
@@ -974,7 +974,7 @@ pub fn add(client: &Client, folders: &Folders, launch: &Launch) -> Result<Added>
     })
 }
 
-/// Runs a client's own command, failing with what it printed where it fails.
+/// Runs a client's own command and fails with what it printed where it fails.
 fn run(program: &Path, args: impl Iterator<Item = String>) -> Result<()> {
     let output = std::process::Command::new(program)
         .args(args)
@@ -1011,11 +1011,11 @@ pub fn with_entry(client: &Client, text: &str, launch: &Launch) -> Result<String
     Ok(written)
 }
 
-/// Takes the app's entry out of `client`, leaving everything else as it was.
+/// Takes the app's entry out of `client` and leaves everything else as it was.
 ///
 /// # Errors
 ///
-/// Fails if the file does not parse, cannot be read or written, or would change in any other way;
+/// Fails if the file does not parse, cannot be read or written, or would change in any other way,
 /// and for a client added through its own command, where the command is not here or fails.
 pub fn remove(client: &Client, folders: &Folders) -> Result<Removed> {
     let file = (client.file)(folders);
@@ -1162,7 +1162,7 @@ fn entry_value(entry: &Entry) -> Value {
     )
 }
 
-/// What a client's file holds, as a strict parser reads it; an empty file holds an empty object.
+/// What a client's file holds, as a strict parser reads it. An empty file holds an empty object.
 fn value_of(language: Language, text: &str) -> std::result::Result<Value, String> {
     let value = match language {
         Language::Json => jsonc_parser::parse_to_serde_value::<Option<Value>>(
@@ -1571,7 +1571,7 @@ fn yaml_with(text: &str, format: Format, entry: &Entry) -> Result<String> {
     let document = file.ensure_document();
     let mut at = document.as_mapping().context("its root is not a mapping")?;
     let mut rest = format.container;
-    // Down through what is there; the first key that is missing takes the rest as one value.
+    // Down through what is there. The first key that is missing takes the rest as one value.
     while let [key, after @ ..] = rest {
         if after.is_empty() {
             break;

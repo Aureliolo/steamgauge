@@ -7,7 +7,7 @@
 //! remember to press Export is asking them to be the backup.
 //!
 //! So the page is served from here instead of opened as a file. Every answer is posted as it is
-//! made and lands on disk before the next question is drawn; the page reads the file back when
+//! made and lands on disk before the next question is drawn. The page reads the file back when
 //! it opens, so the disk is the copy that matters and the browser is the cache. Nothing is
 //! exported and nothing is lost.
 //!
@@ -37,7 +37,7 @@ impl Adjudication {
         Self { page, answers }
     }
 
-    /// Serves until the process is stopped, printing the address to open.
+    /// Serves until the process is stopped and prints the address to open.
     ///
     /// # Errors
     ///
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn a_fresh_session_cannot_post_away_a_finished_adjudication() {
         // The page posts what this browser holds, and its storage is keyed by the sheet and the
-        // size of the draw. Redrawing changes that key, so the next session opens empty; if the
+        // size of the draw. Redrawing changes that key, so the next session opens empty. If the
         // post replaced the file, an afternoon of answers would be gone and nothing could
         // recompute them.
         let dir = crate::tempdir::Dir::new();

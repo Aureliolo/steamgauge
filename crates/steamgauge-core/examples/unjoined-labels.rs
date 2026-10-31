@@ -1,7 +1,7 @@
 //! Which of a game's labels name a span this build no longer cuts, and what it cuts there now.
 //!
-//! `measure-claims` counts them. A count says how much of the set the splitter has moved past;
-//! it cannot say whether the move was right, and that is the question every splitter change
+//! `measure-claims` counts them. A count says how much of the set the splitter has moved past.
+//! It cannot say whether the move was right, and that is the question every splitter change
 //! puts. This prints each such label beside the claims this build cuts across the same bytes,
 //! so the change can be read: a ballot answer now carrying its heading is a repair, and a
 //! sentence now cut in two is a regression.

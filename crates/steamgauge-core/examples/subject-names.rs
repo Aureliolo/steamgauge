@@ -1,8 +1,8 @@
 //! The terms most of a language's reviews use about each subject, praise and complaint
 //! together, which is what the subject is called in that language.
 //!
-//! A subject's own name is not a finding, and the page keeps the English one off its rows;
-//! this is how the names in the other languages are found rather than guessed, so that the
+//! A subject's own name is not a finding, and the page keeps the English one off its rows.
+//! This is how the names in the other languages are found rather than guessed, so that the
 //! list the page keeps off can be written from the corpus.
 //!
 //!     cargo run --release -p steamgauge-core --example subject-names -- <app id> <language> [how many]

@@ -3,7 +3,7 @@
 //
 // A 503 read as "absent" is the dangerous case. The check for a taken tag would call the tag
 // free, and the check that a tag exists would try to make it again. Only a status below 500 is
-// an answer; anything else is retried, and named if the last attempt fails too.
+// an answer. Anything else is retried, and named if the last attempt fails too.
 import { realpathSync } from "node:fs";
 import process from "node:process";
 import { pathToFileURL } from "node:url";

@@ -43,7 +43,7 @@ pub fn provenance_name(version: &semver::Version) -> String {
     format!("steamgauge-{version}.provenance.sigstore.json")
 }
 
-/// The largest file an update downloads. The biggest installer is tens of megabytes; this only
+/// The largest file an update downloads. The biggest installer is tens of megabytes. This only
 /// stops a server that never stops sending from filling the disk.
 pub const MOST: u64 = 1 << 30;
 
@@ -272,8 +272,9 @@ pub async fn provenance(
 }
 
 /// The trusted root for checking a signature: Sigstore's current one through TUF, which starts
-/// from the TUF root embedded in this build and keeps what it verified in `cache`; else the
-/// copy in `cache` verified again offline; else the trusted root embedded in this build.
+/// from the TUF root embedded in this build and keeps what it verified in `cache`. Failing that,
+/// the copy in `cache` verified again offline, and failing that the trusted root embedded in this
+/// build.
 ///
 /// # Errors
 ///

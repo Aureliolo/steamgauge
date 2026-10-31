@@ -1,5 +1,5 @@
 /* A game's own updates on its timeline, and each subject in the weeks before one against the
-   weeks after it. The core decides what an update is and what changed across it; this draws
+   weeks after it. The core decides what an update is and what changed across it. This draws
    what it is told. Titles come from Steam and are always set as text. */
 
 import { invoke, el, set, make, whole, tenth, day, openOutside } from './common.js';

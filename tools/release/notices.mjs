@@ -71,7 +71,7 @@ const THIN = "-".repeat(80);
 const CRATES_HEADING = "1. Rust crates";
 const OWN_FILES = new Set(["steamgauge", "steamgauge.exe", "README.md", "LICENSE", "THIRD-PARTY-NOTICES.txt"]);
 
-// Licence files as publishers ship them carry byte order marks and CRLF endings; one text file
+// Licence files as publishers ship them carry byte order marks and CRLF endings. One text file
 // reads the same everywhere with neither.
 export function normaliseText(text) {
   const body = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").replace(/\s+$/, "");

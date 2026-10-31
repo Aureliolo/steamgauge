@@ -74,8 +74,8 @@ fn acceptability() -> Vec<Question> {
 
 fn main() {
     let mut args = std::env::args().skip(1);
-    // gold.html at the repository's root is the page a person is answering, and git ignores it;
-    // a sample written there with no name given would replace their answers.
+    // gold.html at the repository's root is the page a person is answering, and git ignores it.
+    // A sample written there with no name given would replace their answers.
     let to = args.next().unwrap_or_else(|| "sample-gold.html".into());
     if args.next().as_deref() == Some("--acceptable") {
         let found = GoldDraw {

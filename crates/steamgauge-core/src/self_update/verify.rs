@@ -28,7 +28,7 @@ pub struct Builder {
     /// repository of the same name made after this one was deleted.
     pub repository_id: &'static str,
     pub owner_id: &'static str,
-    /// A self-hosted runner is a machine its owner controls; GitHub's are not.
+    /// A self-hosted runner is a machine its owner controls. GitHub's are not.
     pub runner: &'static str,
     pub predicate_type: &'static str,
 }
@@ -156,7 +156,7 @@ pub fn verify(
             },
             other => Refusal::Signature(other.to_string()),
         })?;
-    // The policy never relaxes any of these; a result that skipped one is refused all the same.
+    // The policy never relaxes any of these. A result that skipped one is refused all the same.
     if !every_check_ran([
         result.certificate_verified(),
         result.sct_verified(),

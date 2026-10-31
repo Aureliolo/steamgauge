@@ -1,7 +1,7 @@
 //! What the store says about a game that the reader and the labeller are both told.
 //!
 //! One fact, and on purpose only one. Everything a labeller is shown the reader is shown too,
-//! or a label measures what the labeller was told rather than what the text says; and the one
+//! or a label measures what the labeller was told rather than what the text says, and the one
 //! thing the text cannot say, that a game is played only in a headset, is what two of the
 //! sheet's rules turn on. "If you have a VR headset, get this" divides no readers of a game
 //! nobody plays any other way, and a claim of motion sickness that names no screen means one

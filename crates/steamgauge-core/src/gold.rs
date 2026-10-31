@@ -92,7 +92,7 @@ pub struct Question {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub was: Option<Answered>,
     /// A subject a reader gave where the person gave another, on a question asking whether it
-    /// would also do. Shown beside the person's own answer and both rules; the answer is yes
+    /// would also do. Shown beside the person's own answer and both rules. The answer is yes
     /// or no, and it is kept apart from the gold label, which it does not change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offered: Option<String>,
@@ -147,7 +147,7 @@ pub struct GoldDraw {
     /// corpus, and the figure it produces has to say so.
     pub languages: Vec<String>,
     /// Which boundaries the disagreements were narrowed to, empty for all of them. Only the
-    /// splits are aimed; the blind sample stays a random sample of the held-out games, because
+    /// splits are aimed. The blind sample stays a random sample of the held-out games, because
     /// aiming it would make the accuracy figure a fact about the boundaries that were chosen.
     pub boundaries: Vec<(String, String)>,
     /// Disagreements left out because they fall on a boundary that was not asked for.
@@ -301,7 +301,7 @@ fn hedged(label: &ClaimLabel) -> bool {
 ///
 /// Steam's tag is the reviewer's account setting, not the text, and the two disagree often
 /// enough that six of eight labellers reported it independently. Reading the tag is right
-/// for the reader, which sees the tag at inference too; it is wrong for a person, who is
+/// for the reader, which sees the tag at inference too. It is wrong for a person, who is
 /// asked to read the words. Japanese takes Han as well as kana, and Chinese only Han, so a
 /// Japanese review tagged Chinese passes and the reverse does not.
 fn scripts_of(language: &str) -> &'static [Script] {
@@ -329,7 +329,7 @@ enum Script {
     Arabic,
 }
 
-/// Which script a letter belongs to, for the scripts Steam reviews arrive in; anything else
+/// Which script a letter belongs to, for the scripts Steam reviews arrive in. Anything else
 /// is not evidence either way.
 fn script_of(letter: char) -> Option<Script> {
     Some(match letter as u32 {
@@ -347,7 +347,7 @@ fn script_of(letter: char) -> Option<Script> {
 
 /// Whether a claim's letters are mostly of a script the language it is tagged with does not
 /// use. Mostly rather than all, because an English review names a Japanese boss and a Korean
-/// one quotes an English error message; and only where there are enough letters to say,
+/// one quotes an English error message, and only where there are enough letters to say,
 /// since "10/10" is written in every language on Steam.
 #[must_use]
 pub fn written_in_another_script(language: &str, text: &str) -> bool {
@@ -403,7 +403,7 @@ fn as_written<'a>(
 ///
 /// Each review is cut again from the text kept for it. The sets were cut by several
 /// splitters, so a stored span may be one this build joins to its neighbour or takes apart,
-/// and only the review itself can tell which; it is also what shows the review with its own
+/// and only the review itself can tell which. It is also what shows the review with its own
 /// line breaks rather than as the labeller's pieces.
 ///
 /// # Errors
@@ -796,7 +796,7 @@ fn assemble(
 
     // Sharpest first, then the blind sample, then the rest. Two readers who were both sure and
     // still disagreed are the shortest list worth anyone's time, and there are only ever a few
-    // dozen of them; asking them after a thousand blind claims is asking them of somebody who
+    // dozen of them. Asking them after a thousand blind claims is asking them of somebody who
     // has stopped. Putting them first costs the blind sample nothing, because a prefix of a
     // randomly ordered sample is still a random sample, so whatever of it gets answered stands
     // on its own.
@@ -1116,7 +1116,7 @@ mod tests {
         // figure about whichever games the second pass had not reached. In the real set that
         // was four of the ten held-out games, 486 of 1,000 claims from one of them, and
         // finishing those four would have emptied the sample entirely. Coverage of the second
-        // reading is a fact about scheduling; it must not decide what a person is asked.
+        // reading is a fact about scheduling. It must not decide what a person is asked.
         let root = std::env::temp_dir().join(format!("steamgauge-blind-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
@@ -1222,7 +1222,7 @@ mod tests {
     fn a_disagreement_neither_labeller_hedged_is_asked_before_one_they_doubted() {
         // A person adjudicates until they stop, not until the list ends, so the order is the
         // whole of what their hour buys. Two readers who were both sure and still disagreed
-        // have found a real error or an undrawn boundary; one where either hedged is usually
+        // have found a real error or an undrawn boundary. One where either hedged is usually
         // just a hard claim, and burying the first behind the second wastes the draw.
         let root = std::env::temp_dir().join(format!("steamgauge-sharp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -1236,7 +1236,7 @@ mod tests {
             label["confidence"] = (if doubted { "low" } else { "high" }).into();
             label
         };
-        // Claim 0 is doubted and comes first in the file; claim 1 is the sure disagreement.
+        // Claim 0 is doubted and comes first in the file. Claim 1 is the sure disagreement.
         std::fs::write(
             root.join("214490").join("labels.json"),
             serde_json::json!([label(0, "performance", true), label(1, "graphics", false)])
@@ -1269,7 +1269,7 @@ mod tests {
 
     /// Steam's tag is the reviewer's account setting, and a review tagged English and written
     /// in Hangul was put in front of somebody who reads English. The question they cannot
-    /// read is held back; the one that names a foreign word is not.
+    /// read is held back. The one that names a foreign word is not.
     #[test]
     fn a_claim_written_in_a_script_its_tag_does_not_use_is_not_asked() {
         assert!(written_in_another_script(
@@ -1558,7 +1558,7 @@ mod tests {
         std::fs::write(&kept, held).unwrap();
 
         // The held-out set was cut by an older splitter that kept the whole review as one
-        // claim; this build cuts it in three, so the one stored label names no claim at all.
+        // claim. This build cuts it in three, so the one stored label names no claim at all.
         let whole = u32::try_from(THREE.len()).unwrap();
         let drawn = serde_json::json!([{
             "id": "r1", "app_id": 214_490, "language": "english", "subset": "random",

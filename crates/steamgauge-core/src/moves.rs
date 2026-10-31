@@ -10,10 +10,10 @@ use serde::Serialize;
 
 use crate::{read::ReadReport, taxonomy::SHEET};
 
-/// Months in the recent window, counting the month the capture was made in.
+/// Months in the recent window, including the month the capture was made in.
 pub const RECENT_MONTHS: i64 = 3;
 
-/// Months in the window the recent one is held against, ending the month before it starts.
+/// Months in the window the recent one is held against, which ends the month before it starts.
 pub const BEFORE_MONTHS: i64 = 12;
 
 /// Reviews each window needs before a share of it is compared. Below these a handful of

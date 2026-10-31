@@ -398,7 +398,7 @@ impl Tally {
 pub const ENOUGH: u64 = 100;
 
 /// How many standard errors a difference has to span. What moved tests some fifty shares a game
-/// at three; a game's kinds of reviewer test some four hundred, and at three one of them would
+/// at three. A game's kinds of reviewer test some four hundred, and at three one of them would
 /// clear by chance on every game. At four, fewer than one game in thirty shows one that chance
 /// made.
 pub const CLEAR: f64 = 4.0;
@@ -738,7 +738,7 @@ fn tested(split: &str) -> impl Iterator<Item = &'static Segment> {
 }
 
 /// Every kind of reviewer that praises, complains about or recommends something more or less
-/// often than everyone else of its split, by more than chance and by enough to act on; clearest
+/// often than everyone else of its split, by more than chance and by enough to act on. Clearest
 /// first.
 ///
 /// A subject that says nothing about the game has nothing to praise or complain about, and is

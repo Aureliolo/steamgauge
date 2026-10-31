@@ -177,8 +177,8 @@ pub fn writable(dir: &Path) -> bool {
 }
 
 /// Runs the setup program as the in-app update runs it: passive, so it shows its progress and
-/// asks nothing; as an update, so it installs over this copy without uninstalling it and leaves
-/// its shortcuts where they are; and, where `reopen`, starting the new program when done.
+/// asks nothing. As an update it installs over this copy without uninstalling it and leaves its
+/// shortcuts where they are. Where `reopen`, it starts the new program when done.
 #[must_use]
 pub fn setup_command(setup: &Path, reopen: bool) -> Command {
     let mut command = Command::new(setup);
@@ -214,7 +214,7 @@ pub fn declined(status: Option<i32>) -> bool {
 /// Swaps `staged` and `bundle` as root, after macOS asks for an administrator's password, where
 /// this account cannot write beside the bundle. The swap is the same exchange as
 /// [`super::replace::swap`], made by `renamex_np` through JavaScript for Automation, which ships
-/// with every macOS; where the file system cannot exchange, the bundle is moved to `backup` and
+/// with every macOS. Where the file system cannot exchange, the bundle is moved to `backup` and
 /// the new one into its place, and the old one is restored if that fails. Follows the privileged
 /// install of Tauri's updater, `plugins/updater/src/updater.rs` in tauri-apps/plugins-workspace
 /// (Apache-2.0 or MIT).
@@ -297,7 +297,7 @@ mod tests {
         );
     }
 
-    /// The release scripts name every file; a name here they do not write is a file no
+    /// The release scripts name every file. A name here they do not write is a file no
     /// release carries.
     #[test]
     fn the_release_scripts_write_every_name_an_update_asks_for() {

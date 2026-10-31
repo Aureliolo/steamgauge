@@ -66,9 +66,10 @@ struct Way {
 
 const WAYS: [Way; 5] = [
     Way {
-        id: "winget",
+        id: "windows",
         name: "Windows",
-        command: "winget install Aureliolo.SteamGauge",
+        command: "curl.exe -fLO RELEASE/steamgauge-VERSION-windows-x64-setup.exe\n\
+                  .\\steamgauge-VERSION-windows-x64-setup.exe",
         note: "Windows 10 or 11 on x64. The setup installs for your user alone, with no \
                administrator rights. Reads on any graphics card with DirectX 12, or on the \
                processor.",
@@ -273,7 +274,7 @@ mod tests {
             );
         }
         assert!(page.contains(
-            "id=\"pick-install-winget\" aria-controls=\"panel-install-winget\" checked>"
+            "id=\"pick-install-windows\" aria-controls=\"panel-install-windows\" checked>"
         ));
         assert!(page.contains(
             "https://github.com/Aureliolo/steamgauge/releases/download/v9.8.7/\
@@ -301,7 +302,7 @@ mod tests {
         assert!(page.contains("width=\"10\" height=\"20\""));
         let text = text("9.8.7");
         assert!(text.starts_with("# SteamGauge\n\n"), "{text}");
-        assert!(text.contains("winget install Aureliolo.SteamGauge"));
+        assert!(text.contains("steamgauge-9.8.7-windows-x64-setup.exe"));
         assert!(text.contains("See [Accuracy](accuracy.md)."));
     }
 }

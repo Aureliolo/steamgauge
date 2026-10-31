@@ -332,8 +332,8 @@
   };
   // Where Update now stands: nothing under way, on a copy the window can update.
   let update = { state: 'idle', why: null };
-  // When GitHub was last asked and last answered, and the release it names when asked next;
-  // null stands for GitHub out of reach.
+  // When GitHub was last asked and last answered, and the release it names when asked next.
+  // A null stands for GitHub out of reach.
   let askedAt = 1_792_000_000;
   let answeredAt = askedAt;
   let github = '0.2.0';
@@ -809,7 +809,7 @@
       };
     },
     export_report: ({ appIds }) => queued({ kind: 'export', app_ids: appIds, to: 'C:\\report.html' }),
-    // The core asks where in the system's dialog; a refusal stands in for a name already taken.
+    // The core asks where in the system's dialog. A refusal stands in for a name already taken.
     export_data: ({ appId }) => {
       if (refusal) throw new Error(refusal);
       return queued({ kind: 'export_data', app_id: appId, to: 'C:\\Alpha - SteamGauge data' });
@@ -929,7 +929,7 @@
     since_last_look: ({ appId }) => (sinceLastLook[appId] ?? (() => null))(),
     who_wrote: (args) => whoWrote(args),
     induced: () => [],
-    // Alpha's developer posts updates; Beta was never asked about; anything else posted none.
+    // Alpha's developer posts updates. Beta was never asked about. Anything else posted none.
     game_updates: ({ appId }) => ({
       asked: appId === 2 ? null : now - DAY,
       updates: appId === 1 ? alphaUpdates : [],

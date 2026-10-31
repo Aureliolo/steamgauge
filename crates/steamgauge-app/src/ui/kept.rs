@@ -42,7 +42,7 @@ impl<T> Clone for Kept<T> {
 }
 
 impl<T> Kept<T> {
-    /// The model's slot, waiting for whoever is using it.
+    /// The model's slot. It waits for whoever is using it.
     pub(super) fn lock(&self) -> Result<Held<'_, T>, String> {
         self.0.lock().map(Held).map_err(text)
     }
@@ -84,7 +84,7 @@ impl<T> Drop for Held<'_, T> {
 }
 
 impl<T> Held<'_, T> {
-    /// The model loaded from `from`, loading it now unless it already is.
+    /// The model loaded from `from`. It is loaded now unless it already is.
     pub(super) fn get(
         &mut self,
         from: &Path,

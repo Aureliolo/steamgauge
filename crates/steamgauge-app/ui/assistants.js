@@ -80,7 +80,7 @@ async function load() {
   draw();
 }
 
-/* Only the two choices on this page change; every other setting is saved as it stands now, read
+/* Only the two choices on this page change. Every other setting is saved as it stands now, read
    afresh, so a choice made on the Settings page or by an assistant since this page was drawn is
    kept. */
 async function save() {

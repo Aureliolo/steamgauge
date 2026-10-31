@@ -6,7 +6,7 @@
 //! downloaded reviews come back from Steam in minutes.
 //!
 //! Sizes are counted by walking the folders each time the page asks. A game holds a few dozen
-//! files and the models a handful, so the walk is milliseconds; a ledger kept beside every write
+//! files and the models a handful, so the walk is milliseconds. A ledger kept beside every write
 //! would cost more than it saves at this size.
 
 use std::path::{Path, PathBuf};
@@ -283,7 +283,7 @@ fn drives(library: &Path, models: &Path) -> Vec<Drive> {
             continue;
         };
         let name = drive_name(at);
-        // Two folders on one volume report the same totals; on Unix there is no letter to tell
+        // Two folders on one volume report the same totals. On Unix there is no letter to tell
         // them apart by, so the totals are what does.
         if let Some(same) = drives
             .iter_mut()
@@ -366,11 +366,11 @@ pub enum Removal {
     Reads,
     /// Its preparation for search by meaning.
     Search,
-    /// Its earlier downloads, kept from before its newest one.
+    /// Its downloads from before the newest one.
     Earlier,
-    /// What work stopped part way left: a download, a read or a recount.
+    /// What a stopped download, read or recount left behind.
     Partial,
-    /// The whole game: every file, its crawl records and its place in groups.
+    /// The whole game, with its crawl records and its place in groups.
     Game,
 }
 

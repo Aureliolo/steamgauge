@@ -1,27 +1,26 @@
 # MCP tools
 
-Every prompt and tool the app's MCP server offers, written from the server's own definitions. A
-tool that only looks tells the assistant so, and some assistants then use it without asking you
-first.
+Every prompt and tool the app's MCP server offers. A tool marked "Only looks" says so to the
+assistant, and some assistants then use it without asking you first.
 
 ## Prompts
 
 Requests you pick from your assistant's own list, such as the commands Claude Code shows under
-`/`. Each asks the assistant to work through the tools below, and the window shows each step.
+`/`.
 
 <!-- steamgauge-site: prompts -->
 
 ### `what_players_say`
 
 **What players say about a game.** What a game's players praise and criticise, from every one of its
-Steam reviews, downloading and reading it first where it has to be.
+Steam reviews. The game is downloaded and read first where it has to be.
 
 - `game`, required: The game: its name, its Steam store link or its app id.
 
 ### `compare_games`
 
-**Compare games.** Where the players of two or more games differ, subject by subject, downloading
-and reading each first where it has to be.
+**Compare games.** Where the players of two or more games differ, subject by subject. Each game is
+downloaded and read first where it has to be.
 
 - `games`, required: Two or more games, by name, Steam store link or app id, separated by commas.
 
@@ -31,7 +30,7 @@ and reading each first where it has to be.
 developer's updates against the four weeks before.
 
 - `game`, required: The game: its name, its Steam store link or its app id.
-- `update`: The update, by its title or date as Steam lists it; the newest where none is given.
+- `update`: The update, by its title or date as Steam lists it. The newest when none is given.
 
 <!-- steamgauge-site: end -->
 
@@ -41,8 +40,8 @@ developer's updates against the four weeks before.
 
 ### `overview`
 
-The cockpit: what moved since last looked, what is running, what needs a look, and what this machine
-reads with. Only looks.
+The cockpit: what changed since the person last looked, what is running, what needs a look and what
+this machine reads with. Only looks.
 
 ### `library`
 
@@ -51,8 +50,8 @@ Only looks.
 
 ### `games`
 
-Every game kept, with its figures, its newest movement and whether Steam has new reviews for it: the
-library page's rows. Only looks.
+Every game kept, with its figures, its latest change and whether Steam has new reviews for it. Only
+looks.
 
 ### `find_games`
 
@@ -65,13 +64,13 @@ Finds games on the Steam store by name, with their app ids. Only looks.
 What the Steam store says about a game now: its name, how many reviews it has and their verdict.
 Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `art`
 
 A game's header picture from the store. Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `groups`
 
@@ -81,24 +80,24 @@ The groups the person sorts their games into. Only looks.
 
 Replaces the groups the person sorts their games into.
 
-- `groups`, required: Every group, as `groups` gives them; a group left out is deleted.
+- `groups`, required: Every group, as `groups` gives them. A group left out is deleted.
 
 ### `since_last_look`
 
 What moved in one game since the person last looked at its page. Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `looked`
 
-Marks a game's page, or the cockpit where no game is named, as seen by the person now, which resets
-what counts as new there.
+Marks a game's page, or the cockpit when no game is named, as seen now, so only later changes count
+as new there.
 
 - `app_id`: A game's Steam app id, or none.
 
 ### `show`
 
-Puts a page of the window in front of the person, bringing the window forward. Only looks.
+Brings the window forward on the page asked for. Only looks.
 
 - `app_id`: The game, for a game's page, a subject or a search.
 - `app_ids`: The games to compare.
@@ -108,14 +107,14 @@ Puts a page of the window in front of the person, bringing the window forward. O
   - `library`: Every game kept.
   - `finder`: Finding a game on Steam to add.
   - `settings`: How the app runs.
-  - `assistants`: The assistants it is added to, and answering over HTTP.
+  - `assistants`: The AI assistants it is added to, and the HTTP server.
   - `storage`: What the library and the models take on disk.
-  - `about`: This copy's version and the newest release, with the button that asks for it.
-  - `game`: One game's page; needs `app_id`.
-  - `compare`: Games side by side; needs `app_ids`.
-  - `group`: What players say across one group of games; needs `group`.
-  - `subject`: The reviews behind one subject of a read game; needs `app_id` and `subject`.
-  - `search`: A read game's claims that say something; needs `app_id` and `query`.
+  - `about`: This copy's version and the newest release.
+  - `game`: One game's page. Needs `app_id`.
+  - `compare`: Games side by side. Needs `app_ids`.
+  - `group`: What players say across one group of games. Needs `group`.
+  - `subject`: The reviews behind one subject of a read game. Needs `app_id` and `subject`.
+  - `search`: A search of a read game's claims. Needs `app_id` and `query`.
 - `query`: The words to search a game for.
 - `side`: "praise", "complaint" or "neutral", to open a subject on one side.
 - `subject`: The subject's id, as `reading` gives it.
@@ -124,23 +123,22 @@ Puts a page of the window in front of the person, bringing the window forward. O
 
 ### `reading`
 
-A read game's figures: every subject its players talk about, how often, praised and criticised, with
-the terms that stand out; what stands out, as the writer put it; and the things praised and
-complained about most widely, ten a side unless more are asked for, where the game is prepared for
-search by meaning. How the figures move month by month, the kinds of reviewer and the languages come
+A read game's figures: every subject, how often players raise, praise and criticise it, and the
+terms that stand out. Where the game is prepared for search by meaning, also the writer's paragraph
+and the themes said most widely on each side. Monthly figures, kinds of reviewer and languages come
 when asked for. Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 - `languages`: Also the languages the reviews are written in.
 - `months`: Also how the figures move month by month.
-- `themes`: How many themes on each side, the most widely said first; 10 when not given.
-  `claims_behind` with a theme gives the reviews behind one.
-- `who`: Also the kinds of reviewer, and where one says something more or less often than the rest.
+- `themes`: How many themes on each side, the most widely said first, 10 by default. `claims_behind`
+  with a theme gives the reviews behind one.
+- `who`: Also the kinds of reviewer, and where each differs from the rest.
 
 ### `claims_behind`
 
-A page of the claims behind one subject of a read game, with the review each comes from, narrowed to
-one side, a term, a kind of reviewer or one theme if asked. Only looks.
+A page of the claims behind one subject of a read game, each with its review. It can narrow to one
+side, term, kind of reviewer or theme. Only looks.
 
 - `app_id`, required: The game's Steam app id.
 - `count`, required: How many claims to give.
@@ -178,14 +176,14 @@ between them. Only looks.
 What a read game's players talk about that the fixed subjects do not name, with quoted reviews,
 where that has been worked out. Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `game_updates`
 
 The updates a game's developer has posted on Steam, with what moved in the reviews around each. Only
 looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `before_after`
 
@@ -204,9 +202,9 @@ Games side by side: each subject's figures for each. Only looks.
 
 ### `group_reading`
 
-What players say across one group's read games: each subject's share of reviews and its praise and
-complaint, with every game counting the same and with every review counting the same, how many of
-the games raise it, which raises it most, and each game's own figures. Only looks.
+What players say across one group's read games: each subject's share, praise and complaint, how many
+games raise it and which most. Shares come with every game counting the same and with every review
+counting the same, beside each game's own figures. Only looks.
 
 - `name`, required: The group's name, as `groups` gives it.
 
@@ -217,31 +215,31 @@ the games raise it, which raises it most, and each game's own figures. Only look
 Whether a game is ready for search by meaning, and what preparing it would take on this machine.
 Only looks.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `choose_meaning`
 
-Whether every game read from now on is also prepared for search by meaning.
+Sets whether every game read from now on is also prepared for search by meaning.
 
-- `every_game`, required: Whether every game read from now on is prepared for search by meaning too.
+- `every_game`, required: True to prepare every game read from now on.
 
 ### `search_by_meaning`
 
 The claims of a prepared game nearest in meaning to what was searched, beyond those its words found,
 best first. Only looks.
 
-- `app_id`, required: The game's Steam app id, which has to be prepared for search by meaning.
-- `query`, required: What to find claims meaning.
+- `app_id`, required: A prepared game's Steam app id.
+- `query`, required: The meaning to find claims for.
 
 ### `writer_offer`
 
-Whether paragraphs are written when a game is prepared, and what the writer would take to fetch and
-to run on this machine. Only looks.
+Whether a paragraph is written when a game is prepared, and what the writer would take to download
+and run on this machine. Only looks.
 
 ### `choose_writer`
 
-Whether preparing a game for search by meaning also writes a paragraph of what stands out in what
-its players say, from its themes, with a model on this machine.
+Sets whether preparing a game for search by meaning also writes a paragraph of what stands out, with
+a model on this machine.
 
 - `write`, required: Whether preparing a game also writes its paragraph.
 
@@ -249,13 +247,11 @@ its players say, from its themes, with a model on this machine.
 
 ### `work`
 
-The jobs on the board: what each is, where it stands, how far it has got and how long is left. Every
-running job, and of the others the ten next to run and the ten latest to end in each state unless
-more are asked for, with how many were left out; every job of one game when it is named. Only looks.
+The jobs on the board: what each is, where it stands, how far it has got and how long is left. Gives
+every running job and the nearest few of each other state, with how many were left out. Only looks.
 
 - `app_id`: Only the jobs about this game, every one of them.
-- `jobs`: How many jobs of each state: the next to run of those queued, the latest of those ended;
-  10 when not given. Every running job is given.
+- `jobs`: How many jobs of each other state: the next queued, the latest ended. The default is 10.
 
 ### `read_offer`
 
@@ -268,22 +264,21 @@ looks.
 ### `queue`
 
 Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, and
-exports written to a path given here. Returns their ids at once; work follows them.
+exports to a given path. Returns their ids at once. `work` shows how they go.
 
-- `tasks`, required: The jobs to start, run in the order given within each lane: downloads and
-  checks share the network, reads and preparations the graphics card, exports the disk.
+- `tasks`, required: The jobs to start. Jobs that share the network, the graphics card or the disk
+  run one after another, in the order given.
 
 ### `queue_reads`
 
-Reads these games, each in the language it was last read in, or in the one chosen for first
-readings.
+Queues a read of each game, in the language it was last read in or the one set for first readings.
 
 - `app_ids`, required: Steam app ids.
 
 ### `queue_updates`
 
-Updates these games, or every game: what was written or edited since, then a read where one was
-read.
+Queues an update of these games, or every game: new and edited reviews, then a new read of any game
+read before.
 
 - `app_ids`: Steam app ids, or none for every game in the library.
 
@@ -305,15 +300,15 @@ Opens a finished report job's page in the person's browser.
 
 ### `export_data`
 
-Asks the person, in the system's save dialog, where to save a read game's data, then starts writing
-it. queue with an export_data task writes to a path without asking.
+Asks the person where to save a read game's data, then starts writing it. To write to a known path
+without asking, use `queue` with an export_data task.
 
-- `app_id`, required: The game's Steam app id, as in its store address.
+- `app_id`, required: The game's Steam app id.
 
 ### `export_report`
 
-Asks the person, in the system's save dialog, where to save a report of these games, then starts
-writing it. queue with an export task writes to a path without asking.
+Asks the person where to save a report of these games, then starts writing it. To write to a known
+path without asking, use `queue` with an export task.
 
 - `app_ids`, required: Steam app ids.
 
@@ -321,12 +316,12 @@ writing it. queue with an export task writes to a path without asking.
 
 ### `settings`
 
-How the app runs: the share of the graphics card a read may take, the reader size, the first-reading
-language, the checks it makes, and where the library is. Only looks.
+The app's settings: the share of the graphics card a read may take, reader size, first-reading
+language, checks and library folder. Only looks.
 
 ### `save_settings`
 
-Replaces every setting; give all of them, as settings returns them.
+Replaces every setting at once, so give all of them.
 
 - `search_every_game`, required: Whether every game read is prepared for search by meaning too.
 - `settings`, required: Every setting, as `settings` gives them.
@@ -343,22 +338,20 @@ each drive. Only looks.
 
 ### `free_room`
 
-Removes part of a game, or of every game: its readings, its preparation for search by meaning, its
-earlier downloads, what work stopped part way left, or the whole game. What it removes has to be
-downloaded or worked out again.
+Removes a part of one game or of every game, or a whole game, to free disk space. What it removes
+has to be downloaded or worked out again.
 
 - `app_id`: The game to remove from, or none to remove that part from every game.
 - `what`, required: What to remove.
   - `reads`: Its readings, which a read makes again.
   - `search`: Its preparation for search by meaning.
-  - `earlier`: Its earlier downloads, kept from before its newest one.
-  - `partial`: What work stopped part way left: a download, a read or a recount.
-  - `game`: The whole game: every file, its crawl records and its place in groups.
+  - `earlier`: Its downloads from before the newest one.
+  - `partial`: What a stopped download, read or recount left behind.
+  - `game`: The whole game, with its crawl records and its place in groups.
 
 ### `remove_model`
 
-Removes a downloaded model; a read that needs it downloads it again. What it removes has to be
-downloaded or worked out again.
+Removes a downloaded model. What it removes has to be downloaded or worked out again.
 
 - `key`, required: The model's key, as `storage` lists it.
 
@@ -366,36 +359,33 @@ downloaded or worked out again.
 
 ### `connect_client`
 
-Adds this copy of the app to another MCP client's own configuration, as settings lists the clients
-on this computer, leaving every other entry in it; the client reaches the open app from then on.
-Returns the settings with it.
+Adds this copy of the app to an MCP client's configuration and returns the settings. The client can
+reach the open app from then on.
 
 - `client`, required: The client's id, as settings lists it.
 
 ### `disconnect_client`
 
-Takes the app out of an MCP client's configuration, leaving every other entry in it, and returns the
-settings without it.
+Takes the app out of an MCP client's configuration and returns the settings.
 
 - `client`, required: The client's id, as settings lists it.
 
 ### `new_http_token`
 
-Draws a new token for the HTTP server, shutting out every client that holds the old one, and returns
-the settings with it.
+Draws a new token for the HTTP server and returns the settings with it. Clients holding the old
+token are shut out.
 
 ## Updates
 
 ### `about`
 
-This copy's version and details, whether its build was checked as it was installed, who makes
-SteamGauge and what it is built on, the newest release GitHub last named, when it was last asked and
-answered, the version this copy was updated from, and where SteamGauge is published. Only looks.
+This copy's version, whether its build was checked on install, and the version it was updated from.
+Also the newest release GitHub last named, who makes SteamGauge, what it is built on and where it is
+published. Only looks.
 
 ### `check_for_updates`
 
-Asks GitHub now for the newest SteamGauge release, as the About page's button does, and returns what
-about returns.
+Asks GitHub now for the newest SteamGauge release and returns what `about` returns.
 
 ### `newer_version`
 
@@ -403,19 +393,19 @@ The newer SteamGauge release last heard of, if there is one. Only looks.
 
 ### `whats_new`
 
-What each release changes in what people download, as the About page lists it: up to the newer
-release last heard of, or, with none, since the version this copy was updated from. Asks GitHub's
-releases API. Only looks.
+What each release up to the newest changes, as the About page lists it. With no newer release, it
+gives the changes since the version this copy was updated from. Asks GitHub's releases API. Only
+looks.
 
 ### `saw_what_changed`
 
-Records that the person has been shown what changed since the version this copy was updated from, so
-the sidebar stops pointing at it.
+Records that the person has seen what changed in the last update, so the sidebar stops pointing at
+it.
 
 ### `open_notices`
 
-Opens the licences and notices of the open-source software SteamGauge is built on, which every
-release carries, in the system's viewer for text. Only looks.
+Opens the licences and notices of the open-source software SteamGauge is built on, in the system's
+text viewer. Only looks.
 
 ### `update_state`
 
@@ -423,12 +413,12 @@ Where an update of SteamGauge stands, or what keeps this copy from updating itse
 
 ### `update_now`
 
-Updates SteamGauge to the newest release once its build provenance verifies, then restarts it; the
+Updates SteamGauge to the newest release once its build provenance verifies, then restarts it. The
 next call reaches the new version.
 
 ### `show_update_file`
 
-Shows a verified update the app could not install in the system's file manager, for installing it by
-hand.
+Opens the system's file manager at a verified update the app could not install, so the person can
+install it by hand.
 
 <!-- steamgauge-site: end -->

@@ -135,7 +135,7 @@ impl Element {
     }
 }
 
-/// Every opening tag, with its attributes unescaped. Comments are skipped; text never holds a
+/// Every opening tag, with its attributes unescaped. Comments are skipped. Text never holds a
 /// bare `<`, since the renderer escapes it.
 fn tags(html: &str) -> Vec<Element> {
     let mut found = Vec::new();

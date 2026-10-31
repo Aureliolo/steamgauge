@@ -1,5 +1,5 @@
 /* Finding a game to add: by its name, its app ID or its store link, from the welcome's box or the
-   page for adding one. The store's own search answers names; an ID or a link goes straight to the
+   page for adding one. The store's own search answers names. An ID or a link goes straight to the
    game. */
 
 import { invoke, el, set, make, whole, roundShare, facts, verdictPill, art, page, go } from './common.js';
@@ -170,7 +170,7 @@ async function lookUp(appId) {
   try {
     settings = await invoke('settings');
   } catch {
-    /* What happens after the download is a courtesy line; the download does not wait on it. */
+    /* What happens after the download is a courtesy line. The download does not wait on it. */
   }
   set(
     el('found-then'),

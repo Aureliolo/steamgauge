@@ -1,5 +1,5 @@
-//! Update now, as the window shows it: [`crate::update`] downloads, verifies and installs; this
-//! starts it, tells the window how far it has got, and closes or restarts the app into the new
+//! Update now, as the window shows it: [`crate::update`] downloads, verifies and installs.
+//! This starts it, tells the window how far it has got, and closes or restarts the app into the new
 //! version.
 
 use std::{path::PathBuf, sync::Mutex, time::Instant};

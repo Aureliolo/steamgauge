@@ -1,5 +1,5 @@
 /* The window. One scale for space, one for type and one palette, so every page lines up with
-   every other; the report it exports keeps the same colours for praise and complaint. */
+   every other. The report it exports keeps the same colours for praise and complaint. */
 
 :root {
   color-scheme: light dark;
@@ -15,7 +15,7 @@
   --ink: #1f1b17;
   --ink-2: #3f3a34;
   /* The faintest ink is still text, so it reads at 4.5:1 on every surface, as WCAG asks of small
-     text; the third ink stays a clear step darker than it. */
+     text. The third ink stays a clear step darker than it. */
   --ink-3: #5f584f;
   --ink-4: #736c64;
 
@@ -37,7 +37,7 @@
   --warn-soft: #fdf5e6;
   --mixed: #cbc3b8;
 
-  /* A card at rest lies flat on the page, framed by its line; a shadow says something is raised,
+  /* A card at rest lies flat on the page, framed by its line. A shadow says something is raised,
      chosen or floating above the rest. */
   --shadow-1: none;
   --shadow-2: 0 1px 3px rgb(43 39 34 / 0.08), 0 1px 2px rgb(43 39 34 / 0.04);
@@ -272,7 +272,7 @@ code {
   font-variant-numeric: tabular-nums;
 }
 
-/* The mark is the app icon itself, a paper tile in both themes; on the light page the tile is
+/* The mark is the app icon itself, a paper tile in both themes. On the light page the tile is
    close to the ground, so a shadow keeps its edge. */
 .brand-mark,
 .hero-mark {
@@ -964,7 +964,7 @@ label.choice {
   line-height: 1.1;
 }
 
-/* A word is wider than a figure of the same weight; set at a figure's size it fills the tile. */
+/* A word is wider than a figure of the same weight. Set at a figure's size it fills the tile. */
 .tile-value.word {
   padding: 5px 0 4px;
   font-size: var(--t-2xl);
@@ -1550,7 +1550,7 @@ label.choice {
 }
 
 /* Two lanes of one width, and cockpit.js puts each panel in the one that leaves them closest to
-   level; a narrow window has the one lane. */
+   level. A narrow window has the one lane. */
 .panels {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1658,7 +1658,7 @@ label.choice {
   margin-top: var(--s5);
 }
 
-/* Shared out among however many there are, wrapping on a narrow window. */
+/* Shared out among however many there are. They wrap on a narrow window. */
 .models-panel .models {
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
@@ -2460,7 +2460,7 @@ table.games td:last-child {
 }
 
 /* What players praise and complain about beside the table that counts them, and the two
-   closing sections beside each other, once both of a pair fit; either alone takes the width. */
+   closing sections beside each other, once both of a pair fit. Either alone takes the width. */
 .topics-split,
 .topics-figures,
 .topics-pair {
@@ -2720,7 +2720,7 @@ figure.timeline figcaption.dense span:last-child {
   justify-self: end;
 }
 
-/* An update is a moment, so a dashed line in ink rather than another series in colour; the one
+/* An update is a moment, so a dashed line in ink rather than another series in colour. The one
    chosen takes the accent. */
 figure.timeline .update-line {
   stroke: var(--ink-4);
@@ -3831,7 +3831,7 @@ label.option:has(input:focus-visible) {
 }
 
 /* Storage. Each part has its own colour, the same in the drive bar, the legend and every game's
-   bar; a part is a kind of file, not good or bad news, so none of them is green or red. */
+   bar. A part is a kind of file, not good or bad news, so none of them is green or red. */
 
 :root {
   --part-reviews: #c43e0b;

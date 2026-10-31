@@ -9,7 +9,7 @@
 //   node tools/gold-check/check.mjs gold.html
 //
 // `served.mjs` is the other half: this one asserts the page fetches nothing and keeps its own
-// answers, which is what a file on disk has to do; that one asserts every answer reaches the
+// answers, which is what a file on disk has to do. That one asserts every answer reaches the
 // server, which is what `--serve` promises and is how the page is meant to be run.
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

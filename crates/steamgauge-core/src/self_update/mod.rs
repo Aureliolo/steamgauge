@@ -4,7 +4,7 @@
 //! Sigstore, keyless, and that attestation is what an update checks: the file the window
 //! downloads is installed only when the provenance proves it was built by this repository's
 //! release workflow at the tag of a newer release, under that file's name and with the digest
-//! it arrived with. What can be done without a window is here; the window decides when, shows
+//! it arrived with. What can be done without a window is here. The window decides when, shows
 //! how far it has got, and runs what installs it.
 
 pub mod fetch;

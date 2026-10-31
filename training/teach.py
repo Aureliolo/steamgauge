@@ -2,7 +2,7 @@
 as the soft targets a student learns from beside the labels.
 
 Three seeds of one configuration disagree on a tenth of what they read, and the average of
-their distributions is a better reader than any one of them; what a student trained on that
+their distributions is a better reader than any one of them. What a student trained on that
 average over a quarter of a million claims inherits is the ensemble's reading at one model's
 cost. The pool comes from `steamgauge export-pool`, and every row is named, so the answers can
 be checked against the pool they answer.

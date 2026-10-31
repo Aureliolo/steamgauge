@@ -52,10 +52,10 @@ PROMPT = json.loads((CORE / "writer-prompt.json").read_text(encoding="utf-8"))
 REFERENCE = CORE / "writer-reference.json"
 
 WRITER = "Qwen/Qwen3-4B-Instruct-2507"
-# The files the app fetches; the builder writes a configuration for its own runtime beside them.
+# The files the app fetches. The builder writes a configuration for its own runtime beside them.
 SHIPPED = ["model.onnx", "model.onnx.data", "tokenizer.json"]
 
-# `<|im_end|>` closes the answer; `<|endoftext|>` is what the model ends on without one.
+# `<|im_end|>` closes the answer. `<|endoftext|>` is what the model ends on without one.
 STOPS = (151645, 151643)
 MOST_TOKENS = 240
 # The places along the full model's paragraph where the export's likeliest next token is the
@@ -189,7 +189,7 @@ class Graph:
         inputs = {given.name: given for given in self.session.get_inputs()}
         self.pasts = sorted(name for name in inputs if name.startswith("past_key_values."))
         first = inputs[self.pasts[0]]
-        # The graph leaves the head's width unnamed; the builder's configuration says it, and
+        # The graph leaves the head's width unnamed. The builder's configuration says it, and
         # `writer.rs` holds it as a constant of the graph it pins.
         decoder = json.loads((path / "genai_config.json").read_text(encoding="utf-8"))
         self.heads = first.shape[1]

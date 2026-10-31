@@ -2,7 +2,7 @@
 //!
 //! A draw is made once and labelled days later, and the splitter can move in between. A label
 //! carries the byte span of its claim, so a span this build still cuts as one claim finds its
-//! reading wherever that claim now sits; a span it no longer cuts is dropped from every
+//! reading wherever that claim now sits. A span it no longer cuts is dropped from every
 //! measurement. That is safe and it is not free: a handout mostly made of spans this build no
 //! longer cuts is a labelling run whose answers cannot be scored, and the quota it costs is the
 //! scarcest thing in this project.
@@ -25,7 +25,7 @@ struct Drawn {
     claims: Vec<Span>,
     /// Which of the review's claims this draw actually asks about. A revisit hands a labeller
     /// the whole review and a question about two claims of it, and the rest are along for the
-    /// context; counting them would say a draw is at risk when nothing at risk is being asked.
+    /// context. Counting them would say a draw is at risk when nothing at risk is being asked.
     #[serde(default)]
     asked: Option<Vec<u16>>,
 }

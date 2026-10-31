@@ -15,35 +15,18 @@
 [![SBOM SPDX](https://img.shields.io/badge/SBOM-SPDX-2f6f4e?style=flat)](.github/release-process.md#what-a-release-carries)
 [![Sigstore attested](https://img.shields.io/badge/Sigstore-attested-2f6f4e?style=flat)](SECURITY.md#releases)
 
-A tool for finding out what players of a game actually think, rather than what the loudest
-reviews say.
+A desktop app that downloads every Steam review of a game and reads each one on your computer. It
+shows what players praise and criticise, how often, and the reviews behind every figure.
 
 ## Install
 
-The installer and the portable archive for each system are in the
-[latest release](https://github.com/Aureliolo/steamgauge/releases/latest). A package manager
-installs it too:
-
-```powershell
-# Windows, with winget: the installer
-winget install Aureliolo.SteamGauge
-# Windows, with Scoop: the portable program, with a Start menu shortcut
-scoop install https://github.com/Aureliolo/steamgauge/releases/latest/download/steamgauge.json
-```
-
-```bash
-# macOS on Apple Silicon, with Homebrew: this repository is the tap
-brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge
-brew install --cask aureliolo/steamgauge/steamgauge
-```
-
-[Install](docs/install.md) has the rest: the installer and archive for each system, what each
-system needs, the first launch, verifying a download and upgrading.
+Take the installer or portable archive for your system from the
+[latest release](https://github.com/Aureliolo/steamgauge/releases/latest), or install it with
+Scoop or Homebrew. [Install](docs/install.md) has the commands.
 
 ## Documentation
 
-The documentation is published at <https://aureliolo.github.io/steamgauge/> and lives in
-[`docs/`](docs/).
+The documentation is at <https://aureliolo.github.io/steamgauge/>.
 
 <!-- steamgauge-site: pages -->
 
@@ -64,9 +47,8 @@ The documentation is published at <https://aureliolo.github.io/steamgauge/> and 
 
 ## Models and dataset
 
-The readers, the search models and the labelled claims are on Hugging Face, each release
-tagged `v1`, `v2` and so on. The app fetches every file from one pinned commit and checks its
-length and SHA-256 before using it.
+The readers, the search models, the writer and the labelled claims are on Hugging Face, each
+release tagged `v1`, `v2` and so on.
 
 | | Repository | DOI |
 |---|---|---|
@@ -79,9 +61,9 @@ length and SHA-256 before using it.
 
 The search models are fp16 ONNX exports of Qwen3-Embedding-0.6B and Qwen3-Reranker-0.6B with
 their weights unchanged. The writer is Qwen3-4B-Instruct-2507 with its weights rounded to four
-bits. The dataset holds no review text and nothing about the authors: each
-labelled review carries a SHA-256 fingerprint of its text, and `training/fetch_text.py`
-fetches the reviews from Steam and puts the text back on your own machine.
+bits. The dataset holds no review text and nothing about the authors. Each labelled review
+carries a SHA-256 fingerprint of its text, and `training/fetch_text.py` fetches the text from
+Steam onto your machine.
 
 ## Licence
 
