@@ -912,7 +912,7 @@
       choices: [],
     }),
     library: () => ({
-      path: 'C:\\data',
+      path: 'C:\\Users\\someone\\AppData\\Local\\com.aureliolo.steamgauge\\data',
       games: games.map((game) => ({
         app_id: game.app_id,
         name: game.name,
