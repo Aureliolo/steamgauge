@@ -423,8 +423,8 @@ function drawTopics(found) {
   if (found.swept_since !== null) {
     set(
       swept,
-      `The capture was brought up to date on ${day.format(new Date(found.swept_since * 1000))} ` +
-        `and these counts were made before that. Read it again to count what arrived.`,
+      `The download was brought up to date on ${day.format(new Date(found.swept_since * 1000))}. ` +
+        `These counts were made before that. Read it again to count what arrived.`,
     );
   }
 

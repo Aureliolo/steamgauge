@@ -205,8 +205,8 @@ pub fn html(version: &str, picture: &Picture) -> String {
         page,
         "</div>\n<section class=\"step\">\n<h2 id=\"install\">Install</h2>\n{}\n\
          <p class=\"note\">Scoop and Homebrew check each download against the release's signed \
-         <code>SHA256SUMS</code>. <a href=\"install.html\">Install</a> has the archives, the \
-         commands that check the other downloads, the first launch and upgrading.</p>\n\
+         <code>SHA256SUMS</code>. <a href=\"install.html\">Install</a> has the archives, how \
+         to check a download, the first launch and upgrading.</p>\n\
          </section>\n\
          <section class=\"step two\">\n<div>\n<h2 id=\"first-game\">A first game</h2>\n<ol>\n",
         installs(version)

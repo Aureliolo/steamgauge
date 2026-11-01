@@ -197,8 +197,8 @@ fn overview(out: &mut String, report: &Report) {
         "<p class=\"note\">Mention rates for {} reviews of {} games. The game that raises each \
          subject most is named beside it, and its cell outlined, where one clears every other \
          by more than rounding. Read down a column for one game and across a row to compare \
-         them all; the table scrolls sideways. Deeper shading is a higher rate, and the rates \
-         are not comparable to any other corpus.</p>",
+         them all. The table scrolls sideways. Deeper shading is a higher rate, and the rates \
+         are not comparable to any other set of reviews.</p>",
         thousands(total),
         report.apps.len()
     );
@@ -567,9 +567,9 @@ fn facts(out: &mut String, app: &AppReport) {
     {
         let _ = writeln!(
             out,
-            "<p class=\"warn\">The capture was brought up to date on {} and these counts \
-             were made before that, on the corpus as it stood on {}. Read it again to count \
-             what arrived.</p>",
+            "<p class=\"warn\">The download was brought up to date on {}. These counts were \
+             made before that, from the reviews held on {}. Read it again to count what \
+             arrived.</p>",
             crate::time::day(swept),
             crate::time::day(app.reading.captured_unix.max(crawl.snapshot_unix))
         );
@@ -928,10 +928,8 @@ fn updates(out: &mut String, app: &AppReport) {
          posted on Steam by {}: posts Steam marks as patch notes, and posts whose titles name a \
          patch, a hotfix, an update or a version. Below, the biggest of them by the reviews that \
          followed, each with the {WINDOW_DAYS} days before it against the {WINDOW_DAYS} days \
-         after. A change is a share that moved further than chance would move it, three \
-         standard errors and at least two points, and a share is compared only where each side \
-         holds at least {ENOUGH} reviews. A change happened across the update; that alone does \
-         not make the update the reason for it.</p>",
+         after. A change is at least three standard errors and two points, with {ENOUGH} \
+         reviews a side. The update may not be its cause.</p>",
         thousands(around.len() as u64),
         crate::time::day(asked)
     );
@@ -1292,9 +1290,9 @@ fn how_well_this_row_is_known(
     };
     let _ = writeln!(
         out,
-        "<p class=\"{class}\">Measured on this row: of the {} labelled claims about it, the \
-         model found {found}; of the claims it filed here, {right} were labelled that way. A \
-         rate built on a subject it misses is a floor, not a count.{}</p>",
+        "<p class=\"{class}\">Measured on this row: the reader found {found} of the {} \
+         labelled claims about it. Of the claims it filed here, {right} were labelled that \
+         way. Where it misses claims, the rate is a floor.{}</p>",
         thousands(measured.labelled),
         // Which subject the misses went to is the difference between a row that is merely hard
         // and a row whose claims are sitting under a neighbour's name.
@@ -1304,7 +1302,12 @@ fn how_well_this_row_is_known(
                 format!(
                     " Where it was read wrongly, it was most often read as \
                      <strong>{}</strong> ({count} of the labelled claims).",
-                    escape(label)
+                    escape(
+                        SHEET
+                            .iter()
+                            .find(|row| row.id == label)
+                            .map_or(label, |row| row.label)
+                    )
                 )
             })
     );
@@ -2179,12 +2182,9 @@ fn measured_here(out: &mut String, app: &AppReport) {
                 ceiling_note(out, ceiling);
             }
         }
-        crate::report::Measurement::Unlabelled => unmeasured_here(
-            out,
-            app,
-            "No claims have been labelled for this game, so how often the reader is wrong \
-             <em>here</em> has not been measured.",
-        ),
+        crate::report::Measurement::Unlabelled => {
+            unmeasured_here(out, app, "No one has labelled this game.")
+        }
         crate::report::Measurement::Learned => unmeasured_here(
             out,
             app,
@@ -2227,11 +2227,9 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
     };
     let _ = writeln!(
         out,
-        "<p class=\"warn\">{why} What is measured is how it does on {} games it had never \
-         seen, over {} labelled claims: it answers {} of them and names the same subject a \
-         separate labeller did {} of the time when it does, declining the rest rather than \
-         guessing. Those labellers were themselves language models. Expect this corpus to be \
-         somewhere near that and treat every rate as provisional.</p>",
+        "<p class=\"warn\">{why} On {} games it never trained on, over {} labelled claims, the \
+         reader answers {} of claims and agrees with the labels on {}. Language models wrote \
+         those labels.</p>",
         held_out.games,
         thousands(u64::from(held_out.claims)),
         percent(held_out.coverage),
@@ -2267,7 +2265,7 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
     // one whose errors are all on the hard claims, and a reader deserves to know which.
     let clear = ceiling.on_the_clear().map_or_else(String::new, |rate| {
         format!(
-            ", and {} on the {} neither labeller called contested",
+            ", and {} on the {} neither labeller marked ambiguous",
             percent(rate),
             thousands(ceiling.settled_and_clear)
         )
@@ -2293,9 +2291,8 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
         out,
         "<p class=\"warn\">Of the {} labelled claims the reader answered, it named the same \
          subject as a separate labeller {} of the time, somewhere in [{}, {}] with 95% \
-         confidence. The labeller was itself a language model, so that is \
-         <strong>agreement, not accuracy</strong>: two models can be wrong together, most \
-         easily on sarcasm and on claims that sit between subjects.</p>",
+         confidence. The labeller was a language model. Two models can be wrong together, \
+         most often on sarcasm and on claims between subjects.</p>",
         thousands(agreement.answered),
         percent(rate),
         percent(low),
@@ -2378,6 +2375,7 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
         .iter()
         .filter(|s| s.labelled >= ENOUGH_TO_JUDGE_A_ROW)
         .filter_map(|s| s.mistaken_for.map(|(other, count)| (s, other, count)))
+        .filter(|(s, other, _)| s.id != *other)
         .max_by_key(|(_, _, count)| *count);
     if let Some((subject, other, count)) = worst {
         let _ = writeln!(
@@ -3037,7 +3035,7 @@ mod tests {
         }
         assert!(page.contains("What this cannot tell you"));
         assert!(
-            page.contains("No claims have been labelled"),
+            page.contains("No one has labelled this game"),
             "a report with no measured agreement must say so"
         );
     }
@@ -3096,7 +3094,7 @@ mod tests {
         );
         assert!(out.contains("% to "), "{out}");
         assert!(
-            out.contains("on the 300 neither labeller called contested"),
+            out.contains("on the 300 neither labeller marked ambiguous"),
             "{out}"
         );
         assert!(
@@ -3628,7 +3626,7 @@ mod tests {
             .expect("the section never ends")
             .0;
         assert!(
-            !section.contains("No claims have been labelled"),
+            !section.contains("No one has labelled this game"),
             "a game that has been labelled is reported as never labelled"
         );
         assert!(
@@ -3987,7 +3985,7 @@ mod tests {
         );
         assert!(page.contains("42 added or edited since the snapshot"));
         let warning = page
-            .find("The capture was brought up to date on")
+            .find("The download was brought up to date on")
             .expect("a warning");
         let table = page
             .find("<table class=\"categories\">")
@@ -4000,7 +3998,7 @@ mod tests {
         // A reading made after the sweep has nothing to warn about.
         report.apps[0].reading.captured_unix = 1_700_500_000;
         let page = render(&report);
-        assert!(!page.contains("The capture was brought up to date on"));
+        assert!(!page.contains("The download was brought up to date on"));
         assert!(page.contains("Brought up to date"));
     }
 
