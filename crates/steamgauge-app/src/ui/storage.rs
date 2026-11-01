@@ -185,7 +185,7 @@ pub struct ModelRoom {
     pub name: String,
     /// How the window asks for it to be removed.
     pub key: &'static str,
-    pub role: &'static str,
+    pub role: String,
     pub bytes: u64,
     /// Whether this computer reads or searches with it, so removing it means fetching it again.
     pub used: bool,
@@ -220,9 +220,9 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
             let home = size.home();
             (
                 ModelRoom {
-                    name: format!("Game Review Reader ({})", size.name),
+                    name: super::settings::reader_name(size),
                     key: size.name,
-                    role: "reads every review",
+                    role: super::settings::reader_role(size),
                     bytes: bytes_under(&home),
                     used: size.name == reader_in_use,
                 },
@@ -232,14 +232,14 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
         .collect();
     for (model, role) in [
         (search_models::ENCODER, "finds what was said in other words"),
-        (search_models::RERANKER, "orders what it finds"),
+        (search_models::RERANKER, "orders search results by meaning"),
     ] {
         let home = model.dir(cache);
         found.push((
             ModelRoom {
                 name: format!("SteamGauge {}", model.name.replace('-', " ")),
                 key: model.name,
-                role,
+                role: role.to_owned(),
                 bytes: bytes_under(&home),
                 used: true,
             },
@@ -251,7 +251,7 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
         ModelRoom {
             name: "SteamGauge writer".to_owned(),
             key: writer::WRITER.name,
-            role: "writes what stands out",
+            role: "writes what stands out".to_owned(),
             bytes: bytes_under(&home),
             used: writing,
         },

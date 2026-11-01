@@ -44,20 +44,19 @@ pub enum Task {
         app_id: u32,
         language: Option<String>,
     },
-    /// A read game's answers added up again from disk, without the reader: how a reading made
-    /// before the window counted something comes to count it, in a minute rather than a read.
+    /// Counts a read game again from its saved readings, without the reader. Takes about a
+    /// minute.
     Recount { app_id: u32 },
     /// A read game made searchable by meaning.
     Prepare { app_id: u32 },
     /// How many reviews each game has on Steam now, and whether newer models are published.
     Check,
-    /// A report of these games, written as one page to where the person chose.
+    /// A report of these games, written as one page to `to`.
     Export {
         app_ids: Vec<u32>,
         to: std::path::PathBuf,
     },
-    /// A read game's figures and points, written as CSV and JSON into a new folder where the
-    /// person chose.
+    /// A read game's figures and claims, written as CSV and JSON into a new folder at `to`.
     ExportData { app_id: u32, to: std::path::PathBuf },
     /// A model fetched ahead of the work that needs it, by the name Storage lists it under: a
     /// reader size (`small`, `standard`), `search-encoder`, `search-reranker` or `writer`. A first
@@ -1169,7 +1168,7 @@ async fn read(
     .map_err(text)??;
 
     let mut ended = Ended::said(format!(
-        "{} reviews read, {} separate points.",
+        "{} reviews read, {} claims.",
         thousands(report.reviews),
         thousands(report.claims)
     ));
@@ -1387,7 +1386,7 @@ fn write_paragraph(
 
     let Some(brief) = writer::brief(game, reviews, found) else {
         return Ok(Ended::said(
-            "Ready to search by meaning. No point is made in enough reviews to write about.",
+            "Ready to search by meaning. Nothing is said in enough reviews to write about.",
         ));
     };
     tell(
@@ -1512,7 +1511,7 @@ async fn export_data(
             tell(
                 &telling,
                 id,
-                "Writing the points",
+                "Writing the claims",
                 Unit::Reviews,
                 float(walked),
                 Some(float(of)),
@@ -1524,14 +1523,14 @@ async fn export_data(
     .map_err(text)??;
     let left_out = if exported.left_out > 0 {
         format!(
-            " {} points of reviews edited since they were read are left out.",
+            " {} claims of reviews edited since they were read are left out.",
             thousands(exported.left_out)
         )
     } else {
         String::new()
     };
     Ok(Ended::said(format!(
-        "Saved {} points and the figures in {}.{left_out}",
+        "Saved {} claims and the figures in {}.{left_out}",
         thousands(exported.points),
         exported.folder.display()
     )))

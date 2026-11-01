@@ -162,7 +162,7 @@
       if (query === '') {
         count.textContent = count.getAttribute('data-showing-everything') || '';
       } else if (shown === 0) {
-        count.textContent = 'no category matches';
+        count.textContent = 'no subject matches';
       } else {
         count.textContent = shown + ' of ' + all;
       }

@@ -7,10 +7,14 @@ import { showNewer } from './newer.js';
 let shown = null;
 let options = null;
 
-const SIZE_TEXT = {
-  small: ['Small reader', 'Fast, and a little less accurate.'],
-  standard: ['Standard reader', 'The most accurate.'],
-};
+const SIZE_TITLE = { small: 'Small reader', standard: 'Standard reader' };
+
+/* What sets a size apart: its agreement on the claims it is surest of, as the cockpit and Storage
+   give it too. */
+function sizeAbout(option) {
+  const agreement = `${Math.round(option.agreement * 100)}% agreement at 80% coverage.`;
+  return option.name === 'small' ? `Faster. ${agreement}` : agreement;
+}
 
 const EVERY = { 1: 'Every hour', 6: 'Every six hours', 24: 'Once a day', 168: 'Once a week' };
 
@@ -26,14 +30,16 @@ export function reason(found) {
       ? 'No graphics card the reader can use was found, so reading runs on the processor, where the small reader is the quickest.'
       : 'This build reads on the processor, where the small reader is the quickest.';
   }
-  const card = `${found.card ?? 'The graphics card'}${found.card_bytes ? `, ${gib(found.card_bytes)}` : ''}`;
+  const card = `${found.card ?? 'this graphics card'}${found.card_bytes ? `, ${gib(found.card_bytes)}` : ''}`;
+  const largestName = SIZE_TITLE[largest.name]?.toLowerCase() ?? largest.name;
   return recommended === largest
-    ? `${card}: the most accurate reader fits in its memory.`
-    : `${card}: the ${SIZE_TEXT[largest.name]?.[0].toLowerCase() ?? largest.name} needs ${gib(largest.needs)} of its memory, more than it can spare.`;
+    ? `The most accurate reader fits this card's memory (${card}).`
+    : `The ${largestName} needs ${gib(largest.needs)} of this card's memory, more than it can spare (${card}).`;
 }
 
 function sizeCard(found, option) {
-  const [title, about] = SIZE_TEXT[option.name] ?? [option.name, ''];
+  const title = SIZE_TITLE[option.name] ?? option.name;
+  const about = option.agreement === undefined ? '' : sizeAbout(option);
   const input = make('input');
   input.type = 'radio';
   input.name = 'reader-size';

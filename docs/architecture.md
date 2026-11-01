@@ -67,7 +67,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 
 - The headline is the **mention rate**: the share of reviews raising a subject. Every other
   percentage names its denominator, and every rate carries a 95% interval.
-- The corrected share uses the reader's measured errors on a game's labels, from 40 labels up.
+- A game with 40 labels or more also gets a **corrected share**, adjusted for the reader's
+  measured errors on those labels.
 - **Words that stand out** are compared with log-odds within each review language and pooled by
   inverse variance. A subject's own name is left out.
 - Chinese is cut by `jieba-rs`, Korean by stripping particles and endings, and Japanese into
@@ -159,8 +160,8 @@ in thirty.
   only where that record names the running version.
 - About lists dependencies from the `THIRD-PARTY-NOTICES.txt` beside the program and opens that
   file in the system's viewer.
-- **Below 1.0**, a release that renames something people call raises the minor version, and
-  anything else the patch. Pre-release versions are refused.
+- **Below 1.0**, a release that renames a command, tool, option or setting raises the minor
+  version, and anything else the patch. Pre-release versions are refused.
 - [The release runbook](../.github/release-process.md) covers how a release is cut and built.
 
 ## Labels and measurement

@@ -14,13 +14,23 @@ export const whole = new Intl.NumberFormat(LOCALE);
 export const share = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 2 });
 export const tenth = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
 export const roundShare = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 0 });
-export const day = new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' });
-export const when = new Intl.DateTimeFormat(LOCALE, {
-  month: 'short',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
+/* British English shortens September to "Sept" alone. Every month here has three letters, as
+   the core writes them. */
+const threeLetters = (text) => text.replace('Sept', 'Sep');
+
+function shortMonths(format) {
+  return { format: (date) => threeLetters(format.format(date)) };
+}
+
+export const day = shortMonths(new Intl.DateTimeFormat(LOCALE, { year: 'numeric', month: 'short', day: 'numeric' }));
+export const when = shortMonths(
+  new Intl.DateTimeFormat(LOCALE, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }),
+);
 
 // A cell with no number behind it, drawn as the report draws one.
 export const nothing = '–';
@@ -36,6 +46,13 @@ export const thin = { shown: false };
 
 export function set(node, text) {
   node.textContent = text;
+}
+
+/* Text from the core with its commands in backticks, the commands set in code type. */
+export function setWithCode(node, text) {
+  node.replaceChildren(
+    ...text.split('`').map((part, at) => (at % 2 === 1 ? make('code', null, part) : part)).filter((part) => part !== ''),
+  );
 }
 
 /* Builds an element from a tag, a class and children. Text is always set as text, never parsed:
@@ -108,11 +125,13 @@ export const language = (name) => (name ? name.charAt(0).toUpperCase() + name.sl
 export function monthName(label) {
   const [year, month] = label.split('-').map(Number);
   if (!year || !month) return label;
-  return new Date(Date.UTC(year, month - 1, 15)).toLocaleDateString(LOCALE, {
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+  return threeLetters(
+    new Date(Date.UTC(year, month - 1, 15)).toLocaleDateString(LOCALE, {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }),
+  );
 }
 
 export function facts(list, entries) {

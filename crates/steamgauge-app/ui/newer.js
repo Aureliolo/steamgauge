@@ -4,7 +4,7 @@
    names can rise as it starts, then downloads the release's file for this system and installs it
    only once its build provenance verifies. The core says how far it has got. */
 
-import { invoke, listen, el, set, size, left, openOutside } from './common.js';
+import { invoke, listen, el, set, setWithCode, size, left, openOutside } from './common.js';
 
 let release = null;
 let update = { state: 'idle', why: null };
@@ -56,18 +56,19 @@ function draw() {
 
   el('newer-progress').hidden = !underWay(state);
   if (state === 'downloading') drawProgress(update.done, update.total, downloaded(update));
-  if (state === 'verifying') drawProgress(0, null, "Proving SteamGauge's release workflow built it");
+  if (state === 'verifying') drawProgress(0, null, "Checking SteamGauge's release workflow built it");
   if (state === 'installing') drawProgress(0, null, `SteamGauge closes and opens again as ${release.version}`);
 
   /* Idle with a reason is a copy the window does not update: a Scoop install, a portable folder. */
+  const said = update.why ? `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.` : '';
   const why =
     state === 'failed'
-      ? `Nothing was installed, because ${update.why}.`
+      ? `Nothing was installed. ${said} Try again, or download it from the release page.`
       : state === 'idle' && update.why
-        ? `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`
+        ? said
         : null;
   el('newer-why').hidden = !why;
-  set(el('newer-why'), why ?? '');
+  setWithCode(el('newer-why'), why ?? '');
 
   const offered = (state === 'idle' && !update.why) || state === 'failed';
   el('newer-update').hidden = !offered;

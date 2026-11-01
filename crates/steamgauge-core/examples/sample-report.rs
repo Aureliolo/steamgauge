@@ -232,8 +232,8 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         top: vec![example(
             app_id,
             9,
-            "The most helpful review in the corpus, which is what a reader skimming the store \
-             page sees before anything this tool counted.",
+            "The most helpful review of the game, which is what a store visitor sees before \
+             anything this tool counted.",
             true,
         )],
         agreement: if measured {

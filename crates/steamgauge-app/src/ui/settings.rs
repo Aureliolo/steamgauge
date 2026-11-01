@@ -16,8 +16,9 @@ pub const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
 /// the least, since each time is a request per game.
 pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
 
-/// How many new reviews on Steam bring a game up to date by itself. An update reads the whole
-/// game again, so waiting spares the graphics card a read of a large game for a handful.
+/// How many new reviews on Steam bring a game up to date by itself. An update reads only the new
+/// and edited reviews, but loads the reader onto the graphics card to do it. Waiting saves that
+/// load for a handful of reviews.
 #[derive(
     Debug, Clone, Copy, Default, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq,
 )]
@@ -25,8 +26,8 @@ pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
 pub enum UpdateWhen {
     /// Any review Steam has that the library does not.
     AnyNew,
-    /// A hundredth more than the library holds. A game of fewer than a hundred reviews is kept up
-    /// to date review by review.
+    /// 1% more than the library holds. A game of fewer than 100 reviews is kept up to date review
+    /// by review.
     #[default]
     Hundredth,
 }
@@ -37,17 +38,17 @@ pub enum UpdateWhen {
     reason = "each is one switch in Settings; no two of them name one state"
 )]
 pub struct Settings {
-    /// The share of the card's time a read or a preparation may take, one of [`SHARES`].
+    /// The share of the card's time a read or a preparation may take, one of 0.25, 0.5, 0.75 or 1.
     pub gpu_share: f64,
-    /// The reader size chosen, or none for the one this machine is recommended. A size the
+    /// The reader size chosen, or none for the size recommended for this machine. A size the
     /// card's memory cannot hold is passed over for the recommended one.
     pub reader: Option<String>,
     /// The language a first reading counts, or none for every language.
     pub language: Option<String>,
     /// Whether the app asks Steam how many reviews each game has now, on opening and while open.
     pub check_steam: bool,
-    /// How many hours Steam's counts are taken as current before the app asks again, one of
-    /// [`CHECK_HOURS`].
+    /// How many hours Steam's counts are taken as current before the app asks again, one of 1, 6,
+    /// 24 or 168.
     pub check_every_hours: u32,
     /// Whether a game Steam has enough new reviews for is brought up to date and read again by
     /// itself while the app is open.
@@ -65,6 +66,7 @@ pub struct Settings {
     /// Whether programs on this computer that connect to an MCP server over HTTP may steer the
     /// app, with the token the AI assistants page shows, on 127.0.0.1 and `http_port`.
     pub answer_over_http: bool,
+    /// The port the HTTP server answers on, 47800 until changed.
     pub http_port: u16,
 }
 
@@ -289,10 +291,30 @@ pub fn save_settings(
     Ok(self::settings(app))
 }
 
+/// A reader size as the window names it: "Small reader".
+pub fn reader_name(size: &steamgauge_core::reader::Size) -> String {
+    let mut letters = size.name.chars();
+    letters.next().map_or_else(String::new, |first| {
+        format!("{}{} reader", first.to_uppercase(), letters.as_str())
+    })
+}
+
+/// What sets a reader size apart from the others, as the window lists it beside the name.
+pub fn reader_role(size: &steamgauge_core::reader::Size) -> String {
+    let agreement = format!("{:.0}% agreement at 80% coverage", size.agreement * 100.0);
+    if size.name == steamgauge_core::reader::SIZES[0].name {
+        format!("faster, {agreement}")
+    } else {
+        agreement
+    }
+}
+
 /// One reader size as Settings offers it.
 #[derive(Debug, Clone, Serialize)]
 pub struct SizeOption {
     pub name: &'static str,
+    /// Its agreement with the benchmark labels on the 80% of claims it is surest of.
+    pub agreement: f64,
     /// The whole download, and what of it is still to fetch.
     pub download_bytes: u64,
     pub bytes_left: u64,
@@ -350,6 +372,7 @@ pub fn reader_options(app: AppHandle) -> ReaderOptions {
                 let published = size.published.is_pinned();
                 SizeOption {
                     name: size.name,
+                    agreement: size.agreement,
                     download_bytes: size.published.total_bytes(),
                     bytes_left: if published {
                         size.published.bytes_left(&size.home())
@@ -448,5 +471,25 @@ mod tests {
         }
         .checked();
         assert_eq!(checked.reader, None);
+    }
+
+    #[test]
+    fn the_schema_names_the_values_offered() {
+        let schema = serde_json::to_value(schemars::schema_for!(Settings)).unwrap();
+        let said = |field: &str| {
+            schema["properties"][field]["description"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned()
+        };
+        let shares = said("gpu_share");
+        for share in SHARES {
+            assert!(shares.contains(&share.to_string()), "{share}: {shares}");
+        }
+        let hours = said("check_every_hours");
+        for offered in CHECK_HOURS {
+            assert!(hours.contains(&offered.to_string()), "{offered}: {hours}");
+        }
+        assert!(said("http_port").contains(&HTTP_PORT.to_string()));
     }
 }

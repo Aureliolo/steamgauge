@@ -343,6 +343,9 @@ pub struct Size {
     /// Only the ratio between two sizes is used, to say what a size not yet run on a machine
     /// would take there beside one that has been.
     pub processor_seconds: f64,
+    /// Its agreement with the benchmark labels on the 80% of claims it is surest of, as
+    /// `reference/reader-sizes.json` records it.
+    pub agreement: f64,
     pub published: Published,
 }
 
@@ -429,6 +432,7 @@ pub const SIZES: &[Size] = &[
         dir: "game-review-reader-small",
         needs: mib(1_219),
         processor_seconds: 36.0,
+        agreement: 0.7814,
         published: Published {
             repository: "Aureliolo/game-review-reader-small",
             revision: "cdaef258b8a2d848e131a5d355f676d11d8b34b4",
@@ -442,6 +446,7 @@ pub const SIZES: &[Size] = &[
         dir: "game-review-reader",
         needs: mib(2_756),
         processor_seconds: 284.9,
+        agreement: 0.8443,
         published: Published {
             repository: "Aureliolo/game-review-reader",
             revision: "c50298ecb7bc5dd5be74fe5af9f0a5a7daf9c696",
@@ -1186,6 +1191,25 @@ fn pieces(rows: usize, most: Option<usize>) -> Vec<std::ops::Range<usize>> {
 pub(crate) mod tests {
     use super::*;
     use crate::stand_in;
+
+    #[test]
+    fn each_size_carries_the_agreement_the_sizes_table_records() {
+        let table: serde_json::Value =
+            serde_json::from_str(include_str!("../../../reference/reader-sizes.json")).unwrap();
+        for size in SIZES {
+            let row = table["sizes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["name"] == size.name)
+                .unwrap_or_else(|| panic!("{} is not in the sizes table", size.name));
+            assert!(
+                (row["right_at_80"].as_f64().unwrap() - size.agreement).abs() < 1e-9,
+                "{}",
+                size.name
+            );
+        }
+    }
 
     #[test]
     fn small_capitals_are_read_as_the_letters_they_are() {

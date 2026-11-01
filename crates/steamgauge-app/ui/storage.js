@@ -11,7 +11,7 @@ const PARTS = [
   { key: 'reads', name: 'Reads', cost: 'Hours of reading on this computer to redo.' },
   { key: 'search', name: 'Search preparations', cost: 'Made again when a search needs them.', everywhere: 'search' },
   { key: 'earlier', name: 'Earlier downloads', cost: 'Replaced by a newer download of the same game.', everywhere: 'earlier' },
-  { key: 'partial', name: 'Unfinished work', cost: 'Downloads and reads that stopped; they start over when run again.', everywhere: 'partial' },
+  { key: 'partial', name: 'Unfinished work', cost: 'What stopped downloads and reads left behind. Removing it makes them start over.', everywhere: 'partial' },
   { key: 'other', name: 'Library records', cost: 'Download progress, groups and choices.' },
 ];
 
@@ -128,7 +128,7 @@ export function setUpStorage({ openGame }) {
     /* A part holding nothing is left out: there is nothing in it to weigh or to remove. */
     const held = [
       ...PARTS.map((part) => ({ ...part, bytes: found.parts[part.key] })),
-      { key: 'models', name: 'Models', cost: 'Fetched again the first time each is needed; each is listed below.', bytes: models },
+      { key: 'models', name: 'Models', cost: 'Downloaded again the next time each is needed.', bytes: models },
     ].filter((part) => part.bytes > 0);
     el('parts').replaceChildren(
       ...held.map((part) =>

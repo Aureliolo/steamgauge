@@ -75,7 +75,7 @@ pub enum Refusal {
     #[error("its build provenance cannot be read: {0}")]
     Unreadable(String),
 
-    #[error("its signature does not verify: {0}")]
+    #[error("its signature could not be confirmed ({0})")]
     Signature(String),
 
     #[error("the signing certificate's {claim} is {actual}, not {expected}")]

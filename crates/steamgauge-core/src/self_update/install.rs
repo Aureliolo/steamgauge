@@ -66,9 +66,7 @@ pub fn on_windows(program: &Path) -> Result<Install, String> {
         .components()
         .any(|part| part.as_os_str().eq_ignore_ascii_case("scoop"))
     {
-        return Err(
-            "Scoop installed this copy, so Scoop updates it: scoop update steamgauge".to_owned(),
-        );
+        return Err("update it with Scoop: `scoop update steamgauge`".to_owned());
     }
     Err(
         "this copy runs from a folder the setup program did not install it in, so it is updated \

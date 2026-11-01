@@ -190,9 +190,8 @@ fn build(verified: Option<&Verified>) -> Detail {
             || "Not checked by SteamGauge, which checks the copies Update now installs".to_owned(),
             |verified| {
                 format!(
-                    "Checked before it was installed: SteamGauge's release workflow built {} for \
-                     v{}",
-                    verified.file, verified.version
+                    "Checked on install. SteamGauge's release workflow built it from v{}.",
+                    verified.version
                 )
             },
         ),
@@ -564,10 +563,7 @@ mod tests {
                 Some(&verified(running)),
                 true
             )),
-            format!(
-                "Checked before it was installed: SteamGauge's release workflow built \
-                 steamgauge-{running}-windows-x64-setup.exe for v{running}"
-            )
+            format!("Checked on install. SteamGauge's release workflow built it from v{running}.")
         );
         for unchecked in [None, Some(verified("0.0.1"))] {
             assert!(

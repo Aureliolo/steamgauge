@@ -174,7 +174,7 @@ between them. Only looks.
 ### `induced`
 
 What a read game's players talk about that the fixed subjects do not name, with quoted reviews,
-where that has been worked out. Only looks.
+where SteamGauge has any. Only looks.
 
 - `app_id`, required: The game's Steam app id.
 
@@ -192,7 +192,8 @@ looks.
 
 - `app_id`, required: The game's Steam app id.
 - `gid`, required: The update's id, as `game_updates` gives it.
-- `kind`: One kind of reviewer only, or none for every reviewer.
+- `kind`: One kind of reviewer only, one of the kinds `reading` lists under `who`, or none for every
+  reviewer.
 
 ### `compare`
 
@@ -263,8 +264,8 @@ looks.
 
 ### `queue`
 
-Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, and
-exports to a given path. Returns their ids at once. `work` shows how they go.
+Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, model
+downloads and exports to a given path. Returns their ids at once. `work` shows how they go.
 
 - `tasks`, required: The jobs to start. Jobs that share the network, the graphics card or the disk
   run one after another, in the order given.
@@ -301,14 +302,14 @@ Opens a finished report job's page in the person's browser.
 ### `export_data`
 
 Asks the person where to save a read game's data, then starts writing it. To write to a known path
-without asking, use `queue` with an export_data task.
+without asking, use `queue` with a task of kind `export_data`.
 
 - `app_id`, required: The game's Steam app id.
 
 ### `export_report`
 
 Asks the person where to save a report of these games, then starts writing it. To write to a known
-path without asking, use `queue` with an export task.
+path without asking, use `queue` with a task of kind `export`.
 
 - `app_ids`, required: Steam app ids.
 
@@ -317,7 +318,8 @@ path without asking, use `queue` with an export task.
 ### `settings`
 
 The app's settings: the share of the graphics card a read may take, reader size, first-reading
-language, checks and library folder. Only looks.
+language, checks and library folder. Also the MCP clients on this computer and how assistants reach
+the app. Only looks.
 
 ### `save_settings`
 
@@ -362,13 +364,13 @@ Removes a downloaded model. What it removes has to be downloaded or worked out a
 Adds this copy of the app to an MCP client's configuration and returns the settings. The client can
 reach the open app from then on.
 
-- `client`, required: The client's id, as settings lists it.
+- `client`, required: The client's id, as `settings` lists it under `clients`.
 
 ### `disconnect_client`
 
 Takes the app out of an MCP client's configuration and returns the settings.
 
-- `client`, required: The client's id, as settings lists it.
+- `client`, required: The client's id, as `settings` lists it under `clients`.
 
 ### `new_http_token`
 

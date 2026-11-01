@@ -1,8 +1,8 @@
 # Accuracy
 
-The reader is measured on games it never trained on. Its labels come from a language model, so
-most figures here are agreement with those labels. The figures checked against a person are
-marked as such.
+The reader is measured on games it never trained on, against labels a language model wrote. Most
+figures here are agreement with those labels. The figures checked against a person are marked as
+such.
 
 ## Against the alternatives
 
@@ -11,10 +11,10 @@ sure enough and is scored on what it answers. The answers are in `reference/fron
 
 | | Answers | Agreement where it answers | Macro F1 |
 |---|---|---|---|
-| The commonest subject | never reaches three in four | 5.9% | 0.004 |
+| The commonest subject | 100% | 5.9% | 0.004 |
 | TF-IDF bag of words | 48% | 75.5% | 0.508 |
 | Nearest subject over an untuned encoder | 3% | 83.3% | 0.450 |
-| **The reader, 560M parameters** | **93%** | **80.6%** | **0.765** |
+| The reader, standard (559M parameters) | 93% | 80.6% | 0.765 |
 | Claude Opus 5, given the same sheet | 99.3% | 85.9% | 0.860 |
 
 On all 5,029 held-out claims, the reader answers 91.6% and agrees on 81.5% of those (macro F1
@@ -46,8 +46,10 @@ Claude Opus 5.5, so the model compared here wrote none of them.
 
 Two people answered claims from the held-out games on the page `steamgauge gold --serve` writes.
 
-**English.** One person answered 200 claims: 169 drawn blind and 30 the two labellers disagreed
-about.
+### English
+
+One person answered 200 claims. 169 were drawn blind and 30 were claims the two labellers
+disagreed about. A later draw held back the last one.
 
 | | Agreement |
 |---|---|
@@ -61,7 +63,9 @@ about.
 A claim can fairly sit under two subjects, so the person also judged whether the reader's
 subject, where it differed, would do as well.
 
-**Russian.** A second person answered 255 Russian claims, blind.
+### Russian
+
+A second person answered 255 Russian claims, blind.
 
 | | Agreement |
 |---|---|
@@ -72,8 +76,8 @@ subject, where it differed, would do as well.
 
 ## In each language
 
-40,327 claims, each answered by a reader that never trained on its game, over every claim whether
-or not the reader would answer it. The last column keeps only the claims the labeller was sure of.
+40,327 claims from games each reader never trained on, scored on every claim, including those it
+would decline. The last column keeps only the claims the labeller was sure of.
 
 | Language | Claims | Agreement | 95% interval | Labeller sure |
 |---|---|---|---|---|
@@ -89,8 +93,8 @@ or not the reader would answer it. The last column keeps only the claims the lab
 | **Simplified Chinese** | **2,573** | **69.6%** | **67.8 to 71.3** | **89.6%** |
 | **Korean** | **518** | **65.3%** | **61.1 to 69.2** | **88.3%** |
 
-The five in bold read below English, so the reader answers less in them to stay right three
-times in four. A language with fewer than 100 labelled claims declines every claim.
+The five in bold read below English, so the reader answers fewer claims in them to keep agreement
+at three in four. A language with fewer than 100 labelled claims declines every claim.
 
 ## How the labels are made
 
@@ -115,8 +119,8 @@ times in four. A language with fewer than 100 labelled claims declines every cla
   more is flagged, with the languages behind it.
 - **Mechanical splitting.** Rules split reviews into claims, and 9.1% of 30,414 random claims are
   cut where a labeller said they should not be.
-- **Contested is partly the labeller.** Two labellers marked 27.4% and 43.9% of the same claims as
-  ambiguous, so contested rates are not compared across games.
+- **Ambiguity depends on the labeller.** Two labellers marked 27.4% and 43.9% of the same claims
+  as ambiguous, so ambiguity rates are not compared across games.
 - **Thin subjects stay thin.** A subject a game barely discusses is read less reliably in that
   game.
 - **A download is a snapshot.** An update misses deleted reviews and changed vote counts, which

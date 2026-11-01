@@ -2,8 +2,13 @@
    page for adding one. The store's own search answers names. An ID or a link goes straight to the
    game. */
 
-import { invoke, el, set, make, whole, roundShare, facts, verdictPill, art, page, go } from './common.js';
+import { invoke, el, set, make, whole, roundShare, facts, verdictPill, art, page, go, roughly } from './common.js';
 import { queue } from './work.js';
+
+/* Steam hands out 100 reviews a request, and the core asks a quarter second apart however many
+   requests are out at once. */
+const REVIEWS_PER_REQUEST = 100;
+const PACE_SECONDS = 0.25;
 
 /* The app ID in a store link or a bare number, or null for words to search. */
 export function appIdIn(typed) {
@@ -156,6 +161,7 @@ async function lookUp(appId) {
     ...[verdictPill(found.verdict), make('span', 'quiet small', `App ${found.app_id}`)].filter(Boolean),
   );
   const total = found.positive + found.negative;
+  const requests = Math.ceil(found.reviews / REVIEWS_PER_REQUEST);
   facts(el('found-facts'), [
     ['Reviews', whole.format(found.reviews), 'Steam will serve'],
     ['Recommending', total > 0 ? roundShare.format(found.positive / total) : '–', `${whole.format(found.positive)} of ${whole.format(total)}`],
@@ -164,7 +170,7 @@ async function lookUp(appId) {
     el('found-note'),
     found.held
       ? 'Already in your library. Downloading again picks up where the last download stopped.'
-      : `About ${whole.format(Math.ceil(found.reviews / 100))} requests, paced so Steam is not leaned on.`,
+      : `About ${whole.format(requests)} requests, ${roughly(requests * PACE_SECONDS)}.`,
   );
   let settings = null;
   try {

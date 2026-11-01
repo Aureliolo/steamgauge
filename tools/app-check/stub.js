@@ -361,7 +361,7 @@
       { name: 'WebView', value: '141.0.3537.71' },
       {
         name: 'Build',
-        value: "Checked before it was installed: SteamGauge's release workflow built steamgauge-0.1.0-windows-x64-setup.exe for v0.1.0",
+        value: "Checked on install. SteamGauge's release workflow built it from v0.1.0.",
       },
     ],
     notes: 'https://github.com/Aureliolo/steamgauge/releases/tag/v0.1.0',
@@ -411,10 +411,10 @@
     ][at % 3],
   }));
   const models = [
-    { name: 'Game Review Reader (small)', key: 'small', role: 'reads every review', bytes: 0, used: false },
-    { name: 'Game Review Reader (standard)', key: 'standard', role: 'reads every review', bytes: 1_127_000_000, used: true },
+    { name: 'Small reader', key: 'small', role: 'faster, 78% agreement at 80% coverage', bytes: 0, used: false },
+    { name: 'Standard reader', key: 'standard', role: '84% agreement at 80% coverage', bytes: 1_127_000_000, used: true },
     { name: 'SteamGauge search encoder', key: 'search-encoder', role: 'finds what was said in other words', bytes: 1_310_000_000, used: true },
-    { name: 'SteamGauge search reranker', key: 'search-reranker', role: 'orders what it finds', bytes: 0, used: true },
+    { name: 'SteamGauge search reranker', key: 'search-reranker', role: 'orders search results by meaning', bytes: 0, used: true },
   ];
   const storage = () => {
     const total = (parts) => Object.values(parts).reduce((sum, bytes) => sum + bytes, 0);
@@ -546,7 +546,8 @@
     const month = new Date(Date.UTC(2024, 8 + at, 15));
     return {
       label: `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`,
-      name: month.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+      // The core writes every month in three letters.
+      name: month.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }).replace('Sept', 'Sep'),
       reviews: 300 + ((at * 137) % 500),
       positive: 0.72 + ((at * 7) % 10) / 100,
     };
@@ -723,8 +724,8 @@
         reader: 'standard',
         gpu_share: settings.gpu_share,
         models: [
-          { name: 'Game Review Reader (small)', key: 'small', role: 'reads every review', here: false, bytes_left: 244_000_000, release: 'v1', newer: null, used: false },
-          { name: 'Game Review Reader (standard)', key: 'standard', role: 'reads every review', here: true, bytes_left: 0, release: 'v1', newer: 'v2', used: true },
+          { name: 'Small reader', key: 'small', role: 'faster, 78% agreement at 80% coverage', here: false, bytes_left: 244_000_000, release: 'v1', newer: null, used: false },
+          { name: 'Standard reader', key: 'standard', role: '84% agreement at 80% coverage', here: true, bytes_left: 0, release: 'v1', newer: 'v2', used: true },
           { name: 'SteamGauge search encoder', key: 'search-encoder', role: 'finds what was said in other words', here: false, bytes_left: 1_321_804_224, release: 'v1', newer: null, used: true },
           { name: 'SteamGauge writer', key: 'writer', role: 'writes what stands out about a game', here: false, bytes_left: 2_664_279_746, release: 'v1', newer: null, used: false },
         ].map((model) => (modelsSettled ? { ...model, here: true, bytes_left: 0, newer: null } : model)),
@@ -855,8 +856,8 @@
       recommended: 'standard',
       reads_with: settings.reader ?? 'standard',
       sizes: [
-        { name: 'small', download_bytes: 244_000_000, bytes_left: 244_000_000, published: true, needs: 1_278_214_144, runs_here: true, times: 1 },
-        { name: 'standard', download_bytes: 1_127_000_000, bytes_left: first ? 1_127_000_000 : 0, published: true, needs: 4_294_967_296, runs_here: true, times: 6.2 },
+        { name: 'small', agreement: 0.7814, download_bytes: 244_000_000, bytes_left: 244_000_000, published: true, needs: 1_278_214_144, runs_here: true, times: 1 },
+        { name: 'standard', agreement: 0.8443, download_bytes: 1_127_000_000, bytes_left: first ? 1_127_000_000 : 0, published: true, needs: 4_294_967_296, runs_here: true, times: 6.2 },
       ],
       free_bytes: 182_000_000_000,
     }),

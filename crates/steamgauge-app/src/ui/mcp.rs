@@ -38,8 +38,9 @@ claim in them with a model on this machine, then shows what players praise and c
 the reviews behind every figure. Each tool here is something the SteamGauge window can do, and \
 the person sees its effects there. A game is named by its Steam app id: find_games looks one up \
 by name. Downloads, reads, updates and exports are jobs: queue starts them and returns at once, \
-work shows where each stands. A game is read once its download is done. Then reading gives its \
-subjects and figures, and claims_behind and search_game the reviews behind them. show puts a \
+work shows where each stands. A game can be read only after its download finishes. Once it is \
+read, reading gives its subjects and figures, and claims_behind and search_game the reviews \
+behind them. show puts a \
 page in front of the person. SteamGauge answers only while its window is open. When a tool says it \
 is not open, ask the person to open it rather than trying to start it.";
 
@@ -140,7 +141,7 @@ struct Nothing {}
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct OneClient {
-    /// The client's id, as settings lists it.
+    /// The client's id, as `settings` lists it under `clients`.
     client: String,
 }
 
@@ -398,7 +399,8 @@ struct BeforeAfter {
     app_id: u32,
     /// The update's id, as `game_updates` gives it.
     gid: String,
-    /// One kind of reviewer only, or none for every reviewer.
+    /// One kind of reviewer only, one of the kinds `reading` lists under `who`, or none for
+    /// every reviewer.
     kind: Option<String>,
 }
 
@@ -589,7 +591,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "induced",
             Looks,
-            "What a read game's players talk about that the fixed subjects do not name, with quoted reviews, where that has been worked out.",
+            "What a read game's players talk about that the fixed subjects do not name, with quoted reviews, where SteamGauge has any.",
             |app, OneGame { app_id }| off_thread_trying(move || super::induced(app, app_id)),
         ),
         tool(
@@ -746,7 +748,7 @@ fn entries() -> Vec<Entry> {
         tool(
             "queue",
             Changes,
-            "Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, and exports to a given path. Returns their ids at once. `work` shows how they go.",
+            "Starts jobs: downloads, updates, reads, recounts, preparations for search by meaning, checks, model downloads and exports to a given path. Returns their ids at once. `work` shows how they go.",
             |app, Tasks { tasks }| {
                 off_thread(move || work::queue(app.clone(), app.state::<work::Work>(), tasks))
             },
@@ -792,19 +794,19 @@ fn entries() -> Vec<Entry> {
         tool(
             "export_data",
             Changes,
-            "Asks the person where to save a read game's data, then starts writing it. To write to a known path without asking, use `queue` with an export_data task.",
+            "Asks the person where to save a read game's data, then starts writing it. To write to a known path without asking, use `queue` with a task of kind `export_data`.",
             |app, OneGame { app_id }| data_export::export_data(app, app_id),
         ),
         tool(
             "export_report",
             Changes,
-            "Asks the person where to save a report of these games, then starts writing it. To write to a known path without asking, use `queue` with an export task.",
+            "Asks the person where to save a report of these games, then starts writing it. To write to a known path without asking, use `queue` with a task of kind `export`.",
             |app, SomeGames { app_ids }| cockpit::export_report(app, app_ids),
         ),
         tool(
             "settings",
             Looks,
-            "The app's settings: the share of the graphics card a read may take, reader size, first-reading language, checks and library folder.",
+            "The app's settings: the share of the graphics card a read may take, reader size, first-reading language, checks and library folder. Also the MCP clients on this computer and how assistants reach the app.",
             |app, Nothing {}| off_thread(move || settings::settings(app)),
         ),
         tool(

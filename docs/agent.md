@@ -26,8 +26,7 @@ command any other assistant takes.
 - **If you are listed**, run `steamgauge connect <name>` with your name from the first column. It
   writes one entry into your settings file and prints the file it wrote.
 - **If you are not**, add an MCP server called `steamgauge` to your own settings, started by the
-  command on the last line. Claude Code takes it as
-  `claude mcp add --scope user steamgauge -- "<path>" mcp`.
+  command on the last line.
 
 ## 3. Check it
 

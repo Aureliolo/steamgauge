@@ -15,7 +15,7 @@ function clientState(client) {
     case 'elsewhere':
       return `Starts ${client.command}, which is not this copy.`;
     case 'unreadable':
-      return `Its settings file does not parse (${client.reason}), so SteamGauge leaves it alone.`;
+      return `Its settings file does not parse (${client.reason}). Fix the file, then add SteamGauge.`;
     default:
       return '';
   }

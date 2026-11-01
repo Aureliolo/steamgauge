@@ -113,9 +113,8 @@
               <div>
                 <h2>Find out what players think of a game, from every one of its Steam reviews.</h2>
                 <p class="lede">
-                  SteamGauge downloads all of a game's reviews, reads every point they make on this
-                  computer, and shows what players praise and criticise. Every figure has the reviews
-                  behind it.
+                  It reads every claim on this computer and links every figure to the reviews behind
+                  it.
                 </p>
               </div>
               <div class="hero-search">
@@ -146,7 +145,7 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="5" y="5" width="10" height="10" rx="2" /><path d="M8 2.5v2.5M12 2.5v2.5M8 15v2.5M12 15v2.5M2.5 8H5M2.5 12H5M15 8h2.5M15 12h2.5" /></svg>
               </span>
               <div class="ready-text">
-                <h3 id="ready-title">The reader reads every review here</h3>
+                <h3 id="ready-title">Download the reader</h3>
                 <p class="quiet" id="ready-why"></p>
                 <p class="ready-room" id="ready-room"></p>
               </div>
@@ -405,7 +404,7 @@
               </div>
               <div class="sweep" id="sweep-actions">
                 <button type="button" class="quiet-button" id="do-sweep">Bring it up to date</button>
-                <span class="quiet small">Fetches what was written or edited since, and nothing already held.</span>
+                <span class="quiet small">Fetches reviews written or edited since the last download.</span>
               </div>
             </header>
             <dl class="tiles game-facts" id="game-facts"></dl>
@@ -420,7 +419,7 @@
               </span>
               <div>
                 <h3>Not read yet</h3>
-                <p class="quiet">Reading splits every review into the points it makes and counts them under their subjects, on this computer.</p>
+                <p class="quiet">Reading splits every review into the claims it makes and counts them under their subjects, on this computer.</p>
               </div>
               <div class="row">
                 <button type="button" class="primary" id="do-read">Read every review</button>
@@ -444,7 +443,7 @@
                   <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10" /></svg>
                   Export data
                 </button>
-                <span class="quiet small">Every figure and point, as CSV and JSON</span>
+                <span class="quiet small">Every figure and claim, as CSV and JSON</span>
               </div>
             </div>
             <p class="note bad" id="export-note" role="status" aria-live="polite" hidden></p>
@@ -455,7 +454,7 @@
             </p>
             <p class="in-short" id="in-short" hidden></p>
             <p class="quiet small" id="in-short-note" hidden>
-              Written on this computer by a language model from the points below. Every number and
+              Written on this computer by a language model from the themes below. Every number and
               quotation in it is one they give. A sentence with any other was left out.
             </p>
             <div class="write-offer" id="write-offer" hidden>
@@ -466,8 +465,7 @@
             <section class="said-most" id="said-most" aria-labelledby="said-most-title" hidden>
               <h4 id="said-most-title">What they praise and complain about</h4>
               <p class="quiet" id="said-most-note">
-                Points that say the same thing, in the same words or others, grouped by meaning. Each
-                counts the reviews that make it and opens onto them.
+                Themes: claims grouped by meaning, each with the reviews that make it.
               </p>
               <div class="said-sides" id="said-sides">
                 <div class="said-side praise">
@@ -528,7 +526,7 @@
                     <th scope="col">Subject</th>
                     <th scope="col">Mention rate</th>
                     <th scope="col" class="num">Praised</th>
-                    <th scope="col" class="num">Criticised</th>
+                    <th scope="col" class="num">Complained about</th>
                     <th scope="col" class="num">Mixed</th>
                     <th
                       scope="col"
@@ -557,9 +555,7 @@
               and at least two points wide.
             </p>
             <p class="footnote" id="topics-footnote">
-              Mention rates count a review once for every subject it raises, however many
-              times it raises it. They add up to more than 100% and are meant to. Every one
-              of them opens.
+              A review counts once for each subject it raises, so rates add up to more than 100%.
             </p>
             </div>
             </div>
@@ -624,7 +620,7 @@
               <p class="quiet">
                 Found by reading reviews of this game chosen to be as unlike each other as
                 possible. A subject is named only where at least three of them raise the same thing.
-                These rows carry no rate, because the model that counts the table above has not been
+                These rows carry no rate, because the reader that counts the table above has not been
                 trained on them. What is shown is the finding and the reviews it rests on.
               </p>
               <dl id="induced-list"></dl>
@@ -647,8 +643,8 @@
               <span class="lead">Complaints say</span>
             </div>
             <p class="quiet" id="stands-out-note">
-              The words each side uses and the other does not, with how many reviewers used
-              them. Click one to read only the points that use it.
+              Words one side uses far more than the other, with how many reviewers used them.
+              Click one to read only the claims that use it.
             </p>
           </div>
           <div class="stands-out" id="said-strip" hidden>
@@ -664,7 +660,7 @@
             <p class="quiet" id="said-note">
               Counted by the words typed, not by what they mean. A review that says it another
               way, or in another language, is not in these numbers. Click a side or a subject to
-              read only those points.
+              read only those claims.
             </p>
           </div>
           <ol class="quotes" id="quotes"></ol>
@@ -698,7 +694,7 @@
             </div>
             <div class="row">
               <label class="thin-switch" for="compare-thin">
-                Show splits from fewer than 30 reviews
+                Show praise and complaint under 30 reviews
                 <input type="checkbox" class="switch" id="compare-thin" />
               </label>
               <label class="sr" for="compare-add">Add a game to the comparison</label>
@@ -724,8 +720,8 @@
           <p class="footnote" id="compare-legend" hidden>
             Each bar is the share of that game's reviews raising the subject, against the widest
             in the table. Its colours are the reviews that praise it, that do both, and that
-            complain, in that order. Where fewer than 30 reviews raise a subject, the split is
-            left out unless you ask for it above.
+            complain, in that order. Where fewer than 30 reviews raise a subject, praise and
+            complaint are left out unless you ask for them above.
           </p>
         </section>
 
@@ -737,7 +733,7 @@
             </div>
             <div class="row">
               <label class="thin-switch" for="group-thin">
-                Show splits from fewer than 30 reviews
+                Show praise and complaint under 30 reviews
                 <input type="checkbox" class="switch" id="group-thin" />
               </label>
               <button type="button" class="quiet-button" id="group-compare">Compare these games</button>
@@ -772,11 +768,8 @@
           <p class="footnote" id="group-legend" hidden>
             Each bar is the share of reviews raising the subject, with its 95% interval drawn
             across it. Its colours are the reviews that praise it, that do both, and that
-            complain. Praise and complaint come from at least 30 reviews raising the subject: with
-            each game weighing the same, from the games where that many do, and otherwise from all
-            of them together. Below that the split is left out unless you ask for it above. A game
-            raises a subject when at least one of its reviews in a hundred does, and opening a subject
-            shows each game's own figures.
+            complain. Praise and complaint need 30 reviews raising the subject. A game raises a
+            subject when 1% of its reviews do. Open a subject for each game's figures.
           </p>
         </section>
 
@@ -957,7 +950,6 @@
               <div class="setting">
                 <div class="setting-text">
                   <strong>How often to ask</strong>
-                  <span>The least time between two questions to Steam.</span>
                 </div>
                 <div>
                   <label class="sr" for="check-every">How often to ask Steam</label>
@@ -967,19 +959,19 @@
               <label class="setting" for="keep-up-to-date">
                 <span class="setting-text">
                   <strong>Bring games with new reviews up to date by themselves</strong>
-                  <span id="keep-up-to-date-about">When Steam has new reviews of a game, the app downloads them and reads the game again. It uses the reader and the share of the graphics card chosen on this page. It waits while any work you started runs, stops when the app is closed, and needs the question above.</span>
+                  <span id="keep-up-to-date-about">Downloads new reviews and reads the game again, after any work you started. Needs “Ask Steam how many reviews each game has”.</span>
                 </span>
                 <input type="checkbox" class="switch" id="keep-up-to-date" />
               </label>
               <div class="setting">
                 <div class="setting-text">
                   <strong>Update a game once Steam has</strong>
-                  <span>Each update reads the whole game again. Waiting for a hundredth more spares the graphics card reading a large game for a handful of reviews.</span>
+                  <span>An update reads only the new and edited reviews, but loads the reader onto the graphics card to do it. Waiting for 1% more saves that load for a handful of reviews.</span>
                 </div>
                 <div>
                   <label class="sr" for="update-when">How many new reviews bring a game up to date</label>
                   <select id="update-when">
-                    <option value="hundredth">A hundredth more reviews</option>
+                    <option value="hundredth">1% more reviews</option>
                     <option value="any_new">Any new review</option>
                   </select>
                 </div>
@@ -990,7 +982,7 @@
               <label class="setting" for="notify-moves">
                 <span class="setting-text">
                   <strong>Tell me when a subject moves</strong>
-                  <span>One desktop notification when a game the app brought up to date by itself has new reviews. They praise or complain about a subject more or less often than the year before, by more than chance. Clicking it opens the game.</span>
+                  <span>A desktop notification when an automatic update finds a subject praised or criticised more or less often than the year before. Click it to open the game.</span>
                 </span>
                 <input type="checkbox" class="switch" id="notify-moves" />
               </label>
@@ -1000,7 +992,7 @@
               <label class="setting" for="check-newer-version">
                 <span class="setting-text">
                   <strong>Ask GitHub whether a newer SteamGauge is out</strong>
-                  <span>Each time SteamGauge opens and every six hours while it stays open, one request to SteamGauge's release page. About then asks what each newer release changes. Check for updates, on the About page, asks at once. The window names a newer version and offers to update. Nothing is downloaded until you choose Update now, and nothing is installed unless its signed build record shows SteamGauge's release workflow built it.</span>
+                  <span>On opening and every six hours while open. Nothing downloads until you choose Update now. Only a release SteamGauge's release workflow built is installed.</span>
                 </span>
                 <input type="checkbox" class="switch" id="check-newer-version" />
               </label>
@@ -1013,7 +1005,7 @@
           <header class="page-head">
             <div>
               <h2>AI assistants</h2>
-              <p>An assistant that speaks the Model Context Protocol can do anything this window can, while it is open, and you see it done here.</p>
+              <p>An MCP assistant can do anything this window can while it is open. You see each step here.</p>
             </div>
           </header>
           <form class="flow" id="assistants-form">
@@ -1027,7 +1019,6 @@
               <div class="setting stacked">
                 <div class="setting-text">
                   <strong>Paste this to it</strong>
-                  <span>It reads SteamGauge's guide, adds SteamGauge to its own settings, and says which file it changed.</span>
                 </div>
                 <div class="copyable">
                   <code class="paste" id="mcp-paste"></code>

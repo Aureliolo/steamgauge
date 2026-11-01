@@ -176,7 +176,7 @@ async function drawReady() {
   el('welcome-ready').hidden = !underway && (!chosen || !chosen.published || chosen.bytes_left === 0 || laterChosen());
   if (el('welcome-ready').hidden || underway) return;
 
-  set(el('ready-title'), `The ${chosen.name} reader reads every review here`);
+  set(el('ready-title'), `Download the ${chosen.name} reader`);
   set(el('ready-why'), reason(found));
   const short = found.free_bytes !== null && found.free_bytes < chosen.bytes_left * 1.1;
   const room = el('ready-room');
@@ -279,7 +279,7 @@ function drawFigures(found) {
           : `games, ${whole.format(found.read)} read`,
     ),
     figure(whole.format(found.reviews), 'reviews held'),
-    figure(whole.format(found.claims), 'points read'),
+    figure(whole.format(found.claims), 'claims read'),
     figure(size(found.disk_bytes), 'on disk'),
   );
 }
@@ -491,7 +491,7 @@ function drawMachine(found) {
         make('span', 'quiet', `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.`),
         where,
         model.newer
-          ? make('span', 'newer', `${model.newer} is published; it comes with the next SteamGauge update.`)
+          ? make('span', 'newer', `${model.newer} is out. It comes with the next SteamGauge update.`)
           : null,
       ),
     );

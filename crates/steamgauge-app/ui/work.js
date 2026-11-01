@@ -82,7 +82,7 @@ function amount(job) {
       case 'games':
         return `${whole.format(Math.round(value))} games`;
       case 'points':
-        return `${whole.format(Math.round(value))} points`;
+        return `${whole.format(Math.round(value))} claims`;
       default:
         return `${whole.format(Math.round(value))} reviews`;
     }

@@ -21,8 +21,8 @@ You get an answer within a week. Reports about the build and release pipeline ar
   describes. Both are attached as `steamgauge-<version>.intoto.jsonl`.
 - **Immutable.** A published release cannot be edited, and the `v*` tags cannot be moved or
   deleted.
-- **Package managers.** Homebrew, Scoop and winget install a file only if it matches the
-  `SHA256SUMS` the release is signed over.
+- **Package managers.** Homebrew and Scoop install a file only if it matches the `SHA256SUMS` the
+  release is signed over.
 
 [What a release carries](.github/release-process.md#what-a-release-carries) lists every file.
 Verify a download before running it, with `file` set to the name of any file in the release:

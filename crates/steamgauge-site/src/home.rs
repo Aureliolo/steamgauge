@@ -9,14 +9,12 @@ use steamgauge_app::reference;
 use crate::picker::{self, Choice, inline};
 use crate::{REPOSITORY, escape};
 
-const HEADLINE: &str = "Read every review of a game.";
+const HEADLINE: &str = "What players praise and criticise, from every Steam review.";
 
-const LEDE: &str = "SteamGauge downloads every Steam review of a game and reads each one on your \
-                    own computer: what players praise, what they criticise, how often, and the \
-                    reviews behind every figure.";
+const LEDE: &str = "SteamGauge downloads a game's reviews and reads each one on your computer. \
+                    Every figure opens onto the reviews behind it.";
 
 struct Card {
-    kicker: &'static str,
     title: &'static str,
     body: &'static str,
     link: &'static str,
@@ -25,31 +23,55 @@ struct Card {
 
 const CARDS: [Card; 3] = [
     Card {
-        kicker: "The census",
         title: "Every review",
         body: "Every review Steam serves for a game, in every language. Each game shows how much \
-               of Valve's own total it holds.",
+               of Steam's own total it holds.",
         link: "how-it-works.html#every-review",
         link_text: "What it downloads",
     },
     Card {
-        kicker: "The reader",
         title: "Read on your computer",
-        body: "Each review is split into the points it makes, and each point is filed under one \
-               of 26 subjects as praise or complaint. A point the reader is unsure of stays \
-               unfiled. No account, no key, no upload.",
+        body: "Each review is split into the points it makes, its claims. SteamGauge's model, the \
+               reader, files each claim under one of 26 subjects as praise or complaint. A claim \
+               it is unsure of stays unfiled. No account, no key, no upload.",
         link: "how-it-works.html#reading-a-review",
         link_text: "How it reads",
     },
     Card {
-        kicker: "The evidence",
         title: "Every figure opens",
-        body: "Any number opens onto the reviews behind it, and every subject carries how often \
-               the reader gets it right on games it never trained on.",
+        body: "Any number opens onto the reviews behind it. Every subject carries how often the \
+               reader agrees with labels a language model wrote, on games it never trained on.",
         link: "accuracy.html",
         link_text: "Accuracy",
     },
 ];
+
+/// The reader sizes table the Accuracy page shows, for the timing the first steps quote.
+const READER_SIZES: &str = include_str!("../../../reference/reader-sizes.json");
+
+/// How many claims the largest shipped reader read in one large game on the graphics card, and
+/// in how many seconds.
+fn card_timing() -> (String, u64) {
+    let sizes: serde_json::Value =
+        serde_json::from_str(READER_SIZES).expect("reference/reader-sizes.json is JSON");
+    let card = sizes["measured"]["card"]
+        .as_str()
+        .expect("the sizes table says how the card was measured");
+    let claims = card
+        .split_once('(')
+        .and_then(|(_, rest)| rest.split_once(" claims)"))
+        .map(|(claims, _)| claims.to_owned())
+        .expect("the card measurement names its claims as `(N claims)`");
+    let seconds = sizes["sizes"]
+        .as_array()
+        .expect("the sizes table lists sizes")
+        .iter()
+        .filter(|size| size["ships"].as_bool() == Some(true))
+        .filter_map(|size| size["card_seconds"].as_u64())
+        .max()
+        .expect("a shipped size has a card timing");
+    (claims, seconds)
+}
 
 /// Where a way's command or note names the version, filled in with the one being built.
 const VERSION: &str = "VERSION";
@@ -79,7 +101,7 @@ const WAYS: [Way; 5] = [
         name: "Scoop",
         command: "scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge\n\
                   scoop install aureliolo/steamgauge",
-        note: "Windows: the portable program, with a Start menu shortcut and `steamgauge` on the \
+        note: "The portable Windows program, with a Start menu shortcut and `steamgauge` on the \
                `PATH`.",
     },
     Way {
@@ -94,7 +116,7 @@ const WAYS: [Way; 5] = [
         name: "Debian, Ubuntu",
         command: "curl -fLO RELEASE/steamgauge_VERSION-1_amd64.deb\n\
                   sudo apt install ./steamgauge_VERSION-1_amd64.deb",
-        note: "x86-64 with glibc 2.39 or later: Ubuntu 24.04, Debian 13. Reads on the processor.",
+        note: "x86-64 with glibc 2.39 or later (Ubuntu 24.04, Debian 13). Reads on the processor.",
     },
     Way {
         id: "fedora",
@@ -112,24 +134,31 @@ fn filled(text: &str, version: &str) -> String {
     .replace(VERSION, version)
 }
 
-const IN_THE_WINDOW: [&str; 3] = [
-    "**Add a game** by its name, its store link or its app ID. Every review downloads in the \
-     background.",
-    "**Read it.** The largest reader the graphics card has room for files every point: minutes \
-     on a card, longer on the processor.",
-    "**Open a subject** to see its praise, its complaints, the words each side uses, and the \
-     reviews behind every figure.",
-];
+fn in_the_window() -> [String; 3] {
+    let (claims, seconds) = card_timing();
+    [
+        "**Add a game** by its name, its store link or its app ID. Every review downloads in the \
+         background."
+            .to_owned(),
+        format!(
+            "**Read it.** The largest reader your graphics card holds files every claim. \
+             {claims} claims took {seconds} s on an RTX 4090."
+        ),
+        "**Open a subject** to see its praise, its complaints, the words each side uses, and the \
+         reviews behind every figure."
+            .to_owned(),
+    ]
+}
 
 const IN_A_TERMINAL: &str = "\
 # every review of Hades II, into ./data
 steamgauge crawl 1145350
-# every point in them, read on this computer
+# every claim in them, read on this computer
 steamgauge read 1145350
 # one page with every figure and the reviews behind it
 steamgauge report 1145350";
 
-const SMALLPRINT: &str = "Apache-2.0. Not affiliated with or endorsed by Valve; Steam is a \
+const SMALLPRINT: &str = "Apache-2.0. Not affiliated with or endorsed by Valve. Steam is a \
                           trademark of Valve Corporation.";
 
 /// The window as the page shows it, in each colour scheme.
@@ -142,7 +171,7 @@ pub struct Picture {
 /// The front page, as the site's HTML.
 #[must_use]
 pub fn html(version: &str, picture: &Picture) -> String {
-    let clients = reference::clients().len();
+    let assistants = crate::blocks::named_assistants();
     let tools = reference::tools().len();
     let mut page = format!(
         "<section class=\"hero\">\n<h1 id=\"steamgauge\">{HEADLINE}</h1>\n\
@@ -164,9 +193,8 @@ pub fn html(version: &str, picture: &Picture) -> String {
     for card in CARDS {
         let _ = writeln!(
             page,
-            "<div class=\"card\"><p class=\"kicker\">{}</p><h2>{}</h2><p>{}</p>\
+            "<div class=\"card\"><h2>{}</h2><p>{}</p>\
              <a class=\"go\" href=\"{}\">{}</a></div>",
-            card.kicker,
             escape(card.title),
             inline(card.body),
             card.link,
@@ -176,14 +204,15 @@ pub fn html(version: &str, picture: &Picture) -> String {
     let _ = write!(
         page,
         "</div>\n<section class=\"step\">\n<h2 id=\"install\">Install</h2>\n{}\n\
-         <p class=\"note\">Every download is checked against the SHA-256 the release is signed \
-         over. <a href=\"install.html\">Install</a> has the archives, the first launch and \
-         upgrading.</p>\n</section>\n\
+         <p class=\"note\">Scoop and Homebrew check each download against the release's signed \
+         <code>SHA256SUMS</code>. <a href=\"install.html\">Install</a> has the archives, the \
+         commands that check the other downloads, the first launch and upgrading.</p>\n\
+         </section>\n\
          <section class=\"step two\">\n<div>\n<h2 id=\"first-game\">A first game</h2>\n<ol>\n",
         installs(version)
     );
-    for step in IN_THE_WINDOW {
-        let _ = writeln!(page, "<li>{}</li>", inline(step));
+    for step in in_the_window() {
+        let _ = writeln!(page, "<li>{}</li>", inline(&step));
     }
     let _ = write!(
         page,
@@ -195,9 +224,8 @@ pub fn html(version: &str, picture: &Picture) -> String {
          <p>The app is an MCP server with {tools} tools: an assistant can find, download and \
          read games, and ask what their players say. Paste this to yours:</p>\n\
          <pre tabindex=\"0\"><code>{}</code></pre>\n\
-         <p class=\"note\">It reads the guide, adds SteamGauge to its own settings, and says \
-         which file it wrote. <a href=\"assistants.html\">AI assistants</a> has the command for \
-         each of {clients} assistants, and for any other.</p>\n</section>\n\
+         <p class=\"note\"><a href=\"assistants.html\">AI assistants</a> has the setup for \
+         {assistants} assistants, and for any other.</p>\n</section>\n\
          <p class=\"smallprint\">{}</p>\n",
         picker::commented(IN_A_TERMINAL),
         escape(reference::PASTE),
@@ -239,14 +267,14 @@ pub fn text(version: &str) -> String {
     for way in WAYS {
         let _ = write!(
             page,
-            "\n{}: {}\n\n```sh\n{}\n```\n",
+            "\n### {}\n\n{}\n\n```sh\n{}\n```\n",
             way.name,
             filled(way.note, version),
             filled(way.command, version)
         );
     }
     page.push_str("\n## A first game\n\n");
-    for (at, step) in IN_THE_WINDOW.iter().enumerate() {
+    for (at, step) in in_the_window().iter().enumerate() {
         let _ = writeln!(page, "{}. {step}", at + 1);
     }
     let _ = write!(
@@ -281,6 +309,20 @@ mod tests {
              steamgauge_9.8.7-1_amd64.deb"
         ));
         assert!(!page.contains(VERSION) && !page.contains(RELEASE));
+    }
+
+    #[test]
+    fn the_first_steps_quote_the_card_timing_the_sizes_table_measured() {
+        let (claims, seconds) = card_timing();
+        assert!(
+            claims.chars().all(|c| c.is_ascii_digit() || c == ','),
+            "{claims}"
+        );
+        assert!(seconds > 0);
+        assert!(
+            READER_SIZES.contains("RTX 4090"),
+            "the steps name the card measured"
+        );
     }
 
     #[test]
