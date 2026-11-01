@@ -68,6 +68,11 @@ The tag in the certificate has to be the version being installed, so an older re
 its own tag is refused. Sigstore's trusted root comes from its TUF repository, starting from the
 root built into the app. Any failed check installs nothing, says why, and offers the release page.
 
+On Windows the file stays open, readable by others but not writable, from the moment it is hashed
+to the moment the setup program starts. On macOS the app is unpacked beside the installed one, on
+the same disk, and the two are exchanged in one step. On Linux the package manager installs the
+verified package, and a portable archive's files are renamed into place.
+
 This protects against a download changed on the way or in storage, TLS interception, and a
 release published with a stolen token. A takeover of the owner's GitHub account or a compromised
 build would still produce a correctly signed release.

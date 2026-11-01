@@ -40,6 +40,8 @@ git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
   with the evidence and an expiry date.
 - **CI fails on a crate whose licence** `third-party/about.toml` does not accept. To accept
   another, change `about.toml`, `deny.toml` and `fuzz/deny.toml` in the pull request that needs it.
+- **Dependency review** holds Python packages and workflow actions to a permissive list of
+  licences, and accepts no other.
 
 ## The pages in a browser
 

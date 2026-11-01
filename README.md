@@ -21,8 +21,22 @@ shows what players praise and criticise, how often, and the reviews behind every
 ## Install
 
 Take the installer or portable archive for your system from the
-[latest release](https://github.com/Aureliolo/steamgauge/releases/latest), or install it with
-Scoop or Homebrew. [Install](docs/install.md) has the commands.
+[latest release](https://github.com/Aureliolo/steamgauge/releases/latest), or use a package
+manager:
+
+```powershell
+# Windows
+scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge
+scoop install aureliolo/steamgauge
+```
+
+```bash
+# macOS
+brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge
+brew install --cask aureliolo/steamgauge/steamgauge
+```
+
+[Install](docs/install.md) covers each system's needs, the first launch and updating.
 
 ## Documentation
 
