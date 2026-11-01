@@ -49,7 +49,7 @@ Two people answered claims from the held-out games on the page `steamgauge gold 
 ### English
 
 One person answered 200 claims. 169 were drawn blind and 30 were claims the two labellers
-disagreed about. The last one is left out of the figures.
+disagreed about. The 200th answer is left out of the figures.
 
 | | Agreement |
 |---|---|

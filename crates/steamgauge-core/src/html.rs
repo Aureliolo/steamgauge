@@ -1298,6 +1298,7 @@ fn how_well_this_row_is_known(
         // and a row whose claims are sitting under a neighbour's name.
         measured
             .mistaken_for
+            .filter(|(label, _)| *label != measured.id)
             .map_or_else(String::new, |(label, count)| {
                 format!(
                     " Where it was read wrongly, it was most often read as \
@@ -1507,7 +1508,7 @@ fn polarity_cell(out: &mut String, category: &SubjectCount) {
          <span class=\"gripe\" style=\"--part:{gripe:.4}\"></span>\
          <span class=\"both\" style=\"--part:{both:.4}\"></span></span>\
          <span class=\"value\">{} praise</span>\
-         <span class=\"count\">{} gripe, {} both</span></td>",
+         <span class=\"count\">{} complaint, {} both</span></td>",
         percent(praise),
         percent(gripe),
         percent(both)
@@ -2183,7 +2184,7 @@ fn measured_here(out: &mut String, app: &AppReport) {
             }
         }
         crate::report::Measurement::Unlabelled => {
-            unmeasured_here(out, app, "No one has labelled this game.")
+            unmeasured_here(out, app, "No one has labelled this game.");
         }
         crate::report::Measurement::Learned => unmeasured_here(
             out,
@@ -4215,7 +4216,7 @@ mod tests {
         let mut out = String::new();
         polarity_cell(&mut out, &category);
         assert!(out.contains("50.0% praise"), "{out}");
-        assert!(out.contains("25.0% gripe, 25.0% both"), "{out}");
+        assert!(out.contains("25.0% complaint, 25.0% both"), "{out}");
     }
 
     #[test]

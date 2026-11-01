@@ -2253,12 +2253,12 @@ fn read_one(
         .collect();
     ranked.sort_by_key(|subject| std::cmp::Reverse(subject.mention_reviews));
     println!(
-        "{:<26} {:>9} {:>8} {:>8} {:>8} {:>8}",
-        "subject", "reviews", "rate", "praise", "gripe", "mixed"
+        "{:<26} {:>9} {:>8} {:>8} {:>9} {:>8}",
+        "subject", "reviews", "rate", "praise", "complaint", "mixed"
     );
     for subject in ranked {
         println!(
-            "{:<26} {:>9} {:>8} {:>8} {:>8} {:>8}",
+            "{:<26} {:>9} {:>8} {:>8} {:>9} {:>8}",
             subject.label,
             thousands(subject.mention_reviews),
             share(subject.mention_reviews, report.reviews),

@@ -467,7 +467,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
                     seen: labelled * 2,
                     // A subject read as one particular other subject is a boundary the
                     // taxonomy has not settled, and the page says so where it happens.
-                    mistaken_for: (slot == 2).then_some(("gameplay", 7)),
+                    mistaken_for: (slot == 2).then_some(("difficulty", 7)),
                 }
             })
             .collect(),
