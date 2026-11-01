@@ -1,5 +1,5 @@
 /* The documentation site. The window's own palette and type, so the site and the app read as
-   one thing; system fonts only, so a page fetches nothing from another host; the scheme follows
+   one thing. System fonts only, so a page fetches nothing from another host. The scheme follows
    the reader's system, as the window does. */
 
 :root {
@@ -216,7 +216,7 @@ code {
   padding: 0.05em 0.35em;
 }
 
-/* A link's ink is drawn for the page; on the sunken ground of code it reads too faint. */
+/* A link's ink is drawn for the page. On the sunken ground of code it reads too faint. */
 a code {
   background: transparent;
 }
@@ -311,7 +311,7 @@ figure.window {
   margin: 48px 0 0;
 }
 
-/* The top of the cockpit, which is what it opens on; the picture runs on well past it. */
+/* The top of the cockpit, which is what it opens on. The picture runs on well past it. */
 figure.window img {
   display: block;
   width: 100%;
@@ -344,14 +344,6 @@ figure.window figcaption {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
-}
-
-.kicker {
-  margin: 0 0 6px;
-  color: var(--accent);
-  font: 600 11.5px var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .cards h2 {

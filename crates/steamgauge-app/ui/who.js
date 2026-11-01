@@ -29,7 +29,7 @@ export function setUpWho(given) {
   });
 }
 
-/* Drawn with every reading the page shows; a choice made on the same game is kept, so coming back
+/* Drawn with every reading the page shows. A choice made on the same game is kept, so coming back
    from the points behind a figure comes back to the same view. */
 export function drawWho(found) {
   if (choice.appId !== found.app_id) {
@@ -143,9 +143,7 @@ function showEveryone() {
   el('who-note').hidden = false;
   set(
     el('who-note'),
-    'Steam records beside every review how long its writer had played, whether mostly on a Steam Deck, ' +
-      'whether the game was in early access and whether they got it free. Choose one kind of reviewer ' +
-      'to see their reviews alone.',
+    'Show one kind of reviewer: by hours played, Steam Deck, early access or a free copy.',
   );
   drawFindings();
 }
@@ -203,7 +201,7 @@ function figuresCell(figures, widest, corrected, marks) {
     'td',
     'cell',
     make('span', 'rate', percent.format(figures.rate)),
-    corrected === null ? null : make('span', 'corrected', `≈ ${percent.format(corrected)} of points`),
+    corrected === null ? null : make('span', 'corrected', `≈ ${percent.format(corrected)} of claims`),
     make('span', 'who-track', bar, range),
     make(
       'small',
@@ -245,10 +243,10 @@ function drawBeside(view) {
   el('who-note').hidden = false;
   set(
     el('who-note'),
-    `${these.who} wrote ${whole.format(these.reviews)} of these reviews, and ` +
-      `${percent.format(these.recommending)} of them recommend the game, against ` +
+    `${these.who} wrote ${whole.format(these.reviews)} of these reviews. ` +
+      `${percent.format(these.recommending)} recommend the game, against ` +
       `${percent.format(others.recommending)} of ${against}` +
-      (recommended.clear ? ', a gap too wide for chance. ' : '. ') +
+      (recommended.clear ? ', beyond chance. ' : '. ') +
       `The timeline and the table count their reviews alone, beside ${against}.`,
   );
 
@@ -280,7 +278,7 @@ function drawBeside(view) {
         ]),
         figuresCell(subject.others, widest, subject.others_corrected, []),
       );
-      /* The whole row opens the points behind the first kind's figures; the name stays the button
+      /* The whole row opens the points behind the first kind's figures. The name stays the button
          a keyboard reaches. */
       row.addEventListener('click', (event) => {
         if (event.target !== open) open.click();

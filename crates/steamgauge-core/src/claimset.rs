@@ -46,7 +46,7 @@ pub struct DrawnReview {
     pub asked: Option<Vec<u16>>,
     /// The review as the capture held it when it was drawn, which every offset above counts in.
     /// Kept beside the game's sets rather than in the sample (see [`REVIEWS`]), so a review
-    /// drawn into several sets is kept once; empty for a review read back from a sample.
+    /// drawn into several sets is kept once. Empty for a review read back from a sample.
     #[serde(skip)]
     pub text: String,
 }
@@ -587,7 +587,7 @@ pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>
 /// the ones that happen to say "subtitle".
 ///
 /// And narrowed by game, where it names any. A rule about a headset's controllers is a
-/// question about headset games; asked everywhere, "controller" finds every gamepad claim in
+/// question about headset games. Asked everywhere, "controller" finds every gamepad claim in
 /// the reference set, none of which the rule moved.
 ///
 /// Some rules are about the shape of a claim rather than what it says, and have no words: which
@@ -655,7 +655,7 @@ impl Question {
             }
         }
         // The page's term cut drops filler words and never forms a phrase of three, so "if you
-        // like" can never be one of its terms; a word or phrase is also looked for as written.
+        // like" can never be one of its terms. A word or phrase is also looked for as written.
         // Asked for eight such phrases on 2026-09-22, the cut alone found 24 of the 186 claims
         // a plain search finds.
         let plain = text.to_lowercase().replace('\u{2019}', "'");
@@ -792,7 +792,7 @@ pub struct RevisitDraw {
 /// more. A draw whose questions all name their games leaves the other games alone.
 ///
 /// Each game's reviews are cut from the text kept for them, so that only claims this build
-/// still cuts are asked; see [`draw_revisit`].
+/// still cuts are asked. See [`draw_revisit`].
 ///
 /// # Errors
 ///
@@ -1095,7 +1095,7 @@ pub(crate) type Found = Vec<(String, crate::claims::Span)>;
 /// holds them: for joining a reference label to a reading of the same capture. A label is asked
 /// about against its kept text, [`spans_cut_in`].
 ///
-/// Only the reviews named are split. The capture is walked whole, which is cheap; splitting a
+/// Only the reviews named are split. The capture is walked whole, which is cheap. Splitting a
 /// game of three million claims to check a few hundred labels is not.
 ///
 /// # Errors
@@ -1338,7 +1338,7 @@ pub(crate) fn handouts(
     Ok(drawn)
 }
 
-/// Replaces the labels of the revisited claims, leaving every other label alone.
+/// Replaces the labels of the revisited claims and leaves every other label alone.
 ///
 /// The returned labels are the answers under the sheet as it now reads, so they carry the
 /// current taxonomy while the rest of the set carries the one it was labelled under. A set
@@ -1524,7 +1524,7 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
     // replaces that set's labelling with the empty intersection. On 2026-09-18 this destroyed
     // the first labelling of four games, 2,068 labels, because the returned files belonged to
     // a draw beside the one being merged into and the default `--to` is the set itself. The
-    // labels were recoverable from the training export; the record of which splitter cut them
+    // labels were recoverable from the training export. The record of which splitter cut them
     // and which sheet they answered was not, and cannot be, because most games mix both.
     if labels.is_empty() && !report.unknown.is_empty() {
         return Err(crate::Error::Refused(format!(
@@ -1554,7 +1554,7 @@ pub struct LabelledClaim {
     pub again: Option<ClaimLabel>,
     pub text: String,
     /// The review as the labeller was shown it, and where the claim starts in it. A labeller
-    /// reads "it doesn't" with the sentence before it; a model given the claim alone is being
+    /// reads "it doesn't" with the sentence before it. A model given the claim alone is being
     /// asked a question nobody could answer, and the gap between what the two saw is
     /// measurable error attributed to the model.
     pub review: String,
@@ -1713,8 +1713,8 @@ fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<Labell
 /// the sets were cut by several splitters over the run. A row whose span this build cuts no
 /// claim at is not a label of any claim the reader will ever be handed: at best it is a true
 /// label of a sentence that now sits inside a larger claim, at worst one label over what are
-/// now two claims, taught under one subject. The adjudication page refuses to ask about them;
-/// training must not learn them either, so the export joins each label to the cut the splitter
+/// now two claims, taught under one subject. The adjudication page refuses to ask about them.
+/// Training must not learn them either, so the export joins each label to the cut the splitter
 /// produces now.
 ///
 /// # Errors
@@ -1849,7 +1849,7 @@ fn reviews_in_sets(game: &Path) -> Result<std::collections::HashSet<String>> {
 /// Draws reviews no reference set holds and appends every claim of each, with its text, as
 /// JSONL for a teacher model to read.
 ///
-/// A labelled claim is already in the training set with its label; what a pool adds is claims
+/// A labelled claim is already in the training set with its label. What a pool adds is claims
 /// nobody has read, in the numbers a labeller never could, for a student to learn a teacher's
 /// answers on. The rows are shaped like the training export without the label fields, and
 /// hold review text, so the file never leaves the machine either.
@@ -2787,7 +2787,7 @@ mod tests {
                     "audio",
                     serde_json::json!([{"subject": "audio", "polarity": "praise"}])
                 ),
-                // A recommendation beside an aspect is kept; saying nothing about the game
+                // A recommendation beside an aspect is kept. Saying nothing about the game
                 // cannot be beside anything.
                 label(
                     3,

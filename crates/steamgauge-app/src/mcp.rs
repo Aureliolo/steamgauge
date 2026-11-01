@@ -69,7 +69,7 @@ async fn connect(local: &Path) -> io::Result<Stream> {
     Stream::connect(socket_name(written.trim())?).await
 }
 
-/// The client's server, standing in front of whichever app is open.
+/// The client's server. It stands in front of whichever app is open.
 pub(crate) struct Bridge {
     local: PathBuf,
     app: Mutex<Option<RunningService<RoleClient, ()>>>,

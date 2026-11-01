@@ -9,7 +9,7 @@
 //! It runs on the processor everywhere. The graph is built for the processor's int4 kernels;
 //! `DirectML` runs it at under a third of the speed and writes nonsense from it.
 //!
-//! Like the search models it is pinned by hash and fetched from where it is published; a copy
+//! Like the search models it is pinned by hash and fetched from where it is published. A copy
 //! already in the model cache that matches its pins is used and nothing is fetched.
 
 use std::{
@@ -56,9 +56,9 @@ pub struct WriterModel {
     pub name: &'static str,
     /// Empty until published.
     pub repository: &'static str,
-    /// The commit it is fetched from; empty until published.
+    /// The commit it is fetched from. Empty until published.
     pub revision: &'static str,
-    /// The release tag that commit carries, to name it to a person; empty until published.
+    /// The release tag that commit carries, to name it to a person. Empty until published.
     pub release: &'static str,
     /// The Hub's origin, [`model::HUB`] everywhere but a test.
     pub hub: &'static str,
@@ -101,7 +101,7 @@ impl WriterModel {
         cache_dir.join(self.name)
     }
 
-    /// What writing a first paragraph would fetch, counting only the files not here.
+    /// What writing a first paragraph would fetch. Only the files not here count.
     #[must_use]
     pub fn bytes_left(self, cache_dir: &Path) -> u64 {
         model::bytes_left(&self.assets, &self.dir(cache_dir))
@@ -112,7 +112,7 @@ impl WriterModel {
         self.bytes_left(cache_dir) == 0
     }
 
-    /// Makes sure every file is here and matches its pin, fetching what is missing.
+    /// Makes sure every file is here and matches its pin, and fetches what is missing.
     ///
     /// # Errors
     ///
@@ -138,7 +138,7 @@ impl WriterModel {
     }
 }
 
-/// `<|im_end|>` closes an answer; `<|endoftext|>` is what the model ends on without one.
+/// `<|im_end|>` closes an answer. `<|endoftext|>` is what the model ends on without one.
 const STOPS: [u32; 2] = [151_645, 151_643];
 
 /// Past this a paragraph has run on: four short sentences take about a hundred and twenty.
@@ -395,7 +395,7 @@ fn plain(text: &str) -> String {
         .replace(['\u{2019}', '\u{2018}'], "'")
 }
 
-/// The sentences of a paragraph, each with its closing mark; an unfinished last one is not one.
+/// The sentences of a paragraph, each with its closing mark. An unfinished last one is not one.
 fn sentences(text: &str) -> Vec<&str> {
     let mut found = Vec::new();
     let mut start = 0;
@@ -497,7 +497,7 @@ const SPELLINGS: [(&str, &str); 22] = [
     ("summarized", "summarised"),
 ];
 
-/// `text` in British spelling, leaving what it puts in quotation marks as the reviewer wrote it.
+/// `text` in British spelling, with what it puts in quotation marks left as the reviewer wrote it.
 fn british(text: &str) -> String {
     fn spelled(word: &str) -> String {
         let lower = word.to_lowercase();

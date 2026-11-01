@@ -53,7 +53,7 @@ async function shelfGame(appId) {
 }
 
 function stageTile(stage) {
-  if (stage === 'read') return ['Stage', 'Read', 'every point counted'];
+  if (stage === 'read') return ['Stage', 'Read', 'every claim counted'];
   if (stage === 'embedded') return ['Stage', 'Downloaded', 'ready for search by meaning, not read yet'];
   return ['Stage', 'Downloaded', 'not read yet'];
 }
@@ -85,7 +85,7 @@ async function showGame(appId, named = null) {
       : [
           ['Held here', whole.format(game.reviews), 'reviews downloaded'],
           ['Steam reports', whole.format(game.valve_total), 'reviews in total'],
-          ['Coverage', share.format(game.coverage), 'of what Steam serves'],
+          ['Coverage', share.format(game.coverage), "of Steam's total"],
           stageTile(game.stage),
         ],
   );
@@ -178,7 +178,7 @@ async function drawReadCost(appId) {
   set(el('read-cost'), parts.join(' '));
 }
 
-/* The core opens the system's save dialog, so the page never names a path; what it writes runs
+/* The core opens the system's save dialog, so the page never names a path. What it writes runs
    as a job, drawn under the button. */
 async function exportData() {
   if (chosen === null) return;
@@ -225,7 +225,7 @@ function shape(name, attributes) {
 /* Reviews per month as bars against the busiest month, and the share recommending the game
    as a line from none at the bottom to all at the top. The same two shapes the report page
    draws, in the same coordinate space, so a reader moving between them sees one chart. A
-   rate is drawn only for a month big enough to carry one; the core decides which those are. */
+   rate is drawn only for a month big enough to carry one. The core decides which those are. */
 function drawTimeline(months) {
   const figure = el('timeline');
   figure.hidden = months.length < 2;
@@ -238,7 +238,7 @@ function drawTimeline(months) {
   const tallest = Math.max(peak.reviews, 1);
   const step = CHART.width / months.length;
   /* A bar no wider than a column of a busy year, so two months read as two months and not as
-     two walls; each sits centred on its month, where the line's point for it is. */
+     two walls. Each sits centred on its month, where the line's point for it is. */
   const bar = Math.max(Math.min(step * 0.82, 56), 0.5);
   const svg = el('timeline-svg');
   svg.replaceChildren();
@@ -295,7 +295,7 @@ function drawTimeline(months) {
   set(
     el('timeline-note'),
     `Reviews per month, against a busiest month of ${whole.format(tallest)} in ${peak.name}. ` +
-      `The line is the share of each month that recommended the game; the dashed line is half. ` +
+      `The line is the share recommending the game, and the horizontal dashed line is 50%. ` +
       `Point at a month to read it.`,
   );
   /* One column per month, so the first and last names sit under their own bars. */
@@ -404,7 +404,7 @@ function drawTopics(found) {
       found.corpus_reviews,
     )} held`;
   }
-  parts.push(`${whole.format(found.claims)} separate points`);
+  parts.push(`${whole.format(found.claims)} claims`);
   if (found.positive_baseline !== null) {
     parts.push(`${tenth.format(found.positive_baseline)} recommending the game`);
   }
@@ -423,8 +423,8 @@ function drawTopics(found) {
   if (found.swept_since !== null) {
     set(
       swept,
-      `The capture was brought up to date on ${day.format(new Date(found.swept_since * 1000))} ` +
-        `and these counts were made before that. Read it again to count what arrived.`,
+      `The download was brought up to date on ${day.format(new Date(found.swept_since * 1000))}. ` +
+        `These counts were made before that. Read it again to count what arrived.`,
     );
   }
 
@@ -438,10 +438,8 @@ function drawTopics(found) {
   caveat.hidden = unread < 0.5;
   set(
     caveat,
-    `The model would not commit to a subject for ${share.format(unread)} of the points ` +
-      `here, and said nothing at all about ${share.format(silent)} of the reviews. Those are ` +
-      `counted as unclassified rather than filed under whatever came closest, so every rate ` +
-      `below is a floor: what it was sure of, not everything that was said.`,
+    `The reader left ${share.format(unread)} of the claims here unfiled, and filed nothing from ` +
+      `${share.format(silent)} of the reviews. Every rate below is a floor.`,
   );
 
   /* How often it is wrong, where that has been measured. A rate without this beside it is an
@@ -449,55 +447,43 @@ function drawTopics(found) {
      shown the same table with nothing missing from it. */
   const measured = found.measured;
   const heldOut = found.held_out;
-  /* Why this game carries no figure of its own: nobody has labelled it, or the model learned
+  /* Why this game carries no figure of its own: nobody has labelled it, or the reader learned
      from its labels, in which case agreeing with them would measure memory. */
   const why = found.learned
-    ? `This game's labelled claims are in the model's training set, so how often it agrees ` +
-      `with them says how well it remembers them, not how it reads, and nothing here is ` +
-      `scored against them.`
-    : `Nobody has labelled this game's claims, so how often the model is wrong here has ` +
-      `not been measured.`;
+    ? `The reader trained on this game's labels, so nothing here is scored against them.`
+    : `No one has labelled this game.`;
   const trust =
     measured === null
       ? heldOut
-        ? /* Most games anyone opens are in exactly this position, and saying only that
-             nothing is measured invites the reader to distrust everything or to trust
-             everything. The model does have a measurement; it is about other games, and the
-             wording has to say so. */
-          `${why} What is measured is ${heldOut.games} games it had never seen, ` +
-          `over ${whole.format(heldOut.claims)} labelled claims: it answers ` +
-          `${share.format(heldOut.coverage)} of them and names the same subject a separate ` +
-          `labeller did ${share.format(heldOut.accuracy)} of the time when it does. Expect ` +
-          `this game to be near that, and treat every rate as provisional.`
-        : `${why} Treat every rate as provisional.`
+        ? /* Most games anyone opens are in exactly this position. The reader does have a
+             measurement, about other games, and the wording has to say so. */
+          `${why} On ${heldOut.games} games it never trained on, the reader answers ` +
+          `${share.format(heldOut.coverage)} of claims and agrees with the labels on ` +
+          `${share.format(heldOut.accuracy)}.`
+        : why
       : measured.agreement === null
-        ? `The model declined every labelled claim on this game, so nothing here is measured.`
-        : `Where this game has been labelled, the model named the same subject a separate ` +
-          `labeller did ${share.format(measured.agreement)} of the time on the ` +
-          `${whole.format(measured.answered)} claims it answered, somewhere between ` +
-          `${share.format(measured.low)} and ${share.format(measured.high)}. That is agreement ` +
-          `with another model, not accuracy.` +
+        ? `The reader declined every labelled claim on this game, so nothing here is measured.`
+        : `Where this game is labelled, the reader agrees with the labels on ` +
+          `${share.format(measured.agreement)} of the ${whole.format(measured.answered)} claims it ` +
+          `answered (${share.format(measured.low)} to ${share.format(measured.high)}).` +
           /* A label names a span of a review, and a splitter that has since learned to cut
              that review differently leaves the label naming nothing. */
           (measured.unjoined > 0
-            ? ` A further ${whole.format(measured.unjoined)} labelled claims are left out ` +
-              `because this build takes their reviews apart differently from the build they ` +
-              `were labelled under.`
+            ? ` ${whole.format(measured.unjoined)} more labelled claims are left out, because ` +
+              `this build splits their reviews differently.`
             : ``);
 
-  set(
-    el('topics-footnote'),
-    `Mention rates count a review once for every subject it raises, however many times it ` +
-      `raises it, so they add up to more than 100% and are meant to. In the most helpful is ` +
-      `how many times as often a subject comes up in the most helpful reviews, the ones Steam ` +
-      `shows a store visitor first, as in all of them. ` +
-      (caveat.hidden
-        ? `${share.format(unread)} of points name no subject the model would commit to, and ` +
-          `${whole.format(found.silent_reviews)} reviews name none at all. Those are ` +
-          `counted here rather than filed under whatever came closest. `
-        : `Every row opens onto the points behind it. `) +
-      trust,
-  );
+  const notes = [
+    'A review counts once for each subject it raises, so rates add up to more than 100%.',
+    `In the most helpful compares the ${whole.format(found.top_of_the_pile)} reviews Steam shows ` +
+      `first with all of them.`,
+    caveat.hidden
+      ? `The reader left ${share.format(unread)} of claims unfiled, and filed nothing from ` +
+        `${whole.format(found.silent_reviews)} reviews.`
+      : 'Every row opens onto the claims behind it.',
+    trust,
+  ];
+  set(el('topics-footnote'), notes.join(' '));
 
   const rows = el('topic-rows');
   rows.replaceChildren();
@@ -519,8 +505,8 @@ function drawTopics(found) {
        rather than a column of its own, because most games have no labels and a column that
        is empty for most of them teaches a reader to skip it. */
     if (subject.corrected !== null) {
-      const fixed = make('span', 'corrected', `≈ ${share.format(subject.corrected)} of points`);
-      fixed.title = 'The share of points about this with the model’s measured errors taken out';
+      const fixed = make('span', 'corrected', `≈ ${share.format(subject.corrected)} of claims`);
+      fixed.title = 'The corrected share: the claims about this with the reader’s measured errors taken out';
       name.append(fixed);
     }
 
@@ -554,7 +540,7 @@ function drawTopics(found) {
       cell(whole.format(subject.mixed), 'faint'),
       gauge,
     );
-    /* The whole row opens the points behind it; the name stays the button a keyboard reaches. */
+    /* The whole row opens the points behind it. The name stays the button a keyboard reaches. */
     row.addEventListener('click', (event) => {
       if (event.target !== open) openClaims(subject, 0);
     });
@@ -588,10 +574,10 @@ async function drawWriteOffer(appId) {
   set(
     el('write-offer-note'),
     offer.write
-      ? `No paragraph has been written for these points yet: ${roughly(offer.seconds)} ${where}${download}.`
-      : `A language model on this computer can write a paragraph of what stands out in these points, ` +
+      ? `No paragraph has been written for these themes yet: ${roughly(offer.seconds)} ${where}${download}.`
+      : `A language model on this computer can write a paragraph of what stands out in these themes, ` +
           `${roughly(offer.seconds)} a game ${where}${download}. Every number and quotation ` +
-          'in it is checked against the points, and a sentence with any other is left out.',
+          'in it is checked against the themes, and a sentence with any other is left out.',
   );
   const write = el('write-it');
   set(write, offer.write ? 'Write it' : 'Write it, here and for every game I prepare');
@@ -603,7 +589,7 @@ async function drawWriteOffer(appId) {
   el('write-offer').hidden = false;
 }
 
-/* Enough of each side to see what stands out; the rest is one click further. */
+/* Enough of each side to see what stands out. The rest is one click further. */
 const SAID_FIRST = 6;
 let saidAll = false;
 
@@ -629,7 +615,7 @@ function drawSaidMost(found) {
     const shown = saidAll ? said : said.slice(0, SAID_FIRST);
     el(id).replaceChildren(
       ...(said.length === 0
-        ? [make('li', 'said-none', 'No one point is made in enough reviews to name.')]
+        ? [make('li', 'said-none', 'Nothing is said in enough reviews to name.')]
         : shown.map((theme) => saidItem(found, side, theme))),
     );
   }
@@ -686,9 +672,8 @@ async function drawSaidOffer(appId) {
       note,
       offer.status === 'ready'
         ? `This game is prepared for search by meaning, and finding them from that takes seconds${download}.`
-        : `Grouping what players say by meaning needs this game prepared for search by meaning: ` +
-            `${roughly(offer.seconds)} ${where}, up to ${size(offer.disk_bytes)}${download}. ` +
-            'Search by meaning comes with it.',
+        : `Prepare this game to group what players say and to search it by meaning. ` +
+            `${language(roughly(offer.seconds))} ${where}, up to ${size(offer.disk_bytes)}${download}.`,
     );
     set(find, offer.status === 'ready' ? 'Find them' : 'Prepare this game');
     find.onclick = () => {
@@ -748,22 +733,21 @@ async function openClaims(subject, from, narrowed = null, who = null) {
   }
 
   const sided = narrowed?.side === 'praise' ? 'praising' : 'complaining';
-  const points = `${whole.format(found.total)} ${found.total === 1 ? 'point' : 'points'}`;
+  const claims = `${whole.format(found.total)} ${found.total === 1 ? 'claim' : 'claims'}`;
   const reviews = `${whole.format(subject.reviews)} ${subject.reviews === 1 ? 'review' : 'reviews'}`;
   set(
     el('evidence-lede'),
     who !== null
-      ? `${points} about this from ${who.phrase}, raised in ${reviews} of theirs. Each one is shown as it was written.`
+      ? `${claims} about this from ${who.phrase}, raised in ${reviews} of theirs.`
       : narrowed === null
-        ? `${points} about this, raised in ${reviews}. Each one is shown as it was written.`
+        ? `${claims} about this, raised in ${reviews}.`
         : narrowed.theme !== undefined
-          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} that say ` +
-            `what “${narrowed.label}” says, in those words or others. Each one is shown as it was written.`
+          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'claim' : 'claims'} that say ` +
+            `what “${narrowed.label}” says, in those words or others.`
           : narrowed.term
-          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this that ` +
-            `say “${narrowed.term}”. Each one is shown as it was written.`
-          : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'point' : 'points'} about this. ` +
-            'Each one is shown as it was written.',
+          ? `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'claim' : 'claims'} about this that ` +
+            `say “${narrowed.term}”.`
+          : `${whole.format(found.total)} ${sided} ${found.total === 1 ? 'claim' : 'claims'} about this.`,
   );
   drawClaims(found.claims);
 
@@ -880,7 +864,7 @@ function drawOffer(offer, appId) {
     el('meaning-advice'),
     offer.status === 'ready'
       ? 'This game is prepared, but the two models that search it by meaning are not on this ' +
-          'computer: one finds the points nearest what you typed, the other reads each of them ' +
+          'computer: one finds the claims nearest what you typed, the other reads each of them ' +
           'beside it so that opposites like "boring" and "fun" are not shown as the same thing.'
       : prepareNow
         ? 'Recommended here: this computer has a graphics card the app can use, so it takes minutes.'
@@ -913,7 +897,7 @@ async function showNear(appId, query) {
   }
   set(
     el('meaning-note'),
-    `The ${whole.format(near.length)} points closest in meaning that the words above did not ` +
+    `The ${whole.format(near.length)} claims closest in meaning that the words above did not ` +
       'find, closest first. Not counted: closeness in meaning has no line at which saying it ' +
       'stops, so a number here would only say where the line was drawn.',
   );
@@ -921,7 +905,7 @@ async function showNear(appId, query) {
 }
 
 /* What reviewers said in the words somebody typed. The counts are always of every point that
-   says it; a side or a subject narrows only the points listed, so the figures at the top never
+   says it. A side or a subject narrows only the points listed, so the figures at the top never
    change under the reader's hand. */
 async function openSearch(query, from, narrow = NARROW_NONE) {
   const appId = chosen;
@@ -970,7 +954,7 @@ async function openSearch(query, from, narrow = NARROW_NONE) {
     el('evidence-lede'),
     `${whole.format(found.reviews)} ${found.reviews === 1 ? 'review' : 'reviews'}${of} ` +
       `${found.reviews === 1 ? 'says' : 'say'} it, in ${whole.format(found.claims)} ` +
-      `${found.claims === 1 ? 'point' : 'points'}. Each one is shown as it was written, most helpful review first.`,
+      `${found.claims === 1 ? 'claim' : 'claims'}, most helpful review first.`,
   );
   drawSaid(found, query, narrow);
   drawClaims(found.page);
@@ -1046,7 +1030,7 @@ function drawTerms(subject, narrowed) {
       const chosenHere = narrowed !== null && narrowed.side === side && narrowed.term === term.text;
       const node = make('button', chosenHere ? 'term chosen' : 'term', term.text, make('span', 'n', whole.format(term.reviews)));
       node.type = 'button';
-      node.title = chosenHere ? 'Back to every point about this' : `${whole.format(term.reviews)} reviews used this word on this side`;
+      node.title = chosenHere ? 'Back to every claim about this' : `${whole.format(term.reviews)} reviews used this word on this side`;
       node.addEventListener('click', () => openClaims(subject, 0, chosenHere ? null : { side, term: term.text }));
       strip.append(node);
     }

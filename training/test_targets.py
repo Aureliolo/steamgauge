@@ -112,7 +112,7 @@ def test_error_regularisation_margin_asks_for_a_gap_not_only_an_order():
     logits = torch.tensor([[4.0, 0.0, 0.0], [0.0, 4.0, 0.0]])
     truth = torch.tensor([0, 1])
     assert float(error_regularisation(logits, truth)) == 0.0
-    # Both are right here, so there is nothing to rank; make the second wrong and equally sure.
+    # Both are right here, so there is nothing to rank. Make the second wrong and equally sure.
     truth = torch.tensor([0, 0])
     assert float(error_regularisation(logits, truth)) == 0.0
     assert float(error_regularisation(logits, truth, margin=0.2)) > 0.0

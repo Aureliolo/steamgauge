@@ -17,7 +17,7 @@ whole games rather than claims, because claims from one game are not independent
     python confidence.py --oof <dir of fold logits>
 
 The second form is the one to trust. Four validation games give intervals eight points wide,
-which is wider than every difference this study is asked to decide; five cross-validation folds
+which is wider than every difference this study is asked to decide. Five cross-validation folds
 (`train.py --fold`) give an out-of-fold answer for all twenty-eight games outside the held-out
 set at the cost of five training runs and no test set spent.
 

@@ -15,7 +15,7 @@ function clientState(client) {
     case 'elsewhere':
       return `Starts ${client.command}, which is not this copy.`;
     case 'unreadable':
-      return `Its settings file does not parse (${client.reason}), so SteamGauge leaves it alone.`;
+      return `Its settings file does not parse (${client.reason}). Fix the file, then add SteamGauge.`;
     default:
       return '';
   }
@@ -80,7 +80,7 @@ async function load() {
   draw();
 }
 
-/* Only the two choices on this page change; every other setting is saved as it stands now, read
+/* Only the two choices on this page change. Every other setting is saved as it stands now, read
    afresh, so a choice made on the Settings page or by an assistant since this page was drawn is
    kept. */
 async function save() {

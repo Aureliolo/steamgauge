@@ -33,7 +33,7 @@ use crate::{Error, Result};
 /// Which copy of a review counts, where a sweep has fetched one that was already captured.
 ///
 /// The newest copy of every id a sweep has written, by its last-edit time and the sweep that
-/// wrote it. A row whose id is here counts only if it is that copy; a row whose id is not here
+/// wrote it. A row whose id is here counts only if it is that copy. A row whose id is not here
 /// was captured once and counts as it is. The map holds one entry per swept review, which is
 /// what changed since the crawl rather than the corpus, so it fits in memory where the corpus
 /// would not.
@@ -68,7 +68,7 @@ impl Newest {
         Ok(())
     }
 
-    /// Notes a copy a sweep wrote. A later edit wins; the same edit fetched twice belongs to
+    /// Notes a copy a sweep wrote. A later edit wins. The same edit fetched twice belongs to
     /// the later sweep, so exactly one copy counts however often it was fetched.
     pub fn record(&mut self, id: &str, updated: i64, sweep: i64) {
         match self.copies.get_mut(id) {
@@ -550,7 +550,7 @@ pub fn for_each_text_as_of(
 }
 
 /// [`for_each_row`], with the Steam id of each review's writer beside it, which is what a link
-/// to the review on Steam is made from; empty where Steam did not say.
+/// to the review on Steam is made from. Empty where Steam did not say.
 ///
 /// # Errors
 ///
@@ -931,7 +931,7 @@ pub fn reviews_for<S: std::hash::BuildHasher + Sync>(
 /// What a published dataset says about one review: everything Steam shows about it except its
 /// words and its author, and the fingerprint of the words that were labelled.
 ///
-/// The text is the reviewer's and the author is a person; neither is ours to publish. The
+/// The text is the reviewer's and the author is a person. Neither is ours to publish. The
 /// fingerprint is what lets anybody who fetches the review from Steam know whether it is still
 /// the text the labels were written against, since a review edited since may have moved every
 /// byte offset a label names.
@@ -955,7 +955,7 @@ pub struct ReviewFacts {
     pub written_during_early_access: bool,
     pub refunded: bool,
     pub primarily_steam_deck: bool,
-    /// Shown on the review itself; the account's other playtimes are not.
+    /// Shown on the review itself. The account's other playtimes are not.
     pub playtime_at_review_minutes: u32,
     /// SHA-256 of the review text as UTF-8, the bytes every label's offsets count.
     pub text_sha256: String,
@@ -1282,7 +1282,7 @@ mod tests {
                 review("2", "great game", 100, 100),
             ],
         );
-        // The first sweep fetches an edit of 1 and a new review 3; the second sweep fetches
+        // The first sweep fetches an edit of 1 and a new review 3. The second sweep fetches
         // review 3 again, unchanged, because it was written while the first was running.
         write(
             &dir.join(sweep_file(500)),

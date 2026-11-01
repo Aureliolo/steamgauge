@@ -42,7 +42,7 @@ PROMPTS = json.loads(
 )
 ENCODER = "Qwen/Qwen3-Embedding-0.6B"
 RERANKER = "Qwen/Qwen3-Reranker-0.6B"
-# What a pair of prompt and claim is cut to; the prompt alone is about sixty tokens.
+# What a pair of prompt and claim is cut to. The prompt alone is about sixty tokens.
 RERANK_TOKENS = 320
 ENCODE_TOKENS = 512
 
@@ -73,7 +73,7 @@ def last_real(hidden, attention_mask):
 class SearchEncoder(torch.nn.Module):
     def __init__(self, trunk):
         super().__init__()
-        # A cache of past keys is for writing text; traced, it would be a graph output nobody
+        # A cache of past keys is for writing text. Traced, it would be a graph output nobody
         # reads.
         trunk.config.use_cache = False
         self.trunk = LengthFree(trunk)

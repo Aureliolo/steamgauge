@@ -1,6 +1,6 @@
 //! What a game's reviewers said in other words, and in other languages, than somebody typed.
 //!
-//! The word search counts what matches the words; this finds what is near them in meaning,
+//! The word search counts what matches the words. This finds what is near them in meaning,
 //! across the languages the reviews are written in, and ranks it. It never counts: a ranking
 //! by meaning has no line at which "says this" ends, so any count of it would be a count of
 //! where the line was drawn. What it offers is the claims a word search cannot reach, in the
@@ -68,9 +68,9 @@ pub const BYTES_PER_CLAIM: u64 = DIMENSIONS as u64 + 4 + 4 + 32 + 32;
 pub enum Status {
     /// Nothing prepared.
     None,
-    /// Stopped part way; preparing again carries on.
+    /// Stopped part way. Preparing again carries on.
     Partial,
-    /// Prepared for a reading the game has since replaced; preparing again adds what is new.
+    /// Prepared for a reading the game has since replaced. Preparing again adds what is new.
     Stale,
     Ready,
 }
@@ -328,8 +328,8 @@ pub struct Prepared {
 
 /// Embeds every distinct claim of the reading at `snapshot` that has no vector yet.
 ///
-/// `embed` turns a batch of texts into unit vectors. `stop` is looked at between batches;
-/// once it is set the part in hand is written and the preparation returns unfinished, and the
+/// `embed` turns a batch of texts into unit vectors. `stop` is looked at between batches.
+/// Once it is set the part in hand is written and the preparation returns unfinished, and the
 /// next one carries on. `share` is the share of the card's time it may take, as a read's is.
 /// `on_progress` is told how many claims have been walked.
 ///

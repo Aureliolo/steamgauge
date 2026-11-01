@@ -1,6 +1,6 @@
 //! Everything the app does that takes longer than a click, as jobs on two lanes.
 //!
-//! Downloads talk to Steam and wait on its pace; reads and preparations hold the graphics card.
+//! Downloads talk to Steam and wait on its pace. Reads and preparations hold the graphics card.
 //! Each lane runs one job at a time, so a crawl that takes an hour never holds up a read and two
 //! reads never fight over the card. A job never starts on a game another running job is
 //! working on: a read walking a capture while an update writes to it would count a corpus that
@@ -34,7 +34,7 @@ use super::{library_dir, now_unix, settings::Settings, text};
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Task {
-    /// Every review of a game, resuming where an earlier download stopped.
+    /// Every review of a game. A download resumes where an earlier one stopped.
     Download { app_id: u32 },
     /// What was written or edited since a game was last downloaded, then a read of it again
     /// where it had been read.
@@ -44,20 +44,19 @@ pub enum Task {
         app_id: u32,
         language: Option<String>,
     },
-    /// A read game's answers added up again from disk, without the reader: how a reading made
-    /// before the window counted something comes to count it, in a minute rather than a read.
+    /// Counts a read game again from its saved readings, without the reader. Takes about a
+    /// minute.
     Recount { app_id: u32 },
     /// A read game made searchable by meaning.
     Prepare { app_id: u32 },
     /// How many reviews each game has on Steam now, and whether newer models are published.
     Check,
-    /// A report of these games, written as one page to where the person chose.
+    /// A report of these games, written as one page to `to`.
     Export {
         app_ids: Vec<u32>,
         to: std::path::PathBuf,
     },
-    /// A read game's figures and points, written as CSV and JSON into a new folder where the
-    /// person chose.
+    /// A read game's figures and claims, written as CSV and JSON into a new folder at `to`.
     ExportData { app_id: u32, to: std::path::PathBuf },
     /// A model fetched ahead of the work that needs it, by the name Storage lists it under: a
     /// reader size (`small`, `standard`), `search-encoder`, `search-reranker` or `writer`. A first
@@ -207,7 +206,7 @@ pub(super) fn left(done: f64, total: Option<f64>, rate: Option<f64>) -> Option<f
 const KEPT: usize = 30;
 
 /// How often a moving job is sent to the window. Faster than this repaints a bar no eye
-/// follows; slower makes a download look stuck.
+/// follows. Slower makes a download look stuck.
 pub(super) const EVERY: Duration = Duration::from_millis(250);
 
 #[derive(Default)]
@@ -363,7 +362,7 @@ impl Work {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Board> {
-        // A job that panicked while holding the board left it as it was; the board is a list
+        // A job that panicked while holding the board left it as it was. The board is a list
         // of what is happening, and carrying on with it is better than refusing every job.
         self.board
             .lock()
@@ -421,7 +420,7 @@ impl Work {
     }
 
     /// Stops a job: a waiting one never starts, and a running one is told to stop where it
-    /// can, keeping what it finished.
+    /// can. It keeps what it finished.
     ///
     /// A download and a check are dropped where they stand: a crawl records each window only
     /// once it is whole and resumes from those, and a check writes nothing until it ends.
@@ -1015,7 +1014,7 @@ impl Fetchable {
     }
 }
 
-/// One bar across a model's files, fetching until the last byte is in and checking after.
+/// One bar across a model's files. It fetches until the last byte is in and checks after.
 fn bar(
     app: &AppHandle,
     id: u64,
@@ -1033,7 +1032,7 @@ fn bar(
     }
 }
 
-/// Fetches one model where it is not on this computer yet; one already here is left as it is.
+/// Fetches one model where it is not on this computer yet. One already here is left as it is.
 async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, String> {
     let model = Fetchable::named(name)?;
     let cache = steamgauge_core::model::default_cache_dir();
@@ -1169,7 +1168,7 @@ async fn read(
     .map_err(text)??;
 
     let mut ended = Ended::said(format!(
-        "{} reviews read, {} separate points.",
+        "{} reviews read, {} claims.",
         thousands(report.reviews),
         thousands(report.claims)
     ));
@@ -1387,7 +1386,7 @@ fn write_paragraph(
 
     let Some(brief) = writer::brief(game, reviews, found) else {
         return Ok(Ended::said(
-            "Ready to search by meaning. No point is made in enough reviews to write about.",
+            "Ready to search by meaning. Nothing is said in enough reviews to write about.",
         ));
     };
     tell(
@@ -1434,7 +1433,7 @@ async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {
             totals.games.insert(game.app_id, summary.total_reviews);
         }
         // A game downloaded before the crawler asked for names is listed by its number until
-        // somebody asks; the store is being asked about it anyway.
+        // somebody asks. The store is being asked about it anyway.
         if game.name.starts_with("App ") {
             let _ = steamgauge_core::crawl::name_where_missing(&client, &dir, game.app_id).await;
         }
@@ -1512,7 +1511,7 @@ async fn export_data(
             tell(
                 &telling,
                 id,
-                "Writing the points",
+                "Writing the claims",
                 Unit::Reviews,
                 float(walked),
                 Some(float(of)),
@@ -1524,14 +1523,14 @@ async fn export_data(
     .map_err(text)??;
     let left_out = if exported.left_out > 0 {
         format!(
-            " {} points of reviews edited since they were read are left out.",
+            " {} claims of reviews edited since they were read are left out.",
             thousands(exported.left_out)
         )
     } else {
         String::new()
     };
     Ok(Ended::said(format!(
-        "Saved {} points and the figures in {}.{left_out}",
+        "Saved {} claims and the figures in {}.{left_out}",
         thousands(exported.points),
         exported.folder.display()
     )))

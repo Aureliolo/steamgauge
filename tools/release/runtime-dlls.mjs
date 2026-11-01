@@ -5,7 +5,7 @@
 //
 // steamgauge.exe and the libraries beside it name the DLLs they import, and Windows refuses to
 // start a program one of them is missing for (STATUS_DLL_NOT_FOUND) before any of its code runs.
-// Windows' own DLLs are on every machine; any other has to ship in the program's folder. The C++
+// Windows' own DLLs are on every machine. Any other has to ship in the program's folder. The C++
 // runtime is the one the build needs that nothing else puts there: ONNX Runtime's prebuilt library
 // is compiled against it, and a Windows that never installed the Visual C++ Redistributable has
 // none. A machine that has it, as every development machine and CI runner does, starts the

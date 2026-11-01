@@ -1,6 +1,6 @@
 """What a recorded training pass is built from must read a claim exactly as the eager reader does.
 
-The recording itself needs a card and is measured there; these hold on any machine.
+The recording itself needs a card and is measured there. These hold on any machine.
 
 python -m pytest test_cuda_graphs.py
 """

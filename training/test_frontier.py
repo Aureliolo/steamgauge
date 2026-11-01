@@ -108,7 +108,7 @@ def test_answers_without_confidences_have_no_shares(tmp_path):
 
 
 def test_every_row_of_the_benchmark_counts_the_claims_a_reader_can_be_handed(tmp_path):
-    # A frontier model answered every key row when it was asked; a reader is handed only the
+    # A frontier model answered every key row when it was asked. A reader is handed only the
     # rows the export still holds. Scored over different rows, the two figures are not a
     # comparison, so the key is cut to the survivors for both.
     key = tmp_path / "key.json"

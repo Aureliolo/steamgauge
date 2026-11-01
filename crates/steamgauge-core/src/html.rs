@@ -42,34 +42,34 @@ const ENOUGH_FOR_A_RATE: u64 = Month::ENOUGH_FOR_A_RATE;
 const COLUMNS: [(&str, &str); 6] = [
     (
         "Mention rate",
-        "The share of all reviews that say something about the category, with the number of \
+        "The share of all reviews that say something about the subject, with the number of \
          reviews beside it. These are the headline figures and they add up to more than 100%.",
     ),
     (
         "Main subject",
-        "The share whose single main subject is that category. Unlike mention rates, these add \
+        "The share whose single main subject is that subject. Unlike mention rates, these add \
          up to the number of reviews.",
     ),
     (
-        "Top of the pile",
-        "The mention rate over the {top} reviews Steam ranks as most helpful, which is roughly \
-         what somebody sees before deciding.",
+        "Most helpful",
+        "The mention rate over the {top} reviews Steam ranks as most helpful, roughly what a \
+         store visitor sees before deciding.",
     ),
     (
         "Bias",
-        "How much the top of the pile overstates a category. 0\u{d7} means none of those few \
-         dozen reviews raised it, which is weak evidence rather than proof of absence.",
+        "How much the {top} most helpful reviews overstate a subject. 0\u{d7} means none of \
+         those reviews raised it. With so few reviews that proves little.",
     ),
     (
         "Said about it",
-        "Of the reviews raising a category, how many praise it, how many complain about it, \
-         and how many do both. A subject half the players love and half hate, and one every \
-         player has mixed feelings about, are different findings that a single share hides.",
+        "Of the reviews raising a subject, how many praise it, how many complain about it, and \
+         how many do both. A subject half the players love and half hate is a different finding \
+         from one every player has mixed feelings about.",
     ),
     (
         "Recommended",
-        "The share of the reviews raising a category that still recommended the game, against \
-         this game's own baseline. Marked warm or cold only where the gap is wider than the \
+        "The share of the reviews raising a subject that still recommended the game, against \
+         this game's own baseline. Marked higher or lower only where the gap is wider than the \
          number of reviews behind it can explain.",
     ),
 ];
@@ -118,8 +118,7 @@ fn page_header(out: &mut String, report: &Report) {
     out.push_str("<header class=\"page\">\n<div class=\"wrap\">\n");
     let _ = writeln!(out, "<h1>{}</h1>", escape(&page_title(report)));
     out.push_str(
-        "<p class=\"lede\">What every reviewer said, counted, against what the loudest \
-         handful said.</p>\n",
+        "<p class=\"lede\">What every Steam reviewer praises and criticises, counted.</p>\n",
     );
     // Named for the state it turns on rather than for the thing it changes: a control called
     // "Theme" announced as pressed or not pressed says nothing about which theme that is.
@@ -153,8 +152,8 @@ fn filter(out: &mut String, report: &Report) {
     let _ = writeln!(
         out,
         "<form class=\"filter\" role=\"search\" hidden data-filter \
-         aria-label=\"Filter the report by category\">\n\
-         <label for=\"filter-categories\">Show categories matching</label>\n\
+         aria-label=\"Filter the report by subject\">\n\
+         <label for=\"filter-categories\">Show subjects matching</label>\n\
          <input id=\"filter-categories\" type=\"search\" autocomplete=\"off\" spellcheck=\"false\" \
          placeholder=\"price, story, crashes\u{2026}\" data-filter-input>\n\
          <span class=\"filter-count\" role=\"status\" data-filter-count \
@@ -198,8 +197,8 @@ fn overview(out: &mut String, report: &Report) {
         "<p class=\"note\">Mention rates for {} reviews of {} games. The game that raises each \
          subject most is named beside it, and its cell outlined, where one clears every other \
          by more than rounding. Read down a column for one game and across a row to compare \
-         them all; the table scrolls sideways. Deeper shading is a higher rate, and the rates \
-         are not comparable to any other corpus.</p>",
+         them all. The table scrolls sideways. Deeper shading is a higher rate, and the rates \
+         are not comparable to any other set of reviews.</p>",
         thousands(total),
         report.apps.len()
     );
@@ -251,12 +250,9 @@ fn corpora(out: &mut String, report: &Report) {
     }
     out.push_str("</tbody>\n</table>\n</div>\n");
     out.push_str(
-        "<p class=\"note\">Agreement is measured over each game's labelled claims, and only \
-         over the claims the model was willing to answer, so a game's figure carries a band \
-         several points wide and the pooled one at the end of this section is the one worth \
-         quoting. It counts agreement with a labeller, which is not the same as being \
-         right. A game the model trained on carries no figure: agreeing with labels it \
-         learned from would measure memory.</p>\n",
+        "<p class=\"note\">Agreement with a labeller, over the claims the reader answered. \
+         Quote the pooled figure at the end of this section. A game the reader trained on \
+         shows none.</p>\n",
     );
 }
 
@@ -294,7 +290,7 @@ fn matrix(out: &mut String, report: &Report) {
     order.sort_by_key(|(_, _, pooled)| std::cmp::Reverse(*pooled));
 
     out.push_str("<div class=\"scroll\">\n<table class=\"matrix\">\n<thead><tr>");
-    out.push_str("<th scope=\"col\">Category</th><th scope=\"col\" class=\"leader\">Highest</th>");
+    out.push_str("<th scope=\"col\">Subject</th><th scope=\"col\" class=\"leader\">Highest</th>");
     for app in &report.apps {
         let _ = write!(
             out,
@@ -350,7 +346,7 @@ fn matrix(out: &mut String, report: &Report) {
             match *rate {
                 Some(rate) => {
                     // Square-rooted so the common categories do not wash every other cell
-                    // out; the number is always there for anyone reading exactly.
+                    // out. The number is always there for anyone reading exactly.
                     let heat = (rate * 2.0).sqrt().min(1.0);
                     let top = if loudest == Some(index) {
                         " loudest"
@@ -418,9 +414,9 @@ fn most_overstated(out: &mut String, report: &Report) {
     };
     let _ = writeln!(
         out,
-        "<p class=\"headline\">Across these {games} games the top of the pile overstates \
-         <strong>{}</strong> by <strong>{factor:.1}\u{d7}</strong>: {} of the {} reviews at the \
-         top of those {games} piles raise it, against {} of all {}.</p>",
+        "<p class=\"headline\">Across these {games} games the most helpful reviews overstate \
+         <strong>{}</strong> by <strong>{factor:.1}\u{d7}</strong>: {} of the {} most helpful \
+         reviews raise it, against {} of all {}.</p>",
         escape(&category.label.to_lowercase()),
         thousands(category.top_mentions),
         thousands(category.top_reviews),
@@ -470,8 +466,7 @@ fn widest_apart(out: &mut String, report: &Report) {
     let _ = writeln!(
         out,
         "<p class=\"headline\">The subject these games disagree about most is \
-         <strong>{}</strong>: {} of {} reviews raise it, against {} of {}. A rate is about \
-         one corpus, and this is what that means.</p>",
+         <strong>{}</strong>: {} of {} reviews raise it, against {} of {}.</p>",
         escape(&label.to_lowercase()),
         percent(high),
         escape(&most.crawl.title()),
@@ -537,13 +532,13 @@ fn facts(out: &mut String, app: &AppReport) {
     out.push_str("<dl class=\"facts\">\n");
     // Two different numbers, and a reader who sees only the smaller one beside a coverage
     // figure taken over the larger one is left to work out why they disagree. Rates are over
-    // what was counted; coverage is over what was captured, blank reviews included.
+    // what was counted. Coverage is over what was captured, blank reviews included.
     fact(out, "Reviews counted", &thousands(app.reading.reviews));
     fact(
         out,
-        "Captured",
+        "Downloaded",
         &format!(
-            "{} of the {} Valve reports ({})",
+            "{} of the {} Steam reports ({})",
             thousands(crawl.rows_unique),
             thousands(crawl.valve_total_reviews),
             coverage(crawl.coverage)
@@ -572,9 +567,9 @@ fn facts(out: &mut String, app: &AppReport) {
     {
         let _ = writeln!(
             out,
-            "<p class=\"warn\">The capture was brought up to date on {} and these counts \
-             were made before that, on the corpus as it stood on {}. Read it again to count \
-             what arrived.</p>",
+            "<p class=\"warn\">The download was brought up to date on {}. These counts were \
+             made before that, from the reviews held on {}. Read it again to count what \
+             arrived.</p>",
             crate::time::day(swept),
             crate::time::day(app.reading.captured_unix.max(crawl.snapshot_unix))
         );
@@ -621,8 +616,8 @@ fn headline(out: &mut String, app: &AppReport) {
     out.push_str("<p class=\"headline\">\n");
     let _ = write!(
         out,
-        "The top of the pile overstates {named} by <strong>{factor:.1}\u{d7}</strong>: {} of \
-         the {} reviews Steam ranks most helpful raise it, against {} of all {}.",
+        "The most helpful reviews overstate {named} by <strong>{factor:.1}\u{d7}</strong>: {} \
+         of the {} reviews Steam ranks most helpful raise it, against {} of all {}.",
         thousands(category.top_mention_reviews),
         thousands(app.reading.top_helpful),
         percent(overall),
@@ -642,14 +637,14 @@ fn said_most(out: &mut String, app: &AppReport) {
     };
     out.push_str("<h3>What they praise and complain about</h3>\n");
     out.push_str(
-        "<p class=\"note\">Points that say the same thing, in the same words or others, grouped \
-         by meaning, each with how many reviews make it.</p>\n<div class=\"said-sides\">\n",
+        "<p class=\"note\">Claims grouped by meaning, each with how many reviews make \
+         it.</p>\n<div class=\"said-sides\">\n",
     );
     for (side, title) in [("praise", "Praised"), ("complaint", "Complained about")] {
         let _ = writeln!(out, "<div class=\"said-side {side}\">\n<h4>{title}</h4>");
         let ranked = themes.ranked(side);
         if ranked.is_empty() {
-            out.push_str("<p class=\"note\">No one point is made in enough reviews to name.</p>\n");
+            out.push_str("<p class=\"note\">Nothing is said in enough reviews to name.</p>\n");
         } else {
             out.push_str("<ol class=\"said-list\">\n");
             for one in ranked.iter().take(SAID_SHOWN) {
@@ -716,7 +711,7 @@ fn paragraph(out: &mut String, app: &AppReport) {
     let _ = writeln!(out, "<p class=\"in-short\">{}</p>", escape(text));
     out.push_str(
         "<p class=\"note\">Written by a language model on the computer that made this page, \
-         from the points below. Every number and quotation in it is one those points give; a \
+         from the themes below. Every number and quotation in it comes from those themes. A \
          sentence with any other was left out.</p>\n",
     );
 }
@@ -776,7 +771,7 @@ fn over_time(out: &mut String, app: &AppReport) {
         out,
         "<p class=\"note\">Reviews per month, {} to {}, against a busiest month of {} in {}. \
          The line is the share of each month that recommended the game, from none at the \
-         bottom to all at the top; the dashed line is half.{} Point at a month to read \
+         bottom to all at the top. The dashed line is half.{} Point at a month to read \
          it.</p>",
         escape(&first),
         escape(&last),
@@ -886,7 +881,7 @@ fn month_targets(out: &mut String, months: &[Month], step: f64) {
 }
 
 /// A line down the chart where each update was posted, `step` wide a month. Drawn under the
-/// pointer's targets, so a month stays readable where an update falls in it; the list under the
+/// pointer's targets, so a month stays readable where an update falls in it. The list under the
 /// chart names each one.
 fn update_marks(out: &mut String, app: &AppReport, step: f64) {
     for around in &app.updates.around {
@@ -902,7 +897,7 @@ fn update_marks(out: &mut String, app: &AppReport, step: f64) {
     }
 }
 
-/// Updates whose four weeks either side the page sets out; the rest are listed.
+/// Updates whose four weeks either side the page sets out. The rest are listed.
 const UPDATES_COMPARED: usize = 4;
 
 /// The updates the developer posted, and what changed across the biggest of them.
@@ -933,10 +928,8 @@ fn updates(out: &mut String, app: &AppReport) {
          posted on Steam by {}: posts Steam marks as patch notes, and posts whose titles name a \
          patch, a hotfix, an update or a version. Below, the biggest of them by the reviews that \
          followed, each with the {WINDOW_DAYS} days before it against the {WINDOW_DAYS} days \
-         after. A change is a share that moved further than chance would move it, three \
-         standard errors and at least two points, and a share is compared only where each side \
-         holds at least {ENOUGH} reviews. A change happened across the update; that alone does \
-         not make the update the reason for it.</p>",
+         after. A change is at least three standard errors and two points, with {ENOUGH} \
+         reviews a side. The update may not be its cause.</p>",
         thousands(around.len() as u64),
         crate::time::day(asked)
     );
@@ -1086,7 +1079,7 @@ fn categories(out: &mut String, app: &AppReport) {
         );
     }
     out.push_str(
-        "<p class=\"note\">A review counts towards every category it says something about, so \
+        "<p class=\"note\">A review counts towards every subject it says something about, so \
          these add up to more than 100%. Select a row to read the reviews behind it.</p>\n",
     );
     legend(out, app);
@@ -1096,7 +1089,7 @@ fn categories(out: &mut String, app: &AppReport) {
     let widest = rows.first().map_or(0, |c| c.mention_reviews).max(1);
 
     out.push_str("<div class=\"scroll\">\n<table class=\"categories\">\n<thead><tr>");
-    heading(out, "Category", false);
+    heading(out, "Subject", false);
     for (name, _) in COLUMNS {
         heading(out, name, true);
     }
@@ -1130,9 +1123,9 @@ fn legend(out: &mut String, app: &AppReport) {
     }
     out.push_str("</dl>\n");
     out.push_str(
-        "<p>The reviews behind a row are a couple from the top of the pile where the category \
-         reaches it, and the rest drawn at random from everything filed there, so they are \
-         evidence rather than a selection.</p>\n</details>\n",
+        "<p>The reviews behind a row are a couple of the most helpful reviews where the \
+         subject is among them, and the rest drawn at random from everything filed \
+         there.</p>\n</details>\n",
     );
 }
 
@@ -1266,7 +1259,7 @@ fn thinly_measured(measured: &crate::measure::SubjectAgreement) -> String {
 
 /// What the reference set says about this row alone.
 ///
-/// The page carries one figure for how often the model agrees overall, and that figure is no
+/// The page carries one overall figure for how often the model agrees, and that figure is no
 /// guide at all to a particular row: the same run finds nine claims in ten of one subject and
 /// one in twenty of another.
 fn how_well_this_row_is_known(
@@ -1297,19 +1290,25 @@ fn how_well_this_row_is_known(
     };
     let _ = writeln!(
         out,
-        "<p class=\"{class}\">Measured on this row: of the {} labelled claims about it, the \
-         model found {found}; of the claims it filed here, {right} were labelled that way. A \
-         rate built on a subject it misses is a floor, not a count.{}</p>",
+        "<p class=\"{class}\">Measured on this row: the reader found {found} of the {} \
+         labelled claims about it. Of the claims it filed here, {right} were labelled that \
+         way. Where it misses claims, the rate is a floor.{}</p>",
         thousands(measured.labelled),
         // Which subject the misses went to is the difference between a row that is merely hard
         // and a row whose claims are sitting under a neighbour's name.
         measured
             .mistaken_for
+            .filter(|(label, _)| *label != measured.id)
             .map_or_else(String::new, |(label, count)| {
                 format!(
                     " Where it was read wrongly, it was most often read as \
                      <strong>{}</strong> ({count} of the labelled claims).",
-                    escape(label)
+                    escape(
+                        SHEET
+                            .iter()
+                            .find(|row| row.id == label)
+                            .map_or(label, |row| row.label)
+                    )
                 )
             })
     );
@@ -1327,7 +1326,7 @@ fn how_well_this_row_is_known(
                 let _ = writeln!(
                     out,
                     "<p class=\"note\">Corrected for those errors, the share of claims about \
-                     this is about <strong>{}</strong>, against the {} the model read. That is \
+                     this is about <strong>{}</strong>, against the {} the reader found. That is \
                      an estimate from {} labels, and it moves with them.</p>",
                     percent(corrected),
                     percent(observed),
@@ -1425,7 +1424,7 @@ fn sparkline(out: &mut String, app: &AppReport, id: &str) {
     );
 }
 
-/// A rate, carrying the number it was formatted from so the table can be reordered by it.
+/// A rate that carries the number it was formatted from, so the table can be reordered by it.
 fn rate_cell(out: &mut String, rate: Option<f64>) {
     match rate {
         Some(rate) => {
@@ -1474,12 +1473,12 @@ fn bias_cell(out: &mut String, factor: Option<f64>) {
 ///
 /// Coloured against the interval the count is entitled to rather than against a fixed
 /// distance from the baseline. Eight reviews all recommending the game is 100% and says
-/// nothing; a fixed threshold paints it the same green as a thousand reviews at 98%, which
+/// nothing. A fixed threshold paints it the same green as a thousand reviews at 98%, which
 /// is the one reading the column exists to prevent.
 /// What the reviews raising a subject actually say about it, as three shares in one bar.
 ///
 /// The mixed share is the point of the column. A subject a third of players praise and a third
-/// complain about is a fight; one where every review says both is a subject with a real
+/// complain about is a fight. One where every review says both is a subject with a real
 /// trade-off in it, and a single positive share renders those two identically.
 ///
 /// Sorted on the complaint share, because a table of subjects is read looking for what is
@@ -1509,7 +1508,7 @@ fn polarity_cell(out: &mut String, category: &SubjectCount) {
          <span class=\"gripe\" style=\"--part:{gripe:.4}\"></span>\
          <span class=\"both\" style=\"--part:{both:.4}\"></span></span>\
          <span class=\"value\">{} praise</span>\
-         <span class=\"count\">{} gripe, {} both</span></td>",
+         <span class=\"count\">{} complaint, {} both</span></td>",
         percent(praise),
         percent(gripe),
         percent(both)
@@ -1653,7 +1652,7 @@ fn induced(out: &mut String, app: &AppReport) {
         out,
         "<p class=\"note\">Found by reading reviews of this game chosen to be as unlike each \
          other as possible, and named only where at least three of them raise the same thing. \
-         These rows carry no rate: the model that counts the table above has not been trained \
+         These rows carry no rate: the reader that counts the table above has not been trained \
          on them, so what is shown is the finding and the reviews it rests on.</p>"
     );
     out.push_str("<dl class=\"induced\">\n");
@@ -1706,11 +1705,11 @@ fn top_of_the_pile(out: &mut String, app: &AppReport) {
     if app.top.is_empty() {
         return;
     }
-    out.push_str("<h3>The top of the pile</h3>\n");
+    out.push_str("<h3>The most helpful reviews</h3>\n");
     let _ = writeln!(
         out,
-        "<p class=\"note\">The {} reviews Steam ranks as most helpful, which is roughly what a \
-         reader sees before deciding. Every rate above is measured against the whole corpus \
+        "<p class=\"note\">The {} reviews Steam ranks as most helpful, roughly what a store \
+         visitor sees before deciding. Every rate above is measured against all the reviews \
          instead.</p>",
         thousands(app.reading.top_helpful)
     );
@@ -1849,7 +1848,7 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
         );
     }
     if example.from_the_top {
-        out.push_str("<span class=\"chip top\">top of the pile</span>");
+        out.push_str("<span class=\"chip top\">most helpful</span>");
     }
     // A claim that scraped past the threshold and one the model is certain of are not equally
     // good evidence, and a page that shows them identically is inviting the wrong conclusion.
@@ -1932,15 +1931,23 @@ fn review(out: &mut String, app: &AppReport, example: &Example) {
 ///
 /// The rule is the promise the page is making. Two reports produced by the same weights under
 /// different lines are not comparable, and a reader given the numbers without it cannot tell
-/// which they have. The reader is named with its run beside it, because the name is what
-/// somebody cites and the run is what the index knows it as.
-fn built_from(app: &AppReport) -> String {
+/// which they have. The name is what somebody cites, and the build line holds the ids the
+/// index knows the reader by.
+fn read_by(app: &AppReport) -> String {
     // Plain text: the fact it lands in escapes it, and a tag written here would be read out.
     let reading = &app.reading;
     format!(
-        "{} (run {}), a fine-tune of {}, trained on label set {}, answering a claim only where \
-         it clears the line drawn for its subject and the one for its language (rule {})",
-        reading.reader, reading.read_with, reading.model, reading.trained_on, reading.read_by_rule
+        "{}, fine-tuned from {}. It answers a claim only where it clears the line drawn for its \
+         subject and the one for its language.",
+        reading.reader, reading.model
+    )
+}
+
+fn built_from(app: &AppReport) -> String {
+    let reading = &app.reading;
+    format!(
+        "run {}, label set {}, rule {}",
+        reading.read_with, reading.trained_on, reading.read_by_rule
     )
 }
 
@@ -1974,18 +1981,14 @@ fn why_it_declines(out: &mut String, app: &AppReport, total: u64) {
 
     say(
         &app.reading.unread_languages,
-        "{share} of them are in a language the reader declines outright ({names}): the \
-         reference set holds too few claims there to keep its accuracy promise, so it says \
-         nothing rather than guessing. That is a gap in the labels, not a finding about this \
-         game.</p>",
+        "{share} of them are in a language the reader declines every claim in ({names}), which \
+         has too few labels.</p>",
     );
     // Almost always the larger of the two, and the one a reader would otherwise misread.
     say(
         &app.reading.strict_languages,
         "{share} are in a language the reader has to be surer about than English before it \
-         will answer at all ({names}). A corpus weighted towards those declines more than \
-         usual for that reason rather than for anything about the game, and what it wants is \
-         more labels in those languages.</p>",
+         answers ({names}), so it declines more of them. These need more labels.</p>",
     );
 }
 
@@ -2008,8 +2011,8 @@ fn languages(out: &mut String, app: &AppReport) {
     out.push_str("<h3>What language it was said in</h3>\n");
     let _ = writeln!(
         out,
-        "<p class=\"note\">{} of these reviews are not in English. Steam shows a reader their \
-         own language by default, so most of this argument is one they never see.</p>",
+        "<p class=\"note\">{} of these reviews are not in English. Steam shows each visitor \
+         reviews in their own language first.</p>",
         percent(not_english)
     );
 
@@ -2077,7 +2080,8 @@ fn trust(out: &mut String, app: &AppReport) {
     out.push_str("<h3>How far to trust this</h3>\n");
     out.push_str("<dl class=\"facts wide\">\n");
 
-    fact(out, "Read by", &built_from(app));
+    fact(out, "Read by", &read_by(app));
+    fact(out, "Build", &built_from(app));
     // Two readings cut by different splitters count different claims from the same reviews,
     // so a page says which cut its claim counts are counts of.
     // Shallow numbers are not deep numbers with less work in them. A review about six things
@@ -2130,9 +2134,9 @@ fn trust(out: &mut String, app: &AppReport) {
         };
         fact(
             out,
-            "Claims it would not answer",
+            "Claims left unfiled",
             &format!(
-                "{} ({}), counted as unclassified rather than filed under a best guess{against}",
+                "{} ({}), not filed under a best guess{against}",
                 thousands(app.reading.unclassified_claims),
                 percent(share)
             ),
@@ -2179,16 +2183,13 @@ fn measured_here(out: &mut String, app: &AppReport) {
                 ceiling_note(out, ceiling);
             }
         }
-        crate::report::Measurement::Unlabelled => unmeasured_here(
-            out,
-            app,
-            "No claims have been labelled for this game, so how often the model is wrong \
-             <em>here</em> has not been measured.",
-        ),
+        crate::report::Measurement::Unlabelled => {
+            unmeasured_here(out, app, "No one has labelled this game.");
+        }
         crate::report::Measurement::Learned => unmeasured_here(
             out,
             app,
-            "This game's labelled claims are in the model's training set, so how often it \
+            "This game's labelled claims are in the reader's training set, so how often it \
              agrees with them says how well it remembers them, not how it reads, and nothing \
              here is scored against them.",
         ),
@@ -2205,9 +2206,8 @@ fn measured_here(out: &mut String, app: &AppReport) {
     }
 
     out.push_str(
-        "<p class=\"note\">These rates are a census, not a survey: every review Valve serves \
-         was counted, so there is no sampling error to report. What they do carry is \
-         classifier error, which is what the agreement figure above measures.</p>\n",
+        "<p class=\"note\">Every review Steam serves was counted, so there is no sampling \
+         error. The error is the reader's, which the agreement figure measures.</p>\n",
     );
 }
 
@@ -2228,11 +2228,9 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
     };
     let _ = writeln!(
         out,
-        "<p class=\"warn\">{why} What is measured is how it does on {} games it had never \
-         seen, over {} labelled claims: it answers {} of them and names the same subject a \
-         separate labeller did {} of the time when it does, declining the rest rather than \
-         guessing. Those labellers were themselves language models. Expect this corpus to be \
-         somewhere near that and treat every rate as provisional.</p>",
+        "<p class=\"warn\">{why} On {} games it never trained on, over {} labelled claims, the \
+         reader answers {} of claims and agrees with the labels on {}. Language models wrote \
+         those labels.</p>",
         held_out.games,
         thousands(u64::from(held_out.claims)),
         percent(held_out.coverage),
@@ -2253,12 +2251,12 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
         return;
     };
     let range = ceiling.interval().map_or_else(String::new, |(low, high)| {
-        format!(", somewhere in [{}, {}]", percent(low), percent(high))
+        format!(" ({} to {})", percent(low), percent(high))
     });
     let split = ceiling.where_they_split().map_or_else(String::new, |rate| {
         format!(
-            " On the {} they read differently there is no single answer to be right about, and \
-             it lands on one of their two {} of the time.",
+            " Where the two differ, on {} claims, the reader gives one of their two answers {} \
+             of the time.",
             thousands(ceiling.labellers_split),
             percent(rate)
         )
@@ -2268,19 +2266,15 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
     // one whose errors are all on the hard claims, and a reader deserves to know which.
     let clear = ceiling.on_the_clear().map_or_else(String::new, |rate| {
         format!(
-            " Of the settled claims, {} were ones neither labeller called contested, and on \
-             those it agrees {} of the time.",
-            thousands(ceiling.settled_and_clear),
-            percent(rate)
+            ", and {} on the {} neither labeller marked ambiguous",
+            percent(rate),
+            thousands(ceiling.settled_and_clear)
         )
     });
     let _ = writeln!(
         out,
-        "<p class=\"note\"><strong>{} of those claims were read a second time</strong>, by a \
-         different labeller working blind, and the two reached the same subject on {} of them. \
-         On those settled claims the model agrees {}{}, which is the nearest thing to accuracy \
-         a set labelled by models can produce: a label two independent readings reached is one \
-         worth scoring against.{}{}</p>",
+        "<p class=\"note\"><strong>A second labeller read {} of these claims blind</strong> and \
+         agreed on the subject for {}. On those the reader agrees {}{}{}.{}</p>",
         thousands(ceiling.compared),
         percent(between),
         percent(settled),
@@ -2296,11 +2290,10 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
     };
     let _ = writeln!(
         out,
-        "<p class=\"warn\">Of the {} labelled claims this model was willing to answer, it \
-         named the same subject a separate labeller did {} of the time, somewhere in [{}, {}] \
-         with 95% confidence. The labeller was itself a language model, so that is \
-         <strong>agreement, not accuracy</strong>: two models can be wrong together, most \
-         easily on sarcasm and on claims that sit between subjects.</p>",
+        "<p class=\"warn\">Of the {} labelled claims the reader answered, it named the same \
+         subject as a separate labeller {} of the time, somewhere in [{}, {}] with 95% \
+         confidence. The labeller was a language model. Two models can be wrong together, \
+         most often on sarcasm and on claims between subjects.</p>",
         thousands(agreement.answered),
         percent(rate),
         percent(low),
@@ -2313,9 +2306,8 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
     if let Some(declined) = agreement.declined_share() {
         let _ = writeln!(
             out,
-            "<p class=\"note\">That figure covers the {} of those claims it answered. It \
-             declined the other {}, which are counted as unclassified everywhere on this page \
-             rather than being filed under a best guess.</p>",
+            "<p class=\"note\">That figure covers the {} of those claims it answered. It left \
+             the other {} unfiled, as everywhere on this page.</p>",
             percent(1.0 - declined),
             percent(declined)
         );
@@ -2384,16 +2376,21 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
         .iter()
         .filter(|s| s.labelled >= ENOUGH_TO_JUDGE_A_ROW)
         .filter_map(|s| s.mistaken_for.map(|(other, count)| (s, other, count)))
+        .filter(|(s, other, _)| s.id != *other)
         .max_by_key(|(_, _, count)| *count);
     if let Some((subject, other, count)) = worst {
         let _ = writeln!(
             out,
             "<p class=\"note\">Where it disagrees most, {} claims the labeller called \
-             {} were read as {}. That is a boundary between two subjects rather than a \
-             mistake about one of them.</p>",
+             {} were read as {}.</p>",
             thousands(count),
             escape(subject.label),
-            escape(other)
+            escape(
+                SHEET
+                    .iter()
+                    .find(|row| row.id == other)
+                    .map_or(other, |row| row.label)
+            )
         );
     }
 }
@@ -2407,7 +2404,7 @@ fn page_footer(out: &mut String, report: &Report) {
     out.push_str("</ul>\n");
     let _ = writeln!(
         out,
-        "<p class=\"note\">Rendered on {} by SteamGauge, from captures taken on the \
+        "<p class=\"note\">Rendered on {} by SteamGauge, from downloads made on the \
          dates given above. Nothing on this page was sent anywhere to produce it.</p>",
         escape(&crate::time::day(report.generated_unix))
     );
@@ -2415,15 +2412,13 @@ fn page_footer(out: &mut String, report: &Report) {
 }
 
 const FOOTER_LIMITS: [&str; 4] = [
-    "Every review Valve will serve is not every review ever written. Reviews from banned \
-     accounts, deleted reviews, and reviews the API stops paging through are missing, and \
-     nobody outside Valve can measure how many.",
-    "A category assignment is a machine reading one review once. It has no idea whether a \
-     joke is a joke, and sarcasm is exactly where it is weakest.",
+    "Some reviews Steam counts cannot be downloaded. Coverage shows how much of Steam's total \
+     is held.",
+    "The reader reads each claim once. Sarcasm is where it errs most.",
     "Counting how often something is mentioned says nothing about whether the people saying \
      it are right, or whether the ones who never mentioned it disagree.",
-    "The top of the pile is Steam's own ordering, which changes over time. A capture is a \
-     photograph of it, not a permanent fact.",
+    "The most helpful reviews are Steam's own order, which changes over time. This page shows \
+     Steam's order on the download date.",
 ];
 
 /// Steam's own names for languages, the tags a browser understands, and what to call them
@@ -2483,7 +2478,7 @@ fn bcp47(steam: &str) -> Option<&'static str> {
         .map(|(_, tag, _)| *tag)
 }
 
-/// What to call a Steam language on screen, falling back to whatever Steam called it.
+/// What to call a Steam language on screen. Falls back to whatever Steam called it.
 pub(crate) fn language_name(steam: &str) -> String {
     LANGUAGES
         .iter()
@@ -2984,7 +2979,7 @@ mod tests {
     #[test]
     fn a_month_too_small_to_carry_a_rate_stays_out_of_the_sparkline() {
         // One review in a five-review month is 20% and would set the scale for every month
-        // that has something to say. The categories are the same in both cases; only the
+        // that has something to say. The categories are the same in both cases. Only the
         // month sizes differ, and only the second should reach the chart.
         let noisy = vec![
             month("2024-01", 100, 10),
@@ -3028,7 +3023,7 @@ mod tests {
             page.contains("&lt;script&gt;alert(1)"),
             "the text itself is missing"
         );
-        // The game's own name is equally untrusted, coming from the store.
+        // The game's own name is equally untrusted, as it comes from the store.
         assert!(page.contains("A Game &lt;&amp; Friends&gt;"));
     }
 
@@ -3041,7 +3036,7 @@ mod tests {
         }
         assert!(page.contains("What this cannot tell you"));
         assert!(
-            page.contains("No claims have been labelled"),
+            page.contains("No one has labelled this game"),
             "a report with no measured agreement must say so"
         );
     }
@@ -3083,7 +3078,7 @@ mod tests {
         let mut out = String::new();
         ceiling_note(&mut out, &ceiling);
         assert!(
-            out.contains("400 of those claims were read a second time"),
+            out.contains("A second labeller read 400 of these claims blind"),
             "{out}"
         );
         assert!(
@@ -3098,9 +3093,9 @@ mod tests {
             out.contains("80.0%"),
             "it matched one of two on 32 of 40 split: {out}"
         );
-        assert!(out.contains("somewhere in ["), "{out}");
+        assert!(out.contains("% to "), "{out}");
         assert!(
-            out.contains("300 were ones neither labeller called contested"),
+            out.contains("on the 300 neither labeller marked ambiguous"),
             "{out}"
         );
         assert!(
@@ -3161,7 +3156,7 @@ mod tests {
         );
         assert!(well.contains("from 100 labels"), "{well}");
 
-        // Twelve labels describe a row; the sensitivity they measure has an interval
+        // Twelve labels describe a row. The sensitivity they measure has an interval
         // twenty-five points wide, and a share divided by it would move by more than itself.
         let mut thin = String::new();
         how_well_this_row_is_known(&mut thin, &scored(12, 10), Some(0.2));
@@ -3209,7 +3204,7 @@ mod tests {
 
         let page = render(&report);
         assert!(
-            page.contains("1,010 of the 1,000 Valve reports"),
+            page.contains("1,010 of the 1,000 Steam reports"),
             "the two numbers a reader has to reconcile are not both on the page"
         );
         assert!(
@@ -3221,7 +3216,7 @@ mod tests {
             "wrong count for what was captured but not read"
         );
         assert!(
-            page.contains("Claims it would not answer"),
+            page.contains("Claims left unfiled"),
             "a page that does not say how much the model declined cannot be read at all"
         );
 
@@ -3363,7 +3358,7 @@ mod tests {
         assert!(page.contains("Also said about Performance"));
         assert!(page.contains("<q>The screen stays &lt;black&gt;.</q>"));
         assert!(!page.contains("It boots to black."));
-        assert!(page.contains("No one point is made in enough reviews to name."));
+        assert!(page.contains("Nothing is said in enough reviews to name."));
     }
 
     /// An induced subject's evidence was never read by the counting model, and the page must
@@ -3534,7 +3529,7 @@ mod tests {
         );
 
         // Four reviews and none of them a thumb up is 0% and is not the month a game was
-        // hated in; thirty in a hundred is.
+        // hated in. Thirty in a hundred is.
         let mut noisy = vec![
             month("2024-01", 100, 10),
             month("2024-02", 4, 1),
@@ -3632,7 +3627,7 @@ mod tests {
             .expect("the section never ends")
             .0;
         assert!(
-            !section.contains("No claims have been labelled"),
+            !section.contains("No one has labelled this game"),
             "a game that has been labelled is reported as never labelled"
         );
         assert!(
@@ -3709,18 +3704,18 @@ mod tests {
         let claim = sentence(&render(&report));
         assert!(
             claim.contains(
-                "2 games the top of the pile overstates <strong>bugs and crashes</strong>"
+                "2 games the most helpful reviews overstate <strong>bugs and crashes</strong>"
             ) && claim.contains("by <strong>1.5\u{d7}</strong>"),
             "the pooled claim is not the one the pooled counts support: {claim}"
         );
         assert!(
-            claim.contains("60 of the 100 reviews at the top of those 2 piles")
+            claim.contains("60 of the 100 most helpful reviews")
                 && claim.contains("against 40.0% of all 2,000"),
             "the claim is counted over one game rather than both: {claim}"
         );
 
         // A subject the second game's most-helpful reviews are full of and its corpus is not.
-        // Reading either game alone still names bugs; only pooling moves the claim.
+        // Reading either game alone still names bugs. Only pooling moves the claim.
         report.apps[1].reading.subjects[1].top_mention_reviews = 45;
         let moved = sentence(&render(&report));
         assert!(
@@ -3809,7 +3804,7 @@ mod tests {
     #[test]
     fn a_report_of_several_games_says_what_they_disagree_about() {
         let mut report = two_games();
-        // Bugs is level across both; performance is the row that separates them.
+        // Bugs is level across both. Performance is the row that separates them.
         report.apps[1].reading.subjects[1].mention_reviews = 20;
 
         let page = render(&report);
@@ -3865,7 +3860,7 @@ mod tests {
 
     #[test]
     fn the_games_disagree_most_by_the_widest_gap_in_points_not_the_largest_ratio() {
-        // Bugs at 40% against 20% is twenty points apart; performance at 10% against 3% is
+        // Bugs at 40% against 20% is twenty points apart. Performance at 10% against 3% is
         // seven, though more than three times over.
         let mut report = two_games();
         report.apps[1].reading.subjects[0].mention_reviews = 200;
@@ -3880,7 +3875,7 @@ mod tests {
 
     #[test]
     fn agreement_is_pooled_only_when_every_game_was_measured() {
-        let willing = "labelled claims this model was willing to answer";
+        let willing = "labelled claims the reader answered";
         let mut report = two_games();
         report.apps[0].agreement =
             crate::report::Measurement::Measured(Box::new(measured(100, 80)));
@@ -3991,7 +3986,7 @@ mod tests {
         );
         assert!(page.contains("42 added or edited since the snapshot"));
         let warning = page
-            .find("The capture was brought up to date on")
+            .find("The download was brought up to date on")
             .expect("a warning");
         let table = page
             .find("<table class=\"categories\">")
@@ -4004,7 +3999,7 @@ mod tests {
         // A reading made after the sweep has nothing to warn about.
         report.apps[0].reading.captured_unix = 1_700_500_000;
         let page = render(&report);
-        assert!(!page.contains("The capture was brought up to date on"));
+        assert!(!page.contains("The download was brought up to date on"));
         assert!(page.contains("Brought up to date"));
     }
 
@@ -4221,7 +4216,7 @@ mod tests {
         let mut out = String::new();
         polarity_cell(&mut out, &category);
         assert!(out.contains("50.0% praise"), "{out}");
-        assert!(out.contains("25.0% gripe, 25.0% both"), "{out}");
+        assert!(out.contains("25.0% complaint, 25.0% both"), "{out}");
     }
 
     #[test]
@@ -4273,7 +4268,7 @@ mod tests {
         report.apps[0].reading.unread_languages = vec![("indonesian".to_owned(), 250)];
         let page = render(&report);
         assert!(
-            page.contains("declines outright"),
+            page.contains("declines every claim in"),
             "the page shows the decline and never says it is the labels"
         );
         assert!(
@@ -4283,7 +4278,7 @@ mod tests {
 
         let quiet = render(&sample_report("It crashes."));
         assert!(
-            !quiet.contains("declines outright"),
+            !quiet.contains("declines every claim in"),
             "a corpus in languages the reader has lines for is told it has a gap it does not"
         );
     }
@@ -4302,7 +4297,7 @@ mod tests {
             "a corpus weighted to the languages the reader is least sure in is not told so"
         );
         assert!(
-            page.contains("more labels in those languages"),
+            page.contains("These need more labels"),
             "the page names the cause and not the work it asks for"
         );
 
@@ -4478,7 +4473,10 @@ mod tests {
         let page = render(&measured_on(vec![scored("bugs", 100, 80)]));
         let bugs = between(&page, "id=\"panel-7-bugs\"", "</tr>");
         assert!(bugs.contains("Corrected for those errors"), "{bugs}");
-        assert!(bugs.contains("against the 26.7% the model read"), "{bugs}");
+        assert!(
+            bugs.contains("against the 26.7% the reader found"),
+            "{bugs}"
+        );
 
         let page = render(&measured_on(vec![scored("bugs", 100, 4)]));
         let row = |name: &str| between(&page, &format!("data-name=\"{name}\""), "</tr>").to_owned();
@@ -4575,7 +4573,7 @@ mod tests {
         top.review.text = "Steam put this first".to_owned();
         report.apps[0].top = vec![top];
         let page = render(&report);
-        let pile = between(&page, "<h3>The top of the pile</h3>", "</details>");
+        let pile = between(&page, "<h3>The most helpful reviews</h3>", "</details>");
         assert!(
             pile.contains("<summary>Read all 1 of them</summary>"),
             "{pile}"
@@ -4660,9 +4658,13 @@ mod tests {
     #[test]
     fn the_page_says_who_read_the_corpus_and_by_what_rule() {
         assert!(render(&sample_report("ordinary text")).contains(
-            "<dt>Read by</dt><dd>Game Review Reader (run a-reader), a fine-tune of test-reader, \
-             trained on label set 0123456789abcdef, answering a claim only where it clears the \
-             line drawn for its subject and the one for its language (rule fedcba9876543210)</dd>"
+            "<dt>Read by</dt><dd>Game Review Reader, fine-tuned from test-reader. It answers a \
+             claim only where it clears the line drawn for its subject and the one for its \
+             language.</dd>"
+        ));
+        assert!(render(&sample_report("ordinary text")).contains(
+            "<dt>Build</dt><dd>run a-reader, label set 0123456789abcdef, rule \
+             fedcba9876543210</dd>"
         ));
     }
 

@@ -193,7 +193,16 @@ fn assistants() -> Vec<Assistant> {
     all
 }
 
-/// Every assistant as a list, which is how the page reads on GitHub; the site shows the same as
+/// How many assistants the page names, each with its own setup.
+#[must_use]
+pub fn named_assistants() -> usize {
+    assistants()
+        .iter()
+        .filter(|assistant| assistant.id != "other")
+        .count()
+}
+
+/// Every assistant as a list, which is how the page reads on GitHub. The site shows the same as
 /// a picker, from `clients_picker`.
 fn clients() -> String {
     let mut text = String::new();
@@ -592,33 +601,7 @@ const COMMAND_GROUPS: &[(&str, bool, &[&str])] = &[
         true,
         &["update", "mcp", "clients", "connect", "disconnect"],
     ),
-    (
-        "Measuring and training the reader",
-        false,
-        &[
-            "claims",
-            "embed",
-            "store-facts",
-            "sample-claims",
-            "declined",
-            "rare-claims",
-            "distinct",
-            "ingest-induced",
-            "ingest-claims",
-            "second-opinion",
-            "compare-labels",
-            "revisit",
-            "ingest-revisit",
-            "measure-claims",
-            "ceiling",
-            "gold",
-            "ingest-gold",
-            "export-training",
-            "export-review-facts",
-            "export-pool",
-            "brief",
-        ],
-    ),
+    (reference::MEASURING_HEADING, false, reference::MEASURING),
 ];
 
 /// The command line, as `steamgauge --help` and each command's `--help` give it.

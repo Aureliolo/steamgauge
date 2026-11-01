@@ -11,7 +11,7 @@
 //! The new reviews are a later kind of reviewer, and they are held to who wrote it's bar rather
 //! than what moved's: a person looks again and again, and every look at every game tests some fifty
 //! shares. At three standard errors a library of ten games each gathering a few hundred reviews
-//! would show about one change chance made on every look; at four, on about one look in thirty.
+//! would show about one change chance made on every look. At four, about one look in thirty.
 
 use std::{collections::BTreeMap, io::Write, path::Path};
 
@@ -663,7 +663,7 @@ mod tests {
     #[test]
     fn praise_is_compared_as_well_as_complaint_and_clearest_comes_first() {
         let mut now = reading(MID_MAY_2024, 1_650, 1_300, 120);
-        // Story praised by 200 of the 400 new reviews, against 10% of the year before; bugs
+        // Story praised by 200 of the 400 new reviews, against 10% of the year before. Bugs
         // complained about by 60 of them, against 5%.
         now.subjects = serde_json::from_value(serde_json::json!([
             subject("bugs", 0, 120, 0),

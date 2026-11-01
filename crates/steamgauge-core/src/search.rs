@@ -8,7 +8,7 @@
 //! the reader said about it.
 //!
 //! It matches words, not meaning. "Steam Deck" does not find "the Deck" or a review in
-//! Russian, and every figure it gives is a count of the words typed and of nothing else; the
+//! Russian, and every figure it gives is a count of the words typed and of nothing else. The
 //! forms that matched are returned beside it so nobody has to guess which those were.
 
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -48,7 +48,7 @@ impl Phrase {
         (!words.is_empty()).then_some(Self { words, run: None })
     }
 
-    /// Whether `text` says the phrase, handing each form it was said in to `form`.
+    /// Whether `text` says the phrase. Each form it was said in is handed to `form`.
     pub fn found_in(&self, text: &str, mut form: impl FnMut(&str)) -> bool {
         let lowered = text.to_lowercase();
         if let Some(run) = &self.run {
@@ -179,7 +179,7 @@ struct Filed {
 /// searching, at about 32 bytes a claim. One flat list rather than a map of reviews, whose
 /// million keys and lists took longer to build and to free than the capture takes to walk.
 /// Steam's review ids are numbers, so a claim is found by its number without a string held for
-/// it; an id that is not one is no review Steam served and finds nothing.
+/// it. An id that is not one is no review Steam served and finds nothing.
 pub struct Readings(Vec<(u64, Filed)>);
 
 impl std::fmt::Debug for Readings {

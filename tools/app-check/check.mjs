@@ -101,7 +101,7 @@ const PROBE = `(async function () {
   check('a complaint that rose is not marked as bad news', $('#moves .move.complaint.up') !== null);
   check('a share recommending that fell is not marked as bad news', $('#moves .move.recommended.down') !== null);
   check('the cockpit does not list the models', $('#models').children.length === 4);
-  check('a newer release goes unmentioned', /v2 is published/.test($('#models').textContent));
+  check('a newer release goes unmentioned', /v2 is out/.test($('#models').textContent));
   check('a download still to come does not say its size', /1\\.3 GB download/.test($('#models').textContent));
   check('a model not here is not offered for download now',
     document.querySelectorAll('#models .model-fetch button').length === 3);
@@ -236,11 +236,12 @@ const PROBE = `(async function () {
   await pause();
   check('installing does not say the app closes and opens again',
     /Installing 0\\.2\\.0/.test(notice()) && /opens again as 0\\.2\\.0/.test($('#newer-step').textContent));
-  window.__stub.update({ state: 'failed', why: 'its signature does not verify: the log has no entry', file: false });
+  window.__stub.update({ state: 'failed', why: 'its signature could not be confirmed (the log has no entry)', file: false });
   await pause();
-  check('a failed update does not say nothing was installed and why',
+  check('a failed update does not say nothing was installed, why, and what to do',
     /The update to 0\\.2\\.0 stopped/.test(notice()) &&
-    /Nothing was installed, because its signature does not verify: the log has no entry\\./.test($('#newer-why').textContent));
+    /^Nothing was installed\\. Its signature could not be confirmed \\(the log has no entry\\)\\. Try again, or download it from the release page\\.$/
+      .test($('#newer-why').textContent));
   check('a failed update does not offer the release page', visible('newer-open') &&
     /Open the release page/.test($('#newer-open').textContent));
   check('a failed update cannot be tried again', visible('newer-update') && /Try again/.test($('#newer-update').textContent));
@@ -259,11 +260,13 @@ const PROBE = `(async function () {
   $('#newer-show').click();
   await pause();
   check('showing the downloaded file does not ask the core', called('show_update_file').length === 1);
-  window.__stub.update({ state: 'idle', why: 'scoop installed this copy, so Scoop updates it: scoop update steamgauge' });
+  window.__stub.update({ state: 'idle', why: 'update it with Scoop: \`scoop update steamgauge\`' });
   await pause();
   check('a copy the window does not update is offered Update now', !visible('newer-update'));
-  check('a copy the window does not update is not told why, as a sentence',
-    /^Scoop installed this copy.*scoop update steamgauge\\.$/.test($('#newer-why').textContent));
+  check('a copy the window does not update is not told how, as a sentence',
+    /^Update it with Scoop: scoop update steamgauge\\.$/.test($('#newer-why').textContent));
+  check('the command a copy is updated with is not set as code',
+    $('#newer-why code') !== null && $('#newer-why code').textContent === 'scoop update steamgauge');
   check('a copy the window does not update is not sent to its release page',
     visible('newer-open') && /Download it from its release page/.test($('#newer-open').textContent));
   window.__stub.update({ state: 'idle', why: null });
@@ -292,7 +295,7 @@ const PROBE = `(async function () {
     visible('about-changes') && /What changes when you update to 0\\.2\\.0/.test($('#about-changes-title').textContent) &&
     $('#about-releases').querySelectorAll('.about-release').length === 2 &&
     $('#about-releases li').textContent === 'About lists what each newer version changes');
-  check('a release that changed nothing downloaded is not said to', /Nothing in what you download/.test($('#about-releases').textContent));
+  check('a release that changed nothing downloaded is not said to', /No change to the app/.test($('#about-releases').textContent));
   const askedBefore = window.__stub.whatsNewAsked();
   await go('cockpit');
   await go('about');
@@ -760,7 +763,7 @@ const PROBE = `(async function () {
   await pause(300);
   check('a game with themes and no paragraph does not offer to write one, with its cost',
     !shown('in-short') && !shown('in-short-note') && shown('write-offer') &&
-    /these points, about a minute a game on this computer's processor, after a 2\\.7 GB download, once/.test(
+    /these themes, about a minute a game on this computer's processor, after a 2\\.7 GB download, once/.test(
       $('#write-offer-note').textContent) &&
     /^Write it, here and for every game I prepare$/.test($('#write-it').textContent.trim()));
   $('#write-it').click();
@@ -826,17 +829,12 @@ const PROBE = `(async function () {
   check('choosing an update does not show what changed across it', shown('around-body'));
   check('an update does not say how many reviews either side it rests on',
     /1,840 reviews in the 28 days before, 2,960 in the 28 days after/.test($('#around-counts').textContent));
-  check('the updates sharing its weeks go unmentioned', /2 other updates were posted within these weeks/.test($('#around-counts').textContent));
-  check('a change across an update is not said with both shares',
-    /complaints about bugs and crashes rose from 8% to 19%/.test($('#around-summary').textContent) &&
-    /the share recommending the game fell from 84% to 71%/.test($('#around-summary').textContent));
-  check('a complaint that rose is not marked as bad news',
-    Array.prototype.some.call(document.querySelectorAll('#around-summary .worse'), function (w) {
-      return /complaints about bugs/.test(w.textContent); }));
-  check('praise that rose is not marked as good news', $('#around-summary .better') !== null &&
-    /praise of performance/.test($('#around-summary .better').textContent));
+  check('the updates sharing its weeks go unmentioned', /Two other updates fall in these weeks/.test($('#around-counts').textContent));
+  check('an update that changed something repeats the table in a sentence', !shown('around-summary'));
   check('every subject is not shown before and after', document.querySelectorAll('#around-rows tr').length === 3);
   check('the changes are not marked in the table', document.querySelectorAll('#around-rows .changed').length === 2);
+  check('a complaint that rose is not marked as bad news', $('#around-rows .changed.worse') !== null);
+  check('praise that rose is not marked as good news', $('#around-rows .changed.better') !== null);
   check('a share within chance is marked as a change',
     !/changed/.test(document.querySelectorAll('#around-rows tr')[2].innerHTML));
   check('the share recommending the game is not shown either side',
@@ -876,8 +874,8 @@ const PROBE = `(async function () {
     !/Export the data/.test($('#game-jobs').textContent));
   check('the data can be asked for again while it is being written', $('#export-data').disabled);
   window.__stub.board([{ id: 77, task: { kind: 'export_data', app_id: 1, to: 'C:\\\\Alpha data' }, name: 'Alpha',
-    state: 'done', step: 'Writing the points', unit: 'reviews', done: 25900, total: 25900, rate: null, left: null,
-    note: 'Saved 78,000 points and the figures in C:\\\\Alpha data.', queued: 0, started: 0, ended: 0 }]);
+    state: 'done', step: 'Writing the claims', unit: 'reviews', done: 25900, total: 25900, rate: null, left: null,
+    note: 'Saved 78,000 claims and the figures in C:\\\\Alpha data.', queued: 0, started: 0, ended: 0 }]);
   await pause();
   var folder = Array.prototype.find.call(document.querySelectorAll('#export-jobs button'), function (b) {
     return b.textContent === 'Open the folder'; });
@@ -898,7 +896,7 @@ const PROBE = `(async function () {
   $('#topic-rows .subject').click();
   await pause(300);
   check('a subject does not show the points behind it', document.querySelectorAll('#quotes li').length === 2);
-  check('a count of points is not said in words', /^2 points about this/.test($('#evidence-lede').textContent));
+  check('a count of claims is not said in words', /^2 claims about this/.test($('#evidence-lede').textContent));
   check('a single page of points offers pages', !shown('paging'));
   check('the points behind the whole game are narrowed to one kind of reviewer', last('claims_behind').args.who === null);
   $('#back').click();
@@ -981,7 +979,7 @@ const PROBE = `(async function () {
   check('a game not prepared for search by meaning does not offer to find what its players say',
     shown('said-most') && !shown('said-sides') && shown('said-offer') &&
     /^Prepare this game$/.test($('#said-find').textContent.trim()) &&
-    /about 2 minutes on this computer's graphics card/.test($('#said-offer-note').textContent));
+    /About 2 minutes on this computer's graphics card/.test($('#said-offer-note').textContent));
   $('#said-find').click();
   await pause();
   check('finding what players say does not queue the game\\'s preparation', called('queue').some(function (call) {
@@ -1113,8 +1111,8 @@ try {
     shownBefore.forEach(function (put) { put(); });
     return wrong;
   })()`);
-  // The library's table scrolls inside its own frame, so the page never shows it running off;
-  // every width from the narrowest to a common laptop's is asked whether the table fits.
+  // The library's table scrolls inside its own frame, so the page never shows it running off.
+  // Every width from the narrowest to a common laptop's is asked whether the table fits.
   const sideways = [];
   for (const width of [760, 900, 1080, 1180, 1220, 1280, 1366]) {
     await send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });
@@ -1296,10 +1294,10 @@ try {
     const exporting = (state) =>
       "var at=Math.floor(Date.now()/1000);window.__stub.board([{id:96,task:{kind:'export_data',app_id:1," +
       "to:'C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data'},name:'Alpha',state:'" + state + "'," +
-      "step:'Writing the points',unit:'reviews',done:" + (state === "done" ? 25900 : 9400) + ",total:25900," +
+      "step:'Writing the claims',unit:'reviews',done:" + (state === "done" ? 25900 : 9400) + ",total:25900," +
       "rate:" + (state === "done" ? "null" : 4100) + ",left:" + (state === "done" ? "null" : 4) + ",note:" +
       (state === "done"
-        ? "'Saved 78,000 points and the figures in C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data.'"
+        ? "'Saved 78,000 claims and the figures in C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data.'"
         : "null") +
       ",queued:at-10,started:at-5,ended:" + (state === "done" ? "at" : "null") + "}])";
     // Every page whole, rather than the window's height of it, and settled: a page caught part way
@@ -1459,7 +1457,7 @@ try {
       await notice("installing", { state: "installing" });
       await notice("failed", {
         state: "failed",
-        why: "its signature does not verify: the transparency log has no entry for it",
+        why: "its signature could not be confirmed (the transparency log has no entry for it)",
         file: false,
       });
       await notice("declined", {
@@ -1469,7 +1467,7 @@ try {
       });
       await notice("elsewhere", {
         state: "idle",
-        why: "Scoop installed this copy, so Scoop updates it: scoop update steamgauge",
+        why: "update it with Scoop: `scoop update steamgauge`",
       });
     }
     // The narrowest window the app allows, where a layout is first to give.

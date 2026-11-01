@@ -69,7 +69,7 @@ export function setUpCompare({ openGame }) {
     set(
       el('compare-sub'),
       found.length < 2
-        ? 'Choose two or more read games. Each share is of that game’s own reviews.'
+        ? 'Each share is of that game’s own reviews.'
         : `${found.length} games. Each share is of that game’s own reviews.`,
     );
     const head = el('compare-head');

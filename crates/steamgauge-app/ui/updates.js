@@ -1,5 +1,5 @@
 /* A game's own updates on its timeline, and each subject in the weeks before one against the
-   weeks after it. The core decides what an update is and what changed across it; this draws
+   weeks after it. The core decides what an update is and what changed across it. This draws
    what it is told. Titles come from Steam and are always set as text. */
 
 import { invoke, el, set, make, whole, tenth, day, openOutside } from './common.js';
@@ -10,7 +10,7 @@ const CHART_WIDTH = 1000;
 /* Markers closer than this share of the chart's width are one marker: at the narrowest window
    two of them would otherwise overlap. */
 const TOO_CLOSE = 2.4;
-const NOTE = ' The dashed lines are its updates; a mark under the chart chooses one.';
+const NOTE = ' Vertical lines are updates. Click a mark under the chart to open one.';
 const NONE = { asked: null, updates: [], window_days: 28, enough: 100 };
 
 let game = null;
@@ -211,14 +211,9 @@ function either(compared, worse) {
   return cell;
 }
 
-function sentence(name, compared, worse) {
-  const rose = compared.after > compared.before;
-  return make(
-    'span',
-    rose === (worse === 'up') ? 'worse' : 'better',
-    `${name} ${rose ? 'rose' : 'fell'} from ${tenth.format(compared.before)} to ${tenth.format(compared.after)}`,
-  );
-}
+/* A small count as a word, as a sentence opens with one. */
+const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+const spelled = (count) => WORDS[count] ?? whole.format(count);
 
 function drawAround(found, kind) {
   const { window_days: days, enough } = listed;
@@ -239,9 +234,9 @@ function drawAround(found, kind) {
         `downloaded; bringing the game up to date fetches what followed.`
       : `${whole.format(before.reviews)} reviews in the ${days} days before, ${whole.format(after.reviews)} in ` +
         (found.after_whole ? `the ${days} days after.` : `the ${afterDays} days since, all this download holds.`);
-  if (found.nearby === 1) counts += ' One other update was posted within these weeks, and its effect is in them too.';
+  if (found.nearby === 1) counts += ' One other update falls in these weeks. Its effects are in these figures too.';
   if (found.nearby > 1) {
-    counts += ` ${whole.format(found.nearby)} other updates were posted within these weeks, and their effects are in them too.`;
+    counts += ` ${spelled(found.nearby)} other updates fall in these weeks. Their effects are in these figures too.`;
   }
   set(el('around-counts'), counts);
 
@@ -251,29 +246,19 @@ function drawAround(found, kind) {
     thin,
     found.enough
       ? ''
-      : `Too few reviews to call anything a change: each side needs ${whole.format(enough)}, so no share is ` +
-          `compared here.`,
+      : `Too few reviews to compare. Each side needs ${whole.format(enough)}.`,
   );
   el('around-table-wrap').hidden = !found.enough;
   el('around-summary').hidden = !found.enough;
 
-  const changes = [];
-  if (found.recommended?.change) changes.push(sentence('the share recommending the game', found.recommended, 'down'));
-  for (const subject of found.subjects) {
-    const name = subject.label.toLowerCase();
-    if (subject.praise.change) changes.push(sentence(`praise of ${name}`, subject.praise, 'down'));
-    if (subject.complaint.change) changes.push(sentence(`complaints about ${name}`, subject.complaint, 'up'));
-  }
+  /* What changed is marked in the line and the table below. Only its absence needs saying. */
+  const changed =
+    found.recommended?.change || found.subjects.some((subject) => subject.praise.change || subject.complaint.change);
   const summary = el('around-summary');
-  if (changes.length === 0) {
-    summary.replaceChildren('Nothing changed beyond chance: not the share recommending the game, and not any subject’s praise or complaints.');
-  } else {
-    summary.replaceChildren(
-      'Changed beyond chance: ',
-      ...changes.flatMap((part, index) => (index === 0 ? [part] : ['; ', part])),
-      '.',
-    );
-  }
+  summary.replaceChildren(
+    changed ? '' : 'Nothing changed beyond chance, neither the share recommending the game nor any subject’s praise or complaints.',
+  );
+  summary.hidden = !found.enough || changed;
 
   const recommended = el('around-recommended');
   recommended.hidden = !found.recommended;
@@ -297,10 +282,8 @@ function drawAround(found, kind) {
 
   set(
     el('around-footnote'),
-    `Each share is of the reviews written in its window. A change is a share that moved further than ` +
-      `chance would move it, three standard errors and at least two points, and a share is compared only ` +
-      `where each side holds at least ${whole.format(enough)} reviews, as on the cockpit’s What moved lately. ` +
-      `A change happened across the update; that alone does not make the update the reason for it.`,
+    `Each share is of the reviews written in its window. A change is at least three standard errors and ` +
+      `two points, with ${whole.format(enough)} reviews a side. The update may not be its cause.`,
   );
 }
 

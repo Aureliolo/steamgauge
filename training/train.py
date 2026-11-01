@@ -107,7 +107,7 @@ class Claims(Dataset):
         # How much of the target the second labeller's answer is, on a claim read twice. The
         # loss otherwise learns one labeller's answer to a contested claim at full confidence
         # and the disagreement, which is the only thing known about such a claim, is thrown
-        # away. At 0.5 a split claim is a coin between the two answers; the flag's weight
+        # away. At 0.5 a split claim is a coin between the two answers. The flag's weight
         # above already discounts it.
         self.second_weight = second_weight
         self.mark = mark
@@ -130,7 +130,7 @@ class Claims(Dataset):
         # The same dial for the language a claim is written in, and for the same reason. The
         # set is 71% English against a library that is 52.5%, and the reader is measurably
         # worse in Simplified Chinese and Korean than in English on evidence that does not
-        # overlap. A claim is a claim whichever language it is in; the loss did not think so.
+        # overlap. A claim is a claim whichever language it is in. The loss did not think so.
         self.language_balance = {}
         if language_balance:
             spoken = {}
@@ -172,7 +172,7 @@ class Claims(Dataset):
 
         Truncating a pair from the end spends the whole budget on the opening of the review,
         so a claim at the foot of a long one is read beside paragraphs it is nowhere near.
-        The budget is the same either way; where it is spent is not, and it is worth the most
+        The budget is the same either way. Where it is spent is not, and it is worth the most
         immediately around the claim.
         """
         at = claim.review_offset
@@ -250,7 +250,7 @@ class Claims(Dataset):
         The answer per subject is absent, or the polarity the claim takes on it. A label from a
         sheet that asked for every subject answers all of them, and so does one the labeller did
         not flag as mis-split, which covers its one subject and nothing else. One flagged under a
-        sheet that asked for a single subject answers only that one; the rest are left out of the
+        sheet that asked for a single subject answers only that one. The rest are left out of the
         loss rather than charged as absent, which is what the labeller never said.
         """
         size = len(self.subjects)
@@ -380,7 +380,7 @@ def symmetric_kl(left, right):
 
 def forever(loader):
     """The loader again from the top whenever it runs out. The pool is read at the labelled
-    set's pace, one batch per step, and is many times its size; which epoch it is on is of no
+    set's pace, one batch per step, and is many times its size. Which epoch it is on is of no
     interest, only that every step has a batch."""
     while True:
         yield from loader
@@ -389,7 +389,7 @@ def forever(loader):
 def recompute_activations(model: "ClaimReader") -> None:
     """Keeps no activations between the forward pass and the backward, computing them again as
     the backward needs them. Not reentrant, so the second forward draws the same dropout as the
-    first and the gradient is the one the run would have had; the card holds little beyond the
+    first and the gradient is the one the run would have had. The card holds little beyond the
     weights and the optimiser, for about a third more compute."""
     model.trunk.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False}
@@ -407,7 +407,7 @@ def average_of(model: torch.nn.Module, decay: float, on_host: bool):
     )
     if on_host and torch.cuda.is_available():
         # The copy is taken where the model is and only then moved, and the allocator keeps
-        # what it freed reserved; handed back, it is room the card's other users can have.
+        # what it freed reserved. Handed back, it is room the card's other users can have.
         torch.cuda.empty_cache()
     return averaged
 
@@ -417,7 +417,7 @@ class BestEpoch:
 
     Only what training moves is copied, off the card: for a LoRA run that is the adapters and the
     heads, a few megabytes beside a frozen base of eight gigabytes. The first 4B teacher was
-    still improving at its third and last epoch, so a longer run is the cheaper test of it; a
+    still improving at its third and last epoch, so a longer run is the cheaper test of it. A
     longer run whose last epoch is past its best then keeps the best rather than the last.
     """
 
@@ -450,7 +450,7 @@ def hold_card_memory(gigabytes: float | None, device: str) -> None:
     """Holds what the run keeps on the card to this many gigabytes.
 
     Resting yields the card's time, not its memory: the standard student given half the card's
-    time kept 20.1 GB of its 24, crowding out the work it shared the card with. Held, the
+    time kept 20.1 GB of its 24 and crowded out the work it shared the card with. Held, the
     allocator frees its own cache before asking for more, and the run fails if it needs more
     than this. What CUDA graphs record stays reserved in their own pools, which the allocator's
     count of live memory leaves out and the hold does not, so a figure is found by holding a
@@ -503,7 +503,7 @@ def charged(logits, target, class_weight=None):
     """Cross-entropy against a distribution, each class weighted as the hard form weights it.
 
     On a one-hot target this is exactly what `cross_entropy(weight=..., reduction="none")`
-    charges, so a run whose claims were read once is charged what every earlier run was; a
+    charges, so a run whose claims were read once is charged what every earlier run was. A
     claim read twice is charged against both answers in the proportion the dataset mixed.
     """
     log_probabilities = torch.log_softmax(logits.float(), dim=-1)
@@ -542,8 +542,8 @@ def soft_cross_entropy(logits, target, temperature):
     """What a student pays for disagreeing with a teacher's distribution.
 
     At a temperature above one, both sides are flattened before they are compared, so the
-    student learns the teacher's ranking of the wrong answers rather than only its favourite;
-    the loss is scaled back by the square of the temperature so its gradient keeps its size.
+    student learns the teacher's ranking of the wrong answers rather than only its favourite.
+    The loss is scaled back by the square of the temperature so its gradient keeps its size.
     """
     if temperature != 1.0:
         target = torch.softmax(torch.log(target.clamp(min=1e-8)) / temperature, dim=-1)
@@ -569,7 +569,7 @@ class ClaimReader(torch.nn.Module):
 
     The subject head names the one subject a claim is chiefly about and the polarity head what
     it does about it. The aspect head, on a reader trained with one, answers for every subject
-    whether the claim covers it and with what polarity; it sits beside the other two rather than
+    whether the claim covers it and with what polarity. It sits beside the other two rather than
     replacing them, so the subject a claim is chiefly about, the abstention drawn on it and every
     figure scored on it mean what they meant.
     """
@@ -595,7 +595,7 @@ class ClaimReader(torch.nn.Module):
         self.pooling = pooling
         # Whether the trunk is handed its mask as [batch, query, key]. Handed [batch, key],
         # transformers asks the card whether the mask is all ones before it builds one, and a
-        # CUDA graph cannot answer a question; the square mask is built directly, the same mask.
+        # CUDA graph cannot answer a question. The square mask is built directly, the same mask.
         self.square_mask = False
         self.drop = torch.nn.Dropout(dropout)
         self.subject = torch.nn.Linear(width, subjects)
@@ -611,7 +611,7 @@ class ClaimReader(torch.nn.Module):
         hidden = self.trunk(input_ids=input_ids, attention_mask=trunk_mask).last_hidden_state
         if self.pooling == "last":
             # A decoder reads under a causal mask, so only the last token has seen the whole
-            # claim; averaging the rest averages prefixes. Right padding puts that token at
+            # claim. Averaging the rest averages prefixes. Right padding puts that token at
             # the mask's length.
             last = attention_mask.sum(dim=1) - 1
             pooled = hidden[torch.arange(hidden.shape[0], device=hidden.device), last]
@@ -635,7 +635,7 @@ class ClaimReader(torch.nn.Module):
 
 
 class Passes(torch.nn.Module):
-    """The reader as one pass of training reads it, returning only what the loss uses.
+    """The reader as one pass of training reads it. It returns only what the loss uses.
 
     A CUDA graph replays into the same output buffers every time, so the two R-drop passes are
     one callable rather than two calls, the second of which would overwrite the first's answers.
@@ -651,7 +651,7 @@ class Passes(torch.nn.Module):
 
     def parameters(self, recurse: bool = True):
         # A graph differentiates every parameter its callable owns and refuses one the pass
-        # never reads; a pass that returns no aspects reads nothing of the aspect head.
+        # never reads. A pass that returns no aspects reads nothing of the aspect head.
         head = self.model.aspects
         unread = set() if self.aspects or head is None else {id(p) for p in head.parameters()}
         return (p for p in super().parameters(recurse) if id(p) not in unread)
@@ -671,14 +671,14 @@ def graphed(model: ClaimReader, shapes: dict, rdrop: bool, aspects: bool, device
     Each training pass is thousands of small kernels, and eager PyTorch launches them one at a
     time from Python: on a processor other work holds, the card waits on the launches rather
     than the arithmetic. Replayed as a graph, a pass is one launch, forward and backward, and the
-    card runs at its own pace. The loss and the optimiser stay eager; they are a few kernels.
+    card runs at its own pace. The loss and the optimiser stay eager. They are a few kernels.
     Every batch must have the shape it was recorded at, which the fixed-length padding gives
     and dropping each epoch's short last batch completes.
     """
     model.square_mask = True
     pooler = getattr(model.trunk, "pooler", None)
     if pooler is not None:
-        # Never read, since the reader pools for itself, so it never had a gradient; a graph
+        # Never read, since the reader pools for itself, so it never had a gradient. A graph
         # insists every parameter it differentiates takes part.
         pooler.requires_grad_(False)
     names = list(shapes)
@@ -861,7 +861,7 @@ def confidence_of(model, loader, device):
 def area_under_risk_coverage(confidence, correct):
     """How good the confidence ordering is, without reference to any threshold.
 
-    Lower is better. A threshold is a policy; this is the property the policy is drawn from,
+    Lower is better. A threshold is a policy. This is the property the policy is drawn from,
     and it is what tells you whether a backbone knows when it does not know. Two models can
     reach the same accuracy and only one of them be usable with abstention.
     """
@@ -1158,7 +1158,7 @@ def run(args) -> dict:
                 ),
                 batch_size=micro if name == "train" else args.batch_size,
                 shuffle=name == "train",
-                # A recorded pass takes only the shape it was recorded at; the short batch an
+                # A recorded pass takes only the shape it was recorded at. The short batch an
                 # epoch ends on is fewer claims than one pass, a different few each epoch.
                 drop_last=name == "train" and args.cuda_graphs,
                 num_workers=0,
@@ -1230,7 +1230,7 @@ def run(args) -> dict:
     scaler = torch.amp.GradScaler(device, enabled=device == "cuda")
     # An exponential average of the weights along the run, evaluated and saved in place of the
     # last step's. The last step of a run that has memorised its labels is the most
-    # over-confident checkpoint it has; the average sits in the flatter part of the basin.
+    # over-confident checkpoint it has. The average sits in the flatter part of the basin.
     averaged = average_of(model, args.ema, args.average_on_host) if args.ema > 0 else None
 
     # Rare subjects would otherwise be drowned by `verdict`, which is most of any corpus.
@@ -1311,7 +1311,7 @@ def run(args) -> dict:
                     )
                 if args.error_reg > 0:
                     # Against the first labeller's answer, which is what the abstention rule
-                    # is fitted and scored against; a claim read twice is still one answer to
+                    # is fitted and scored against. A claim read twice is still one answer to
                     # be surer of than of a wrong one.
                     loss = loss + args.error_reg * error_regularisation(
                         subject, batch["subject"].to(device), args.error_reg_margin
@@ -1412,7 +1412,7 @@ def run(args) -> dict:
             flush=True,
         )
         # Macro F1 rather than accuracy: the rows a reader has to get right are the rare ones,
-        # and accuracy is a quarter `verdict`. Only the validation games choose; the held-out ones
+        # and accuracy is a quarter `verdict`. Only the validation games choose. The held-out ones
         # never see this.
         if best is not None and best.offer(metrics["macro_f1"], epoch + 1, model):
             print(f"  best so far: epoch {epoch + 1}, kept", flush=True)

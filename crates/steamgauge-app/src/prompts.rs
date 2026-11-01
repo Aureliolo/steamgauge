@@ -28,7 +28,7 @@ pub struct Spec {
     pub title: &'static str,
     pub description: &'static str,
     pub arguments: &'static [Argument],
-    /// The request; a required argument is always given.
+    /// The request. A required argument is always given.
     text: fn(&Given) -> String,
 }
 
@@ -41,7 +41,7 @@ const GAME: Argument = Argument {
 /// How a game named any way becomes one that has been read, the same for every prompt.
 const READY: &str = "Find the Steam app id of each game: from a store link or a number given, or \
 with find_games by its name, asking me which where more than one matches. Check library for each. \
-One that is not there needs a download task in queue; one that has not been read, or whose reading \
+One that is not there needs a download task in queue. One that has not been read, or whose reading \
 is not current, needs a read task once its download is done, unless work already shows one. Follow \
 work until they are done, telling me how long is left.";
 
@@ -50,7 +50,7 @@ pub const PROMPTS: &[Spec] = &[
         name: "what_players_say",
         title: "What players say about a game",
         description: "What a game's players praise and criticise, from every one of its Steam \
-                      reviews, downloading and reading it first where it has to be.",
+                      reviews. The game is downloaded and read first where it has to be.",
         arguments: &[GAME],
         text: |given| {
             let game = given("game").unwrap_or_default();
@@ -67,8 +67,8 @@ pub const PROMPTS: &[Spec] = &[
     Spec {
         name: "compare_games",
         title: "Compare games",
-        description: "Where the players of two or more games differ, subject by subject, \
-                      downloading and reading each first where it has to be.",
+        description: "Where the players of two or more games differ, subject by subject. Each \
+                      game is downloaded and read first where it has to be.",
         arguments: &[Argument {
             name: "games",
             description: "Two or more games, by name, Steam store link or app id, separated by \
@@ -95,8 +95,8 @@ pub const PROMPTS: &[Spec] = &[
             GAME,
             Argument {
                 name: "update",
-                description: "The update, by its title or date as Steam lists it; the newest \
-                              where none is given.",
+                description: "The update, by its title or date as Steam lists it. The newest \
+                              when none is given.",
                 required: false,
             },
         ],

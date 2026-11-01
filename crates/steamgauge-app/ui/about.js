@@ -3,7 +3,7 @@
    this copy's details for a report of a problem and whether its build was checked, what
    SteamGauge is built on, and SteamGauge's own pages. */
 
-import { invoke, listen, el, set, page, go, openOutside, LOCALE } from './common.js';
+import { invoke, listen, el, set, setWithCode, page, go, openOutside, LOCALE } from './common.js';
 import { startUpdate } from './newer.js';
 
 let about = null;
@@ -16,7 +16,9 @@ let noticesFailure = null;
 
 const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
 
-const when = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
+const medium = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
+/* British English shortens September to "Sept" alone, beside three letters for every other month. */
+const when = { format: (date) => medium.format(date).replace('Sept', 'Sep') };
 const at = (seconds) => when.format(new Date(seconds * 1000));
 
 /* The versions the list covers: up to the newer release where there is one, and otherwise since
@@ -51,7 +53,9 @@ function updateLine() {
   if (underWay(update.state)) {
     return { downloading: `Downloading ${version}.`, verifying: `Checking ${version}.`, installing: `Installing ${version}; SteamGauge closes and opens again.` }[update.state];
   }
-  if (update.state === 'failed') return `The update to ${version} stopped, and nothing was installed, because ${update.why}.`;
+  if (update.state === 'failed') {
+    return `The update to ${version} stopped. Nothing was installed. ${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`;
+  }
   if (update.why) return `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`;
   return '';
 }
@@ -65,7 +69,7 @@ function drawRelease(release) {
   if (release.changes.length === 0) {
     const none = document.createElement('p');
     none.className = 'quiet small';
-    set(none, 'Nothing in what you download.');
+    set(none, 'No change to the app.');
     node.append(none);
     return node;
   }
@@ -173,7 +177,7 @@ function draw() {
   set(el('about-asked'), askedLine());
   const line = about.newer ? updateLine() : '';
   el('about-update-state').hidden = !line;
-  set(el('about-update-state'), line);
+  setWithCode(el('about-update-state'), line);
 
   const offered = about.newer && ((update.state === 'idle' && !update.why) || update.state === 'failed');
   el('about-update').hidden = !offered;

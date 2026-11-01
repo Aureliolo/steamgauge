@@ -8,9 +8,7 @@
 
 ## Effect on reported numbers
 
-<!-- Delete if none. Anything touching ingestion parameters, the taxonomy, the classifier,
-     the denominators or the gold set changes what the tool reports. Say which figures move
-     and whether existing corpora stay comparable. -->
+<!-- Delete if none. Say which figures move and whether existing corpora stay comparable. -->
 
 ## Checks
 

@@ -40,7 +40,7 @@ const server = createServer((request, reply) => {
     // The first post is kept late on purpose. A subject and a polarity are two keys and two
     // posts, and a page that sends the second before the first has been answered lets them
     // land in either order: the older one, with no polarity, then overwrites the newer. That
-    // failed this check one run in twelve by chance; held back, it fails every time it can.
+    // failed this check one run in twelve by chance. Held back, it fails every time it can.
     const late = posts === 0 ? 300 : 0;
     posts += 1;
     let body = "";

@@ -1,6 +1,6 @@
 """Continues the encoder's pretraining on reviews before it is fine-tuned to read them.
 
-The backbone learned its language on web text; reviews have their own (frame drops, heists,
+The backbone learned its language on web text. Reviews have their own (frame drops, heists,
 gacha, "skill issue") and their own shape. Masked-language pretraining on the corpus for a
 pass moves the encoder towards that before a single label is spent, which is the one thing a
 labelled set cannot buy. The reviews come from `steamgauge export-pool`, so they are from the
@@ -89,7 +89,7 @@ def main():
 
     tokenizer = backbones.load(AutoTokenizer, args.backbone)
     # The encoder's checkpoint carries no language-model head, so the head starts from noise
-    # and learns in the first few hundred steps; the encoder underneath is what is kept.
+    # and learns in the first few hundred steps. The encoder underneath is what is kept.
     model = backbones.load(AutoModelForMaskedLM, args.backbone).to(device)
     collate = DataCollatorForLanguageModeling(tokenizer, mlm_probability=args.mask)
     loader = DataLoader(

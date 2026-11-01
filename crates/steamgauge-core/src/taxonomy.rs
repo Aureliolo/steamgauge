@@ -2,7 +2,7 @@
 //!
 //! These are the categories that stay the same across every game, so numbers from different
 //! corpora can be compared. Game-specific categories are induced separately and layered on
-//! top; nothing here is meant to describe any particular game well.
+//! top. Nothing here is meant to describe any particular game well.
 //!
 //! Each category carries a *description written the way a review would say it*, not an
 //! abstract label. The classifier compares review vectors against these descriptions, and
@@ -11,7 +11,7 @@
 //!
 //! A category also carries a **boundary rule**, which is written for whoever is labelling
 //! and is deliberately never embedded. Rules are about how to choose between two categories
-//! and read like instructions; feeding "prefer difficulty when the complaint is about
+//! and read like instructions. Feeding "prefer difficulty when the complaint is about
 //! balance" to an embedding model would drag the anchor towards the vocabulary of
 //! instructions and away from the vocabulary of reviews.
 
@@ -1072,7 +1072,7 @@ rather than filled in with a guess.
 /// What every label carries besides its categories.
 ///
 /// Generated with the categories and for the same reason. The boundaries were written down
-/// because labellers disagreed about them; these were left to whatever each batch was told,
+/// because labellers disagreed about them. These were left to whatever each batch was told,
 /// and one of them decides how a headline figure is reported. `ambiguous` is what splits
 /// agreement into clear-cut and contested, and across the earliest reference sets it marked between 21%
 /// and 35% of a game depending on who labelled it, which is a spread no property of the
@@ -1080,7 +1080,7 @@ rather than filled in with a guess.
 ///
 /// `ironic` is a claim about the words, not about the rating. The labeller is never shown
 /// whether the reviewer recommended the game, so that they cannot be led by it, which means
-/// they cannot report that the two disagree either. They say what the text does; joining
+/// they cannot report that the two disagree either. They say what the text does. Joining
 /// that to the rating is arithmetic and belongs to the tool.
 const FIELDS: &str = "\
 Every label is five fields. The first two say which categories the review covers; the other

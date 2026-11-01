@@ -32,7 +32,7 @@ export async function startWork() {
   drawAll();
 }
 
-/* Puts `items` in `list`, leaving each node already there that would be drawn the same. The core
+/* Puts `items` in `list`. It leaves each node already there that would be drawn the same. The core
    sends the board four times a second while a job moves, so a tick then lays out only the job
    that moved, and a bar's animation runs on instead of starting over at every tick. */
 export function settle(list, items) {
@@ -82,7 +82,7 @@ function amount(job) {
       case 'games':
         return `${whole.format(Math.round(value))} games`;
       case 'points':
-        return `${whole.format(Math.round(value))} points`;
+        return `${whole.format(Math.round(value))} claims`;
       default:
         return `${whole.format(Math.round(value))} reviews`;
     }
@@ -112,7 +112,7 @@ export function jobItem(job, { named = true } = {}) {
   const item = make('li', `job ${job.state}`);
   /* Two jobs can read the same, and a drawing kept in place must keep the right one's buttons. */
   item.dataset.job = job.id;
-  /* A running job says so with its bar; a pill is for how a job ended. */
+  /* A running job says so with its bar. A pill is for how a job ended. */
   const ended = {
     done: ['Done', 'good'],
     failed: ['Failed', 'bad'],

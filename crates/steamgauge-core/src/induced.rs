@@ -2,13 +2,13 @@
 //!
 //! The sheet is the floor, not the ceiling. A truck simulator's players talk about mud
 //! physics and a horror game's about jump scares, and neither is a row every game shares. A
-//! language model reads the diverse handout for a game and names what it finds; this is the
+//! language model reads the diverse handout for a game and names what it finds. This is the
 //! shape of what it hands back, and the checks that stop a hallucinated subject reaching a
 //! report.
 //!
 //! The check is evidence. Every induced subject has to name the reviews in the handout that
 //! raise it, by id, and a subject that names reviews not in the handout, or fewer than a
-//! handful, is refused. A model asked for subjects will produce subjects; the reviews are what
+//! handful, is refused. A model asked for subjects will produce subjects. The reviews are what
 //! make them a finding about the game rather than a list.
 
 use std::path::Path;
@@ -123,7 +123,7 @@ pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<
         }
 
         // A review cited twice is one review, and citing it twice is untidy rather than
-        // dishonest; citing one the handout never held is the thing that refuses a subject.
+        // dishonest. Citing one the handout never held is the thing that refuses a subject.
         let mut cited: Vec<&String> = subject.evidence.iter().collect();
         cited.sort();
         cited.dedup();
@@ -174,7 +174,7 @@ pub fn default_path(app_id: u32) -> std::path::PathBuf {
 ///
 /// # Errors
 ///
-/// Fails only if the file exists and is malformed; a missing file is `None`.
+/// Fails only if the file exists and is malformed. A missing file is `None`.
 pub fn load(path: &Path) -> Result<Option<InducedSet>> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),

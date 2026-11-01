@@ -167,7 +167,7 @@ fn sources() -> impl Iterator<Item = &'static str> {
 enum Cli {
     /// Write the parts of the README and docs/ that come from the program's own tables.
     Write,
-    /// Build the site into a folder, refusing a page whose generated parts are out of date.
+    /// Build the site into a folder. A page whose generated parts are out of date is refused.
     Build {
         /// The folder to build into: missing, empty, or an earlier build, which is replaced.
         #[arg(long)]

@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{FromArgMatches as _, Parser, Subcommand, ValueEnum};
 use steamgauge_core::{
     CrawlOptions, CrawlReport, DEFAULT_BATCH_SIZE, DEFAULT_SHARD_TARGET, SteamClient, StopReason,
     crawl,
@@ -79,10 +79,10 @@ impl From<Grain> for steamgauge_core::taxonomy::Unit {
 /// How closely the reading pass reads.
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
 enum Reading {
-    /// Each review becomes the separate points it makes.
+    /// Each review becomes the claims it makes.
     #[default]
     Deep,
-    /// Each review is one point.
+    /// Each review is one claim.
     Shallow,
 }
 
@@ -100,7 +100,7 @@ impl From<Reading> for steamgauge_core::read::Depth {
 enum SplitsFrom {
     /// None: the blind sample only.
     None,
-    /// The games the model never saw, which is also where the blind sample comes from.
+    /// The games the reader never saw, which is also where the blind sample comes from.
     HeldOut,
     /// Every labelled game. Seven times the evidence about the sheet, and none about the
     /// model either way, which is why it is the default.
@@ -125,37 +125,66 @@ const PROGRESS_EVERY_TEXTS: u64 = 5_000;
 #[command(
     name = "steamgauge",
     version,
-    about = "Count what Steam reviewers actually say, rather than what the loudest ones say.",
+    about = "Download a game's Steam reviews and count what players praise and criticise, on \
+             this computer.",
     after_help = "Three commands get you a page: `crawl <app id>`, `read <app id>`, \
-                  `report <app id>`. `embed` is needed only by `distinct`, and `claims` only \
-                  writes the split out for something else to read. Everything else is how the \
-                  model is measured and improved, and none of it is needed for a report.\n\n\
-                  Nothing leaves this machine. Reviews are downloaded from Valve and \
-                  everything after that happens locally, including the model."
+                  `report <app id>`. The commands under \"Measuring and training the reader\" \
+                  are not needed for a report.\n\n\
+                  Reviews come from Steam and models from Hugging Face. Nothing you download is \
+                  sent anywhere."
 )]
 struct Cli {
+    // No command opens the window, which `lib::run` does before parsing.
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
+
+/// The heading `--help` lists the commands in `MEASURING` under.
+pub const MEASURING_HEADING: &str = "Measuring and training the reader";
+
+/// The commands that measure and train the reader, none of them needed for a report, which
+/// `--help` lists apart from the rest.
+pub const MEASURING: &[&str] = &[
+    "claims",
+    "embed",
+    "store-facts",
+    "sample-claims",
+    "declined",
+    "rare-claims",
+    "distinct",
+    "ingest-induced",
+    "ingest-claims",
+    "second-opinion",
+    "compare-labels",
+    "revisit",
+    "ingest-revisit",
+    "measure-claims",
+    "ceiling",
+    "gold",
+    "ingest-gold",
+    "export-training",
+    "export-review-facts",
+    "export-pool",
+    "brief",
+];
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Download every review Valve will serve for an app into an immutable Parquet capture, and
-    /// the titles and dates of what its developer has posted on Steam.
+    /// Download every review Steam serves for a game into `data`, with the titles and dates of
+    /// its developer's posts.
     Crawl {
         /// Steam app ID, as it appears in the store URL.
         app_id: u32,
-        /// Directory to write captures and crawl state into.
+        /// Directory to write downloads and crawl state into.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Milliseconds between requests, enforced globally across all shards.
+        /// Milliseconds between requests.
         #[arg(long, default_value_t = 250)]
         pace_ms: u64,
-        /// Shards to crawl at once. Pacing is global, so this reorders work rather than
-        /// increasing load on Valve.
+        /// Date ranges to download at once. Requests keep the same pace.
         #[arg(long, default_value_t = 4)]
         concurrency: usize,
-        /// Reviews per shard before a date window is split further.
+        /// Reviews in one date range before it is split further.
         #[arg(long, default_value_t = DEFAULT_SHARD_TARGET)]
         shard_target: u64,
         /// Plan a fresh crawl instead of continuing an unfinished one.
@@ -163,19 +192,14 @@ enum Command {
         restart: bool,
     },
 
-    /// Bring a capture up to date: fetch every review written or edited since it was
-    /// crawled, or since it was last brought up to date, and write them beside what is held.
+    /// Fetch every review written or edited since a game was downloaded or last updated.
     ///
-    /// One walk in last-edit order finds both arrivals and edits and stops at the watermark,
-    /// so this is a few pages rather than a crawl. Nothing already captured is overwritten:
-    /// an edited review is held in both forms, and every pass that reads the capture counts
-    /// the newer one. Read the corpus again afterwards, since the readings describe the
-    /// capture as it was. What the developer has posted on Steam is asked for again too, so the
-    /// report marks the game's newest updates.
+    /// An edited review counts in its newer form. Run `read` afterwards so the figures include
+    /// the new reviews. The developer's posts are fetched again too.
     Sweep {
         /// Steam app ID, as it appears in the store URL.
         app_id: u32,
-        /// Directory holding the captures.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Milliseconds between requests.
@@ -183,24 +207,24 @@ enum Command {
         pace_ms: u64,
     },
 
-    /// Split every review into the separate points it makes.
+    /// Split every review into the claims it makes.
     ///
     /// A review is not one opinion, and a whole-review vector is the average of the ones it
-    /// holds. This writes claims.parquet beside the capture, carrying offsets rather than
+    /// holds. This writes claims.parquet beside the download, carrying offsets rather than
     /// text so the corpus is not stored twice.
     Claims {
         /// Steam app ID, as it appears in the store URL.
         app_id: u32,
-        /// Directory holding the capture.
+        /// Directory holding the download.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
     },
 
-    /// Embed the captured reviews locally, so nothing is sent anywhere.
+    /// Embed a game's reviews, for `distinct`.
     Embed {
-        /// Steam app ID whose most recent capture should be embedded.
+        /// Steam app ID whose newest download should be embedded.
         app_id: u32,
-        /// Directory holding the capture.
+        /// Directory holding the download.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Reviews per forward pass.
@@ -211,13 +235,13 @@ enum Command {
         #[arg(long, default_value = "gte-base")]
         model: Model,
         /// Which build of the graph to run. fp16 matches the full graph and is fastest on a
-        /// GPU; fp32 is the faster of the two on CPU.
+        /// GPU. fp32 is the faster of the two on CPU.
         #[arg(long, default_value = "fp16")]
         precision: Precision,
         /// Where to cache the model. Defaults to the platform cache directory.
         #[arg(long)]
         model_dir: Option<PathBuf>,
-        /// What to embed: whole reviews, or the separate points they make.
+        /// What to embed: whole reviews, or the claims they make.
         #[arg(long, default_value = "claim")]
         unit: Grain,
     },
@@ -231,7 +255,7 @@ enum Command {
         /// Steam app IDs to draw from. Each gets its own set.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the capture.
+        /// Directory holding the download.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Reviews to draw.
@@ -269,10 +293,10 @@ enum Command {
     /// marked `declined` so no prevalence figure ever counts it, and only games the model is
     /// allowed to learn from may be drawn, because a held-out game taught from is not held out.
     Declined {
-        /// Steam app IDs to draw from. Each must be a game the model trains on.
+        /// Steam app IDs to draw from. Each must be a game the reader trains on.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures and their readings.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Claims to draw from each game.
@@ -297,10 +321,10 @@ enum Command {
     /// their words, with a keyword list per rare subject, or by `--by-neighbour`. Marked
     /// `keyword` or `retrieved`, which trains the model and measures nothing.
     RareClaims {
-        /// Steam app IDs to draw from. Each must be a game the model trains on.
+        /// Steam app IDs to draw from. Each must be a game the reader trains on.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures and their readings.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Claims to draw from each game.
@@ -335,7 +359,7 @@ enum Command {
         embed_batch: usize,
         /// Draw for these subjects only. With `--by-neighbour` the rest still vote against,
         /// so a draw for `licensing` alone is a draw for `licensing` and not for whatever
-        /// else is rare; with keywords the other lists are simply not matched. Which subjects
+        /// else is rare. With keywords the other lists are simply not matched. Which subjects
         /// are worth a draw is a measurement that moves, and `steamgauge measure-claims` is
         /// what says which they are today.
         #[arg(long, num_args = 1..)]
@@ -348,7 +372,7 @@ enum Command {
         /// one game well and another badly is not a model with one accuracy.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where the claim reference sets live.
@@ -356,7 +380,7 @@ enum Command {
         reference: PathBuf,
         /// Which labels to score against, as a directory inside each set: `gold/<name>` for
         /// the ones a person adjudicated, `second` for the second labeller's. The set's own
-        /// labels by default. Only a gold figure may be called accuracy; the rest are
+        /// labels by default. Only a gold figure may be called accuracy. The rest are
         /// agreement.
         #[arg(long)]
         labels: Option<String>,
@@ -389,22 +413,22 @@ enum Command {
         subset: Option<String>,
         /// Directory inside the set to write the fresh batches into, which is also where the
         /// reading will be ingested. A set can hold several independent readings, one per
-        /// labeller; naming them keeps one labeller's answers apart from another's.
+        /// labeller. Naming them keeps one labeller's answers apart from another's.
         #[arg(long, default_value = "second")]
         into: String,
     },
 
-    /// Draw the reviews of a corpus that are least like each other, for finding what this
-    /// game's players talk about that the fixed taxonomy has no row for.
+    /// Draw the reviews of a game least like each other, to find subjects the fixed taxonomy
+    /// lacks.
     ///
     /// A random sample is mostly "great game", because that is what a corpus mostly is. This
     /// draws by farthest-point traversal over the stored vectors instead, so each review says
     /// something the others do not. What reads the handout and names the subjects is a
-    /// separate step; this is the sample it reads.
+    /// separate step. This is the sample it reads.
     Distinct {
-        /// Steam app ID whose most recent capture to draw from.
+        /// Steam app ID whose newest download to draw from.
         app_id: u32,
-        /// Directory holding the capture and its embeddings.
+        /// Directory holding the download and its embeddings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// How many reviews to draw.
@@ -418,8 +442,8 @@ enum Command {
         to: Option<PathBuf>,
     },
 
-    /// Check a returned list of induced subjects against the handout it came from, and keep
-    /// the ones that survive.
+    /// Check a returned list of induced subjects against the reviews they were drawn from, and
+    /// keep the ones those reviews support.
     ///
     /// A model asked for subjects will produce subjects. What makes them a finding rather
     /// than a list is the reviews behind each one, so a subject naming reviews the handout
@@ -461,7 +485,7 @@ enum Command {
         base: Option<String>,
     },
 
-    /// Score the model against a label two labellers both reached, and say how often they
+    /// Score the reader against a label two labellers both reached, and say how often they
     /// reached one at all.
     ///
     /// A model cannot be more right than its labels are. Against one labeller it scores
@@ -473,7 +497,7 @@ enum Command {
         /// Steam app IDs to score. Every set with a second opinion when none are named.
         #[arg(num_args = 0..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures and their readings.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where the claim reference sets live.
@@ -511,7 +535,7 @@ enum Command {
         batch_size: usize,
     },
 
-    /// Merge revisited labels back, replacing only the claims that were asked about.
+    /// Merge revisited labels back. Only the claims that were asked about are replaced.
     IngestRevisit {
         /// Steam app ID whose labels are being revised.
         app_id: u32,
@@ -569,7 +593,7 @@ enum Command {
         /// The library whose readings `--acceptable` asks about.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Where to write the page. It holds review text, so it is never committed; the
+        /// Where to write the page. It holds review text, so it is never committed. The
         /// default sits beside the repository's other ignored artefacts.
         #[arg(long, default_value = "gold.html")]
         to: PathBuf,
@@ -583,7 +607,7 @@ enum Command {
         #[arg(long, default_value = "second")]
         labels: String,
         /// Which games' disagreements to include. The blind sample is always held out, because
-        /// that is what makes it a measurement; a disagreement measures nothing and settles a
+        /// that is what makes it a measurement. A disagreement measures nothing and settles a
         /// boundary, and a boundary settled on one game is settled for every game.
         #[arg(long, default_value = "everywhere")]
         splits: SplitsFrom,
@@ -615,13 +639,13 @@ enum Command {
         port: u16,
         /// Ask again about every gold answer that differs from the first labeller's, with the
         /// labellers' answers, the person's own and the sheet's rule for each in view. A cold
-        /// reading says how often the labels agree with a person; this says why they differ:
+        /// reading says how often the labels agree with a person. This says why they differ:
         /// a rule accepted on sight was a miss and the label stands, a rule rejected is the
         /// one that has to change. The new answer replaces the old at the next ingest.
         #[arg(long)]
         rejudge: bool,
         /// Ask, for every gold answer the library's reader gave another subject for, whether
-        /// that subject would also do. The gold answer stays what it is; the judgement is kept
+        /// that subject would also do. The gold answer stays what it is. The judgement is kept
         /// beside it, and it is what lets a reader be scored as right or acceptable rather
         /// than only as matching the one subject the person would have picked.
         #[arg(long, conflicts_with = "rejudge")]
@@ -673,7 +697,7 @@ enum Command {
         /// Where the claim reference sets live. Every review any label names is written.
         #[arg(long, default_value = "reference/claims")]
         from: PathBuf,
-        /// Directory holding the captures.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the JSONL.
@@ -681,7 +705,7 @@ enum Command {
         to: PathBuf,
     },
 
-    /// Write a draw of unlabelled claims, with their text, as JSONL for a teacher to read.
+    /// Write a draw of unlabelled claims, with their text, as JSONL for a labelling model to read.
     ///
     /// Reviews no reference set holds, from games the model trains on, in the numbers a
     /// labeller never could. A student learns a teacher's answers on them beside the
@@ -690,10 +714,10 @@ enum Command {
     /// carry what the teacher knows of it into the student, and the held-out figure would stop
     /// being about a game nobody trained on.
     ExportPool {
-        /// Steam app IDs to draw from. Each must be a game the model trains on.
+        /// Steam app IDs to draw from. Each must be a game the reader trains on.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Reviews to draw from each game.
@@ -715,15 +739,15 @@ enum Command {
     },
 
     /// Ask the store whether each game is played only in a VR headset, and keep the answer
-    /// beside its capture and its reference sets.
+    /// beside its download and its reference sets.
     ///
     /// The one thing about a game the labeller and the reader are both told. `read` asks for a
-    /// game that has no answer yet; this fills in every game at once.
+    /// game that has no answer yet. This fills in every game at once.
     StoreFacts {
-        /// Steam app IDs. Every captured and every labelled game when none are named.
+        /// Steam app IDs. Every downloaded and every labelled game when none are named.
         #[arg(num_args = 0..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where the claim reference sets live.
@@ -731,82 +755,75 @@ enum Command {
         reference: PathBuf,
     },
 
-    /// Read every claim in a corpus with the trained model.
+    /// Read every claim in each game's newest download with the reader.
     Read {
-        /// Steam app IDs whose most recent captures should be read.
+        /// Steam app IDs to read.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the capture.
+        /// Directory holding the downloads.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Which size of reader, `small` or `standard`. Defaults to the largest this machine's
-        /// card has room for, and to `small` where the build reaches no card.
+        /// Reader size, `small` or `standard`. Defaults to the largest the graphics card has
+        /// room for, or `small` without a card.
         #[arg(long)]
         reader: Option<String>,
-        /// Directory holding model.onnx, tokenizer.json and reader.json, in place of the size's
-        /// own: models/<size> in the working tree if there is one, else the platform cache.
+        /// Directory holding `model.onnx`, `tokenizer.json` and `reader.json`, used in place of
+        /// the size's own.
         #[arg(long)]
         model: Option<PathBuf>,
-        /// Claims per forward pass. The default reads about a tenth faster than half of it and
-        /// asks the card for 2.5 GB; doubling it again buys nothing. Lower it on a small card.
+        /// Claims per batch. Lower it on a card with less than 2.5 GB of memory free.
         #[arg(long, default_value_t = steamgauge_core::read::DEFAULT_READ_BATCH)]
         batch_size: usize,
-        /// Count only reviews written in this language. The capture stays whole either way.
+        /// Count only reviews written in this language.
         #[arg(long)]
         language: Option<String>,
-        /// How many of the most-helpful reviews count as the top of the pile.
+        /// How many of the reviews Steam shows first count as most helpful.
         #[arg(long, default_value_t = steamgauge_core::capture::DEFAULT_TOP_HELPFUL)]
         top_helpful: usize,
-        /// How closely to read. `deep` takes each review apart into the points it makes;
-        /// `shallow` reads each review as one point, which is faster and understates anyone
-        /// who wrote more than a sentence. Neither drops a review.
+        /// How closely to read. `shallow` is faster.
         #[arg(long, default_value = "deep")]
         depth: Reading,
-        /// The share of the card's time the read may take, for a card other work is using:
-        /// 0.5 rests after each batch as long as the batch kept the card busy. The readings
-        /// are the same; only how long they take changes.
+        /// The share of the graphics card's time the read may take, above 0 and at most 1.
+        /// Lower it when other work needs the card. The results stay the same.
         #[arg(long, default_value_t = 1.0, value_parser = card_share)]
         card_share: f64,
-        /// Read every claim again. Without it a game read before by the same reader keeps the
-        /// answers of every review whose text is unchanged and reads only the rest. A fresh
-        /// reading at one batch size is the same to the bit each time it is made.
+        /// Read every claim again. Without it, a game the same reader read before has only its
+        /// new and edited reviews read.
         #[arg(long)]
         afresh: bool,
     },
 
-    /// Count a corpus again from the readings already on disk, without the model.
+    /// Count games again from their saved readings, without the reader.
     ///
-    /// Everything the page shows is added up when a game is read, so a change to the adding
-    /// up (which words stand out, how a month is cut) would otherwise cost every game the
-    /// hours of a reading again. The answers do not change; only the counts do. Refused
-    /// where this build takes a review apart differently from the build that read it, or the
-    /// reader named is not the one that answered.
+    /// Use it when only the counting has changed, since it skips the hours a read takes.
+    /// Refused where this build splits reviews differently from the build that read them, or
+    /// another reader read them.
     Recount {
-        /// Steam app IDs whose readings should be counted again.
+        /// Steam app IDs to count again.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures and their readings.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
-        /// Which size of reader answered, `small` or `standard`. Defaults to the one `read`
+        /// The reader size that read them, `small` or `standard`. Defaults to the one `read`
         /// would choose on this machine.
         #[arg(long)]
         reader: Option<String>,
-        /// Directory holding the reader.json of the reader that answered, in place of the
+        /// Directory holding the `reader.json` of the reader that read them, in place of the
         /// size's own.
         #[arg(long)]
         model: Option<PathBuf>,
-        /// How many of the most-helpful reviews count as the top of the pile.
+        /// How many of the reviews Steam shows first count as most helpful.
         #[arg(long, default_value_t = steamgauge_core::capture::DEFAULT_TOP_HELPFUL)]
         top_helpful: usize,
     },
 
-    /// Render a self-contained page from what the reading pass found.
+    /// Write a self-contained HTML page of what the reading found.
     Report {
         /// Steam app IDs to report on. Several become one page, a section each.
         #[arg(required = true, num_args = 1..)]
         app_ids: Vec<u32>,
-        /// Directory holding the captures and their classifications.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// Where to write the page.
@@ -822,25 +839,15 @@ enum Command {
 
     /// Write a read game's data as CSV and JSON, for a spreadsheet or your own analysis.
     ///
-    /// Makes a new folder at --to, the same files the window's "Export data" saves:
-    /// subjects.csv and .json (every subject's mention rate, praise, complaints and both, the
-    /// share of points and its corrected share, for everyone and for each kind of reviewer),
-    /// months.csv and .json (reviews, the share recommending and each subject, month by month),
-    /// points.csv and .json (every point read, with its subject, side, sureness and words, and
-    /// the review it is in: its id, link, day, language, verdict, time played, Steam Deck, early
-    /// access, free copy and helpful votes), updates.csv and .json (the game's updates on Steam),
-    /// and a README.txt saying what every column holds, which reader read the game, when, and how
-    /// far its figures can be trusted. A figure the window does not show as a number is left
-    /// empty, and a column says why.
+    /// The folder holds the files the window's "Export data" saves: `subjects`, `months`, `points`
+    /// and `updates`, each as CSV and JSON. Its `README.txt` says what every column holds.
     ///
-    /// The CSV is UTF-8 with a byte order mark, comma-separated with a CRLF after each row, a
-    /// field in double quotes where it must be. A text that starts like a spreadsheet formula
-    /// (=, +, -, @, a tab or a carriage return) carries a ' before it in the CSV; the JSON holds
-    /// it as written.
+    /// The CSV is UTF-8 with a byte order mark. A text that starts like a spreadsheet formula
+    /// gets a ' in front of it in the CSV only.
     ExportData {
         /// Steam app ID of a read game.
         app_id: u32,
-        /// Directory holding the captures and their readings.
+        /// Directory holding the downloads and their readings.
         #[arg(short, long, default_value = "data")]
         out: PathBuf,
         /// The folder to make. Refused where anything is there already.
@@ -850,38 +857,30 @@ enum Command {
 
     /// Update this copy to the newest release, as Update now does in the window.
     ///
-    /// The release's file for the way this copy was installed is downloaded and installed once
-    /// its build provenance verifies; nothing is installed otherwise. A setup program installs
-    /// over this copy after it exits, a package is installed by its manager after the system's
-    /// password prompt, and an app or a folder is replaced in place. The window is not opened
-    /// afterwards.
+    /// Only a release whose build provenance verifies is installed. A package install asks for
+    /// the system password. The window does not open afterwards.
     Update,
 
-    /// Steer the app from a Model Context Protocol client, which starts this command and speaks
-    /// to it on standard input and output.
+    /// Let a Model Context Protocol client steer the app, over standard input and output.
     ///
-    /// Every tool is something the window can do, and the person sees it done there. The open
-    /// app answers, over a local socket only this user can reach; while it is closed every tool
-    /// says so, and the assistant asks the person to open it. `connect` adds this command to a
-    /// client's configuration.
+    /// The client starts this command. The tools answer only while the app's window is open.
+    /// `connect` adds this command to a client's configuration.
     Mcp,
 
-    /// The MCP clients this command can add the app to, whether each is on this computer, and
-    /// whether it starts this copy.
+    /// List the MCP clients `connect` knows, whether each is installed, and whether it starts
+    /// this copy.
     Clients,
 
-    /// Add this copy to an MCP client's own configuration, so the client starts it.
+    /// Add this copy to an MCP client's configuration, so the client starts it.
     ///
-    /// Only the app's own entry is written: every other server, every comment and the file's
-    /// layout stay as they were, and a file that does not parse is left alone. An entry that
-    /// starts another copy is pointed at this one. Any other client takes the command
-    /// `<this program> mcp` in its own settings.
+    /// Only the app's own entry changes. A file that does not parse is left alone. Any other
+    /// client takes the command `<this program> mcp` in its own settings.
     Connect {
         /// The client, as `clients` lists it.
         client: String,
     },
 
-    /// Take the app out of an MCP client's configuration, leaving everything else in it.
+    /// Remove the app's entry from an MCP client's configuration.
     Disconnect {
         /// The client, as `clients` lists it.
         client: String,
@@ -972,11 +971,60 @@ fn bring_library(library: &Path) -> Result<()> {
 
 /// The command line as clap builds it, for the documentation's reference.
 pub(crate) fn command() -> clap::Command {
-    <Cli as clap::CommandFactory>::command()
+    let command = <Cli as clap::CommandFactory>::command();
+    let listed = |measuring: bool| {
+        command
+            .get_subcommands()
+            .filter(|sub| !sub.is_hide_set() && MEASURING.contains(&sub.get_name()) == measuring)
+            .map(|sub| {
+                (
+                    sub.get_name().to_owned(),
+                    sub.get_about().map(ToString::to_string).unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut everyday = listed(false);
+    everyday.push((
+        "help".to_owned(),
+        "Print this message or the help of the given subcommand(s)".to_owned(),
+    ));
+    let measuring = listed(true);
+    let width = everyday
+        .iter()
+        .chain(&measuring)
+        .map(|(name, _)| name.len())
+        .max()
+        .unwrap_or(0)
+        + 2;
+    let lines = |commands: &[(String, String)]| {
+        commands
+            .iter()
+            .map(|(name, about)| format!("  {name:<width$}{about}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let template = format!(
+        "{{about-with-newline}}\n{{usage-heading}} {{usage}}\n\nCommands:\n{}\n\n\
+         {MEASURING_HEADING}:\n{}\n\nOptions:\n{{options}}{{after-help}}",
+        lines(&everyday),
+        lines(&measuring)
+    );
+    command.help_template(template)
+}
+
+/// The command asked for. Arguments that name none print the help and exit, as `--help` does.
+/// A bare `steamgauge` never gets here: it opens the window.
+fn asked() -> Command {
+    let matches = command().get_matches();
+    let asked = Cli::from_arg_matches(&matches)
+        .unwrap_or_else(|error| error.exit())
+        .command;
+    asked.unwrap_or_else(|| std::process::exit(command().print_help().map_or(1, |()| 0)))
 }
 
 pub async fn run() -> Result<()> {
-    let command = Cli::parse().command;
+    let command = asked();
     command.library().map_or(Ok(()), bring_library)?;
     if let Some(done) = reference_work(&command) {
         return done;
@@ -1128,7 +1176,7 @@ async fn encoder_work(command: Command) -> Result<()> {
             )
             .await
         }
-        // Every reference-set command was answered above; a fresh arm here is one that
+        // Every reference-set command was answered above. A fresh arm here is one that
         // reference_work does not know about.
         Command::SampleClaims { .. }
         | Command::Declined { .. }
@@ -1623,7 +1671,7 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
     // A draw that chose its reviews by anything other than chance is not a sample of the
     // corpus, and every prevalence figure this project prints is taken over the ones that are.
     // So a named draw lands in its own directory beside the random one and says so on every
-    // review, the same way the teaching draws do; the two are never added together.
+    // review, the same way the teaching draws do. The two are never added together.
     if subset != "random" && !steamgauge_core::claimset::TEACHING_SETS.contains(&subset) {
         anyhow::bail!(
             "`{subset}` is not a draw this build knows: {}",
@@ -2205,12 +2253,12 @@ fn read_one(
         .collect();
     ranked.sort_by_key(|subject| std::cmp::Reverse(subject.mention_reviews));
     println!(
-        "{:<26} {:>9} {:>8} {:>8} {:>8} {:>8}",
-        "subject", "reviews", "rate", "praise", "gripe", "mixed"
+        "{:<26} {:>9} {:>8} {:>8} {:>9} {:>8}",
+        "subject", "reviews", "rate", "praise", "complaint", "mixed"
     );
     for subject in ranked {
         println!(
-            "{:<26} {:>9} {:>8} {:>8} {:>8} {:>8}",
+            "{:<26} {:>9} {:>8} {:>8} {:>9} {:>8}",
             subject.label,
             thousands(subject.mention_reviews),
             share(subject.mention_reviews, report.reviews),
@@ -2597,7 +2645,7 @@ fn deliver(page: String, delivery: Delivery<'_>) -> Result<()> {
 ///
 /// A gold label is the only thing in this project that cannot be recomputed, so it is the only
 /// one that must never be filed against a sheet it did not answer. An answer given under moved
-/// boundaries is not a worse label; it is a label to a different question, and nothing
+/// boundaries is not a worse label. It is a label to a different question, and nothing
 /// downstream could ever tell the two apart again.
 fn answered_this_sheet<'a>(stamps: impl Iterator<Item = Option<&'a str>>) -> Result<()> {
     let sheet = steamgauge_core::taxonomy::sheet();
@@ -2847,7 +2895,7 @@ fn file_gold(
             .filter(|label| !now.contains(&(label.review_id.clone(), label.index))),
     );
     // The answers file is in the order the page wrote and the server merged, which moves
-    // whenever an answer is given again; filed by claim, the next commit's diff is the answers
+    // whenever an answer is given again. Filed by claim, the next commit's diff is the answers
     // that changed and nothing else.
     given.sort_by(|a, b| (&a.review_id, a.index).cmp(&(&b.review_id, b.index)));
     std::fs::create_dir_all(&out)?;
@@ -2940,7 +2988,7 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path) -> Resul
 }
 
 /// Files each judgement of whether a reader's other subject would also do beside the gold
-/// labels of its set, leaving the labels themselves as they are.
+/// labels of its set and leaves the labels themselves as they are.
 /// The one person a file of answers is from. A page is made for one person and stamps every
 /// answer with their name, so a file naming two was put together by hand, and filing it under
 /// either would put one person's answers in the other's place.
@@ -3712,7 +3760,7 @@ fn run_claims(app_id: u32, out: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-/// Fetches the encoder if the cache lacks it and loads it, saying what it is doing.
+/// Fetches the encoder if the cache lacks it and loads it. It says what it is doing.
 async fn load_encoder(
     model_dir: Option<PathBuf>,
     encoder: steamgauge_core::Encoder,
@@ -4234,7 +4282,7 @@ fn thousands(n: u64) -> String {
 mod tests {
     use clap::Parser as _;
 
-    use super::{Cli, Command, Model, elapsed, thousands};
+    use super::{Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed, thousands};
 
     /// A crawl of a million reviews runs for hours, and a figure in seconds is arithmetic
     /// the reader has to do before the number means anything.
@@ -4251,12 +4299,29 @@ mod tests {
     }
 
     #[test]
+    fn help_lists_the_measuring_commands_apart_and_no_command_is_needed() {
+        let mut command = command();
+        let help = command.render_help().to_string();
+        assert!(help.contains("Usage: steamgauge [COMMAND]"), "{help}");
+        let (everyday, measuring) = help
+            .split_once(&format!("{MEASURING_HEADING}:"))
+            .expect("the measuring commands have their heading");
+        for name in MEASURING {
+            assert!(command.find_subcommand(name).is_some(), "{name}");
+            assert!(measuring.contains(&format!("\n  {name} ")), "{name}");
+        }
+        for name in ["crawl", "read", "report", "connect", "help"] {
+            assert!(everyday.contains(&format!("\n  {name} ")), "{name}");
+        }
+    }
+
+    #[test]
     fn the_flag_default_is_the_encoder_the_library_would_have_picked() {
         // Two defaults that must agree: what `--model` falls back to, and what a corpus is
         // embedded with when nothing says otherwise. Drift between them would leave a corpus
         // holding vectors from an encoder nothing else expects, which is refused much later.
         let parsed = Cli::parse_from(["steamgauge", "embed", "1"]);
-        let Command::Embed { model, .. } = parsed.command else {
+        let Some(Command::Embed { model, .. }) = parsed.command else {
             panic!("embed did not parse as embed");
         };
         assert_eq!(
@@ -4373,7 +4438,7 @@ mod tests {
             );
             std::fs::write(&kept, held_text).unwrap();
 
-            // An older splitter kept the review whole; this build cuts it in two, so an answer
+            // An older splitter kept the review whole. This build cuts it in two, so an answer
             // about the whole review is about no claim the reader is handed.
             let labels = json!([{
                 "review_id": "r1", "index": 0, "app_id": 7, "language": "russian",

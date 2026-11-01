@@ -62,7 +62,7 @@ export function compareVersions(left, right) {
 }
 
 // The version after `current`. A pre-release has no obvious next patch, so it takes an exact
-// version; so does anything that would not move the version forward, because a release that
+// version. So does anything that would not move the version forward, because a release that
 // goes backwards or stands still is a tag that can never be made.
 export function nextVersion(current, how) {
   const parsed = parseVersion(current);

@@ -295,7 +295,7 @@ impl CrawlState {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
-        // A poisoned lock means another thread panicked mid-statement; the connection
+        // A poisoned lock means another thread panicked mid-statement. The connection
         // itself is still usable and losing the crawl over it would be worse.
         self.conn
             .lock()

@@ -123,7 +123,7 @@ pub const ENOUGH_TO_JUDGE_A_ROW: u64 = 10;
 /// The correction divides by the gap between sensitivity and the false-positive rate, and at
 /// a dozen labels that sensitivity carries an interval twenty-five points wide: the corrected
 /// share would move by more than itself between one draw of the labels and the next. A row
-/// with ten labels can be described; it cannot be corrected.
+/// with ten labels can be described. It cannot be corrected.
 pub const ENOUGH_TO_CORRECT_A_ROW: u64 = 40;
 
 /// How well the model and the labels agree over one game.
@@ -133,7 +133,7 @@ pub struct ClaimAgreement {
     /// Labelled claims found in the readings at all.
     pub matched: u64,
     /// Labelled claims the splitter in this build no longer produces as one claim, so no
-    /// reading corresponds to them. A label names a span of a review; a splitter that cuts
+    /// reading corresponds to them. A label names a span of a review. A splitter that cuts
     /// that review differently leaves the label pointing at nothing, and it is counted here
     /// rather than at whatever now sits at its old index.
     pub unjoined: u64,
@@ -351,7 +351,7 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
     }
 
     // `mistaken_for` stays empty here. Which subject one game's `gameplay` is most often read
-    // as instead says something; the same figure summed over games with different mixes of
+    // as instead says something. The same figure summed over games with different mixes of
     // subjects names whichever subject happened to be commonest, which is not a confusion.
     total
 }
@@ -408,7 +408,7 @@ fn readings_at(
     Ok(read)
 }
 
-/// One claim's subjects beyond the label's first, the label's against the reader's; None where
+/// One claim's subjects beyond the label's first, the label's against the reader's. None where
 /// the label comes from a sheet that asked for a single subject, whose silence on the others is
 /// not an answer that there are none.
 ///
@@ -862,7 +862,7 @@ mod tests {
     #[test]
     fn a_corrected_rate_stays_a_rate() {
         // Observed below the false-positive rate, which a small corpus can produce by chance.
-        // The arithmetic says negative; a rate cannot be.
+        // The arithmetic says negative. A rate cannot be.
         let scored = subject(100, 90, 80);
         assert_eq!(scored.corrected(0.0), Some(0.0));
         assert_eq!(scored.corrected(1.0), Some(1.0));

@@ -205,7 +205,7 @@ def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_pa
 
 @pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
 def test_a_graph_says_how_many_claims_it_can_be_handed_at_once(trunk, pooling, request, tmp_path):
-    # The fixtures' widest weights are their MLP's, 32 by 64; the 4B's are 2560 by 9728, which
+    # The fixtures' widest weights are their MLP's, 32 by 64. The 4B's are 2560 by 9728, which
     # gives the 172 it was measured to read where 173 failed.
     model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
     ids = torch.randint(0, 64, (2, 6))
@@ -238,7 +238,7 @@ def test_a_weight_reaching_its_product_through_a_transpose_still_counts(tmp_path
 def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk():
     from export import crossed_the_line
 
-    # Forty claims whose best subject sits exactly on its line; in the other graph a rounding
+    # Forty claims whose best subject sits exactly on its line. In the other graph a rounding
     # takes it just under. One doing so is excused, all of them together are not.
     wanted = np.tile(np.array([[1.0, 0.0, 0.0]]), (40, 1))
     on_the_line = float(np.exp(1.0) / (np.exp(1.0) + 2.0))

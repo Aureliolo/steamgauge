@@ -175,7 +175,7 @@ fn breakdown(by_subset: HashMap<String, Tally>, by_game: HashMap<u32, (usize, us
     }
 }
 
-/// One tally per row, commonest first, skipping rows too small to read.
+/// One tally per row, commonest first, without rows too small to read.
 fn table(title: &str, tallies: HashMap<String, Tally>, floor: usize) {
     let mut draws: Vec<(String, Tally)> = tallies
         .into_iter()

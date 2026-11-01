@@ -51,7 +51,7 @@ fn place_library(app: &AppHandle) -> PathBuf {
 }
 
 /// Releases before 0.1.4 kept the library in the roaming folder. It moves once, by rename,
-/// which on one drive is instant and all or nothing; when it cannot, the library stays where
+/// which on one drive is instant and all or nothing. When it cannot, the library stays where
 /// it is and is used there, rather than the app opening on an empty library beside the full
 /// one. On macOS and Linux the two folders are one, and nothing moves.
 fn settle_library(roaming: &Path, local: &Path) -> PathBuf {

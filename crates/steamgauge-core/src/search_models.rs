@@ -8,7 +8,7 @@
 //! (`training/export_search.py`), graphs that take tokens and give back only what is used: a
 //! vector, and a score between 0 and 1.
 //!
-//! Like the reader, both are pinned by hash and fetched from where they are published; until they
+//! Like the reader, both are pinned by hash and fetched from where they are published. Until they
 //! are, a copy in the model cache that matches its pin is used and nothing is fetched.
 
 use std::path::{Path, PathBuf};
@@ -42,9 +42,9 @@ pub struct Model {
     pub name: &'static str,
     /// Empty until published.
     pub repository: &'static str,
-    /// The commit it is fetched from; empty until published.
+    /// The commit it is fetched from. Empty until published.
     pub revision: &'static str,
-    /// The release tag that commit carries, to name it to a person; empty until published.
+    /// The release tag that commit carries, to name it to a person. Empty until published.
     pub release: &'static str,
     /// The Hub's origin, [`model::HUB`] everywhere but a test. After the three above, which
     /// `training/publish.py` finds together to pin.
@@ -53,7 +53,7 @@ pub struct Model {
     tokenizer: Asset,
 }
 
-// The pins are of the files `export_search.py` wrote and that are to be published; an export
+// The pins are of the files `export_search.py` wrote and that are to be published. An export
 // run again is not byte for byte the same file, so these are the ones, not any export.
 pub const ENCODER: Model = Model {
     name: "search-encoder",
@@ -134,7 +134,7 @@ impl Model {
         cache_dir.join(self.name)
     }
 
-    /// What a first search would fetch of this model, counting only the files not here.
+    /// What a first search would fetch of this model. Only the files not here count.
     #[must_use]
     pub fn bytes_left(self, cache_dir: &Path) -> u64 {
         model::bytes_left(&[self.tokenizer, self.graph], &self.dir(cache_dir))
@@ -146,7 +146,7 @@ impl Model {
         self.bytes_left(cache_dir) == 0
     }
 
-    /// Makes sure both files are here and match their pins, fetching what is missing.
+    /// Makes sure both files are here and match their pins, and fetches what is missing.
     ///
     /// # Errors
     ///
@@ -166,7 +166,7 @@ impl Model {
             revision: self.revision,
         };
         for asset in [self.tokenizer, self.graph] {
-            // A copy here that matches its pin is used without asking anyone; one that does not
+            // A copy here that matches its pin is used without asking anyone. One that does not
             // is fetched again, which before publication fails rather than running a file
             // nothing vouches for.
             model::ensure_asset(&http, source, asset, &dir, &mut on_progress).await?;

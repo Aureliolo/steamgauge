@@ -133,7 +133,7 @@ def rows(path: Path) -> list[dict]:
 
 
 def joined(claims: list[dict], facts: list[dict], texts: dict[str, str]) -> tuple[list[dict], dict]:
-    """Every claim whose review came back unchanged, with its text; and what was left out."""
+    """Every claim whose review came back unchanged, with its text, and what was left out."""
     by_review = {row["review_id"]: row for row in facts}
     out, left = [], {"deleted": 0, "edited": 0, "no facts": 0}
     for claim in claims:

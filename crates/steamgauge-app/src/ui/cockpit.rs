@@ -210,7 +210,7 @@ pub struct Row {
     /// What moved lately, where the game has been read with months to compare.
     pub recent: Option<steamgauge_core::moves::Recent>,
     pub groups: Vec<String>,
-    /// The reading itself, for what moved since a look; the window is sent what it needs of it.
+    /// The reading itself, for what moved since a look. The window is sent what it needs of it.
     #[serde(skip)]
     pub report: Option<steamgauge_core::read::ReadReport>,
 }
@@ -358,7 +358,7 @@ pub struct ModelState {
     /// What a `fetch_model` job and Storage call it.
     pub key: &'static str,
     /// What it is for, in words.
-    pub role: &'static str,
+    pub role: String,
     pub here: bool,
     pub bytes_left: u64,
     pub release: Option<&'static str>,
@@ -398,9 +398,9 @@ fn machine(app: &AppHandle) -> Machine {
         .map(|size| {
             let left = size.published.bytes_left(&size.home());
             ModelState {
-                name: format!("Game Review Reader ({})", size.name),
+                name: super::settings::reader_name(size),
                 key: size.name,
-                role: "reads every review",
+                role: super::settings::reader_role(size),
                 here: size.home().join("model.onnx").is_file()
                     && (left == 0 || !size.published.is_pinned()),
                 bytes_left: if size.published.is_pinned() { left } else { 0 },
@@ -413,12 +413,12 @@ fn machine(app: &AppHandle) -> Machine {
     models.extend(
         [
             (ENCODER, "finds what was said in other words"),
-            (RERANKER, "orders what it finds"),
+            (RERANKER, "orders search results by meaning"),
         ]
         .map(|(model, role)| ModelState {
             name: format!("SteamGauge {}", model.name.replace('-', " ")),
             key: model.name,
-            role,
+            role: role.to_owned(),
             here: model.fetched(&cache),
             bytes_left: model.bytes_left(&cache),
             release: release(model.release),
@@ -430,7 +430,7 @@ fn machine(app: &AppHandle) -> Machine {
     models.push(ModelState {
         name: "SteamGauge writer".to_owned(),
         key: writer.name,
-        role: "writes what stands out about a game",
+        role: "writes what stands out about a game".to_owned(),
         here: writer.fetched(&cache),
         bytes_left: writer.bytes_left(&cache),
         release: release(writer.release),
@@ -570,7 +570,7 @@ pub async fn overview(app: AppHandle) -> Result<Overview, String> {
 }
 
 /// How often the open app looks at whether the counts have aged past the hours chosen in
-/// Settings. Asking whether is a read of two small files; asking Steam is what the hours are for.
+/// Settings. Asking whether is a read of two small files. Asking Steam is what the hours are for.
 /// The loop runs in the app rather than the window, so a minimised window keeps it going.
 pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 

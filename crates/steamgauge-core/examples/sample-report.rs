@@ -232,8 +232,8 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
         top: vec![example(
             app_id,
             9,
-            "The most helpful review in the corpus, which is what a reader skimming the store \
-             page sees before anything this tool counted.",
+            "The most helpful review of the game, which is what a store visitor sees before \
+             anything this tool counted.",
             true,
         )],
         agreement: if measured {
@@ -467,7 +467,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
                     seen: labelled * 2,
                     // A subject read as one particular other subject is a boundary the
                     // taxonomy has not settled, and the page says so where it happens.
-                    mistaken_for: (slot == 2).then_some(("gameplay", 7)),
+                    mistaken_for: (slot == 2).then_some(("difficulty", 7)),
                 }
             })
             .collect(),
@@ -482,7 +482,7 @@ fn agreement(app_id: u32) -> ClaimAgreement {
 /// Every subject counted again for each kind of reviewer, in shares of the game's own counts.
 ///
 /// Veterans complain about the amount of content and newcomers praise the tutorial far more than
-/// anybody else, so the page has findings to list; the Deck holds a dozen reviews, so it has a
+/// anybody else, so the page has findings to list. The Deck holds a dozen reviews, so it has a
 /// kind too small to say anything about. The unmeasured game was read before reviewers were told
 /// apart, which is a page that says so instead.
 fn who(

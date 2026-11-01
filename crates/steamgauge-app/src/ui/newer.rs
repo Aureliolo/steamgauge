@@ -1,4 +1,4 @@
-//! The notice that a newer `SteamGauge` is out. The core asks and remembers; this decides when
+//! The notice that a newer `SteamGauge` is out. The core asks and remembers. This decides when
 //! to ask, where the answer is kept, and tells the window.
 
 use std::{
@@ -19,7 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use super::{now_unix, settings::Settings};
 use crate::update::{Folders, Verified};
 
-/// Opening the app and saving the settings can both start a question; one is enough.
+/// Opening the app and saving the settings can both start a question. One is enough.
 static ASKING: AtomicBool = AtomicBool::new(false);
 
 fn dir(app: &AppHandle) -> Option<PathBuf> {
@@ -62,7 +62,7 @@ fn ask_in_background(app: &AppHandle, dir: PathBuf) {
     });
 }
 
-/// The newer release last heard of, from what is kept on disk; nothing is asked here.
+/// The newer release last heard of, from what is kept on disk. Nothing is asked here.
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
@@ -92,9 +92,9 @@ pub struct About {
     pub made_by: String,
     /// The newest release GitHub last named.
     pub latest: Option<String>,
-    /// When GitHub was last asked, in Unix seconds; zero for never.
+    /// When GitHub was last asked, in Unix seconds. Zero for never.
     pub asked: i64,
-    /// When GitHub last answered, in Unix seconds; none where that is not known.
+    /// When GitHub last answered, in Unix seconds. None where that is not known.
     pub answered: Option<i64>,
     /// A release newer than this copy, where the last answer named one.
     pub newer: Option<Release>,
@@ -190,9 +190,8 @@ fn build(verified: Option<&Verified>) -> Detail {
             || "Not checked by SteamGauge, which checks the copies Update now installs".to_owned(),
             |verified| {
                 format!(
-                    "Checked before it was installed: SteamGauge's release workflow built {} for \
-                     v{}",
-                    verified.file, verified.version
+                    "Checked on install. SteamGauge's release workflow built it from v{}.",
+                    verified.version
                 )
             },
         ),
@@ -236,7 +235,7 @@ fn built_on(head: &str) -> Vec<String> {
         .collect()
 }
 
-/// The start of the notices, which holds the table of contents and the crate count; the file is
+/// The start of the notices, which holds the table of contents and the crate count. The file is
 /// about a megabyte, and About needs only this.
 fn notices_head(path: &Path) -> Option<String> {
     use std::io::Read;
@@ -334,7 +333,7 @@ pub fn open_notices(app: AppHandle) -> Result<(), String> {
         .map_err(super::text)
 }
 
-/// This copy and the newest release last heard of; nothing is asked here.
+/// This copy and the newest release last heard of. Nothing is asked here.
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
@@ -415,7 +414,7 @@ pub struct WhatsNew {
 static KEPT: Mutex<Option<WhatsNew>> = Mutex::new(None);
 
 /// What changed between this copy and the newer release last heard of, or, with none, between
-/// the version this copy was updated from and this one; nothing where there is neither.
+/// the version this copy was updated from and this one. Nothing where there is neither.
 ///
 /// # Errors
 ///
@@ -564,10 +563,7 @@ mod tests {
                 Some(&verified(running)),
                 true
             )),
-            format!(
-                "Checked before it was installed: SteamGauge's release workflow built \
-                 steamgauge-{running}-windows-x64-setup.exe for v{running}"
-            )
+            format!("Checked on install. SteamGauge's release workflow built it from v{running}.")
         );
         for unchecked in [None, Some(verified("0.0.1"))] {
             assert!(
@@ -622,7 +618,7 @@ mod tests {
         assert!(may_open(&steamgauge_core::updates::link(
             "1844751498220713"
         )));
-        // The address Steam's news API names for a post is on a content server; the window
+        // The address Steam's news API names for a post is on a content server. The window
         // never opens it, and the allow-list does not reach it.
         assert!(!may_open(
             "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/\

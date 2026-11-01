@@ -19,7 +19,7 @@ const GET_APP_REVIEWS: &str = "/IUserReviewsService/GetAppReviews/v1/";
 /// `EUserReviewsPurchaseType_All`: activated keys and gifts as well as Steam purchases.
 const EVERY_PURCHASE: u8 = 1;
 
-/// Valve caps a page at 100 regardless of what is requested; asking for more is silently
+/// Valve caps a page at 100 regardless of what is requested. Asking for more is silently
 /// clamped server-side, so the crawler plans its request budget against this number.
 pub const MAX_PER_PAGE: u16 = 100;
 

@@ -492,7 +492,7 @@ jobs:
           em="$(printf '\342\200\224')"
           if git grep -n -I -F -e "${em}" -- . ':(exclude)third-party/onnxruntime/ThirdPartyNotices.txt' \
             ':(exclude)crates/steamgauge-core/src/self_update/provenance-0.1.3.json'; then
-            echo "::error::Em dashes are not used here; use a colon, semicolon, comma, full stop or brackets."
+            echo "::error::Em dashes are not used here. Use a comma, a full stop or brackets."
             exit 1
           fi
 

@@ -145,7 +145,7 @@ def agreement(rows: list[dict], again: list[dict]) -> dict:
     """How the second labeller's answers compare with the first's, computed at publish time.
 
     A card that carried the figures by hand was wrong within a week of being written, because
-    every second reading moves them; the dataset says what its own rows say.
+    every second reading moves them. The dataset says what its own rows say.
     """
     first = {tuple(row[name] for name in KEY): row for row in rows}
     both = [
@@ -691,7 +691,7 @@ def stage_dataset(
 ) -> list[tuple[str, Path]]:
     """The dataset's files, written into `staging`, as (path in the repository, path here)."""
     # The dataset is built from the reference sets, not from the training export. The export
-    # carries each claim's text because training needs it; the reference sets carry the claim's
+    # carries each claim's text because training needs it. The reference sets carry the claim's
     # offsets within its review because that is all a label needs to be joined back. Only the
     # second shape leaves this machine.
     rows, again, gold, acceptable = read_labels(Path(reference))
@@ -711,7 +711,7 @@ def stage_dataset(
     ):
         checked(found, fields, f"the {what}")
     # A label written before labels recorded their sheet holds either nothing or an empty
-    # string; both go up as one null so a reader of the file has a single case to handle. A
+    # string. Both go up as one null so a reader of the file has a single case to handle. A
     # fingerprint guessed from a commit date would be the stamping the ingest refuses to do.
     for row in rows + again:
         row["taxonomy"] = row.get("taxonomy") or None

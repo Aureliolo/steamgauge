@@ -12,11 +12,7 @@ portable archive for each system.
 
 ## With a package manager
 
-Each installs a release's file only if it matches the SHA-256 the release is signed over.
-
 ```powershell
-# Windows: the installer
-winget install Aureliolo.SteamGauge
 # Windows: the portable program, with a Start menu shortcut
 scoop bucket add aureliolo https://github.com/Aureliolo/steamgauge
 scoop install aureliolo/steamgauge
@@ -28,56 +24,49 @@ brew tap aureliolo/steamgauge https://github.com/Aureliolo/steamgauge
 brew install --cask aureliolo/steamgauge/steamgauge
 ```
 
-Scoop and Homebrew also put `steamgauge` on the `PATH` for the
-[command line](commands.md).
+Scoop and Homebrew also put `steamgauge` on the `PATH` for the [command line](commands.md).
 
 ## What each system needs
 
-- **Windows**: 10 or 11 on x64. The setup installs for your user alone, without administrator
-  rights, and adds Microsoft's WebView2 runtime where it is missing. Reading runs on any graphics
-  card with DirectX 12, or on the processor.
-- **macOS**: Apple silicon. Open the `.dmg` and drag SteamGauge into Applications. Reading runs
-  through Core ML.
-- **Linux**: x86-64 with glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40) and
-  WebKitGTK 4.1. The `.deb` and `.rpm` bring WebKitGTK with them; for the archive, install
-  `libwebkit2gtk-4.1-0` (Debian, Ubuntu) or `webkit2gtk4.1` (Fedora). Reading runs on the
-  processor.
+- **Windows** 10 or 11 on x64. The setup installs for your user without administrator rights and
+  adds the WebView2 runtime where it is missing.
+- **macOS** on Apple silicon. Open the `.dmg` and drag SteamGauge into Applications.
+- **Linux** on x86-64 with glibc 2.39 or later (Ubuntu 24.04, Debian 13, Fedora 40). For the
+  archive, install WebKitGTK 4.1: `libwebkit2gtk-4.1-0` (Debian, Ubuntu) or `webkit2gtk4.1`
+  (Fedora).
+
+Reading runs on any DirectX 12 graphics card on Windows, through Core ML on macOS, and on the
+processor on Linux or without a card.
 
 ## The first launch
 
 The installers are not signed by Microsoft or Apple, so each system warns once.
-[SECURITY.md](../SECURITY.md#what-signing-does-and-does-not-tell-you) says what such a signature
-would and would not prove.
+[SECURITY.md](../SECURITY.md#what-signing-does-and-does-not-tell-you) says what that means.
 
 - **Windows** shows "Windows protected your PC". Choose **More info**, then **Run anyway**.
-- **macOS** says it could not verify SteamGauge. Choose **Done**, then in System Settings,
-  Privacy and Security, choose **Open Anyway**. If macOS calls the app damaged instead, check the
-  download, then run `xattr -dr com.apple.quarantine /Applications/SteamGauge.app`.
+- **macOS** says it could not verify SteamGauge. Choose **Done**, then **Open Anyway** in System
+  Settings, Privacy and Security.
+- **macOS** may call the app damaged instead. Check the download, then run
+  `xattr -dr com.apple.quarantine /Applications/SteamGauge.app`.
 
 ## Checking a download
 
-Every file is listed in `SHA256SUMS` and carries Sigstore build provenance naming the workflow
-and commit that built it. [SECURITY.md](../SECURITY.md#releases) has the commands that check both.
+Every file is listed in `SHA256SUMS` and carries signed build provenance.
+[SECURITY.md](../SECURITY.md#releases) has the commands that check both.
 
 ## Updating
 
-SteamGauge asks GitHub for a newer version each time it opens and every six hours while it stays
-open. When one is out, the window names it and offers **Update now**. **About**, in the sidebar,
-shows the version this computer has, lists what each release up to the newer one changes, and
-asks GitHub at once through **Check for updates**. After an update the sidebar points at what
-changed since the version before. Update now asks again and installs the newest release's file
-only once its signed provenance shows SteamGauge's release workflow built it, for
-that version's tag, with the SHA-256 it arrived with; anything else stops the update and offers
-the release page. [SECURITY.md](../SECURITY.md#updates-from-the-window) lists every check.
+SteamGauge asks GitHub for a newer version when it opens and every six hours while it stays open.
+When one is out, the window offers **Update now**, which installs it only once its signature
+checks out. [SECURITY.md](../SECURITY.md#updates-from-the-window) lists the checks.
 `steamgauge update` does the same from a terminal.
 
 | Installed with | Updated by |
 |---|---|
-| The Windows setup, winget | **Update now**, or `winget upgrade Aureliolo.SteamGauge` |
+| The Windows setup | **Update now** |
 | The macOS app, Homebrew | **Update now**, or `brew upgrade --cask --greedy steamgauge` |
 | The `.deb` or `.rpm` | **Update now**, which asks for your password |
 | Scoop | `scoop update steamgauge` |
-| A portable archive | **Update now** on Linux; on Windows and macOS, the new archive's program in place of the old |
+| A portable archive | **Update now** on Linux. On Windows and macOS, put the new archive's program in place of the old |
 
-Your library, settings and downloaded models stay where they are. Settings turns the check for a
-newer version off.
+Your library, settings and models stay where they are. Settings turns the check off.

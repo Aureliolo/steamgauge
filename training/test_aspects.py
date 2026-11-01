@@ -113,7 +113,7 @@ def test_a_line_is_fitted_only_beside_the_subject_named_first(tmp_path):
     # Twenty claims chiefly about controls, which the head calls covered with certainty and
     # the reader never names again, beside ten about audio where the head calls controls and is
     # right on the three it is least sure of. Counted with the first, a line at 0.85 keeps its
-    # promise, 23 of 30; counted where it is used, no line can.
+    # promise, 23 of 30. Counted where it is used, no line can.
     logits = np.full((30, len(SUBJECTS), ASPECT_ANSWERS), -50.0)
     covered = np.full((30, len(SUBJECTS)), 0.01)
     covered[:20, 1] = 0.99

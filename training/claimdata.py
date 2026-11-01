@@ -44,7 +44,7 @@ class Claim:
     claim_index: int
     subset: str
     # A second labeller's answer to the same claim, where the set was read twice. Absent for
-    # most claims; where present and different, the claim is one the sheet did not settle.
+    # most claims. Where present and different, the claim is one the sheet did not settle.
     second_subject: str | None = None
     second_polarity: str | None = None
     # Whether the store lists the game as played only in a VR headset: the one fact about a
@@ -57,7 +57,7 @@ class Claim:
     also: tuple[tuple[str, str], ...] | None = None
 
     def covers(self) -> dict[str, str] | None:
-        """Every subject the claim is known to cover, with its polarity; None where only the
+        """Every subject the claim is known to cover, with its polarity. None where only the
         first is known."""
         if self.also is None:
             return None
@@ -251,7 +251,7 @@ def split_by_game(
     # So a game is held out if its hash falls in the lowest fifth of the range, validates if in
     # the next fifteenth, and trains otherwise, against fixed thresholds rather than a ranking.
     # A ranking would still move the boundary as the count grew. The shares hold only in
-    # expectation; a set this small can land short, and the floor below keeps it from landing
+    # expectation. A set this small can land short, and the floor below keeps it from landing
     # at nothing, which is the one outcome worse than an uneven split.
     placed = {app_id: place(app_id, seed) for app_id in games}
     test_games = {app_id for app_id, at in placed.items() if at < test_share}

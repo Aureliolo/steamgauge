@@ -92,7 +92,7 @@ def runs_on(directory: Path) -> list[dict]:
 
 
 def setting(run: dict, key: str):
-    """What the run was configured as, taking a run older than the setting at its default."""
+    """What the run was configured as. A run older than the setting is taken at its default."""
     if key in run:
         return run[key]
     return SETTINGS[key]

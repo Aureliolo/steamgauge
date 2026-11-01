@@ -4,7 +4,7 @@ A per-subject F1 says a subject is weak. It never says whether the cure is more 
 clearer boundary in the sheet, or a bigger model, and those have nothing in common. The
 direction of the confusion does say:
 
-  scattered across many subjects   the reader has not learned this subject; a starved row,
+  scattered across many subjects   the reader has not learned this subject. It is a starved row,
                                    and more labels are the cure
   concentrated on one other        the boundary between those two is not drawn where the
                                    sheet thinks it is, and no amount of labelling fixes a

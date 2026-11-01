@@ -7,7 +7,7 @@
 //!
 //! Review text is written by strangers, and a spreadsheet runs a cell that starts like a formula.
 //! So in the CSV a text starting with one of [`FORMULA_STARTS`] carries a `'` before it, which is
-//! the standard defence; the JSON holds every text as it was written.
+//! the standard defence. The JSON holds every text as it was written.
 
 use std::{
     borrow::Cow,
@@ -78,8 +78,8 @@ pub struct Exported {
 /// # Errors
 ///
 /// Refused where something is already at `to`, a `.partial` folder is left beside it, or a folder
-/// on the way to it cannot be made, which the refusal names; fails
-/// where the game has not been read, or a file cannot be read or written; and stops, leaving
+/// on the way to it cannot be made, which the refusal names. Fails
+/// where the game has not been read, or a file cannot be read or written. Stops, leaving
 /// nothing, once `stop` is set.
 pub fn game(
     out_dir: &Path,
@@ -406,7 +406,7 @@ impl Serialize for Object<'_> {
 struct Reviewers {
     id: &'static str,
     label: &'static str,
-    /// The question the kind is one answer to; empty for everyone.
+    /// The question the kind is one answer to. Empty for everyone.
     question: &'static str,
     reviews: u64,
 }
@@ -872,7 +872,7 @@ fn point_columns() -> Vec<Column> {
 }
 
 /// A subject a point is filed under, the side it takes on it, and whether it is the first the
-/// reader named; all none for a point the reader declined.
+/// reader named. All none for a point the reader declined.
 type Filed = (Option<&'static Category>, Option<Polarity>, Option<bool>);
 
 fn filed_under(reading: &Reading) -> Vec<Filed> {

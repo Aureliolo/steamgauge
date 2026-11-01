@@ -8,7 +8,7 @@
 //!
 //! Farthest-point traversal does that. Start anywhere, then repeatedly take the review whose
 //! vector is farthest from everything already taken. The exact version is quadratic in the
-//! corpus, which for a million reviews is a week; this one walks a bounded pool of candidates
+//! corpus, which for a million reviews is a week. This one walks a bounded pool of candidates
 //! drawn by hash, which is the same draw for the same corpus and seed, and takes the farthest
 //! from that. The pool is a few thousand, which is enough to hold every neighbourhood a
 //! corpus has and small enough that the traversal is seconds.

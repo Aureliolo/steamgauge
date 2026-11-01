@@ -1,7 +1,7 @@
 //! The window.
 //!
 //! Everything here is a thin front for the same core the pipeline runs. A command in this
-//! module may read the library, start a stage, and report what happened; it may not decide
+//! module may read the library, start a stage, and report what happened. It may not decide
 //! anything a number depends on. Where the window and the terminal disagree about a figure,
 //! one of them is calling the wrong function.
 
@@ -234,7 +234,7 @@ struct ReadOffer {
     /// Whether a reader that is not here could be fetched at all.
     published: bool,
     here: bool,
-    /// The sizes to choose from, smallest first; none where a card is reached, because there
+    /// The sizes to choose from, smallest first. None where a card is reached, because there
     /// the card decides.
     choices: Vec<ReaderChoice>,
 }
@@ -349,7 +349,7 @@ struct Reading {
     /// for these themes, empty where it wrote nothing the themes bear out.
     paragraph: Option<String>,
     /// The particular things praised and complained about, where they have been found for this
-    /// reading; finding them needs the game prepared for search by meaning.
+    /// reading. Finding them needs the game prepared for search by meaning.
     themes: Option<SaidMost>,
     /// When the capture was last brought up to date after these counts were made, so the
     /// window can say the counts describe the corpus as it was.
@@ -504,7 +504,7 @@ fn corrected_share(
 }
 
 /// Whether the reader learned from this game's labels, and how often it agrees with them where it
-/// did not. A game without them still renders; it just cannot say how often it is wrong, and the
+/// did not. A game without them still renders. It just cannot say how often it is wrong, and the
 /// window says that instead. On a game it learned from the model reproduces its labels at 99%,
 /// and that figure would advertise its memory.
 fn measurement(dir: &Path, app_id: u32) -> (bool, Option<steamgauge_core::ClaimAgreement>) {
@@ -1011,7 +1011,7 @@ struct MeaningOffer {
     seconds: f64,
     /// About what what is left would take on disk, at most.
     disk_bytes: u64,
-    /// What the encoder and the reranker take to fetch, where they are not here yet; nothing
+    /// What the encoder and the reranker take to fetch, where they are not here yet. Nothing
     /// once they are.
     download_bytes: u64,
     every_game: bool,
@@ -1074,7 +1074,7 @@ fn choose_meaning(app: AppHandle, every_game: bool) -> Result<(), String> {
 struct WriterOffer {
     /// Whether somebody already asked for them.
     write: bool,
-    /// What the writer takes to fetch, where it is not here yet; nothing once it is.
+    /// What the writer takes to fetch, where it is not here yet. Nothing once it is.
     download_bytes: u64,
     /// About how long one paragraph takes, on the processor.
     seconds: f64,
@@ -1300,7 +1300,7 @@ fn claims_under(
 
 /// The page of claims under a subject that use a term, and how many there are.
 ///
-/// The readings say which claims are filed here; only the capture says what they say. So the
+/// The readings say which claims are filed here. Only the capture says what they say. So the
 /// readings are gathered by review first, and the capture is walked once, taking each listed
 /// review apart the way the reading pass did and keeping the claims that use the term. One
 /// walk per page rather than one per review, which is the difference between a click and a

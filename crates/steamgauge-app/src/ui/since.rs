@@ -145,7 +145,7 @@ pub async fn looked(app: AppHandle, app_id: Option<u32>) -> Result<(), String> {
 }
 
 /// What moved in one game since its page was last seen, or where it never was, since the cockpit
-/// last showed it; nothing where neither has.
+/// last showed it. Nothing where neither has.
 #[tauri::command]
 pub async fn since_last_look(app: AppHandle, app_id: u32) -> Result<Option<Since>, String> {
     tauri::async_runtime::spawn_blocking(move || {

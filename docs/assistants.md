@@ -1,9 +1,7 @@
 # AI assistants
 
 SteamGauge is an MCP server. An assistant can find, download and read games and ask what their
-players say, and the window shows each step. Its prompts appear in your assistant's own list,
-such as the commands Claude Code shows under `/`: what players say about a game, comparing games,
-and how players took an update. [MCP tools](tools.md) lists every prompt and tool.
+players say. The window shows each step. [MCP tools](tools.md) lists every prompt and tool.
 
 ## Hand it to your assistant
 
@@ -17,9 +15,6 @@ then tell me which file you changed.
 ```
 
 <!-- steamgauge-site: end -->
-
-It reads [the guide](agent.md), adds SteamGauge to its own settings, and says which file it
-changed.
 
 ## Or do it yourself
 
@@ -143,13 +138,12 @@ From a terminal:
 
 <!-- steamgauge-site: end -->
 
-`<path to steamgauge>` is where the program is: `%LOCALAPPDATA%\SteamGauge\steamgauge.exe` from
-the Windows setup, `/Applications/SteamGauge.app/Contents/MacOS/steamgauge` on macOS, and
-`steamgauge` from Scoop, Homebrew or a Linux package. `steamgauge clients` prints it.
+`steamgauge clients` prints `<path to steamgauge>`, and [the guide](agent.md) lists where each
+installer puts it.
 
 ## What it writes
 
-One entry, named `steamgauge`, in the assistant's own settings file; everything else in the file
+One entry, named `steamgauge`, in the assistant's own settings file. Everything else in the file
 stays as it was, comments included. `steamgauge disconnect <name>` takes it out again.
 
 <!-- steamgauge-site: entries -->
@@ -361,11 +355,9 @@ Autohand:
 
 ## How it connects
 
-- **Only while the window is open.** The assistant reaches the open app over a local socket, a
-  named pipe on Windows, that no other user or machine can reach. Closing the window closes the
-  app; while it is closed, every tool says so and the assistant asks you to open it.
-- **Through updates.** Updating SteamGauge closes its window and leaves every assistant
-  connected. Until you restart an assistant, it offers the tools of the version it started.
-- **Both handshakes**, `initialize` and `server/discover`.
-- **HTTP, if you need it.** Off until the AI assistants page turns it on: the app then also
-  answers on 127.0.0.1 at a port you choose, to requests carrying the token that page shows.
+- **Only while the window is open.** The assistant reaches the open app over a local socket that
+  no other user or machine can reach. While the window is closed, every tool says so.
+- **Through updates.** An update leaves every assistant connected. Until you restart one, it
+  offers the tools of the version it started with.
+- **HTTP, if you need it.** The AI assistants page turns it on. The app then also answers on
+  127.0.0.1 at a port you choose, to requests carrying the token that page shows.

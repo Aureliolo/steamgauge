@@ -34,7 +34,7 @@ const PER_PAGE: u32 = 1_000;
 /// cannot keep the client asking.
 const PAGES: usize = 20;
 
-/// The longest title kept, in characters. A real one is a line; anything longer is not a title.
+/// The longest title kept, in characters. A real one is a line. Anything longer is not a title.
 const TITLE_CHARACTERS: usize = 200;
 
 /// How close two posts of the same title are taken as one update posted twice: Steam lists a
@@ -79,7 +79,7 @@ impl Announcements {
         serde_json::from_slice(&std::fs::read(game_dir.join(FILE)).ok()?).ok()
     }
 
-    /// Keeps these in a game's folder, replacing what was there only once they are written whole.
+    /// Keeps these in a game's folder and replaces what was there only once they are written whole.
     ///
     /// # Errors
     ///
@@ -247,7 +247,7 @@ pub struct Page {
 /// Reads one page of Steam's news API.
 ///
 /// A post is kept only where it is this game's, filed under the developer's own feed, with an id
-/// of digits, a title and a time; its title loses anything that is not printable text.
+/// of digits, a title and a time. Its title loses anything that is not printable text.
 ///
 /// # Errors
 ///
@@ -308,7 +308,7 @@ fn plain(title: &str) -> String {
 
 /// Asks Steam for everything the developer has posted on a game's page, oldest first.
 ///
-/// Steam lists newest first; a page as full as was asked for means older ones may be there, and
+/// Steam lists newest first. A page as full as was asked for means older ones may be there, and
 /// the next is asked for from the oldest time seen, so posts sharing that second are not lost.
 ///
 /// # Errors
@@ -343,7 +343,7 @@ pub async fn fetch(client: &SteamClient, app_id: u32, now: i64) -> Result<Announ
 ///
 /// # Errors
 ///
-/// Fails where Steam refuses, or the game's folder cannot be written; what was kept before is
+/// Fails where Steam refuses, or the game's folder cannot be written. What was kept before is
 /// left as it was.
 pub async fn refresh(
     client: &SteamClient,

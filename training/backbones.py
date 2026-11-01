@@ -132,7 +132,7 @@ def load(loader, name: str | Path, **options):
         )
     loaded = loader.from_pretrained(name, **pinning(name), **options)
     # A tokenizer of a class transformers ships keeps every keyword it was handed and writes it
-    # into the `tokenizer_config.json` a run saves; which commit the model's code came from is
+    # into the `tokenizer_config.json` a run saves. Which commit the model's code came from is
     # not a property of the tokenizer.
     if isinstance(getattr(loaded, "init_kwargs", None), dict):
         loaded.init_kwargs.pop("code_revision", None)

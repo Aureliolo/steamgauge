@@ -1,7 +1,7 @@
 //! Updating this copy to a newer release: the release's file for the way this copy was installed
 //! is downloaded, hashed as it is written, installed once its build provenance verifies, and
-//! nothing is installed otherwise. The core decides which file and whether it may be installed;
-//! this runs it. The window's Update now and `steamgauge update` both come here, so the path a
+//! nothing is installed otherwise. The core decides which file and whether it may be installed.
+//! This runs it. The window's Update now and `steamgauge update` both come here, so the path a
 //! release is checked through is the path a person's update takes.
 
 use std::{
@@ -46,7 +46,7 @@ impl Stop {
 pub enum Then {
     /// The setup program is installing it and closes this copy, so this copy exits now.
     Exit,
-    /// It is installed; what is running is the old version until it starts again.
+    /// It is installed. What is running is the old version until it starts again.
     Restart,
 }
 
@@ -186,7 +186,7 @@ fn held(path: &Path) -> std::io::Result<File> {
     options.open(path)
 }
 
-/// Updates this copy to `version`, telling `tell` each step and the download's progress.
+/// Updates this copy to `version` and tells `tell` each step and the download's progress.
 /// `reopen` is whether the new version opens its window once a setup program has installed it,
 /// which is what a person updating from the window expects and a command line does not.
 ///
@@ -263,7 +263,7 @@ pub async fn run(
 }
 
 /// Installs the verified file `held` from `path` the way `install` says. Where a setup program
-/// or a package fails to install, the file is left to be installed by hand; an app or an archive
+/// or a package fails to install, the file is left to be installed by hand. An app or an archive
 /// is not something a person installs that way.
 fn put_in_place(
     install: &Install,
@@ -358,7 +358,7 @@ mod tests {
     }
 
     /// The setup program closes the window alone, by its class, leaving assistants' copies
-    /// running; a class it does not look for would leave the window open over the install.
+    /// running. A class it does not look for would leave the window open over the install.
     #[test]
     fn the_setup_program_looks_for_the_window_by_the_class_it_is_given() {
         let config: serde_json::Value =

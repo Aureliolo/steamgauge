@@ -20,7 +20,7 @@
 //! **Keywords are the weaker way.** Neighbours find the paraphrases no list has and cross
 //! languages, where the keywords lean on borrowed tokens that survive translation ("VR",
 //! "Denuvo", "Proton", "mod") and on the scripts where a term is written the same way
-//! everywhere; a Russian review complaining about subtitles is not matched here. Keywords cost a
+//! everywhere. A Russian review complaining about subtitles is not matched here. Keywords cost a
 //! scan rather than a GPU, and the borrowed tokens alone find `vr` and `policy` claims at more
 //! than ten times a random draw's rate.
 //!
@@ -55,7 +55,7 @@ pub struct Keywords {
 ///
 /// The draw fills its quotas in this order and a claim that matches two subjects is counted once,
 /// for the first of them, so the rarer subject comes first. Which subjects are worth a draw is a
-/// measurement that moves, and `--only` is where it goes; the lists themselves are vocabulary and
+/// measurement that moves, and `--only` is where it goes. The lists themselves are vocabulary and
 /// stay whether or not a subject needs them for a given draw.
 pub const KEYWORDS: &[Keywords] = &[
     Keywords {
@@ -430,7 +430,7 @@ pub fn keyword_subject(claim: &str) -> Option<&'static str> {
 /// The same, restricted to the subjects named, or every subject in [`KEYWORDS`] when none are.
 ///
 /// Which subjects are worth a draw is a measurement and it moves. Deleting a list once its
-/// subject has enough labels would throw away the vocabulary; naming the subjects per draw keeps
+/// subject has enough labels would throw away the vocabulary. Naming the subjects per draw keeps
 /// it and aims the draw where the evidence is.
 #[must_use]
 pub fn keyword_subject_among(claim: &str, only: &[String]) -> Option<&'static str> {
@@ -469,7 +469,7 @@ pub(crate) fn contains_term(haystack: &str, term: &str) -> bool {
         if !before_is_word && !after_is_word {
             return true;
         }
-        // Advance by one byte rather than by the term, so overlapping positions are seen; the
+        // Advance by one byte rather than by the term, so overlapping positions are seen. The
         // haystack is lowercase ASCII-searchable but may hold multi-byte characters, and
         // `find` returns a char boundary, so stepping one byte and letting `find` resynchronise
         // is safe.
@@ -487,7 +487,7 @@ fn is_word_byte(byte: u8) -> bool {
 
 /// Every labelled claim, embedded, to search the unlabelled ones with.
 ///
-/// The stronger of the two ways. A keyword list names words; a labelled `policy` claim about
+/// The stronger of the two ways. A keyword list names words. A labelled `policy` claim about
 /// Denuvo sits near every other complaint about copy protection whatever words it uses and
 /// whatever language it is in, and a Russian review complaining about subtitles is near an
 /// English one. Selecting by retrieval is the published method for exactly that reason

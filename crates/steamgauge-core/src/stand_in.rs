@@ -107,7 +107,7 @@ impl Answer {
 
 type Handler = dyn Fn(&Asked) -> Answer + Send + Sync;
 
-/// The stand-in, serving until it is dropped.
+/// The stand-in. It serves until it is dropped.
 #[derive(Debug)]
 pub struct Server {
     address: SocketAddr,

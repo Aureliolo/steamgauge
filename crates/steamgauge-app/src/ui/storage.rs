@@ -6,7 +6,7 @@
 //! downloaded reviews come back from Steam in minutes.
 //!
 //! Sizes are counted by walking the folders each time the page asks. A game holds a few dozen
-//! files and the models a handful, so the walk is milliseconds; a ledger kept beside every write
+//! files and the models a handful, so the walk is milliseconds. A ledger kept beside every write
 //! would cost more than it saves at this size.
 
 use std::path::{Path, PathBuf};
@@ -185,7 +185,7 @@ pub struct ModelRoom {
     pub name: String,
     /// How the window asks for it to be removed.
     pub key: &'static str,
-    pub role: &'static str,
+    pub role: String,
     pub bytes: u64,
     /// Whether this computer reads or searches with it, so removing it means fetching it again.
     pub used: bool,
@@ -220,9 +220,9 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
             let home = size.home();
             (
                 ModelRoom {
-                    name: format!("Game Review Reader ({})", size.name),
+                    name: super::settings::reader_name(size),
                     key: size.name,
-                    role: "reads every review",
+                    role: super::settings::reader_role(size),
                     bytes: bytes_under(&home),
                     used: size.name == reader_in_use,
                 },
@@ -232,14 +232,14 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
         .collect();
     for (model, role) in [
         (search_models::ENCODER, "finds what was said in other words"),
-        (search_models::RERANKER, "orders what it finds"),
+        (search_models::RERANKER, "orders search results by meaning"),
     ] {
         let home = model.dir(cache);
         found.push((
             ModelRoom {
                 name: format!("SteamGauge {}", model.name.replace('-', " ")),
                 key: model.name,
-                role,
+                role: role.to_owned(),
                 bytes: bytes_under(&home),
                 used: true,
             },
@@ -251,7 +251,7 @@ fn models(cache: &Path, reader_in_use: &str, writing: bool) -> Vec<(ModelRoom, P
         ModelRoom {
             name: "SteamGauge writer".to_owned(),
             key: writer::WRITER.name,
-            role: "writes what stands out",
+            role: "writes what stands out".to_owned(),
             bytes: bytes_under(&home),
             used: writing,
         },
@@ -283,7 +283,7 @@ fn drives(library: &Path, models: &Path) -> Vec<Drive> {
             continue;
         };
         let name = drive_name(at);
-        // Two folders on one volume report the same totals; on Unix there is no letter to tell
+        // Two folders on one volume report the same totals. On Unix there is no letter to tell
         // them apart by, so the totals are what does.
         if let Some(same) = drives
             .iter_mut()
@@ -366,11 +366,11 @@ pub enum Removal {
     Reads,
     /// Its preparation for search by meaning.
     Search,
-    /// Its earlier downloads, kept from before its newest one.
+    /// Its downloads from before the newest one.
     Earlier,
-    /// What work stopped part way left: a download, a read or a recount.
+    /// What a stopped download, read or recount left behind.
     Partial,
-    /// The whole game: every file, its crawl records and its place in groups.
+    /// The whole game, with its crawl records and its place in groups.
     Game,
 }
 

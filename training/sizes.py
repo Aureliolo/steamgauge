@@ -30,7 +30,7 @@ def _parameters(count: int) -> str:
 
 
 def _download(mib: int) -> str:
-    # In the decimal units a download is shown in everywhere else; a card's memory is sold in
+    # In the decimal units a download is shown in everywhere else. A card's memory is sold in
     # binary ones, and `_memory` keeps those.
     megabytes = mib * 1.048576
     return f"{megabytes / 1000:.1f} GB" if megabytes >= 1000 else f"{megabytes:.0f} MB"

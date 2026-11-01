@@ -1,6 +1,6 @@
 /* What moved since the person last looked: the cockpit's first card, and a line on each game's
    page. Every share is of the reviews read since the look, set against the twelve months before
-   it; which changes are wider than chance is decided by the core, never here. */
+   it. Which changes are wider than chance is decided by the core, never here. */
 
 import { invoke, el, set, make, button, whole, roundShare, day, when, monthName } from './common.js';
 

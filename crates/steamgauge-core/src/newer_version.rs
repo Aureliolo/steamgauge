@@ -30,10 +30,10 @@ const FILE: &str = "newer-version.json";
 /// The last time the release page was asked, and what it said.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Asked {
-    /// When it was last asked, in Unix seconds; zero for never.
+    /// When it was last asked, in Unix seconds. Zero for never.
     pub at: i64,
     /// When an answer last came back, in Unix seconds. Behind `at` when the last question went
-    /// unanswered; none where no answer ever has.
+    /// unanswered. None where no answer ever has.
     pub answered: Option<i64>,
     /// The version of the newest release, from the last answer that came back.
     pub latest: Option<String>,

@@ -24,7 +24,7 @@ const open = new Set();
 
 const SAYS = {
   each_game:
-    'Each game weighs the same however many reviews it has, so this is what players of these games talk about.',
+    'Each game counts once, however many reviews it has.',
   every_review:
     'Every review weighs the same, so the games with the most reviews decide most of each figure.',
 };
@@ -88,7 +88,12 @@ export function setUpGroup({ openSubject }) {
 
     const unread = el('group-unread');
     unread.hidden = found.unread.length === 0;
-    set(unread, `Not read yet, so in no figure: ${found.unread.map((game) => game.name).join(', ')}.`);
+    const left = found.unread.map((game) => game.name);
+    set(
+      unread,
+      `${left.length > 1 ? `${left.slice(0, -1).join(', ')} and ${left[left.length - 1]} are` : `${left[0] ?? ''} is`} ` +
+        'not read yet and left out.',
+    );
 
     const names = new Map(games.map((game) => [game.app_id, game.name]));
     const ranked = found.subjects

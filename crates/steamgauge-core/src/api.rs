@@ -33,7 +33,7 @@ pub const DEFAULT_PACE: Duration = Duration::from_millis(250);
 const STORE: &str = "https://store.steampowered.com";
 /// Where the store keeps the pictures of its apps.
 const ART: &str = "https://shared.akamai.steamstatic.com";
-/// A store header is about 50 KB; anything far larger, past 2 MiB, is not the picture that was
+/// A store header is about 50 KB. Anything far larger, past 2 MiB, is not the picture that was
 /// asked for.
 const ART_LIMIT: usize = 2_097_152;
 
@@ -129,7 +129,7 @@ impl std::fmt::Debug for SteamClient {
 
 impl SteamClient {
     /// How long a run of refusals is waited out before a request fails. [`PATIENCE`] suits a
-    /// crawl; somebody who typed a game into a search box would rather hear in seconds that
+    /// crawl. Somebody who typed a game into a search box would rather hear in seconds that
     /// Steam is refusing than watch the box wait for half an hour.
     #[must_use]
     pub fn with_patience(mut self, patience: Duration) -> Self {
@@ -281,7 +281,7 @@ impl SteamClient {
             .get("items")
             .and_then(Value::as_array)
             .ok_or(Error::MalformedPayload { field: "items" })?;
-        // Bundles and packages share the search; only an app has reviews of its own.
+        // Bundles and packages share the search. Only an app has reviews of its own.
         Ok(items
             .iter()
             .filter(|item| item.get("type").and_then(Value::as_str) == Some("app"))
@@ -347,7 +347,7 @@ impl SteamClient {
         (image && bytes.len() <= ART_LIMIT).then(|| bytes.to_vec())
     }
 
-    /// Fetches one page, retrying on throttling and transient server errors.
+    /// Fetches one page and retries on throttling and transient server errors.
     ///
     /// # Errors
     ///
@@ -808,7 +808,7 @@ mod tests {
 
     #[tokio::test]
     async fn valves_waits_add_up_against_the_patience() {
-        // Each refusal asks for a second; the first fits a patience of one, the second would
+        // Each refusal asks for a second. The first fits a patience of one, the second would
         // run past it.
         let refusal = stand_in::Answer::status(429).header("Retry-After", "1");
         let (server, client) = steam(refusing(5, &refusal));

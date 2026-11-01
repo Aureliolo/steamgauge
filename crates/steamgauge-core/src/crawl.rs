@@ -44,7 +44,7 @@ impl Default for CrawlOptions {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopReason {
     Exhausted,
-    /// The cursor stopped advancing. Expected on helpfulness-ranked ordering, and a bug
+    /// The cursor stopped moving forward. Expected on helpfulness-ranked ordering, and a bug
     /// anywhere else.
     CursorRepeated,
     NoCursor,
@@ -273,7 +273,7 @@ async fn run_shards(
             let outcome = crawl_shard(&client, app_id, record.shard, &path).await?;
             // A window still short after every walk is left unfinished on purpose. Marking
             // it done would fold a known undercount into the corpus and report it as
-            // complete; left as it is, the crawl reports itself incomplete and the next run
+            // complete. Left as it is, the crawl reports itself incomplete and the next run
             // walks it again.
             if !outcome.short {
                 state.mark_done(
@@ -330,7 +330,7 @@ const MAX_SHARD_WALKS: u32 = 3;
 /// How far below Valve's stated count for a window a walk may land before it is walked again.
 ///
 /// Windows that genuinely finish land within a handful of reviews of expectation, the drift
-/// being reviews written or deleted between planning and walking; the largest gap seen across
+/// being reviews written or deleted between planning and walking. The largest gap seen across
 /// eleven honest shards was eight reviews in 39,278. Windows cut short by a stall miss a
 /// quarter or more. Nothing observed falls between, so both bounds have wide margins.
 const SHORTFALL_RATIO: f64 = 0.95;
@@ -365,11 +365,11 @@ struct ShardOutcome {
     short: bool,
 }
 
-/// Walks a window, repeating it while it comes back short of what Valve says it holds.
+/// Walks a window and repeats it while it comes back short of what Valve says it holds.
 ///
 /// Each walk asks for one review fewer a page than the walk before. Steam keeps what it
 /// answered a caller without a key for up to ten minutes, and an identical walk asked again
-/// inside that time is served the same pages, the early end included; a different page size
+/// inside that time is served the same pages, the early end included. A different page size
 /// is a different query, walked afresh.
 async fn crawl_shard(
     client: &SteamClient,
@@ -623,7 +623,7 @@ pub async fn sweep(
         );
     }
     write_facts(&dir, &facts)?;
-    // The store is being asked about the game anyway; a name it will not give is not a reason
+    // The store is being asked about the game anyway. A name it will not give is not a reason
     // to fail a sweep that has already landed.
     let _ = name_where_missing(client, out_dir, app_id).await;
 
@@ -758,7 +758,7 @@ async fn walk_since(
                 continue;
             }
             // Created since the watermark and never swept before is a review the capture
-            // has not seen; anything else is a copy of one it has.
+            // has not seen. Anything else is a copy of one it has.
             if stamp("timestamp_created") >= watermark && !newest.copies.contains_key(id) {
                 new += 1;
             } else {
@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn a_small_window_is_judged_by_reviews_missed_rather_than_by_share() {
-        // Losing three of twenty reviews is 15% and means nothing; the floor stops a tiny
+        // Losing three of twenty reviews is 15% and means nothing. The floor stops a tiny
         // window from being walked three times over noise.
         assert!(!fell_short(17, 20));
         assert!(fell_short(60, 200), "a real shortfall must still be caught");
