@@ -10,15 +10,15 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
-arrow = "=60.0.0"
+arrow = "=60.1.0"
 csv = "=1.4.0"
 jieba-rs = "=0.11.0"
 ndarray = "=0.17.2"
 ort = { version = "=2.0.0-rc.15", features = ["download-binaries", "ndarray"] }
-parquet = "=60.0.0"
+parquet = "=60.1.0"
 percent-encoding = "=2.3.2"
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider", "json", "gzip", "http2"] }
-rusqlite = { version = "=0.41.0", features = ["bundled"] }
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 semver = "=1.0.28"
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -39,7 +39,7 @@ winreg = "=0.56.0"
 # place with a rename, which on macOS exchanges the two bundles in one step.
 [target.'cfg(unix)'.dependencies]
 flate2 = { version = "=1.1.10", optional = true }
-rustix = { version = "=1.1.5", features = ["fs"], optional = true }
+rustix = { version = "=1.1.6", features = ["fs"], optional = true }
 tar = { version = "=0.4.46", default-features = false, optional = true }
 
 # GPU backends are opt-in at build time so the default binary needs no vendor runtime to
