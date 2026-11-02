@@ -607,7 +607,7 @@ jobs:
       # The .deb is linted on Debian and the .rpm linted and installed on Fedora, each pinned by
       # digest so the check is the same each run.
       # renovate: datasource=docker depName=debian
-      DEBIAN_IMAGE: debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+      DEBIAN_IMAGE: debian:13@sha256:2dc419c6d7fe3dad0a2f9fd469c34cc90b0f9ba642d8fde837fe3d7d34a0e7f1
       # renovate: datasource=docker depName=fedora
       FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
