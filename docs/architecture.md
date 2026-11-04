@@ -52,6 +52,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   VR-only game's window opens with "Played in a VR headset."
 - Claims are sorted by length in windows of 16,384 and read in batches of 256. A fresh reading at
   a fixed batch size is the same to the bit, and records the batch size.
+- Below full card time a read runs each whole batch and then rests. Its readings are the ones a
+  read at full card time gives.
 - **Reading again** keeps the answers of every review whose text and spans are unchanged, by a
   fingerprint of its text. `read --afresh` and a new reader read every claim.
 - On a card the search encoder and reranker run only at fixed shapes, at 64, 128, 256 or 512
@@ -122,6 +124,8 @@ in thirty.
 - Every page is held to WCAG 2.2 AA in light and dark and at its narrowest width.
 - Every page fills the window beside the sidebar, with no fixed width. Wide content goes into
   columns, and only a paragraph keeps a reading measure.
+- Every page has a labelled entry in the sidebar list. A click on the name or logo is never the
+  only way in.
 
 ## Assistants
 
