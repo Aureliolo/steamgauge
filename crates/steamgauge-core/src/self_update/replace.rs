@@ -9,7 +9,7 @@
 use std::{
     fs,
     io::{self, Read},
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::unix::fs::{MetadataExt as _, PermissionsExt as _},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -159,8 +159,10 @@ pub fn stage_app(archive: impl Read, bundle: &Path) -> io::Result<StagedApp> {
     Ok(StagedApp { staging, app })
 }
 
-/// Puts the staged app in place of `bundle`. The two are exchanged in one step where the file
-/// system can, so `bundle` is never missing. Elsewhere `bundle` is moved aside, the new one
+/// Puts the staged app in place of `bundle`.
+///
+/// The two are exchanged in one step where the file system can, so `bundle` is never missing.
+/// Elsewhere `bundle` is moved aside, the new one
 /// moved in, and the old one put back if that fails. Either way the previous app is left in the
 /// staging folder, which is removed with it.
 ///
@@ -221,8 +223,9 @@ fn touch(bundle: &Path) {
     }
 }
 
-/// Replaces the files in `dir` with those of the Linux archive `archive`, whose files sit in
-/// the one folder `top`. Each file is renamed over its old self, the program last, so a copy
+/// Replaces the files in `dir` with those of the Linux archive `archive`.
+///
+/// The archive's files sit in the one folder `top`. Each file is renamed over its old self, the program last, so a copy
 /// stopped half way still starts. A file of the old copy the new one no longer has stays.
 ///
 /// # Errors
@@ -356,7 +359,9 @@ mod tests {
     #[test]
     fn stagings_started_at_once_each_get_a_folder_of_their_own() {
         let dir = Dir::new();
-        let all: Vec<Staging> = (0..64).map(|_| Staging::new(dir.path()).unwrap()).collect();
+        let all: Vec<Staging> = std::iter::repeat_with(|| Staging::new(dir.path()).unwrap())
+            .take(64)
+            .collect();
         let mut roots: Vec<&Path> = all.iter().map(Staging::path).collect();
         roots.sort();
         roots.dedup();
@@ -453,7 +458,7 @@ mod tests {
             archive(&[("SteamGauge.app/Contents/Info.plist", b"<plist/>", 0o644)]),
             b"not an archive".to_vec(),
         ] {
-            assert!(stage_app(refused.as_slice(), &bundle).is_err());
+            stage_app(refused.as_slice(), &bundle).unwrap_err();
         }
         assert_eq!(program_of(&bundle), b"old");
         let left: Vec<String> = names(dir.path()).unwrap();
@@ -467,7 +472,7 @@ mod tests {
     #[test]
     fn a_missing_bundle_has_no_volume_to_stage_on() {
         let dir = Dir::new();
-        assert!(stage_app(app_archive(b"new").as_slice(), &dir.path().join("Gone.app")).is_err());
+        stage_app(app_archive(b"new").as_slice(), &dir.path().join("Gone.app")).unwrap_err();
     }
 
     fn linux_archive(top: &str, program: &[u8]) -> Vec<u8> {
