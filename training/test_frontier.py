@@ -3,31 +3,35 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import frontier
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SUBJECTS = ["performance", "vr", "gameplay"]
 
 
-def test_one_line_when_the_export_carries_none():
+def test_one_line_when_the_export_carries_none() -> None:
     reader = {"subjects": SUBJECTS, "threshold": 0.69}
     assert frontier.abstention_line(reader, 0) == 0.69
     assert frontier.abstention_line(reader, 1) == 0.69
 
 
-def test_a_line_per_subject():
+def test_a_line_per_subject() -> None:
     reader = {"subjects": SUBJECTS, "threshold": 0.69, "thresholds": [0.23, 0.98, 0.77]}
     assert frontier.abstention_line(reader, 0) == 0.23
     assert frontier.abstention_line(reader, 1) == 0.98
     assert frontier.abstention_line(reader, 2) == 0.77
 
 
-def test_a_null_line_is_declined_outright():
+def test_a_null_line_is_declined_outright() -> None:
     reader = {"subjects": SUBJECTS, "threshold": 0.69, "thresholds": [0.23, None, 0.77]}
     assert frontier.abstention_line(reader, 1) == float("inf")
 
 
-def test_a_claim_the_reader_was_never_handed_is_not_charged_against_it(tmp_path):
+def test_a_claim_the_reader_was_never_handed_is_not_charged_against_it(tmp_path: Path) -> None:
     # A key drawn before the splitter last changed names spans this build cuts no claim at, and
     # the reader is never asked those. Counted as unanswered, they read as the reader declining.
     key = tmp_path / "key.json"
@@ -63,7 +67,7 @@ def test_a_claim_the_reader_was_never_handed_is_not_charged_against_it(tmp_path)
     assert readable["accuracy_where_answered"] == 1.0
 
 
-def test_readers_are_compared_answering_the_same_share_most_confident_first(tmp_path):
+def test_readers_are_compared_answering_the_same_share_most_confident_first(tmp_path: Path) -> None:
     # Ten claims, the guesses right on the eight most confident and wrong on the last two. The
     # reader's own line declines everything below 0.5, which is not what the shares look at.
     key = tmp_path / "key.json"
@@ -97,7 +101,7 @@ def test_readers_are_compared_answering_the_same_share_most_confident_first(tmp_
     assert found["accuracy_at_coverage"]["90%"]["accuracy"] == 8 / 9
 
 
-def test_answers_without_confidences_have_no_shares(tmp_path):
+def test_answers_without_confidences_have_no_shares(tmp_path: Path) -> None:
     # A frontier model's answers carry no confidence, and a share ranked by nothing is invented.
     key = tmp_path / "key.json"
     key.write_text(json.dumps([{"id": "a", "subject": "vr", "polarity": "praise"}]), "utf-8")
@@ -107,7 +111,9 @@ def test_answers_without_confidences_have_no_shares(tmp_path):
     assert "accuracy_at_coverage" not in frontier.score(answers, key)
 
 
-def test_every_row_of_the_benchmark_counts_the_claims_a_reader_can_be_handed(tmp_path):
+def test_every_row_of_the_benchmark_counts_the_claims_a_reader_can_be_handed(
+    tmp_path: Path,
+) -> None:
     # A frontier model answered every key row when it was asked. A reader is handed only the
     # rows the export still holds. Scored over different rows, the two figures are not a
     # comparison, so the key is cut to the survivors for both.

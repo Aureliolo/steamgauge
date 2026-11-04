@@ -20,21 +20,68 @@ import itertools
 import json
 import math
 import re
+import shutil
 import subprocess
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict, cast, final, override
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch.utils.data import DataLoader, Dataset
-from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup  # pyright: ignore[reportUnknownVariableType]  # transformers leaves the scheduler's parameters unannotated
 
 import backbones
 import claimdata
+from typed_calls import manual_seed, save_pretrained
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+
+    from transformers import PreTrainedTokenizerBase
+
+    from claimdata import Claim
+
+type Item = dict[str, torch.Tensor]
+type FloatArray = npt.NDArray[np.floating[Any]]
+type IntArray = npt.NDArray[np.integer[Any]]
 
 HERE = Path(__file__).resolve().parent
 POLARITIES = claimdata.POLARITIES
+
+# A claim whose polarity is none of POLARITIES reads as the last one, neutral.
+NEUTRAL = 2
+
+# A claim's text is "short" or "medium" below these lengths in characters, "long" beyond them.
+SHORT_CLAIM = 40
+MEDIUM_CLAIM = 140
+
+# A progress line is printed on the first optimiser step of an epoch and every this many after.
+PROGRESS_EVERY = 50
+
+# The window's budget is spent on the claim twice and on four special tokens around a pair.
+SPECIAL_TOKENS_ON_A_PAIR = 4
+
+GIGABYTE = 2**30
+
+# The hidden size assumed for a trunk whose config does not say.
+DEFAULT_TRUNK_WIDTH = 768
+
+# Forward passes a CUDA graph is warmed with before it is recorded.
+WARMUP_ITERATIONS = 3
+
+# The optimiser's weight decay, and the share of the steps the learning rate warms up over.
+WEIGHT_DECAY = 0.01
+WARMUP_SHARE = 0.1
+
+# Where the aspect logits sit in a reader's output: subject, polarity, pooled vector, aspects.
+ASPECT_LOGITS_AT = 3
+
+# Keeps a softened teacher distribution's log finite where it holds an exact zero.
+EPSILON = 1e-8
 
 # What the aspect head answers for each subject: absent, or one of the polarities, in that order,
 # so an answer of 0 is absent and 1 + i is POLARITIES[i]. Matched by the Rust reader.
@@ -54,18 +101,55 @@ HEADSET = "Played in a VR headset."
 # Small capitals, which the tokenizer leaves as symbols it never learned where it folds bold and
 # fullwidth letters itself, read as the letters they are. The Rust reader folds from this same
 # file, so what the model is trained on and what it is asked are one text.
-SMALL_CAPITALS = str.maketrans(
-    json.loads(
-        (HERE.parent / "crates" / "steamgauge-core" / "src" / "small-capitals.json").read_text(
-            encoding="utf-8"
-        )
+_SMALL_CAPITAL_LETTERS: dict[str, str] = json.loads(
+    (HERE.parent / "crates" / "steamgauge-core" / "src" / "small-capitals.json").read_text(
+        encoding="utf-8"
     )
 )
+SMALL_CAPITALS = str.maketrans(_SMALL_CAPITAL_LETTERS)
 
 
 def plain(text: str) -> str:
-    """`text` with every small capital read as the letter it is."""
+    """Return `text` with every small capital read as the letter it is."""
     return text.translate(SMALL_CAPITALS)
+
+
+class TextTokenizer(Protocol):
+    """What `Claims` asks of a tokenizer: a call that returns encodings by name."""
+
+    def __call__(
+        self,
+        text: str,
+        pair: str | None = None,
+        /,
+        **kwargs: Any,  # noqa: ANN401 mirrors transformers' open keyword set
+    ) -> Mapping[str, Any]:
+        """Encode `text`, or the sequences `text` and `pair`."""
+        ...
+
+
+class Encoding(Protocol):
+    """The parts of a `tokenizers.Encoding` that `ShippedTokenizer` reads."""
+
+    @property
+    def offsets(self) -> list[tuple[int, int]]:
+        """The character span of each token."""
+        ...
+
+    @property
+    def ids(self) -> list[int]:
+        """The vocabulary id of each token."""
+        ...
+
+
+class Encoder(Protocol):
+    """The part of a `tokenizers.Tokenizer` that `ShippedTokenizer` calls."""
+
+    def encode(
+        self, sequence: str, pair: str | None = None, *, add_special_tokens: bool = True
+    ) -> Encoding:
+        """Encode a sequence, or a pair of them."""
+        ...
 
 
 class ShippedTokenizer:
@@ -76,99 +160,132 @@ class ShippedTokenizer:
     second place is how the tool and the trainer come to disagree about what the model saw.
     """
 
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer: Encoder) -> None:
+        """Wrap a `tokenizers.Tokenizer` loaded from `tokenizer.json`."""
         self.tokenizer = tokenizer
 
-    def __call__(self, text, *rest, **kwargs):
-        encoded = self.tokenizer.encode(text, *rest, add_special_tokens=False)
+    def __call__(self, text: str, pair: str | None = None, /, **_options: object) -> dict[str, Any]:
+        """Encode like the exported tokenizer, without special tokens."""
+        encoded = self.tokenizer.encode(text, pair, add_special_tokens=False)
         return {"offset_mapping": encoded.offsets, "input_ids": encoded.ids}
 
 
-class Claims(Dataset):
+@dataclass(frozen=True, kw_only=True)
+class Reading:
+    """How a claim is put to the model: its token budget and what the text carries with it.
+
+    Every place that asks a reader anything reads the claim the way its run was trained to.
+    """
+
+    max_length: int
+    # Whether the model reads the claim with the review around it, as the labeller did.
+    # "it doesn't" and "same here" are unanswerable alone, and every one of them in the
+    # training set is a label the model is asked to reach from text that cannot reach it.
+    context: bool = False
+    mark: bool = False
+    # `multilingual-e5-*` was pre-trained on pairs written as "query: " and "passage: ",
+    # and a fine-tune that drops them asks the encoder a differently shaped question from
+    # the one it learned. Off by default because it is a property of one family of
+    # backbones rather than of this task.
+    prefix: bool = False
+    headset_marker: bool = False
+
+    @classmethod
+    def recorded(cls, record: Mapping[str, Any], max_length: int) -> Reading:
+        """Return the reading a run's record says its reader was trained on."""
+        return cls(
+            max_length=max_length,
+            context=bool(record.get("context", False)),
+            mark=bool(record.get("mark", False)),
+            prefix=bool(record.get("prefix", False)),
+            headset_marker=bool(record.get("headset_marker", False)),
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class Weighting:
+    """What a claim is worth in the loss beyond the labeller's own confidence in it."""
+
+    ambiguous_weight: float = 1.0
+    split_wrong_weight: float = 1.0
+    # What a claim about a rare subject is worth against one about a common subject. The
+    # loss treats a `verdict` claim and a `licensing` claim as equally informative when
+    # one is a quarter of the set and the other is two in a thousand, and macro F1 is the
+    # figure that notices. The exponent is a dial rather than a switch: full inverse
+    # frequency makes forty claims of `vr` outweigh four thousand of `verdict` and the
+    # model learns to shout about headsets.
+    balance: float = 0.0
+    # The same dial for the language a claim is written in, and for the same reason. The
+    # set is 71% English against a library that is 52.5%, and the reader is measurably
+    # worse in Simplified Chinese and Korean than in English on evidence that does not
+    # overlap. A claim is a claim whichever language it is in. The loss did not think so.
+    language_balance: float = 0.0
+    # How much of the target the second labeller's answer is, on a claim read twice. The
+    # loss otherwise learns one labeller's answer to a contested claim at full confidence
+    # and the disagreement, which is the only thing known about such a claim, is thrown
+    # away. At 0.5 a split claim is a coin between the two answers. The flag's weight
+    # already discounts it.
+    second_weight: float = 0.0
+
+
+# Every claim worth what its labeller said, as the claims a reader is scored on are.
+UNWEIGHTED = Weighting()
+
+
+def rarity(keys: Iterable[str], exponent: float) -> dict[str, float]:
+    """Return each key's weight, its commonest key's count over its own raised to `exponent`."""
+    counts: dict[str, int] = {}
+    for key in keys:
+        counts[key] = counts.get(key, 0) + 1
+    commonest = max(counts.values()) if counts else 1
+    return {key: (commonest / count) ** exponent for key, count in counts.items()}
+
+
+class Claims(Dataset[Item]):
+    """Labelled claims as fixed-length tensors, with the targets and weights the loss reads."""
+
     def __init__(
         self,
-        claims,
-        tokenizer,
-        subjects,
-        max_length,
-        context=False,
-        ambiguous_weight=1.0,
-        split_wrong_weight=1.0,
-        mark=False,
-        balance=0.0,
-        prefix=False,
-        language_balance=0.0,
-        second_weight=0.0,
-        headset_marker=False,
-    ):
+        claims: Sequence[Claim],
+        tokenizer: TextTokenizer,
+        subjects: Sequence[str],
+        reading: Reading,
+        weighting: Weighting = UNWEIGHTED,
+    ) -> None:
+        """Hold the claims and everything that decides how each one is read and weighted."""
         self.claims = claims
-        self.ambiguous_weight = ambiguous_weight
-        self.split_wrong_weight = split_wrong_weight
-        # How much of the target the second labeller's answer is, on a claim read twice. The
-        # loss otherwise learns one labeller's answer to a contested claim at full confidence
-        # and the disagreement, which is the only thing known about such a claim, is thrown
-        # away. At 0.5 a split claim is a coin between the two answers. The flag's weight
-        # above already discounts it.
-        self.second_weight = second_weight
-        self.mark = mark
-        self.headset_marker = headset_marker
-        # What a claim about a rare subject is worth against one about a common subject. The
-        # loss treats a `verdict` claim and a `licensing` claim as equally informative when
-        # one is a quarter of the set and the other is two in a thousand, and macro F1 is the
-        # figure that notices. The exponent is a dial rather than a switch: full inverse
-        # frequency makes forty claims of `vr` outweigh four thousand of `verdict` and the
-        # model learns to shout about headsets.
-        self.balance = {}
-        if balance:
-            counts = {}
-            for claim in claims:
-                counts[claim.subject] = counts.get(claim.subject, 0) + 1
-            commonest = max(counts.values()) if counts else 1
-            self.balance = {
-                subject: (commonest / count) ** balance for subject, count in counts.items()
-            }
-        # The same dial for the language a claim is written in, and for the same reason. The
-        # set is 71% English against a library that is 52.5%, and the reader is measurably
-        # worse in Simplified Chinese and Korean than in English on evidence that does not
-        # overlap. A claim is a claim whichever language it is in. The loss did not think so.
-        self.language_balance = {}
-        if language_balance:
-            spoken = {}
-            for claim in claims:
-                spoken[claim.language] = spoken.get(claim.language, 0) + 1
-            commonest = max(spoken.values()) if spoken else 1
-            self.language_balance = {
-                name: (commonest / count) ** language_balance for name, count in spoken.items()
-            }
+        self.reading = reading
+        self.weighting = weighting
+        self.balance: dict[str, float] = (
+            rarity((claim.subject for claim in claims), weighting.balance)
+            if weighting.balance
+            else {}
+        )
+        self.language_balance: dict[str, float] = (
+            rarity((claim.language for claim in claims), weighting.language_balance)
+            if weighting.language_balance
+            else {}
+        )
         self.tokenizer = tokenizer
         self.subjects = {name: index for index, name in enumerate(subjects)}
         self.polarities = {name: index for index, name in enumerate(POLARITIES)}
-        self.max_length = max_length
-        # Whether the model reads the claim with the review around it, as the labeller did.
-        # "it doesn't" and "same here" are unanswerable alone, and every one of them in the
-        # training set is a label the model is asked to reach from text that cannot reach it.
-        self.context = context
-        # `multilingual-e5-*` was pre-trained on pairs written as "query: " and "passage: ",
-        # and a fine-tune that drops them asks the encoder a differently shaped question from
-        # the one it learned. Off by default because it is a property of one family of
-        # backbones rather than of this task.
-        self.prefix = prefix
         # The window depends on the claim and the budget, neither of which moves, so it is cut
         # once rather than once per epoch. It costs a tokenisation of the whole review.
-        self.windows = [self.window(claim) for claim in claims] if context else []
+        self.windows = [self.window(claim) for claim in claims] if reading.context else []
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return how many claims there are."""
         return len(self.claims)
 
-    def window(self, claim):
-        """The window the model reads, opened by the headset fact where it was trained on one."""
+    def window(self, claim: Claim) -> str:
+        """Return the window the model reads, headed by the headset fact where trained on one."""
         cut = self.cut(claim)
-        if self.headset_marker and claim.headset_only:
+        if self.reading.headset_marker and claim.headset_only:
             return f"{HEADSET} {cut}"
         return cut
 
-    def cut(self, claim):
-        """The part of the review the budget can afford, centred on the claim.
+    def cut(self, claim: Claim) -> str:
+        """Return the part of the review the budget can afford, centred on the claim.
 
         Truncating a pair from the end spends the whole budget on the opening of the review,
         so a claim at the foot of a long one is read beside paragraphs it is nowhere near.
@@ -178,7 +295,7 @@ class Claims(Dataset):
         at = claim.review_offset
         if at < 0:
             return claim.review
-        offsets = self.tokenizer(
+        offsets: list[tuple[int, int]] = self.tokenizer(
             claim.review, add_special_tokens=False, return_offsets_mapping=True
         )["offset_mapping"]
         if not offsets:
@@ -190,10 +307,10 @@ class Claims(Dataset):
         )
         # Four special tokens on a pair, and the claim is spent twice: once as the first
         # sequence, and again where it sits inside the window.
-        spare = max(self.max_length - 2 * (last - first) - 4, 0) // 2
+        spare = max(self.reading.max_length - 2 * (last - first) - SPECIAL_TOKENS_ON_A_PAIR, 0) // 2
         opens = offsets[max(first - spare, 0)][0]
         closes = offsets[min(last + spare, len(offsets)) - 1][1]
-        if not self.mark:
+        if not self.reading.mark:
             return claim.review[opens:closes]
         # Where the claim sits inside its window, said in the text itself. A pair alone gives
         # the model the claim and its surroundings but not which sentence of the surroundings
@@ -204,8 +321,8 @@ class Claims(Dataset):
             f"{claim.review[ends:closes]}"
         )
 
-    def pair(self, at):
-        """The sequences the model is asked about this claim, in the form it was trained on.
+    def pair(self, at: int) -> tuple[str, ...]:
+        """Return the sequences the model is asked about this claim, in the form it was trained on.
 
         Every place that asks the model anything goes through here: the trainer, the export,
         the frontier comparison and the confidence sweep. A claim written one way in training
@@ -214,18 +331,20 @@ class Claims(Dataset):
         """
         claim = self.claims[at]
         text = plain(claim.text)
-        asked = f"query: {text}" if self.prefix else text
-        if not self.context:
+        asked = f"query: {text}" if self.reading.prefix else text
+        if not self.reading.context:
             return (asked,)
         window = plain(self.windows[at])
-        return asked, f"passage: {window}" if self.prefix else window
+        return asked, f"passage: {window}" if self.reading.prefix else window
 
-    def __getitem__(self, at):
-        claim = self.claims[at]
+    @override
+    def __getitem__(self, index: int) -> Item:
+        """Return the claim's tokens, targets and loss weight."""
+        claim = self.claims[index]
         encoded = self.tokenizer(
-            *self.pair(at),
+            *self.pair(index),
             truncation=True,
-            max_length=self.max_length,
+            max_length=self.reading.max_length,
             padding="max_length",
             return_tensors="pt",
         )
@@ -233,7 +352,7 @@ class Claims(Dataset):
             "input_ids": encoded["input_ids"][0],
             "attention_mask": encoded["attention_mask"][0],
             "subject": torch.tensor(self.subjects[claim.subject]),
-            "polarity": torch.tensor(self.polarities.get(claim.polarity, 2)),
+            "polarity": torch.tensor(self.polarities.get(claim.polarity, NEUTRAL)),
             "subject_target": self.target(
                 self.subjects, claim.subject, claim.second_subject, len(self.subjects)
             ),
@@ -241,11 +360,11 @@ class Claims(Dataset):
                 self.polarities, claim.polarity, claim.second_polarity, len(POLARITIES)
             ),
             "weight": torch.tensor(self.weight_of(claim), dtype=torch.float),
-            **dict(zip(("aspect", "aspect_known"), self.aspect_target(claim))),
+            **dict(zip(("aspect", "aspect_known"), self.aspect_target(claim), strict=True)),
         }
 
-    def aspect_target(self, claim):
-        """For every subject, what the claim does about it, and whether that is known.
+    def aspect_target(self, claim: Claim) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return, for every subject, what the claim does about it, and whether that is known.
 
         The answer per subject is absent, or the polarity the claim takes on it. A label from a
         sheet that asked for every subject answers all of them, and so does one the labeller did
@@ -256,26 +375,29 @@ class Claims(Dataset):
         size = len(self.subjects)
         answer = torch.zeros(size, dtype=torch.long)
         covers = claim.covers()
-        known = torch.full((size,), covers is not None, dtype=torch.bool)
+        known = torch.full((size,), fill_value=covers is not None, dtype=torch.bool)
         for subject, polarity in (covers or {claim.subject: claim.polarity}).items():
             if subject in self.subjects:
-                answer[self.subjects[subject]] = 1 + self.polarities.get(polarity, 2)
+                answer[self.subjects[subject]] = 1 + self.polarities.get(polarity, NEUTRAL)
                 known[self.subjects[subject]] = True
         return answer, known
 
-    def target(self, index, first, second, size):
-        """The distribution the loss is charged against: one labeller's answer, or two mixed."""
+    def target(
+        self, index: Mapping[str, int], first: str, second: str | None, size: int
+    ) -> torch.Tensor:
+        """Return the distribution the loss is charged against, one answer or two mixed."""
         distribution = torch.zeros(size, dtype=torch.float)
         at = index.get(first, size - 1)
-        if second is None or self.second_weight <= 0 or second not in index:
+        second_weight = self.weighting.second_weight
+        if second is None or second_weight <= 0 or second not in index:
             distribution[at] = 1.0
             return distribution
-        distribution[at] = 1.0 - self.second_weight
-        distribution[index[second]] += self.second_weight
+        distribution[at] = 1.0 - second_weight
+        distribution[index[second]] += second_weight
         return distribution
 
-    def weight_of(self, claim):
-        """What this claim is worth in the loss.
+    def weight_of(self, claim: Claim) -> float:
+        """Return what this claim is worth in the loss.
 
         Three things the labeller said about their own answer, rather than one. A claim they
         called contested is one where the sheet does not settle the boundary, and a claim they
@@ -284,9 +406,9 @@ class Claims(Dataset):
         """
         weight = claim.weight
         if claim.ambiguous:
-            weight *= self.ambiguous_weight
+            weight *= self.weighting.ambiguous_weight
         if claim.split_wrong:
-            weight *= self.split_wrong_weight
+            weight *= self.weighting.split_wrong_weight
         return (
             weight
             * self.balance.get(claim.subject, 1.0)
@@ -304,33 +426,23 @@ class Pool(Claims):
 
     def __init__(
         self,
-        claims,
-        tokenizer,
-        subjects,
-        max_length,
-        context,
-        mark,
-        prefix,
-        targets=None,
-        headset_marker=False,
-    ):
-        super().__init__(
-            claims,
-            tokenizer,
-            subjects,
-            max_length,
-            context,
-            mark=mark,
-            prefix=prefix,
-            headset_marker=headset_marker,
-        )
+        claims: Sequence[Claim],
+        tokenizer: TextTokenizer,
+        subjects: Sequence[str],
+        reading: Reading,
+        targets: tuple[FloatArray, FloatArray] | None = None,
+    ) -> None:
+        """Hold the pool and, for a student, the teacher's answers on it."""
+        super().__init__(claims, tokenizer, subjects, reading)
         self.targets = targets
 
-    def __getitem__(self, at):
+    @override
+    def __getitem__(self, index: int) -> Item:
+        """Return the claim's tokens and, with a teacher, its answers."""
         encoded = self.tokenizer(
-            *self.pair(at),
+            *self.pair(index),
             truncation=True,
-            max_length=self.max_length,
+            max_length=self.reading.max_length,
             padding="max_length",
             return_tensors="pt",
         )
@@ -340,13 +452,15 @@ class Pool(Claims):
         }
         if self.targets is not None:
             subject, polarity = self.targets
-            item["subject"] = torch.from_numpy(subject[at].astype(np.float32))
-            item["polarity"] = torch.from_numpy(polarity[at].astype(np.float32))
+            item["subject"] = torch.as_tensor(subject[index].astype(np.float32))
+            item["polarity"] = torch.as_tensor(polarity[index].astype(np.float32))
         return item
 
 
-def load_targets(path, pool, subjects):
-    """A teacher's answers on the pool, checked row for row against the pool they answer.
+def load_targets(
+    path: str | Path, pool: Sequence[Claim], subjects: Sequence[str]
+) -> tuple[FloatArray, FloatArray]:
+    """Return a teacher's answers on the pool, checked row for row against the pool they answer.
 
     The file is written in the pool's order and names every row, because a pool drawn again
     with another seed is a different set of claims in a file of the same name, and answers
@@ -355,22 +469,25 @@ def load_targets(path, pool, subjects):
     """
     targets = np.load(path, allow_pickle=False)
     if list(targets["subjects"]) != list(subjects):
-        raise SystemExit(f"{path} answers over {list(targets['subjects'])}, not {subjects}")
+        msg = f"{path} answers over {list(targets['subjects'])}, not {subjects}"
+        raise SystemExit(msg)
     keys = list(
         zip(
             targets["app_id"].tolist(),
             targets["review_id"].tolist(),
             targets["claim_index"].tolist(),
+            strict=False,
         )
     )
     wanted = [(claim.app_id, claim.review_id, claim.claim_index) for claim in pool]
     if keys != wanted:
-        raise SystemExit(f"{path} answers a different pool from the one loaded; read it again")
+        msg = f"{path} answers a different pool from the one loaded; read it again"
+        raise SystemExit(msg)
     return targets["subject"], targets["polarity"]
 
 
-def symmetric_kl(left, right):
-    """How far two distributions over the same classes sit apart, from either side, per row."""
+def symmetric_kl(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    """Return how far two distributions over the same classes sit apart, per row."""
     left = torch.log_softmax(left.float(), dim=-1)
     right = torch.log_softmax(right.float(), dim=-1)
     forward = torch.nn.functional.kl_div(left, right, log_target=True, reduction="none").sum(-1)
@@ -378,32 +495,41 @@ def symmetric_kl(left, right):
     return (forward + backward) / 2
 
 
-def forever(loader):
-    """The loader again from the top whenever it runs out. The pool is read at the labelled
-    set's pace, one batch per step, and is many times its size. Which epoch it is on is of no
-    interest, only that every step has a batch."""
+def forever(loader: Iterable[Item]) -> Iterator[Item]:
+    """Yield the loader again from the top whenever it runs out.
+
+    The pool is read at the labelled set's pace, one batch per step, and is many times its
+    size. Which epoch it is on is of no interest, only that every step has a batch.
+    """
     while True:
         yield from loader
 
 
-def recompute_activations(model: "ClaimReader") -> None:
-    """Keeps no activations between the forward pass and the backward, computing them again as
-    the backward needs them. Not reentrant, so the second forward draws the same dropout as the
-    first and the gradient is the one the run would have had. The card holds little beyond the
-    weights and the optimiser, for about a third more compute."""
+def recompute_activations(model: ClaimReader) -> None:
+    """Keep no activations between the forward pass and the backward.
+
+    They are computed again as the backward needs them. Not reentrant, so the second forward
+    draws the same dropout as the first and the gradient is the one the run would have had.
+    The card holds little beyond the weights and the optimiser, for about a third more compute.
+    """
     model.trunk.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False}
     )
 
 
-def average_of(model: torch.nn.Module, decay: float, on_host: bool):
-    """An exponential average of the model's weights, kept on the card beside them or in the
-    machine's memory. On the host it is the same average, a copy of every weight off the card,
-    with the weights carried over the bus at every step to update it."""
+def average_of(
+    model: torch.nn.Module, decay: float, *, on_host: bool
+) -> torch.optim.swa_utils.AveragedModel:
+    """Return an exponential average of the model's weights.
+
+    It is kept on the card beside them or in the machine's memory. On the host it is the same
+    average, a copy of every weight off the card, with the weights carried over the bus at
+    every step to update it.
+    """
     averaged = torch.optim.swa_utils.AveragedModel(
         model,
         device=torch.device("cpu") if on_host else None,
-        multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(decay),
+        multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(decay),  # pyright: ignore[reportUnknownArgumentType]  # torch leaves the callback's third parameter unannotated
     )
     if on_host and torch.cuda.is_available():
         # The copy is taken where the model is and only then moved, and the allocator keeps
@@ -421,13 +547,14 @@ class BestEpoch:
     longer run whose last epoch is past its best then keeps the best rather than the last.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Start with nothing kept."""
         self.score: float | None = None
         self.epoch: int | None = None
         self.weights: dict[str, torch.Tensor] = {}
 
     def offer(self, score: float, epoch: int, model: torch.nn.Module) -> bool:
-        """Keeps the model's trained weights if `score` beats every epoch offered before."""
+        """Keep the model's trained weights if `score` beats every epoch offered before."""
         if self.score is not None and score <= self.score:
             return False
         self.score, self.epoch = score, epoch
@@ -440,6 +567,7 @@ class BestEpoch:
 
     @torch.no_grad()
     def restore(self, model: torch.nn.Module) -> None:
+        """Copy the kept weights back into the model."""
         # In place, so a run that recorded CUDA graphs over these tensors still reads them.
         for name, weight in model.named_parameters():
             if name in self.weights:
@@ -454,16 +582,19 @@ def hold_card_memory(gigabytes: float | None, device: str) -> None:
     allocator frees its own cache before asking for more, and the run fails if it needs more
     than this. What CUDA graphs record stays reserved in their own pools, which the allocator's
     count of live memory leaves out and the hold does not, so a figure is found by holding a
-    run to it, never read off `max_memory_allocated`."""
+    run to it, never read off `max_memory_allocated`.
+    """
     if device != "cuda" or gigabytes is None:
         return
-    total = torch.cuda.get_device_properties(0).total_memory
-    torch.cuda.set_per_process_memory_fraction(min(1.0, gigabytes * 2**30 / total))
+    total = int(torch.cuda.get_device_properties(0).total_memory)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # torch's device-properties class is unresolved in its stubs
+    torch.cuda.set_per_process_memory_fraction(min(1.0, gigabytes * GIGABYTE / total))  # pyright: ignore[reportUnknownMemberType]  # torch leaves the fraction unannotated
 
 
 def rest_after(busy: float, share: float) -> float:
-    """How long to leave the card idle after keeping it busy this long, for the run to take this
-    share of its time."""
+    """Return how long to leave the card idle after keeping it busy this long.
+
+    The run takes `share` of its time that way.
+    """
     return busy * (1 - share) / share
 
 
@@ -473,21 +604,26 @@ class Paced:
     The card is shared with whatever else the machine is doing, and Windows gives a CUDA process
     no lower priority to yield by, so the run yields by resting between batches. The clock is
     read after a synchronise: kernels run behind the Python that queued them, and the time until
-    the next batch is asked for says nothing about the card."""
+    the next batch is asked for says nothing about the card.
+    """
 
-    def __init__(self, loader: DataLoader, share: float, device: str):
+    def __init__(self, loader: DataLoader[Item], share: float, device: str) -> None:
+        """Pace `loader` so the run takes `share` of the card's time on `device`."""
         self.loader = loader
         self.share = share
         self.device = device
 
     @property
-    def dataset(self):
+    def dataset(self) -> Dataset[Item]:
+        """The loader's dataset."""
         return self.loader.dataset
 
     def __len__(self) -> int:
+        """Return how many batches one pass yields."""
         return len(self.loader)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Item]:
+        """Yield the loader's batches, resting after each."""
         if self.share >= 1:
             yield from self.loader
             return
@@ -499,8 +635,10 @@ class Paced:
             time.sleep(rest_after(time.perf_counter() - started, self.share))
 
 
-def charged(logits, target, class_weight=None):
-    """Cross-entropy against a distribution, each class weighted as the hard form weights it.
+def charged(
+    logits: torch.Tensor, target: torch.Tensor, class_weight: torch.Tensor | None = None
+) -> torch.Tensor:
+    """Return cross-entropy against a distribution, each class weighted as the hard form weights it.
 
     On a one-hot target this is exactly what `cross_entropy(weight=..., reduction="none")`
     charges, so a run whose claims were read once is charged what every earlier run was. A
@@ -512,8 +650,10 @@ def charged(logits, target, class_weight=None):
     return -(target * log_probabilities).sum(dim=-1)
 
 
-def error_regularisation(logits, truth, margin=0.0):
-    """What the model pays for being surer of a wrong answer than of a right one.
+def error_regularisation(
+    logits: torch.Tensor, truth: torch.Tensor, margin: float = 0.0
+) -> torch.Tensor:
+    """Return what the model pays for being surer of a wrong answer than of a right one.
 
     Cross-entropy asks the model to be right. It never asks the confidence to rank the right
     answers above the wrong ones, which is the whole of what an abstention rule needs: a model
@@ -538,21 +678,23 @@ def error_regularisation(logits, truth, margin=0.0):
     ).mean()
 
 
-def soft_cross_entropy(logits, target, temperature):
-    """What a student pays for disagreeing with a teacher's distribution.
+def soft_cross_entropy(
+    logits: torch.Tensor, target: torch.Tensor, temperature: float
+) -> torch.Tensor:
+    """Return what a student pays for disagreeing with a teacher's distribution.
 
     At a temperature above one, both sides are flattened before they are compared, so the
     student learns the teacher's ranking of the wrong answers rather than only its favourite.
     The loss is scaled back by the square of the temperature so its gradient keeps its size.
     """
     if temperature != 1.0:
-        target = torch.softmax(torch.log(target.clamp(min=1e-8)) / temperature, dim=-1)
+        target = torch.softmax(torch.log(target.clamp(min=EPSILON)) / temperature, dim=-1)
     student = torch.log_softmax(logits.float() / temperature, dim=-1)
     return -(target * student).sum(dim=-1) * temperature**2
 
 
-def aspect_loss(logits, answer, known):
-    """Each claim's cross-entropy over the subjects whose answer is known, averaged over them.
+def aspect_loss(logits: torch.Tensor, answer: torch.Tensor, known: torch.Tensor) -> torch.Tensor:
+    """Return each claim's cross-entropy over its known subjects, averaged over them.
 
     A claim with none known costs nothing, which is a teacher's pool row: the teacher answered
     only the subject a claim is chiefly about.
@@ -562,6 +704,21 @@ def aspect_loss(logits, answer, known):
     ).view(answer.shape)
     known = known.float()
     return (per_subject * known).sum(dim=-1) / known.sum(dim=-1).clamp(min=1.0)
+
+
+@dataclass(frozen=True, kw_only=True)
+class TrunkLoad:
+    """How a reader's trunk is loaded: in which dtype, and whether with its pretrained weights.
+
+    Without them for a caller about to hand it trained ones.
+    """
+
+    dtype: torch.dtype | None = None
+    pretrained: bool = True
+
+
+PRETRAINED = TrunkLoad()
+HEAD_DROPOUT = 0.1
 
 
 class ClaimReader(torch.nn.Module):
@@ -578,31 +735,34 @@ class ClaimReader(torch.nn.Module):
         self,
         backbone: str,
         subjects: int,
-        dropout: float = 0.1,
         pooling: str = "mean",
-        dtype: torch.dtype | None = None,
+        *,
         aspects: bool = False,
-        pretrained: bool = True,
-    ):
+        load: TrunkLoad = PRETRAINED,
+    ) -> None:
+        """Load the trunk and put the heads on it, sized for `subjects` subjects."""
         super().__init__()
-        # Without its pretrained weights for a caller about to hand it trained ones.
-        self.trunk = (
-            backbones.load(AutoModel, backbone, torch_dtype=dtype)
-            if pretrained
-            else backbones.shape(backbone, torch_dtype=dtype)
+        # Typed `Any` because peft's wrapper replaces the transformers model in `adapt`.
+        self.trunk: Any = (
+            backbones.load(AutoModel, backbone, torch_dtype=load.dtype)
+            if load.pretrained
+            else backbones.shape(backbone, torch_dtype=load.dtype)
         )
-        width = getattr(self.trunk.config, "hidden_size", 768)
+        width: int = getattr(self.trunk.config, "hidden_size", DEFAULT_TRUNK_WIDTH)
         self.pooling = pooling
         # Whether the trunk is handed its mask as [batch, query, key]. Handed [batch, key],
         # transformers asks the card whether the mask is all ones before it builds one, and a
         # CUDA graph cannot answer a question. The square mask is built directly, the same mask.
         self.square_mask = False
-        self.drop = torch.nn.Dropout(dropout)
+        self.drop = torch.nn.Dropout(HEAD_DROPOUT)
         self.subject = torch.nn.Linear(width, subjects)
         self.polarity = torch.nn.Linear(width, len(POLARITIES))
         self.aspects = torch.nn.Linear(width, subjects * ASPECT_ANSWERS) if aspects else None
 
-    def forward(self, input_ids, attention_mask):
+    def forward(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, ...]:
+        """Return subject logits, polarity logits and the pooled vector, then aspect logits."""
         trunk_mask = (
             attention_mask[:, None, :].expand(-1, attention_mask.shape[1], -1)
             if self.square_mask
@@ -643,20 +803,28 @@ class Passes(torch.nn.Module):
     and then the second pass's subject and polarity logits when `twice`.
     """
 
-    def __init__(self, model: ClaimReader, twice: bool, aspects: bool):
+    def __init__(self, model: ClaimReader, *, twice: bool, aspects: bool) -> None:
+        """Wrap `model`, running it a second time when `twice`."""
         super().__init__()
         self.model = model
         self.twice = twice
         self.aspects = aspects
 
-    def parameters(self, recurse: bool = True):
+    @override
+    def parameters(self, recurse: bool = True) -> Iterator[torch.nn.Parameter]:
+        """Yield the parameters the pass reads."""
         # A graph differentiates every parameter its callable owns and refuses one the pass
         # never reads. A pass that returns no aspects reads nothing of the aspect head.
         head = self.model.aspects
-        unread = set() if self.aspects or head is None else {id(p) for p in head.parameters()}
+        unread: set[int] = (
+            set() if self.aspects or head is None else {id(p) for p in head.parameters()}
+        )
         return (p for p in super().parameters(recurse) if id(p) not in unread)
 
-    def forward(self, input_ids, attention_mask):
+    def forward(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, ...]:
+        """Return what the loss uses, as the class describes."""
         subject, polarity, _, *aspects = self.model(input_ids, attention_mask)
         out = (subject, polarity, *(aspects if self.aspects else ()))
         if self.twice:
@@ -665,8 +833,15 @@ class Passes(torch.nn.Module):
         return out
 
 
-def graphed(model: ClaimReader, shapes: dict, rdrop: bool, aspects: bool, device: str) -> dict:
-    """The labelled pass, and the teacher's pass where there is one, recorded as CUDA graphs.
+def graphed(
+    model: ClaimReader,
+    shapes: Mapping[str, tuple[int, int]],
+    *,
+    rdrop: bool,
+    aspects: bool,
+    device: str,
+) -> dict[str, Callable[..., tuple[torch.Tensor, ...]]]:
+    """Record the labelled pass, and the teacher's pass where there is one, as CUDA graphs.
 
     Each training pass is thousands of small kernels, and eager PyTorch launches them one at a
     time from Python: on a processor other work holds, the card waits on the launches rather
@@ -680,10 +855,12 @@ def graphed(model: ClaimReader, shapes: dict, rdrop: bool, aspects: bool, device
     if pooler is not None:
         # Never read, since the reader pools for itself, so it never had a gradient. A graph
         # insists every parameter it differentiates takes part.
-        pooler.requires_grad_(False)
+        pooler.requires_grad_(requires_grad=False)
     names = list(shapes)
     callables = tuple(
-        Passes(model, rdrop, aspects) if name == "labelled" else Passes(model, False, False)
+        Passes(model, twice=rdrop, aspects=aspects)
+        if name == "labelled"
+        else Passes(model, twice=False, aspects=False)
         for name in names
     )
     samples = tuple(
@@ -694,17 +871,23 @@ def graphed(model: ClaimReader, shapes: dict, rdrop: bool, aspects: bool, device
         for name in names
     )
     with torch.amp.autocast(device, dtype=torch.bfloat16, cache_enabled=False):
-        recorded = torch.cuda.make_graphed_callables(callables, samples, num_warmup_iters=3)
-    return dict(zip(names, recorded, strict=True))
+        recorded = torch.cuda.make_graphed_callables(
+            callables, samples, num_warmup_iters=WARMUP_ITERATIONS
+        )
+    return {
+        name: cast("Callable[..., tuple[torch.Tensor, ...]]", graph)
+        for name, graph in zip(names, recorded, strict=True)
+    }
 
 
 def adapt(model: ClaimReader, rank: int) -> None:
-    """Puts low-rank adapters on every linear layer of the trunk and freezes the rest of it.
+    """Put low-rank adapters on every linear layer of the trunk and freeze the rest of it.
 
     For a backbone too large to fine-tune whole on this card. It is a teacher: what it knows
     reaches the tool through teach.py and a student the tool can run, never as a graph of its
-    own. The heads stay whole and trainable."""
-    from peft import LoraConfig, get_peft_model
+    own. The heads stay whole and trainable.
+    """
+    from peft import LoraConfig, get_peft_model  # noqa: PLC0415 peft is needed only for LoRA runs
 
     model.trunk.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False}
@@ -716,17 +899,22 @@ def adapt(model: ClaimReader, rank: int) -> None:
     )
 
 
-def parameter_groups(model, learning_rate: float, decay: float):
-    """Layer-wise learning-rate decay: the heads at the full rate, each encoder layer a factor
-    lower than the one above it, the embeddings lowest of all. The layers nearest the input
-    carry what pretraining taught and are the ones a full rate at this label count overwrites.
-    A decay of 1.0 is one group at one rate."""
+def parameter_groups(
+    model: ClaimReader, learning_rate: float, decay: float
+) -> list[dict[str, Any]]:
+    """Return optimiser groups with layer-wise learning-rate decay.
+
+    The heads train at the full rate, each encoder layer a factor lower than the one above it,
+    the embeddings lowest of all. The layers nearest the input carry what pretraining taught
+    and are the ones a full rate at this label count overwrites. A decay of 1.0 is one group at
+    one rate.
+    """
     trainable = [(name, p) for name, p in model.named_parameters() if p.requires_grad]
     if decay >= 1.0:
         return [{"params": [p for _, p in trainable], "lr": learning_rate}]
-    depth = getattr(model.trunk.config, "num_hidden_layers", 0)
+    depth: int = getattr(model.trunk.config, "num_hidden_layers", 0)
     layered = re.compile(r"\.(?:layer|layers|h)\.(\d+)\.")
-    groups: dict[float, list] = {}
+    groups: dict[float, list[torch.nn.Parameter]] = {}
     for name, parameter in trainable:
         if not name.startswith("trunk."):
             rate = learning_rate
@@ -740,9 +928,21 @@ def parameter_groups(model, learning_rate: float, decay: float):
     return [{"params": parameters, "lr": rate} for rate, parameters in groups.items()]
 
 
-def macro_f1(truth, predicted, classes):
-    scores = []
-    per_class = {}
+class ClassScore(TypedDict):
+    """One class's precision, recall, F1 and how many claims it has."""
+
+    precision: float
+    recall: float
+    f1: float
+    support: int
+
+
+def macro_f1(
+    truth: IntArray, predicted: IntArray, classes: Sequence[str]
+) -> tuple[float, dict[str, ClassScore]]:
+    """Return the mean F1 over the classes that occur in `truth`, and each class's scores."""
+    scores: list[float] = []
+    per_class: dict[str, ClassScore] = {}
     for index, name in enumerate(classes):
         hit = int(((predicted == index) & (truth == index)).sum())
         said = int((predicted == index).sum())
@@ -757,8 +957,10 @@ def macro_f1(truth, predicted, classes):
     return (sum(scores) / len(scores) if scores else 0.0), per_class
 
 
-def expected_calibration_error(confidence, correct, bins=15):
-    """How far the model's stated certainty is from how often it is right.
+def expected_calibration_error(
+    confidence: FloatArray, correct: FloatArray, bins: int = 15
+) -> float:
+    """Return how far the model's stated certainty is from how often it is right.
 
     A threshold for abstention is only meaningful if 0.6 means roughly 60%, so this is
     reported beside accuracy rather than after somebody asks.
@@ -769,12 +971,31 @@ def expected_calibration_error(confidence, correct, bins=15):
         inside = (confidence > low) & (confidence <= high)
         if not inside.any():
             continue
-        error += inside.mean() * abs(correct[inside].mean() - confidence[inside].mean())
-    return float(error)
+        error += float(inside.mean() * abs(correct[inside].mean() - confidence[inside].mean()))
+    return error
 
 
-def risk_coverage(confidence, correct, min_accuracy):
-    """Where to stop answering, and the whole curve the choice was made from.
+class CurvePoint(TypedDict):
+    """What answering every claim at or above one confidence threshold achieves."""
+
+    threshold: float
+    coverage: float
+    accuracy: float
+
+
+class ChosenThreshold(TypedDict):
+    """The threshold chosen from the curve, and whether it met the promised accuracy."""
+
+    threshold: float
+    coverage: float
+    accuracy: float | None
+    met: bool
+
+
+def risk_coverage(
+    confidence: FloatArray, correct: FloatArray, min_accuracy: float
+) -> tuple[list[CurvePoint], ChosenThreshold]:
+    """Return where to stop answering, and the whole curve the choice was made from.
 
     The obvious objective, accuracy times coverage, is degenerate on a model that is not yet
     good. Coverage rises faster than accuracy falls all the way down, so the product is
@@ -789,7 +1010,7 @@ def risk_coverage(confidence, correct, min_accuracy):
     promised quality. When no threshold meets it the model is not good enough to promise it,
     and that is recorded rather than rounded away.
     """
-    curve = []
+    curve: list[CurvePoint] = []
     for floor in np.arange(0.05, 0.991, 0.01):
         sure = confidence >= floor
         if not sure.any():
@@ -805,18 +1026,40 @@ def risk_coverage(confidence, correct, min_accuracy):
     meeting = [point for point in curve if point["accuracy"] >= min_accuracy]
     if meeting:
         best = max(meeting, key=lambda point: point["coverage"])
-        return curve, {**best, "met": True}
+        return curve, {
+            "threshold": best["threshold"],
+            "coverage": best["coverage"],
+            "accuracy": best["accuracy"],
+            "met": True,
+        }
 
     # Nothing reaches the bar. The most accurate point available is what there is, and the
     # `met` flag is what stops it being read as though it had cleared it.
-    best = max(curve, key=lambda point: point["accuracy"]) if curve else None
-    if best is None:
+    if not curve:
         return curve, {"threshold": 1.0, "coverage": 0.0, "accuracy": None, "met": False}
-    return curve, {**best, "met": False}
+    best = max(curve, key=lambda point: point["accuracy"])
+    return curve, {
+        "threshold": best["threshold"],
+        "coverage": best["coverage"],
+        "accuracy": best["accuracy"],
+        "met": False,
+    }
 
 
-def selective(confidence_and_predictions, truth, threshold):
+class Selective(TypedDict):
     """How much a threshold answers, and how often it is right when it does."""
+
+    coverage: float
+    accuracy: float | None
+    answered: int
+
+
+def selective(
+    confidence_and_predictions: tuple[FloatArray, IntArray],
+    truth: Sequence[int] | IntArray,
+    threshold: float,
+) -> Selective:
+    """Return how much a threshold answers, and how often it is right when it does."""
     confidence, predicted = confidence_and_predictions
     truth = np.asarray(truth)
     sure = confidence >= threshold
@@ -831,10 +1074,10 @@ def selective(confidence_and_predictions, truth, threshold):
 
 
 @torch.no_grad()
-def logits_of(model, loader, device):
-    """Every claim's subject logits, in the order the loader gives them."""
+def logits_of(model: ClaimReader, loader: Iterable[Item], device: str) -> FloatArray:
+    """Return every claim's subject logits, in the order the loader gives them."""
     model.eval()
-    logits = []
+    logits: list[torch.Tensor] = []
     for batch in loader:
         subject, *_ = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
         logits.append(subject.float().cpu())
@@ -842,24 +1085,26 @@ def logits_of(model, loader, device):
 
 
 @torch.no_grad()
-def aspect_logits_of(model, loader, device):
-    """Every claim's aspect logits, subjects by answers, in the order the loader gives them."""
+def aspect_logits_of(model: ClaimReader, loader: Iterable[Item], device: str) -> FloatArray:
+    """Return every claim's aspect logits, subjects by answers, in the loader's order."""
     model.eval()
-    logits = []
+    logits: list[torch.Tensor] = []
     for batch in loader:
         read = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
-        logits.append(read[3].float().cpu())
+        logits.append(read[ASPECT_LOGITS_AT].float().cpu())
     return torch.cat(logits).numpy()
 
 
-def confidence_of(model, loader, device):
-    """Each claim's best subject and how sure the model is of it."""
-    probabilities = torch.softmax(torch.from_numpy(logits_of(model, loader, device)), dim=1).numpy()
+def confidence_of(
+    model: ClaimReader, loader: Iterable[Item], device: str
+) -> tuple[FloatArray, IntArray]:
+    """Return each claim's best subject and how sure the model is of it."""
+    probabilities = torch.softmax(torch.as_tensor(logits_of(model, loader, device)), dim=1).numpy()
     return probabilities.max(axis=1), probabilities.argmax(axis=1)
 
 
-def area_under_risk_coverage(confidence, correct):
-    """How good the confidence ordering is, without reference to any threshold.
+def area_under_risk_coverage(confidence: FloatArray, correct: FloatArray) -> float:
+    """Return how good the confidence ordering is, without reference to any threshold.
 
     Lower is better. A threshold is a policy. This is the property the policy is drawn from,
     and it is what tells you whether a backbone knows when it does not know. Two models can
@@ -871,8 +1116,35 @@ def area_under_risk_coverage(confidence, correct):
     return float(np.mean(risks)) if risks else 0.0
 
 
-def scored_twice(predicted, truth, claims, index_of) -> dict:
-    """The model against the second labeller, where there is one.
+class Agreement(TypedDict):
+    """How the model fares on the claims two labellers answered the same way."""
+
+    claims: int
+    accuracy: float | None
+
+
+class ReadTwice(TypedDict):
+    """The model's accuracy against each labeller of the claims that were read twice."""
+
+    claims: int
+    against_first: float
+    against_second: float
+    against_either: float
+    where_both_agree: Agreement
+
+
+@final
+class Nothing(TypedDict):
+    """The empty answer, where there was nothing to score."""
+
+
+def scored_twice(
+    predicted: IntArray,
+    truth: IntArray,
+    claims: Sequence[Claim],
+    index_of: Mapping[str, int],
+) -> ReadTwice | Nothing:
+    """Score the model against the second labeller, where there is one.
 
     The first labeller's figure stays the figure. These say how much of what the model gets
     wrong is the two labellers disagreeing rather than the model: scored against the second
@@ -883,8 +1155,8 @@ def scored_twice(predicted, truth, claims, index_of) -> dict:
         return {}
     second = np.array(
         [
-            index_of.get(claim.second_subject, -1) if twice[at] else -1
-            for at, claim in enumerate(claims)
+            index_of.get(claim.second_subject, -1) if claim.second_subject is not None else -1
+            for claim in claims
         ]
     )
     correct = (predicted == truth).astype(float)
@@ -902,8 +1174,30 @@ def scored_twice(predicted, truth, claims, index_of) -> dict:
     }
 
 
-def aspect_scores(logits, claims, subjects) -> dict:
-    """How well the aspect head says which subjects each claim covers, and what it says of them.
+class AspectF1(TypedDict):
+    """Precision, recall and F1 of the aspect head over one slice of the (claim, subject) pairs."""
+
+    covered: int
+    called: int
+    precision: float | None
+    recall: float | None
+    f1: float | None
+
+
+class AspectScores(TypedDict):
+    """How well the aspect head covers the subjects, overall and per subject."""
+
+    all: AspectF1
+    beyond_the_first: AspectF1
+    macro_f1: float | None
+    polarity_where_both_say_covered: float | None
+    per_subject: dict[str, AspectF1]
+
+
+def aspect_scores(
+    logits: torch.Tensor, claims: Sequence[Claim], subjects: Sequence[str]
+) -> AspectScores | Nothing:
+    """Score how well the aspect head says which subjects each claim covers.
 
     Scored only where the label answers: every subject of a claim whose label says what it
     covers, and the first subject alone of one from a sheet that asked for a single subject.
@@ -912,21 +1206,22 @@ def aspect_scores(logits, claims, subjects) -> dict:
     """
     index_of = {name: index for index, name in enumerate(subjects)}
     predicted = logits.argmax(dim=-1).numpy()
-    rows = []
+    rows: list[tuple[int, bool, int, int]] = []
     for at, claim in enumerate(claims):
         covers = claim.covers()
-        for subject, index in index_of.items():
+        for subject, slot in index_of.items():
             if covers is None and subject != claim.subject:
                 continue
             said = (covers or {claim.subject: claim.polarity}).get(subject)
-            truth = 0 if said is None else 1 + POLARITIES.index(said)
-            rows.append((index, subject == claim.subject, truth, int(predicted[at, index])))
+            answer = 0 if said is None else 1 + POLARITIES.index(said)
+            rows.append((slot, subject == claim.subject, answer, int(predicted[at, slot])))
     if not rows:
         return {}
-    index, first, truth, guess = (np.array(column) for column in zip(*rows))
+    index, first, truth, guess = (np.array(column) for column in zip(*rows, strict=True))
     present, called = truth > 0, guess > 0
 
-    def f1(where) -> dict:
+    def f1(where: npt.NDArray[np.bool_]) -> AspectF1:
+        """Score the pairs `where` selects."""
         hits = int((present & called & where).sum())
         wanted, given = int((present & where).sum()), int((called & where).sum())
         precision = hits / given if given else None
@@ -946,7 +1241,7 @@ def aspect_scores(logits, claims, subjects) -> dict:
         }
 
     per_subject = {name: f1(index == at) for name, at in index_of.items()}
-    scored = [row["f1"] for row in per_subject.values() if row["covered"]]
+    scored = [row["f1"] for row in per_subject.values() if row["covered"] and row["f1"] is not None]
     both = present & called
     return {
         "all": f1(np.ones_like(present)),
@@ -959,21 +1254,78 @@ def aspect_scores(logits, claims, subjects) -> dict:
     }
 
 
+class Abstention(TypedDict):
+    """How many claims answer at one confidence floor, and how often those are right."""
+
+    answers_for: float
+    accuracy: float | None
+
+
+class Accuracy(TypedDict):
+    """Accuracy over one slice of the claims, and how many claims it holds."""
+
+    accuracy: float
+    claims: int
+
+
+class Metrics(TypedDict):
+    """Everything `evaluate` reports about a reader."""
+
+    accuracy: float
+    macro_f1: float
+    aspects: AspectScores | Nothing | None
+    read_twice: ReadTwice | Nothing
+    threshold: float
+    threshold_coverage: float
+    threshold_accuracy: float | None
+    threshold_met: bool
+    min_accuracy: float
+    risk_coverage: list[CurvePoint]
+    aurc: float
+    polarity_macro_f1: float
+    calibration_error: float
+    on_clear_cut: float | None
+    on_contested: float | None
+    per_subject: dict[str, ClassScore]
+    per_language: dict[str, Accuracy]
+    per_length: dict[str, Accuracy]
+    abstention: dict[str, Abstention]
+    at_validation_threshold: NotRequired[Selective]
+
+
+@dataclass(frozen=True)
+class Split:
+    """One split's batches and its claims, in the same order."""
+
+    loader: Iterable[Item]
+    claims: Sequence[Claim]
+
+
 @torch.no_grad()
-def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
+def evaluate(
+    model: ClaimReader,
+    split: Split,
+    device: str,
+    subjects: Sequence[str],
+    min_accuracy: float = 0.75,
+) -> Metrics:
+    """Score the model on the split's claims: accuracy, F1, calibration, abstention and more."""
     model.eval()
-    subject_logits, polarity_logits, aspect_logits = [], [], []
-    for batch in loader:
+    claims = split.claims
+    subject_parts: list[torch.Tensor] = []
+    polarity_parts: list[torch.Tensor] = []
+    aspect_parts: list[torch.Tensor] = []
+    for batch in split.loader:
         subject, polarity, *read = model(
             batch["input_ids"].to(device), batch["attention_mask"].to(device)
         )
-        subject_logits.append(subject.float().cpu())
-        polarity_logits.append(polarity.float().cpu())
+        subject_parts.append(subject.float().cpu())
+        polarity_parts.append(polarity.float().cpu())
         if len(read) > 1:
-            aspect_logits.append(read[1].float().cpu())
+            aspect_parts.append(read[1].float().cpu())
 
-    subject_logits = torch.cat(subject_logits)
-    polarity_logits = torch.cat(polarity_logits)
+    subject_logits = torch.cat(subject_parts)
+    polarity_logits = torch.cat(polarity_parts)
     probabilities = torch.softmax(subject_logits, dim=1).numpy()
     predicted = probabilities.argmax(axis=1)
     index_of = {name: index for index, name in enumerate(subjects)}
@@ -984,19 +1336,25 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     macro, per_class = macro_f1(truth, predicted, subjects)
 
     polarity_index = {name: index for index, name in enumerate(POLARITIES)}
-    polarity_truth = np.array([polarity_index.get(claim.polarity, 2) for claim in claims])
-    polarity_predicted = polarity_logits.argmax(axis=1).numpy()
+    polarity_truth = np.array([polarity_index.get(claim.polarity, NEUTRAL) for claim in claims])
+    polarity_predicted = polarity_logits.argmax(dim=1).numpy()
     polarity_macro, _ = macro_f1(polarity_truth, polarity_predicted, POLARITIES)
 
-    by_language = defaultdict(list)
-    by_length = defaultdict(list)
-    for claim, hit in zip(claims, correct):
-        by_language[claim.language or "unknown"].append(hit)
-        bucket = "short" if len(claim.text) < 40 else "medium" if len(claim.text) < 140 else "long"
-        by_length[bucket].append(hit)
+    by_language: defaultdict[str, list[float]] = defaultdict(list)
+    by_length: defaultdict[str, list[float]] = defaultdict(list)
+    for claim, hit in zip(claims, correct, strict=False):
+        by_language[claim.language or "unknown"].append(float(hit))
+        bucket = (
+            "short"
+            if len(claim.text) < SHORT_CLAIM
+            else "medium"
+            if len(claim.text) < MEDIUM_CLAIM
+            else "long"
+        )
+        by_length[bucket].append(float(hit))
 
     contested = np.array([claim.ambiguous for claim in claims])
-    abstention = {}
+    abstention: dict[str, Abstention] = {}
     for floor in (0.3, 0.5, 0.7, 0.9):
         sure = confidence >= floor
         abstention[str(floor)] = {
@@ -1009,8 +1367,8 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
     return {
         "accuracy": float(correct.mean()),
         "macro_f1": macro,
-        "aspects": aspect_scores(torch.cat(aspect_logits), claims, subjects)
-        if aspect_logits
+        "aspects": aspect_scores(torch.cat(aspect_parts), claims, subjects)
+        if aspect_parts
         else None,
         "read_twice": scored_twice(predicted, truth, claims, index_of),
         "threshold": chosen["threshold"],
@@ -1038,19 +1396,31 @@ def evaluate(model, loader, device, subjects, claims, min_accuracy=0.75):
 
 
 def git_sha() -> str:
+    """Return the commit the run was made from, or "unknown" outside a git checkout."""
+    git = shutil.which("git")
+    if git is None:
+        return "unknown"
     try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        return subprocess.check_output([git, "rev-parse", "HEAD"], text=True).strip()  # noqa: S603 fixed arguments to the resolved git
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
 
 
-def run(args) -> dict:
-    # The classifier heads start from noise and the training order is shuffled, so two runs of
-    # identical settings land a point or two apart. Comparing configurations means separating
-    # that from the difference being measured, which means being able to repeat a run.
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+@dataclass(frozen=True)
+class Labelled:
+    """The claims one run learns from and is scored on, split by game."""
 
+    claims: list[Claim]
+    headset_marker: bool
+    newer: list[Path]
+    train: list[Claim]
+    validation: list[Claim]
+    test: list[Claim]
+    subjects: list[str]
+
+
+def labelled(args: argparse.Namespace) -> Labelled:
+    """Load the labels, keep the languages and training games asked for, and split them by game."""
     claims = claimdata.load(args.data)
     headset_marker = claimdata.headset_told(claims)
     newer = claimdata.labels_newer_than(args.data, HERE.parent / "reference" / "claims")
@@ -1065,12 +1435,12 @@ def run(args) -> dict:
         # Dropped before the split rather than inside the training half, so the held-out games
         # are scored on the same languages they are taught: a model trained on English and
         # measured on everything is being marked on a paper it never sat.
-        kept = [claim for claim in claims if claim.language in args.only_language]
+        in_language = [claim for claim in claims if claim.language in args.only_language]
         print(
-            f"{len(kept)} of {len(claims)} claims are "
+            f"{len(in_language)} of {len(claims)} claims are "
             f"{' or '.join(args.only_language)}; the rest are dropped"
         )
-        claims = kept
+        claims = in_language
     train, validation, test = claimdata.split_by_game(
         claims, seed=args.split_seed, fold=args.fold, folds=args.folds
     )
@@ -1082,80 +1452,138 @@ def run(args) -> dict:
     # ten games is the same ten in every run, and the held-out and validation games are never
     # touched: the point is to vary what the model learned from, not what it is asked about.
     if args.train_games:
-        kept = sorted(
+        kept_games = sorted(
             {claim.app_id for claim in train},
             key=lambda app_id: claimdata.place(app_id, args.split_seed),
         )[: args.train_games]
-        train = [claim for claim in train if claim.app_id in kept]
-        print(f"training on {len(kept)} of the training games, by hash order")
+        train = [claim for claim in train if claim.app_id in kept_games]
+        print(f"training on {len(kept_games)} of the training games, by hash order")
 
     print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (held out)")
+    return Labelled(
+        claims=claims,
+        headset_marker=headset_marker,
+        newer=newer,
+        train=train,
+        validation=validation,
+        test=test,
+        subjects=subjects,
+    )
 
+
+def micro_batch(args: argparse.Namespace) -> int:
+    """Return how many claims one pass reads, refusing a batch or card setting that cannot run."""
     if args.batch_size % args.accumulate:
-        raise SystemExit(
-            f"--batch-size {args.batch_size} does not divide into {args.accumulate} passes"
-        )
-    micro = args.batch_size // args.accumulate
+        msg = f"--batch-size {args.batch_size} does not divide into {args.accumulate} passes"
+        raise SystemExit(msg)
+    micro: int = args.batch_size // args.accumulate
     if not 0 < args.card_share <= 1:
-        raise SystemExit(f"--card-share {args.card_share} is not a share of the card's time")
+        msg = f"--card-share {args.card_share} is not a share of the card's time"
+        raise SystemExit(msg)
     if args.card_memory is not None and args.card_memory <= 0:
-        raise SystemExit(f"--card-memory {args.card_memory} GB holds nothing")
+        msg = f"--card-memory {args.card_memory} GB holds nothing"
+        raise SystemExit(msg)
+    return micro
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    hold_card_memory(args.card_memory, device)
+
+def refuse_graphs(args: argparse.Namespace, device: str) -> None:
+    """Refuse CUDA graphs where there is no card, or a reader no graph has been shown to replay."""
     if args.cuda_graphs and device != "cuda":
-        raise SystemExit("--cuda-graphs records passes on a card, and there is none")
+        msg = "--cuda-graphs records passes on a card, and there is none"
+        raise SystemExit(msg)
     if args.cuda_graphs and (args.lora_rank or args.pooling == "last"):
         # A decoder's causal mask is built through the same question the square mask avoids for
         # an encoder, and no decoder has been recorded to show it replays.
-        raise SystemExit("--cuda-graphs is for an encoder read by mean pooling")
-    tokenizer = backbones.load(AutoTokenizer, args.backbone)
+        msg = "--cuda-graphs is for an encoder read by mean pooling"
+        raise SystemExit(msg)
+
+
+def refuse_averaging(args: argparse.Namespace) -> None:
+    """Refuse a weight average beside the settings it cannot run with."""
     if args.lora_rank and args.ema > 0:
         # The average is a second copy of every weight, frozen base included, and the base is
         # the part that does not fit twice.
-        raise SystemExit("--ema keeps a copy of the whole model; it cannot run beside --lora-rank")
+        msg = "--ema keeps a copy of the whole model; it cannot run beside --lora-rank"
+        raise SystemExit(msg)
     if args.keep_best and args.ema > 0:
         # The average is scored only once, after the last epoch, so there is no best of it to keep.
-        raise SystemExit(
-            "--keep-best chooses among epochs; --ema replaces them all with their average"
-        )
+        msg = "--keep-best chooses among epochs; --ema replaces them all with their average"
+        raise SystemExit(msg)
+
+
+def prepared_reader(
+    args: argparse.Namespace,
+    subjects: Sequence[str],
+    tokenizer: PreTrainedTokenizerBase,
+    device: str,
+) -> ClaimReader:
+    """Return the reader to train on `device`, and set the tokenizer's padding for it."""
     model = ClaimReader(
         args.backbone,
         len(subjects),
         pooling=args.pooling,
-        dtype=torch.bfloat16 if args.lora_rank else None,
         aspects=args.aspects,
+        load=TrunkLoad(dtype=torch.bfloat16 if args.lora_rank else None),
     )
     if args.lora_rank:
         adapt(model, args.lora_rank)
     elif args.recompute_activations:
         recompute_activations(model)
     model = model.to(device)
-    if args.pooling == "last" and tokenizer.pad_token_id is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    if args.pooling == "last" and tokenizer.pad_token_id is None:  # pyright: ignore[reportUnknownMemberType]  # transformers types the id as a union with an unresolved member
+        tokenizer.pad_token = tokenizer.eos_token  # pyright: ignore[reportUnknownMemberType]  # same union
     # Right padding is what last-token pooling counts on, whatever the tokenizer's own habit.
     tokenizer.padding_side = "right"
+    return model
 
+
+def reading_of(args: argparse.Namespace, *, headset_marker: bool) -> Reading:
+    """Return how this run reads a claim, labelled or from the pool alike."""
+    return Reading(
+        max_length=args.max_length,
+        context=args.context,
+        mark=args.mark,
+        prefix=args.prefix,
+        headset_marker=headset_marker,
+    )
+
+
+def split_loaders(
+    args: argparse.Namespace,
+    data: Labelled,
+    tokenizer: PreTrainedTokenizerBase,
+    micro: int,
+    device: str,
+) -> tuple[dict[str, Claims], dict[str, Paced]]:
+    """Return each split's claims and the paced loader that batches them."""
+    reading = reading_of(args, headset_marker=data.headset_marker)
+    # Only the training split is reweighted. Scoring a contested claim at less than a whole
+    # claim would be marking the model's own exam generously.
+    reweighted = Weighting(
+        ambiguous_weight=args.ambiguous_weight,
+        split_wrong_weight=args.split_wrong_weight,
+        balance=args.balance,
+        language_balance=args.language_balance,
+        second_weight=args.second_weight,
+    )
+    datasets = {
+        name: Claims(
+            part,
+            tokenizer,
+            data.subjects,
+            reading,
+            reweighted if name == "train" else UNWEIGHTED,
+        )
+        for name, part in (
+            ("train", data.train),
+            ("validation", data.validation),
+            ("test", data.test),
+        )
+    }
     loaders = {
         name: Paced(
             DataLoader(
-                Claims(
-                    part,
-                    tokenizer,
-                    subjects,
-                    args.max_length,
-                    args.context,
-                    # Only the training split is reweighted. Scoring a contested claim at less
-                    # than a whole claim would be marking the model's own exam generously.
-                    args.ambiguous_weight if name == "train" else 1.0,
-                    args.split_wrong_weight if name == "train" else 1.0,
-                    args.mark,
-                    args.balance if name == "train" else 0.0,
-                    args.prefix,
-                    args.language_balance if name == "train" else 0.0,
-                    args.second_weight if name == "train" else 0.0,
-                    headset_marker,
-                ),
+                dataset,
                 batch_size=micro if name == "train" else args.batch_size,
                 shuffle=name == "train",
                 # A recorded pass takes only the shape it was recorded at. The short batch an
@@ -1166,85 +1594,129 @@ def run(args) -> dict:
             args.card_share,
             device,
         )
-        for name, part in (("train", train), ("validation", validation), ("test", test))
+        for name, dataset in datasets.items()
     }
+    return datasets, loaders
 
-    taught_batches = None
-    pool_claims = 0
-    if args.pool:
-        if not args.pool_targets:
-            raise SystemExit(
-                "--pool needs --pool-targets: a teacher's answers on it, from teach.py"
-            )
-        unlabelled = claimdata.load_pool(args.pool)
-        if headset_marker and claimdata.headset_told(unlabelled) is not True:
-            raise SystemExit(
-                f"{args.pool} does not say which games are played in a headset and the labels "
-                f"do; `steamgauge export-pool` again after `steamgauge store-facts`"
-            )
-        targets = load_targets(args.pool_targets, unlabelled, subjects)
-        # The pool was drawn over games the model trains on, but a fold's validation games are
-        # training games in every other fold, so which games are safe is this run's to decide,
-        # not the draw's. A row from a game this run is scored on carries the teacher's
-        # knowledge of that game into the student.
-        learned = {claim.app_id for claim in train}
-        safe = np.array([claim.app_id in learned for claim in unlabelled])
-        kept = [claim for claim, ok in zip(unlabelled, safe) if ok]
-        if not kept:
-            raise SystemExit(f"{args.pool} holds no claim from a game this run trains on")
-        print(
-            f"pool {len(kept)} of {len(unlabelled)} unlabelled claims, from games this run trains on"
-        )
-        pool_claims = len(kept)
-        taught = DataLoader(
-            Pool(
-                kept,
-                tokenizer,
-                subjects,
-                args.max_length,
-                args.context,
-                args.mark,
-                args.prefix,
-                (targets[0][safe], targets[1][safe]),
-                headset_marker,
-            ),
-            batch_size=args.pool_batch_size or micro,
-            shuffle=True,
-            drop_last=args.cuda_graphs,
-            num_workers=0,
-        )
-        taught_batches = forever(taught)
 
-    per_epoch = math.ceil(len(loaders["train"]) / args.accumulate)
-    steps = per_epoch * args.epochs
+def taught_batches_of(
+    args: argparse.Namespace, data: Labelled, tokenizer: PreTrainedTokenizerBase, micro: int
+) -> tuple[Iterator[Item] | None, int]:
+    """Return the teacher's batches on the pool, without end, and how many pool claims they hold."""
+    if not args.pool:
+        return None, 0
+    if not args.pool_targets:
+        msg = "--pool needs --pool-targets: a teacher's answers on it, from teach.py"
+        raise SystemExit(msg)
+    unlabelled = claimdata.load_pool(args.pool)
+    if data.headset_marker and claimdata.headset_told(unlabelled) is not True:
+        msg = (
+            f"{args.pool} does not say which games are played in a headset and the labels "
+            f"do; `steamgauge export-pool` again after `steamgauge store-facts`"
+        )
+        raise SystemExit(msg)
+    targets = load_targets(args.pool_targets, unlabelled, data.subjects)
+    # The pool was drawn over games the model trains on, but a fold's validation games are
+    # training games in every other fold, so which games are safe is this run's to decide,
+    # not the draw's. A row from a game this run is scored on carries the teacher's
+    # knowledge of that game into the student.
+    learned = {claim.app_id for claim in data.train}
+    safe = np.array([claim.app_id in learned for claim in unlabelled])
+    pool_kept = [claim for claim, ok in zip(unlabelled, safe, strict=True) if ok]
+    if not pool_kept:
+        msg = f"{args.pool} holds no claim from a game this run trains on"
+        raise SystemExit(msg)
+    print(
+        f"pool {len(pool_kept)} of {len(unlabelled)} unlabelled claims, "
+        "from games this run trains on"
+    )
+    taught = DataLoader(
+        Pool(
+            pool_kept,
+            tokenizer,
+            data.subjects,
+            reading_of(args, headset_marker=data.headset_marker),
+            (targets[0][safe], targets[1][safe]),
+        ),
+        batch_size=args.pool_batch_size or micro,
+        shuffle=True,
+        drop_last=args.cuda_graphs,
+        num_workers=0,
+    )
+    return forever(taught), len(pool_kept)
+
+
+@dataclass(frozen=True)
+class Setup:
+    """What a run has put together before its first step."""
+
+    args: argparse.Namespace
+    data: Labelled
+    tokenizer: PreTrainedTokenizerBase
+    model: ClaimReader
+    device: str
+    datasets: dict[str, Claims]
+    loaders: dict[str, Paced]
+    taught_batches: Iterator[Item] | None
+    pool_claims: int
+
+
+@dataclass(frozen=True)
+class Optimisation:
+    """The optimiser and what steps beside it: the schedule, the loss scaler and the average."""
+
+    optimiser: torch.optim.Optimizer
+    schedule: torch.optim.lr_scheduler.LRScheduler
+    scaler: torch.amp.GradScaler
+    averaged: torch.optim.swa_utils.AveragedModel | None
+
+
+def optimisation_for(setup: Setup, steps: int) -> Optimisation:
+    """Return the optimiser, its warm-up schedule over `steps`, the scaler and the average."""
+    args = setup.args
     # Fused on the card: the same update in one kernel, where the default builds temporaries the
     # size of every parameter at each step. On Windows the card's memory is charged against the
     # machine's commit as well, so those temporaries are gigabytes the rest of the machine loses,
     # and the run that died of "out of memory" with the card half empty died in them.
     optimiser = torch.optim.AdamW(
-        parameter_groups(model, args.learning_rate, args.llrd),
-        weight_decay=0.01,
-        fused=device == "cuda",
+        parameter_groups(setup.model, args.learning_rate, args.llrd),
+        weight_decay=WEIGHT_DECAY,
+        fused=setup.device == "cuda",
     )
-    schedule = get_linear_schedule_with_warmup(optimiser, int(steps * 0.1), steps)
-    scaler = torch.amp.GradScaler(device, enabled=device == "cuda")
+    schedule = get_linear_schedule_with_warmup(optimiser, int(steps * WARMUP_SHARE), steps)
+    scaler = torch.amp.GradScaler(setup.device, enabled=setup.device == "cuda")
     # An exponential average of the weights along the run, evaluated and saved in place of the
     # last step's. The last step of a run that has memorised its labels is the most
     # over-confident checkpoint it has. The average sits in the flatter part of the basin.
-    averaged = average_of(model, args.ema, args.average_on_host) if args.ema > 0 else None
+    averaged = (
+        average_of(setup.model, args.ema, on_host=args.average_on_host) if args.ema > 0 else None
+    )
+    return Optimisation(optimiser, schedule, scaler, averaged)
 
+
+def class_weights(data: Labelled, device: str) -> torch.Tensor:
+    """Return each subject's weight in the loss, the rarer in the training split the heavier."""
     # Rare subjects would otherwise be drowned by `verdict`, which is most of any corpus.
-    counts = claimdata.distribution(train)
-    weights = torch.tensor(
-        [len(train) / (len(subjects) * max(1, counts.get(name, 0))) for name in subjects],
+    counts = claimdata.distribution(data.train)
+    return torch.tensor(
+        [
+            len(data.train) / (len(data.subjects) * max(1, counts.get(name, 0)))
+            for name in data.subjects
+        ],
         dtype=torch.float,
         device=device,
     )
 
+
+def training_passes(setup: Setup, micro: int) -> dict[str, Callable[..., tuple[torch.Tensor, ...]]]:
+    """Put the reader in training and return its passes, recorded as CUDA graphs where asked."""
+    args, model = setup.args, setup.model
     model.train()
-    passes = {"labelled": Passes(model, args.rdrop > 0, args.aspects)}
-    if taught_batches is not None:
-        passes["taught"] = Passes(model, False, False)
+    passes: dict[str, Callable[..., tuple[torch.Tensor, ...]]] = {
+        "labelled": Passes(model, twice=args.rdrop > 0, aspects=args.aspects)
+    }
+    if setup.taught_batches is not None:
+        passes["taught"] = Passes(model, twice=False, aspects=False)
     if args.cuda_graphs:
         passes = graphed(
             model,
@@ -1252,13 +1724,13 @@ def run(args) -> dict:
                 "labelled": (micro, args.max_length),
                 **(
                     {"taught": (args.pool_batch_size or micro, args.max_length)}
-                    if taught_batches is not None
+                    if setup.taught_batches is not None
                     else {}
                 ),
             },
-            args.rdrop > 0,
-            args.aspects,
-            device,
+            rdrop=args.rdrop > 0,
+            aspects=args.aspects,
+            device=setup.device,
         )
         # A replay hands back its gradients in the graph's own buffers, and a parameter with no
         # gradient yet keeps the buffer itself as its gradient: the next replay then overwrites
@@ -1267,150 +1739,415 @@ def run(args) -> dict:
         for parameter in model.parameters():
             if parameter.requires_grad:
                 parameter.grad = torch.zeros_like(parameter)
-    # A graph replays under an autocast that caches no casts, since a cast cached at recording
-    # would be a buffer the replay never refills.
-    cast = {
-        "enabled": device == "cuda",
-        "dtype": torch.bfloat16,
-        "cache_enabled": not args.cuda_graphs,
+    return passes
+
+
+@dataclass(frozen=True)
+class Training:
+    """Everything an epoch of optimiser steps reads."""
+
+    setup: Setup
+    optimisation: Optimisation
+    passes: dict[str, Callable[..., tuple[torch.Tensor, ...]]]
+    class_weights: torch.Tensor
+    autocast_options: dict[str, Any]
+    per_epoch: int
+
+
+def labelled_loss(training: Training, batch: Item) -> torch.Tensor:
+    """Return the loss on one labelled pass: both heads, the aspects and the regularisers asked."""
+    args, device = training.setup.args, training.setup.device
+    weights = training.class_weights
+    input_ids = batch["input_ids"].to(device)
+    attention = batch["attention_mask"].to(device)
+    subject, polarity, *read = training.passes["labelled"](input_ids, attention)
+    aspects = read.pop(0) if args.aspects else None
+    trust = batch["weight"].to(device)
+    subject_target = batch["subject_target"].to(device)
+    polarity_target = batch["polarity_target"].to(device)
+    subject_loss = charged(subject, subject_target, weights)
+    polarity_loss = charged(polarity, polarity_target)
+    loss: torch.Tensor = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
+    if aspects is not None:
+        loss = (
+            loss
+            + args.aspect_weight
+            * (
+                aspect_loss(
+                    aspects,
+                    batch["aspect"].to(device),
+                    batch["aspect_known"].to(device),
+                )
+                * trust
+            ).mean()
+        )
+    if args.error_reg > 0:
+        # Against the first labeller's answer, which is what the abstention rule is fitted and
+        # scored against. A claim read twice is still one answer to be surer of than of a wrong
+        # one.
+        loss = loss + args.error_reg * error_regularisation(
+            subject, batch["subject"].to(device), args.error_reg_margin
+        )
+    if args.rdrop > 0:
+        # The same batch through the dropout again gives a second opinion from the same
+        # weights, and the two are charged for disagreeing. Dropout at training time and none
+        # at inference is a gap this closes: the model is pushed to answer the same way
+        # whichever units are dropped.
+        again_subject, again_polarity = read
+        disagreement = symmetric_kl(subject, again_subject) + (
+            args.polarity_weight * symmetric_kl(polarity, again_polarity)
+        )
+        again_loss = (
+            (
+                charged(again_subject, subject_target, weights)
+                + args.polarity_weight * charged(again_polarity, polarity_target)
+            )
+            * trust
+        ).mean()
+        loss = (loss + again_loss) / 2 + args.rdrop * disagreement.mean()
+    return loss
+
+
+def taught_backward(training: Training, batches: Iterator[Item]) -> None:
+    """Add the gradient of one pass over the teacher's next batch to the labelled batch's."""
+    # Its own pass rather than rows mixed into the labelled batch, so the card holds one
+    # batch's activations at a time and the labelled batch stays the batch every other run
+    # learned from. The class weights stay off it: the teacher's distribution is already the
+    # reading of a model trained under them, and weighting it again would count the correction
+    # twice.
+    args, device = training.setup.args, training.setup.device
+    pooled = next(batches)
+    with torch.amp.autocast(device, **training.autocast_options):
+        subject, polarity = training.passes["taught"](
+            pooled["input_ids"].to(device), pooled["attention_mask"].to(device)
+        )
+        disagreement = soft_cross_entropy(
+            subject, pooled["subject"].to(device), args.pool_temperature
+        ) + args.polarity_weight * soft_cross_entropy(
+            polarity, pooled["polarity"].to(device), args.pool_temperature
+        )
+    taught_loss: torch.Tensor = disagreement.mean() * args.pool_weight
+    training.optimisation.scaler.scale(taught_loss).backward()  # pyright: ignore[reportUnknownMemberType]  # torch leaves Tensor.backward's parameters partly unresolved
+
+
+def optimiser_step(training: Training) -> None:
+    """Clip the batch's whole gradient, step the optimiser and schedule, and update the average."""
+    optimisation, model = training.optimisation, training.setup.model
+    optimisation.scaler.unscale_(optimisation.optimiser)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    optimisation.scaler.step(optimisation.optimiser)
+    optimisation.scaler.update()
+    optimisation.schedule.step()
+    optimisation.optimiser.zero_grad(set_to_none=not training.setup.args.cuda_graphs)
+    if optimisation.averaged is not None:
+        optimisation.averaged.update_parameters(model)
+
+
+def train_epoch(training: Training, epoch: int) -> None:
+    """Run one epoch of optimiser steps over the training split, printing progress on the way."""
+    setup, optimisation = training.setup, training.optimisation
+    args, device = setup.args, setup.device
+    loader = setup.loaders["train"]
+    setup.model.train()
+    # Summed on the card: read back after every pass, the loss would make the processor
+    # wait for the card before it could queue the next pass.
+    running = torch.zeros((), device=device)
+    taken = 0
+    optimisation.optimiser.zero_grad(set_to_none=not args.cuda_graphs)
+    for step, batch in enumerate(loader):
+        with torch.amp.autocast(device, **training.autocast_options):
+            loss = labelled_loss(training, batch)
+        per_pass: torch.Tensor = loss / args.accumulate
+        optimisation.scaler.scale(per_pass).backward()  # pyright: ignore[reportUnknownMemberType]  # torch leaves Tensor.backward's parameters partly unresolved
+        running += loss.detach()
+
+        # The gradient is only whole once every pass of the batch has contributed, and
+        # clipping a partial one would clip a different quantity than the batch's own norm.
+        if (step + 1) % args.accumulate and step + 1 < len(loader):
+            continue
+        if setup.taught_batches is not None:
+            taught_backward(training, setup.taught_batches)
+        optimiser_step(training)
+        taken += 1
+        # Counted in optimiser steps rather than passes: every pass that is not the last of
+        # its batch has already gone back to the top, so a count of those reports progress
+        # only on the passes this line never sees.
+        if taken % PROGRESS_EVERY == 1:
+            # What the run holds on the card, which on Windows it also holds of the machine's
+            # memory: the figure to read when the machine runs short, beside the step it ran
+            # short at.
+            card_note = (
+                f" card {torch.cuda.memory_reserved() / GIGABYTE:.1f} GB"
+                if device == "cuda"
+                else ""
+            )
+            print(
+                f"  epoch {epoch + 1} step {taken}/{training.per_epoch} "
+                f"loss {running.item() / (step + 1):.4f}{card_note}",
+                flush=True,
+            )
+
+
+def report_epoch(metrics: Metrics, epoch: int, min_accuracy: float) -> None:
+    """Print what the validation games say of the reader after an epoch."""
+    print(
+        f"epoch {epoch + 1}: accuracy {metrics['accuracy']:.3f}  "
+        f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
+        f"calibration {metrics['calibration_error']:.3f}"
+    )
+    aspect_report = metrics["aspects"]
+    if aspect_report is not None and "all" in aspect_report:
+        beyond = aspect_report["beyond_the_first"]
+        print(
+            f"  aspects: F1 {aspect_report['all']['f1']:.3f}, beyond the first subject "
+            f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']} covered"
+        )
+    answers = (
+        "answers nothing at that accuracy"
+        if not metrics["threshold_met"]
+        else (
+            f"answers {metrics['threshold_coverage']:.0%} of claims at "
+            f"{metrics['threshold_accuracy']:.3f}"
+        )
+    )
+    print(
+        f"  abstains below {metrics['threshold']:.2f}: {answers}"
+        f"{'' if metrics['threshold_met'] else f' (wanted {min_accuracy:.2f})'}",
+        flush=True,
+    )
+
+
+def report_read_twice(twice: ReadTwice | Nothing) -> None:
+    """Print how the reader does on the held-out claims two labellers read."""
+    if "claims" in twice:
+        print(
+            f"  on the {twice['claims']} held-out claims read twice: "
+            f"{twice['against_first']:.3f} against the first labeller, "
+            f"{twice['against_second']:.3f} against the second, "
+            f"{twice['against_either']:.3f} against either, "
+            f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
+            f"{twice['where_both_agree']['claims']} they agree on"
+        )
+
+
+def held_out(setup: Setup, metrics: Metrics) -> Metrics | None:
+    """Read the held-out games once, at the threshold the validation games chose.
+
+    Nothing here picks anything: the moment a number from this set changes a setting, the set
+    stops being able to answer the only question it exists for. That is why it can be switched
+    off, and why the bake-off switches it off: comparing four backbones on it and then
+    reporting the winner's score from it would be reporting a number the winner was chosen by.
+
+    It is asked at all because the validation figure was not transferring. Measured on eleven
+    games, a threshold promising 0.756 on the validation games delivered 0.620 on the held-out
+    ones, and a model card quoting the first would advertise an accuracy the tool does not
+    have on a game it has never seen.
+    """
+    args, data, model, device = setup.args, setup.data, setup.model, setup.device
+    if not getattr(args, "held_out", True):
+        return None
+    on_test = Split(setup.loaders["test"], data.test)
+    held = evaluate(model, on_test, device, data.subjects, args.min_accuracy)
+    answers_on_test = confidence_of(model, setup.loaders["test"], device)
+    truth = [data.subjects.index(claim.subject) for claim in data.test]
+    at_threshold = selective(answers_on_test, truth, metrics["threshold"])
+    held["at_validation_threshold"] = at_threshold
+    print(
+        f"held-out games: {at_threshold['coverage']:.0%} of claims answered at "
+        f"{at_threshold['accuracy']:.3f}"
+        if at_threshold["coverage"] > 0
+        else "held-out games: nothing cleared the threshold"
+    )
+    report_read_twice(held["read_twice"])
+    if (
+        metrics["threshold_met"]
+        and at_threshold["accuracy"] is not None
+        and at_threshold["accuracy"] < args.min_accuracy
+    ):
+        print(
+            f"  WARNING: the threshold promised {args.min_accuracy:.2f} and delivers "
+            f"{at_threshold['accuracy']:.3f} on games it has never seen. The promise was "
+            f"chosen on {len({claim.app_id for claim in data.validation})} validation games and "
+            f"does not transfer; quote the held-out figure, not the validation one."
+        )
+    return held
+
+
+def write_logits(setup: Setup, out_logits: Path) -> None:
+    """Write the validation claims' logits, each named by game, review and claim, to an .npz.
+
+    The claims are named as well as scored, so folds can be pooled and a pooled set can be
+    checked for a game appearing in two of them, which would mean a claim was answered by a
+    model that had trained on it.
+    """
+    data, model, device = setup.data, setup.model, setup.device
+    loader = setup.loaders["validation"]
+    out_logits.parent.mkdir(parents=True, exist_ok=True)
+    # A reader with an aspect head also leaves what it said for every subject and what each
+    # label answers, which is what a line per subject is drawn from.
+    aspect_arrays: dict[str, Any] = {}
+    if setup.args.aspects:
+        answered = [setup.datasets["validation"].aspect_target(claim) for claim in data.validation]
+        aspect_arrays = {
+            "aspect_logits": aspect_logits_of(model, loader, device),
+            "aspect_truth": np.stack([answer.numpy() for answer, _ in answered]),
+            "aspect_known": np.stack([known.numpy() for _, known in answered]),
+        }
+    np.savez_compressed(
+        out_logits,
+        logits=logits_of(model, loader, device),
+        truth=np.array([data.subjects.index(claim.subject) for claim in data.validation]),
+        app_id=np.array([claim.app_id for claim in data.validation]),
+        review_id=np.array([claim.review_id for claim in data.validation]),
+        claim_index=np.array([claim.claim_index for claim in data.validation]),
+        subjects=np.array(data.subjects),
+        **aspect_arrays,
+    )
+    print(f"held-out logits written to {out_logits}")
+
+
+def record_of(
+    setup: Setup,
+    metrics: Metrics,
+    held: Metrics | None,
+    kept_epoch: int | None,
+    elapsed: float,
+) -> dict[str, Any]:
+    """Return what `run.json` records: the configuration, the data it ran on and its scores."""
+    args, data = setup.args, setup.data
+    train, validation, test = data.train, data.validation, data.test
+    record: dict[str, Any] = {
+        "backbone": args.backbone,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "accumulate": args.accumulate,
+        "learning_rate": args.learning_rate,
+        "max_length": args.max_length,
+        "context": args.context,
+        "seed": args.seed,
+        "mark": args.mark,
+        "prefix": args.prefix,
+        "headset_marker": data.headset_marker,
+        "balance": args.balance,
+        "language_balance": args.language_balance,
+        "only_language": args.only_language,
+        "ambiguous_weight": args.ambiguous_weight,
+        "split_wrong_weight": args.split_wrong_weight,
+        "polarity_weight": args.polarity_weight,
+        "second_weight": args.second_weight,
+        "read_twice": sum(claim.second_subject is not None for claim in train),
+        "error_reg": args.error_reg,
+        "error_reg_margin": args.error_reg_margin if args.error_reg else None,
+        "ema": args.ema,
+        "kept_epoch": kept_epoch,
+        "llrd": args.llrd,
+        "rdrop": args.rdrop,
+        "pooling": args.pooling,
+        "aspects": args.aspects,
+        "aspect_weight": args.aspect_weight if args.aspects else None,
+        "lora_rank": args.lora_rank or None,
+        "dtype": "bfloat16" if args.lora_rank else "float32",
+        "pool": args.pool,
+        "pool_targets": args.pool_targets,
+        "pool_claims": setup.pool_claims,
+        "pool_weight": args.pool_weight if args.pool else None,
+        "pool_temperature": args.pool_temperature if args.pool else None,
+        "split_seed": args.split_seed,
+        "fold": args.fold,
+        "folds": args.folds if args.fold is not None else None,
+        "device": setup.device,
+        "git_sha": git_sha(),
+        "data_fingerprint": claimdata.fingerprint(data.claims),
+        "labels_newer_than_export": len(data.newer),
+        "claims": {"train": len(train), "validation": len(validation), "test": len(test)},
+        "games": {
+            "train": sorted({claim.app_id for claim in train}),
+            "validation": sorted({claim.app_id for claim in validation}),
+            "test": sorted({claim.app_id for claim in test}),
+        },
+        "subjects": data.subjects,
+        "seconds": round(elapsed),
+        "validation": metrics,
     }
+    if held is not None:
+        record["test"] = held
+    return record
+
+
+def write_run(setup: Setup, record: dict[str, Any]) -> None:
+    """Write the run's record and, when asked, its weights and tokenizer, to its directory."""
+    args, model = setup.args, setup.model
+    run_id = args.run_id or f"{args.backbone.replace('/', '-')}-{int(time.time())}"
+    out = HERE / "runs" / run_id
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    if args.save:
+        if args.lora_rank:
+            # Folded into the weights, so the saved state is a plain reader's and teach.py
+            # loads it the way it loads any other run.
+            model.trunk = model.trunk.merge_and_unload()
+        torch.save(model.state_dict(), out / "model.bin")
+        save_pretrained(setup.tokenizer, out / "tokenizer")
+    print(f"\nwritten to {out}")
+
+
+def run(args: argparse.Namespace) -> dict[str, Any]:
+    """Train and score one configuration, write its run directory and return its record."""
+    # The classifier heads start from noise and the training order is shuffled, so two runs of
+    # identical settings land a point or two apart. Comparing configurations means separating
+    # that from the difference being measured, which means being able to repeat a run.
+    manual_seed(args.seed)
+    np.random.seed(args.seed)  # noqa: NPY002 seeds the global generator that library code draws from
+
+    data = labelled(args)
+    micro = micro_batch(args)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    hold_card_memory(args.card_memory, device)
+    refuse_graphs(args, device)
+    tokenizer: PreTrainedTokenizerBase = backbones.load(AutoTokenizer, args.backbone)
+    refuse_averaging(args)
+    model = prepared_reader(args, data.subjects, tokenizer, device)
+    datasets, loaders = split_loaders(args, data, tokenizer, micro, device)
+    taught_batches, pool_claims = taught_batches_of(args, data, tokenizer, micro)
+    setup = Setup(
+        args=args,
+        data=data,
+        tokenizer=tokenizer,
+        model=model,
+        device=device,
+        datasets=datasets,
+        loaders=loaders,
+        taught_batches=taught_batches,
+        pool_claims=pool_claims,
+    )
+
+    per_epoch = math.ceil(len(loaders["train"]) / args.accumulate)
+    optimisation = optimisation_for(setup, per_epoch * args.epochs)
+    weights = class_weights(data, device)
+    passes = training_passes(setup, micro)
+    training = Training(
+        setup=setup,
+        optimisation=optimisation,
+        passes=passes,
+        class_weights=weights,
+        # A graph replays under an autocast that caches no casts, since a cast cached at
+        # recording would be a buffer the replay never refills.
+        autocast_options={
+            "enabled": device == "cuda",
+            "dtype": torch.bfloat16,
+            "cache_enabled": not args.cuda_graphs,
+        },
+        per_epoch=per_epoch,
+    )
 
     best = BestEpoch() if args.keep_best else None
     started = time.time()
+    on_validation = Split(loaders["validation"], data.validation)
     for epoch in range(args.epochs):
-        model.train()
-        # Summed on the card: read back after every pass, the loss would make the processor
-        # wait for the card before it could queue the next pass.
-        running = torch.zeros((), device=device)
-        taken = 0
-        optimiser.zero_grad(set_to_none=not args.cuda_graphs)
-        for step, batch in enumerate(loaders["train"]):
-            with torch.amp.autocast(device, **cast):
-                input_ids = batch["input_ids"].to(device)
-                attention = batch["attention_mask"].to(device)
-                subject, polarity, *read = passes["labelled"](input_ids, attention)
-                aspects = read.pop(0) if args.aspects else None
-                trust = batch["weight"].to(device)
-                subject_target = batch["subject_target"].to(device)
-                polarity_target = batch["polarity_target"].to(device)
-                subject_loss = charged(subject, subject_target, weights)
-                polarity_loss = charged(polarity, polarity_target)
-                loss = ((subject_loss + args.polarity_weight * polarity_loss) * trust).mean()
-                if aspects is not None:
-                    loss = (
-                        loss
-                        + args.aspect_weight
-                        * (
-                            aspect_loss(
-                                aspects,
-                                batch["aspect"].to(device),
-                                batch["aspect_known"].to(device),
-                            )
-                            * trust
-                        ).mean()
-                    )
-                if args.error_reg > 0:
-                    # Against the first labeller's answer, which is what the abstention rule
-                    # is fitted and scored against. A claim read twice is still one answer to
-                    # be surer of than of a wrong one.
-                    loss = loss + args.error_reg * error_regularisation(
-                        subject, batch["subject"].to(device), args.error_reg_margin
-                    )
-                if args.rdrop > 0:
-                    # The same batch through the dropout again gives a second opinion from
-                    # the same weights, and the two are charged for disagreeing. Dropout at
-                    # training time and none at inference is a gap this closes: the model is
-                    # pushed to answer the same way whichever units are dropped.
-                    again_subject, again_polarity = read
-                    disagreement = symmetric_kl(subject, again_subject) + (
-                        args.polarity_weight * symmetric_kl(polarity, again_polarity)
-                    )
-                    again_loss = (
-                        (
-                            charged(again_subject, subject_target, weights)
-                            + args.polarity_weight * charged(again_polarity, polarity_target)
-                        )
-                        * trust
-                    ).mean()
-                    loss = (loss + again_loss) / 2 + args.rdrop * disagreement.mean()
-            scaler.scale(loss / args.accumulate).backward()
-            running += loss.detach()
-
-            # The gradient is only whole once every pass of the batch has contributed, and
-            # clipping a partial one would clip a different quantity than the batch's own norm.
-            if (step + 1) % args.accumulate and step + 1 < len(loaders["train"]):
-                continue
-            if taught_batches is not None:
-                # Its own pass rather than rows mixed into the labelled batch, so the card
-                # holds one batch's activations at a time and the labelled batch stays the
-                # batch every other run learned from. The class weights stay off it: the
-                # teacher's distribution is already the reading of a model trained under
-                # them, and weighting it again would count the correction twice.
-                pooled = next(taught_batches)
-                with torch.amp.autocast(device, **cast):
-                    subject, polarity = passes["taught"](
-                        pooled["input_ids"].to(device), pooled["attention_mask"].to(device)
-                    )
-                    disagreement = soft_cross_entropy(
-                        subject, pooled["subject"].to(device), args.pool_temperature
-                    ) + args.polarity_weight * soft_cross_entropy(
-                        polarity, pooled["polarity"].to(device), args.pool_temperature
-                    )
-                scaler.scale(disagreement.mean() * args.pool_weight).backward()
-            scaler.unscale_(optimiser)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            scaler.step(optimiser)
-            scaler.update()
-            schedule.step()
-            optimiser.zero_grad(set_to_none=not args.cuda_graphs)
-            if averaged is not None:
-                averaged.update_parameters(model)
-            taken += 1
-            # Counted in optimiser steps rather than passes: every pass that is not the last of
-            # its batch has already gone back to the top, so a count of those reports progress
-            # only on the passes this line never sees.
-            if taken % 50 == 1:
-                # What the run holds on the card, which on Windows it also holds of the machine's
-                # memory: the figure to read when the machine runs short, beside the step it ran
-                # short at.
-                held = (
-                    f" card {torch.cuda.memory_reserved() / 2**30:.1f} GB"
-                    if device == "cuda"
-                    else ""
-                )
-                print(
-                    f"  epoch {epoch + 1} step {taken}/{per_epoch} "
-                    f"loss {running.item() / (step + 1):.4f}{held}",
-                    flush=True,
-                )
-
-        metrics = evaluate(
-            model, loaders["validation"], device, subjects, validation, args.min_accuracy
-        )
-        print(
-            f"epoch {epoch + 1}: accuracy {metrics['accuracy']:.3f}  "
-            f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
-            f"calibration {metrics['calibration_error']:.3f}"
-        )
-        if metrics["aspects"]:
-            beyond = metrics["aspects"]["beyond_the_first"]
-            print(
-                f"  aspects: F1 {metrics['aspects']['all']['f1']:.3f}, beyond the first subject "
-                f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']} covered"
-            )
-        answers = (
-            "answers nothing at that accuracy"
-            if not metrics["threshold_met"]
-            else (
-                f"answers {metrics['threshold_coverage']:.0%} of claims at "
-                f"{metrics['threshold_accuracy']:.3f}"
-            )
-        )
-        print(
-            f"  abstains below {metrics['threshold']:.2f}: {answers}"
-            f"{'' if metrics['threshold_met'] else f' (wanted {args.min_accuracy:.2f})'}",
-            flush=True,
-        )
+        train_epoch(training, epoch)
+        metrics = evaluate(model, on_validation, device, data.subjects, args.min_accuracy)
+        report_epoch(metrics, epoch, args.min_accuracy)
         # Macro F1 rather than accuracy: the rows a reader has to get right are the rare ones,
         # and accuracy is a quarter `verdict`. Only the validation games choose. The held-out ones
         # never see this.
@@ -1423,160 +2160,25 @@ def run(args) -> dict:
 
     # The averaged weights are the run's weights from here on: what is scored below, what the
     # held-out games are read with, and what is saved.
-    if averaged is not None:
-        model.load_state_dict(averaged.module.state_dict())
+    if optimisation.averaged is not None:
+        averaged_module: torch.nn.Module = optimisation.averaged.module  # pyright: ignore[reportUnknownMemberType]  # AveragedModel.module is unannotated in torch
+        model.load_state_dict(averaged_module.state_dict())
 
     # Scored once more outside the loop, so what `run.json` reports is measured from the same
     # weights that get saved rather than from whichever epoch happened to be last.
-    metrics = evaluate(
-        model, loaders["validation"], device, subjects, validation, args.min_accuracy
-    )
-
-    # The held-out games, read once, with the threshold the validation games chose. Nothing here
-    # picks anything: the moment a number from this set changes a setting, the set stops being
-    # able to answer the only question it exists for. That is why it can be switched off, and
-    # why the bake-off switches it off: comparing four backbones on it and then reporting the
-    # winner's score from it would be reporting a number the winner was chosen by.
-    #
-    # It is asked at all because the validation figure was not transferring. Measured on eleven
-    # games, a threshold promising 0.756 on the validation games delivered 0.620 on the held-out
-    # ones, and a model card quoting the first would advertise an accuracy the tool does not
-    # have on a game it has never seen.
-    held = None
-    if getattr(args, "held_out", True):
-        held = evaluate(model, loaders["test"], device, subjects, test, args.min_accuracy)
-        kept = confidence_of(model, loaders["test"], device)
-        truth = [subjects.index(claim.subject) for claim in test]
-        at_threshold = selective(kept, truth, metrics["threshold"])
-        held["at_validation_threshold"] = at_threshold
-        print(
-            f"held-out games: {at_threshold['coverage']:.0%} of claims answered at "
-            f"{at_threshold['accuracy']:.3f}"
-            if at_threshold["coverage"] > 0
-            else "held-out games: nothing cleared the threshold"
-        )
-        if held["read_twice"]:
-            twice = held["read_twice"]
-            print(
-                f"  on the {twice['claims']} held-out claims read twice: {twice['against_first']:.3f} "
-                f"against the first labeller, {twice['against_second']:.3f} against the second, "
-                f"{twice['against_either']:.3f} against either, "
-                f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
-                f"{twice['where_both_agree']['claims']} they agree on"
-            )
-        if (
-            metrics["threshold_met"]
-            and at_threshold["accuracy"] is not None
-            and at_threshold["accuracy"] < args.min_accuracy
-        ):
-            print(
-                f"  WARNING: the threshold promised {args.min_accuracy:.2f} and delivers "
-                f"{at_threshold['accuracy']:.3f} on games it has never seen. The promise was "
-                f"chosen on {len({claim.app_id for claim in validation})} validation games and "
-                f"does not transfer; quote the held-out figure, not the validation one."
-            )
-
+    metrics = evaluate(model, on_validation, device, data.subjects, args.min_accuracy)
+    held = held_out(setup, metrics)
     if args.save_logits:
-        # The claims are named as well as scored, so folds can be pooled and a pooled set can
-        # be checked for a game appearing in two of them, which would mean a claim was answered
-        # by a model that had trained on it.
-        out_logits = Path(args.save_logits)
-        out_logits.parent.mkdir(parents=True, exist_ok=True)
-        # A reader with an aspect head also leaves what it said for every subject and what each
-        # label answers, which is what a line per subject is drawn from.
-        aspects = {}
-        if args.aspects:
-            answered = [loaders["validation"].dataset.aspect_target(claim) for claim in validation]
-            aspects = {
-                "aspect_logits": aspect_logits_of(model, loaders["validation"], device),
-                "aspect_truth": np.stack([answer.numpy() for answer, _ in answered]),
-                "aspect_known": np.stack([known.numpy() for _, known in answered]),
-            }
-        np.savez_compressed(
-            out_logits,
-            logits=logits_of(model, loaders["validation"], device),
-            truth=np.array([subjects.index(claim.subject) for claim in validation]),
-            app_id=np.array([claim.app_id for claim in validation]),
-            review_id=np.array([claim.review_id for claim in validation]),
-            claim_index=np.array([claim.claim_index for claim in validation]),
-            subjects=np.array(subjects),
-            **aspects,
-        )
-        print(f"held-out logits written to {out_logits}")
+        write_logits(setup, Path(args.save_logits))
 
     elapsed = time.time() - started
-    record = {
-        "backbone": args.backbone,
-        "epochs": args.epochs,
-        "batch_size": args.batch_size,
-        "accumulate": args.accumulate,
-        "learning_rate": args.learning_rate,
-        "max_length": args.max_length,
-        "context": args.context,
-        "seed": args.seed,
-        "mark": args.mark,
-        "prefix": args.prefix,
-        "headset_marker": headset_marker,
-        "balance": args.balance,
-        "language_balance": args.language_balance,
-        "only_language": args.only_language,
-        "ambiguous_weight": args.ambiguous_weight,
-        "split_wrong_weight": args.split_wrong_weight,
-        "polarity_weight": args.polarity_weight,
-        "second_weight": args.second_weight,
-        "read_twice": sum(claim.second_subject is not None for claim in train),
-        "error_reg": args.error_reg,
-        "error_reg_margin": args.error_reg_margin if args.error_reg else None,
-        "ema": args.ema,
-        "kept_epoch": best.epoch if best is not None else None,
-        "llrd": args.llrd,
-        "rdrop": args.rdrop,
-        "pooling": args.pooling,
-        "aspects": args.aspects,
-        "aspect_weight": args.aspect_weight if args.aspects else None,
-        "lora_rank": args.lora_rank or None,
-        "dtype": "bfloat16" if args.lora_rank else "float32",
-        "pool": args.pool,
-        "pool_targets": args.pool_targets,
-        "pool_claims": pool_claims,
-        "pool_weight": args.pool_weight if args.pool else None,
-        "pool_temperature": args.pool_temperature if args.pool else None,
-        "split_seed": args.split_seed,
-        "fold": args.fold,
-        "folds": args.folds if args.fold is not None else None,
-        "device": device,
-        "git_sha": git_sha(),
-        "data_fingerprint": claimdata.fingerprint(claims),
-        "labels_newer_than_export": len(newer),
-        "claims": {"train": len(train), "validation": len(validation), "test": len(test)},
-        "games": {
-            "train": sorted({claim.app_id for claim in train}),
-            "validation": sorted({claim.app_id for claim in validation}),
-            "test": sorted({claim.app_id for claim in test}),
-        },
-        "subjects": subjects,
-        "seconds": round(elapsed),
-        "validation": metrics,
-    }
-    if held is not None:
-        record["test"] = held
-
-    run_id = args.run_id or f"{args.backbone.replace('/', '-')}-{int(time.time())}"
-    out = HERE / "runs" / run_id
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
-    if args.save:
-        if args.lora_rank:
-            # Folded into the weights, so the saved state is a plain reader's and teach.py
-            # loads it the way it loads any other run.
-            model.trunk = model.trunk.merge_and_unload()
-        torch.save(model.state_dict(), out / "model.bin")
-        tokenizer.save_pretrained(out / "tokenizer")
-    print(f"\nwritten to {out}")
+    record = record_of(setup, metrics, held, best.epoch if best is not None else None, elapsed)
+    write_run(setup, record)
     return record
 
 
-def parse():
+def parse() -> argparse.Namespace:
+    """Read the command line into the settings of one run."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     parser.add_argument(

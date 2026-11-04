@@ -92,6 +92,11 @@ AUTHORIZATION = "AUTHORIZATION"
 UNAUTHORIZED = "UNAUTHORIZED"
 DataCollatorForLanguageModeling = "DataCollatorForLanguageModeling"
 StrCpy = "StrCpy"
+# transformers' `modeling_outputs` module and ruff's `CPY001` rule code (training/ruff.toml).
+modeling_outputs = "modeling_outputs"
+CPY001 = "CPY001"
+# torch's optimiser base class.
+Optimizer = "Optimizer"
 
 [default.extend-words]
 # A prefix this project hyphenates, as in mis-split and mis-cut.

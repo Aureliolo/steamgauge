@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import json
+from typing import TYPE_CHECKING
 
-from sweep import SIZES, index, shipped_runs
+from sweep import SIZES, Run, index, shipped_runs
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
-def test_the_shipped_runs_are_the_sizes_that_ship(tmp_path):
+def test_the_shipped_runs_are_the_sizes_that_ship(tmp_path: Path) -> None:
     sizes = tmp_path / "reader-sizes.json"
     sizes.write_text(
         json.dumps(
@@ -19,7 +25,7 @@ def test_the_shipped_runs_are_the_sizes_that_ship(tmp_path):
     assert shipped_runs(sizes) == {"a": "small"}
 
 
-def test_every_committed_shipping_run_is_on_the_index():
+def test_every_committed_shipping_run_is_on_the_index() -> None:
     shipped = shipped_runs(SIZES)
     assert shipped
     runs = SIZES.parent.parent / "training" / "runs"
@@ -27,8 +33,8 @@ def test_every_committed_shipping_run_is_on_the_index():
         assert (runs / run / "run.json").is_file(), run
 
 
-def test_the_index_marks_each_shipping_run_with_its_size(tmp_path):
-    found = [
+def test_the_index_marks_each_shipping_run_with_its_size(tmp_path: Path) -> None:
+    found: list[Run] = [
         {"id": "a", "config": {}, "validation": {}},
         {"id": "b", "config": {}, "validation": {}},
     ]

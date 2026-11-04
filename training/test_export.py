@@ -5,31 +5,55 @@ python -m pytest test_export.py
 
 from __future__ import annotations
 
+import shutil
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 import torch
 
+# The module is skipped as a whole where ONNX Runtime is absent, so everything that needs it
+# is imported after this line.
 onnxruntime = pytest.importorskip("onnxruntime")
-from transformers import (  # noqa: E402
+import onnx  # noqa: E402 must follow the importorskip above
+from onnx import TensorProto, helper, numpy_helper  # noqa: E402 same reason
+from transformers import (  # noqa: E402 same reason
     Qwen3Config,
     Qwen3Model,
     XLMRobertaConfig,
     XLMRobertaModel,
 )
 
-from export import (  # noqa: E402
+from export import (  # noqa: E402 same reason
     WEIGHT_ALIGNMENT,
+    crossed_the_line,
     full_precision_answers,
     gather_weights,
+    load_graph,
     load_reader,
     most_claims_at_once,
+    save_graph,
     trace_graph,
 )
-from train import ClaimReader  # noqa: E402
+from train import ClaimReader  # noqa: E402 same reason
+from typed_calls import manual_seed, save_pretrained  # noqa: E402 same reason
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from transformers import PreTrainedModel
+
+
+def saved(make: Callable[[], PreTrainedModel], path: Path) -> str:
+    """Build a model under a fixed seed, save it to `path` and return the path as text."""
+    manual_seed(0)
+    save_pretrained(make(), path)
+    return str(path)
 
 
 @pytest.fixture
-def backbone(tmp_path):
+def backbone(tmp_path: Path) -> str:
     """A decoder of the 4B's family, small enough to build without a download."""
     config = Qwen3Config(
         vocab_size=64,
@@ -41,13 +65,11 @@ def backbone(tmp_path):
         head_dim=8,
         max_position_embeddings=64,
     )
-    torch.manual_seed(0)
-    Qwen3Model(config).save_pretrained(tmp_path / "trunk")
-    return str(tmp_path / "trunk")
+    return saved(lambda: Qwen3Model(config), tmp_path / "trunk")
 
 
 @pytest.fixture
-def encoder(tmp_path):
+def encoder(tmp_path: Path) -> str:
     """An encoder of the e5 family, small enough to build without a download."""
     config = XLMRobertaConfig(
         vocab_size=64,
@@ -57,15 +79,15 @@ def encoder(tmp_path):
         num_attention_heads=4,
         max_position_embeddings=64,
     )
-    torch.manual_seed(0)
-    XLMRobertaModel(config).save_pretrained(tmp_path / "encoder")
-    return str(tmp_path / "encoder")
+    return saved(lambda: XLMRobertaModel(config), tmp_path / "encoder")
 
 
 # Every trunk a reader ships on, each pooled the way it is trained. A decoder-only test let a
 # change for the 4B through that every e5 reader then refused to export.
-@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
-def test_a_reader_traces_and_answers_what_the_model_answers(trunk, pooling, request, tmp_path):
+@pytest.mark.parametrize(("trunk", "pooling"), [("backbone", "last"), ("encoder", "mean")])
+def test_a_reader_traces_and_answers_what_the_model_answers(
+    trunk: str, pooling: str, request: pytest.FixtureRequest, tmp_path: Path
+) -> None:
     # Right-padded to different lengths, which is what the last-token pooling reads by, and
     # batches of another size and another length than the trace's, which is what the dynamic
     # axes are for. A graph checked only at the length it was traced at passed here and then
@@ -87,7 +109,7 @@ def test_a_reader_traces_and_answers_what_the_model_answers(trunk, pooling, requ
         assert np.allclose(wanted, got, atol=1e-4), f"{width} tokens"
 
 
-def test_a_reader_with_an_aspect_head_traces_it_too(encoder, tmp_path):
+def test_a_reader_with_an_aspect_head_traces_it_too(encoder: str, tmp_path: Path) -> None:
     model = ClaimReader(encoder, 3, pooling="mean", aspects=True).eval()
     traced = torch.randint(0, 64, (2, 6))
     graph = tmp_path / "model.onnx"
@@ -106,29 +128,42 @@ def test_a_reader_with_an_aspect_head_traces_it_too(encoder, tmp_path):
     assert np.allclose(wanted, got, atol=1e-4)
 
 
-@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
-def test_the_trace_leaves_the_model_as_it_found_it(trunk, pooling, request, tmp_path):
+@pytest.mark.parametrize(("trunk", "pooling"), [("backbone", "last"), ("encoder", "mean")])
+def test_the_trace_leaves_the_model_as_it_found_it(
+    trunk: str, pooling: str, request: pytest.FixtureRequest, tmp_path: Path
+) -> None:
     model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
-    trunk = model.trunk
+    before = model.trunk
     ids = torch.randint(0, 64, (2, 4))
     trace_graph(model, ids, torch.ones_like(ids), tmp_path / "model.onnx", 17)
-    assert model.trunk is trunk
+    assert model.trunk is before
 
 
-def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(monkeypatch, tmp_path):
+def test_the_exporter_is_handed_a_path_it_can_write_weights_beside(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     # Only a graph over 2 GB fails on a Path, and no model that size builds in a test, so what
     # is checked is what the exporter is given: anything but a string it treats as a stream.
-    handed = []
-    monkeypatch.setattr(torch.onnx, "export", lambda model, args, f, **kwargs: handed.append(f))
-    trace_graph(torch.nn.Identity(), None, None, tmp_path / "model.onnx", 17)
+    handed: list[object] = []
+
+    def record_path(_model: object, _args: object, f: object, **_kwargs: object) -> None:
+        handed.append(f)
+
+    monkeypatch.setattr(torch.onnx, "export", record_path)
+    ids = torch.zeros((1, 1), dtype=torch.long)
+    trace_graph(torch.nn.Identity(), ids, ids, tmp_path / "model.onnx", 17)
     assert handed == [str(tmp_path / "model.onnx")]
 
 
-@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
+@pytest.mark.parametrize(("trunk", "pooling"), [("backbone", "last"), ("encoder", "mean")])
 @pytest.mark.parametrize("stored", [torch.float32, torch.bfloat16])
 def test_the_reference_answers_are_the_whole_model_in_full_precision(
-    stored, trunk, pooling, request, tmp_path
-):
+    stored: torch.dtype,
+    trunk: str,
+    pooling: str,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+) -> None:
     # Stored in bfloat16 is how the 4B's weights sit on disk. The reference answers must be what
     # converting the whole trained model to full precision gave, never the pretrained
     # placeholders the constructor builds, and the stored weights must come back untouched.
@@ -156,22 +191,20 @@ def test_the_reference_answers_are_the_whole_model_in_full_precision(
         assert torch.equal(weight, kept[name]), name
 
 
-def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_path):
+def test_weights_gathered_into_one_file_answer_as_the_trace_did(
+    backbone: str, tmp_path: Path
+) -> None:
     # The tracer leaves a weight per file only past 2 GB, so a small graph is split the same
     # way by hand. The traced directory is gone before the session opens, so the answer can only
     # come from the one weights file.
-    import shutil
-
-    import onnx
-
     model = ClaimReader(backbone, 3, pooling="last").eval()
     ids = torch.randint(0, 64, (2, 6))
     whole = tmp_path / "whole.onnx"
     trace_graph(model, ids, torch.ones_like(ids), whole, 17)
     traced = tmp_path / "traced"
     traced.mkdir()
-    onnx.save(
-        onnx.load(str(whole)),
+    onnx.save(  # pyright: ignore[reportUnknownMemberType]  # onnx annotates its path as a bare PathLike
+        load_graph(whole, weights=True),
         str(traced / "model.onnx"),
         save_as_external_data=True,
         all_tensors_to_one_file=False,
@@ -186,13 +219,12 @@ def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_pa
     assert sorted(path.name for path in shipped.iterdir()) == ["model.onnx", "model.onnx.data"]
     starts = [
         int(entry.value)
-        for tensor in onnx.load(
-            str(shipped / "model.onnx"), load_external_data=False
-        ).graph.initializer
+        for tensor in load_graph(shipped / "model.onnx", weights=False).graph.initializer
         for entry in tensor.external_data
         if entry.key == "offset"
     ]
-    assert starts and all(start % WEIGHT_ALIGNMENT == 0 for start in starts)
+    assert starts
+    assert all(start % WEIGHT_ALIGNMENT == 0 for start in starts)
     feed = {"input_ids": ids.numpy(), "attention_mask": np.ones_like(ids.numpy())}
     wanted = onnxruntime.InferenceSession(str(whole), providers=["CPUExecutionProvider"])
     got = onnxruntime.InferenceSession(
@@ -203,8 +235,10 @@ def test_weights_gathered_into_one_file_answer_as_the_trace_did(backbone, tmp_pa
     )
 
 
-@pytest.mark.parametrize("trunk, pooling", [("backbone", "last"), ("encoder", "mean")])
-def test_a_graph_says_how_many_claims_it_can_be_handed_at_once(trunk, pooling, request, tmp_path):
+@pytest.mark.parametrize(("trunk", "pooling"), [("backbone", "last"), ("encoder", "mean")])
+def test_a_graph_says_how_many_claims_it_can_be_handed_at_once(
+    trunk: str, pooling: str, request: pytest.FixtureRequest, tmp_path: Path
+) -> None:
     # The fixtures' widest weights are their MLP's, 32 by 64. The 4B's are 2560 by 9728, which
     # gives the 172 it was measured to read where 173 failed.
     model = ClaimReader(request.getfixturevalue(trunk), 3, pooling=pooling).eval()
@@ -215,10 +249,7 @@ def test_a_graph_says_how_many_claims_it_can_be_handed_at_once(trunk, pooling, r
     assert (2**32 - 1) // (2560 * 9728) == 172
 
 
-def test_a_weight_reaching_its_product_through_a_transpose_still_counts(tmp_path):
-    import onnx
-    from onnx import TensorProto, helper, numpy_helper
-
+def test_a_weight_reaching_its_product_through_a_transpose_still_counts(tmp_path: Path) -> None:
     weight = numpy_helper.from_array(np.zeros((6, 4), dtype=np.float32), "weight")
     graph = helper.make_graph(
         [
@@ -230,14 +261,12 @@ def test_a_weight_reaching_its_product_through_a_transpose_still_counts(tmp_path
         [helper.make_tensor_value_info("y", TensorProto.FLOAT, [None, None, 6])],
         [weight],
     )
-    onnx.save(helper.make_model(graph), str(tmp_path / "model.onnx"))
+    save_graph(helper.make_model(graph), tmp_path / "model.onnx")
 
     assert most_claims_at_once(tmp_path / "model.onnx") == (2**32 - 1) // 24
 
 
-def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk():
-    from export import crossed_the_line
-
+def test_claims_on_their_line_may_change_side_one_at_a_time_and_not_in_bulk() -> None:
     # Forty claims whose best subject sits exactly on its line. In the other graph a rounding
     # takes it just under. One doing so is excused, all of them together are not.
     wanted = np.tile(np.array([[1.0, 0.0, 0.0]]), (40, 1))

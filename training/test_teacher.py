@@ -5,17 +5,23 @@ python -m pytest test_teacher.py
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 import torch
 
 pytest.importorskip("peft")
-from transformers import Qwen3Config, Qwen3Model  # noqa: E402
+from transformers import Qwen3Config, Qwen3Model
 
-from train import ClaimReader, adapt, parameter_groups  # noqa: E402
+from train import ClaimReader, TrunkLoad, adapt, parameter_groups
+from typed_calls import manual_seed, save_pretrained
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
-def backbone(tmp_path):
+def backbone(tmp_path: Path) -> str:
     """A decoder of the teacher's family, small enough to build without a download."""
     config = Qwen3Config(
         vocab_size=64,
@@ -27,21 +33,21 @@ def backbone(tmp_path):
         head_dim=8,
         max_position_embeddings=64,
     )
-    torch.manual_seed(0)
-    Qwen3Model(config).save_pretrained(tmp_path)
+    manual_seed(0)
+    save_pretrained(Qwen3Model(config), tmp_path)
     return str(tmp_path)
 
 
-def test_a_teacher_holds_its_trunk_in_bf16_and_its_heads_in_fp32(backbone):
+def test_a_teacher_holds_its_trunk_in_bf16_and_its_heads_in_fp32(backbone: str) -> None:
     # Checked without multiplying anything: bf16 arithmetic on a CPU runs kernels chosen per
     # instruction set, and a CI runner lacking one dies with an illegal instruction rather than
     # failing. The teacher only ever computes on the card.
-    model = ClaimReader(backbone, 3, pooling="last", dtype=torch.bfloat16)
+    model = ClaimReader(backbone, 3, pooling="last", load=TrunkLoad(dtype=torch.bfloat16))
     assert {p.dtype for p in model.trunk.parameters()} == {torch.bfloat16}
     assert model.subject.weight.dtype == torch.float32
 
 
-def test_only_the_adapters_and_the_heads_learn(backbone):
+def test_only_the_adapters_and_the_heads_learn(backbone: str) -> None:
     model = ClaimReader(backbone, 3, pooling="last")
     adapt(model, 4)
     learning = {name for name, p in model.named_parameters() if p.requires_grad}
@@ -51,7 +57,7 @@ def test_only_the_adapters_and_the_heads_learn(backbone):
     assert handed == {id(p) for p in model.parameters() if p.requires_grad}
 
 
-def test_a_merged_teacher_loads_as_a_plain_reader_and_answers_the_same(backbone):
+def test_a_merged_teacher_loads_as_a_plain_reader_and_answers_the_same(backbone: str) -> None:
     model = ClaimReader(backbone, 3, pooling="last")
     adapt(model, 4)
     ids = torch.randint(0, 64, (2, 6))
@@ -59,7 +65,7 @@ def test_a_merged_teacher_loads_as_a_plain_reader_and_answers_the_same(backbone)
     optimiser = torch.optim.AdamW(parameter_groups(model, 1e-2, 1.0))
     subject, _, _ = model(ids, mask)
     subject.sum().backward()
-    optimiser.step()
+    optimiser.step()  # pyright: ignore[reportUnknownMemberType]  # torch leaves closure's type unknown
 
     model.eval()
     before, _, _ = model(ids, mask)

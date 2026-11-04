@@ -31,9 +31,17 @@ import json
 import os
 import re
 from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import sizes
+
+# One row of a labels, judgements or review-facts file: JSON whose fields the format fixes.
+Row = dict[str, Any]
+
+# How many bytes a file is read in while hashing it.
+HASH_CHUNK = 1 << 20
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -69,9 +77,10 @@ TAG = re.compile(r"v[1-9][0-9]*")
 
 
 def sha256(path: Path) -> str:
+    """Return the hex SHA-256 of the file at `path`."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
+        for chunk in iter(lambda: handle.read(HASH_CHUNK), b""):
             digest.update(chunk)
     return digest.hexdigest()
 
@@ -141,8 +150,8 @@ def kappa(pairs: list[tuple[str, str]]) -> float:
     return 0.0 if chance == 1.0 else (agreed - chance) / (1.0 - chance)
 
 
-def agreement(rows: list[dict], again: list[dict]) -> dict:
-    """How the second labeller's answers compare with the first's, computed at publish time.
+def agreement(rows: list[Row], again: list[Row]) -> dict[str, float]:
+    """Compare the second labeller's answers with the first's, computed at publish time.
 
     A card that carried the figures by hand was wrong within a week of being written, because
     every second reading moves them. The dataset says what its own rows say.
@@ -167,15 +176,27 @@ def agreement(rows: list[dict], again: list[dict]) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class Credits:
+    """Who labelled the dataset: claims per gold handle, claims per labeller and handle names."""
+
+    gold: dict[str, int] = field(default_factory=dict[str, int])
+    labellers: dict[str, int] = field(default_factory=dict[str, int])
+    names: dict[str, str] = field(default_factory=dict[str, str])
+
+
 def dataset_card(
     labels: int,
     games: int,
-    agreed: dict,
+    agreed: dict[str, float],
     reviews: int = 0,
-    gold: dict[str, int] | None = None,
-    labellers: dict[str, int] | None = None,
-    names: dict[str, str] | None = None,
+    labelled_by: Credits | None = None,
 ) -> str:
+    """Return the dataset's card, with the agreement figures its own rows give."""
+    people_by = labelled_by or Credits()
+    gold = people_by.gold
+    labellers = people_by.labellers
+    names = people_by.names
     twice = (
         [
             "",
@@ -191,9 +212,9 @@ def dataset_card(
         if agreed["claims"]
         else ["No claim has a second label."]
     )
-    by = ", ".join(f"{name} ({count:,})" for name, count in (labellers or {}).items())
-    people = gold or {}
-    credited = [(f"{(names or {})[handle]} (`{handle}`", count) for handle, count in people.items()]
+    by = ", ".join(f"{name} ({count:,})" for name, count in labellers.items())
+    people = gold
+    credited = [(f"{names[handle]} (`{handle}`", count) for handle, count in people.items()]
     answered = ", ".join(f"{name}, {count:,})" for name, count in credited)
     gold_file = (
         f"- `gold.jsonl`: {sum(people.values()):,} answers from {len(people)} people, "
@@ -316,8 +337,7 @@ def dataset_card(
 
 
 def search_card(name: str, base: str) -> str:
-    """The card for one of the two search exports: Qwen's weights in half precision, in the shape
-    the tool runs."""
+    """Return the card for a search export: Qwen's weights in half precision."""
     encoder = name == "search-encoder"
     use = (
         [
@@ -373,8 +393,7 @@ def search_card(name: str, base: str) -> str:
 
 
 def writer_card(base: str) -> str:
-    """The card for the writer: Qwen's weights rounded to four bits, in one graph decoded a
-    token at a time."""
+    """Return the card for the writer: Qwen's weights rounded to four bits, in one graph."""
     return "\n".join(
         [
             "---",
@@ -418,20 +437,27 @@ def writer_card(base: str) -> str:
 
 
 def pins_in(source: str, constant: str) -> dict[str, str]:
-    """The file hashes a Rust constant pins, by remote name."""
+    """Return the file hashes a Rust constant pins, by remote name."""
     found = re.search(rf"const {constant}\b.*?(?=\n(?:pub )?const |\Z)", source, re.DOTALL)
     if not found:
-        raise SystemExit(f"no constant {constant} to read pins from")
+        msg = f"no constant {constant} to read pins from"
+        raise SystemExit(msg)
     return dict(
         re.findall(r'remote: "([^"]+)",\s*local: "[^"]+",\s*sha256: "([^"]*)"', found.group(0))
     )
 
 
 def pin_reader(
-    source: str, size: str, constant: str, release: tuple[str, str, str], files: dict
+    source: str,
+    size: str,
+    constant: str,
+    release: tuple[str, str, str],
+    files: dict[str, tuple[str, int]],
 ) -> str:
-    """reader.rs with one size pinned to a repository, a commit and its tag, and each file
-    (by remote name) to its hash and length."""
+    """Return reader.rs with one size pinned to a repository, a commit, its tag and file hashes.
+
+    Each file is named by its remote name and carries its hash and length.
+    """
     repo, revision, tag = release
     source, count = re.subn(
         rf'(name: "{re.escape(size)}",.*?published: Published \{{\s*repository: )"[^"]*"'
@@ -442,7 +468,8 @@ def pin_reader(
         flags=re.DOTALL,
     )
     if count != 1:
-        raise SystemExit(f"could not find where to pin the {size} reader in {READER_RS}")
+        msg = f"could not find where to pin the {size} reader in {READER_RS}"
+        raise SystemExit(msg)
     for name, (digest, length) in files.items():
         source, count = re.subn(
             rf'(const {constant}\b.*?remote: "{re.escape(name)}",\s*local: "[^"]+",\s*sha256: )'
@@ -453,13 +480,13 @@ def pin_reader(
             flags=re.DOTALL,
         )
         if count != 1:
-            raise SystemExit(f"could not find where to pin {name} in {constant}")
+            msg = f"could not find where to pin {name} in {constant}"
+            raise SystemExit(msg)
     return source
 
 
 def pin_search(source: str, constant: str, release: tuple[str, str, str]) -> str:
-    """search_models.rs or writer.rs with one model pinned to a repository, a commit and its
-    tag."""
+    """Return search_models.rs or writer.rs with one model pinned to a commit and tag."""
     repo, revision, tag = release
     source, count = re.subn(
         rf'(pub const {constant}: \w+ = \w+ \{{\s*name: "[^"]*",\s*repository: )"[^"]*"'
@@ -469,21 +496,25 @@ def pin_search(source: str, constant: str, release: tuple[str, str, str]) -> str
         count=1,
     )
     if count != 1:
-        raise SystemExit(f"could not find where to pin {constant}")
+        msg = f"could not find where to pin {constant}"
+        raise SystemExit(msg)
     return source
 
 
-def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
-    """Every label, every second label, the gold answers and the judgements beside them."""
-    rows, again, gold, acceptable = [], [], [], []
+def read_labels(reference: Path) -> tuple[list[Row], list[Row], list[Row], list[Row]]:
+    """Return every label, every second label, the gold answers and the judgements beside them."""
+    rows: list[Row] = []
+    again: list[Row] = []
+    gold: list[Row] = []
+    acceptable: list[Row] = []
 
-    def load(path: Path) -> list[dict]:
+    def load(path: Path) -> list[Row]:
         return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
 
     for game in sorted(path for path in reference.iterdir() if path.is_dir()):
         for draw in [game, *(game / name for name in TEACHING_SETS)]:
             rows.extend(load(draw / "labels.json"))
-        answered: set[tuple] = set()
+        answered: set[tuple[Any, ...]] = set()
         for second in SECOND_LABELS:
             for row in load(game / second / "labels.json"):
                 if (key := tuple(row[name] for name in KEY)) not in answered:
@@ -497,17 +528,21 @@ def read_labels(reference: Path) -> tuple[list[dict], list[dict], list[dict], li
     return rows, again, gold, acceptable
 
 
-def checked(rows: list[dict], fields: set[str], what: str) -> None:
-    unknown = sorted(set().union(*(row.keys() for row in rows)) - fields)
+def checked(rows: list[Row], fields: set[str], what: str) -> None:
+    """Stop the publish when any row carries a field outside `fields`."""
+    unknown = sorted(set[str]().union(*(row.keys() for row in rows)) - fields)
     if unknown:
-        raise SystemExit(f"{what} carry {unknown}, which nothing says may be published")
+        msg = f"{what} carry {unknown}, which nothing says may be published"
+        raise SystemExit(msg)
 
 
-def jsonl(found: list[dict]) -> str:
+def jsonl(found: list[Row]) -> str:
+    """Return `found` as JSON lines with sorted keys."""
     return "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in found)
 
 
-def main() -> None:
+def _parse_args() -> argparse.Namespace:
+    """Read the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--owner", required=True, help="the Hugging Face user or organisation")
     parser.add_argument("--tag", required=True, help="the release, v1, v2, ...")
@@ -539,21 +574,22 @@ def main() -> None:
         action="store_true",
         help="build and check everything without uploading or pinning",
     )
-    args = parser.parse_args()
-    if not TAG.fullmatch(args.tag):
-        raise SystemExit(f"{args.tag!r} is not a release tag; they are v1, v2, ...")
-    wanted = set(args.only or REPOSITORIES)
-    staging = Path(args.staging)
-    staging.mkdir(parents=True, exist_ok=True)
-    reader_rs = READER_RS.read_text(encoding="utf-8")
-    search_rs = SEARCH_RS.read_text(encoding="utf-8")
-    writer_rs = WRITER_RS.read_text(encoding="utf-8")
+    return parser.parse_args()
 
-    # What goes where: each repository's files as (path in the repository, path here).
-    uploads: dict[str, tuple[str, list[tuple[str, Path]]]] = {}
+
+# What goes where: each repository's kind and its files as (path in the repository, path here).
+Uploads = dict[str, tuple[str, list[tuple[str, Path]]]]
+
+
+def _stage_readers(
+    args: argparse.Namespace, wanted: set[str], staging: Path, uploads: Uploads
+) -> dict[str, dict[str, tuple[str, int]]]:
+    """Stage the reader repositories and return each size's file hashes and lengths."""
     reader_files: dict[str, dict[str, tuple[str, int]]] = {}
 
-    import export
+    # export imports torch and transformers, which a dry run of the search and dataset
+    # repositories does not otherwise need.
+    import export  # noqa: PLC0415 heavy optional dependency, loaded only when a reader is staged
 
     for size in sizes.load()["sizes"]:
         if not size["ships"]:
@@ -564,7 +600,8 @@ def main() -> None:
         run = Path(args.runs) / size["run"]
         for name in MODEL_FILES:
             if not (run / name).is_file():
-                raise SystemExit(f"{run / name} is missing; export the run first")
+                msg = f"{run / name} is missing; export the run first"
+                raise SystemExit(msg)
         record = json.loads((run / "run.json").read_text(encoding="utf-8"))
         card = staging / f"{repo}.md"
         card.write_text(
@@ -590,19 +627,34 @@ def main() -> None:
             "model",
             [*((name, run / name) for name in MODEL_FILES), ("README.md", card)],
         )
+    return reader_files
 
+
+def _check_pinned_files(
+    directory: Path, files: list[str], pinned: dict[str, str], constant: str, writer: str
+) -> None:
+    """Refuse a file that is missing or is not the one `constant` pins."""
+    for file in files:
+        if not (directory / file).is_file():
+            msg = f"{directory / file} is missing; {writer} writes it"
+            raise SystemExit(msg)
+        # Only the bytes the tool already pins go up: an export run again is not the same
+        # file, and publishing one would publish something nothing was measured on.
+        if sha256(directory / file) != pinned[file]:
+            msg = f"{directory / file} is not the file {constant} pins"
+            raise SystemExit(msg)
+
+
+def _stage_search(
+    args: argparse.Namespace, wanted: set[str], search_rs: str, staging: Path, uploads: Uploads
+) -> None:
+    """Stage the search models' repositories."""
     for name, (repo, constant, base) in SEARCH.items():
         if repo not in wanted:
             continue
         directory = Path(args.cache) / name
         pinned = pins_in(search_rs, constant)
-        for file in SEARCH_FILES:
-            if not (directory / file).is_file():
-                raise SystemExit(f"{directory / file} is missing; export_search.py writes it")
-            # Only the bytes the tool already pins go up: an export run again is not the same
-            # file, and publishing one would publish something nothing was measured on.
-            if sha256(directory / file) != pinned[file]:
-                raise SystemExit(f"{directory / file} is not the file {constant} pins")
+        _check_pinned_files(directory, SEARCH_FILES, pinned, constant, "export_search.py")
         card = staging / f"{repo}.md"
         card.write_text(search_card(name, base), encoding="utf-8")
         uploads[repo] = (
@@ -610,44 +662,34 @@ def main() -> None:
             [*((file, directory / file) for file in SEARCH_FILES), ("README.md", card)],
         )
 
+
+def _stage_writer(
+    args: argparse.Namespace, wanted: set[str], writer_rs: str, staging: Path, uploads: Uploads
+) -> None:
+    """Stage the writer's repository."""
     name, repo, constant, base = WRITER
-    if repo in wanted:
-        directory = Path(args.cache) / name
-        pinned = pins_in(writer_rs, constant)
-        for file in WRITER_FILES:
-            if not (directory / file).is_file():
-                raise SystemExit(f"{directory / file} is missing; export_writer.py writes it")
-            if sha256(directory / file) != pinned[file]:
-                raise SystemExit(f"{directory / file} is not the file {constant} pins")
-        card = staging / f"{repo}.md"
-        card.write_text(writer_card(base), encoding="utf-8")
-        uploads[repo] = (
-            "model",
-            [*((file, directory / file) for file in WRITER_FILES), ("README.md", card)],
-        )
-
-    if DATASET in wanted:
-        if not args.reviews:
-            raise SystemExit("the dataset needs --reviews")
-        uploads[DATASET] = (
-            "dataset",
-            stage_dataset(args.reference, args.reviews, staging, args.people),
-        )
-
-    for repo, (kind, contents) in uploads.items():
-        print(
-            f"{kind:<8} {args.owner}/{repo} {args.tag}: {', '.join(path for path, _ in contents)}"
-        )
-    if args.dry_run:
-        print(f"\nstaged in {staging}; nothing uploaded and nothing pinned")
+    if repo not in wanted:
         return
+    directory = Path(args.cache) / name
+    pinned = pins_in(writer_rs, constant)
+    _check_pinned_files(directory, WRITER_FILES, pinned, constant, "export_writer.py")
+    card = staging / f"{repo}.md"
+    card.write_text(writer_card(base), encoding="utf-8")
+    uploads[repo] = (
+        "model",
+        [*((file, directory / file) for file in WRITER_FILES), ("README.md", card)],
+    )
 
-    from huggingface_hub import CommitOperationAdd, HfApi
+
+def _upload(owner: str, tag: str, uploads: Uploads) -> dict[str, str]:
+    """Upload every repository as one tagged commit and return the commit of each."""
+    # A dry run needs no Hugging Face client, or the token it reads.
+    from huggingface_hub import CommitOperationAdd, HfApi  # noqa: PLC0415 loaded only to upload
 
     api = HfApi()
-    commits = {}
+    commits: dict[str, str] = {}
     for repo, (kind, contents) in uploads.items():
-        repo_id = f"{args.owner}/{repo}"
+        repo_id = f"{owner}/{repo}"
         api.create_repo(repo_id, repo_type=kind, exist_ok=True, private=False)
         made = api.create_commit(
             repo_id,
@@ -656,12 +698,22 @@ def main() -> None:
                 CommitOperationAdd(path_in_repo=path, path_or_fileobj=str(local))
                 for path, local in contents
             ],
-            commit_message=f"Release {args.tag}",
+            commit_message=f"Release {tag}",
         )
-        api.create_tag(repo_id, repo_type=kind, tag=args.tag, revision=made.oid)
+        api.create_tag(repo_id, repo_type=kind, tag=tag, revision=made.oid)
         commits[repo] = made.oid
-        print(f"published {repo_id} at {made.oid} as {args.tag}")
+        print(f"published {repo_id} at {made.oid} as {tag}")
+    return commits
 
+
+def _pin_sources(
+    args: argparse.Namespace,
+    reader_files: dict[str, dict[str, tuple[str, int]]],
+    commits: dict[str, str],
+    sources: tuple[str, str, str],
+) -> None:
+    """Pin the tool's three sources to the commits and write them."""
+    reader_rs, search_rs, writer_rs = sources
     # Pinned to the commits the uploads made and the hashes taken before them from the same
     # files. If anything between here and the hub changes a byte, the pin will not match what
     # comes down and the tool refuses it, which is the failure this arrangement exists to make
@@ -670,7 +722,7 @@ def main() -> None:
         repo, constant = READERS[size]
         release = (f"{args.owner}/{repo}", commits[repo], args.tag)
         reader_rs = pin_reader(reader_rs, size, constant, release, files)
-    for name, (repo, constant, _) in SEARCH.items():
+    for repo, constant, _ in SEARCH.values():
         if repo in commits:
             release = (f"{args.owner}/{repo}", commits[repo], args.tag)
             search_rs = pin_search(search_rs, constant, release)
@@ -686,17 +738,59 @@ def main() -> None:
     print(f"\npinned in {pinned_in}")
 
 
+def main() -> None:
+    """Stage every repository's files, upload them and pin the tool to the commits."""
+    args = _parse_args()
+    if not TAG.fullmatch(args.tag):
+        msg = f"{args.tag!r} is not a release tag; they are v1, v2, ..."
+        raise SystemExit(msg)
+    wanted = set(args.only or REPOSITORIES)
+    staging = Path(args.staging)
+    staging.mkdir(parents=True, exist_ok=True)
+    sources = (
+        READER_RS.read_text(encoding="utf-8"),
+        SEARCH_RS.read_text(encoding="utf-8"),
+        WRITER_RS.read_text(encoding="utf-8"),
+    )
+
+    uploads: Uploads = {}
+    reader_files = _stage_readers(args, wanted, staging, uploads)
+    _stage_search(args, wanted, sources[1], staging, uploads)
+    _stage_writer(args, wanted, sources[2], staging, uploads)
+
+    if DATASET in wanted:
+        if not args.reviews:
+            msg = "the dataset needs --reviews"
+            raise SystemExit(msg)
+        uploads[DATASET] = (
+            "dataset",
+            stage_dataset(args.reference, args.reviews, staging, args.people),
+        )
+
+    for repo, (kind, contents) in uploads.items():
+        print(
+            f"{kind:<8} {args.owner}/{repo} {args.tag}: {', '.join(path for path, _ in contents)}"
+        )
+    if args.dry_run:
+        print(f"\nstaged in {staging}; nothing uploaded and nothing pinned")
+        return
+
+    commits = _upload(args.owner, args.tag, uploads)
+    _pin_sources(args, reader_files, commits, sources)
+
+
 def stage_dataset(
     reference: str, reviews_file: str, staging: Path, people_file: str
 ) -> list[tuple[str, Path]]:
-    """The dataset's files, written into `staging`, as (path in the repository, path here)."""
+    """Write the dataset's files into `staging`, as (path in the repository, path here)."""
     # The dataset is built from the reference sets, not from the training export. The export
     # carries each claim's text because training needs it. The reference sets carry the claim's
     # offsets within its review because that is all a label needs to be joined back. Only the
     # second shape leaves this machine.
     rows, again, gold, acceptable = read_labels(Path(reference))
     if not rows:
-        raise SystemExit(f"no labelled sets under {reference}")
+        msg = f"no labelled sets under {reference}"
+        raise SystemExit(msg)
     reviews = [
         json.loads(line)
         for line in Path(reviews_file).read_text(encoding="utf-8").splitlines()
@@ -717,23 +811,27 @@ def stage_dataset(
         row["taxonomy"] = row.get("taxonomy") or None
     for name in (*KEY, "start", "end", "subject", "polarity", "produced_by"):
         if any(name not in row for row in rows + again):
-            raise SystemExit(f"a row has no {name}; nothing can be joined back from it")
+            msg = f"a row has no {name}; nothing can be joined back from it"
+            raise SystemExit(msg)
     # The gold page stamps every answer with the sheet it showed, so one without is broken.
     if any(not row.get("taxonomy") for row in gold):
-        raise SystemExit("a gold answer has no taxonomy; the sheet it answered is not known")
+        msg = "a gold answer has no taxonomy; the sheet it answered is not known"
+        raise SystemExit(msg)
     described = {row["review_id"] for row in reviews}
     bare = {row["review_id"] for row in rows + again + gold} - described
     if bare:
-        raise SystemExit(
+        msg = (
             f"{len(bare):,} labelled reviews have no facts in {reviews_file}; a label nobody can "
             "check against its text is not one to publish. Run export-review-facts again."
         )
+        raise SystemExit(msg)
     names = json.loads(Path(people_file).read_text(encoding="utf-8"))
     # A person's answers go up under the name they asked to be credited by, so one with no
     # name written down is not published under a guess.
     unnamed = sorted({row["produced_by"] for row in gold} - names.keys())
     if unnamed:
-        raise SystemExit(f"no name to credit in {people_file} for {', '.join(unnamed)}")
+        msg = f"no name to credit in {people_file} for {', '.join(unnamed)}"
+        raise SystemExit(msg)
     files = {
         "claims.jsonl": rows,
         "second-labels.jsonl": again,
@@ -750,9 +848,11 @@ def stage_dataset(
             len({row["app_id"] for row in rows}),
             agreement(rows, again),
             reviews=len(reviews),
-            gold=dict(Counter(row["produced_by"] for row in gold).most_common()),
-            names=names,
-            labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
+            labelled_by=Credits(
+                gold=dict(Counter(row["produced_by"] for row in gold).most_common()),
+                labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
+                names=names,
+            ),
         ),
         encoding="utf-8",
     )

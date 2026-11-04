@@ -18,6 +18,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import torch
 from transformers import AutoModel, AutoTokenizer
@@ -58,7 +59,10 @@ def throughput(backbone: str, batch: int = 64, length: int = 128, rounds: int = 
     """Claims per second on this machine, which is half of what decides the winner."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = backbones.load(AutoTokenizer, backbone)
-    model = backbones.load(AutoModel, backbone).to(device).eval()
+    model = backbones.load(AutoModel, backbone)
+    # Called on the base class because pyright misreads transformers' wrapper around `.to`.
+    torch.nn.Module.to(model, device)
+    model.eval()
     text = ["The driving physics feel floaty and the handling in the rain is broken."] * batch
     encoded = tokenizer(
         text, truncation=True, max_length=length, padding="max_length", return_tensors="pt"
@@ -92,7 +96,8 @@ def settings(passed: list[str]) -> argparse.Namespace:
         sys.argv = held
 
 
-def main():
+def main() -> None:
+    """Train and time each candidate backbone, then print and write the comparison table."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     # Five rather than three: at three every candidate was still climbing and the gaps
@@ -123,7 +128,7 @@ def main():
 
     pooling = {**CANDIDATES, **LATER}
     candidates: list[str] = args.only or list(LATER if args.later else CANDIDATES)
-    results = []
+    results: list[dict[str, Any]] = []
     for backbone in candidates:
         print(f"\n=== {backbone} ===", flush=True)
         try:

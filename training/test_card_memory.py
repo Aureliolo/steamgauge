@@ -5,15 +5,21 @@ python -m pytest test_card_memory.py
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 import torch
 from transformers import BertConfig, BertModel
 
 from train import ClaimReader, average_of, recompute_activations
+from typed_calls import manual_seed, save_pretrained
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
-def backbone(tmp_path):
+def backbone(tmp_path: Path) -> str:
     """An encoder small enough to build without a download."""
     config = BertConfig(
         vocab_size=64,
@@ -23,23 +29,23 @@ def backbone(tmp_path):
         num_attention_heads=4,
         max_position_embeddings=64,
     )
-    torch.manual_seed(0)
-    BertModel(config).save_pretrained(tmp_path)
+    manual_seed(0)
+    save_pretrained(BertModel(config), tmp_path)
     return str(tmp_path)
 
 
-def gradients(model, ids, mask):
+def gradients(model: ClaimReader, ids: torch.Tensor, mask: torch.Tensor) -> dict[str, torch.Tensor]:
     model.train()
-    torch.manual_seed(1)
+    manual_seed(1)
     subject, polarity, *_ = model(ids, mask)
     (subject.square().sum() + polarity.square().sum()).backward()
     return {name: p.grad.clone() for name, p in model.named_parameters() if p.grad is not None}
 
 
-def test_recomputed_activations_give_the_same_gradient_dropout_included(backbone):
+def test_recomputed_activations_give_the_same_gradient_dropout_included(backbone: str) -> None:
     ids = torch.randint(0, 64, (3, 10))
     mask = torch.ones_like(ids)
-    torch.manual_seed(2)
+    manual_seed(2)
     kept = ClaimReader(backbone, 4)
     state = kept.state_dict()
     recomputed = ClaimReader(backbone, 4)
@@ -54,7 +60,7 @@ def test_recomputed_activations_give_the_same_gradient_dropout_included(backbone
         assert torch.allclose(grad, after[name], atol=1e-6), name
 
 
-def test_an_average_kept_on_the_host_is_the_same_average(backbone):
+def test_an_average_kept_on_the_host_is_the_same_average(backbone: str) -> None:
     model = ClaimReader(backbone, 4)
     on_card = average_of(model, 0.9, on_host=False)
     on_host = average_of(model, 0.9, on_host=True)

@@ -21,14 +21,39 @@ import json
 import random
 from collections import defaultdict
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 import claimdata
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from tokenizers import Tokenizer
+
 HERE = Path(__file__).resolve().parent
 BATCH = 50
+# Claims the reader's graph is run on at once: enough to keep the provider busy while one
+# padded batch stays cheap on a long claim.
+READ_BATCH = 64
+WILSON_Z = 1.96
 
 
-def abstention_line(provenance: dict, subject: int) -> float:
+class KeyRow(TypedDict):
+    """One row of a key: where a claim came from and the labels it carries."""
+
+    id: str
+    app_id: int
+    review_id: str
+    claim_index: int
+    subject: str
+    polarity: str
+
+
+Interval = tuple[float, float] | None
+Answer = dict[str, Any]
+
+
+def abstention_line(provenance: dict[str, Any], subject: int) -> float:
     """What the reader needs to be sure of before it answers, for the subject it picked.
 
     A reader that declines `vr` below 0.98 and answers `performance` at 0.23 is not the reader
@@ -38,22 +63,22 @@ def abstention_line(provenance: dict, subject: int) -> float:
     """
     lines = provenance.get("thresholds")
     if not lines:
-        return provenance["threshold"]
+        return float(provenance["threshold"])
     one = lines[subject]
-    return float("inf") if one is None else one
+    return float("inf") if one is None else float(one)
 
 
-def drawn(claims, per_subject, seed):
+def drawn(claims: Sequence[claimdata.Claim], per_subject: int, seed: int) -> list[claimdata.Claim]:
     """A stratified draw, so the starved rows are measured rather than rounded away.
 
     A proportional sample of held-out claims is a quarter `verdict` and two claims of
     `licensing`, and a macro F1 over that says almost nothing about the rows that need it.
     """
-    by_subject = defaultdict(list)
+    by_subject: defaultdict[str, list[claimdata.Claim]] = defaultdict(list)
     for claim in claims:
         by_subject[claim.subject].append(claim)
-    rng = random.Random(seed)
-    picked = []
+    rng = random.Random(seed)  # noqa: S311 a reproducible draw, not a secret
+    picked: list[claimdata.Claim] = []
     for subject in sorted(by_subject):
         pool = by_subject[subject]
         picked.extend(rng.sample(pool, min(per_subject, len(pool))))
@@ -61,14 +86,18 @@ def drawn(claims, per_subject, seed):
     return picked
 
 
-def write_handout(claims, out: Path, sheet: Path):
+def write_handout(claims: Sequence[claimdata.Claim], out: Path, sheet: Path) -> tuple[int, int]:
+    """Write the sheet, the claim batches, the key and the task into `out`.
+
+    Returns the number of claims written and the number of batches.
+    """
     out.mkdir(parents=True, exist_ok=True)
     (out / "sheet.txt").write_text(sheet.read_text(encoding="utf-8"), encoding="utf-8")
 
-    keys = []
+    keys: list[KeyRow] = []
     for at in range(0, len(claims), BATCH):
         chunk = claims[at : at + BATCH]
-        rows = []
+        rows: list[dict[str, str]] = []
         for index, claim in enumerate(chunk):
             claim_id = f"{at + index:04d}"
             keys.append(
@@ -115,7 +144,7 @@ Nothing else: no reasoning in the file, no extra fields, no claims left out.
 """
 
 
-def wilson(hits: int, total: int, z: float = 1.96):
+def wilson(hits: int, total: int, z: float = WILSON_Z) -> Interval:
     """A proportion's interval, the same way every other figure in this project reports one."""
     if total == 0:
         return None
@@ -126,24 +155,30 @@ def wilson(hits: int, total: int, z: float = 1.96):
     return ((middle - spread) / divisor, (middle + spread) / divisor)
 
 
-def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[str] | None = None):
+def score(
+    answers: Path,
+    key: Path,
+    subjects: set[str] | None = None,
+    over: set[str] | None = None,
+) -> dict[str, Any]:
     """The answers against the key, over every claim in it or only the ones in `over`.
 
     `over` is how a reader is scored on the claims it can be handed: a key drawn before the
     splitter last changed names spans this build no longer cuts, and counting those against a
     reader that was never asked them would charge it for the splitter.
     """
-    given = {row["id"]: row for row in json.loads(answers.read_text(encoding="utf-8"))}
-    wanted = [
-        row
-        for row in json.loads(key.read_text(encoding="utf-8"))
-        if over is None or row["id"] in over
-    ]
+    given: dict[str, Answer] = {
+        row["id"]: row for row in json.loads(answers.read_text(encoding="utf-8"))
+    }
+    key_rows = cast("list[KeyRow]", json.loads(key.read_text(encoding="utf-8")))
+    wanted = [row for row in key_rows if over is None or row["id"] in over]
 
     answered = subject_right = polarity_right = 0
     missing = 0
-    off_sheet = defaultdict(int)
-    per_subject = defaultdict(lambda: {"found": 0, "wanted": 0, "hit": 0})
+    off_sheet: defaultdict[str, int] = defaultdict(int)
+    per_subject: defaultdict[str, dict[str, int]] = defaultdict(
+        lambda: {"found": 0, "wanted": 0, "hit": 0}
+    )
     for row in wanted:
         said = given.get(row["id"])
         if said is None:
@@ -164,7 +199,7 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
             if said.get("polarity") == row["polarity"]:
                 polarity_right += 1
 
-    scores = []
+    scores: list[float] = []
     for counts in per_subject.values():
         if not counts["wanted"] and not counts["found"]:
             continue
@@ -172,7 +207,7 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
         recall = counts["hit"] / max(counts["wanted"], 1)
         scores.append(0.0 if not counts["hit"] else 2 * precision * recall / (precision + recall))
 
-    found = {
+    found: dict[str, Any] = {
         "claims": len(wanted),
         "unanswered_rows": missing,
         "coverage": answered / max(len(wanted), 1),
@@ -194,19 +229,22 @@ def score(answers: Path, key: Path, subjects: set[str] | None = None, over: set[
 SHARES = (0.8, 0.9)
 
 
-def accuracy_at_shares(wanted: list[dict], given: dict) -> dict[str, dict] | None:
+def accuracy_at_shares(
+    wanted: Sequence[KeyRow], given: dict[str, Answer]
+) -> dict[str, dict[str, Any]] | None:
     """Accuracy answering only the most confident share of `wanted`, for each of `SHARES`.
 
     None unless every claim was answered with a confidence and a best guess, which a frontier
     model's answers do not have and the reader's do.
     """
     said = [given.get(row["id"]) for row in wanted]
-    if not wanted or any(one is None or "confidence" not in one for one in said):
+    present = [one for one in said if one is not None]
+    if not wanted or len(present) != len(said) or any("confidence" not in one for one in present):
         return None
     ranked = sorted(
-        zip(wanted, said, strict=True), key=lambda pair: pair[1]["confidence"], reverse=True
+        zip(wanted, present, strict=True), key=lambda pair: pair[1]["confidence"], reverse=True
     )
-    shares = {}
+    shares: dict[str, dict[str, Any]] = {}
     for share in SHARES:
         taken = ranked[: round(share * len(ranked))]
         right = sum(1 for row, one in taken if one["guess"] == row["subject"])
@@ -218,7 +256,7 @@ def accuracy_at_shares(wanted: list[dict], given: dict) -> dict[str, dict] | Non
     return shares
 
 
-def readable(key: Path, data: str) -> tuple[list[dict], list]:
+def readable(key: Path, data: str) -> tuple[list[KeyRow], list[claimdata.Claim]]:
     """The key rows a reader can be handed, with their claims, out of the export in `data`.
 
     A key row the export no longer holds is a span this build cuts no claim at, 30 of the 487
@@ -227,15 +265,65 @@ def readable(key: Path, data: str) -> tuple[list[dict], list]:
     asked, and scored over all of them it sits on a different denominator from every reader.
     """
     held = {(c.app_id, c.review_id, c.claim_index): c for c in claimdata.load(data)}
+    key_rows = cast("list[KeyRow]", json.loads(key.read_text(encoding="utf-8")))
     rows = [
-        row
-        for row in json.loads(key.read_text(encoding="utf-8"))
-        if (row["app_id"], row["review_id"], row["claim_index"]) in held
+        row for row in key_rows if (row["app_id"], row["review_id"], row["claim_index"]) in held
     ]
     return rows, [held[(row["app_id"], row["review_id"], row["claim_index"])] for row in rows]
 
 
-def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str]:
+class Encoding(Protocol):
+    """The part of a tokenizers encoding the reader run reads."""
+
+    ids: list[int]
+    attention_mask: list[int]
+
+
+class Encoder(Protocol):
+    """The part of a tokenizers tokenizer the reader run calls.
+
+    The package's own stub leaves these signatures untyped, so they are restated here.
+    """
+
+    def no_padding(self) -> None:
+        """Turn padding off."""
+
+    def no_truncation(self) -> None:
+        """Turn truncation off."""
+
+    def encode(self, sequence: str, pair: str | None = None) -> Encoding:
+        """Tokenise one sequence or a pair."""
+        ...
+
+
+def open_tokenizer(model_dir: Path) -> tuple[Tokenizer, Encoder]:
+    """Load the model directory's `tokenizer.json` with padding and truncation off.
+
+    Returns the tokenizer for `ShippedTokenizer` and the same object typed for `encode_pair`.
+    """
+    # Local so that the commands that never read a model start without loading the library.
+    from tokenizers import Tokenizer  # noqa: PLC0415 heavy import, only reader runs need it
+
+    loaded = cast(
+        "Tokenizer",
+        Tokenizer.from_file(  # pyright: ignore[reportUnknownMemberType]  # stub leaves from_file untyped
+            str(model_dir / "tokenizer.json")
+        ),
+    )
+    encoder = cast("Encoder", loaded)
+    encoder.no_padding()
+    encoder.no_truncation()
+    return loaded, encoder
+
+
+def encode_pair(tokenizer: Encoder, pair: tuple[str, ...]) -> tuple[list[int], list[int]]:
+    """Token ids and attention mask of a claim's one or two sequences."""
+    first, *rest = pair
+    encoded = tokenizer.encode(first, rest[0] if rest else None)
+    return encoded.ids, encoded.attention_mask
+
+
+def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[Answer], str]:
     """The shipped reader, over exactly the claims the frontier model was given.
 
     Without this the comparison is a cheat. The reader's held-out figure is over every held-out
@@ -243,31 +331,25 @@ def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str
     and the starved rows are the hard ones. Two numbers from two distributions are not a
     comparison, however carefully each was measured.
     """
-    import numpy as np
-    import onnxruntime
-    from tokenizers import Tokenizer
+    # Local so that `handout` and `score` start without loading the reader's runtime.
+    import numpy as np  # noqa: PLC0415 heavy import, only the reader run needs it
+    import onnxruntime  # noqa: PLC0415 heavy optional import, only the reader run needs it
 
-    from train import Claims, ShippedTokenizer
+    from train import Claims, Reading, ShippedTokenizer  # noqa: PLC0415 train imports torch
 
     provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
     subjects = provenance["subjects"]
     wanted, claims = readable(key, data)
 
-    tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
-    tokenizer.no_padding()
-    tokenizer.no_truncation()
+    loaded, tokenizer = open_tokenizer(model_dir)
     cut = Claims(
         claims,
-        ShippedTokenizer(tokenizer),
+        ShippedTokenizer(loaded),
         subjects,
-        provenance["max_tokens"],
-        provenance.get("context", False),
         # A model trained to look for the marks and scored without them is scored on input it
         # has never seen, which understates it and looks like a worse model rather than a
         # worse measurement. The same goes for the pair's prefixes.
-        mark=provenance.get("mark", False),
-        prefix=provenance.get("prefix", False),
-        headset_marker=provenance.get("headset_marker", False),
+        Reading.recorded(provenance, provenance["max_tokens"]),
     )
 
     # Scored where the tool reads: DirectML is what the reader opens on this machine and what the
@@ -282,17 +364,20 @@ def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str
     session = onnxruntime.InferenceSession(str(model_dir / "model.onnx"), providers=providers)
     outputs = [out.name for out in session.get_outputs()]
 
-    confidence, predicted, picked, polarity = [], [], [], []
-    for at in range(0, len(claims), 64):
-        chunk = list(range(at, min(at + 64, len(claims))))
-        encoded = [tokenizer.encode(*cut.pair(i)) for i in chunk]
-        longest = max(min(len(e.ids), provenance["max_tokens"]) for e in encoded)
+    confidence: list[float] = []
+    predicted: list[str] = []
+    picked: list[int] = []
+    polarity: list[str] = []
+    for at in range(0, len(claims), READ_BATCH):
+        chunk = list(range(at, min(at + READ_BATCH, len(claims))))
+        encoded = [encode_pair(tokenizer, cut.pair(i)) for i in chunk]
+        longest = max(min(len(token_ids), provenance["max_tokens"]) for token_ids, _ in encoded)
         ids = np.zeros((len(chunk), longest), dtype=np.int64)
         mask = np.zeros((len(chunk), longest), dtype=np.int64)
-        for row, one in enumerate(encoded):
-            keep = one.ids[:longest]
+        for row, (token_ids, attention) in enumerate(encoded):
+            keep = token_ids[:longest]
             ids[row, : len(keep)] = keep
-            mask[row, : len(keep)] = one.attention_mask[:longest]
+            mask[row, : len(keep)] = attention[:longest]
         found = session.run(outputs, {"input_ids": ids, "attention_mask": mask})
         subject_logits, polarity_logits = found[0], found[1]
         for row in range(len(chunk)):
@@ -308,7 +393,7 @@ def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str
                 else "neutral"
             )
 
-    answers = [
+    answers: list[Answer] = [
         {
             "id": row["id"],
             "subject": (
@@ -327,7 +412,96 @@ def score_reader(model_dir: Path, key: Path, data: str) -> tuple[list[dict], str
     return answers, session.get_providers()[0]
 
 
-def main():
+def _run_handout(args: argparse.Namespace) -> None:
+    claims = claimdata.load(args.data)
+    _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
+    picked = drawn(held_out, args.per_subject, args.seed)
+    count, batches = write_handout(picked, Path(args.out), Path(args.sheet))
+    print(f"{count:,} claims over {batches} batches -> {args.out}")
+    print(f"drawn from {len({c.app_id for c in picked})} held-out games, labels held back")
+
+
+def _write_held_out_key(args: argparse.Namespace) -> Path:
+    """Write the key over every held-out claim and return where it went."""
+    # Every held-out claim rather than a stratified draw, because this is the run that
+    # has to reproduce what training reported, and training reported over all of them.
+    claims = claimdata.load(args.data)
+    _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
+    if args.app_id:
+        held_out = [claim for claim in held_out if claim.app_id == args.app_id]
+    # Beside the export it is built from, which is where this project keeps the files
+    # that hold review ids rather than review text and are not committed either way.
+    key = Path(args.key) if args.key else HERE / "data" / "held-out-key.json"
+    key.write_text(
+        json.dumps(
+            [
+                {
+                    "id": f"{at:05d}",
+                    "app_id": claim.app_id,
+                    "review_id": claim.review_id,
+                    "claim_index": claim.claim_index,
+                    "subject": claim.subject,
+                    "polarity": claim.polarity,
+                }
+                for at, claim in enumerate(held_out)
+            ]
+        ),
+        encoding="utf-8",
+    )
+    print(f"{len(held_out):,} held-out claims -> {key}")
+    return key
+
+
+def _run_reader(args: argparse.Namespace) -> None:
+    model_dir = Path(args.model)
+    key = _write_held_out_key(args) if args.held_out else Path(args.key)
+    said, scored_on = score_reader(model_dir, key, args.data)
+    written = Path(args.answers) if args.answers else key.parent / "reader-answers.json"
+    written.write_text(json.dumps(said, indent=2), encoding="utf-8")
+    keyed = json.loads(key.read_text("utf-8"))
+    found = score(
+        written,
+        key,
+        {row["subject"] for row in keyed},
+        over={row["id"] for row in said},
+    )
+    found["unreadable"] = len(keyed) - len(said)
+    # What model, not where it sat on one machine. A path names a directory on the laptop
+    # that ran this, which means nothing to anyone reading the published figure and puts a
+    # home directory in a file that ships.
+    reader = json.loads((model_dir / "reader.json").read_text("utf-8"))
+    found["model"] = reader["trained_from"]
+    found["scored_on"] = scored_on
+    found["trained_on"] = reader["data_fingerprint"]
+    found["threshold"] = reader["threshold"]
+    # Naming one threshold for a reader that abstains per subject describes a run nobody can
+    # reproduce from the row, so the lines it actually used travel with the figure.
+    if reader.get("thresholds"):
+        found["thresholds"] = dict(zip(reader["subjects"], reader["thresholds"], strict=True))
+    print(json.dumps(found, indent=2))
+    if args.out:
+        Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")
+
+
+def _run_score(args: argparse.Namespace) -> None:
+    answers = Path(args.answers)
+    key = Path(args.key) if args.key else answers.parent / "key.json"
+    rows, _ = readable(key, args.data)
+    found = score(
+        answers,
+        key,
+        {claim.subject for claim in claimdata.load(args.data)},
+        over={row["id"] for row in rows},
+    )
+    found["unreadable"] = len(json.loads(key.read_text("utf-8"))) - len(rows)
+    found["answered_by"] = args.by
+    print(json.dumps(found, indent=2))
+    if args.out:
+        Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")
+
+
+def main() -> None:
+    """Run the `handout`, `score` or `reader` command from the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
 
@@ -370,87 +544,11 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "handout":
-        claims = claimdata.load(args.data)
-        _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
-        picked = drawn(held_out, args.per_subject, args.seed)
-        count, batches = write_handout(picked, Path(args.out), Path(args.sheet))
-        print(f"{count:,} claims over {batches} batches -> {args.out}")
-        print(f"drawn from {len({c.app_id for c in picked})} held-out games, labels held back")
-        return
-
-    if args.mode == "reader":
-        model_dir = Path(args.model)
-        if args.held_out:
-            # Every held-out claim rather than a stratified draw, because this is the run that
-            # has to reproduce what training reported, and training reported over all of them.
-            claims = claimdata.load(args.data)
-            _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
-            if args.app_id:
-                held_out = [claim for claim in held_out if claim.app_id == args.app_id]
-            # Beside the export it is built from, which is where this project keeps the files
-            # that hold review ids rather than review text and are not committed either way.
-            key = Path(args.key) if args.key else HERE / "data" / "held-out-key.json"
-            key.write_text(
-                json.dumps(
-                    [
-                        {
-                            "id": f"{at:05d}",
-                            "app_id": claim.app_id,
-                            "review_id": claim.review_id,
-                            "claim_index": claim.claim_index,
-                            "subject": claim.subject,
-                            "polarity": claim.polarity,
-                        }
-                        for at, claim in enumerate(held_out)
-                    ]
-                ),
-                encoding="utf-8",
-            )
-            print(f"{len(held_out):,} held-out claims -> {key}")
-        else:
-            key = Path(args.key)
-        said, scored_on = score_reader(model_dir, key, args.data)
-        written = Path(args.answers) if args.answers else key.parent / "reader-answers.json"
-        written.write_text(json.dumps(said, indent=2), encoding="utf-8")
-        keyed = json.loads(key.read_text("utf-8"))
-        found = score(
-            written,
-            key,
-            {row["subject"] for row in keyed},
-            over={row["id"] for row in said},
-        )
-        found["unreadable"] = len(keyed) - len(said)
-        # What model, not where it sat on one machine. A path names a directory on the laptop
-        # that ran this, which means nothing to anyone reading the published figure and puts a
-        # home directory in a file that ships.
-        reader = json.loads((model_dir / "reader.json").read_text("utf-8"))
-        found["model"] = reader["trained_from"]
-        found["scored_on"] = scored_on
-        found["trained_on"] = reader["data_fingerprint"]
-        found["threshold"] = reader["threshold"]
-        # Naming one threshold for a reader that abstains per subject describes a run nobody can
-        # reproduce from the row, so the lines it actually used travel with the figure.
-        if reader.get("thresholds"):
-            found["thresholds"] = dict(zip(reader["subjects"], reader["thresholds"], strict=True))
-        print(json.dumps(found, indent=2))
-        if args.out:
-            Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")
-        return
-
-    answers = Path(args.answers)
-    key = Path(args.key) if args.key else answers.parent / "key.json"
-    rows, _ = readable(key, args.data)
-    found = score(
-        answers,
-        key,
-        {claim.subject for claim in claimdata.load(args.data)},
-        over={row["id"] for row in rows},
-    )
-    found["unreadable"] = len(json.loads(key.read_text("utf-8"))) - len(rows)
-    found["answered_by"] = args.by
-    print(json.dumps(found, indent=2))
-    if args.out:
-        Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")
+        _run_handout(args)
+    elif args.mode == "reader":
+        _run_reader(args)
+    else:
+        _run_score(args)
 
 
 if __name__ == "__main__":

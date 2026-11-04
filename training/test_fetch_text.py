@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 import urllib.parse
+import urllib.request
+from typing import TYPE_CHECKING, Literal, Self
 
 from fetch_text import (
     BACKOFF_CAP,
@@ -21,22 +23,29 @@ from fetch_text import (
     windows,
 )
 
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    import pytest
+
+    from fetch_text import Row
+
 
 def fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def test_windows_cover_each_review_a_day_either_side_and_merge_overlaps():
+def test_windows_cover_each_review_a_day_either_side_and_merge_overlaps() -> None:
     assert windows([10 * DAY, 10 * DAY + 5, 50 * DAY]) == [
         (9 * DAY, 11 * DAY + 5),
         (49 * DAY, 51 * DAY),
     ]
 
 
-def test_fetch_walks_each_window_with_the_census_parameters_and_keeps_only_what_was_asked():
-    asked = []
+def test_fetch_walks_each_window_with_the_census_parameters_and_keeps_only_what_was_asked() -> None:
+    asked: list[tuple[int, Row]] = []
 
-    def page(app, query):
+    def page(app: int, query: Row) -> Row:
         asked.append((app, dict(query)))
         if query["cursor"] == "*":
             return {
@@ -57,25 +66,36 @@ def test_fetch_walks_each_window_with_the_census_parameters_and_keeps_only_what_
     assert (first["date_range_start"], first["date_range_end"]) == (9 * DAY, 11 * DAY)
 
 
-def test_a_page_is_asked_of_the_web_api_with_its_arguments_as_one_json_value(monkeypatch):
-    sent = []
+def test_a_page_is_asked_of_the_web_api_with_its_arguments_as_one_json_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: list[str] = []
 
     class Answer:
-        def __enter__(self):
+        def __enter__(self) -> Self:
             return self
 
-        def __exit__(self, *_):
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> Literal[False]:
             return False
 
-        def read(self):
+        def read(self) -> bytes:
             return json.dumps({"response": {"reviews": [], "cursor": "c+/="}}).encode()
 
-    def urlopen(request, **_):
+    def urlopen(request: urllib.request.Request, **_: object) -> Answer:
         sent.append(request.full_url)
         return Answer()
 
     monkeypatch.setattr("fetch_text.urllib.request.urlopen", urlopen)
-    monkeypatch.setattr("fetch_text.time.sleep", lambda _: None)
+
+    def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("fetch_text.time.sleep", no_sleep)
 
     answer = steam_page(7, {"cursor": "a+b/c=", "filter": 1})
 
@@ -86,17 +106,17 @@ def test_a_page_is_asked_of_the_web_api_with_its_arguments_as_one_json_value(mon
     assert arguments == {"appid": 7, "cursor": "a+b/c=", "filter": 1}
 
 
-def test_a_refusal_is_waited_out_longer_each_time_and_for_as_long_as_steam_says():
+def test_a_refusal_is_waited_out_longer_each_time_and_for_as_long_as_steam_says() -> None:
     assert [next_wait(n, 0, None) for n in (1, 2, 3)] == [2, 4, 8]
     assert next_wait(20, 0, None) == BACKOFF_CAP
     assert next_wait(1, 0, 90) == 90
     assert next_wait(1, PATIENCE - 1, None) is None
 
 
-def test_a_cursor_that_stops_moving_ends_the_window():
-    calls = []
+def test_a_cursor_that_stops_moving_ends_the_window() -> None:
+    calls: list[str] = []
 
-    def page(app, query):
+    def page(_app: int, query: Row) -> Row:
         calls.append(query["cursor"])
         return {"reviews": [{"recommendationid": "8", "review": "x"}], "cursor": "stuck"}
 
@@ -104,9 +124,9 @@ def test_a_cursor_that_stops_moving_ends_the_window():
     assert calls == ["*", "stuck"]
 
 
-def test_a_claim_is_cut_from_its_text_by_bytes_and_only_from_the_text_it_was_labelled_on():
+def test_a_claim_is_cut_from_its_text_by_bytes_and_only_from_the_text_it_was_labelled_on() -> None:
     text = "Ünïcode first. Then the claim."
-    start = len("Ünïcode first. ".encode("utf-8"))
+    start = len("Ünïcode first. ".encode())
     claims = [
         {"review_id": "1", "start": start, "end": start + len("Then the claim."), "subject": "x"},
         {"review_id": "2", "start": 0, "end": 3, "subject": "y"},

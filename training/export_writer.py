@@ -41,10 +41,57 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
+import numpy.typing as npt
 
 import backbones
+
+if TYPE_CHECKING:
+    from torch import Tensor
+
+# One point of the brief: its label, the reviews behind it, its subject, the other subjects it
+# also covers, and a quote.
+Point = tuple[str, int, str, list[str], str]
+
+# Past keys and values by input name, as the graph is fed them.
+Cache = dict[str, npt.NDArray[np.generic]]
+
+
+class Generates(Protocol):
+    """The text generation of a transformers causal language model."""
+
+    def generate(
+        self,
+        inputs: Tensor,
+        *,
+        attention_mask: Tensor,
+        max_new_tokens: int,
+        do_sample: bool,
+        eos_token_id: list[int],
+    ) -> Tensor:
+        """Return `inputs` followed by the tokens the model writes."""
+        ...
+
+
+class Encoding(Protocol):
+    """A tokenised text."""
+
+    ids: list[int]
+
+
+class WriterTokenizer(Protocol):
+    """The part of a `tokenizers` tokenizer the check uses."""
+
+    def encode(self, sequence: str, *, add_special_tokens: bool) -> Encoding:
+        """Return `sequence` as token ids."""
+        ...
+
+    def decode(self, ids: list[int]) -> str:
+        """Return the text of token ids."""
+        ...
+
 
 HERE = Path(__file__).resolve().parent
 CORE = HERE.parent / "crates" / "steamgauge-core" / "src"
@@ -68,7 +115,7 @@ MIN_AGREEMENT = 0.75
 # Invented, so the reference rests on no library: the shape the app writes, not anyone's game.
 GAME = "Lantern Keep"
 REVIEWS = 14_200
-PRAISE = [
+PRAISE: list[Point] = [
     (
         "Mixing two factions every run keeps it fresh.",
         1_840,
@@ -92,7 +139,7 @@ PRAISE = [
         "Runs well on the Steam Deck with no tweaking.",
     ),
 ]
-COMPLAINT = [
+COMPLAINT: list[Point] = [
     (
         "The late game drags.",
         700,
@@ -118,13 +165,15 @@ COMPLAINT = [
 
 
 def thousands(value: int) -> str:
+    """Return `value` with thousands separators."""
     return f"{value:,}"
 
 
-def points(said) -> str:
+def points(said: list[Point]) -> str:
+    """Return the brief's lines for `said`, or its wording for no points."""
     if not said:
         return PROMPT["none"]
-    lines = []
+    lines: list[str] = []
     for label, reviews, subject, also, quote in said:
         lines.append(
             PROMPT["point"].format(
@@ -139,6 +188,7 @@ def points(said) -> str:
 
 
 def prompt_text() -> str:
+    """Return the chat prompt for the fixed set of points."""
     user = PROMPT["user"].format(
         game=GAME,
         reviews=thousands(REVIEWS),
@@ -152,11 +202,12 @@ def prompt_text() -> str:
     )
 
 
-def build(source: Path, out: Path, cache: Path):
+def build(source: Path, out: Path, cache: Path) -> None:
+    """Export the model at `source` to int4 graph files in `out`, using `cache` as scratch."""
     out.mkdir(parents=True, exist_ok=True)
     # The builder's own rounding, to nearest in blocks of 32. k_quant and mixed precision round
     # better, but both hold the whole graph in single precision beside the model, over 25 GB.
-    subprocess.run(
+    subprocess.run(  # noqa: S603 the interpreter and builder module are fixed, no shell is involved
         [
             sys.executable,
             "-m",
@@ -176,14 +227,18 @@ def build(source: Path, out: Path, cache: Path):
     )
     for file in SHIPPED:
         if not (out / file).is_file():
-            raise SystemExit(f"the builder wrote no {file} in {out}")
+            msg = f"the builder wrote no {file} in {out}"
+            raise SystemExit(msg)
 
 
 class Graph:
     """The export, asked a token at a time the way `writer.rs` asks it."""
 
-    def __init__(self, path: Path, provider: str):
-        import onnxruntime
+    def __init__(self, path: Path, provider: str) -> None:
+        """Open the graph in `path` on `provider`."""
+        # The processor build of onnxruntime exists only in the environment uv makes for this
+        # script, so it loads when the check opens a graph.
+        import onnxruntime  # noqa: PLC0415 heavy optional dependency, loaded only for the check
 
         self.session = onnxruntime.InferenceSession(str(path / "model.onnx"), providers=[provider])
         inputs = {given.name: given for given in self.session.get_inputs()}
@@ -192,18 +247,28 @@ class Graph:
         # The graph leaves the head's width unnamed. The builder's configuration says it, and
         # `writer.rs` holds it as a constant of the graph it pins.
         decoder = json.loads((path / "genai_config.json").read_text(encoding="utf-8"))
-        self.heads = first.shape[1]
-        self.width = decoder["model"]["decoder"]["head_size"]
-        self.dtype = np.float16 if "float16" in first.type else np.float32
+        heads = first.shape[1]
+        if not isinstance(heads, int):
+            msg = f"the graph names its key-value heads {heads!r}, not a count"
+            raise TypeError(msg)
+        self.heads = heads
+        self.width: int = decoder["model"]["decoder"]["head_size"]
+        self.dtype: type[np.float16 | np.float32] = (
+            np.float16 if "float16" in first.type else np.float32
+        )
         self.outputs = [made.name for made in self.session.get_outputs()]
 
-    def start(self):
+    def start(self) -> tuple[Cache, int]:
+        """Return an empty cache and the count of tokens it holds."""
         return {
             name: np.zeros((1, self.heads, 0, self.width), self.dtype) for name in self.pasts
         }, 0
 
-    def step(self, ids: list[int], cache, seen: int):
-        feed = {
+    def step(
+        self, ids: list[int], cache: Cache, seen: int
+    ) -> tuple[npt.NDArray[np.float32], Cache, int]:
+        """Feed `ids` after `seen` tokens, giving the next-token logits, the cache and the count."""
+        feed: Cache = {
             "input_ids": np.array([ids], dtype=np.int64),
             "attention_mask": np.ones((1, seen + len(ids)), dtype=np.int64),
             **cache,
@@ -213,6 +278,7 @@ class Graph:
         return made["logits"][0, -1].astype(np.float32), cache, seen + len(ids)
 
     def greedy(self, prompt: list[int]) -> list[int]:
+        """Return the export's own greedy answer to `prompt`, as token ids."""
         cache, seen = self.start()
         logits, cache, seen = self.step(prompt, cache, seen)
         answer: list[int] = []
@@ -225,6 +291,7 @@ class Graph:
         return answer
 
     def agreement(self, prompt: list[int], answer: list[int]) -> float:
+        """Return the share of places along `answer` where the export's likeliest token matches."""
         cache, seen = self.start()
         logits, cache, seen = self.step(prompt, cache, seen)
         agreed = 0
@@ -235,22 +302,28 @@ class Graph:
 
 
 def full_answer(source: Path, prompt: list[int]) -> list[int]:
-    import torch
-    from transformers import AutoModelForCausalLM
+    """Return the full-precision model's greedy answer to `prompt`, as token ids."""
+    # Heavy libraries the export step never needs, so they load only for the reference answer.
+    import torch  # noqa: PLC0415 heavy optional dependency, loaded only for the reference answer
+    from transformers import AutoModelForCausalLM  # noqa: PLC0415 same reason
 
-    model = backbones.load(AutoModelForCausalLM, source, dtype=torch.bfloat16).eval()
+    model = cast(
+        "Generates", backbones.load(AutoModelForCausalLM, source, dtype=torch.bfloat16).eval()
+    )
     with torch.no_grad():
-        made = model.generate(
+        written = model.generate(
             torch.tensor([prompt]),
             attention_mask=torch.ones((1, len(prompt)), dtype=torch.long),
             max_new_tokens=MOST_TOKENS,
             do_sample=False,
             eos_token_id=list(STOPS),
-        )[0, len(prompt) :].tolist()
+        )[0, len(prompt) :]
+    made = cast("list[int]", written.tolist())  # pyright: ignore[reportUnknownMemberType]  # torch types tolist as a bare list
     return [token for token in made if token not in STOPS]
 
 
-def main():
+def main() -> None:
+    """Export the writer, check it against the model and record its reference answer."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--to", required=True, help="where `writer` goes")
     parser.add_argument(
@@ -272,9 +345,12 @@ def main():
         build(source, out, cache)
         shutil.rmtree(cache, ignore_errors=True)
 
-    from tokenizers import Tokenizer
+    from tokenizers import Tokenizer  # noqa: PLC0415 only the checking half needs it
 
-    tokenizer = Tokenizer.from_file(str(out / "tokenizer.json"))
+    tokenizer = cast(
+        "WriterTokenizer",
+        Tokenizer.from_file(str(out / "tokenizer.json")),  # pyright: ignore[reportUnknownMemberType]  # tokenizers' stubs leave from_file untyped
+    )
     text = prompt_text()
     prompt = tokenizer.encode(text, add_special_tokens=False).ids
     print(f"prompt: {len(prompt)} tokens")
@@ -289,7 +365,8 @@ def main():
     seconds = time.perf_counter() - started
     print(f"the export writes, in {seconds:.1f} s on the processor:\n{tokenizer.decode(answer)}\n")
     if agreement < MIN_AGREEMENT:
-        raise SystemExit("the export does not write what the model writes. Not shipping it.")
+        msg = "the export does not write what the model writes. Not shipping it."
+        raise SystemExit(msg)
     REFERENCE.write_text(
         json.dumps(
             {"prompt": text, "prompt_ids": prompt, "answer_ids": answer},

@@ -26,6 +26,13 @@ import json
 import math
 from collections import Counter
 from pathlib import Path
+from typing import Any
+
+WILSON_Z = 1.96
+
+# A training run's `run.json` plus its directory name as `id`. The fields grow with the trainer
+# and older runs lack newer ones, so the shape is read key by key.
+Run = dict[str, Any]
 
 HERE = Path(__file__).resolve().parent
 # The committed record of what ships, so the page says the same on every machine whatever
@@ -65,7 +72,7 @@ SETTINGS = {
 }
 
 
-def wilson(hits: float, total: int, z: float = 1.96) -> tuple[float, float]:
+def wilson(hits: float, total: int, z: float = WILSON_Z) -> tuple[float, float]:
     """The interval around a proportion that stays inside 0 and 1 near the ends."""
     if total <= 0:
         return (0.0, 1.0)
@@ -77,12 +84,14 @@ def wilson(hits: float, total: int, z: float = 1.96) -> tuple[float, float]:
 
 
 def half_width(share: float, total: int) -> float:
+    """Half the width of the Wilson interval around `share` over `total` claims."""
     low, high = wilson(share * total, total)
     return (high - low) / 2
 
 
-def runs_on(directory: Path) -> list[dict]:
-    found = []
+def runs_on(directory: Path) -> list[Run]:
+    """Every run saved under `directory`, each with its folder name as `id`."""
+    found: list[Run] = []
     for record in sorted(directory.glob("*/run.json")):
         with record.open(encoding="utf-8") as handle:
             run = json.load(handle)
@@ -91,20 +100,21 @@ def runs_on(directory: Path) -> list[dict]:
     return found
 
 
-def setting(run: dict, key: str):
+def setting(run: Run, key: str) -> object:
     """What the run was configured as. A run older than the setting is taken at its default."""
     if key in run:
         return run[key]
     return SETTINGS[key]
 
 
-def backbone_name(value) -> str:
+def backbone_name(value: object) -> str:
     """A backbone that `tapt.py` wrote is named by its run, not by the directory inside it."""
     parts = str(value).replace("\\", "/").rstrip("/").split("/")
     return parts[-2] if parts[-1] == "backbone" and len(parts) > 1 else parts[-1]
 
 
-def shown(key: str, value) -> str:
+def shown(key: str, value: object) -> str:
+    """A setting as the sentence fragment the tables use."""
     if value is None:
         # Off by default rather than unrecorded: a run without a pool or a fold had none.
         if SETTINGS.get(key, 0) is None:
@@ -119,7 +129,8 @@ def shown(key: str, value) -> str:
     return f"{key.replace('_', ' ')} {value}"
 
 
-def differences(run: dict, against: dict) -> str:
+def differences(run: Run, against: Run) -> str:
+    """What `run` changed from `against`, or "the baseline" when nothing."""
     changed = [
         shown(key, setting(run, key))
         for key in SETTINGS
@@ -128,12 +139,12 @@ def differences(run: dict, against: dict) -> str:
     return ", ".join(changed) or "the baseline"
 
 
-def family(run: dict) -> tuple:
+def family(run: Run) -> tuple[str, ...]:
     """Everything but the seed, so that two runs of one configuration land together."""
     return tuple(str(setting(run, key)) for key in SETTINGS)
 
 
-def transfer(found: list[dict], against: dict | None) -> None:
+def transfer(found: list[Run], against: Run | None) -> None:
     """What each saved run does on the games nothing about it was chosen from.
 
     The figure is coverage and accuracy **at the threshold the validation games chose**, not at
@@ -161,14 +172,16 @@ def transfer(found: list[dict], against: dict | None) -> None:
             line += f"{differences(run, against):<{what}}  "
         line += (
             f"{promised:7.1%}  {at['coverage']:7.1%}  {at['accuracy']:9.1%}  "
-            f"{at['accuracy'] - promised:+9.1%}  {held_out['macro_f1']:8.3f} {held_out['aurc']:6.3f}"
+            f"{at['accuracy'] - promised:+9.1%}  "
+            f"{held_out['macro_f1']:8.3f} {held_out['aurc']:6.3f}"
         )
         print(line)
     print("\nshort by is what the promise cost on games nothing about the model was chosen from")
 
 
-def table(found: list[dict], against: dict | None) -> None:
-    rows = []
+def table(found: list[Run], against: Run | None) -> None:
+    """Print every run ranked by coverage, with the interval around each figure."""
+    rows: list[dict[str, Any]] = []
     for run in found:
         result = run["validation"]
         claims = run["claims"]["validation"]
@@ -224,7 +237,7 @@ def shipped_runs(sizes: Path) -> dict[str, str]:
         return {size["run"]: size["name"] for size in json.load(handle)["sizes"] if size["ships"]}
 
 
-def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
+def index(found: list[Run], shipped: dict[str, str], to: Path) -> None:
     """Every run there is, on one page, so `ls` is not the only way to find out what was tried.
 
     Written rather than printed because the question it answers is asked by somebody opening
@@ -241,9 +254,9 @@ def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
     ).most_common(1)[0][0]
     baseline = dict(usual)
 
-    rows = []
+    rows: list[tuple[str, str, str, Any, str, Any, Any, Any]] = []
     for run in sorted(found, key=lambda run: run["id"]):
-        result = run.get("validation") or {}
+        result: dict[str, Any] = run.get("validation") or {}
         changed = [
             shown(key, setting(run, key))
             for key in SETTINGS
@@ -271,11 +284,17 @@ def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
         "on more labels is not a better configuration, it is a different question.",
         "",
         "Coverage and accuracy are on the validation games at the threshold the run chose. They",
-        "are not the figure docs/accuracy.md quotes, which is measured on the held-out games; these are",
+        (
+            "are not the figure docs/accuracy.md quotes, which is measured on the held-out "
+            "games; these are"
+        ),
         "for telling runs apart. The spread between two seeds of one configuration is about four",
         "points of coverage, so a gap smaller than that is not a finding.",
         "",
-        "| run | encoder | what it changed | labels | label set | answers | at accuracy | macro F1 |",
+        (
+            "| run | encoder | what it changed | labels | label set | answers | at accuracy "
+            "| macro F1 |"
+        ),
         "|---|---|---|---:|---|---:|---:|---:|",
     ]
     for name, backbone, changed, labels, fingerprint, coverage, accuracy, macro in rows:
@@ -293,7 +312,7 @@ def index(found: list[dict], shipped: dict[str, str], to: Path) -> None:
     print(f"{len(rows)} runs written to {to}")
 
 
-def spread(found: list[dict], against: dict | None) -> None:
+def spread(found: list[Run], against: Run | None) -> None:
     """How far apart two runs of one configuration land, which is the bar a gap has to clear.
 
     The interval beside a coverage figure is the noise in scoring one model on 2,615 claims.
@@ -301,7 +320,7 @@ def spread(found: list[dict], against: dict | None) -> None:
     different initialisation of the two heads and a different order through the data land
     several points apart. A configuration change worth taking has to beat this, not that.
     """
-    families: dict[tuple, list[dict]] = {}
+    families: dict[tuple[str, ...], list[Run]] = {}
     for run in found:
         # A run from before the seed was recorded was not seeded at all, so it is a draw from
         # the configuration rather than a repeat of a named one. It cannot join the spread:
@@ -313,7 +332,7 @@ def spread(found: list[dict], against: dict | None) -> None:
         print("\nno configuration was trained on more than one seed, so the spread is unmeasured")
         return
 
-    def line(runs: list[dict]) -> float:
+    def line(runs: list[Run]) -> float:
         coverages = [run["validation"]["threshold_coverage"] for run in runs]
         gap = max(coverages) - min(coverages)
         names = ", ".join(
@@ -327,9 +346,9 @@ def spread(found: list[dict], against: dict | None) -> None:
     # Two runs of one configuration on one seed are not a spread over seeds: they are the same
     # experiment twice. The trainer is not bit-for-bit repeatable on this card, and pretending
     # otherwise puts a rerun's own noise inside a figure about configurations.
-    reruns: list[list[dict]] = []
+    reruns: list[list[Run]] = []
     for runs in repeated:
-        by_seed: dict[int, list[dict]] = {}
+        by_seed: dict[int, list[Run]] = {}
         for run in runs:
             by_seed.setdefault(run["seed"], []).append(run)
         reruns.extend(same for same in by_seed.values() if len(same) > 1)
@@ -346,7 +365,7 @@ def spread(found: list[dict], against: dict | None) -> None:
     print(f"\na configuration has to beat {widest:.1%} of coverage to have changed anything")
 
 
-def subjects(run: dict, against: dict | None, held_out: bool) -> None:
+def subjects(run: Run, against: Run | None, *, held_out: bool) -> None:
     """One run's score for each subject, and what another run scored on the same ones.
 
     On the held-out games where a run has them, because a subject that reads well on the games
@@ -354,7 +373,8 @@ def subjects(run: dict, against: dict | None, held_out: bool) -> None:
     """
     where = "test" if held_out else "validation"
     if held_out and not run.get("test", {}).get("per_subject"):
-        raise SystemExit(f"{run['id']} was trained without the held-out games evaluated")
+        msg = f"{run['id']} was trained without the held-out games evaluated"
+        raise SystemExit(msg)
     mine = run[where]["per_subject"]
     theirs = (against or {}).get(where, {}).get("per_subject", {})
     width = max(len(subject) for subject in mine)
@@ -366,7 +386,38 @@ def subjects(run: dict, against: dict | None, held_out: bool) -> None:
         print(line)
 
 
+def _comparable(arguments: argparse.Namespace, found: list[Run]) -> list[Run]:
+    """The runs worth putting in one table: one set of labels, each with a coverage to rank."""
+    fingerprint = arguments.fingerprint
+    if not fingerprint and not arguments.all:
+        fingerprint = Counter(run["data_fingerprint"] for run in found).most_common(1)[0][0]
+    if fingerprint:
+        skipped = [run for run in found if run["data_fingerprint"] != fingerprint]
+        found = [run for run in found if run["data_fingerprint"] == fingerprint]
+        if not found:
+            msg = f"no runs on labels {fingerprint}"
+            raise SystemExit(msg)
+        print(
+            f"{len(found)} runs on labels {fingerprint}: "
+            f"{found[0]['claims']['train']} training claims, "
+            f"{found[0]['claims']['validation']} validation claims"
+        )
+        if skipped:
+            print(f"{len(skipped)} runs on other labels are not comparable and are left out")
+        print()
+
+    # The pilots were trained before the reader could abstain, so they have no coverage at a
+    # promise to be ranked by; --all reaches them, and a table that ranks by coverage cannot.
+    unranked = [run for run in found if "threshold_coverage" not in run["validation"]]
+    if unranked:
+        found = [run for run in found if "threshold_coverage" in run["validation"]]
+        names = ", ".join(sorted(run["id"] for run in unranked))
+        print(f"{len(unranked)} runs from before abstention have no coverage to rank: {names}\n")
+    return found
+
+
 def main() -> None:
+    """Report the saved runs as the command line asks."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs", type=Path, default=HERE / "runs")
     parser.add_argument(
@@ -397,49 +448,29 @@ def main() -> None:
 
     found = runs_on(arguments.runs)
     if not found:
-        raise SystemExit(f"no runs under {arguments.runs}")
+        msg = f"no runs under {arguments.runs}"
+        raise SystemExit(msg)
 
     if arguments.index:
         index(found, shipped_runs(SIZES), arguments.runs / "README.md")
         return
 
-    fingerprint = arguments.fingerprint
-    if not fingerprint and not arguments.all:
-        fingerprint = Counter(run["data_fingerprint"] for run in found).most_common(1)[0][0]
-    if fingerprint:
-        skipped = [run for run in found if run["data_fingerprint"] != fingerprint]
-        found = [run for run in found if run["data_fingerprint"] == fingerprint]
-        if not found:
-            raise SystemExit(f"no runs on labels {fingerprint}")
-        print(
-            f"{len(found)} runs on labels {fingerprint}: "
-            f"{found[0]['claims']['train']} training claims, "
-            f"{found[0]['claims']['validation']} validation claims"
-        )
-        if skipped:
-            print(f"{len(skipped)} runs on other labels are not comparable and are left out")
-        print()
-
-    # The pilots were trained before the reader could abstain, so they have no coverage at a
-    # promise to be ranked by; --all reaches them, and a table that ranks by coverage cannot.
-    unranked = [run for run in found if "threshold_coverage" not in run["validation"]]
-    if unranked:
-        found = [run for run in found if "threshold_coverage" in run["validation"]]
-        names = ", ".join(sorted(run["id"] for run in unranked))
-        print(f"{len(unranked)} runs from before abstention have no coverage to rank: {names}\n")
+    found = _comparable(arguments, found)
 
     by_id = {run["id"]: run for run in found}
-    against = None
+    against: Run | None = None
     if arguments.against:
         against = by_id.get(arguments.against)
         if against is None:
-            raise SystemExit(f"no run {arguments.against} on these labels")
+            msg = f"no run {arguments.against} on these labels"
+            raise SystemExit(msg)
 
     if arguments.subjects:
         run = by_id.get(arguments.subjects)
         if run is None:
-            raise SystemExit(f"no run {arguments.subjects} on these labels")
-        subjects(run, against, arguments.held_out)
+            msg = f"no run {arguments.subjects} on these labels"
+            raise SystemExit(msg)
+        subjects(run, against, held_out=arguments.held_out)
         return
 
     if arguments.held_out:
