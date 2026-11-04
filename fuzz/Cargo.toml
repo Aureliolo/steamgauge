@@ -1,8 +1,8 @@
 [package]
 name = "steamgauge-fuzz"
-description = "Fuzz targets for the SteamGauge code that reads text a stranger wrote."
 version = "0.0.0"
 edition = "2024"
+description = "Fuzz targets for the SteamGauge code that reads text a stranger wrote."
 license = "Apache-2.0"
 publish = false
 
@@ -14,44 +14,124 @@ cargo-fuzz = true
 [package.metadata.cargo-machete]
 ignored = ["ort", "arbitrary", "libloading"]
 
-# The harness keeps no lock file of its own: it builds on a copy of the product's, so it fuzzes
-# the versions the product ships. Every crate that copy lacks is one only the harness needs, and
-# each is pinned exactly here, which CI's deny job holds it to.
-[dependencies]
-libfuzzer-sys = "=0.4.13"
-arbitrary = "=1.5.0"
-# Without the app's own update, which reads no stranger's text.
-steamgauge-core = { path = "../crates/steamgauge-core", default-features = false }
-# Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
-# newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
-# model, so nothing is ever loaded.
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic"] }
-libloading = "=0.9.0"
-
 # A workspace of its own. The product's workspace never builds, tests, lints or ships this
 # crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have. One
 # workspace would also unify features: the load-dynamic above would reach the product's ort.
 [workspace]
 members = ["."]
 
+[[bin]]
+bench = false
+doc = false
+name = "splitter"
+path = "fuzz_targets/splitter.rs"
+test = false
+
+[[bin]]
+bench = false
+doc = false
+name = "stored_span"
+path = "fuzz_targets/stored_span.rs"
+test = false
+
+[[bin]]
+bench = false
+doc = false
+name = "reader_window"
+path = "fuzz_targets/reader_window.rs"
+test = false
+
+[[bin]]
+bench = false
+doc = false
+name = "terms"
+path = "fuzz_targets/terms.rs"
+test = false
+
+# The harness keeps no lock file of its own: it builds on a copy of the product's, so it fuzzes
+# the versions the product ships. Every crate that copy lacks is one only the harness needs, and
+# each is pinned exactly here, which CI's deny job holds it to.
+[dependencies]
+arbitrary = "=1.5.0"
+libfuzzer-sys = "=0.4.13"
+libloading = "=0.9.0"
+# Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
+# newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
+# model, so nothing is ever loaded.
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic"] }
+# Without the app's own update, which reads no stranger's text.
+steamgauge-core = { path = "../crates/steamgauge-core", default-features = false }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+as_pointer_underscore = "warn"
+assertions_on_result_states = "warn"
+cargo = { level = "warn", priority = -1 }
+clone_on_ref_ptr = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+exit = "warn"
+filetype_is_file = "warn"
+fn_to_numeric_cast_any = "warn"
+format_push_string = "warn"
+get_unwrap = "warn"
+if_then_some_else_none = "warn"
+infinite_loop = "warn"
+iter_over_hash_type = "warn"
+let_underscore_must_use = "allow"
+literal_string_with_formatting_args = "allow"
+lossy_float_literal = "warn"
+map_err_ignore = "warn"
+map_with_unused_argument_over_ranges = "warn"
+mem_forget = "warn"
+missing_assert_message = "warn"
+mixed_read_write_in_expression = "warn"
+multiple_crate_versions = "allow"
+needless_raw_strings = "warn"
+non_zero_suggestions = "warn"
+nursery = { level = "warn", priority = -1 }
+option_if_let_else = "allow"
+panic_in_result_fn = "warn"
+pathbuf_init_then_push = "warn"
+pedantic = { level = "warn", priority = -1 }
+precedence_bits = "warn"
+pub_without_shorthand = "warn"
+rc_buffer = "warn"
+redundant_pub_crate = "allow"
+redundant_test_prefix = "warn"
+redundant_type_annotations = "warn"
+ref_patterns = "warn"
+renamed_function_params = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+return_and_then = "warn"
+same_name_method = "warn"
+self_named_module_files = "warn"
+semicolon_outside_block = "warn"
+significant_drop_tightening = "allow"
+str_to_string = "warn"
+string_add = "warn"
+string_lit_chars_any = "warn"
+suboptimal_flops = "allow"
+todo = "warn"
+try_err = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unnecessary_self_imports = "warn"
+unneeded_field_pattern = "warn"
+unseparated_literal_suffix = "warn"
+unused_result_ok = "warn"
+unused_trait_names = "warn"
+unwrap_in_result = "warn"
+verbose_file_reads = "warn"
+zero_sized_map_values = "warn"
+
 # The product workspace's lint tables, copied because this workspace cannot inherit them. Keep
 # the two in step.
 [lints.rust]
-unsafe_code = "forbid"
-missing_debug_implementations = "warn"
-rust_2018_idioms = { level = "warn", priority = -1 }
-unused_qualifications = "warn"
-unreachable_pub = "warn"
-unused_lifetimes = "warn"
-unused_macro_rules = "warn"
-single_use_lifetimes = "warn"
-trivial_casts = "warn"
-trivial_numeric_casts = "warn"
-unit_bindings = "warn"
-meta_variable_misuse = "warn"
-missing_unsafe_on_extern = "warn"
-redundant_lifetimes = "warn"
-non_ascii_idents = "warn"
 ambiguous_negative_literals = "warn"
 deprecated_in_future = "warn"
 deref_into_dyn_supertrait = "warn"
@@ -60,115 +140,35 @@ if_let_rescope = "warn"
 impl_trait_overcaptures = "warn"
 linker_messages = "warn"
 macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_debug_implementations = "warn"
+missing_unsafe_on_extern = "warn"
+non_ascii_idents = "warn"
 redundant_imports = "warn"
+redundant_lifetimes = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+single_use_lifetimes = "warn"
 tail_expr_drop_order = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
 unnameable_types = "warn"
+unreachable_pub = "warn"
+unsafe_code = "forbid"
 unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
 
 [lints.rustdoc]
-broken_intra_doc_links = "warn"
-private_intra_doc_links = "warn"
 bare_urls = "warn"
-invalid_html_tags = "warn"
+broken_intra_doc_links = "warn"
 invalid_codeblock_attributes = "warn"
+invalid_html_tags = "warn"
 invalid_rust_codeblocks = "warn"
+private_intra_doc_links = "warn"
 redundant_explicit_links = "warn"
 unescaped_backticks = "warn"
-
-[lints.clippy]
-all = { level = "deny", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
-cargo = { level = "warn", priority = -1 }
-multiple_crate_versions = "allow"
-let_underscore_must_use = "allow"
-redundant_pub_crate = "allow"
-literal_string_with_formatting_args = "allow"
-option_if_let_else = "allow"
-significant_drop_tightening = "allow"
-suboptimal_flops = "allow"
-allow_attributes = "warn"
-allow_attributes_without_reason = "warn"
-dbg_macro = "warn"
-todo = "warn"
-unimplemented = "warn"
-unwrap_in_result = "warn"
-str_to_string = "warn"
-rc_buffer = "warn"
-rest_pat_in_fully_bound_structs = "warn"
-same_name_method = "warn"
-semicolon_outside_block = "warn"
-unneeded_field_pattern = "warn"
-verbose_file_reads = "warn"
-lossy_float_literal = "warn"
-mem_forget = "warn"
-mixed_read_write_in_expression = "warn"
-empty_structs_with_brackets = "warn"
-empty_enum_variants_with_brackets = "warn"
-format_push_string = "warn"
-if_then_some_else_none = "warn"
-infinite_loop = "warn"
-missing_assert_message = "warn"
-needless_raw_strings = "warn"
-redundant_type_annotations = "warn"
-renamed_function_params = "warn"
-try_err = "warn"
-undocumented_unsafe_blocks = "warn"
-unused_result_ok = "warn"
-unused_trait_names = "warn"
-clone_on_ref_ptr = "warn"
-exit = "warn"
-filetype_is_file = "warn"
-get_unwrap = "warn"
-map_with_unused_argument_over_ranges = "warn"
-pathbuf_init_then_push = "warn"
-string_lit_chars_any = "warn"
-assertions_on_result_states = "warn"
-pub_without_shorthand = "warn"
-ref_patterns = "warn"
-return_and_then = "warn"
-self_named_module_files = "warn"
-iter_over_hash_type = "warn"
-map_err_ignore = "warn"
-empty_drop = "warn"
-fn_to_numeric_cast_any = "warn"
-panic_in_result_fn = "warn"
-redundant_test_prefix = "warn"
-string_add = "warn"
-unnecessary_self_imports = "warn"
-unseparated_literal_suffix = "warn"
-zero_sized_map_values = "warn"
-non_zero_suggestions = "warn"
-as_pointer_underscore = "warn"
-precedence_bits = "warn"
-
-[[bin]]
-name = "splitter"
-path = "fuzz_targets/splitter.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "stored_span"
-path = "fuzz_targets/stored_span.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "reader_window"
-path = "fuzz_targets/reader_window.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "terms"
-path = "fuzz_targets/terms.rs"
-test = false
-doc = false
-bench = false
 
 # The product workspace's patch, for the same reason as there.
 [patch.crates-io]

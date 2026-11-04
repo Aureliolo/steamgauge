@@ -11,21 +11,21 @@
 # so). Adding a licence here is a decision about what the binary may contain, and belongs in
 # the pull request that brings the crate in.
 accepted = [
-    "Apache-2.0",
-    "MIT",
-    "BSD-3-Clause",
-    "BSD-2-Clause",
-    "ISC",
-    "Zlib",
-    "Unicode-3.0",
-    # File-level copyleft: section 3.2 asks that whoever receives an executable is told where
-    # the source is, which the notices do for every crate.
-    "MPL-2.0",
-    # webpki-root-certs: the Mozilla root store, as data.
-    "CDLA-Permissive-2.0",
-    "Apache-2.0 WITH LLVM-exception",
-    # interprocess's recvmsg and doctest-file: use without conditions, not even a notice.
-    "0BSD",
+  "Apache-2.0",
+  "MIT",
+  "BSD-3-Clause",
+  "BSD-2-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  # File-level copyleft: section 3.2 asks that whoever receives an executable is told where
+  # the source is, which the notices do for every crate.
+  "MPL-2.0",
+  # webpki-root-certs: the Mozilla root store, as data.
+  "CDLA-Permissive-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  # interprocess's recvmsg and doctest-file: use without conditions, not even a notice.
+  "0BSD",
 ]
 
 # What `cargo tree -e normal,build` lists for an archive, which is what the release checks the
@@ -48,12 +48,14 @@ no-clearly-defined = true
 # Offered under either licence; the crate ships only the BSD text, so that is the one taken.
 [brotli-decompressor.clarify]
 license = "BSD-3-Clause"
+
 [[brotli-decompressor.clarify.files]]
 path = "LICENSE"
 checksum = "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
 
 [alloc-stdlib.clarify]
 license = "BSD-3-Clause"
+
 [[alloc-stdlib.clarify.git]]
 path = "LICENSE"
 checksum = "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
@@ -61,10 +63,12 @@ checksum = "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
 # The MIT file opens with a sentence of its own, which keeps it from being recognised.
 [dpi.clarify]
 license = "Apache-2.0 AND MIT"
+
 [[dpi.clarify.files]]
 path = "LICENSE"
 license = "Apache-2.0"
 checksum = "6dc0e068dcf3a5bc8e054205b85b7720e1d49265bbc64bf515d2cf79197df69a"
+
 [[dpi.clarify.files]]
 path = "LICENSE-LIBM-MIT"
 license = "MIT"
@@ -74,6 +78,7 @@ checksum = "9eff396a99bafd208e7126602420d6864f6066c08b84485a5b032320a9c01997"
 # contributors agree to.
 [libm.clarify]
 license = "MIT"
+
 [[libm.clarify.files]]
 path = "LICENSE.txt"
 checksum = "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
@@ -81,6 +86,7 @@ checksum = "3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7"
 # The zlib terms twice, under the Rust port's copyright and the original C code's.
 [adler32.clarify]
 license = "Zlib"
+
 [[adler32.clarify.files]]
 path = "LICENSE"
 checksum = "f5af8beef8f5f88f1b78494703bbfa019c4f3630ac111344390d6f9975ab22ed"
@@ -90,10 +96,12 @@ checksum = "f5af8beef8f5f88f1b78494703bbfa019c4f3630ac111344390d6f9975ab22ed"
 # LICENSE itself only says which is which.
 [ring.clarify]
 license = "Apache-2.0 AND ISC"
+
 [[ring.clarify.files]]
 path = "LICENSE-other-bits"
 license = "ISC"
 checksum = "f025ccfb7dfb6bdfedc75ca0f67acc69e6fb4998143d834f7c2f38a29989680f"
+
 [[ring.clarify.files]]
 path = "LICENSE-BoringSSL"
 license = "Apache-2.0"
@@ -106,18 +114,22 @@ checksum = "005fc765ddc5115da796cca915baa9557abae13ff35e0a47c47affc56f6c414d"
 # licence only where the file names that licence alone, so the file is named once for each.
 [aws-lc-sys.clarify]
 license = "ISC AND Apache-2.0 AND MIT AND BSD-3-Clause"
+
 [[aws-lc-sys.clarify.files]]
 path = "LICENSE"
 license = "ISC"
 checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+
 [[aws-lc-sys.clarify.files]]
 path = "LICENSE"
 license = "Apache-2.0"
 checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+
 [[aws-lc-sys.clarify.files]]
 path = "LICENSE"
 license = "MIT"
 checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
+
 [[aws-lc-sys.clarify.files]]
 path = "LICENSE"
 license = "BSD-3-Clause"
@@ -127,6 +139,7 @@ checksum = "728536b4160e051f86d7c9c388f704866b3d512cd7df97ac3516c65279523c4e"
 # the Apache text it may also be had under.
 [aws-lc-rs.clarify]
 license = "ISC"
+
 [[aws-lc-rs.clarify.files]]
 path = "LICENSE"
 checksum = "b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7"
@@ -135,10 +148,12 @@ checksum = "b50b376e7d24a0598488b730c3034ffcd0b58dd36c0913a24b9903a3cfd04bf7"
 # crate's MIT expression does not mention.
 [onig_sys.clarify]
 license = "MIT AND BSD-2-Clause"
+
 [[onig_sys.clarify.files]]
 path = "LICENSE.md"
 license = "MIT"
 checksum = "71f321038b088358004bee991635ac09e4c703bec467d3c30c06992c0595f189"
+
 [[onig_sys.clarify.files]]
 path = "oniguruma/COPYING"
 license = "BSD-2-Clause"
@@ -147,42 +162,49 @@ checksum = "70ba5469ea0bab6e18a32d7009068f996503168d27be57747e08da34337ff26f"
 # Published without a licence file, which each repository keeps at its root.
 [jieba-rs.clarify]
 license = "MIT"
+
 [[jieba-rs.clarify.git]]
 path = "LICENSE"
 checksum = "92257c8d1c7a059fa02720b34fce017574a990bed14cee8f565597f4fbfb1f13"
 
 [jieba-macros.clarify]
 license = "MIT"
+
 [[jieba-macros.clarify.git]]
 path = "LICENSE"
 checksum = "92257c8d1c7a059fa02720b34fce017574a990bed14cee8f565597f4fbfb1f13"
 
 [webview2-com.clarify]
 license = "MIT"
+
 [[webview2-com.clarify.git]]
 path = "LICENSE"
 checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
 
 [webview2-com-macros.clarify]
 license = "MIT"
+
 [[webview2-com-macros.clarify.git]]
 path = "LICENSE"
 checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
 
 [webview2-com-sys.clarify]
 license = "MIT"
+
 [[webview2-com-sys.clarify.git]]
 path = "LICENSE"
 checksum = "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
 
 [dlopen2.clarify]
 license = "MIT"
+
 [[dlopen2.clarify.git]]
 path = "LICENSE"
 checksum = "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
 
 [dlopen2_derive.clarify]
 license = "MIT"
+
 [[dlopen2_derive.clarify.git]]
 path = "LICENSE"
 checksum = "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
@@ -191,24 +213,28 @@ checksum = "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2"
 # repository's LICENSE.md, which says so and links the licence, is everything there is.
 [objc2.clarify]
 license = "MIT"
+
 [[objc2.clarify.git]]
 path = "LICENSE.md"
 checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
 
 [objc2-encode.clarify]
 license = "MIT"
+
 [[objc2-encode.clarify.git]]
 path = "LICENSE.md"
 checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
 
 [objc2-foundation.clarify]
 license = "MIT"
+
 [[objc2-foundation.clarify.git]]
 path = "LICENSE.md"
 checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"
 
 [block2.clarify]
 license = "MIT"
+
 [[block2.clarify.git]]
 path = "LICENSE.md"
 checksum = "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54"

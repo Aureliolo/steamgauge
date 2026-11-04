@@ -15,6 +15,8 @@
       "**/*.mjs",
       "**/*.css",
       "**/*.json",
+      // Agent worktrees, each a whole copy of this repository with its own biome.jsonc.
+      "!!**/.claude",
       "!**/node_modules",
       "!**/target",
       // Written by Python and Rust, never by hand. Data, not configuration.

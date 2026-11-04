@@ -570,6 +570,22 @@ jobs:
       - name: Lint
         run: git ls-files -z '*.yml' '*.yaml' | xargs -0 pipx run yamllint==1.38.0 --strict
 
+  # Every TOML file, linted against its schema (Cargo's, ruff's and the rest) and formatted.
+  toml:
+    name: toml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 lint
+      - name: Check the format
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 format --check
+
   # JavaScript, CSS and JSON, held by Biome to every rule biome.jsonc does not turn off, and to its
   # format. Biome is the exact version tools/package.json pins.
   biome:

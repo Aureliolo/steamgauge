@@ -1,13 +1,13 @@
 [package]
 name = "steamgauge-site"
-description = "Builds SteamGauge's documentation site from docs/, the README and the program's own tables."
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
+description = "Builds SteamGauge's documentation site from docs/, the README and the program's own tables."
 homepage.workspace = true
-authors.workspace = true
+repository.workspace = true
+license.workspace = true
 publish.workspace = true
 
 [dependencies]
