@@ -33,6 +33,8 @@ cargo machete                                                      # dependencie
 typos                                                              # British spelling, _typos.toml
 npx markdownlint-cli2                                              # .markdownlint-cli2.jsonc
 git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
+git ls-files -z '*.yml' '*.yaml' | xargs -0 yamllint --strict       # .yamllint.yaml
+git ls-files '*.ps1' '*.psd1' | % { Invoke-ScriptAnalyzer $_ -Settings ./PSScriptAnalyzerSettings.psd1 }   # in pwsh
 ```
 
 - **No em dash** in any file, except the ONNX Runtime notices, which are Microsoft's text.

@@ -121,6 +121,21 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>github-runners) depName=(?<depName>ubuntu|windows|macos)\\n\\s*runner: (?:ubuntu|windows|macos)-(?<currentValue>[0-9.]+(?:-[a-z0-9]+)?)"
       ]
+    },
+    {
+      "description": "A Python tool a workflow runs at an exact version with `pipx run <tool>==<version>`: ruff, pyright and yamllint.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": ["pipx run (?<depName>[A-Za-z0-9._-]+)==(?<currentValue>[0-9][^\\s]*)"],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "description": "A version in an environment variable, with its datasource and registry on the line above: PSScriptAnalyzer from the PowerShell Gallery.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) registryUrl=(?<registryUrl>\\S+)\\n\\s*[A-Z0-9_]+_VERSION: (?<currentValue>\\S+)"
+      ]
     }
   ]
 }

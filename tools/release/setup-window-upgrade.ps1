@@ -7,10 +7,16 @@ param([Parameter(Mandatory)][string]$Setup)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 Add-Type -Namespace Setup -Name Window -MemberDefinition @'
-[DllImport("user32.dll")] public static extern System.IntPtr GetDlgItem(System.IntPtr dialog, int id);
-[DllImport("user32.dll")] public static extern bool IsWindowEnabled(System.IntPtr window);
-[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr window, System.Text.StringBuilder text, int most);
-[DllImport("user32.dll")] public static extern bool PostMessage(System.IntPtr window, uint message, System.IntPtr wParam, System.IntPtr lParam);
+[DllImport("user32.dll")]
+public static extern System.IntPtr GetDlgItem(System.IntPtr dialog, int id);
+[DllImport("user32.dll")]
+public static extern bool IsWindowEnabled(System.IntPtr window);
+[DllImport("user32.dll", CharSet = CharSet.Unicode)]
+public static extern int GetWindowText(
+  System.IntPtr window, System.Text.StringBuilder text, int most);
+[DllImport("user32.dll")]
+public static extern bool PostMessage(
+  System.IntPtr window, uint message, System.IntPtr wParam, System.IntPtr lParam);
 '@
 $A = [System.Windows.Automation.AutomationElement]
 $Descendants = [System.Windows.Automation.TreeScope]::Descendants
@@ -21,7 +27,8 @@ $WM_COMMAND = 0x0111
 $NEXT = 1
 
 function Texts($window) {
-  @($window.Current.Name) + @($window.FindAll($Descendants, $Any) | ForEach-Object { $_.Current.Name } | Where-Object { $_ })
+  $names = $window.FindAll($Descendants, $Any) | ForEach-Object { $_.Current.Name }
+  @($window.Current.Name) + @($names | Where-Object { $_ })
 }
 
 function Label($button) {
@@ -37,21 +44,32 @@ try {
     Start-Sleep -Milliseconds 500
     $process.Refresh()
   } until ($process.MainWindowHandle -ne 0 -or (Get-Date) -gt $deadline)
-  if ($process.MainWindowHandle -eq 0) { throw 'The setup program showed no window within 90 seconds.' }
+  if ($process.MainWindowHandle -eq 0) {
+    throw 'The setup program showed no window within 90 seconds.'
+  }
   Start-Sleep -Seconds 2
   $dialog = $process.MainWindowHandle
   $window = $A::FromHandle($dialog)
   $button = [Setup.Window]::GetDlgItem($dialog, $NEXT)
-  if ($button -eq [System.IntPtr]::Zero) { throw ("The setup program's window has no Next button. It shows:`n" + ((Texts $window) -join "`n")) }
+  if ($button -eq [System.IntPtr]::Zero) {
+    $shows = (Texts $window) -join "`n"
+    throw "The setup program's window has no Next button. It shows:`n$shows"
+  }
   "Welcome button: $(Label $button)"
   Texts $window
   # UI Automation finds NSIS's plain Win32 buttons but offers no way to press them, so the press
   # is the message a button sends its dialog: WM_COMMAND with its ID and BN_CLICKED.
   $deadline = (Get-Date).AddSeconds(600)
   while ((Label $button) -ne 'Finish') {
-    if ((Get-Date) -gt $deadline) { throw ("The setup program reached no finish page within ten minutes. It shows:`n" + ((Texts $window) -join "`n")) }
+    if ((Get-Date) -gt $deadline) {
+      $shows = (Texts $window) -join "`n"
+      throw "The setup program reached no finish page within ten minutes. It shows:`n$shows"
+    }
     $process.Refresh()
-    if ($process.HasExited) { throw "The setup program ended before its finish page, with exit code $($process.ExitCode)." }
+    if ($process.HasExited) {
+      $code = $process.ExitCode
+      throw "The setup program ended before its finish page, with exit code $code."
+    }
     if ([Setup.Window]::IsWindowEnabled($button)) {
       "--- Pressing $(Label $button)"
       [void][Setup.Window]::PostMessage($dialog, $WM_COMMAND, [System.IntPtr]$NEXT, $button)

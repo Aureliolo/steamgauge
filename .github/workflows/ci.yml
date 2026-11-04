@@ -542,3 +542,44 @@ jobs:
         run: |
           set -euo pipefail
           git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --enable=all
+
+  # Every YAML file, held to .yamllint.yaml, warnings included.
+  yaml:
+    name: yaml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 pipx run yamllint==1.38.0 --strict
+
+  # The PowerShell scripts, with PSScriptAnalyzer's optional rules on (PSScriptAnalyzerSettings.psd1).
+  powershell:
+    name: powershell
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the scripts it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        env:
+          # renovate: datasource=nuget depName=PSScriptAnalyzer registryUrl=https://www.powershellgallery.com/api/v2
+          PSSCRIPTANALYZER_VERSION: 1.25.0
+        run: Install-PSResource PSScriptAnalyzer -Version $env:PSSCRIPTANALYZER_VERSION -TrustRepository
+      - name: Lint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $found = git ls-files '*.ps1' '*.psd1' | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Settings ./PSScriptAnalyzerSettings.psd1
+          }
+          $found | Format-Table -AutoSize -Wrap | Out-String -Width 200
+          if ($found) { throw "PSScriptAnalyzer found $(@($found).Count) problems." }
