@@ -48,10 +48,10 @@ fn write_token(local: &Path, token: &str) -> io::Result<()> {
     let fresh = file.with_extension("new");
     std::fs::write(&fresh, token)?;
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o600))?;
-    }
+    std::fs::set_permissions(
+        &fresh,
+        <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o600),
+    )?;
     std::fs::rename(fresh, file)
 }
 

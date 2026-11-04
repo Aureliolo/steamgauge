@@ -1101,7 +1101,7 @@ fn bind(_local: &Path) -> io::Result<(Listener, String)> {
 /// A socket file in a folder only this user may enter.
 #[cfg(unix)]
 fn bind(local: &Path) -> io::Result<(Listener, String)> {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::PermissionsExt as _;
     let folder = local.join("mcp");
     std::fs::create_dir_all(&folder)?;
     std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o700))?;

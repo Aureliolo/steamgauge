@@ -59,7 +59,7 @@ pub(crate) fn socket_name(written: &str) -> io::Result<Name<'static>> {
     }
     #[cfg(not(windows))]
     {
-        use interprocess::local_socket::{GenericFilePath, ToFsName};
+        use interprocess::local_socket::{GenericFilePath, ToFsName as _};
         PathBuf::from(written).to_fs_name::<GenericFilePath>()
     }
 }
@@ -196,6 +196,6 @@ mod tests {
         #[cfg(windows)]
         socket_name("steamgauge-mcp-0123456789abcdef").unwrap();
         #[cfg(not(windows))]
-        assert!(socket_name("/tmp/steamgauge-mcp/socket").is_ok());
+        socket_name("/tmp/steamgauge-mcp/socket").unwrap();
     }
 }
