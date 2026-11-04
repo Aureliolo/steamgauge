@@ -29,14 +29,14 @@ def claim(app_id: int, index: int = 0) -> claimdata.Claim:
 
 def roles(claims: list[claimdata.Claim]) -> dict[int, str]:
     train, validation, test = claimdata.split_by_game(claims, seed=1)
-    found = {}
+    found: dict[int, str] = {}
     for name, part in (("train", train), ("validation", validation), ("test", test)):
         for c in part:
             found[c.app_id] = name
     return found
 
 
-def test_adding_a_game_moves_no_other_game():
+def test_adding_a_game_moves_no_other_game() -> None:
     # The property a held-out set needs and the shuffle did not have: a game's role depends
     # on nothing but itself. Measured before the fix, adding four games to eleven moved a
     # held-out game into training.
@@ -47,7 +47,7 @@ def test_adding_a_game_moves_no_other_game():
         assert before[g] == after[g], f"game {g} moved from {before[g]} to {after[g]}"
 
 
-def test_every_role_is_filled_however_few_games_there_are():
+def test_every_role_is_filled_however_few_games_there_are() -> None:
     for count in range(3, 12):
         found = roles([claim(g) for g in range(5000, 5000 + count)])
         assert "test" in found.values(), f"{count} games left nothing held out"
@@ -55,7 +55,7 @@ def test_every_role_is_filled_however_few_games_there_are():
         assert "train" in found.values(), f"{count} games left nothing to train on"
 
 
-def test_the_shares_hold_over_many_games():
+def test_the_shares_hold_over_many_games() -> None:
     found = roles([claim(g) for g in range(1, 2001)])
     counts = {
         name: sum(1 for role in found.values() if role == name)
@@ -65,14 +65,14 @@ def test_the_shares_hold_over_many_games():
     assert 0.12 < counts["validation"] / 2000 < 0.18, counts
 
 
-def test_a_different_seed_is_a_different_split():
+def test_a_different_seed_is_a_different_split() -> None:
     games = [claim(g) for g in range(100, 140)]
     one = claimdata.split_by_game(games, seed=1)
     two = claimdata.split_by_game(games, seed=2)
     assert {c.app_id for c in one[2]} != {c.app_id for c in two[2]}
 
 
-def test_the_folds_answer_every_game_the_held_out_set_does_not_hold():
+def test_the_folds_answer_every_game_the_held_out_set_does_not_hold() -> None:
     claims = [claim(g) for g in range(200, 236)]
     held_out = {c.app_id for c in claimdata.split_by_game(claims, seed=1)[2]}
     answered: list[int] = []
@@ -87,7 +87,7 @@ def test_the_folds_answer_every_game_the_held_out_set_does_not_hold():
     assert len(answered) == len(set(answered)), "a game was held out by two folds"
 
 
-def test_no_fold_is_left_with_nothing_to_hold_out():
+def test_no_fold_is_left_with_nothing_to_hold_out() -> None:
     # Hashing each game into a bucket independently put one of thirty-six real app ids in the
     # first of five folds and left that fold's training run measuring nothing.
     for count in (12, 28, 36, 60):

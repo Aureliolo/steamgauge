@@ -2,20 +2,38 @@
    page for adding one. The store's own search answers names. An ID or a link goes straight to the
    game. */
 
-import { invoke, el, set, make, whole, roundShare, facts, verdictPill, art, page, go, roughly } from './common.js';
+import {
+  art,
+  el,
+  facts,
+  go,
+  invoke,
+  make,
+  page,
+  roughly,
+  roundShare,
+  set,
+  verdictPill,
+  whole,
+} from './common.js';
 import { queue } from './work.js';
 
 /* Steam hands out 100 reviews a request, and the core asks a quarter second apart however many
    requests are out at once. */
 const REVIEWS_PER_REQUEST = 100;
 const PACE_SECONDS = 0.25;
+const ALL_DIGITS = /^\d+$/u;
+const STORE_APP_LINK = /store\.steampowered\.com\/app\/(?<id>\d+)/iu;
+const COMMUNITY_APP_LINK = /steamcommunity\.com\/app\/(?<id>\d+)/iu;
 
 /* The app ID in a store link or a bare number, or null for words to search. */
-export function appIdIn(typed) {
+function appIdIn(typed) {
   const text = typed.trim();
-  if (/^\d+$/.test(text)) return Number(text);
-  const linked = text.match(/store\.steampowered\.com\/app\/(\d+)/i) ?? text.match(/steamcommunity\.com\/app\/(\d+)/i);
-  return linked ? Number(linked[1]) : null;
+  if (ALL_DIGITS.test(text)) {
+    return Number(text);
+  }
+  const linked = text.match(STORE_APP_LINK) ?? text.match(COMMUNITY_APP_LINK);
+  return linked ? Number(linked.groups.id) : null;
 }
 
 /* Waits this long after the last key before asking the store, so a name typed quickly is one
@@ -53,12 +71,19 @@ function searchAs(input, list, pick) {
     try {
       listings = await invoke('find_games', { words });
     } catch (failure) {
-      if (asked === words) list.replaceChildren(make('li', 'quiet', String(failure)));
+      if (asked === words) {
+        list.replaceChildren(make('li', 'quiet', String(failure)));
+      }
       return;
     }
-    if (asked !== words) return;
-    if (listings.length === 0) list.replaceChildren(make('li', 'quiet', `Steam lists no game called “${words}”.`));
-    else show(listings);
+    if (asked !== words) {
+      return;
+    }
+    if (listings.length === 0) {
+      list.replaceChildren(make('li', 'quiet', `Steam lists no game called “${words}”.`));
+    } else {
+      show(listings);
+    }
   };
 
   input.addEventListener('input', () => {
@@ -82,7 +107,9 @@ function searchAs(input, list, pick) {
       pick(appId);
       return;
     }
-    if (typed.length < 2) return;
+    if (typed.length < 2) {
+      return;
+    }
     const first = list.querySelector('.result');
     if (first && asked === typed) {
       first.click();
@@ -94,7 +121,7 @@ function searchAs(input, list, pick) {
 
 let found = null;
 
-export function setUpFinder({ openGame }) {
+function setUpFinder({ openGame }) {
   page('finder', el('finder'));
 
   const submitFinder = searchAs(el('appid'), el('finder-results'), lookUp);
@@ -120,9 +147,11 @@ export function setUpFinder({ openGame }) {
   }
 
   el('start').addEventListener('click', () => {
-    if (!found) return;
+    if (!found) {
+      return;
+    }
     const appId = found.app_id;
-    queue({ kind: 'download', app_id: appId });
+    queue({ app_id: appId, kind: 'download' });
     openGame(appId, found.name || null);
   });
   el('cancel').addEventListener('click', () => {
@@ -131,7 +160,7 @@ export function setUpFinder({ openGame }) {
   });
 }
 
-export function openFinder() {
+function openFinder() {
   go('finder');
   el('found').hidden = true;
   el('finder-results').replaceChildren();
@@ -158,13 +187,19 @@ async function lookUp(appId) {
   set(el('found-name'), found.name || `App ${found.app_id}`);
   art(found.app_id, el('found-art'));
   el('found-verdict').replaceChildren(
-    ...[verdictPill(found.verdict), make('span', 'quiet small', `App ${found.app_id}`)].filter(Boolean),
+    ...[verdictPill(found.verdict), make('span', 'quiet small', `App ${found.app_id}`)].filter(
+      Boolean,
+    ),
   );
   const total = found.positive + found.negative;
   const requests = Math.ceil(found.reviews / REVIEWS_PER_REQUEST);
   facts(el('found-facts'), [
     ['Reviews', whole.format(found.reviews), 'Steam will serve'],
-    ['Recommending', total > 0 ? roundShare.format(found.positive / total) : '–', `${whole.format(found.positive)} of ${whole.format(total)}`],
+    [
+      'Recommending',
+      total > 0 ? roundShare.format(found.positive / total) : '–',
+      `${whole.format(found.positive)} of ${whole.format(total)}`,
+    ],
   ]);
   set(
     el('found-note'),
@@ -186,3 +221,5 @@ async function lookUp(appId) {
   );
   el('found').hidden = false;
 }
+
+export { appIdIn, openFinder, setUpFinder };

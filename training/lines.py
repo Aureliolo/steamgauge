@@ -17,7 +17,9 @@ lower than the ones the export prints, which fits on everything because it has t
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -25,11 +27,20 @@ import claimdata
 from confidence import answered_by, mondrian, most_coverage, pooled_folds, softmax
 from language import wilson
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    import numpy.typing as npt
+
+    from confidence import BoolArray as Flags
+    from confidence import FloatArray as Floats
+    from confidence import IntArray as Ints
+
 HERE = Path(__file__).resolve().parent
 
 
-def languages_of(paths, data):
-    """Each out-of-fold claim's language, joined on the claim the labeller was shown.
+def languages_of(paths: Iterable[Path], data: str | Path) -> npt.NDArray[np.str_]:
+    """Return each out-of-fold claim's language, joined on the claim the labeller was shown.
 
     The fold files carry the review and claim index for exactly this: the logits know nothing
     about language and the label set knows nothing about the model, and the only honest way to
@@ -39,35 +50,68 @@ def languages_of(paths, data):
     review_ids = np.concatenate([part["review_id"] for part in parts])
     claim_index = np.concatenate([part["claim_index"] for part in parts])
     labelled = {(claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(data))}
-    beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
+    beside = [
+        labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index, strict=True)
+    ]
     return np.array([one.language if one else "" for one in beside])
 
 
-def per_game(score, correct, group, app_ids, floor, classes, joint=None):
+@dataclass(frozen=True)
+class Evidence:
+    """Each out-of-fold claim's confidence, whether it was right, and the game it is from."""
+
+    score: Floats
+    correct: Floats
+    app_ids: Ints
+
+
+@dataclass(frozen=True)
+class Grouping:
+    """A class code per claim and the names those codes stand for."""
+
+    codes: Ints
+    names: list[str]
+
+
+@dataclass(frozen=True)
+class Table:
+    """What `report` needs to lay out one policy language by language."""
+
+    correct: Floats
+    languages: npt.NDArray[np.str_]
+    order: list[str]
+
+
+def per_game(
+    evidence: Evidence,
+    group: Grouping,
+    floor: float,
+    joint: Grouping | None = None,
+) -> Flags:
     """Fit a rule on every game but one, apply it to that one, and pool the answers.
 
     `joint` is a second grouping whose line must also be cleared. Two promises made separately
     are not one promise made jointly, and a claim that clears its subject's bar while falling
     under its language's bar is exactly the claim this is here to catch.
     """
+    score, correct, app_ids = evidence.score, evidence.correct, evidence.app_ids
     answered = np.zeros(len(correct), dtype=bool)
     for game in sorted(set(app_ids.tolist())):
         held = app_ids == game
         fit = ~held
         if not fit.any():
             continue
-        lines = mondrian(score[fit], group[fit], correct[fit], floor, classes)
-        said = answered_by(lines, score[held], group[held])
+        lines = mondrian(score[fit], group.codes[fit], correct[fit], floor, group.names)
+        said = answered_by(lines, score[held], group.codes[held])
         if joint is not None:
-            other, names = joint
-            second = mondrian(score[fit], other[fit], correct[fit], floor, names)
-            said &= answered_by(second, score[held], other[held])
+            second = mondrian(score[fit], joint.codes[fit], correct[fit], floor, joint.names)
+            said &= answered_by(second, score[held], joint.codes[held])
         answered[held] = said
     return answered
 
 
-def one_line(score, correct, app_ids, floor):
-    """The single shared threshold, fitted the same leave-one-game-out way."""
+def one_line(score: Floats, correct: Floats, app_ids: Ints, floor: float) -> Flags:
+    """Return the answers under the single shared threshold, fitted leave-one-game-out."""
     answered = np.zeros(len(correct), dtype=bool)
     for game in sorted(set(app_ids.tolist())):
         held = app_ids == game
@@ -77,8 +121,18 @@ def one_line(score, correct, app_ids, floor):
     return answered
 
 
-def report(name, answered, correct, languages, order, floor, min_claims):
-    """One policy's coverage and delivered accuracy, language by language."""
+def report(
+    name: str,
+    answered: Flags,
+    table: Table,
+    floor: float,
+    min_claims: int,
+) -> tuple[str, float] | None:
+    """Print one policy's coverage and delivered accuracy, language by language.
+
+    Returns the language it fails hardest for among those with enough claims, if any.
+    """
+    correct, languages, order = table.correct, table.languages, table.order
     print(f"\n{name}")
     if answered.any():
         print(
@@ -114,6 +168,7 @@ def report(name, answered, correct, languages, order, floor, min_claims):
 
 
 def main() -> None:
+    """Print each policy's delivered accuracy per language and where the promise fails."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--oof", required=True, help="directory of cv-*.npz fold logits")
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
@@ -151,28 +206,22 @@ def main() -> None:
         f"{len(names)} languages, promise {100 * args.min_accuracy:.0f}%"
     )
 
+    evidence = Evidence(score, correct, app_ids)
+    by_subject = Grouping(predicted, subjects)
+    by_language = Grouping(index, names)
     policies = {
         "one line for everything": one_line(score, correct, app_ids, args.min_accuracy),
-        "a line per subject (what ships)": per_game(
-            score, correct, predicted, app_ids, args.min_accuracy, subjects
-        ),
-        "a line per language": per_game(score, correct, index, app_ids, args.min_accuracy, names),
+        "a line per subject (what ships)": per_game(evidence, by_subject, args.min_accuracy),
+        "a line per language": per_game(evidence, by_language, args.min_accuracy),
         "a line per subject and per language": per_game(
-            score,
-            correct,
-            predicted,
-            app_ids,
-            args.min_accuracy,
-            subjects,
-            joint=(index, names),
+            evidence, by_subject, args.min_accuracy, joint=by_language
         ),
     }
 
-    worsts = {}
+    table = Table(correct, languages, order)
+    worsts: dict[str, tuple[str, float] | None] = {}
     for name, answered in policies.items():
-        worsts[name] = report(
-            name, answered, correct, languages, order, args.min_accuracy, args.min_claims
-        )
+        worsts[name] = report(name, answered, table, args.min_accuracy, args.min_claims)
 
     print("\nthe language the promise fails hardest for, under each policy:")
     for name, worst in worsts.items():

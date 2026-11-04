@@ -70,8 +70,8 @@ pub struct Also {
 }
 
 impl Also {
-    pub fn insert(&mut self, subject: usize, polarity: Polarity) {
-        let bit = 1u64 << subject;
+    pub const fn insert(&mut self, subject: usize, polarity: Polarity) {
+        let bit = 1_u64 << subject;
         self.covered |= bit;
         match polarity {
             Polarity::Praise => self.praised |= bit,
@@ -87,17 +87,19 @@ impl Also {
 
     /// Each subject covered, in sheet order, with what the claim does about it.
     pub fn iter(&self) -> impl Iterator<Item = (usize, Polarity)> + '_ {
-        (0..64).filter(|at| self.covered >> at & 1 == 1).map(|at| {
-            let bit = 1u64 << at;
-            let polarity = if self.praised & bit != 0 {
-                Polarity::Praise
-            } else if self.criticised & bit != 0 {
-                Polarity::Complaint
-            } else {
-                Polarity::Neutral
-            };
-            (at, polarity)
-        })
+        (0..64)
+            .filter(|at| (self.covered >> at) & 1 == 1)
+            .map(|at| {
+                let bit = 1_u64 << at;
+                let polarity = if self.praised & bit != 0 {
+                    Polarity::Praise
+                } else if self.criticised & bit != 0 {
+                    Polarity::Complaint
+                } else {
+                    Polarity::Neutral
+                };
+                (at, polarity)
+            })
     }
 
     /// As a stored reading writes it: "audio:praise,controls:complaint", or None for nothing.
@@ -251,8 +253,10 @@ impl Provenance {
     /// Fails if the file is missing or is not a reader's record.
     pub fn load(dir: &Path) -> Result<Self> {
         Ok(serde_json::from_slice(
-            &std::fs::read(dir.join("reader.json")).map_err(|_| Error::NoAnchors {
-                path: dir.join("reader.json"),
+            &std::fs::read(dir.join("reader.json")).map_err(|error| {
+                Error::unless_missing(error, || Error::NoAnchors {
+                    path: dir.join("reader.json"),
+                })
             })?,
         )?)
     }
@@ -486,7 +490,9 @@ pub fn fits(card: Option<crate::card::Card>, reaches_a_card: bool) -> &'static S
 }
 
 /// Whether this machine reads on its processor, which is where the size stops being the card's
-/// decision: every size runs there, the most accurate at several times the time of the fastest,
+/// decision.
+///
+/// Every size runs there, the most accurate at several times the time of the fastest,
 /// and a person who will wait for it can have it.
 #[must_use]
 pub fn on_the_processor(card: Option<crate::card::Card>, reaches_a_card: bool) -> bool {
@@ -514,7 +520,7 @@ pub struct Published {
 }
 
 impl Published {
-    fn source(&self) -> crate::model::Source {
+    const fn source(&self) -> crate::model::Source {
         crate::model::Source {
             hub: self.hub,
             repository: self.repository,
@@ -554,7 +560,7 @@ impl Published {
 pub async fn ensure(
     size: &Size,
     dir: &Path,
-    mut on_progress: impl FnMut(crate::model::DownloadProgress),
+    mut on_progress: impl FnMut(crate::model::DownloadProgress<'_>),
 ) -> Result<()> {
     if !size.published.is_pinned() {
         return Err(Error::NoAnchors {
@@ -951,9 +957,8 @@ impl Encoder {
 
 /// The part of a claim's review that `budget` tokens can afford, centred on the claim, given
 /// where the review's tokens fall, and with the claim marked inside it where `mark` says so.
-/// A review with no offsets is kept whole.
 ///
-/// Apart from the tokenizer so that it can be handed offsets of any shape. The review is a
+/// A review with no offsets is kept whole. Apart from the tokenizer so that it can be handed offsets of any shape. The review is a
 /// stranger's text, and a panic here ends the reading of a whole library, so nothing a
 /// tokenizer or a review can hand it may make it index out of bounds or off a character.
 #[must_use]
@@ -1241,7 +1246,10 @@ pub(crate) mod tests {
         // A reader that names no limit, and one naming zero, which is no answer to divide by.
         assert_eq!(pieces(256, None), vec![0..256]);
         assert_eq!(pieces(3, Some(0)), vec![0..1, 1..2, 2..3]);
-        assert_eq!(pieces(0, Some(172)), [] as [std::ops::Range<usize>; 0]);
+        assert_eq!(
+            pieces(0, Some(172)),
+            <[std::ops::Range<usize>; 0]>::default()
+        );
     }
 
     #[test]
@@ -1473,8 +1481,8 @@ pub(crate) mod tests {
 
     #[test]
     fn the_claims_of_one_review_share_the_tokens_of_that_review_and_no_other() {
-        let first: std::sync::Arc<str> = std::sync::Arc::from("It runs badly. Worth the money.");
-        let second: std::sync::Arc<str> = std::sync::Arc::from("It runs badly. Worth the money.");
+        let first: Arc<str> = Arc::from("It runs badly. Worth the money.");
+        let second: Arc<str> = Arc::from("It runs badly. Worth the money.");
         let asked = vec![
             Asked {
                 claim: "It runs badly.",
@@ -1586,12 +1594,8 @@ pub(crate) mod tests {
         .unwrap();
         let order = [at("audio"), at("offtopic"), at("controls")];
         // Every subject called covered and praised with near certainty.
-        let sure = ndarray::Array2::from_shape_fn(
-            (3, 4),
-            |(_, answer)| {
-                if answer == 1 { 10.0 } else { -10.0 }
-            },
-        );
+        let sure =
+            Array2::from_shape_fn((3, 4), |(_, answer)| if answer == 1 { 10.0 } else { -10.0 });
         let also = also_named(&sure.view(), 0, "english", &provenance, &order);
         let named = also.to_text().unwrap();
         assert_eq!(
@@ -1915,9 +1919,10 @@ pub(crate) mod tests {
                 .iter()
                 .zip(CONTENTS)
                 .find(|(file, _)| file.remote == name)
-                .map_or(stand_in::Answer::status(404), |(_, content)| {
-                    stand_in::Answer::body(content)
-                })
+                .map_or_else(
+                    || stand_in::Answer::status(404),
+                    |(_, content)| stand_in::Answer::body(content),
+                )
         })
     }
 
@@ -2247,7 +2252,7 @@ pub(crate) mod tests {
         };
         // The probe ends "dog": without a "g" the offsets stop a byte short, which is allowed.
         crate::tiny_model::write_json(&dir.path().join("tokenizer.json"), &letters("g"));
-        assert!(ClaimReader::load(dir.path()).is_ok());
+        ClaimReader::load(dir.path()).unwrap();
         // Without "o" either they stop two short, as a tokenizer reporting padding does.
         crate::tiny_model::write_json(&dir.path().join("tokenizer.json"), &letters("og"));
         let refused = ClaimReader::load(dir.path());

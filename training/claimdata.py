@@ -24,11 +24,16 @@ from pathlib import Path
 
 SUBJECTS: list[str] = []  # filled from the data, then asserted against the sheet
 POLARITIES = ["praise", "complaint", "neutral"]
-CONFIDENCE_WEIGHT = {"high": 1.0, "medium": 0.7, "low": 0.4}
+DEFAULT_WEIGHT = 0.7
+CONFIDENCE_WEIGHT = {"high": 1.0, "medium": DEFAULT_WEIGHT, "low": 0.4}
+# Fewer games than this cannot be split into train, validation and test by game.
+MIN_GAMES_TO_SPLIT = 3
 
 
 @dataclass(frozen=True)
 class Claim:
+    """One labelled claim, with the review around it and where it came from."""
+
     text: str
     review: str
     review_offset: int
@@ -57,8 +62,10 @@ class Claim:
     also: tuple[tuple[str, str], ...] | None = None
 
     def covers(self) -> dict[str, str] | None:
-        """Every subject the claim is known to cover, with its polarity. None where only the
-        first is known."""
+        """Every subject the claim is known to cover, with its polarity.
+
+        None where only the first is known.
+        """
         if self.also is None:
             return None
         return {self.subject: self.polarity, **dict(self.also)}
@@ -71,7 +78,7 @@ class Claim:
         their own uncertainty. A truthful "low" is worth more than a confident wrong answer,
         so it is worth less in the loss rather than being dropped.
         """
-        return CONFIDENCE_WEIGHT.get(self.confidence, 0.7)
+        return CONFIDENCE_WEIGHT.get(self.confidence, DEFAULT_WEIGHT)
 
 
 def _offset_in(review: str, claim: str, exported: int | None) -> int:
@@ -88,8 +95,8 @@ def _offset_in(review: str, claim: str, exported: int | None) -> int:
 
 def load(path: str | Path) -> list[Claim]:
     """Reads the JSONL that `steamgauge export-training` writes."""
-    claims = []
-    with open(path, encoding="utf-8") as handle:
+    claims: list[Claim] = []
+    with Path(path).open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
@@ -123,7 +130,8 @@ def load(path: str | Path) -> list[Claim]:
                 )
             )
     if not claims:
-        raise SystemExit(f"{path} holds no labels; run `steamgauge export-training` first")
+        msg = f"{path} holds no labels; run `steamgauge export-training` first"
+        raise SystemExit(msg)
     return claims
 
 
@@ -138,10 +146,11 @@ def headset_told(claims: list[Claim]) -> bool:
     if len(missing) == len({claim.app_id for claim in claims}):
         return False
     if missing:
-        raise SystemExit(
+        msg = (
             f"the export says whether a game is played in a headset for some games and not for "
             f"{', '.join(map(str, missing))}; `steamgauge store-facts` and export again"
         )
+        raise SystemExit(msg)
     return True
 
 
@@ -169,8 +178,8 @@ def load_pool(path: str | Path) -> list[Claim]:
     tokenisation are the code the labelled claims go through. A blank subject never reaches a
     loss: what a pool row is scored against is a teacher's answer, carried beside it.
     """
-    claims = []
-    with open(path, encoding="utf-8") as handle:
+    claims: list[Claim] = []
+    with Path(path).open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
@@ -195,7 +204,8 @@ def load_pool(path: str | Path) -> list[Claim]:
                 )
             )
     if not claims:
-        raise SystemExit(f"{path} holds no claims; run `steamgauge export-pool` first")
+        msg = f"{path} holds no claims; run `steamgauge export-pool` first"
+        raise SystemExit(msg)
     return claims
 
 
@@ -214,11 +224,21 @@ def fingerprint(claims: list[Claim]) -> str:
     return digest.hexdigest()[:16]
 
 
+@dataclass(frozen=True)
+class Shares:
+    """The fractions of games (or reviews) held out for the test set and for validation."""
+
+    test: float = 0.2
+    validation: float = 0.15
+
+
+DEFAULT_SHARES = Shares()
+
+
 def split_by_game(
     claims: list[Claim],
     seed: int = 1,
-    test_share: float = 0.2,
-    validation_share: float = 0.15,
+    shares: Shares = DEFAULT_SHARES,
     fold: int | None = None,
     folds: int = 5,
 ) -> tuple[list[Claim], list[Claim], list[Claim]]:
@@ -239,8 +259,8 @@ def split_by_game(
     games stay held out in every fold.
     """
     games = sorted({claim.app_id for claim in claims})
-    if len(games) < 3:
-        return _split_by_review(claims, seed, test_share, validation_share)
+    if len(games) < MIN_GAMES_TO_SPLIT:
+        return _split_by_review(claims, seed, shares)
 
     # Each game's role comes from its own id and the seed, never from which other games are
     # labelled. Shuffling the list of games would reassign every role each time a game was
@@ -254,9 +274,10 @@ def split_by_game(
     # expectation. A set this small can land short, and the floor below keeps it from landing
     # at nothing, which is the one outcome worse than an uneven split.
     placed = {app_id: place(app_id, seed) for app_id in games}
+    test_share = shares.test
     test_games = {app_id for app_id, at in placed.items() if at < test_share}
     validation_games = {
-        app_id for app_id, at in placed.items() if test_share <= at < test_share + validation_share
+        app_id for app_id, at in placed.items() if test_share <= at < test_share + shares.validation
     }
     ranked = sorted(games, key=lambda app_id: placed[app_id])
     if not test_games:
@@ -272,7 +293,9 @@ def split_by_game(
         assigned = folds_over([app_id for app_id in games if app_id not in test_games], seed, folds)
         validation_games = {app_id for app_id, at in assigned.items() if at == fold}
 
-    train, validation, test = [], [], []
+    train: list[Claim] = []
+    validation: list[Claim] = []
+    test: list[Claim] = []
     for claim in claims:
         if claim.app_id in test_games:
             test.append(claim)
@@ -313,18 +336,20 @@ def place(app_id: int, seed: int) -> float:
 
 
 def _split_by_review(
-    claims: list[Claim], seed: int, test_share: float, validation_share: float
+    claims: list[Claim], seed: int, shares: Shares
 ) -> tuple[list[Claim], list[Claim], list[Claim]]:
     reviews = sorted({(claim.app_id, claim.review_id) for claim in claims})
     shuffled = list(reviews)
-    random.Random(seed).shuffle(shuffled)
+    random.Random(seed).shuffle(shuffled)  # noqa: S311 a reproducible split, not a secret
 
-    held = max(1, round(len(shuffled) * test_share))
-    checked = max(1, round(len(shuffled) * validation_share))
+    held = max(1, round(len(shuffled) * shares.test))
+    checked = max(1, round(len(shuffled) * shares.validation))
     test_reviews = set(shuffled[:held])
     validation_reviews = set(shuffled[held : held + checked])
 
-    train, validation, test = [], [], []
+    train: list[Claim] = []
+    validation: list[Claim] = []
+    test: list[Claim] = []
     for claim in claims:
         key = (claim.app_id, claim.review_id)
         if key in test_reviews:
@@ -337,10 +362,12 @@ def _split_by_review(
 
 
 def subjects_in(claims: list[Claim]) -> list[str]:
+    """The distinct subjects the claims carry, sorted."""
     return sorted({claim.subject for claim in claims})
 
 
 def distribution(claims: list[Claim]) -> dict[str, int]:
+    """How many claims each subject has, commonest first."""
     counts: dict[str, int] = {}
     for claim in claims:
         counts[claim.subject] = counts.get(claim.subject, 0) + 1
@@ -348,6 +375,7 @@ def distribution(claims: list[Claim]) -> dict[str, int]:
 
 
 def summarise(claims: list[Claim]) -> str:
+    """A few lines on the claims' games, languages, contested labels and mis-splits."""
     languages: dict[str, int] = {}
     for claim in claims:
         languages[claim.language] = languages.get(claim.language, 0) + 1

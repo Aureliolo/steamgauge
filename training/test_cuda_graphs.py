@@ -7,15 +7,23 @@ python -m pytest test_cuda_graphs.py
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 import torch
 from transformers import BertConfig, BertModel
 
 from train import ClaimReader, Passes
+from typed_calls import manual_seed, save_pretrained
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+type Claim = tuple[torch.Tensor, torch.Tensor]
 
 
 @pytest.fixture
-def backbone(tmp_path):
+def backbone(tmp_path: Path) -> str:
     """An encoder small enough to build without a download."""
     config = BertConfig(
         vocab_size=64,
@@ -25,20 +33,22 @@ def backbone(tmp_path):
         num_attention_heads=4,
         max_position_embeddings=64,
     )
-    torch.manual_seed(0)
-    BertModel(config).save_pretrained(tmp_path)
+    manual_seed(0)
+    save_pretrained(BertModel(config), tmp_path)
     return str(tmp_path)
 
 
 @pytest.fixture
-def claims():
+def claims() -> Claim:
     ids = torch.randint(2, 64, (3, 12))
     lengths = torch.tensor([12, 7, 3])
     mask = (torch.arange(12)[None, :] < lengths[:, None]).long()
     return ids * mask, mask
 
 
-def test_the_square_mask_reads_every_claim_as_the_flat_one_does(backbone, claims):
+def test_the_square_mask_reads_every_claim_as_the_flat_one_does(
+    backbone: str, claims: Claim
+) -> None:
     ids, mask = claims
     model = ClaimReader(backbone, 4, aspects=True).eval()
     flat = model(ids, mask)
@@ -48,7 +58,7 @@ def test_the_square_mask_reads_every_claim_as_the_flat_one_does(backbone, claims
         assert torch.allclose(a, b, atol=1e-5)
 
 
-def test_the_square_mask_holds_on_a_batch_with_no_padding(backbone, claims):
+def test_the_square_mask_holds_on_a_batch_with_no_padding(backbone: str, claims: Claim) -> None:
     ids, _ = claims
     mask = torch.ones_like(ids)
     model = ClaimReader(backbone, 4).eval()
@@ -58,7 +68,7 @@ def test_the_square_mask_holds_on_a_batch_with_no_padding(backbone, claims):
         assert torch.allclose(a, b, atol=1e-5)
 
 
-def test_a_pass_returns_what_the_loss_reads_and_nothing_else(backbone, claims):
+def test_a_pass_returns_what_the_loss_reads_and_nothing_else(backbone: str, claims: Claim) -> None:
     ids, mask = claims
     model = ClaimReader(backbone, 4, aspects=True).eval()
     subject, polarity, _, aspects = model(ids, mask)
@@ -74,7 +84,7 @@ def test_a_pass_returns_what_the_loss_reads_and_nothing_else(backbone, claims):
         assert torch.equal(a, b)
 
 
-def test_a_teacher_pass_reads_no_aspects(backbone, claims):
+def test_a_teacher_pass_reads_no_aspects(backbone: str, claims: Claim) -> None:
     ids, mask = claims
     model = ClaimReader(backbone, 4, aspects=True).eval()
     assert len(Passes(model, twice=False, aspects=False)(ids, mask)) == 2

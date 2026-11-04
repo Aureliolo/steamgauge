@@ -3,7 +3,7 @@
 //! offered different things. A client reaches it through `steamgauge mcp` (see `crate::mcp`),
 //! and only while the window is open: closing the window closes the app, clients or not.
 
-use std::{future::Future, io, path::Path, pin::Pin, sync::LazyLock};
+use std::{io, path::Path, pin::Pin, sync::LazyLock};
 
 use base64::Engine as _;
 use interprocess::local_socket::{
@@ -12,7 +12,7 @@ use interprocess::local_socket::{
     traits::tokio::Listener as _,
 };
 use rmcp::{
-    ErrorData, RoleServer, ServerHandler, ServiceExt,
+    ErrorData, RoleServer, ServerHandler, ServiceExt as _,
     handler::server::common::schema_for_type,
     model::{
         CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -24,7 +24,7 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use super::{
     LastSearch, Models, cockpit, data_export, game_updates, newer, settings, since, storage, text,
@@ -136,6 +136,10 @@ async fn off_thread_trying<R: Send + 'static>(
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[expect(
+    clippy::empty_structs_with_brackets,
+    reason = "a tool without arguments is sent the object {}, which a unit struct would not accept"
+)]
 struct Nothing {}
 
 #[derive(Deserialize, JsonSchema)]
@@ -506,7 +510,7 @@ impl Show {
 }
 
 /// The picture's type, from its first bytes: the store serves JPEG, and anything else is said.
-fn picture_type(bytes: &[u8]) -> &'static str {
+const fn picture_type(bytes: &[u8]) -> &'static str {
     match bytes {
         [0x89, b'P', b'N', b'G', ..] => "image/png",
         [
@@ -584,7 +588,8 @@ fn entries() -> Vec<Entry> {
             "A read game's figures: every subject, how often players raise, praise and criticise it, and the terms that stand out. Where the game is prepared for search by meaning, also the writer's paragraph and the themes said most widely on each side. Monthly figures, kinds of reviewer and languages come when asked for.",
             |app, asked: ReadingAsked| {
                 off_thread_trying(move || {
-                    super::reading(app, asked.app_id).and_then(|found| as_asked(&found, &asked))
+                    let found = super::reading(app, asked.app_id)?;
+                    as_asked(&found, &asked)
                 })
             },
         ),
@@ -957,7 +962,7 @@ pub(super) struct Server {
 }
 
 impl Server {
-    pub(super) fn new(app: AppHandle) -> Self {
+    pub(super) const fn new(app: AppHandle) -> Self {
         Self { app }
     }
 }
@@ -1052,7 +1057,7 @@ impl ServerHandler for Server {
 }
 
 /// Brings the window forward.
-pub fn bring_forward(app: &AppHandle) {
+pub(super) fn bring_forward(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
@@ -1061,7 +1066,7 @@ pub fn bring_forward(app: &AppHandle) {
 }
 
 /// Shows the window and starts the server, which lasts as long as the app does.
-pub fn start(app: &AppHandle) {
+pub(super) fn start(app: &AppHandle) {
     bring_forward(app);
     let listening = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -1096,7 +1101,7 @@ fn bind(_local: &Path) -> io::Result<(Listener, String)> {
 /// A socket file in a folder only this user may enter.
 #[cfg(unix)]
 fn bind(local: &Path) -> io::Result<(Listener, String)> {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::PermissionsExt as _;
     let folder = local.join("mcp");
     std::fs::create_dir_all(&folder)?;
     std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o700))?;

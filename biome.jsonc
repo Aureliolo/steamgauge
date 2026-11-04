@@ -1,0 +1,102 @@
+{
+  "$schema": "./tools/node_modules/@biomejs/biome/configuration_schema.json",
+  "assist": {
+    "actions": {
+      // Key and property sorting would reorder JSON written by tools and CSS declarations whose
+      // order is the cascade. Import ordering stays on.
+      "preset": "recommended"
+    },
+    "enabled": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.css",
+      "**/*.json",
+      // Agent worktrees, each a whole copy of this repository with its own biome.jsonc.
+      "!!**/.claude",
+      "!**/node_modules",
+      "!**/target",
+      // Written by Python and Rust, never by hand. Data, not configuration.
+      "!reference",
+      "!training/runs",
+      // Written by npm in its own format.
+      "!tools/package-lock.json",
+      // A release's provenance, byte for byte as GitHub served it: its signature covers it.
+      "!crates/steamgauge-core/src/self_update/provenance-*.json",
+      // Written by export_writer.py, which `writer.rs` is held to token for token.
+      "!crates/steamgauge-core/src/writer-reference.json",
+      // Steam's own reply, kept as the test fixture it serves.
+      "!crates/steamgauge-core/src/news-*.json",
+      // Written by the release workflow for Scoop.
+      "!bucket"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": { "quoteStyle": "single", "semicolons": "always" }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "complexity": {
+        "noExcessiveLinesPerFunction": "off" // a line count says nothing about cohesion
+      },
+      "correctness": {
+        "useQwikValidLexicalScope": "off", // a Qwik rule, and nothing here uses Qwik
+        // The release tests use node:test, and this rule reads its describe calls as Playwright's.
+        "usePlaywrightValidDescribeCallback": "off"
+      },
+      "preset": "all",
+      "security": {
+        // Its entropy guess fires on markup, selectors and paths, and no file holds a credential.
+        "noSecrets": "off"
+      },
+      "style": {
+        "noContinue": "off", // an early continue is the guard clause of a loop
+        "noExcessiveLinesPerFile": "off", // a line count says nothing about cohesion
+        "noHexColors": "off", // a stylesheet's custom properties are where colours are written
+        "noMagicNumbers": "off", // pixel sizes, thresholds and timings sit beside what they size
+        "noTernary": "off", // bans a core expression, and the code reads better with it
+        "useNamingConvention": {
+          "level": "error",
+          "options": {
+            "conventions": [
+              {
+                "formats": ["camelCase", "snake_case", "CONSTANT_CASE"],
+                // Object keys mirror the snake_case fields the Rust core serialises.
+                "selector": { "kind": "objectLiteralProperty" }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["tools/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noNodejsModules": "off" // these run on node
+          },
+          "style": {
+            "noProcessEnv": "off" // the checks read their settings from the environment
+          },
+          "suspicious": {
+            "noConsole": "off" // the checks report by printing
+          }
+        }
+      }
+    }
+  ],
+  "vcs": { "clientKind": "git", "enabled": true, "useIgnoreFile": true }
+}

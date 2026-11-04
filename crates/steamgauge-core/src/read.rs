@@ -53,35 +53,35 @@ pub(crate) trait Model {
     type Encoder: Send + Sync;
     type Prepared: Send;
 
-    fn encoder(&self) -> Arc<Self::Encoder>;
+    fn shared_encoder(&self) -> Arc<Self::Encoder>;
     fn prepare(encoder: &Self::Encoder, asked: &[Asked<'_>]) -> Result<Self::Prepared>;
-    fn run(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>>;
-    fn provenance(&self) -> &Provenance;
-    fn device(&self) -> &str;
+    fn run_prepared(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>>;
+    fn model_provenance(&self) -> &Provenance;
+    fn model_device(&self) -> &str;
 }
 
 impl Model for ClaimReader {
     type Encoder = crate::reader::Encoder;
     type Prepared = crate::reader::Prepared;
 
-    fn encoder(&self) -> Arc<Self::Encoder> {
-        Self::encoder(self)
+    fn shared_encoder(&self) -> Arc<Self::Encoder> {
+        self.encoder()
     }
 
     fn prepare(encoder: &Self::Encoder, asked: &[Asked<'_>]) -> Result<Self::Prepared> {
         encoder.prepare(asked)
     }
 
-    fn run(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>> {
-        Self::run(self, prepared)
+    fn run_prepared(&mut self, prepared: Self::Prepared) -> Result<Vec<Reading>> {
+        self.run(prepared)
     }
 
-    fn provenance(&self) -> &Provenance {
-        Self::provenance(self)
+    fn model_provenance(&self) -> &Provenance {
+        self.provenance()
     }
 
-    fn device(&self) -> &str {
-        Self::device(self)
+    fn model_device(&self) -> &str {
+        self.device()
     }
 }
 
@@ -430,7 +430,9 @@ impl ReadReport {
     pub fn load(snapshot: &Path) -> Result<Self> {
         let path = snapshot.join("reading.json");
         Ok(serde_json::from_slice(&std::fs::read(&path).map_err(
-            |_| Error::NoClassifications { path: path.clone() },
+            |error| {
+                Error::unless_missing(error, || Error::NoClassifications { path: path.clone() })
+            },
         )?)?)
     }
 
@@ -536,14 +538,14 @@ fn read_with(
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
 
-    let context = model.provenance().context;
+    let context = model.model_provenance().context;
     // A reader told whether a game is played in a headset has to be told for every game: read
     // without the fact, a headset game's claims are asked as a screen game's, and every answer
     // still looks like one.
-    let headset_only = if model.provenance().headset_marker {
+    let headset_only = if model.model_provenance().headset_marker {
         crate::facts::Facts::load(&options.out_dir.join(format!("appid={app_id}")))
             .ok_or_else(|| {
-                crate::Error::Refused(format!(
+                Error::Refused(format!(
                     "app {app_id}: this reader is told whether a game is played only in a \
                      headset, and nobody has asked the store about this one; \
                      `steamgauge store-facts {app_id}` does"
@@ -559,7 +561,7 @@ fn read_with(
     let kept = if options.afresh {
         None
     } else {
-        kept_answers(&snapshot, model.provenance(), options.depth, context)
+        kept_answers(&snapshot, model.model_provenance(), options.depth, context)
     };
     let (counted, (forward_passes, kept)) = match read_and_count(
         model,
@@ -585,15 +587,15 @@ fn read_with(
         elapsed: started.elapsed(),
         forward_passes,
         kept,
-        device: model.device().to_owned(),
-        threshold: model.provenance().threshold,
-        model: model.provenance().trained_from.clone(),
-        trained_on: model.provenance().data_fingerprint.clone(),
-        read_with: model.provenance().run_id.clone(),
-        reader: model.provenance().name.clone(),
-        read_by_rule: model.provenance().lines_fingerprint.clone(),
-        usual_declined: model.provenance().usual_declined,
-        held_out: model.provenance().held_out,
+        device: model.model_device().to_owned(),
+        threshold: model.model_provenance().threshold,
+        model: model.model_provenance().trained_from.clone(),
+        trained_on: model.model_provenance().data_fingerprint.clone(),
+        read_with: model.model_provenance().run_id.clone(),
+        reader: model.model_provenance().name.clone(),
+        read_by_rule: model.model_provenance().lines_fingerprint.clone(),
+        usual_declined: model.model_provenance().usual_declined,
+        held_out: model.model_provenance().held_out,
         context,
         captured_unix: captured.changed_unix(),
         ..counted
@@ -622,18 +624,19 @@ pub fn recount_corpus(
     out_dir: &Path,
     app_id: u32,
     top_helpful: usize,
-    provenance: &crate::reader::Provenance,
+    provenance: &Provenance,
     stop: &AtomicBool,
     mut on_progress: impl FnMut(ReadProgress),
 ) -> Result<ReadReport> {
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let earlier: ReadReport =
-        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
-            Error::NoClassifications {
+    let earlier: ReadReport = serde_json::from_slice(
+        &std::fs::read(snapshot.join("reading.json")).map_err(|error| {
+            Error::unless_missing(error, || Error::NoClassifications {
                 path: snapshot.join("reading.json"),
-            }
-        })?)?;
+            })
+        })?,
+    )?;
     if earlier.read_by_rule != provenance.lines_fingerprint {
         return Err(Error::Refused(format!(
             "the readings of {app_id} were answered under the lines {} and the reader named \
@@ -681,7 +684,7 @@ pub fn recount_corpus(
     .and_then(|counted| {
         // A claim the replay found no answer for is one this build cuts differently from
         // the build that read it, and the counts would quietly be about another corpus.
-        if counted.claims != earlier.claims || counted.unclassified != earlier.unclassified_claims {
+        if (counted.claims, counted.unclassified) != (earlier.claims, earlier.unclassified_claims) {
             return Err(Error::Refused(format!(
                 "this build takes {app_id} apart into {} claims, {} of them unanswered, \
                      where the reading counted {} and {}; the readings no longer name this \
@@ -742,7 +745,7 @@ fn kept_for<'a>(
 /// was. None where the reading is another reader's, and then every claim is read.
 fn kept_answers(
     snapshot: &Path,
-    provenance: &crate::reader::Provenance,
+    provenance: &Provenance,
     depth: Depth,
     context: bool,
 ) -> Option<Kept> {
@@ -786,7 +789,7 @@ fn kept_answers(
 /// Fails if the reading, its readings or the capture cannot be read, or if a reading names a
 /// review the capture did not hold when it was read. The readings are then left as they were.
 pub(crate) fn key_readings(snapshot: &Path) -> Result<bool> {
-    use arrow::array::{Array, StringArray};
+    use arrow::array::{Array as _, StringArray};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
     let path = snapshot.join("readings.parquet");
@@ -970,7 +973,7 @@ fn recount_rows(
 /// and is where most of a corpus's repetition is: "Great game." is a whole review thousands of
 /// times over.
 fn key(context: bool, review: &[u8; 32], index: usize, claim: &str, language: &str) -> [u8; 32] {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
 
     let mut hasher = Sha256::new();
     if context {
@@ -1183,7 +1186,7 @@ fn read_and_count(
     drain(model, options, &mut window, &mut answers)?;
     settle(&mut pending, &mut counting, context, &answers, on_progress)?;
     Ok((
-        counting.finish(app_id, options, model.provenance())?,
+        counting.finish(app_id, options, model.model_provenance())?,
         (asked, reused),
     ))
 }
@@ -1232,7 +1235,7 @@ fn drain<M: Model>(
     }
     window.sort_unstable_by_key(|queued| queued.claim.len() + queued.review.len());
     let size = options.batch_size.max(1);
-    let encoder = model.encoder();
+    let encoder = model.shared_encoder();
     let queued: &[Queued] = window;
 
     std::thread::scope(|scope| -> Result<()> {
@@ -1249,12 +1252,12 @@ fn drain<M: Model>(
         });
 
         for chunk in queued.chunks(size) {
-            let prepared = receive
-                .recv()
-                .map_err(|_| Error::Tokenizer("the batch being tokenised was lost".to_owned()))??;
+            let prepared = receive.recv().map_err(|error| {
+                Error::Tokenizer(format!("the batch being tokenised was lost: {error}"))
+            })??;
             // A run returns once the card has answered, so its time is the card's time.
-            let started = std::time::Instant::now();
-            let readings = model.run(prepared)?;
+            let started = Instant::now();
+            let readings = model.run_prepared(prepared)?;
             std::thread::sleep(rest_for(started.elapsed(), options.card_share));
             for (queued, reading) in chunk.iter().zip(readings) {
                 answers.insert(queued.key, reading);
@@ -1270,9 +1273,9 @@ fn drain<M: Model>(
 /// How long to leave the card idle after keeping it busy this long, for a read to take this
 /// share of its time. The card cannot be asked to favour anyone else, so a read that shares it
 /// does so by resting.
-pub(crate) fn rest_for(busy: std::time::Duration, share: f64) -> std::time::Duration {
+pub(crate) fn rest_for(busy: Duration, share: f64) -> Duration {
     if share >= 1.0 || share <= 0.0 {
-        return std::time::Duration::ZERO;
+        return Duration::ZERO;
     }
     busy.mul_f64((1.0 - share) / share)
 }
@@ -1532,7 +1535,7 @@ impl Counting {
         mut self,
         app_id: u32,
         options: &ReadOptions,
-        provenance: &crate::reader::Provenance,
+        provenance: &Provenance,
     ) -> Result<ReadReport> {
         // ArrowWriter writes nothing for a batch of no rows.
         let batch = self.rows.take(&self.schema)?;
@@ -1683,14 +1686,16 @@ fn walk_readings(
     use arrow::array::{Array, Float32Array, StringArray, UInt32Array, UInt64Array};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
-    let file = std::fs::File::open(path).map_err(|_| crate::Error::NoClassifications {
-        path: path.to_path_buf(),
+    let file = std::fs::File::open(path).map_err(|error| {
+        Error::unless_missing(error, || Error::NoClassifications {
+            path: path.to_path_buf(),
+        })
     })?;
     let reader = ParquetRecordBatchReaderBuilder::try_new(file)?
         .with_batch_size(8192)
         .build()?;
 
-    let another_build = |field: &'static str| crate::Error::StaleClassifications {
+    let another_build = |field: &'static str| Error::StaleClassifications {
         path: path.to_path_buf(),
         field,
     };
@@ -1767,7 +1772,7 @@ struct ReadingRows {
 }
 
 impl ReadingRows {
-    fn len(&self) -> usize {
+    const fn len(&self) -> usize {
         self.ids.len()
     }
 
@@ -1915,7 +1920,7 @@ pub(crate) mod tests {
         type Encoder = ();
         type Prepared = Vec<(usize, Reading)>;
 
-        fn encoder(&self) -> Arc<()> {
+        fn shared_encoder(&self) -> Arc<()> {
             Arc::new(())
         }
 
@@ -1926,7 +1931,7 @@ pub(crate) mod tests {
                 .collect())
         }
 
-        fn run(&mut self, prepared: Vec<(usize, Reading)>) -> Result<Vec<Reading>> {
+        fn run_prepared(&mut self, prepared: Vec<(usize, Reading)>) -> Result<Vec<Reading>> {
             self.runs += 1;
             self.asked += prepared.len();
             Ok(prepared
@@ -1938,11 +1943,11 @@ pub(crate) mod tests {
                 .collect())
         }
 
-        fn provenance(&self) -> &Provenance {
+        fn model_provenance(&self) -> &Provenance {
             &self.provenance
         }
 
-        fn device(&self) -> &'static str {
+        fn model_device(&self) -> &'static str {
             "table"
         }
     }
@@ -2835,7 +2840,7 @@ pub(crate) mod tests {
                 |_| {},
             )
         };
-        assert!(recount(&read, &model.provenance).is_ok());
+        recount(&read, &model.provenance).unwrap();
 
         let mut redrawn = model.provenance.clone();
         redrawn.lines_fingerprint = "lines-2".to_owned();
@@ -2849,12 +2854,12 @@ pub(crate) mod tests {
             claims: read.claims + 1,
             ..read.clone()
         };
-        assert!(recount(&more_claims, &model.provenance).is_err());
+        recount(&more_claims, &model.provenance).unwrap_err();
         let fewer_declined = ReadReport {
             unclassified_claims: read.unclassified_claims - 1,
-            ..read.clone()
+            ..read
         };
-        assert!(recount(&fewer_declined, &model.provenance).is_err());
+        recount(&fewer_declined, &model.provenance).unwrap_err();
     }
 
     #[test]
@@ -3032,17 +3037,17 @@ pub(crate) mod tests {
 
     #[test]
     fn a_read_given_part_of_the_card_rests_in_proportion_to_its_work() {
-        let busy = std::time::Duration::from_millis(400);
+        let busy = Duration::from_millis(400);
         assert_eq!(
             rest_for(busy, 0.5),
             busy,
             "half the card rests as long as it worked"
         );
         assert_eq!(rest_for(busy, 0.25), busy * 3);
-        assert_eq!(rest_for(busy, 1.0), std::time::Duration::ZERO);
+        assert_eq!(rest_for(busy, 1.0), Duration::ZERO);
         assert_eq!(
             rest_for(busy, 0.0),
-            std::time::Duration::ZERO,
+            Duration::ZERO,
             "a share of nothing is refused where it is given, never slept on forever"
         );
     }
@@ -3322,11 +3327,11 @@ pub(crate) mod tests {
     fn neither_depth_invents_a_point_from_nothing() {
         assert_eq!(
             Depth::Shallow.claims_of("   \n  "),
-            [] as [std::borrow::Cow<'_, str>; 0]
+            <[std::borrow::Cow<'_, str>; 0]>::default()
         );
         assert_eq!(
             Depth::Deep.claims_of("   \n  "),
-            [] as [std::borrow::Cow<'_, str>; 0]
+            <[std::borrow::Cow<'_, str>; 0]>::default()
         );
     }
 

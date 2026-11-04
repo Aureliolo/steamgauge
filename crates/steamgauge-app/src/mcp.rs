@@ -12,10 +12,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use interprocess::local_socket::{Name, tokio::Stream, traits::tokio::Stream as _};
 use rmcp::{
-    ErrorData, RoleClient, RoleServer, ServerHandler, ServiceExt,
+    ErrorData, RoleClient, RoleServer, ServerHandler, ServiceExt as _,
     model::{
         CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
         GetPromptRequestParams, GetPromptResponse, ListPromptsResult, ListToolsResult,
@@ -28,15 +28,15 @@ use tokio::sync::Mutex;
 use crate::update::IDENTIFIER;
 
 /// What a call answers while the app is closed.
-pub const CLOSED: &str = "SteamGauge is not open, and it works only while its window is. Ask the \
+pub(crate) const CLOSED: &str = "SteamGauge is not open, and it works only while its window is. Ask the \
 person to open SteamGauge, then call this again.";
 
 /// What a call answers when the app closed before it replied.
-pub const CLOSED_DURING: &str = "SteamGauge closed before it answered, so whether this was done \
+pub(crate) const CLOSED_DURING: &str = "SteamGauge closed before it answered, so whether this was done \
 is unknown. Ask the person to open SteamGauge, and look before calling this again.";
 
 /// The app's local data folder, the one Tauri names from the same identifier.
-pub fn local_data() -> Result<PathBuf> {
+pub(crate) fn local_data() -> Result<PathBuf> {
     Ok(dirs::data_local_dir()
         .context("this system names no folder for the app's local data")?
         .join(IDENTIFIER))
@@ -45,21 +45,21 @@ pub fn local_data() -> Result<PathBuf> {
 /// Where the open app writes the name of its socket. The folder is the user's own, so the name
 /// is as private as the folder: a program another user runs can neither read it to reach the
 /// app nor take it first to stand in for the app.
-pub fn rendezvous(local: &Path) -> PathBuf {
+pub(crate) fn rendezvous(local: &Path) -> PathBuf {
     local.join("mcp-socket")
 }
 
 /// The name a socket is reached by, from what the rendezvous holds: a pipe's name on Windows, a
 /// file's path elsewhere.
-pub fn socket_name(written: &str) -> io::Result<Name<'static>> {
+pub(crate) fn socket_name(written: &str) -> io::Result<Name<'static>> {
     #[cfg(windows)]
     {
-        use interprocess::local_socket::{GenericNamespaced, ToNsName};
+        use interprocess::local_socket::{GenericNamespaced, ToNsName as _};
         written.to_owned().to_ns_name::<GenericNamespaced>()
     }
     #[cfg(not(windows))]
     {
-        use interprocess::local_socket::{GenericFilePath, ToFsName};
+        use interprocess::local_socket::{GenericFilePath, ToFsName as _};
         PathBuf::from(written).to_fs_name::<GenericFilePath>()
     }
 }
@@ -172,7 +172,7 @@ impl ServerHandler for Bridge {
 }
 
 /// `steamgauge mcp`: the client's server on standard input and output, until the client closes.
-pub async fn bridge() -> Result<()> {
+pub(crate) async fn bridge() -> Result<()> {
     let running = Bridge::new(local_data()?)
         .serve(rmcp::transport::stdio())
         .await
@@ -194,8 +194,8 @@ mod tests {
     #[test]
     fn a_written_name_reaches_a_socket() {
         #[cfg(windows)]
-        assert!(socket_name("steamgauge-mcp-0123456789abcdef").is_ok());
+        socket_name("steamgauge-mcp-0123456789abcdef").unwrap();
         #[cfg(not(windows))]
-        assert!(socket_name("/tmp/steamgauge-mcp/socket").is_ok());
+        socket_name("/tmp/steamgauge-mcp/socket").unwrap();
     }
 }

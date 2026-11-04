@@ -1,5 +1,6 @@
-"""Reads an unlabelled pool with an ensemble of saved runs and writes their averaged answers,
-as the soft targets a student learns from beside the labels.
+"""Read an unlabelled pool with an ensemble of saved runs and write their averaged answers.
+
+The averaged answers are the soft targets a student learns from beside the labels.
 
 Three seeds of one configuration disagree on a tenth of what they read, and the average of
 their distributions is a better reader than any one of them. What a student trained on that
@@ -16,6 +17,7 @@ import argparse
 import json
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -24,13 +26,21 @@ from transformers import AutoTokenizer
 
 import backbones
 import claimdata
-from train import HERE, ClaimReader, Pool
+from train import HERE, ClaimReader, Pool, Reading, TrunkLoad
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+# How many batches pass between progress lines.
+PROGRESS_EVERY = 200
 
 
 @torch.no_grad()
-def answers_of(run: Path, pool, device, batch_size):
-    """One saved run's distributions over the pool, in the pool's order."""
-    record = json.loads((run / "run.json").read_text(encoding="utf-8"))
+def answers_of(
+    run: Path, pool: list[claimdata.Claim], device: str, batch_size: int
+) -> tuple[dict[str, Any], npt.NDArray[np.float32], npt.NDArray[np.float32]]:
+    """Return one saved run's record and its distributions over the pool, in the pool's order."""
+    record: dict[str, Any] = json.loads((run / "run.json").read_text(encoding="utf-8"))
     tokenizer = backbones.load(AutoTokenizer, run / "tokenizer")
     tokenizer.padding_side = "right"
     model = ClaimReader(
@@ -39,7 +49,7 @@ def answers_of(run: Path, pool, device, batch_size):
         pooling=record.get("pooling", "mean"),
         # A teacher trained in bf16 is read in bf16: the same weights in fp32 are twice the
         # card, and a 4B one would not fit at all.
-        dtype=torch.bfloat16 if record.get("dtype") == "bfloat16" else None,
+        load=TrunkLoad(dtype=torch.bfloat16 if record.get("dtype") == "bfloat16" else None),
     )
     model.load_state_dict(torch.load(run / "model.bin", map_location="cpu", weights_only=True))
     model.to(device).eval()
@@ -48,17 +58,14 @@ def answers_of(run: Path, pool, device, batch_size):
             pool,
             tokenizer,
             record["subjects"],
-            record["max_length"],
-            record["context"],
-            record.get("mark", False),
-            record.get("prefix", False),
-            headset_marker=record.get("headset_marker", False),
+            Reading.recorded(record, record["max_length"]),
         ),
         batch_size=batch_size,
         shuffle=False,
         num_workers=0,
     )
-    subjects, polarities = [], []
+    subjects: list[torch.Tensor] = []
+    polarities: list[torch.Tensor] = []
     started = time.time()
     for done, batch in enumerate(loader, 1):
         with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
@@ -67,13 +74,14 @@ def answers_of(run: Path, pool, device, batch_size):
             )
         subjects.append(torch.softmax(subject.float(), dim=-1).cpu())
         polarities.append(torch.softmax(polarity.float(), dim=-1).cpu())
-        if done % 200 == 0:
+        if done % PROGRESS_EVERY == 0:
             rate = done * batch_size / (time.time() - started)
             print(f"  {run.name}: {done * batch_size} claims, {rate:.0f}/s", flush=True)
     return record, torch.cat(subjects).numpy(), torch.cat(polarities).numpy()
 
 
-def main():
+def main() -> None:
+    """Read the pool with each teacher run and save the averaged distributions."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--runs", nargs="+", required=True, help="run ids under runs/, each saved with --save"
@@ -88,13 +96,15 @@ def main():
     print(f"{len(pool)} claims in the pool, read by {len(args.runs)} teachers on {device}")
 
     subjects: list[str] = []
-    answered, judged = [], []
+    answered: list[npt.NDArray[np.float32]] = []
+    judged: list[npt.NDArray[np.float32]] = []
     for name in args.runs:
         record, subject, polarity = answers_of(HERE / "runs" / name, pool, device, args.batch_size)
         if not subjects:
             subjects = record["subjects"]
         elif record["subjects"] != subjects:
-            raise SystemExit(f"{name} answers over different subjects from {args.runs[0]}")
+            msg = f"{name} answers over different subjects from {args.runs[0]}"
+            raise SystemExit(msg)
         answered.append(subject)
         judged.append(polarity)
         print(f"{name}: read; sure of its answer at {subject.max(axis=1).mean():.3f} on average")

@@ -19,13 +19,31 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol, cast, overload
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from transformers import (
+        AutoConfig,
+        AutoModel,
+        AutoModelForCausalLM,
+        AutoModelForMaskedLM,
+        AutoTokenizer,
+        PretrainedConfig,
+        PreTrainedModel,
+        PreTrainedTokenizerBase,
+    )
+
+    type ModelLoader = type[AutoModel | AutoModelForMaskedLM | AutoModelForCausalLM]
 
 COMMIT = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass(frozen=True)
 class Backbone:
+    """One pinned model: the commit it is read at and where its code lives."""
+
     revision: str
     # True only where the configuration at `revision` carries an `auto_map`: the architecture is
     # not one transformers ships, and the repository's own Python is what builds it.
@@ -92,17 +110,32 @@ BACKBONES: dict[str, Backbone] = {
 DECIDED = frozenset({"revision", "trust_remote_code", "code_revision", "local_files_only"})
 
 
-class UnpinnedBackbone(ValueError):
-    pass
+class UnpinnedBackboneError(ValueError):
+    """A model was asked for by a name that has no pinned commit, or with a pin overridden."""
+
+
+class Loader[T](Protocol):
+    """A transformers class that builds an object with `from_pretrained`."""
+
+    def from_pretrained(self, name: str | Path, /, **options: object) -> T:
+        """Return the object stored under `name`."""
+        ...
+
+
+def _overridden_message(overridden: set[str] | frozenset[str], name: str | Path) -> str:
+    return (
+        f"{', '.join(sorted(overridden))} for {name!r} comes from training/backbones.py, "
+        "not from the caller"
+    )
 
 
 def pinning(name: str | Path) -> dict[str, Any]:
-    """The arguments `from_pretrained` is given for this name, or a refusal."""
+    """Return the arguments `from_pretrained` is given for this name, or refuse it."""
     if Path(name).is_dir():
         return {"trust_remote_code": False, "local_files_only": True}
     backbone = BACKBONES.get(str(name))
     if backbone is None:
-        raise UnpinnedBackbone(
+        msg = (
             f"{name!r} is neither a pinned backbone nor a directory. To use a model from the "
             "Hub, add it to BACKBONES in training/backbones.py with the full commit it is to be "
             "read at (huggingface_hub.HfApi().model_info(name).sha, or the snapshot under "
@@ -110,6 +143,7 @@ def pinning(name: str | Path) -> dict[str, Any]:
             "config.json at that commit has an auto_map, naming the repository and commit of "
             "the code it points to when that is another repository."
         )
+        raise UnpinnedBackboneError(msg)
     arguments: dict[str, Any] = {
         "revision": backbone.revision,
         "trust_remote_code": backbone.remote_code,
@@ -119,61 +153,77 @@ def pinning(name: str | Path) -> dict[str, Any]:
     return arguments
 
 
-def load(loader, name: str | Path, **options):
-    """`loader.from_pretrained(name, ...)` at the pinned commit, or from the directory named.
+@overload
+def load(
+    loader: type[AutoTokenizer], name: str | Path, **options: object
+) -> PreTrainedTokenizerBase: ...
+@overload
+def load(loader: type[AutoConfig], name: str | Path, **options: object) -> PretrainedConfig: ...
+@overload
+def load(loader: ModelLoader, name: str | Path, **options: object) -> PreTrainedModel: ...
+@overload
+def load[T](loader: Loader[T], name: str | Path, **options: object) -> T: ...
+def load(loader: object, name: str | Path, **options: object) -> object:
+    """Call `loader.from_pretrained(name, ...)` at the pinned commit or on the directory named.
 
     `loader` is any transformers class with `from_pretrained`: AutoTokenizer, AutoModel,
-    AutoModelForMaskedLM."""
+    AutoModelForMaskedLM. The overloads give the three families their transformers types,
+    because the library leaves `from_pretrained` unannotated.
+    """
     overridden = DECIDED & options.keys()
     if overridden:
-        raise UnpinnedBackbone(
-            f"{', '.join(sorted(overridden))} for {name!r} comes from training/backbones.py, "
-            "not from the caller"
-        )
-    loaded = loader.from_pretrained(name, **pinning(name), **options)
+        raise UnpinnedBackboneError(_overridden_message(overridden, name))
+    loaded = cast("Loader[object]", loader).from_pretrained(name, **pinning(name), **options)
     # A tokenizer of a class transformers ships keeps every keyword it was handed and writes it
     # into the `tokenizer_config.json` a run saves. Which commit the model's code came from is
     # not a property of the tokenizer.
-    if isinstance(getattr(loaded, "init_kwargs", None), dict):
-        loaded.init_kwargs.pop("code_revision", None)
+    init_kwargs: object = getattr(loaded, "init_kwargs", None)
+    if isinstance(init_kwargs, dict):
+        cast("dict[str, object]", init_kwargs).pop("code_revision", None)
     return loaded
 
 
 def snapshot(name: str) -> Path:
-    """The files of a pinned backbone at its commit, as a directory, for a tool that reads a
-    model's files itself rather than through transformers."""
+    """Return the files of a pinned backbone at its commit, as a directory.
+
+    For a tool that reads a model's files itself rather than through transformers.
+    """
     if Path(name).is_dir():
         return Path(name)
     backbone = BACKBONES.get(name)
     if backbone is None or backbone.remote_code:
         pinning(name)
-        raise UnpinnedBackbone(f"{name!r} runs code of its own; load it through `load`")
-    from huggingface_hub import snapshot_download
+        msg = f"{name!r} runs code of its own, so load it through `load`"
+        raise UnpinnedBackboneError(msg)
+    # Heavy import kept out of module start-up, which only the pin table needs.
+    import huggingface_hub  # noqa: PLC0415
 
-    return Path(snapshot_download(name, revision=backbone.revision))
+    # huggingface_hub annotates its proxies parameter with a bare Dict.
+    download = cast("Callable[..., str]", huggingface_hub.snapshot_download)  # pyright: ignore[reportUnknownMemberType]
+    return Path(download(name, revision=backbone.revision))
 
 
-def shape(name: str | Path, **options):
-    """The model `AutoModel` loads for this name, at the pinned commit, without its weights.
+def shape(name: str | Path, **options: object) -> PreTrainedModel:
+    """Return the model `AutoModel` loads for this name, at the pinned commit, without weights.
 
     For a caller about to hand it trained weights with `load_state_dict(..., assign=True)`: read
     in full, the pretrained weights were eight gigabytes for the 4B loaded only to be
     overwritten. The weights are left empty and the buffers are built for real, because a module
     computes some for itself and a checkpoint does not carry those.
     """
-    from accelerate import init_empty_weights
-    from transformers import AutoConfig, AutoModel
+    # Heavy imports kept out of module start-up, which only the pin table needs.
+    from accelerate import init_empty_weights  # noqa: PLC0415
+    from transformers import AutoConfig, AutoModel  # noqa: PLC0415
 
     overridden = DECIDED & options.keys()
     if overridden:
-        raise UnpinnedBackbone(
-            f"{', '.join(sorted(overridden))} for {name!r} comes from training/backbones.py, "
-            "not from the caller"
-        )
+        raise UnpinnedBackboneError(_overridden_message(overridden, name))
     # A backbone that runs its own code is built by `load`, weights and all: building it from a
     # config fetches its code by the name the config gives, and not at the commit pinned here.
     if pinning(name)["trust_remote_code"]:
         return load(AutoModel, name, **options)
     config = load(AutoConfig, name)
+    # transformers leaves from_config's parameters unannotated.
+    build = cast("Callable[..., PreTrainedModel]", AutoModel.from_config)  # pyright: ignore[reportUnknownMemberType]
     with init_empty_weights(include_buffers=False):
-        return AutoModel.from_config(config, **options)
+        return build(config, **options)

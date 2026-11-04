@@ -1,0 +1,13 @@
+[pytest]
+# A warning fails the test, except what the TorchScript exporter says about itself. export.py
+# keeps that exporter because a graph from torch.export fails inside the DirectML provider.
+filterwarnings = [
+  "error",
+  "ignore:You are using the legacy TorchScript-based ONNX export:DeprecationWarning",
+  "ignore:The feature will be removed:DeprecationWarning:torch.onnx",
+  # Tracing reads the encoder's shape checks as constants, which is what a fixed-shape graph
+  # wants.
+  "ignore::torch.jit.TracerWarning",
+  # The negative-index case it warns of never reaches the graph, whose indices are positions.
+  "ignore:Exporting aten:UserWarning:torch.onnx",
+]

@@ -22,17 +22,23 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 import claimdata
 from confidence import logits_of, pooled_folds, softmax
 
+if TYPE_CHECKING:
+    from confidence import FloatArray, IntArray
+
 HERE = Path(__file__).resolve().parent
 
+type Ranked = list[tuple[str, int]]
 
-def rates(truth, predicted, index):
-    """Precision, recall and support for one subject, from the counts themselves.
+
+def rates(truth: IntArray, predicted: IntArray, index: int) -> tuple[float, float, int, int]:
+    """Return precision, recall, support and the count predicted for one subject.
 
     Written out rather than imported so this runs without sklearn, which the training
     environment does not otherwise need.
@@ -45,21 +51,52 @@ def rates(truth, predicted, index):
     return float(precision), float(recall), int(is_it.sum()), int(said.sum())
 
 
-def confusions(truth, predicted, index, subjects, most=4):
-    """The subjects this one is mistaken for, and the ones mistaken for it."""
+def confusions(
+    truth: IntArray,
+    predicted: IntArray,
+    index: int,
+    subjects: list[str],
+    most: int = 4,
+) -> tuple[Ranked, Ranked]:
+    """Return the subjects this one is mistaken for, and the ones mistaken for it."""
     became = np.bincount(
         predicted[(truth == index) & (predicted != index)], minlength=len(subjects)
     )
     came_from = np.bincount(truth[(predicted == index) & (truth != index)], minlength=len(subjects))
 
-    def top(counts):
+    def top(counts: IntArray) -> Ranked:
         order = np.argsort(-counts)[:most]
         return [(subjects[at], int(counts[at])) for at in order if counts[at]]
 
     return top(became), top(came_from)
 
 
-def main():
+def _load(
+    args: argparse.Namespace,
+) -> tuple[FloatArray, IntArray, list[str], str, list[claimdata.Claim]]:
+    """The logits, truth, subjects, a description of the source and the claims behind them.
+
+    Fold files carry no claims, so the list is empty when `--oof` is given.
+    """
+    validation: list[claimdata.Claim] = []
+    if args.oof:
+        logits, truth, _, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
+        where = f"{len(truth):,} out-of-fold claims, from {args.oof}"
+    else:
+        model_dir = Path(args.model)
+        provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
+        subjects = provenance["subjects"]
+        claims = claimdata.load(args.data)
+        _, validation, _ = claimdata.split_by_game(claims, seed=args.split_seed)
+        validation = [claim for claim in validation if claim.subject in subjects]
+        logits = logits_of(model_dir, validation, provenance)
+        truth = np.array([subjects.index(claim.subject) for claim in validation])
+        where = f"{len(validation):,} validation claims, model {model_dir}"
+    return logits, truth, subjects, where, validation
+
+
+def main() -> None:
+    """Print each subject's confusions and, for one subject, its most confident mistakes."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
@@ -75,20 +112,7 @@ def main():
     parser.add_argument("--examples", type=int, default=12)
     args = parser.parse_args()
 
-    validation: list = []
-    if args.oof:
-        logits, truth, _, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
-        where = f"{len(truth):,} out-of-fold claims, from {args.oof}"
-    else:
-        model_dir = Path(args.model)
-        provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
-        subjects = provenance["subjects"]
-        claims = claimdata.load(args.data)
-        _, validation, _ = claimdata.split_by_game(claims, seed=args.split_seed)
-        validation = [claim for claim in validation if claim.subject in subjects]
-        logits = logits_of(model_dir, validation, provenance)
-        truth = np.array([subjects.index(claim.subject) for claim in validation])
-        where = f"{len(validation):,} validation claims, model {model_dir}"
+    logits, truth, subjects, where, validation = _load(args)
 
     probabilities = softmax(logits)
     predicted = probabilities.argmax(axis=1)
@@ -107,7 +131,8 @@ def main():
     if not args.subject:
         return
     if args.subject not in subjects:
-        raise SystemExit(f"{args.subject!r} is not a subject this reader knows")
+        msg = f"{args.subject!r} is not a subject this reader knows"
+        raise SystemExit(msg)
 
     index = subjects.index(args.subject)
     became, came_from = confusions(truth, predicted, index, subjects, most=8)
@@ -127,7 +152,7 @@ def main():
         print("    (the text is not in the fold files; re-run without --oof to read them)")
         return
     for at in wrong[np.argsort(-confidence[wrong])][: args.examples]:
-        claim = validation[at]
+        claim = validation[int(at)]
         text = " ".join(claim.text.split())[:96]
         print(f"    {confidence[at]:.2f}  labelled {subjects[truth[at]]:<14} {text}")
 

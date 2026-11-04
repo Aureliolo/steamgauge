@@ -9,10 +9,10 @@
 // landed would be refused anyway, and a refusal is clearer than a guess about which one won.
 //
 //   EXPECTED_HEAD_OID=<sha> node tools/release/commit-signed.mjs <branch> <message> <file>...
-import { readFileSync } from "node:fs";
-import process from "node:process";
+import { readFileSync } from 'node:fs';
+import process from 'node:process';
 
-import { fromEnvironment } from "./github.mjs";
+import { fromEnvironment } from './github.mjs';
 
 const QUERY = `
   mutation ($input: CreateCommitOnBranchInput!) {
@@ -25,26 +25,28 @@ const QUERY = `
 async function main() {
   const [branch, message, ...files] = process.argv.slice(2);
   const expectedHeadOid = process.env.EXPECTED_HEAD_OID;
-  if (!branch || !message || files.length === 0 || !expectedHeadOid) {
-    throw new Error("Usage: EXPECTED_HEAD_OID=<sha> node tools/release/commit-signed.mjs <branch> <message> <file>...");
+  if (!(branch && message) || files.length === 0 || !expectedHeadOid) {
+    throw new Error(
+      'Usage: EXPECTED_HEAD_OID=<sha> node tools/release/commit-signed.mjs <branch> <message> <file>...',
+    );
   }
   const { repository, token } = fromEnvironment();
-  const [headline, ...rest] = message.split("\n\n");
-  const body = rest.join("\n\n");
+  const [headline, ...rest] = message.split('\n\n');
+  const body = rest.join('\n\n');
 
   const input = {
-    branch: { repositoryNameWithOwner: repository, branchName: branch },
+    branch: { branchName: branch, repositoryNameWithOwner: repository },
     expectedHeadOid,
-    message: body ? { headline, body } : { headline },
     fileChanges: {
-      additions: files.map((path) => ({ path, contents: readFileSync(path).toString("base64") })),
+      additions: files.map((path) => ({ contents: readFileSync(path).toString('base64'), path })),
     },
+    message: body ? { body, headline } : { headline },
   };
 
-  const response = await fetch("https://api.github.com/graphql", {
-    method: "POST",
-    headers: { authorization: `bearer ${token}`, "content-type": "application/json" },
+  const response = await fetch('https://api.github.com/graphql', {
     body: JSON.stringify({ query: QUERY, variables: { input } }),
+    headers: { authorization: `bearer ${token}`, 'content-type': 'application/json' },
+    method: 'POST',
   });
   const payload = await response.json();
   if (!response.ok || payload.errors) {

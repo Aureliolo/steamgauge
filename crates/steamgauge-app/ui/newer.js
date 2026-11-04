@@ -4,12 +4,13 @@
    names can rise as it starts, then downloads the release's file for this system and installs it
    only once its build provenance verifies. The core says how far it has got. */
 
-import { invoke, listen, el, set, setWithCode, size, left, openOutside } from './common.js';
+import { el, invoke, left, listen, openOutside, set, setWithCode, size } from './common.js';
 
 let release = null;
 let update = { state: 'idle', why: null };
 
-const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
+const underWay = (state) =>
+  state === 'downloading' || state === 'verifying' || state === 'installing';
 
 function fraction(done, total) {
   return total === null || total <= 0 ? null : Math.min(1, done / total);
@@ -23,50 +24,66 @@ function drawProgress(done, total, step) {
   fill.classList.toggle('working', share === null);
   /* No total to divide by: a bar that invents a denominator is a bar that lies. */
   fill.style.width = share === null ? '100%' : `${(100 * share).toFixed(1)}%`;
-  if (share === null) track.removeAttribute('aria-valuenow');
-  else track.setAttribute('aria-valuenow', String(Math.round(100 * share)));
+  if (share === null) {
+    track.removeAttribute('aria-valuenow');
+  } else {
+    track.setAttribute('aria-valuenow', String(Math.round(100 * share)));
+  }
   set(el('newer-step'), step);
 }
 
 function downloaded(progress) {
-  const amount = progress.total === null ? size(progress.done) : `${size(progress.done)} of ${size(progress.total)}`;
+  const amount =
+    progress.total === null
+      ? size(progress.done)
+      : `${size(progress.done)} of ${size(progress.total)}`;
   const speed = progress.rate === null || progress.rate <= 0 ? '' : `${size(progress.rate)}/s`;
   const time = progress.left === null ? '' : left(progress.left);
   return [amount, speed, time].filter(Boolean).join(' · ');
 }
 
+/* Idle with a reason is a copy the window does not update: a Scoop install, a portable folder. */
+function whyLine(state) {
+  const said = update.why ? `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.` : '';
+  if (state === 'failed') {
+    return `Nothing was installed. ${said} Try again, or download it from the release page.`;
+  }
+  return state === 'idle' && update.why ? said : null;
+}
+
 function draw() {
   const notice = el('newer-version');
   notice.hidden = release === null;
-  if (release === null) return;
+  if (release === null) {
+    return;
+  }
   const name = `SteamGauge ${release.version}`;
-  const state = update.state;
+  const { state } = update;
   notice.classList.toggle('failed', state === 'failed');
 
   set(
     el('newer-says'),
     {
       downloading: `Downloading ${release.version}`,
-      verifying: `Checking ${release.version}`,
-      installing: `Installing ${release.version}`,
       failed: `The update to ${release.version} stopped`,
+      installing: `Installing ${release.version}`,
+      verifying: `Checking ${release.version}`,
     }[state] ?? `${name} is out.`,
   );
   set(el('newer-running'), `This computer has ${release.running}.`);
 
   el('newer-progress').hidden = !underWay(state);
-  if (state === 'downloading') drawProgress(update.done, update.total, downloaded(update));
-  if (state === 'verifying') drawProgress(0, null, "Checking SteamGauge's release workflow built it");
-  if (state === 'installing') drawProgress(0, null, `SteamGauge closes and opens again as ${release.version}`);
+  if (state === 'downloading') {
+    drawProgress(update.done, update.total, downloaded(update));
+  }
+  if (state === 'verifying') {
+    drawProgress(0, null, "Checking SteamGauge's release workflow built it");
+  }
+  if (state === 'installing') {
+    drawProgress(0, null, `SteamGauge closes and opens again as ${release.version}`);
+  }
 
-  /* Idle with a reason is a copy the window does not update: a Scoop install, a portable folder. */
-  const said = update.why ? `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.` : '';
-  const why =
-    state === 'failed'
-      ? `Nothing was installed. ${said} Try again, or download it from the release page.`
-      : state === 'idle' && update.why
-        ? said
-        : null;
+  const why = whyLine(state);
   el('newer-why').hidden = !why;
   setWithCode(el('newer-why'), why ?? '');
 
@@ -75,7 +92,10 @@ function draw() {
   set(el('newer-update'), state === 'failed' ? 'Try again' : 'Update now');
   el('newer-show').hidden = !(state === 'failed' && update.file);
   el('newer-open').hidden = underWay(state);
-  set(el('newer-open'), state === 'idle' && update.why ? 'Download it from its release page' : 'Open the release page');
+  set(
+    el('newer-open'),
+    state === 'idle' && update.why ? 'Download it from its release page' : 'Open the release page',
+  );
 }
 
 /* Asks the core for what it kept, which is also how turning the setting off takes the notice
@@ -96,17 +116,23 @@ export async function showNewer() {
 
 /* Update now, from the notice or the About page: both draw from the same events. */
 export function startUpdate() {
-  update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
+  update = { done: 0, left: null, rate: null, state: 'downloading', total: null };
   draw();
   invoke('update_now').catch(() => showNewer());
 }
 
 export function setUpNewer() {
   el('newer-open').addEventListener('click', () => {
-    if (release) openOutside(release.url);
+    if (release) {
+      openOutside(release.url);
+    }
   });
   el('newer-update').addEventListener('click', startUpdate);
-  el('newer-show').addEventListener('click', () => invoke('show_update_file').catch(() => {}));
+  el('newer-show').addEventListener('click', () =>
+    invoke('show_update_file').catch(() => {
+      // The file may already be gone, and there is nothing more to show then.
+    }),
+  );
   /* Asked again rather than drawn from the event, in case the setting was turned off while the
      question was out. */
   listen('newer-version', showNewer);

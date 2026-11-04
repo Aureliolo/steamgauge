@@ -2,24 +2,24 @@
    work that can be done to several games at once. */
 
 import {
-  invoke,
-  listen,
-  el,
-  set,
-  make,
-  button,
-  whole,
-  roundShare,
-  day,
-  nothing,
-  language,
-  verdictPill,
   art,
-  page,
+  button,
+  day,
+  el,
   go,
+  invoke,
+  language,
+  listen,
+  make,
+  nothing,
+  page,
+  roundShare,
+  set,
   showing,
+  verdictPill,
+  whole,
 } from './common.js';
-import { jobs, active, onWork } from './work.js';
+import { active, jobs, onWork } from './work.js';
 
 let rows = [];
 let groups = [];
@@ -29,18 +29,46 @@ let descending = false;
 const selected = new Set();
 
 const SORTS = {
-  name: (row) => row.name.toLowerCase(),
-  reviews: (row) => row.reviews,
-  recommended: (row) => row.recommended ?? -1,
-  new: (row) => row.new_on_steam ?? -1,
-  updated: (row) => row.updated ?? row.downloaded,
   lately: (row) => Math.abs(row.recent?.moves?.[0]?.shift?.z ?? 0),
+  name: (row) => row.name.toLowerCase(),
+  new: (row) => row.new_on_steam ?? -1,
+  recommended: (row) => row.recommended ?? -1,
+  reviews: (row) => row.reviews,
+  updated: (row) => row.updated ?? row.downloaded,
 };
 
 /* What a sort starts as: names from A, everything else from the most. */
 const STARTS_DESCENDING = new Set(['reviews', 'recommended', 'new', 'updated', 'lately']);
 
-export function setUpLibrary({ openGame, openFinder, compare }) {
+function readingOf(read) {
+  if (!read) {
+    return make('span', 'status faint', 'Not read');
+  }
+  return make(
+    'span',
+    read.current ? 'status' : 'status older',
+    read.current ? 'Read' : 'Older reader',
+    make('small', null, read.language ? `${language(read.language)} only` : 'Every language'),
+  );
+}
+
+function latelyOf(moved) {
+  if (!moved) {
+    return make('span', 'faint', nothing);
+  }
+  return make(
+    'span',
+    `lately ${moved.side} ${moved.shift.recent > moved.shift.before ? 'up' : 'down'}`,
+    `${moved.side === 'praise' ? 'Praise' : 'Complaints'}: ${moved.label.toLowerCase()}`,
+    make(
+      'small',
+      null,
+      `${roundShare.format(moved.shift.before)} → ${roundShare.format(moved.shift.recent)}`,
+    ),
+  );
+}
+
+function setUpLibrary({ openGame, openFinder, compare }) {
   page('library', el('library'), load);
 
   /* A table when its columns fit the frame, cards when they do not: measured as drawn, since the
@@ -48,14 +76,18 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   const table = el('library-rows').closest('table');
   const frame = table.parentElement;
   let fitted = 0;
-  function fit() {
-    if (frame.clientWidth === 0) return;
+  function fitLayout() {
+    if (frame.clientWidth === 0) {
+      return;
+    }
     fitted = frame.clientWidth;
     table.classList.remove('cards');
     table.classList.toggle('cards', frame.scrollWidth > frame.clientWidth + 1);
   }
   new ResizeObserver(() => {
-    if (frame.clientWidth !== fitted) fit();
+    if (frame.clientWidth !== fitted) {
+      fitLayout();
+    }
   }).observe(frame);
 
   el('library-add').addEventListener('click', openFinder);
@@ -69,20 +101,31 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   });
   el('select-all').addEventListener('change', () => {
     for (const row of visible()) {
-      if (el('select-all').checked) selected.add(row.app_id);
-      else selected.delete(row.app_id);
+      if (el('select-all').checked) {
+        selected.add(row.app_id);
+      } else {
+        selected.delete(row.app_id);
+      }
     }
     draw();
   });
 
-  el('selected-update').addEventListener('click', () => invoke('queue_updates', { appIds: [...selected] }));
-  el('selected-read').addEventListener('click', () => invoke('queue_reads', { appIds: [...selected] }));
+  el('selected-update').addEventListener('click', () =>
+    invoke('queue_updates', { appIds: [...selected] }),
+  );
+  el('selected-read').addEventListener('click', () =>
+    invoke('queue_reads', { appIds: [...selected] }),
+  );
   el('selected-compare').addEventListener('click', () => compare([...selected]));
-  el('selected-export').addEventListener('click', () => invoke('export_report', { appIds: [...selected] }));
+  el('selected-export').addEventListener('click', () =>
+    invoke('export_report', { appIds: [...selected] }),
+  );
   el('selected-group').addEventListener('change', async () => {
     const name = el('selected-group').value;
     el('selected-group').value = '';
-    if (!name) return;
+    if (!name) {
+      return;
+    }
     if (name === '\u0000new') {
       el('new-group').hidden = false;
       el('new-group-name').focus();
@@ -93,7 +136,9 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   el('new-group').addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = el('new-group-name').value.trim();
-    if (!name) return;
+    if (!name) {
+      return;
+    }
     el('new-group-name').value = '';
     el('new-group').hidden = true;
     await addToGroup(name);
@@ -113,14 +158,18 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   el('rename-group').addEventListener('submit', async (event) => {
     event.preventDefault();
     const name = el('rename-group-name').value.trim();
-    if (!name || name === group) return;
+    if (!name || name === group) {
+      return;
+    }
     const before = group;
     group = name;
     await saveGroups(groups.map((one) => (one.name === before ? { ...one, name } : one)));
   });
 
   listen('library', () => {
-    if (showing() === 'library') load();
+    if (showing() === 'library') {
+      load();
+    }
   });
   /* A row says what is being done to its game, so the table follows the board, redrawn only when
      what it says changes rather than on every tick of a download. */
@@ -130,9 +179,13 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
       .filter(active)
       .map((job) => `${job.task.app_id}:${job.state}:${job.step}`)
       .join('|');
-    if (saying === said) return;
+    if (saying === said) {
+      return;
+    }
     said = saying;
-    if (showing() === 'library' && rows.length > 0) draw();
+    if (showing() === 'library' && rows.length > 0) {
+      draw();
+    }
   });
 
   async function load() {
@@ -142,8 +195,14 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
       set(el('library-sub'), String(failure));
       return;
     }
-    if (group !== null && !groups.some((one) => one.name === group)) group = null;
-    for (const id of [...selected]) if (!rows.some((row) => row.app_id === id)) selected.delete(id);
+    if (group !== null && !groups.some((one) => one.name === group)) {
+      group = null;
+    }
+    for (const id of [...selected]) {
+      if (!rows.some((row) => row.app_id === id)) {
+        selected.delete(id);
+      }
+    }
     draw();
   }
 
@@ -155,7 +214,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
             ? { ...one, app_ids: [...new Set([...one.app_ids, ...selected])] }
             : one,
         )
-      : [...groups, { name, app_ids: [...selected] }];
+      : [...groups, { app_ids: [...selected], name }];
     await saveGroups(changed);
   }
 
@@ -171,14 +230,23 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
 
   function visible() {
     const needle = el('library-filter').value.trim().toLowerCase();
-    const inGroup = group === null ? null : groups.find((one) => one.name === group)?.app_ids ?? [];
+    const inGroup =
+      group === null ? null : (groups.find((one) => one.name === group)?.app_ids ?? []);
     const key = SORTS[sortBy];
     return rows
       .filter((row) => inGroup === null || inGroup.includes(row.app_id))
-      .filter((row) => !needle || row.name.toLowerCase().includes(needle) || String(row.app_id).includes(needle))
+      .filter(
+        (row) =>
+          !needle || row.name.toLowerCase().includes(needle) || String(row.app_id).includes(needle),
+      )
       .sort((a, b) => {
         const [left, right] = [key(a), key(b)];
-        const order = left < right ? -1 : left > right ? 1 : 0;
+        let order = 0;
+        if (left < right) {
+          order = -1;
+        } else if (left > right) {
+          order = 1;
+        }
         return descending ? -order : order;
       });
   }
@@ -200,7 +268,7 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
     el('library-none').hidden = shown.length > 0 || rows.length === 0;
     el('select-all').checked = shown.length > 0 && shown.every((row) => selected.has(row.app_id));
     drawSelection();
-    fit();
+    fitLayout();
   }
 
   function drawTabs() {
@@ -210,7 +278,9 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
         group = name;
         draw();
       });
-      if (group === name) node.setAttribute('aria-current', 'true');
+      if (group === name) {
+        node.setAttribute('aria-current', 'true');
+      }
       node.append(make('span', 'n', whole.format(count)));
       return node;
     };
@@ -219,7 +289,9 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
       ...groups.map((one) => tab(one.name, one.name, one.app_ids.length)),
     );
     el('group-tools').hidden = group === null;
-    if (group !== null) el('rename-group-name').value = group;
+    if (group !== null) {
+      el('rename-group-name').value = group;
+    }
   }
 
   function drawSelection() {
@@ -245,15 +317,20 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
 
   function rowOf(row) {
     const tr = make('tr');
-    if (selected.has(row.app_id)) tr.className = 'chosen';
+    if (selected.has(row.app_id)) {
+      tr.className = 'chosen';
+    }
 
     const tick = make('input');
     tick.type = 'checkbox';
     tick.checked = selected.has(row.app_id);
     tick.setAttribute('aria-label', `Select ${row.name}`);
     tick.addEventListener('change', () => {
-      if (tick.checked) selected.add(row.app_id);
-      else selected.delete(row.app_id);
+      if (tick.checked) {
+        selected.add(row.app_id);
+      } else {
+        selected.delete(row.app_id);
+      }
       draw();
     });
 
@@ -271,35 +348,21 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
           'game-meta',
           verdictPill(row.verdict),
           working
-            ? make('span', 'pill accent busy', working.state === 'running' ? working.step : 'Waiting')
+            ? make(
+                'span',
+                'pill accent busy',
+                working.state === 'running' ? working.step : 'Waiting',
+              )
             : null,
-          ...row.groups.map((group) => make('span', 'tag', group)),
+          ...row.groups.map((tagged) => make('span', 'tag', tagged)),
         ),
       ),
     );
 
-    const reading = row.read
-      ? make(
-          'span',
-          row.read.current ? 'status' : 'status older',
-          row.read.current ? 'Read' : 'Older reader',
-          make('small', null, row.read.language ? `${language(row.read.language)} only` : 'Every language'),
-        )
-      : make('span', 'status faint', 'Not read');
+    const reading = readingOf(row.read);
 
     const moved = row.recent?.moves?.[0];
-    const lately = moved
-      ? make(
-          'span',
-          `lately ${moved.side} ${moved.shift.recent > moved.shift.before ? 'up' : 'down'}`,
-          `${moved.side === 'praise' ? 'Praise' : 'Complaints'}: ${moved.label.toLowerCase()}`,
-          make(
-            'small',
-            null,
-            `${roundShare.format(moved.shift.before)} → ${roundShare.format(moved.shift.recent)}`,
-          ),
-        )
-      : make('span', 'faint', nothing);
+    const lately = latelyOf(moved);
 
     /* A narrow window draws each row as a card, where a figure carries its column's name. */
     const labelled = (label, cell) => {
@@ -315,11 +378,19 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
           'td',
           'num figure',
           whole.format(row.reviews),
-          row.new_on_steam ? make('small', 'fresh', `+${whole.format(row.new_on_steam)} on Steam`) : null,
+          row.new_on_steam
+            ? make('small', 'fresh', `+${whole.format(row.new_on_steam)} on Steam`)
+            : null,
         ),
       ),
-      labelled('Recommending', make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended))),
-      labelled('Updated', make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000)))),
+      labelled(
+        'Recommending',
+        make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended)),
+      ),
+      labelled(
+        'Updated',
+        make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000))),
+      ),
       labelled('Reading', make('td', null, reading)),
       labelled('Moved lately', make('td', moved ? 'lately-cell' : 'lately-cell unmoved', lately)),
     );
@@ -327,6 +398,8 @@ export function setUpLibrary({ openGame, openFinder, compare }) {
   }
 }
 
-export function openLibrary() {
+function openLibrary() {
   go('library');
 }
+
+export { openLibrary, setUpLibrary };

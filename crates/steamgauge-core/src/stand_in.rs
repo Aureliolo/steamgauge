@@ -7,7 +7,7 @@
 
 use std::{
     fmt::Write as _,
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead as _, BufReader, Read as _, Write as _},
     net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     sync::{
         Arc, Mutex,
@@ -17,7 +17,7 @@ use std::{
 
 /// One request as the stand-in received it.
 #[derive(Debug, Clone)]
-pub struct Asked {
+pub(crate) struct Asked {
     pub method: String,
     /// The path and the query string, as the request line gave them.
     pub target: String,
@@ -25,12 +25,12 @@ pub struct Asked {
 }
 
 impl Asked {
-    pub fn path(&self) -> &str {
+    pub(crate) fn path(&self) -> &str {
         self.target.split('?').next().unwrap_or_default()
     }
 
     /// A query parameter, as it was sent.
-    pub fn param(&self, name: &str) -> Option<&str> {
+    pub(crate) fn param(&self, name: &str) -> Option<&str> {
         self.target
             .split_once('?')?
             .1
@@ -42,7 +42,7 @@ impl Asked {
 
     /// The arguments of a call to one of Steam's service methods, which go as JSON in
     /// `input_json`, or `null` where there are none.
-    pub fn input(&self) -> serde_json::Value {
+    pub(crate) fn input(&self) -> serde_json::Value {
         self.param("input_json")
             .and_then(|sent| {
                 percent_encoding::percent_decode_str(sent)
@@ -53,7 +53,7 @@ impl Asked {
             .unwrap_or_default()
     }
 
-    pub fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(key, _)| key.eq_ignore_ascii_case(name))
@@ -63,7 +63,7 @@ impl Asked {
 
 /// What the stand-in answers one request with.
 #[derive(Debug, Clone)]
-pub struct Answer {
+pub(crate) struct Answer {
     status: u16,
     headers: Vec<(String, String)>,
     body: Vec<u8>,
@@ -71,7 +71,7 @@ pub struct Answer {
 }
 
 impl Answer {
-    pub fn status(status: u16) -> Self {
+    pub(crate) fn status(status: u16) -> Self {
         Self {
             status,
             headers: Vec::new(),
@@ -81,25 +81,25 @@ impl Answer {
     }
 
     /// The connection closed with nothing said, which a client sees as a failed request.
-    pub fn hang_up() -> Self {
+    pub(crate) fn hang_up() -> Self {
         Self {
             hang_up: true,
             ..Self::status(0)
         }
     }
 
-    pub fn body(body: impl Into<Vec<u8>>) -> Self {
+    pub(crate) fn body(body: impl Into<Vec<u8>>) -> Self {
         Self {
             body: body.into(),
             ..Self::status(200)
         }
     }
 
-    pub fn json(value: &serde_json::Value) -> Self {
+    pub(crate) fn json(value: &serde_json::Value) -> Self {
         Self::body(value.to_string()).header("Content-Type", "application/json")
     }
 
-    pub fn header(mut self, name: &str, value: &str) -> Self {
+    pub(crate) fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
     }
@@ -109,7 +109,7 @@ type Handler = dyn Fn(&Asked) -> Answer + Send + Sync;
 
 /// The stand-in. It serves until it is dropped.
 #[derive(Debug)]
-pub struct Server {
+pub(crate) struct Server {
     address: SocketAddr,
     asked: Arc<Mutex<Vec<Asked>>>,
     stopping: Arc<AtomicBool>,
@@ -118,7 +118,7 @@ pub struct Server {
 impl Server {
     /// Answers every request with whatever `handler` makes of it, each connection on a thread of
     /// its own so that requests made at once are answered at once.
-    pub fn new(handler: impl Fn(&Asked) -> Answer + Send + Sync + 'static) -> Self {
+    pub(crate) fn new(handler: impl Fn(&Asked) -> Answer + Send + Sync + 'static) -> Self {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let address = listener.local_addr().unwrap();
         let asked = Arc::new(Mutex::new(Vec::new()));
@@ -137,8 +137,8 @@ impl Server {
                     let asked = Arc::clone(&asked);
                     std::thread::spawn(move || serve(stream, &*handler, &asked));
                 }
-            });
-        }
+            })
+        };
         Self {
             address,
             asked,
@@ -147,12 +147,12 @@ impl Server {
     }
 
     /// Where to send a client, as `http://127.0.0.1:port` with no slash after it.
-    pub fn origin(&self) -> String {
+    pub(crate) fn origin(&self) -> String {
         format!("http://{}", self.address)
     }
 
     /// Every request received so far, in the order each arrived.
-    pub fn asked(&self) -> Vec<Asked> {
+    pub(crate) fn asked(&self) -> Vec<Asked> {
         self.asked.lock().unwrap().clone()
     }
 }

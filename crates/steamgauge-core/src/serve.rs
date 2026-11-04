@@ -15,7 +15,7 @@
 //! answers three routes, and knows nothing about the page it is serving. There is no network
 //! here to speak to and no second user to serve.
 
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 
@@ -33,7 +33,7 @@ pub struct Adjudication {
 
 impl Adjudication {
     #[must_use]
-    pub fn new(page: String, answers: PathBuf) -> Self {
+    pub const fn new(page: String, answers: PathBuf) -> Self {
         Self { page, answers }
     }
 
@@ -148,7 +148,7 @@ impl Adjudication {
 }
 
 /// The method, the path and the body of one request, or `None` when the connection said nothing.
-fn read_request(stream: &mut TcpStream) -> Result<Option<(String, String, Vec<u8>)>> {
+fn read_request(stream: &TcpStream) -> Result<Option<(String, String, Vec<u8>)>> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut start = String::new();
     if reader.read_line(&mut start)? == 0 {
@@ -158,7 +158,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Option<(String, String, Vec<u8
     let method = parts.next().unwrap_or_default().to_owned();
     let path = parts.next().unwrap_or("/").to_owned();
 
-    let mut length = 0usize;
+    let mut length = 0_usize;
     loop {
         let mut line = String::new();
         if reader.read_line(&mut line)? == 0 || line == "\r\n" || line == "\n" {
@@ -208,7 +208,7 @@ pub fn answers_held(path: &Path) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Read, Write};
+    use std::io::{Read as _, Write as _};
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
     use super::Adjudication;

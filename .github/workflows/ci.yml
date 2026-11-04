@@ -68,8 +68,17 @@ jobs:
       # --locked everywhere here, as the release build has it: a pull request that leaves
       # Cargo.lock behind its manifests fails now, not at a tag that cannot be taken back.
       - run: cargo clippy --locked --all-targets -- -D warnings
-      # The training scripts are Python; `training/ruff.toml` holds their width.
-      - run: pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+      # The [workspace.lints.rustdoc] table is read only by rustdoc.
+      - run: cargo doc --locked --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: -D warnings
+      # fuzz/ is a workspace of its own with a copy of the lint tables. It builds against the
+      # product's lock, which holds every crate it uses, so the copy only ever loses entries.
+      - run: |
+          cp Cargo.lock fuzz/Cargo.lock
+          cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+      # The training scripts are Python, with every rule ruff has on (`training/ruff.toml`).
+      - run: pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check training
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
@@ -234,6 +243,10 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -r "$RUNNER_TEMP/requirements.txt" "$torch+cpu"
       - run: python -m pytest -q
+        working-directory: training
+      # Strict, against the packages just installed (training/pyrightconfig.json).
+      - shell: bash
+        run: pipx run pyright==1.1.414 --pythonpath "$(python -c 'import sys; print(sys.executable)')" .
         working-directory: training
 
   # The report's folding, filtering, sorting and deep links only exist once a browser has run
@@ -542,3 +555,77 @@ jobs:
         run: |
           set -euo pipefail
           git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --enable=all
+
+  # Every YAML file, held to .yamllint.yaml, warnings included.
+  yaml:
+    name: yaml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 pipx run yamllint==1.38.0 --strict
+
+  # Every TOML file, linted against its schema (Cargo's, ruff's and the rest) and formatted.
+  toml:
+    name: toml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 lint
+      - name: Check the format
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 format --check
+
+  # JavaScript, CSS and JSON, held by Biome to every rule biome.jsonc does not turn off, and to its
+  # format. Biome is the exact version tools/package.json pins.
+  biome:
+    name: biome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tools
+      - name: Check
+        run: npx --prefix tools biome ci .
+
+  # The PowerShell scripts, with PSScriptAnalyzer's optional rules on (PSScriptAnalyzerSettings.psd1).
+  powershell:
+    name: powershell
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the scripts it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        env:
+          # renovate: datasource=nuget depName=PSScriptAnalyzer registryUrl=https://www.powershellgallery.com/api/v2
+          PSSCRIPTANALYZER_VERSION: 1.25.0
+        run: Install-PSResource PSScriptAnalyzer -Version $env:PSSCRIPTANALYZER_VERSION -TrustRepository
+      - name: Lint
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $found = git ls-files '*.ps1' '*.psd1' | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Settings ./PSScriptAnalyzerSettings.psd1
+          }
+          $found | Format-Table -AutoSize -Wrap | Out-String -Width 200
+          if ($found) { throw "PSScriptAnalyzer found $(@($found).Count) problems." }

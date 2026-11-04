@@ -5,20 +5,20 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use pulldown_cmark::{Event, HeadingLevel, LinkType, Options, Parser, Tag, TagEnd};
 
 use crate::{Layout, PAGES, Page, REPOSITORY};
 
 #[derive(Debug)]
-pub struct Site<'a> {
+pub(crate) struct Site<'a> {
     /// The repository's root folder.
     pub root: &'a Path,
     pub version: &'a str,
 }
 
 #[derive(Debug)]
-pub struct Rendered {
+pub(crate) struct Rendered {
     /// The page's first top-level heading.
     pub title: String,
     pub html: String,
@@ -36,7 +36,7 @@ fn options() -> Options {
         | Options::ENABLE_TASKLISTS
 }
 
-pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
+pub(crate) fn render(site: &Site<'_>, page: &Page, text: &str) -> Result<Rendered> {
     let source = page.markdown().unwrap_or("the front page");
     let events: Vec<Event<'_>> = Parser::new_ext(text, options()).collect();
     let folder = source.rsplit_once('/').map_or("", |(folder, _)| folder);
@@ -51,9 +51,9 @@ pub fn render(site: &Site, page: &Page, text: &str) -> Result<Rendered> {
         match event {
             Event::Start(Tag::Heading {
                 level,
-                id: _,
                 classes,
                 attrs,
+                ..
             }) => {
                 let words = heading_text(&events[at + 1..]);
                 let slug = slugs.next(&words);
@@ -156,14 +156,14 @@ fn card_edge(events: &mut Vec<Event<'_>>, open: &mut bool, level: HeadingLevel) 
 
 /// How a link is written back into the twin: inline, since the twin carries no reference
 /// definitions, unless it is an address written as itself and left unchanged.
-fn written_back(link_type: LinkType, unchanged: bool) -> LinkType {
+const fn written_back(link_type: LinkType, unchanged: bool) -> LinkType {
     match link_type {
         LinkType::Autolink | LinkType::Email if unchanged => link_type,
         _ => LinkType::Inline,
     }
 }
 
-pub fn external(destination: &str) -> bool {
+pub(crate) fn external(destination: &str) -> bool {
     destination.contains("://") || destination.starts_with("mailto:")
 }
 
@@ -284,7 +284,7 @@ fn heading_text(events: &[Event<'_>]) -> String {
 }
 
 /// The anchor GitHub gives a heading, so a link written for the repository works on the site.
-pub fn slug(words: &str) -> String {
+pub(crate) fn slug(words: &str) -> String {
     words
         .to_lowercase()
         .chars()
@@ -447,14 +447,12 @@ mod tests {
                 .assets
                 .contains("crates/steamgauge-app/icons/128x128.png")
         );
-        assert!(
-            render(
-                &site(),
-                &page("docs/test.md"),
-                "# T\n\n[![x](https://example.org/x.png)](https://example.org)\n"
-            )
-            .is_err()
-        );
+        render(
+            &site(),
+            &page("docs/test.md"),
+            "# T\n\n[![x](https://example.org/x.png)](https://example.org)\n",
+        )
+        .unwrap_err();
     }
 
     #[test]

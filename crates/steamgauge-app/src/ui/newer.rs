@@ -14,7 +14,7 @@ use steamgauge_core::{
     newer_version::{Asked, LATEST, Opened, RELEASES, Release, version},
     release_notes::{self, Changed},
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use super::{now_unix, settings::Settings};
 use crate::update::{Folders, Verified};
@@ -28,7 +28,7 @@ fn dir(app: &AppHandle) -> Option<PathBuf> {
 
 /// Asks in the background where the person wants it, however recently it was asked: a release
 /// that came out since the last question is offered the next time the app opens.
-pub fn check_on_opening(app: &AppHandle) {
+pub(super) fn check_on_opening(app: &AppHandle) {
     if let Some(dir) = dir(app) {
         ask_in_background(app, dir);
     }
@@ -36,7 +36,7 @@ pub fn check_on_opening(app: &AppHandle) {
 
 /// Asks in the background where the person wants it and
 /// [`ASK_EVERY`](steamgauge_core::newer_version::ASK_EVERY) has passed, for an app left open.
-pub fn check_when_due(app: &AppHandle) {
+pub(super) fn check_when_due(app: &AppHandle) {
     if let Some(dir) = dir(app)
         && Asked::load(&dir).due(now_unix())
     {
@@ -68,7 +68,7 @@ fn ask_in_background(app: &AppHandle, dir: PathBuf) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn newer_version(app: AppHandle) -> Option<Release> {
+pub(super) fn newer_version(app: AppHandle) -> Option<Release> {
     if !Settings::load(&app).check_newer_version {
         return None;
     }
@@ -86,7 +86,7 @@ const NOTICES: &str = "THIRD-PARTY-NOTICES.txt";
 
 /// This copy, and what GitHub last said about the newest release, as the About page shows it.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct About {
+pub(super) struct About {
     pub running: String,
     /// Who makes `SteamGauge`, by name.
     pub made_by: String,
@@ -119,13 +119,13 @@ pub struct About {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct Updated {
+pub(super) struct Updated {
     pub from: String,
     pub seen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct Detail {
+pub(super) struct Detail {
     pub name: &'static str,
     pub value: String,
 }
@@ -217,8 +217,8 @@ fn notices_file() -> Option<PathBuf> {
 /// heading, and without the part that only gathers the crates' own NOTICE files.
 fn built_on(head: &str) -> Vec<String> {
     let crates = head.lines().find_map(|line| {
-        line.split_once(" crates.")
-            .and_then(|(count, _)| count.trim().parse::<usize>().ok())
+        let (count, _) = line.split_once(" crates.")?;
+        count.trim().parse::<usize>().ok()
     });
     head.lines()
         .take_while(|line| !line.starts_with("===="))
@@ -238,7 +238,7 @@ fn built_on(head: &str) -> Vec<String> {
 /// The start of the notices, which holds the table of contents and the crate count. The file is
 /// about a megabyte, and About needs only this.
 fn notices_head(path: &Path) -> Option<String> {
-    use std::io::Read;
+    use std::io::Read as _;
     let mut head = String::new();
     std::fs::File::open(path)
         .ok()?
@@ -323,8 +323,8 @@ fn verified(app: &AppHandle) -> Option<Verified> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn open_notices(app: AppHandle) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
+pub(super) fn open_notices(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt as _;
     let path = notices_file().ok_or(
         "this copy carries no third-party notices; a release carries them beside the program",
     )?;
@@ -339,7 +339,7 @@ pub fn open_notices(app: AppHandle) -> Result<(), String> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn about(app: AppHandle) -> About {
+pub(super) fn about(app: AppHandle) -> About {
     let dir = dir(&app);
     let asked = dir.as_deref().map(Asked::load).unwrap_or_default();
     let opened = dir.as_deref().and_then(Opened::load);
@@ -355,7 +355,7 @@ pub fn about(app: AppHandle) -> About {
 /// asked: the person asked. The window is told either way, so a notice the answer no longer
 /// bears out goes.
 #[tauri::command]
-pub async fn check_for_updates(app: AppHandle) -> Result<About, String> {
+pub(super) async fn check_for_updates(app: AppHandle) -> Result<About, String> {
     let dir = dir(&app).ok_or("there is no folder to keep the answer in")?;
     let asked = Asked::load(&dir).ask(LATEST, now_unix()).await;
     asked.save(&dir).map_err(super::text)?;
@@ -370,7 +370,7 @@ pub async fn check_for_updates(app: AppHandle) -> Result<About, String> {
 
 /// Keeps the version this copy opens as, and the one before it where that is older, once as the
 /// app starts.
-pub fn remember_opening(app: &AppHandle) {
+pub(super) fn remember_opening(app: &AppHandle) {
     let Some(dir) = dir(app) else {
         return;
     };
@@ -388,7 +388,7 @@ pub fn remember_opening(app: &AppHandle) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn saw_what_changed(app: AppHandle) -> Result<(), String> {
+pub(super) fn saw_what_changed(app: AppHandle) -> Result<(), String> {
     let dir = dir(&app).ok_or("there is no folder the record is kept in")?;
     let Some(mut opened) = Opened::load(&dir) else {
         return Ok(());
@@ -403,7 +403,7 @@ pub fn saw_what_changed(app: AppHandle) -> Result<(), String> {
 
 /// What each release between two versions changed in what people download, newest first.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct WhatsNew {
+pub(super) struct WhatsNew {
     pub from: String,
     pub to: String,
     pub releases: Vec<Changed>,
@@ -420,7 +420,7 @@ static KEPT: Mutex<Option<WhatsNew>> = Mutex::new(None);
 ///
 /// Says why GitHub gave no list.
 #[tauri::command]
-pub async fn whats_new(app: AppHandle) -> Result<Option<WhatsNew>, String> {
+pub(super) async fn whats_new(app: AppHandle) -> Result<Option<WhatsNew>, String> {
     let running = env!("CARGO_PKG_VERSION");
     let dir = dir(&app).ok_or("there is no folder the record is kept in")?;
     let (from, to) = if let Some(newer) = Asked::load(&dir).newer_than(running) {

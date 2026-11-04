@@ -141,7 +141,7 @@ impl Example {
     /// language model picked out, and the counting model has never seen them. They carry no
     /// polarity and no confidence, and the page must not invent either.
     #[must_use]
-    pub fn was_read(&self) -> bool {
+    pub const fn was_read(&self) -> bool {
         !self.polarity.is_empty()
     }
 
@@ -340,7 +340,7 @@ impl Report {
     /// Every category counted over every game, so a rate is about the whole set of corpora.
     #[must_use]
     pub fn pooled(&self) -> Vec<Pooled> {
-        crate::SHEET
+        SHEET
             .iter()
             .map(|category| {
                 let mut pooled = Pooled {
@@ -760,8 +760,10 @@ fn ceiling_for(
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    let bytes = std::fs::read(path).map_err(|_| crate::Error::NoClassifications {
-        path: path.to_path_buf(),
+    let bytes = std::fs::read(path).map_err(|error| {
+        crate::Error::unless_missing(error, || crate::Error::NoClassifications {
+            path: path.to_path_buf(),
+        })
     })?;
     Ok(serde_json::from_slice(&bytes)?)
 }
@@ -966,7 +968,7 @@ mod tests {
     }
 
     /// Reads the corpus `read::tests` writes for `app_id` under a scratch directory.
-    fn library(app_id: u32) -> (crate::tempdir::Dir, std::path::PathBuf) {
+    fn library(app_id: u32) -> (crate::tempdir::Dir, PathBuf) {
         let out = crate::tempdir::Dir::new();
         let snapshot = crate::read::tests::read_corpus_of(out.path(), app_id);
         (out, snapshot)

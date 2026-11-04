@@ -5,7 +5,7 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use clap::{Arg, ArgAction, Command};
 use steamgauge_app::reference;
 
@@ -20,7 +20,7 @@ const END: &str = "<!-- steamgauge-site: end -->";
 const WIDTH: usize = 100;
 
 /// `text` with every generated part written afresh. `holder` is the file it came from.
-pub fn fill(root: &Path, holder: &str, text: &str) -> Result<String> {
+pub(crate) fn fill(root: &Path, holder: &str, text: &str) -> Result<String> {
     let mut filled = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find(OPEN) {
@@ -195,7 +195,7 @@ fn assistants() -> Vec<Assistant> {
 
 /// How many assistants the page names, each with its own setup.
 #[must_use]
-pub fn named_assistants() -> usize {
+pub(crate) fn named_assistants() -> usize {
     assistants()
         .iter()
         .filter(|assistant| assistant.id != "other")
@@ -238,7 +238,7 @@ const FAMILIES: &[(&str, &str, &[&str])] = &[
 
 /// Every assistant as a row of chips, the command for the one chosen beneath them.
 #[must_use]
-pub fn clients_picker() -> String {
+pub(crate) fn clients_picker() -> String {
     let all = assistants();
     let mut choices: Vec<Choice> = Vec::new();
     for assistant in &all {
@@ -280,13 +280,13 @@ pub fn clients_picker() -> String {
 }
 
 /// The site's form of each generated part that has one, in place of its Markdown.
+type Picker = fn() -> String;
+
 #[must_use]
-pub fn for_the_site(html: &str) -> String {
+pub(crate) fn for_the_site(html: &str) -> String {
     let mut html = html.to_owned();
-    for (name, site) in [
-        ("clients", clients_picker as fn() -> String),
-        ("entries", entries_picker),
-    ] {
+    let pickers: [(&str, Picker); 2] = [("clients", clients_picker), ("entries", entries_picker)];
+    for (name, site) in pickers {
         let open = format!("{OPEN}{name}{SHUT}");
         let Some(at) = html.find(&open) else {
             continue;
@@ -667,7 +667,7 @@ fn commands() -> Result<String> {
 
 fn section(text: &mut String, command: &Command, level: usize) {
     let _ = write!(text, "{} `{}`\n\n", "#".repeat(level), command.get_name());
-    if let Some(about) = command.get_long_about().or(command.get_about()) {
+    if let Some(about) = command.get_long_about().or_else(|| command.get_about()) {
         paragraphs(text, &about.to_string());
     }
     let usage = command.clone().render_usage().to_string();
@@ -748,7 +748,7 @@ fn argument(arg: &Arg) -> String {
     if arg.is_required_set() && !arg.is_positional() {
         said.push_str(", required");
     }
-    if let Some(help) = arg.get_long_help().or(arg.get_help()) {
+    if let Some(help) = arg.get_long_help().or_else(|| arg.get_help()) {
         said.push_str(": ");
         said.push_str(&full_stop(&prose(&help.to_string()).replace("\n\n", " ")));
     }
@@ -965,24 +965,20 @@ mod tests {
 
     #[test]
     fn an_unknown_or_unended_part_is_refused() {
-        assert!(
-            fill(
-                root(),
-                "x.md",
-                "<!-- steamgauge-site: nothing -->\n<!-- steamgauge-site: end -->"
-            )
-            .is_err()
-        );
-        assert!(fill(root(), "x.md", "<!-- steamgauge-site: tools -->\n").is_err());
-        assert!(fill(root(), "x.md", "<!-- steamgauge-site: end -->").is_err());
-        assert!(
-            fill(
-                root(),
-                "docs/x.md",
-                "<!-- steamgauge-site: pages -->\n<!-- steamgauge-site: end -->"
-            )
-            .is_err()
-        );
+        fill(
+            root(),
+            "x.md",
+            "<!-- steamgauge-site: nothing -->\n<!-- steamgauge-site: end -->",
+        )
+        .unwrap_err();
+        fill(root(), "x.md", "<!-- steamgauge-site: tools -->\n").unwrap_err();
+        fill(root(), "x.md", "<!-- steamgauge-site: end -->").unwrap_err();
+        fill(
+            root(),
+            "docs/x.md",
+            "<!-- steamgauge-site: pages -->\n<!-- steamgauge-site: end -->",
+        )
+        .unwrap_err();
     }
 
     #[test]

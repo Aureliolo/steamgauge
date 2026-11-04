@@ -17,17 +17,23 @@ import json
 import math
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AutoModelForMaskedLM,
     AutoTokenizer,
+    BatchEncoding,
     DataCollatorForLanguageModeling,
-    get_linear_schedule_with_warmup,
+    get_linear_schedule_with_warmup,  # pyright: ignore[reportUnknownVariableType]  # transformers leaves num_training_steps unannotated
 )
 
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizerBase
+
 import backbones
+from typed_calls import manual_seed, save_pretrained
 
 HERE = Path(__file__).resolve().parent
 
@@ -35,8 +41,8 @@ HERE = Path(__file__).resolve().parent
 def reviews_in(path: Path) -> list[str]:
     """Each review once, however many claims of it the pool holds."""
     seen: set[tuple[int, str]] = set()
-    texts = []
-    with open(path, encoding="utf-8") as handle:
+    texts: list[str] = []
+    with path.open(encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
@@ -49,16 +55,23 @@ def reviews_in(path: Path) -> list[str]:
     return texts
 
 
-class Reviews(Dataset):
-    def __init__(self, texts, tokenizer, max_length):
+class Reviews(Dataset[BatchEncoding]):
+    """Tokenised reviews for masked-language pretraining."""
+
+    def __init__(
+        self, texts: list[str], tokenizer: PreTrainedTokenizerBase, max_length: int
+    ) -> None:
+        """Hold the review texts and the tokenizer that cuts them to `max_length`."""
         self.texts = texts
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return the number of reviews."""
         return len(self.texts)
 
-    def __getitem__(self, at):
+    def __getitem__(self, at: int) -> BatchEncoding:
+        """Return review `at` tokenised, with its special-token mask."""
         # Truncated from the end: a review's opening is where most of its language sits, and
         # the fine-tune windows every claim anyway.
         return self.tokenizer(
@@ -69,7 +82,8 @@ class Reviews(Dataset):
         )
 
 
-def main():
+def parse() -> argparse.Namespace:
+    """Read the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pool", default=str(HERE / "data" / "pool.jsonl"))
     parser.add_argument("--backbone", default="intfloat/multilingual-e5-large")
@@ -80,9 +94,14 @@ def main():
     parser.add_argument("--mask", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--run-id", required=True)
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    torch.manual_seed(args.seed)
+
+def main() -> None:
+    """Continue the backbone's pretraining on the pool's reviews and save the result."""
+    args = parse()
+
+    manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     texts = reviews_in(Path(args.pool))
     print(f"{len(texts)} reviews from {args.pool}")
@@ -90,7 +109,9 @@ def main():
     tokenizer = backbones.load(AutoTokenizer, args.backbone)
     # The encoder's checkpoint carries no language-model head, so the head starts from noise
     # and learns in the first few hundred steps. The encoder underneath is what is kept.
-    model = backbones.load(AutoModelForMaskedLM, args.backbone).to(device)
+    model = backbones.load(AutoModelForMaskedLM, args.backbone)
+    # Called on the base class because pyright misreads transformers' wrapper around `.to`.
+    torch.nn.Module.to(model, device)
     collate = DataCollatorForLanguageModeling(tokenizer, mlm_probability=args.mask)
     loader = DataLoader(
         Reviews(texts, tokenizer, args.max_length),
@@ -110,12 +131,12 @@ def main():
     for epoch in range(args.epochs):
         model.train()
         for batch in loader:
-            batch = {name: tensor.to(device) for name, tensor in batch.items()}
+            moved = {name: tensor.to(device) for name, tensor in batch.items()}
             with torch.amp.autocast(device, enabled=device == "cuda", dtype=torch.bfloat16):
-                loss = model(**batch).loss
+                loss = model(**moved).loss
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimiser.step()
+            optimiser.step()  # pyright: ignore[reportUnknownMemberType]  # torch leaves closure's type unknown
             schedule.step()
             optimiser.zero_grad(set_to_none=True)
             taken += 1
@@ -136,8 +157,8 @@ def main():
     backbone.mkdir(parents=True, exist_ok=True)
     # The whole masked-language model, so the next pass of this script can continue from it;
     # `AutoModel` takes the encoder out of it for the fine-tune.
-    model.save_pretrained(backbone)
-    tokenizer.save_pretrained(backbone)
+    save_pretrained(model, backbone)
+    save_pretrained(tokenizer, backbone)
     # Not `run.json`: the index reads every one of those as a fine-tune with scores, and this
     # has none. The fine-tune trained from this backbone is the run that scores.
     (out / "pretraining.json").write_text(

@@ -3,7 +3,7 @@
    this copy's details for a report of a problem and whether its build was checked, what
    SteamGauge is built on, and SteamGauge's own pages. */
 
-import { invoke, listen, el, set, setWithCode, page, go, openOutside, LOCALE } from './common.js';
+import { el, go, invoke, LOCALE, listen, openOutside, page, set, setWithCode } from './common.js';
 import { startUpdate } from './newer.js';
 
 let about = null;
@@ -11,10 +11,11 @@ let update = { state: 'idle', why: null };
 let asking = false;
 let failure = null;
 /* What GitHub said changed, for the span it was asked about, so reopening the page asks nothing. */
-let changes = { span: null, list: null, asking: false, why: null };
+let changes = { asking: false, list: null, span: null, why: null };
 let noticesFailure = null;
 
-const underWay = (state) => state === 'downloading' || state === 'verifying' || state === 'installing';
+const underWay = (state) =>
+  state === 'downloading' || state === 'verifying' || state === 'installing';
 
 const medium = new Intl.DateTimeFormat(LOCALE, { dateStyle: 'medium', timeStyle: 'short' });
 /* British English shortens September to "Sept" alone, beside three letters for every other month. */
@@ -24,39 +25,65 @@ const at = (seconds) => when.format(new Date(seconds * 1000));
 /* The versions the list covers: up to the newer release where there is one, and otherwise since
    the version this copy was updated from. */
 function span() {
-  if (about?.newer) return { from: about.running, to: about.newer.version, coming: true };
-  if (about?.updated) return { from: about.updated.from, to: about.running, coming: false };
+  if (about?.newer) {
+    return { coming: true, from: about.running, to: about.newer.version };
+  }
+  if (about?.updated) {
+    return { coming: false, from: about.updated.from, to: about.running };
+  }
   return null;
 }
 
 const key = (covered) => (covered ? `${covered.from}..${covered.to}` : null);
 
 function latestLine() {
-  if (asking) return 'Asking GitHub for the newest release.';
-  if (failure) return `GitHub was not asked, because ${failure}.`;
-  if (about.newer) return `SteamGauge ${about.newer.version} is out.`;
-  if (about.latest === about.running) return 'This is the newest release.';
-  if (about.latest) return `The newest release GitHub named is ${about.latest}.`;
+  if (asking) {
+    return 'Asking GitHub for the newest release.';
+  }
+  if (failure) {
+    return `GitHub was not asked, because ${failure}.`;
+  }
+  if (about.newer) {
+    return `SteamGauge ${about.newer.version} is out.`;
+  }
+  if (about.latest === about.running) {
+    return 'This is the newest release.';
+  }
+  if (about.latest) {
+    return `The newest release GitHub named is ${about.latest}.`;
+  }
   return about.asked ? 'GitHub did not name a release.' : 'GitHub has not been asked yet.';
 }
 
 function askedLine() {
-  if (!about.asked) return '';
-  if (about.answered === about.asked) return `GitHub last answered on ${at(about.answered)}.`;
+  if (!about.asked) {
+    return '';
+  }
+  if (about.answered === about.asked) {
+    return `GitHub last answered on ${at(about.answered)}.`;
+  }
   /* GitHub has never answered: every question so far failed. */
-  if (about.answered === null) return `GitHub was last asked on ${at(about.asked)}.`;
+  if (about.answered === null) {
+    return `GitHub was last asked on ${at(about.asked)}.`;
+  }
   return `GitHub could not be reached on ${at(about.asked)}; it last answered on ${at(about.answered)}.`;
 }
 
 function updateLine() {
   const version = about.newer?.version;
   if (underWay(update.state)) {
-    return { downloading: `Downloading ${version}.`, verifying: `Checking ${version}.`, installing: `Installing ${version}; SteamGauge closes and opens again.` }[update.state];
+    return {
+      downloading: `Downloading ${version}.`,
+      installing: `Installing ${version}; SteamGauge closes and opens again.`,
+      verifying: `Checking ${version}.`,
+    }[update.state];
   }
   if (update.state === 'failed') {
     return `The update to ${version} stopped. Nothing was installed. ${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`;
   }
-  if (update.why) return `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`;
+  if (update.why) {
+    return `${update.why.charAt(0).toUpperCase()}${update.why.slice(1)}.`;
+  }
   return '';
 }
 
@@ -83,39 +110,53 @@ function drawRelease(release) {
   return node;
 }
 
+function changesState(kept) {
+  if (kept.asking) {
+    return 'Asking GitHub what changed.';
+  }
+  if (kept.why) {
+    return `GitHub did not say what changed, because ${kept.why}.`;
+  }
+  if (kept.list && kept.list.length === 0) {
+    return 'GitHub lists no release in between.';
+  }
+  return '';
+}
+
 function drawChanges() {
   const covered = span();
   el('about-changes').hidden = covered === null;
-  if (covered === null) return;
+  if (covered === null) {
+    return;
+  }
   set(
     el('about-changes-title'),
-    covered.coming ? `What changes when you update to ${covered.to}` : `What changed since ${covered.from}`,
+    covered.coming
+      ? `What changes when you update to ${covered.to}`
+      : `What changed since ${covered.from}`,
   );
-  const kept = changes.span === key(covered) ? changes : { list: null, asking: false, why: null };
-  const state = kept.asking
-    ? 'Asking GitHub what changed.'
-    : kept.why
-      ? `GitHub did not say what changed, because ${kept.why}.`
-      : kept.list && kept.list.length === 0
-        ? 'GitHub lists no release in between.'
-        : '';
+  const kept = changes.span === key(covered) ? changes : { asking: false, list: null, why: null };
+  const state = changesState(kept);
   el('about-changes-state').hidden = !state;
   set(el('about-changes-state'), state);
-  el('about-changes-ask').hidden = kept.asking || kept.list !== null || (about.by_itself && !kept.why);
+  el('about-changes-ask').hidden =
+    kept.asking || kept.list !== null || (about.by_itself && !kept.why);
   set(el('about-changes-ask'), kept.why ? 'Ask again' : 'Ask GitHub what changed');
   el('about-releases').replaceChildren(...(kept.list ?? []).map(drawRelease));
 }
 
 async function askChanges() {
   const covered = span();
-  if (covered === null) return;
-  changes = { span: key(covered), list: null, asking: true, why: null };
+  if (covered === null) {
+    return;
+  }
+  changes = { asking: true, list: null, span: key(covered), why: null };
   drawChanges();
   try {
-    const listed = await invoke('whats_new');
-    changes = { span: key(covered), list: listed?.releases ?? [], asking: false, why: null };
+    const answer = await invoke('whats_new');
+    changes = { asking: false, list: answer?.releases ?? [], span: key(covered), why: null };
   } catch (reason) {
-    changes = { span: key(covered), list: null, asking: false, why: String(reason) };
+    changes = { asking: false, list: null, span: key(covered), why: String(reason) };
   }
   drawChanges();
 }
@@ -145,9 +186,14 @@ function drawCredits() {
       : 'SteamGauge is built on open-source software, each used under its own licence.',
   );
   el('about-open-notices').hidden = !about.notices;
-  const missing = about.notices ? '' : 'Every release carries their licences and notices; this copy was not built by one.';
-  el('about-notices-state').hidden = !missing && !noticesFailure;
-  set(el('about-notices-state'), noticesFailure ? `The licences did not open, because ${noticesFailure}.` : missing);
+  const missing = about.notices
+    ? ''
+    : 'Every release carries their licences and notices; this copy was not built by one.';
+  el('about-notices-state').hidden = !(missing || noticesFailure);
+  set(
+    el('about-notices-state'),
+    noticesFailure ? `The licences did not open, because ${noticesFailure}.` : missing,
+  );
 }
 
 async function openNotices() {
@@ -164,13 +210,17 @@ async function openNotices() {
 function drawRail() {
   const told = about?.updated && !about.updated.seen && !about.newer;
   el('rail-updated').hidden = !told;
-  if (told) set(el('rail-updated-says'), `SteamGauge was updated to ${about.running}.`);
+  if (told) {
+    set(el('rail-updated-says'), `SteamGauge was updated to ${about.running}.`);
+  }
 }
 
 function draw() {
   set(el('brand-version'), about ? about.running : '');
   drawRail();
-  if (!about) return;
+  if (!about) {
+    return;
+  }
   set(el('about-made-by'), `Made by ${about.made_by}.`);
   set(el('about-running'), `This computer has SteamGauge ${about.running}.`);
   set(el('about-latest'), latestLine());
@@ -179,9 +229,13 @@ function draw() {
   el('about-update-state').hidden = !line;
   setWithCode(el('about-update-state'), line);
 
-  const offered = about.newer && ((update.state === 'idle' && !update.why) || update.state === 'failed');
+  const offered =
+    about.newer && ((update.state === 'idle' && !update.why) || update.state === 'failed');
   el('about-update').hidden = !offered;
-  set(el('about-update'), update.state === 'failed' ? 'Try again' : `Update to ${about.newer?.version ?? ''}`);
+  set(
+    el('about-update'),
+    update.state === 'failed' ? 'Try again' : `Update to ${about.newer?.version ?? ''}`,
+  );
   el('about-release').hidden = !(about.newer && update.state === 'idle' && update.why);
   el('about-check').disabled = asking || underWay(update.state);
   el('about-check').classList.toggle('primary', !offered);
@@ -213,9 +267,13 @@ async function load() {
 async function shown() {
   await load();
   const covered = span();
-  if (covered && about.by_itself && changes.span !== key(covered)) askChanges();
+  if (covered && about.by_itself && changes.span !== key(covered)) {
+    askChanges();
+  }
   if (about?.updated && !about.updated.seen) {
-    invoke('saw_what_changed').catch(() => {});
+    invoke('saw_what_changed').catch(() => {
+      // The rail is cleared locally either way, so a failed note changes nothing the person sees.
+    });
     about.updated.seen = true;
     drawRail();
   }
@@ -233,7 +291,9 @@ async function check() {
   asking = false;
   draw();
   const covered = span();
-  if (covered && changes.span !== key(covered)) askChanges();
+  if (covered && changes.span !== key(covered)) {
+    askChanges();
+  }
 }
 
 async function copyDetails() {
@@ -248,20 +308,30 @@ async function copyDetails() {
   setTimeout(() => set(button, 'Copy the details'), 2000);
 }
 
+function openAboutLink(address) {
+  if (about) {
+    openOutside(about[address]);
+  }
+}
+
 export function setUpAbout() {
   page('about', el('about'), shown);
   el('about-check').addEventListener('click', check);
   el('about-update').addEventListener('click', () => {
-    update = { state: 'downloading', done: 0, total: null, rate: null, left: null };
+    update = { done: 0, left: null, rate: null, state: 'downloading', total: null };
     draw();
     startUpdate();
   });
   el('about-release').addEventListener('click', () => {
-    if (about?.newer) openOutside(about.newer.url);
+    if (about?.newer) {
+      openOutside(about.newer.url);
+    }
   });
   el('about-changes-ask').addEventListener('click', askChanges);
   el('about-details-copy').addEventListener('click', () => {
-    if (about) copyDetails();
+    if (about) {
+      copyDetails();
+    }
   });
   for (const [id, address] of [
     ['about-site', 'site'],
@@ -270,15 +340,15 @@ export function setUpAbout() {
     ['about-notes', 'notes'],
     ['about-checking', 'checking'],
   ]) {
-    el(id).addEventListener('click', () => {
-      if (about) openOutside(about[address]);
-    });
+    el(id).addEventListener('click', () => openAboutLink(address));
   }
   el('rail-updated-show').addEventListener('click', () => go('about'));
   el('about-open-notices').addEventListener('click', openNotices);
   listen('update', (event) => {
     update = event.payload;
-    if (about) draw();
+    if (about) {
+      draw();
+    }
   });
   listen('newer-version', load);
   load();

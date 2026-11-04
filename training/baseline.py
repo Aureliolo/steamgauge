@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -33,10 +34,31 @@ import backbones
 import claimdata
 from train import area_under_risk_coverage, risk_coverage
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    import numpy.typing as npt
+
+    from train import FloatArray, IntArray
+
+    Predictor = Callable[
+        [Sequence[claimdata.Claim], Sequence[claimdata.Claim], list[str]],
+        tuple[FloatArray, IntArray],
+    ]
+
 HERE = Path(__file__).resolve().parent
+# The window the untuned encoder reads, and the sharpness of the softmax over cosines.
+CENTROID_MAX_LENGTH = 128
+CENTROID_SHARPNESS = 20.0
 
 
-def scored(name, confidence, predicted, truth, min_accuracy):
+def scored(
+    name: str,
+    confidence: npt.ArrayLike,
+    predicted: npt.ArrayLike,
+    truth: npt.ArrayLike,
+    min_accuracy: float,
+) -> dict[str, Any]:
     """The same figures the trained model reports, from any predictor's confidences."""
     truth = np.asarray(truth)
     correct = (np.asarray(predicted) == truth).astype(float)
@@ -54,11 +76,13 @@ def scored(name, confidence, predicted, truth, min_accuracy):
     }
 
 
-def macro_f1(predicted, truth):
-    """Unweighted mean F1, so a subject with forty claims counts as much as one with four
-    thousand. The starved rows are the ones worth knowing about."""
+def macro_f1(predicted: npt.ArrayLike, truth: npt.ArrayLike) -> float:
+    """Unweighted mean F1, so a subject with forty claims counts as much as one with four thousand.
+
+    The starved rows are the ones worth knowing about.
+    """
     predicted, truth = np.asarray(predicted), np.asarray(truth)
-    scores = []
+    scores: list[float] = []
     for subject in np.unique(truth):
         found = predicted == subject
         wanted = truth == subject
@@ -69,7 +93,9 @@ def macro_f1(predicted, truth):
     return float(np.mean(scores)) if scores else 0.0
 
 
-def commonest(train, held, subjects):
+def commonest(
+    train: Sequence[claimdata.Claim], held: Sequence[claimdata.Claim], subjects: list[str]
+) -> tuple[FloatArray, IntArray]:
     """Always the subject most of the training claims are about."""
     counts = np.bincount([subjects.index(c.subject) for c in train], minlength=len(subjects))
     best = int(counts.argmax())
@@ -77,7 +103,9 @@ def commonest(train, held, subjects):
     return np.full(len(held), share), np.full(len(held), best)
 
 
-def bag_of_words(train, held, subjects):
+def bag_of_words(
+    train: Sequence[claimdata.Claim], held: Sequence[claimdata.Claim], subjects: list[str]
+) -> tuple[FloatArray, IntArray]:
     """TF-IDF over words and characters into a linear model.
 
     Character n-grams are what make this work at all across languages: a Russian claim shares
@@ -104,22 +132,33 @@ def bag_of_words(train, held, subjects):
     return probabilities.max(axis=1), order[probabilities.argmax(axis=1)]
 
 
-def centroids(train, held, subjects, backbone, batch_size=64):
+def centroids(
+    train: Sequence[claimdata.Claim],
+    held: Sequence[claimdata.Claim],
+    subjects: list[str],
+    backbone: str,
+    batch_size: int = 64,
+) -> tuple[FloatArray, IntArray]:
     """Nearest subject centroid over the untuned encoder: the prototype this replaced."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = backbones.load(AutoTokenizer, backbone)
-    encoder = backbones.load(AutoModel, backbone).to(device).eval()
+    # Typed as a plain module because transformers wraps `to` in a decorator pyright cannot read.
+    encoder = cast("torch.nn.Module", backbones.load(AutoModel, backbone)).to(device).eval()
 
-    def embed(claims):
-        out = []
+    def embed(claims: Sequence[claimdata.Claim]) -> FloatArray:
+        out: list[torch.Tensor] = []
         with torch.inference_mode():
             for at in range(0, len(claims), batch_size):
                 chunk = [c.text for c in claims[at : at + batch_size]]
                 fed = tokenizer(
-                    chunk, padding=True, truncation=True, max_length=128, return_tensors="pt"
+                    chunk,
+                    padding=True,
+                    truncation=True,
+                    max_length=CENTROID_MAX_LENGTH,
+                    return_tensors="pt",
                 ).to(device)
-                hidden = encoder(**fed).last_hidden_state
-                mask = fed["attention_mask"].unsqueeze(-1).float()
+                hidden: torch.Tensor = encoder(**fed).last_hidden_state
+                mask = cast("torch.Tensor", fed["attention_mask"]).unsqueeze(-1).float()
                 pooled = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
                 out.append(torch.nn.functional.normalize(pooled, dim=1).float().cpu())
         return torch.cat(out).numpy()
@@ -136,12 +175,13 @@ def centroids(train, held, subjects, backbone, batch_size=64):
     # A cosine is not a probability, and reading one as though it were is how the prototype
     # came to answer everything. Softmax over the row at least orders the claims by how much
     # the nearest centroid beat the others, which is the only thing a threshold can use.
-    exponent = np.exp((similarity - similarity.max(axis=1, keepdims=True)) * 20.0)
+    exponent = np.exp((similarity - similarity.max(axis=1, keepdims=True)) * CENTROID_SHARPNESS)
     probabilities = exponent / exponent.sum(axis=1, keepdims=True)
     return probabilities.max(axis=1), probabilities.argmax(axis=1)
 
 
-def main():
+def main() -> None:
+    """Score the three baselines and print one line each."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
     parser.add_argument("--backbone", default="Alibaba-NLP/gte-multilingual-base")
@@ -186,12 +226,13 @@ def main():
     print(f"{len(train):,} training claims, {len(held):,} held out")
     print(f"games held out: {sorted({claim.app_id for claim in held})}")
 
-    results = []
-    for name, run in (
+    results: list[dict[str, Any]] = []
+    runs: tuple[tuple[str, Predictor], ...] = (
         ("commonest subject", commonest),
         ("bag of words", bag_of_words),
         ("nearest centroid", lambda a, b, c: centroids(a, b, c, args.backbone)),
-    ):
+    )
+    for name, run in runs:
         confidence, predicted = run(train, held, subjects)
         results.append(scored(name, confidence, predicted, truth, args.min_accuracy))
         last = results[-1]

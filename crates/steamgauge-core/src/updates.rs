@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn a_post_that_is_not_this_games_own_announcement_is_left_out() {
-        let item = |changes: serde_json::Value| {
+        let item = |changes: Value| {
             let mut item = serde_json::json!({
                 "gid": "123", "title": "Patch 1.2", "date": 1_700_000_000,
                 "feedname": FEED, "appid": 7,
@@ -449,8 +449,8 @@ mod tests {
         assert_eq!(page.listed, 11);
         let ids: Vec<&str> = page.posts.iter().map(|post| post.gid.as_str()).collect();
         assert_eq!(ids, ["123", "11111111111111111111"]);
-        assert!(parse(&serde_json::json!({"appnews": {}}), 7).is_err());
-        assert!(parse(&serde_json::json!({}), 7).is_err());
+        parse(&serde_json::json!({"appnews": {}}), 7).unwrap_err();
+        parse(&serde_json::json!({}), 7).unwrap_err();
     }
 
     #[test]
@@ -630,8 +630,8 @@ mod tests {
 
     /// A page of `count` posts, newest first, the first posted at `newest` and each a second
     /// before the one above it.
-    fn listing(count: usize, newest: i64, first_gid: u64) -> serde_json::Value {
-        let items: Vec<serde_json::Value> = (0..u64::try_from(count).unwrap())
+    fn listing(count: usize, newest: i64, first_gid: u64) -> Value {
+        let items: Vec<Value> = (0..u64::try_from(count).unwrap())
             .map(|step| {
                 let at = i64::try_from(step).unwrap();
                 serde_json::json!({
@@ -721,7 +721,7 @@ mod tests {
         assert_eq!(kept(dir.path(), 7), Some(fresh.clone()));
 
         let (_server, refusing) = steam(|_| stand_in::Answer::status(403));
-        assert!(refresh(&refusing, 7, dir.path(), 60).await.is_err());
+        refresh(&refusing, 7, dir.path(), 60).await.unwrap_err();
         assert_eq!(kept(dir.path(), 7), Some(fresh));
     }
 }

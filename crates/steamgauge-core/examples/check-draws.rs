@@ -148,9 +148,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Which game a draw belongs to, whether it is the game's own or a subset beneath it.
 fn app_of(dir: &std::path::Path) -> Option<u32> {
     let named = |path: &std::path::Path| {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .and_then(|name| name.parse::<u32>().ok())
+        let name = path.file_name().and_then(|name| name.to_str())?;
+        name.parse::<u32>().ok()
     };
     named(dir).or_else(|| dir.parent().and_then(named))
 }

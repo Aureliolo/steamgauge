@@ -5,13 +5,14 @@ from __future__ import annotations
 import torch
 
 from train import BestEpoch
+from typed_calls import manual_seed
 
 
 def model() -> torch.nn.Module:
-    torch.manual_seed(0)
+    manual_seed(0)
     built = torch.nn.Sequential(torch.nn.Linear(4, 4), torch.nn.Linear(4, 2))
     # The first layer stands for a LoRA run's frozen base: the part that does not fit twice.
-    built[0].requires_grad_(False)
+    built[0].requires_grad_(requires_grad=False)
     return built
 
 
@@ -22,7 +23,7 @@ def step(built: torch.nn.Module, by: float) -> None:
                 weight.add_(by)
 
 
-def test_the_best_epoch_comes_back_after_worse_ones():
+def test_the_best_epoch_comes_back_after_worse_ones() -> None:
     built = model()
     best = BestEpoch()
     step(built, 1.0)
@@ -35,12 +36,13 @@ def test_the_best_epoch_comes_back_after_worse_ones():
 
     best.restore(built)
 
-    assert best.epoch == 2 and best.score == 0.64
+    assert best.epoch == 2
+    assert best.score == 0.64
     for name, weight in built.named_parameters():
         assert torch.equal(weight, at_best[name]), name
 
 
-def test_a_tie_keeps_the_earlier_epoch():
+def test_a_tie_keeps_the_earlier_epoch() -> None:
     built = model()
     best = BestEpoch()
     assert best.offer(0.64, 1, built)
@@ -48,7 +50,7 @@ def test_a_tie_keeps_the_earlier_epoch():
     assert best.epoch == 1
 
 
-def test_only_the_trained_weights_are_copied():
+def test_only_the_trained_weights_are_copied() -> None:
     built = model()
     best = BestEpoch()
     best.offer(0.5, 1, built)
@@ -57,7 +59,7 @@ def test_only_the_trained_weights_are_copied():
     assert all(weight.device.type == "cpu" for weight in best.weights.values())
 
 
-def test_restoring_writes_into_the_same_tensors():
+def test_restoring_writes_into_the_same_tensors() -> None:
     # A run recorded as CUDA graphs reads its weights at fixed addresses, so the best epoch is
     # copied back into them rather than put in their place.
     built = model()

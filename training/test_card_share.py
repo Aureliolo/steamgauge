@@ -10,68 +10,93 @@ import time
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-from train import Paced, hold_card_memory, rest_after
+from train import Item, Paced, hold_card_memory, rest_after
 
 
 class Card:
     total_memory = 24 * 2**30
 
 
-def held(monkeypatch, gigabytes: float | None, device: str) -> list[float]:
-    asked = []
-    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda _: Card())
+class Rows(Dataset[Item]):
+    """The numbers 0 to n - 1, one per item, in the dict form `Paced` batches."""
+
+    def __init__(self, count: int) -> None:
+        self.count = count
+
+    def __len__(self) -> int:
+        return self.count
+
+    def __getitem__(self, at: int) -> Item:
+        return {"row": torch.tensor(at)}
+
+
+def held(monkeypatch: pytest.MonkeyPatch, gigabytes: float | None, device: str) -> list[float]:
+    asked: list[float] = []
+
+    def get_device_properties(_device: object) -> Card:
+        return Card()
+
+    monkeypatch.setattr(torch.cuda, "get_device_properties", get_device_properties)
     monkeypatch.setattr(torch.cuda, "set_per_process_memory_fraction", asked.append)
     hold_card_memory(gigabytes, device)
     return asked
 
 
-def test_a_run_held_to_six_gigabytes_of_twenty_four_keeps_a_quarter(monkeypatch):
+def test_a_run_held_to_six_gigabytes_of_twenty_four_keeps_a_quarter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert held(monkeypatch, 6.0, "cuda") == [pytest.approx(0.25)]
 
 
-def test_more_than_the_card_holds_is_the_whole_card(monkeypatch):
+def test_more_than_the_card_holds_is_the_whole_card(monkeypatch: pytest.MonkeyPatch) -> None:
     assert held(monkeypatch, 40.0, "cuda") == [1.0]
 
 
-def test_a_run_given_no_figure_keeps_what_it_likes(monkeypatch):
+def test_a_run_given_no_figure_keeps_what_it_likes(monkeypatch: pytest.MonkeyPatch) -> None:
     assert held(monkeypatch, None, "cuda") == []
 
 
-def test_a_processor_run_has_no_card_memory_to_hold(monkeypatch):
+def test_a_processor_run_has_no_card_memory_to_hold(monkeypatch: pytest.MonkeyPatch) -> None:
     assert held(monkeypatch, 6.0, "cpu") == []
 
 
-def test_half_the_card_rests_as_long_as_it_worked():
+def test_half_the_card_rests_as_long_as_it_worked() -> None:
     assert rest_after(2.0, 0.5) == pytest.approx(2.0)
 
 
-def test_a_quarter_of_the_card_rests_three_times_as_long():
+def test_a_quarter_of_the_card_rests_three_times_as_long() -> None:
     assert rest_after(1.0, 0.25) == pytest.approx(3.0)
 
 
-def test_the_whole_card_never_rests():
+def test_the_whole_card_never_rests() -> None:
     assert rest_after(5.0, 1.0) == 0.0
 
 
-def test_pacing_changes_no_batch():
-    rows = torch.arange(10)
-    whole = [batch.tolist() for batch in Paced(DataLoader(rows, batch_size=3), 1.0, "cpu")]
-    shared = [batch.tolist() for batch in Paced(DataLoader(rows, batch_size=3), 0.5, "cpu")]
+def test_pacing_changes_no_batch() -> None:
+    rows = Rows(10)
+    whole = [
+        [int(row) for row in batch["row"]]
+        for batch in Paced(DataLoader(rows, batch_size=3), 1.0, "cpu")
+    ]
+    shared = [
+        [int(row) for row in batch["row"]]
+        for batch in Paced(DataLoader(rows, batch_size=3), 0.5, "cpu")
+    ]
     assert whole == shared == [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]
 
 
-def test_the_rest_follows_the_work_between_batches():
-    paced = Paced(DataLoader(torch.arange(2), batch_size=1), 0.5, "cpu")
+def test_the_rest_follows_the_work_between_batches() -> None:
+    paced = Paced(DataLoader(Rows(2), batch_size=1), 0.5, "cpu")
     started = time.perf_counter()
     for _ in paced:
         time.sleep(0.05)
     assert time.perf_counter() - started >= 0.2
 
 
-def test_the_wrapper_answers_as_its_loader_does():
-    rows = torch.arange(7)
+def test_the_wrapper_answers_as_its_loader_does() -> None:
+    rows = Rows(7)
     paced = Paced(DataLoader(rows, batch_size=2), 0.5, "cpu")
     assert len(paced) == 4
     assert paced.dataset is rows

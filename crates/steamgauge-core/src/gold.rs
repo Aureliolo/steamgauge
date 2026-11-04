@@ -331,7 +331,7 @@ enum Script {
 
 /// Which script a letter belongs to, for the scripts Steam reviews arrive in. Anything else
 /// is not evidence either way.
-fn script_of(letter: char) -> Option<Script> {
+const fn script_of(letter: char) -> Option<Script> {
     Some(match letter as u32 {
         0x0041..=0x024F => Script::Latin,
         0x0370..=0x03FF => Script::Greek,
@@ -346,7 +346,9 @@ fn script_of(letter: char) -> Option<Script> {
 }
 
 /// Whether a claim's letters are mostly of a script the language it is tagged with does not
-/// use. Mostly rather than all, because an English review names a Japanese boss and a Korean
+/// use.
+///
+/// Mostly rather than all, because an English review names a Japanese boss and a Korean
 /// one quotes an English error message, and only where there are enough letters to say,
 /// since "10/10" is written in every language on Steam.
 #[must_use]
@@ -867,7 +869,9 @@ fn answered(label: &ClaimLabel) -> Answered {
 const STYLE: &str = include_str!("gold.css");
 const SCRIPT: &str = include_str!("gold.js");
 
-/// Renders the page `who` adjudicates on: one file, fetching nothing, sending nothing. Every
+/// Renders the page `who` adjudicates on: one file, fetching nothing, sending nothing.
+///
+/// Every
 /// answer it exports carries their name, so a file handed back is filed under the person it
 /// was made for whoever runs the ingest.
 #[must_use]

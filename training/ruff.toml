@@ -1,1 +1,26 @@
 line-length = 100
+
+[lint]
+select = ["ALL"]
+ignore = [
+  "COM812",  # trailing-comma rule fights `ruff format`
+  "ISC001",  # implicit-concatenation rule fights `ruff format`
+  "CPY001",  # no per-file copyright headers here (the licence file covers the repository)
+  "T201",  # these are command-line scripts, so printing to stdout is their interface
+  "TRY003",  # long messages at the raise site are the Python idiom, a class per message is not
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+"typings/**/*.pyi" = [
+  "ANN401",  # stubs mirror libraries whose own signatures are untyped (sparse matrices, run options)
+  "N803",  # parameter names (X, C) must match the library's keyword arguments
+]
+"test_*.py" = [
+  "S101",  # pytest tests use bare assert
+  "D",  # test names state the behaviour, a docstring would repeat them
+  "PLR2004",  # expected values in assertions are the point of a test
+  "SLF001",  # tests reach into private helpers on purpose
+]

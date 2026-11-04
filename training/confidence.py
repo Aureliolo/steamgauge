@@ -32,16 +32,29 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import onnxruntime
-from tokenizers import Tokenizer
 
 import claimdata
-from train import Claims, ShippedTokenizer
+from frontier import READ_BATCH, encode_pair, open_tokenizer
+from train import Claims, Reading, ShippedTokenizer
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
+
+FloatArray = npt.NDArray[np.floating[Any]]
+IntArray = npt.NDArray[np.integer[Any]]
+BoolArray = npt.NDArray[np.bool_]
+# One threshold per predicted class, or None where no threshold keeps the promise.
+Thresholds = dict[int, float | None]
+Interval = tuple[float, float]
 
 # Below this many calibration predictions a class cannot support a threshold of its own: the
 # quantile would be fitted on a handful of claims and would not survive the next game. Those
@@ -51,21 +64,18 @@ LONELY = 40
 P_GRID = (0.3, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0)
 
 
-def logits_of(model_dir: Path, claims, provenance):
-    tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
-    tokenizer.no_padding()
-    tokenizer.no_truncation()
+def logits_of(
+    model_dir: Path, claims: Sequence[claimdata.Claim], provenance: dict[str, Any]
+) -> FloatArray:
+    """The shipped reader's subject logits for every claim, run on the processor."""
+    loaded, tokenizer = open_tokenizer(model_dir)
 
     budget = provenance["max_tokens"]
     cut = Claims(
         claims,
-        ShippedTokenizer(tokenizer),
+        ShippedTokenizer(loaded),
         provenance["subjects"],
-        budget,
-        provenance.get("context", False),
-        mark=provenance.get("mark", False),
-        prefix=provenance.get("prefix", False),
-        headset_marker=provenance.get("headset_marker", False),
+        Reading.recorded(provenance, budget),
     )
 
     session = onnxruntime.InferenceSession(
@@ -73,28 +83,29 @@ def logits_of(model_dir: Path, claims, provenance):
     )
     names = [out.name for out in session.get_outputs()]
 
-    found = []
-    for at in range(0, len(claims), 64):
-        chunk = range(at, min(at + 64, len(claims)))
-        encoded = [tokenizer.encode(*cut.pair(i)) for i in chunk]
-        longest = max(min(len(one.ids), budget) for one in encoded)
+    found: list[FloatArray] = []
+    for at in range(0, len(claims), READ_BATCH):
+        chunk = range(at, min(at + READ_BATCH, len(claims)))
+        encoded = [encode_pair(tokenizer, cut.pair(i)) for i in chunk]
+        longest = max(min(len(token_ids), budget) for token_ids, _ in encoded)
         ids = np.zeros((len(encoded), longest), dtype=np.int64)
         mask = np.zeros((len(encoded), longest), dtype=np.int64)
-        for row, one in enumerate(encoded):
-            keep = one.ids[:longest]
+        for row, (token_ids, attention) in enumerate(encoded):
+            keep = token_ids[:longest]
             ids[row, : len(keep)] = keep
-            mask[row, : len(keep)] = one.attention_mask[:longest]
+            mask[row, : len(keep)] = attention[:longest]
         found.append(session.run(names, {"input_ids": ids, "attention_mask": mask})[0])
     return np.concatenate(found)
 
 
-def softmax(logits):
+def softmax(logits: FloatArray) -> FloatArray:
+    """Row-wise softmax of `logits`."""
     shifted = logits - logits.max(axis=1, keepdims=True)
     exp = np.exp(shifted)
     return exp / exp.sum(axis=1, keepdims=True)
 
 
-def p_norm_max_logit(logits, p):
+def p_norm_max_logit(logits: FloatArray, p: float) -> FloatArray:
     """The logit vector divided by its p-norm, then the largest entry.
 
     Cattelan and Silva (arXiv:2305.15508) ran this across 84 pretrained classifiers and found
@@ -107,11 +118,11 @@ def p_norm_max_logit(logits, p):
     return (logits / np.maximum(norm, 1e-12)).max(axis=1)
 
 
-def scores_of(logits):
+def scores_of(logits: FloatArray) -> dict[str, FloatArray]:
     """Every confidence score that costs nothing beyond the forward pass already done."""
     probabilities = softmax(logits)
     ordered = np.sort(probabilities, axis=1)
-    found = {
+    found: dict[str, FloatArray] = {
         "max probability": probabilities.max(axis=1),
         "margin over the runner-up": ordered[:, -1] - ordered[:, -2],
         "negative entropy": -(-probabilities * np.log(probabilities + 1e-12)).sum(axis=1),
@@ -122,7 +133,7 @@ def scores_of(logits):
     return found
 
 
-def augrc(confidence, correct):
+def augrc(confidence: FloatArray, correct: FloatArray) -> float:
     """The share of all claims that are answered and wrong, averaged over every coverage.
 
     Lower is better, and unlike AURC it does not divide by how much was answered, so the
@@ -134,7 +145,7 @@ def augrc(confidence, correct):
     return float(undetected.mean()) if len(ranked) else 0.0
 
 
-def aurc(confidence, correct):
+def aurc(confidence: FloatArray, correct: FloatArray) -> float:
     """Selective risk averaged over every coverage. Kept for comparison with AUGRC."""
     ranked = correct[np.argsort(-confidence)]
     if not len(ranked):
@@ -143,7 +154,7 @@ def aurc(confidence, correct):
     return float((1.0 - np.cumsum(ranked) / sizes).mean())
 
 
-def cut_points(score):
+def cut_points(score: FloatArray) -> IntArray:
     """The sizes at which a threshold can actually stop, given ties in the score.
 
     A threshold is a number, not a rank, so two claims scoring the same are answered or
@@ -155,7 +166,7 @@ def cut_points(score):
     return np.append(boundary, len(ordered))
 
 
-def most_coverage(score, correct, floor):
+def most_coverage(score: FloatArray, correct: FloatArray, floor: float) -> float | None:
     """The lowest threshold whose answers are right at least `floor` of the time.
 
     Returns the threshold and nothing else: what it is worth is measured on other games. When
@@ -174,7 +185,13 @@ def most_coverage(score, correct, floor):
     return float(ranked_score[meeting.max() - 1])
 
 
-def mondrian(score, predicted, correct, floor, classes):
+def mondrian(
+    score: FloatArray,
+    predicted: IntArray,
+    correct: FloatArray,
+    floor: float,
+    classes: Sequence[str],
+) -> Thresholds:
     """One threshold per subject, and one shared by the subjects too rare to fit their own.
 
     The reader is not equally reliable across subjects: a `verdict` prediction at 0.6 is worth
@@ -187,8 +204,8 @@ def mondrian(score, predicted, correct, floor, classes):
     tail, which would be a metric win and a product failure: the rare complaints are the ones
     worth finding. A per-subject floor cannot buy coverage that way.
     """
-    thresholds = {}
-    lonely = []
+    thresholds: Thresholds = {}
+    lonely: list[int] = []
     for index in range(len(classes)):
         mine = predicted == index
         if mine.sum() < LONELY:
@@ -203,7 +220,7 @@ def mondrian(score, predicted, correct, floor, classes):
     return thresholds
 
 
-def answered_by(thresholds, score, predicted):
+def answered_by(thresholds: Thresholds, score: FloatArray, predicted: IntArray) -> BoolArray:
     """Which claims a per-subject rule answers. A subject with no threshold answers nothing."""
     line = np.array(
         [
@@ -214,15 +231,30 @@ def answered_by(thresholds, score, predicted):
     return score >= line
 
 
-def held_out_by_game(logits, correct, predicted, app_ids, floor, classes):
+@dataclass(frozen=True)
+class Answers:
+    """What the reader got right or wrong, claim by claim, and which game each claim is from."""
+
+    correct: FloatArray
+    predicted: IntArray
+    app_ids: IntArray
+
+
+def held_out_by_game(
+    logits: FloatArray,
+    answers: Answers,
+    floor: float,
+    classes: Sequence[str],
+) -> tuple[dict[str, FloatArray], dict[str, dict[str, BoolArray]]]:
     """Fit every rule on the other games, apply it to this one, and pool what comes back.
 
     Four validation games means four fits. It is not many, and that is the honest size of the
     thing: a fifth game would be worth more here than any amount of arithmetic.
     """
+    correct, predicted, app_ids = answers.correct, answers.predicted, answers.app_ids
     games = sorted(set(app_ids))
     scored = scores_of(logits)
-    pooled = {}
+    pooled: dict[str, dict[str, BoolArray]] = {}
 
     for name, score in scored.items():
         answered_global = np.zeros(len(correct), dtype=bool)
@@ -239,14 +271,16 @@ def held_out_by_game(logits, correct, predicted, app_ids, floor, classes):
     return scored, pooled
 
 
-def share(row):
+def share(row: Mapping[str, Any]) -> str:
     """One subject's share of answers and how right they were, or that it went silent."""
     if not row["answered"]:
         return "silent"
     return f"{row['coverage']:.0%} at {row['accuracy']:.2f}"
 
 
-def by_subject(answered, predicted, correct, classes):
+def by_subject(
+    answered: BoolArray, predicted: IntArray, correct: FloatArray, classes: Sequence[str]
+) -> dict[str, dict[str, Any]]:
     """What each policy does subject by subject, which is where the trade becomes visible.
 
     A per-subject floor cannot buy coverage by abandoning the tail, but it can still silence a
@@ -254,7 +288,7 @@ def by_subject(answered, predicted, correct, classes):
     four, the honest answer is that it has none, and it stops answering. Whether that has
     happened, and to which subjects, is the thing a coverage average hides.
     """
-    rows = {}
+    rows: dict[str, dict[str, Any]] = {}
     for index, name in enumerate(classes):
         mine = predicted == index
         if not mine.any():
@@ -269,7 +303,13 @@ def by_subject(answered, predicted, correct, classes):
     return rows
 
 
-def game_interval(answered, correct, app_ids, draws, rng):
+def game_interval(
+    answered: BoolArray,
+    correct: FloatArray,
+    app_ids: IntArray,
+    draws: int,
+    rng: np.random.Generator,
+) -> tuple[Interval, Interval]:
     """A percentile interval that resamples whole games, because claims are not independent.
 
     Resampling claims would treat 935 claims from one game as 935 independent observations
@@ -277,20 +317,21 @@ def game_interval(answered, correct, app_ids, draws, rng):
     """
     games = sorted(set(app_ids))
     where = {game: np.flatnonzero(app_ids == game) for game in games}
-    coverages, accuracies = [], []
+    coverages: list[float] = []
+    accuracies: list[float] = []
     for _ in range(draws):
         drawn = np.concatenate([where[game] for game in rng.choice(games, len(games))])
         said = answered[drawn]
         coverages.append(said.mean())
-        accuracies.append(correct[drawn][said].mean() if said.any() else np.nan)
+        accuracies.append(float(correct[drawn][said].mean()) if said.any() else float("nan"))
 
-    def span(values):
+    def span(values: list[float]) -> Interval:
         return float(np.nanpercentile(values, 2.5)), float(np.nanpercentile(values, 97.5))
 
     return span(coverages), span(accuracies)
 
 
-def pooled_folds(paths):
+def pooled_folds(paths: Iterable[Path]) -> tuple[FloatArray, IntArray, IntArray, list[str]]:
     """Every fold's held-out logits, checked for a game answered by a model that trained on it.
 
     The check is the point of pooling them here rather than concatenating them by hand. A game
@@ -299,17 +340,20 @@ def pooled_folds(paths):
     """
     parts = [np.load(path, allow_pickle=False) for path in sorted(paths)]
     if not parts:
-        raise SystemExit("no fold logits found")
+        msg = "no fold logits found"
+        raise SystemExit(msg)
     subjects = [str(name) for name in parts[0]["subjects"]]
     for part in parts[1:]:
         if [str(name) for name in part["subjects"]] != subjects:
-            raise SystemExit("the folds do not agree on the subjects, so they cannot be pooled")
+            msg = "the folds do not agree on the subjects, so they cannot be pooled"
+            raise SystemExit(msg)
 
     seen: dict[int, int] = {}
     for at, part in enumerate(parts):
         for game in set(part["app_id"].tolist()):
             if game in seen:
-                raise SystemExit(f"game {game} is held out by folds {seen[game]} and {at}")
+                msg = f"game {game} is held out by folds {seen[game]} and {at}"
+                raise SystemExit(msg)
             seen[game] = at
 
     return (
@@ -320,23 +364,10 @@ def pooled_folds(paths):
     )
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
-    parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
-    parser.add_argument(
-        "--oof",
-        default=None,
-        help="directory of .npz files written by `train.py --save-logits`, one per fold. Reads "
-        "those instead of running the shipped reader, which is how the study gets twenty-eight "
-        "games of held-out answers instead of four.",
-    )
-    parser.add_argument("--split-seed", type=int, default=1)
-    parser.add_argument("--min-accuracy", type=float, default=0.75)
-    parser.add_argument("--draws", type=int, default=2000)
-    parser.add_argument("--out", default=None)
-    args = parser.parse_args()
-
+def _load_study(
+    args: argparse.Namespace,
+) -> tuple[FloatArray, IntArray, IntArray, list[str]]:
+    """The logits, truth, games and subject names the study scores, from folds or the reader."""
     if args.oof:
         logits, truth, app_ids, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
         print(f"{len(truth):,} out-of-fold claims over {len(set(app_ids))} games, from {args.oof}")
@@ -354,21 +385,67 @@ def main():
             f"{len(validation):,} validation claims over {len(set(app_ids))} games, "
             f"model {model_dir}"
         )
+    return logits, truth, app_ids, subjects
+
+
+def _print_by_subject(
+    pooled: dict[str, dict[str, BoolArray]],
+    answers: Answers,
+    subjects: Sequence[str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Print the two policies subject by subject for the incumbent score and return both."""
+    incumbent = "max probability"
+    one = by_subject(pooled[incumbent]["one line"], answers.predicted, answers.correct, subjects)
+    per = by_subject(
+        pooled[incumbent]["a line per subject"], answers.predicted, answers.correct, subjects
+    )
+    print(f"\nsubject by subject on {incumbent!r}, the two policies side by side")
+    print(f"{'subject':<18} {'predicted':>9}   {'one line':>16}   {'a line per subject':>18}")
+    for name in sorted(one, key=lambda name: -one[name]["predictions"]):
+        print(
+            f"{name:<18} {one[name]['predictions']:>9}   "
+            f"{share(one[name]):>16}   {share(per[name]):>18}"
+        )
+    return one, per
+
+
+def main() -> None:
+    """Fit and score the abstention rules and print the study's tables."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", default=str(HERE.parent / "models" / "game-review-reader"))
+    parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
+    parser.add_argument(
+        "--oof",
+        default=None,
+        help="directory of .npz files written by `train.py --save-logits`, one per fold. Reads "
+        "those instead of running the shipped reader, which is how the study gets twenty-eight "
+        "games of held-out answers instead of four.",
+    )
+    parser.add_argument("--split-seed", type=int, default=1)
+    parser.add_argument("--min-accuracy", type=float, default=0.75)
+    parser.add_argument("--draws", type=int, default=2000)
+    parser.add_argument("--out", default=None)
+    args = parser.parse_args()
+
+    logits, truth, app_ids, subjects = _load_study(args)
 
     predicted = softmax(logits).argmax(axis=1)
     correct = (predicted == truth).astype(float)
     print(f"accuracy over everything: {correct.mean():.3f}\n")
 
-    scored, pooled = held_out_by_game(
-        logits, correct, predicted, app_ids, args.min_accuracy, subjects
-    )
+    answers = Answers(correct, predicted, app_ids)
+    scored, pooled = held_out_by_game(logits, answers, args.min_accuracy, subjects)
     rng = np.random.default_rng(args.split_seed)
 
     print(f"{'score':<28} {'AUGRC':>7} {'AURC':>7}   held-out coverage at the promise")
-    found = {}
+    found: dict[str, dict[str, Any]] = {}
     for name, score in scored.items():
-        row = {"augrc": augrc(score, correct), "aurc": aurc(score, correct), "policies": {}}
-        said = []
+        row: dict[str, Any] = {
+            "augrc": augrc(score, correct),
+            "aurc": aurc(score, correct),
+            "policies": {},
+        }
+        said: list[str] = []
         for policy, answered in pooled[name].items():
             coverage = float(answered.mean())
             accuracy = float(correct[answered].mean()) if answered.any() else float("nan")
@@ -396,16 +473,7 @@ def main():
             f"[{low:.1%}, {high:.1%}], accuracy {entry['accuracy']:.3f}"
         )
 
-    incumbent = "max probability"
-    one = by_subject(pooled[incumbent]["one line"], predicted, correct, subjects)
-    per = by_subject(pooled[incumbent]["a line per subject"], predicted, correct, subjects)
-    print(f"\nsubject by subject on {incumbent!r}, the two policies side by side")
-    print(f"{'subject':<18} {'predicted':>9}   {'one line':>16}   {'a line per subject':>18}")
-    for name in sorted(one, key=lambda name: -one[name]["predictions"]):
-        print(
-            f"{name:<18} {one[name]['predictions']:>9}   "
-            f"{share(one[name]):>16}   {share(per[name]):>18}"
-        )
+    one, per = _print_by_subject(pooled, answers, subjects)
 
     if args.out:
         Path(args.out).write_text(

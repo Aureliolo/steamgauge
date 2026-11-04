@@ -227,7 +227,7 @@ fn write_embeddings(snapshot: &Path) {
 }
 
 fn sha256_hex(text: &str) -> String {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(text.as_bytes());
     hasher
@@ -243,7 +243,7 @@ fn sha256_hex(text: &str) -> String {
 /// The fingerprint a readings file keeps of the text each answer was read from: the first
 /// eight bytes of its SHA-256, little-endian.
 fn text_key(text: &str) -> u64 {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
     let digest = Sha256::digest(text.as_bytes());
     u64::from_le_bytes(digest[..8].try_into().unwrap())
 }
@@ -289,8 +289,8 @@ fn write_readings(snapshot: &Path) {
     let schema = readings_schema();
 
     let mut ids = StringBuilder::new();
-    let mut starts = arrow::array::UInt32Builder::new();
-    let mut ends = arrow::array::UInt32Builder::new();
+    let mut starts = UInt32Builder::new();
+    let mut ends = UInt32Builder::new();
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
@@ -383,7 +383,7 @@ fn write_readings(snapshot: &Path) {
 /// A capture, its embeddings and an anchor set, all on disk and all real files.
 fn build_corpus(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
     let root = std::env::temp_dir().join(format!("steamgauge-{name}-{}", std::process::id()));
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
     let snapshot = root.join("appid=1").join("snapshot=1700000000");
     std::fs::create_dir_all(&snapshot).unwrap();
     std::fs::write(
@@ -467,7 +467,7 @@ fn a_capture_becomes_a_page_without_a_model_or_a_network() {
         "the link back to the source is missing or malformed"
     );
 
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -493,13 +493,13 @@ fn counts_the_corpus_no_longer_supports_are_refused_rather_than_drawn() {
         "the refusal should name the category that disagrees, got: {message}"
     );
 
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// A corpus of two reviews and a reading that declined two claims of the first.
 fn corpus_with_declines(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
     let root = std::env::temp_dir().join(format!("steamgauge-{name}-{}", std::process::id()));
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
     let snapshot = root.join("appid=1").join("snapshot=1700000000");
     std::fs::create_dir_all(&snapshot).unwrap();
     write_two_reviews(&snapshot);
@@ -577,8 +577,8 @@ fn write_two_declines(snapshot: &Path) {
 fn write_declines(snapshot: &Path, rows: &[(&str, usize, usize, Option<&str>)]) {
     let reading_schema = readings_schema();
     let mut ids = StringBuilder::new();
-    let mut starts = arrow::array::UInt32Builder::new();
-    let mut ends = arrow::array::UInt32Builder::new();
+    let mut starts = UInt32Builder::new();
+    let mut ends = UInt32Builder::new();
     let mut subjects = StringBuilder::new();
     let mut confidences = Float32Builder::new();
     let mut polarities = StringBuilder::new();
@@ -663,7 +663,7 @@ fn a_teaching_draw_asks_only_about_what_the_reader_declined() {
         "a declined row covering bytes no claim covers was handed to a labeller: {after:?}"
     );
 
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -687,5 +687,5 @@ fn a_review_already_in_the_reference_set_is_never_drawn_a_second_time() {
         "a review labelled under one draw cannot also be labelled under another"
     );
 
-    std::fs::remove_dir_all(&root).ok();
+    let _ = std::fs::remove_dir_all(&root);
 }

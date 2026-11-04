@@ -1,33 +1,137 @@
 [workspace]
 resolver = "3"
-members = ["crates/steamgauge-core", "crates/steamgauge-app", "crates/steamgauge-site"]
+members = ["crates/steamgauge-app", "crates/steamgauge-core", "crates/steamgauge-site"]
 
 [workspace.package]
 version = "0.4.1"
+# The schema marks the field deprecated because crates.io no longer shows it. Cargo still reads
+# it, and the window's About page names the author from it.
+# tombi: lint.rules.deprecated.disabled = true
+authors = ["Aurelio Amoroso <19254254+Aureliolo@users.noreply.github.com>"]
 edition = "2024"
 rust-version = "1.99.1"
-license = "Apache-2.0"
-repository = "https://github.com/Aureliolo/steamgauge"
 homepage = "https://aureliolo.github.io/steamgauge/"
-authors = ["Aurelio Amoroso <19254254+Aureliolo@users.noreply.github.com>"]
+repository = "https://github.com/Aureliolo/steamgauge"
+license = "Apache-2.0"
 publish = false
 
 [workspace.dependencies]
 steamgauge-core = { path = "crates/steamgauge-core" }
 
-[workspace.lints.rust]
-unsafe_code = "forbid"
-missing_debug_implementations = "warn"
-
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
+# Restriction lints chosen one by one, since clippy's docs say never to enable the group.
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+as_pointer_underscore = "warn"
+assertions_on_result_states = "warn"
+cargo = { level = "warn", priority = -1 }
+clone_on_ref_ptr = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+exit = "warn"
+filetype_is_file = "warn"
+fn_to_numeric_cast_any = "warn"
+format_push_string = "warn"
+get_unwrap = "warn"
+if_then_some_else_none = "warn"
+infinite_loop = "warn"
+iter_over_hash_type = "warn"
+# Writing to a String cannot fail and `let _ =` is the std idiom for it. The rest are best-effort
+# clean-ups of temporary folders and partial files, where a failure has nothing to report to.
+let_underscore_must_use = "allow"
+# The page templates substitute `{name}` placeholders with str::replace, not format!.
+literal_string_with_formatting_args = "allow"
+lossy_float_literal = "warn"
+map_err_ignore = "warn"
+map_with_unused_argument_over_ranges = "warn"
+mem_forget = "warn"
+missing_assert_message = "warn"
+mixed_read_write_in_expression = "warn"
+# The dependency tree picks these versions and no crate here controls them.
+multiple_crate_versions = "allow"
+needless_raw_strings = "warn"
+non_zero_suggestions = "warn"
+nursery = { level = "warn", priority = -1 }
+# match and if let are Rust's own idiom, and its closures cannot move one value into both arms.
+option_if_let_else = "allow"
+panic_in_result_fn = "warn"
+pathbuf_init_then_push = "warn"
 pedantic = { level = "warn", priority = -1 }
+precedence_bits = "warn"
+pub_without_shorthand = "warn"
+rc_buffer = "warn"
+# Contradicts rustc's unreachable_pub, which asks for pub(crate) in a private module.
+redundant_pub_crate = "allow"
+redundant_test_prefix = "warn"
+redundant_type_annotations = "warn"
+ref_patterns = "warn"
+renamed_function_params = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+return_and_then = "warn"
+same_name_method = "warn"
+self_named_module_files = "warn"
+semicolon_outside_block = "warn"
+# A lock is held on purpose for the whole critical section it protects, and the lint cannot tell.
+significant_drop_tightening = "allow"
+str_to_string = "warn"
+string_add = "warn"
+string_lit_chars_any = "warn"
+# Rewriting a*b+c as mul_add rounds differently and would shift reported figures.
+suboptimal_flops = "allow"
+todo = "warn"
+try_err = "warn"
+undocumented_unsafe_blocks = "warn"
+unimplemented = "warn"
+unnecessary_self_imports = "warn"
+unneeded_field_pattern = "warn"
+unseparated_literal_suffix = "warn"
+unused_result_ok = "warn"
+unused_trait_names = "warn"
+unwrap_in_result = "warn"
+verbose_file_reads = "warn"
+zero_sized_map_values = "warn"
 
-# Cargo's sixteen codegen units: one built twice as slowly and ran no faster, since reading runs
-# inside ONNX Runtime, which this setting never touches.
-[profile.release]
-lto = "thin"
-strip = true
+[workspace.lints.rust]
+ambiguous_negative_literals = "warn"
+deprecated_in_future = "warn"
+deref_into_dyn_supertrait = "warn"
+explicit_outlives_requirements = "warn"
+if_let_rescope = "warn"
+impl_trait_overcaptures = "warn"
+linker_messages = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_debug_implementations = "warn"
+missing_unsafe_on_extern = "warn"
+non_ascii_idents = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+single_use_lifetimes = "warn"
+tail_expr_drop_order = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+unnameable_types = "warn"
+unreachable_pub = "warn"
+unsafe_code = "forbid"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.rustdoc]
+bare_urls = "warn"
+broken_intra_doc_links = "warn"
+invalid_codeblock_attributes = "warn"
+invalid_html_tags = "warn"
+invalid_rust_codeblocks = "warn"
+private_intra_doc_links = "warn"
+redundant_explicit_links = "warn"
+unescaped_backticks = "warn"
 
 # jieba-rs's dictionary comes through include-flate, whose latest release builds on zstd 0.13, a
 # line with no fix for RUSTSEC-2026-0391 or the zstd-safe 7 advisories; its main is on zstd 0.14.
@@ -36,3 +140,9 @@ strip = true
 include-flate = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
 include-flate-codegen = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
 include-flate-compress = { git = "https://github.com/SOF3/include-flate", rev = "ecb6b7a4972e61e8e5cf3f1caa627964c531a858" }
+
+# Cargo's sixteen codegen units: one built twice as slowly and ran no faster, since reading runs
+# inside ONNX Runtime, which this setting never touches.
+[profile.release]
+strip = true
+lto = "thin"

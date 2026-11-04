@@ -25,7 +25,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 use tokio::sync::Notify;
 
 use super::{library_dir, now_unix, settings::Settings, text};
@@ -33,7 +33,7 @@ use super::{library_dir, now_unix, settings::Settings, text};
 /// What a job is asked to do.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Task {
+pub(super) enum Task {
     /// Every review of a game. A download resumes where an earlier one stopped.
     Download { app_id: u32 },
     /// What was written or edited since a game was last downloaded, then a read of it again
@@ -76,7 +76,7 @@ enum Lane {
 const LANES: [Lane; 3] = [Lane::Network, Lane::Machine, Lane::Files];
 
 impl Task {
-    fn lane(&self) -> Lane {
+    const fn lane(&self) -> Lane {
         match self {
             Self::Download { .. } | Self::Update { .. } | Self::Check | Self::FetchModel { .. } => {
                 Lane::Network
@@ -86,7 +86,7 @@ impl Task {
         }
     }
 
-    pub(super) fn app_id(&self) -> Option<u32> {
+    pub(super) const fn app_id(&self) -> Option<u32> {
         match self {
             Self::Download { app_id }
             | Self::Update { app_id }
@@ -101,7 +101,7 @@ impl Task {
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum State {
+pub(super) enum State {
     Queued,
     Running,
     Done,
@@ -112,7 +112,7 @@ pub enum State {
 /// What a job's count is a count of.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Unit {
+pub(super) enum Unit {
     Bytes,
     Reviews,
     Points,
@@ -122,7 +122,7 @@ pub enum Unit {
 
 /// One job as the window draws it.
 #[derive(Debug, Clone, Serialize)]
-pub struct Job {
+pub(super) struct Job {
     pub id: u64,
     pub task: Task,
     /// The game's name, or what the job is about where it is about no one game.
@@ -288,13 +288,13 @@ impl Job {
 
 /// Whether a job is dropped where it stands when stopped: a crawl records each window only once
 /// it is whole and resumes from those, and a check writes nothing until it ends.
-fn droppable(task: &Task) -> bool {
+const fn droppable(task: &Task) -> bool {
     matches!(task, Task::Download { .. } | Task::Check)
 }
 
 /// The board and a bell for each lane.
 #[derive(Default)]
-pub struct Work {
+pub(super) struct Work {
     board: Arc<Mutex<Board>>,
     network: Arc<Notify>,
     machine: Arc<Notify>,
@@ -353,7 +353,7 @@ fn name_from_store(app: &AppHandle, app_id: u32) {
 }
 
 impl Work {
-    fn bell(&self, lane: Lane) -> &Arc<Notify> {
+    const fn bell(&self, lane: Lane) -> &Arc<Notify> {
         match lane {
             Lane::Network => &self.network,
             Lane::Machine => &self.machine,
@@ -371,12 +371,12 @@ impl Work {
 
     /// Puts a task the person asked for on the board, unless the same task is already waiting or
     /// running, which then becomes theirs.
-    pub fn queue(&self, app: &AppHandle, task: Task, name: Option<String>) -> u64 {
+    pub(super) fn queue(&self, app: &AppHandle, task: Task, name: Option<String>) -> u64 {
         self.queue_as(app, task, name, false)
     }
 
     /// Puts a task the app starts by itself on the board, to wait behind the person's work.
-    pub fn queue_background(&self, app: &AppHandle, task: Task) -> u64 {
+    pub(super) fn queue_background(&self, app: &AppHandle, task: Task) -> u64 {
         self.queue_as(app, task, None, true)
     }
 
@@ -426,7 +426,7 @@ impl Work {
     /// once it is whole and resumes from those, and a check writes nothing until it ends.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
     /// letting go of its game only then, not before another job could start on the same files.
-    pub fn stop(&self, app: &AppHandle, id: u64) {
+    pub(super) fn stop(&self, app: &AppHandle, id: u64) {
         {
             let mut board = self.lock();
             if let Some(stop) = board.stops.get(&id) {
@@ -451,14 +451,14 @@ impl Work {
     }
 
     /// Takes finished jobs off the board.
-    pub fn clear(&self, app: &AppHandle) {
+    pub(super) fn clear(&self, app: &AppHandle) {
         self.lock()
             .jobs
             .retain(|job| matches!(job.state, State::Queued | State::Running));
         self.send(app, true);
     }
 
-    pub fn jobs(&self) -> Vec<Job> {
+    pub(super) fn jobs(&self) -> Vec<Job> {
         self.lock().jobs.clone()
     }
 
@@ -634,7 +634,7 @@ impl Work {
     }
 }
 
-fn stopped_note(task: &Task) -> &'static str {
+const fn stopped_note(task: &Task) -> &'static str {
     match task {
         Task::Download { .. } => {
             "Stopped. What was downloaded is kept, and downloading again carries on from there."
@@ -668,7 +668,7 @@ impl Ended {
 }
 
 /// Starts every lane. Each waits for its bell, runs what it can, and waits again.
-pub fn start(app: &AppHandle) {
+pub(super) fn start(app: &AppHandle) {
     for lane in LANES {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
@@ -760,7 +760,7 @@ fn steam(app: &AppHandle, id: u64) -> Result<steamgauge_core::SteamClient, Strin
     clippy::cast_precision_loss,
     reason = "counts shown on a bar are far below 2^53"
 )]
-fn float(count: u64) -> f64 {
+const fn float(count: u64) -> f64 {
     count as f64
 }
 
@@ -885,7 +885,7 @@ async fn refresh_updates(
 
 /// The reader size this machine reads with: the card decides where one is reached, and the
 /// person's choice counts where the machine reads on its processor.
-pub fn reader_here(settings: &Settings) -> &'static steamgauge_core::reader::Size {
+pub(super) fn reader_here(settings: &Settings) -> &'static steamgauge_core::reader::Size {
     use steamgauge_core::reader::{Size, fits};
 
     let card = steamgauge_core::card::largest();
@@ -900,7 +900,7 @@ pub fn reader_here(settings: &Settings) -> &'static steamgauge_core::reader::Siz
 
 /// Whether a size can read on this machine: any size on a processor, and on a card only a size
 /// the card's memory holds, since a larger one would stop part way through a read.
-pub fn runs_here(
+pub(super) fn runs_here(
     size: &steamgauge_core::reader::Size,
     card: Option<steamgauge_core::card::Card>,
     reaches: bool,
@@ -918,7 +918,7 @@ struct Across {
 }
 
 impl Across {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             base: 0,
             file: String::new(),
@@ -1020,7 +1020,7 @@ fn bar(
     id: u64,
     total: f64,
     what: &str,
-) -> impl FnMut(steamgauge_core::model::DownloadProgress) + use<> {
+) -> impl FnMut(steamgauge_core::model::DownloadProgress<'_>) + use<> {
     let telling = app.clone();
     let mut across = Across::new();
     let (fetching, checking) = (format!("Fetching {what}"), format!("Checking {what}"));
@@ -1554,7 +1554,7 @@ pub(super) fn thousands(count: u64) -> String {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn work(work: tauri::State<'_, Work>) -> Vec<Job> {
+pub(super) fn work(work: tauri::State<'_, Work>) -> Vec<Job> {
     work.jobs()
 }
 
@@ -1563,7 +1563,7 @@ pub fn work(work: tauri::State<'_, Work>) -> Vec<Job> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn queue(app: AppHandle, work: tauri::State<'_, Work>, tasks: Vec<Task>) -> Vec<u64> {
+pub(super) fn queue(app: AppHandle, work: tauri::State<'_, Work>, tasks: Vec<Task>) -> Vec<u64> {
     tasks
         .into_iter()
         .map(|task| work.queue(&app, task, None))
@@ -1575,7 +1575,7 @@ pub fn queue(app: AppHandle, work: tauri::State<'_, Work>, tasks: Vec<Task>) -> 
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn stop_job(app: AppHandle, work: tauri::State<'_, Work>, id: u64) {
+pub(super) fn stop_job(app: AppHandle, work: tauri::State<'_, Work>, id: u64) {
     work.stop(&app, id);
 }
 
@@ -1584,7 +1584,7 @@ pub fn stop_job(app: AppHandle, work: tauri::State<'_, Work>, id: u64) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn clear_finished(app: AppHandle, work: tauri::State<'_, Work>) {
+pub(super) fn clear_finished(app: AppHandle, work: tauri::State<'_, Work>) {
     work.clear(&app);
 }
 
@@ -1593,8 +1593,12 @@ pub fn clear_finished(app: AppHandle, work: tauri::State<'_, Work>) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn open_report(app: AppHandle, work: tauri::State<'_, Work>, id: u64) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
+pub(super) fn open_report(
+    app: AppHandle,
+    work: tauri::State<'_, Work>,
+    id: u64,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt as _;
 
     let path = work
         .saved(id)
@@ -1853,7 +1857,7 @@ mod tests {
             job.total = Some(900.0);
             job.ended = Some(5);
             job.wait_again();
-        }
+        };
         let again = job(&work, own);
         assert_eq!(again.state, State::Queued);
         assert!(again.done.abs() < f64::EPSILON);

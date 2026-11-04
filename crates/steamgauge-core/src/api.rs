@@ -22,7 +22,9 @@ const BACKOFF_BASE: Duration = Duration::from_secs(2);
 /// The longest single wait the client picks for itself. Valve's refusals come in windows of
 /// minutes, so doubling past this only overshoots the end of one.
 const BACKOFF_CAP: Duration = Duration::from_mins(5);
-/// How long a run of refusals is waited out before the crawl is abandoned. Five attempts two to
+/// How long a run of refusals is waited out before the crawl is abandoned.
+///
+/// Five attempts two to
 /// sixteen seconds apart gave up after half a minute, inside a window that lifted on its own a
 /// few minutes later, and four crawls failed that way in a row. A crawl is a long job, and
 /// waiting is what the person who started it would choose.
@@ -132,7 +134,7 @@ impl SteamClient {
     /// crawl. Somebody who typed a game into a search box would rather hear in seconds that
     /// Steam is refusing than watch the box wait for half an hour.
     #[must_use]
-    pub fn with_patience(mut self, patience: Duration) -> Self {
+    pub const fn with_patience(mut self, patience: Duration) -> Self {
         self.patience = patience;
         self
     }
@@ -230,7 +232,7 @@ impl SteamClient {
             "{}/api/appdetails?appids={app_id}&filters=basic",
             self.store
         );
-        let body: serde_json::Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
+        let body: Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
         let name = body
             .get(app_id.to_string())?
             .get("data")?
@@ -251,7 +253,7 @@ impl SteamClient {
             "{}/api/appdetails?appids={app_id}&filters=categories",
             self.store
         );
-        let body: serde_json::Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
+        let body: Value = self.http.get(&url).send().await.ok()?.json().await.ok()?;
         crate::facts::headset_only_in(&body, app_id)
     }
 
@@ -508,7 +510,7 @@ mod tests {
         (server, client)
     }
 
-    fn page(summary: &serde_json::Value) -> stand_in::Answer {
+    fn page(summary: &Value) -> stand_in::Answer {
         stand_in::Answer::json(&serde_json::json!({"response": {
             "query_summary": summary,
             "cursor": "*",
@@ -632,7 +634,7 @@ mod tests {
     #[tokio::test]
     async fn a_search_the_store_will_not_answer_says_so() {
         let (_server, client) = steam(|_| stand_in::Answer::status(503));
-        assert!(client.search("anything").await.is_err());
+        client.search("anything").await.unwrap_err();
         let (_server, client) = steam(|_| stand_in::Answer::json(&serde_json::json!({})));
         assert!(matches!(
             client.search("anything").await,
@@ -782,7 +784,7 @@ mod tests {
                 let told = Arc::clone(&told);
                 move |wait, status| told.lock().unwrap().push((wait, status))
             });
-            assert!(client.fetch(&ReviewQuery::new(7), 7).await.is_ok());
+            client.fetch(&ReviewQuery::new(7), 7).await.unwrap();
             assert_eq!(server.asked().len(), 2, "{status}");
             assert_eq!(*told.lock().unwrap(), [(Duration::ZERO, status)]);
         }

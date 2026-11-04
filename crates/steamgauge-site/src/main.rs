@@ -19,7 +19,7 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use clap::Parser;
 
 /// Where the site is published.
@@ -61,7 +61,7 @@ pub enum Layout {
 impl Page {
     /// Its Markdown, for a page written as one.
     #[must_use]
-    pub fn markdown(&self) -> Option<&'static str> {
+    pub const fn markdown(&self) -> Option<&'static str> {
         match self.source {
             Source::Home => None,
             Source::Markdown(path) => Some(path),
@@ -191,7 +191,12 @@ fn main() -> Result<()> {
             Cli::Build { out, shots, report } => build(&root, &out, &shots, &report),
         })?
         .join()
-        .map_err(|_| anyhow::anyhow!("the site's build panicked"))?
+        .map_err(|panic| {
+            anyhow::anyhow!(
+                "the site's build panicked: {}",
+                steamgauge_app::panic_message(&*panic)
+            )
+        })?
 }
 
 fn write(root: &Path) -> Result<()> {
@@ -405,7 +410,7 @@ impl Window {
         })
     }
 
-    fn picture(&self) -> home::Picture {
+    const fn picture(&self) -> home::Picture {
         home::Picture {
             width: self.width,
             height: self.height,
@@ -487,7 +492,7 @@ fn page_html(
         .replace("{{body}}", &body)
 }
 
-fn layout_class(layout: Layout) -> &'static str {
+const fn layout_class(layout: Layout) -> &'static str {
     match layout {
         Layout::Prose => "prose",
         Layout::Cards => "prose reference",
@@ -534,12 +539,13 @@ fn llms(twins: &[(&Page, String, String)]) -> String {
 }
 
 fn llms_full(twins: &[(&Page, String, String)]) -> String {
-    twins
+    let mut text = twins
         .iter()
         .map(|(_, _, markdown)| markdown.trim_end())
         .collect::<Vec<_>>()
-        .join("\n\n---\n\n")
-        + "\n"
+        .join("\n\n---\n\n");
+    text.push('\n');
+    text
 }
 
 fn sitemap() -> String {
@@ -592,10 +598,10 @@ mod tests {
     #[test]
     fn a_png_gives_its_size_and_anything_else_is_refused() {
         let mut header = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
-        header.extend(1280u32.to_be_bytes());
-        header.extend(900u32.to_be_bytes());
+        header.extend(1280_u32.to_be_bytes());
+        header.extend(900_u32.to_be_bytes());
         assert_eq!(png_size(&header).unwrap(), (1280, 900));
-        assert!(png_size(b"GIF89a").is_err());
+        png_size(b"GIF89a").unwrap_err();
     }
 
     #[test]

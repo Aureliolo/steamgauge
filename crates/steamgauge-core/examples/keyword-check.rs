@@ -18,7 +18,7 @@ use steamgauge_core::{Result, rare_subjects};
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let mut app_ids: Vec<u32> = Vec::new();
-    let mut show = 5usize;
+    let mut show = 5_usize;
     let mut out = std::path::PathBuf::from("data");
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
     }
 
     let mut matched: HashMap<&'static str, (usize, Vec<String>)> = HashMap::new();
-    let mut claims_seen = 0usize;
+    let mut claims_seen = 0_usize;
     for app_id in app_ids {
         let snapshot = steamgauge_core::embed::latest_snapshot(&out, app_id)?;
         let reading: steamgauge_core::read::ReadReport =

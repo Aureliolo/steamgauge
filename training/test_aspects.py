@@ -6,42 +6,69 @@ python -m pytest test_aspects.py
 from __future__ import annotations
 
 import dataclasses
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
 import torch
 
+from export import aspect_lines
 from test_claimdata import claim
-from train import ASPECT_ANSWERS, Claims, aspect_loss, aspect_scores
+from train import ASPECT_ANSWERS, Claims, Reading, aspect_loss, aspect_scores
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from pathlib import Path
+
+    import numpy.typing as npt
 
 SUBJECTS = ["audio", "controls", "story", "verdict"]
 
 
-def answered(**change):
+class NoTokenizer:
+    """A tokenizer for tests that never encode text, so any call is a failure."""
+
+    def __call__(
+        self,
+        text: str,
+        pair: str | None = None,
+        /,
+        **kwargs: object,
+    ) -> Mapping[str, object]:
+        """Fail, because the test under way must not tokenise."""
+        msg = f"tokenised {text!r}, {pair!r}, {kwargs!r}"
+        raise AssertionError(msg)
+
+
+def answered(**change: object) -> tuple[list[int], list[bool]]:
     asked = dataclasses.replace(claim(1), subject="audio", polarity="praise", **change)
-    answer, known = Claims([asked], None, SUBJECTS, 16).aspect_target(asked)
-    return answer.tolist(), known.tolist()
+    answer, known = Claims([asked], NoTokenizer(), SUBJECTS, Reading(max_length=16)).aspect_target(
+        asked
+    )
+    return [int(one) for one in answer], [bool(one) for one in known]
 
 
-def test_every_subject_a_claim_covers_is_charged_with_its_own_polarity():
+def test_every_subject_a_claim_covers_is_charged_with_its_own_polarity() -> None:
     answer, known = answered(also=(("controls", "complaint"),))
     # absent is 0, and 1 + i is POLARITIES[i]: praise 1, complaint 2.
     assert answer == [1, 2, 0, 0]
     assert all(known)
 
 
-def test_a_claim_about_one_thing_is_known_to_cover_nothing_else():
+def test_a_claim_about_one_thing_is_known_to_cover_nothing_else() -> None:
     assert answered(also=()) == ([1, 0, 0, 0], [True] * 4)
 
 
 @pytest.mark.parametrize("split_wrong", [False, True])
-def test_a_label_from_before_the_sheet_asked_answers_its_first_subject_alone(split_wrong):
+def test_a_label_from_before_the_sheet_asked_answers_its_first_subject_alone(
+    *, split_wrong: bool
+) -> None:
     answer, known = answered(also=None, split_wrong=split_wrong)
     assert answer[0] == 1
     assert known == [True, False, False, False], "never charged as absent where nobody said so"
 
 
-def test_a_claim_with_nothing_known_costs_nothing():
+def test_a_claim_with_nothing_known_costs_nothing() -> None:
     logits = torch.randn(2, len(SUBJECTS), ASPECT_ANSWERS)
     answer = torch.tensor([[1, 0, 0, 0], [0, 0, 0, 0]])
     known = torch.tensor([[True] * 4, [False] * 4])
@@ -50,7 +77,7 @@ def test_a_claim_with_nothing_known_costs_nothing():
     assert loss[1] == 0
 
 
-def test_the_scores_count_what_lies_beyond_the_first_subject_on_its_own():
+def test_the_scores_count_what_lies_beyond_the_first_subject_on_its_own() -> None:
     claims = [
         dataclasses.replace(
             claim(1), subject="audio", polarity="praise", also=(("controls", "complaint"),)
@@ -63,6 +90,7 @@ def test_the_scores_count_what_lies_beyond_the_first_subject_on_its_own():
         for subject, answer in enumerate(answers):
             logits[row, subject, answer] = 9.0
     scores = aspect_scores(logits, claims, SUBJECTS)
+    assert "all" in scores
     assert scores["all"]["f1"] == pytest.approx(1.0)
     assert scores["beyond_the_first"]["covered"] == 1
     assert scores["beyond_the_first"]["recall"] == pytest.approx(1.0)
@@ -71,13 +99,12 @@ def test_the_scores_count_what_lies_beyond_the_first_subject_on_its_own():
     # Missing the second subject costs the part beyond the first and nothing else.
     logits[0, 1] = torch.tensor([9.0, -9.0, -9.0, -9.0])
     missed = aspect_scores(logits, claims, SUBJECTS)
+    assert "beyond_the_first" in missed
     assert missed["beyond_the_first"]["recall"] == 0.0
     assert missed["per_subject"]["audio"]["f1"] == pytest.approx(1.0)
 
 
-def test_a_line_per_subject_keeps_the_promise_or_is_not_drawn(tmp_path):
-    from export import aspect_lines
-
+def test_a_line_per_subject_keeps_the_promise_or_is_not_drawn(tmp_path: Path) -> None:
     # Six held-out claims. Controls is covered by the three the head is surest of, and called
     # on a fourth it is not: a line at 0.75 keeps every call right. Story is never covered, so
     # no line can keep any promise about it.
@@ -89,11 +116,18 @@ def test_a_line_per_subject_keeps_the_promise_or_is_not_drawn(tmp_path):
     truth[:3, 1] = 1
     save_folds(tmp_path, logits, truth, first=0)
     lines = aspect_lines(str(tmp_path), SUBJECTS, 0.75)
+    assert lines is not None
     assert lines[1] == pytest.approx(0.8)
     assert lines[2] is None
 
 
-def save_folds(path, logits, truth, first, order=SUBJECTS):
+def save_folds(
+    path: Path,
+    logits: npt.NDArray[np.float64],
+    truth: npt.NDArray[np.int64],
+    first: int,
+    order: list[str] = SUBJECTS,
+) -> None:
     """One fold whose subject head names `first` first on every claim, in `order`'s order."""
     subject_logits = np.full((len(logits), len(order)), -5.0)
     subject_logits[:, first] = 5.0
@@ -107,9 +141,7 @@ def save_folds(path, logits, truth, first, order=SUBJECTS):
     )
 
 
-def test_a_line_is_fitted_only_beside_the_subject_named_first(tmp_path):
-    from export import aspect_lines
-
+def test_a_line_is_fitted_only_beside_the_subject_named_first(tmp_path: Path) -> None:
     # Twenty claims chiefly about controls, which the head calls covered with certainty and
     # the reader never names again, beside ten about audio where the head calls controls and is
     # right on the three it is least sure of. Counted with the first, a line at 0.85 keeps its
@@ -134,12 +166,12 @@ def test_a_line_is_fitted_only_beside_the_subject_named_first(tmp_path):
         aspect_truth=truth,
         aspect_known=np.ones((30, len(SUBJECTS)), dtype=bool),
     )
-    assert aspect_lines(str(tmp_path), SUBJECTS, 0.75)[1] is None
+    lines = aspect_lines(str(tmp_path), SUBJECTS, 0.75)
+    assert lines is not None
+    assert lines[1] is None
 
 
-def test_the_folds_order_of_subjects_is_remapped_onto_the_export(tmp_path):
-    from export import aspect_lines
-
+def test_the_folds_order_of_subjects_is_remapped_onto_the_export(tmp_path: Path) -> None:
     covered = np.array([0.95, 0.9, 0.8, 0.7, 0.2, 0.1])
     logits = np.full((6, len(SUBJECTS), ASPECT_ANSWERS), -50.0)
     logits[:, :, 0] = np.log(1 - covered)[:, None]
@@ -149,5 +181,6 @@ def test_the_folds_order_of_subjects_is_remapped_onto_the_export(tmp_path):
     truth[:3, reversed_order.index("controls")] = 1
     save_folds(tmp_path, logits, truth, first=reversed_order.index("verdict"), order=reversed_order)
     lines = aspect_lines(str(tmp_path), SUBJECTS, 0.75)
+    assert lines is not None
     assert lines[SUBJECTS.index("controls")] == pytest.approx(0.8)
     assert lines[SUBJECTS.index("story")] is None

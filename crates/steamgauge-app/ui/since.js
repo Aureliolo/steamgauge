@@ -2,7 +2,18 @@
    page. Every share is of the reviews read since the look, set against the twelve months before
    it. Which changes are wider than chance is decided by the core, never here. */
 
-import { invoke, el, set, make, button, whole, roundShare, day, when, monthName } from './common.js';
+import {
+  button,
+  day,
+  el,
+  invoke,
+  make,
+  monthName,
+  roundShare,
+  set,
+  when,
+  whole,
+} from './common.js';
 
 /* Games listed before the rest are counted instead. */
 const GAMES_SHOWN = 6;
@@ -22,7 +33,9 @@ function standing(since) {
       return 'too few reviews in the year before to compare with';
     case 'compared':
       /* Where something moved, the line under it says how many were read. */
-      return moved(since) ? null : `${whole.format(since.read_new)} read, and nothing in them moved beyond chance`;
+      return moved(since)
+        ? null
+        : `${whole.format(since.read_new)} read, and nothing in them moved beyond chance`;
     default:
       return 'nothing new';
   }
@@ -30,7 +43,9 @@ function standing(since) {
 
 /* A subject's name in the middle of a sentence: lower case, except a word that is an acronym. */
 function subjectName(label) {
-  if (label === 'Overall verdict') return 'the game as a whole';
+  if (label === 'Overall verdict') {
+    return 'the game as a whole';
+  }
   return label
     .split(' ')
     .map((word) => (word.length > 1 && word === word.toUpperCase() ? word : word.toLowerCase()))
@@ -61,7 +76,9 @@ function moveItems(since, appId, openSubject) {
       'li',
       `since-move ${one.side} ${rising ? 'up' : 'down'}`,
       make('span', 'side', one.side === 'praise' ? 'Praise for' : 'Complaints about'),
-      openSubject ? button(label, 'link', () => openSubject(appId, one.subject, one.side)) : make('span', null, label),
+      openSubject
+        ? button(label, 'link', () => openSubject(appId, one.subject, one.side))
+        : make('span', null, label),
       figures(one.shift),
     );
   });
@@ -105,14 +122,30 @@ export function drawSinceCard(lately, { openGame, openSubject }) {
           standing(game) ? make('span', 'since-standing', standing(game)) : null,
         ),
       );
-      if (moved(game)) item.append(make('ul', 'since-moves', ...moveItems(game, game.app_id, openSubject)), against(game));
+      if (moved(game)) {
+        item.append(
+          make('ul', 'since-moves', ...moveItems(game, game.app_id, openSubject)),
+          against(game),
+        );
+      }
       return item;
     }),
   );
   if (lately.games.length > shown.length) {
-    list.append(make('li', 'since-game more', `and ${whole.format(lately.games.length - shown.length)} more games`));
+    list.append(
+      make(
+        'li',
+        'since-game more',
+        `and ${whole.format(lately.games.length - shown.length)} more games`,
+      ),
+    );
   }
-  set(el('since-when'), lately.looked === null ? '' : `You last looked on ${when.format(new Date(lately.looked * 1000))}`);
+  set(
+    el('since-when'),
+    lately.looked === null
+      ? ''
+      : `You last looked on ${when.format(new Date(lately.looked * 1000))}`,
+  );
   el('since-calm').hidden = lately.games.length > 0;
   set(
     el('since-calm-text'),
@@ -133,18 +166,31 @@ export async function drawSinceLine(appId, openSubject, still) {
   } catch {
     since = null;
   }
-  if (!still()) return;
+  if (!still()) {
+    return;
+  }
   line.hidden = since === null;
-  if (since === null) return;
+  if (since === null) {
+    return;
+  }
   const looked = day.format(new Date(since.looked * 1000));
   line.classList.toggle('moved', moved(since));
   if (since.standing === 'nothing') {
     line.replaceChildren(make('p', null, `Nothing new since you last looked, on ${looked}.`));
     return;
   }
-  const said = [since.new > 0 ? newReviews(since) : null, standing(since)].filter(Boolean).join(', ');
+  const said = [since.new > 0 ? newReviews(since) : null, standing(since)]
+    .filter(Boolean)
+    .join(', ');
   line.replaceChildren(
-    make('p', null, make('strong', null, `Since you last looked, on ${looked}: `), said ? `${said}.` : 'this moved.'),
+    make(
+      'p',
+      null,
+      make('strong', null, `Since you last looked, on ${looked}: `),
+      said ? `${said}.` : 'this moved.',
+    ),
   );
-  if (moved(since)) line.append(make('ul', 'since-moves', ...moveItems(since, appId, openSubject)), against(since));
+  if (moved(since)) {
+    line.append(make('ul', 'since-moves', ...moveItems(since, appId, openSubject)), against(since));
+  }
 }

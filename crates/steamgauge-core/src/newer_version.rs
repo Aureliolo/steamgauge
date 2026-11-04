@@ -71,7 +71,7 @@ impl Asked {
     /// Whether [`ASK_EVERY`] has passed since the last question. A clock set back past it counts
     /// as due, or a clock that was once a year ahead would silence the notice for that year.
     #[must_use]
-    pub fn due(&self, now: i64) -> bool {
+    pub const fn due(&self, now: i64) -> bool {
         now < self.at || now - self.at >= ASK_EVERY
     }
 
@@ -133,9 +133,8 @@ impl Opened {
     /// What was kept, or none where there is no file or it cannot be read.
     #[must_use]
     pub fn load(dir: &Path) -> Option<Self> {
-        std::fs::read(dir.join(OPENED))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        let bytes = std::fs::read(dir.join(OPENED)).ok()?;
+        serde_json::from_slice(&bytes).ok()
     }
 
     /// Written beside its place and moved over it, so a file is never half a record.

@@ -7,77 +7,79 @@
 // that outlives the script that spawned it holds the number the next one asks for, which
 // comes back as a browser that started and never answered. Asking for port zero and reading
 // back what it bound leaves nothing to collide over.
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import process from 'node:process';
 
 const CANDIDATES = [
   process.env.CHROME_PATH,
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   // Where Chrome installs itself for one user, without administrator rights.
-  process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
-  "/usr/bin/google-chrome",
-  "/usr/bin/google-chrome-stable",
-  "/usr/bin/chromium",
-  "/usr/bin/chromium-browser",
-  "/snap/bin/chromium",
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  process.env.LOCALAPPDATA &&
+    join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ];
 
-export function browser() {
+function browser() {
   const found = CANDIDATES.filter(Boolean).find((path) => existsSync(path));
   if (!found) {
     throw new Error(
-      `no Chrome found. Set CHROME_PATH, or install one of:\n  ${CANDIDATES.filter(Boolean).join("\n  ")}`,
+      `no Chrome found. Set CHROME_PATH, or install one of:\n  ${CANDIDATES.filter(Boolean).join('\n  ')}`,
     );
   }
   return found;
 }
 
-export const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const START_LIMIT_MS = 90_000;
 
 // What the page calls when it goes hidden, on every document it loads.
-const HIDDEN = "steamgaugeCheckWentHidden";
+const HIDDEN = 'steamgaugeCheckWentHidden';
 
 /// Starts Chrome on the page, in a profile of its own, and waits for it to say which port it
 /// listens on. Throws with whatever Chrome said if it dies first.
-export async function open(url, { prefix = "steamgauge-check-" } = {}) {
+async function open(url, { prefix = 'steamgauge-check-' } = {}) {
   const profile = await mkdtemp(join(tmpdir(), prefix));
   const chrome = spawn(
     browser(),
     [
-      "--headless=new",
-      "--remote-debugging-port=0",
+      '--headless=new',
+      '--remote-debugging-port=0',
       `--user-data-dir=${profile}`,
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--disable-gpu",
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-gpu',
       // A runner's /dev/shm is small enough that Chrome's renderer falls over on it, and the
       // fall is silent.
-      "--disable-dev-shm-usage",
+      '--disable-dev-shm-usage',
       // Every page checked is a file or is served from 127.0.0.1, and holds to fetching nothing
       // else, so no name needs resolving. Closing that off also keeps out an extension a
       // machine's policy force-installs into every profile, a fresh headless one included: it
       // downloads from the Web Store and opens a sign-in page in front of the one under test,
       // which hides it.
-      "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+      '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1',
       url,
     ],
-    { stdio: ["ignore", "ignore", "pipe"] },
+    { stdio: ['ignore', 'ignore', 'pipe'] },
   );
   // Kept so that a failure to start says why, instead of the twenty-second silence that a
   // discarded stderr leaves behind.
-  let said = "";
-  chrome.stderr.on("data", (chunk) => {
+  let said = '';
+  chrome.stderr.on('data', (chunk) => {
     said = `${said}${chunk}`.slice(-4000);
   });
   let stopped = null;
-  chrome.once("exit", (code, signal) => {
+  chrome.once('exit', (code, signal) => {
     stopped = signal ? `killed by ${signal}` : `exited with ${code}`;
   });
 
@@ -85,19 +87,20 @@ export async function open(url, { prefix = "steamgauge-check-" } = {}) {
   // than twenty, still starting with nothing wrong. The wait is for a browser that will never
   // answer, so it is set well past a slow one, and a slow one is said out loud: a start that
   // keeps getting slower is a finding, and a limit that is simply raised would hide it.
-  const active = join(profile, "DevToolsActivePort");
+  const active = join(profile, 'DevToolsActivePort');
   const started = Date.now();
   while (Date.now() - started < START_LIMIT_MS) {
-    const [port] = (await readFile(active, "utf8").catch(() => "")).split("\n");
+    // biome-ignore lint/performance/noAwaitInLoops: each poll reads the file as it is now
+    const [port] = (await readFile(active, 'utf8').catch(() => '')).split('\n');
     if (port) {
       const took = (Date.now() - started) / 1000;
       if (took > 5) {
         console.error(`headless Chrome took ${took.toFixed(1)}s to open its debugging port`);
       }
-      return { chrome, port: Number(port), close: () => close(chrome, profile) };
+      return { chrome, close: () => close(chrome, profile), port: Number(port) };
     }
     if (stopped) {
-      await rm(profile, { recursive: true, force: true }).catch(() => {});
+      await rm(profile, { force: true, recursive: true }).catch(() => undefined);
       throw new Error(`headless Chrome ${stopped} before it opened a debugging port\n${said}`);
     }
     await sleep(100);
@@ -113,19 +116,22 @@ async function close(chrome, profile) {
   // Chrome holds its profile open for a moment after the signal, and on Windows unlinking a
   // file it still has is an error rather than a wait. A Chrome that ignores the signal is
   // taken down for good, because the next check would find its port and its profile.
-  const gone = new Promise((done) => chrome.once("exit", done));
-  const forced = setTimeout(() => chrome.kill("SIGKILL"), 5_000);
+  const gone = new Promise((done) => chrome.once('exit', done));
+  const forced = setTimeout(() => chrome.kill('SIGKILL'), 5000);
   await gone;
   clearTimeout(forced);
-  await rm(profile, { recursive: true, force: true }).catch(() => {});
+  await rm(profile, { force: true, recursive: true }).catch(() => undefined);
 }
 
-export async function debuggerUrl(port) {
+async function debuggerUrl(port) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: a retry starts only after the previous attempt failed
       const list = await fetch(`http://127.0.0.1:${port}/json/list`).then((r) => r.json());
-      const page = list.find((t) => t.type === "page" && t.webSocketDebuggerUrl);
-      if (page) return page.webSocketDebuggerUrl;
+      const page = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
+      if (page) {
+        return page.webSocketDebuggerUrl;
+      }
     } catch {
       // The port is open before the page target is listed, which is the usual first second.
     }
@@ -134,11 +140,11 @@ export async function debuggerUrl(port) {
   throw new Error(`headless Chrome opened port ${port} but listed no page`);
 }
 
-export async function connect(url) {
+async function connect(url) {
   const socket = new WebSocket(url);
   await new Promise((ok, bad) => {
-    socket.addEventListener("open", ok, { once: true });
-    socket.addEventListener("error", bad, { once: true });
+    socket.addEventListener('open', ok, { once: true });
+    socket.addEventListener('error', bad, { once: true });
   });
   let id = 0;
   const waiting = new Map();
@@ -150,12 +156,12 @@ export async function connect(url) {
   // could see, so a check run on one crawls and then fails on something else. Nothing in a
   // check hides the page. Something that does has been put in front of it, and is named.
   let hidden = false;
-  socket.addEventListener("message", (event) => {
+  socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
-    if (message.method === "Network.requestWillBeSent") {
+    if (message.method === 'Network.requestWillBeSent') {
       asked.push(message.params.request.url);
     }
-    if (message.method === "Runtime.bindingCalled" && message.params.name === HIDDEN) {
+    if (message.method === 'Runtime.bindingCalled' && message.params.name === HIDDEN) {
       hidden = true;
     }
     // Only a reply to a command this side sent: an id it numbered, answered once. Anything
@@ -164,7 +170,7 @@ export async function connect(url) {
       return;
     }
     const settle = waiting.get(message.id);
-    if (typeof settle === "function") {
+    if (typeof settle === 'function') {
       waiting.delete(message.id);
       settle(message);
     }
@@ -177,13 +183,15 @@ export async function connect(url) {
     });
   const evaluate = async (expression) => {
     if (hidden) {
-      const pages = await fetch(`${new URL(url).origin.replace("ws:", "http:")}/json/list`)
+      const pages = await fetch(`${new URL(url).origin.replace('ws:', 'http:')}/json/list`)
         .then((r) => r.json())
-        .then((list) => list.filter((t) => t.type === "page").map((t) => t.url))
+        .then((list) => list.filter((t) => t.type === 'page').map((t) => t.url))
         .catch(() => []);
-      throw new Error(`the page under test went hidden; the browser's pages:\n  ${pages.join("\n  ")}`);
+      throw new Error(
+        `the page under test went hidden; the browser's pages:\n  ${pages.join('\n  ')}`,
+      );
     }
-    return send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+    return send('Runtime.evaluate', { awaitPromise: true, expression, returnByValue: true });
   };
   // A page being left goes hidden on its way out, and by then its binding may be gone too.
   const watch = `{
@@ -197,9 +205,11 @@ export async function connect(url) {
     document.addEventListener("visibilitychange", tell);
     tell();
   }`;
-  await send("Runtime.addBinding", { name: HIDDEN });
-  await send("Runtime.enable", {});
-  await send("Page.addScriptToEvaluateOnNewDocument", { source: watch });
-  await send("Runtime.evaluate", { expression: watch });
-  return { socket, send, asked, evaluate };
+  await send('Runtime.addBinding', { name: HIDDEN });
+  await send('Runtime.enable', {});
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: watch });
+  await send('Runtime.evaluate', { expression: watch });
+  return { asked, evaluate, send, socket };
 }
+
+export { browser, connect, debuggerUrl, open, sleep };

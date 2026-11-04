@@ -5,7 +5,7 @@
    by the core, by the rule what moved is held to: too wide for chance and wide enough to act on.
    A kind with too few reviews is offered no figure at all. */
 
-import { invoke, el, set, make, button, whole, tenth as percent } from './common.js';
+import { button, el, invoke, make, tenth as percent, set, whole } from './common.js';
 
 /* Differences listed before the rest wait behind a button. */
 const FINDINGS_SHOWN = 6;
@@ -13,12 +13,12 @@ const FINDINGS_SHOWN = 6;
 let hooks = null;
 /* The reading the page last drew, and what was chosen on it. */
 let reading = null;
-let choice = { appId: null, these: '', others: '' };
+let choice = { appId: null, others: '', these: '' };
 let showingAll = false;
 
 const lowerFirst = (text) => text.charAt(0).toLowerCase() + text.slice(1);
 
-export function setUpWho(given) {
+function setUpWho(given) {
   hooks = given;
   el('who-first').addEventListener('change', () => choose(el('who-first').value, ''));
   el('who-others').addEventListener('change', () => choose(choice.these, el('who-others').value));
@@ -31,22 +31,26 @@ export function setUpWho(given) {
 
 /* Drawn with every reading the page shows. A choice made on the same game is kept, so coming back
    from the points behind a figure comes back to the same view. */
-export function drawWho(found) {
+function drawWho(found) {
   if (choice.appId !== found.app_id) {
-    choice = { appId: found.app_id, these: '', others: '' };
+    choice = { appId: found.app_id, others: '', these: '' };
     showingAll = false;
   }
   reading = found;
   el('who').hidden = false;
-  if (choice.these && !kindOf(choice.these)?.kind.enough) choice = { ...choice, these: '', others: '' };
+  if (choice.these && !kindOf(choice.these)?.kind.enough) {
+    choice = { ...choice, others: '', these: '' };
+  }
   fillFirst();
   choose(choice.these, choice.others);
 }
 
 /* The kind of reviewer the page shows, as its id and the label it is listed under, or null for
    everyone. */
-export function chosenKind() {
-  if (!reading || !choice.these) return null;
+function chosenKind() {
+  if (!(reading && choice.these)) {
+    return null;
+  }
   const found = kindOf(choice.these);
   return found ? { id: found.kind.id, label: found.kind.label } : null;
 }
@@ -54,7 +58,9 @@ export function chosenKind() {
 function kindOf(id) {
   for (const split of reading.who.kinds) {
     const kind = split.kinds.find((one) => one.id === id);
-    if (kind) return { split, kind };
+    if (kind) {
+      return { kind, split };
+    }
   }
   return null;
 }
@@ -106,13 +112,15 @@ function fillOthers() {
   fixed.hidden = true;
   select.replaceChildren(
     option('everyone else', ''),
-    ...others.filter((kind) => kind.enough).map((kind) => option(kind.label.toLowerCase(), kind.id)),
+    ...others
+      .filter((kind) => kind.enough)
+      .map((kind) => option(kind.label.toLowerCase(), kind.id)),
   );
   select.value = choice.others;
 }
 
 async function choose(these, others) {
-  choice = { appId: reading.app_id, these, others };
+  choice = { appId: reading.app_id, others, these };
   el('who-first').value = these;
   const everyone = these === '';
   el('who-beside').hidden = everyone;
@@ -124,13 +132,15 @@ async function choose(these, others) {
   fillOthers();
   let view;
   try {
-    view = await invoke('who_wrote', { appId: reading.app_id, these, others: others || null });
+    view = await invoke('who_wrote', { appId: reading.app_id, others: others || null, these });
   } catch (failure) {
     el('who-note').hidden = false;
     set(el('who-note'), String(failure));
     return;
   }
-  if (choice.appId !== reading.app_id || choice.these !== these || choice.others !== others) return;
+  if (choice.appId !== reading.app_id || choice.these !== these || choice.others !== others) {
+    return;
+  }
   drawBeside(view);
 }
 
@@ -150,7 +160,7 @@ function showEveryone() {
 
 function drawFindings() {
   const everyone = choice.these === '';
-  const findings = reading.who.findings;
+  const { findings } = reading.who;
   const shown = showingAll ? findings : findings.slice(0, FINDINGS_SHOWN);
   el('who-findings').replaceChildren(
     ...shown.map((finding) =>
@@ -171,7 +181,9 @@ function drawFindings() {
 
 /* A gap the core marked, said as what the first kind does more or less of. */
 function mark(gap, more, less, tone) {
-  if (!gap.clear) return null;
+  if (!gap.clear) {
+    return null;
+  }
   const pill = make('span', gap.z > 0 ? `pill ${tone}` : 'pill', gap.z > 0 ? more : less);
   pill.title = `${percent.format(gap.share)} against ${percent.format(gap.against)}`;
   return pill;
@@ -201,7 +213,9 @@ function figuresCell(figures, widest, corrected, marks) {
     'td',
     'cell',
     make('span', 'rate', percent.format(figures.rate)),
-    corrected === null ? null : make('span', 'corrected', `≈ ${percent.format(corrected)} of claims`),
+    corrected === null
+      ? null
+      : make('span', 'corrected', `≈ ${percent.format(corrected)} of claims`),
     make('span', 'who-track', bar, range),
     make(
       'small',
@@ -221,7 +235,11 @@ function head(side) {
     'th',
     'game-col',
     make('span', 'who-name', side.label),
-    make('small', null, `${whole.format(side.reviews)} reviews, ${percent.format(side.recommending)} recommend it`),
+    make(
+      'small',
+      null,
+      `${whole.format(side.reviews)} reviews, ${percent.format(side.recommending)} recommend it`,
+    ),
   );
   th.scope = 'col';
   return th;
@@ -255,13 +273,22 @@ function drawBeside(view) {
   const rows = view.subjects
     .filter((subject) => subject.these.raised + subject.others.raised > 0)
     .sort((left, right) => right.these.rate - left.these.rate);
-  const widest = Math.max(0.0001, ...rows.flatMap((subject) => [subject.these.high, subject.others.high]));
+  const widest = Math.max(
+    0.0001,
+    ...rows.flatMap((subject) => [subject.these.high, subject.others.high]),
+  );
   const who = { id: these.id, label: these.label, phrase: lowerFirst(these.who) };
   el('who-rows').replaceChildren(
     ...rows.map((subject) => {
       const open = button(subject.label, 'subject', () =>
         hooks.openClaims(
-          { id: subject.id, label: subject.label, reviews: subject.these.raised, praised_terms: [], criticised_terms: [] },
+          {
+            criticised_terms: [],
+            id: subject.id,
+            label: subject.label,
+            praised_terms: [],
+            reviews: subject.these.raised,
+          },
           0,
           null,
           who,
@@ -281,9 +308,13 @@ function drawBeside(view) {
       /* The whole row opens the points behind the first kind's figures. The name stays the button
          a keyboard reaches. */
       row.addEventListener('click', (event) => {
-        if (event.target !== open) open.click();
+        if (event.target !== open) {
+          open.click();
+        }
       });
       return row;
     }),
   );
 }
+
+export { chosenKind, drawWho, setUpWho };

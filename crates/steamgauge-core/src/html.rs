@@ -724,7 +724,7 @@ fn paragraph(out: &mut String, app: &AppReport) {
 /// A game whose launch month is both its busiest and its angriest, which is most of the ones
 /// worth reporting on, would otherwise have that month and its size named twice in three
 /// lines.
-fn worst_month(months: &[crate::read::Month], busiest: Option<&crate::read::Month>) -> String {
+fn worst_month(months: &[Month], busiest: Option<&Month>) -> String {
     let coldest = months
         .iter()
         .filter(|month| month.reviews >= ENOUGH_FOR_A_RATE)
@@ -2546,8 +2546,8 @@ const SCRIPT: &str = include_str!("report.js");
 mod tests {
     use super::*;
 
-    fn a_category(id: &str, label: &str, mentions: u64, top: u64) -> crate::read::SubjectCount {
-        crate::read::SubjectCount {
+    fn a_category(id: &str, label: &str, mentions: u64, top: u64) -> SubjectCount {
+        SubjectCount {
             id: id.to_owned(),
             label: label.to_owned(),
             primary_reviews: mentions / 2,
@@ -2698,19 +2698,14 @@ mod tests {
     }
 
     /// The same report with a calendar of its own.
-    fn with_months(months: Vec<crate::read::Month>) -> Report {
+    fn with_months(months: Vec<Month>) -> Report {
         let mut report = sample_report("ordinary text");
         report.apps[0].reading.months = months;
         report
     }
 
-    fn calendar(
-        label: &str,
-        reviews: u64,
-        positive: u64,
-        subjects: Vec<u64>,
-    ) -> crate::read::Month {
-        crate::read::Month {
+    fn calendar(label: &str, reviews: u64, positive: u64, subjects: Vec<u64>) -> Month {
+        Month {
             label: label.to_owned(),
             reviews,
             positive,
@@ -2720,7 +2715,7 @@ mod tests {
         }
     }
 
-    fn month(label: &str, reviews: u64, bugs: u64) -> crate::read::Month {
+    fn month(label: &str, reviews: u64, bugs: u64) -> Month {
         calendar(label, reviews, reviews / 2, vec![0, bugs])
     }
 
@@ -3921,7 +3916,7 @@ mod tests {
     #[test]
     fn a_cell_with_no_number_says_so_out_loud() {
         let mut out = String::new();
-        let unraised = crate::read::SubjectCount {
+        let unraised = SubjectCount {
             id: "performance".to_owned(),
             label: "Performance".to_owned(),
             primary_reviews: 0,
@@ -4054,7 +4049,7 @@ mod tests {
         // theme, which is exactly the kind of thing nobody notices until somebody else does.
         let light = declared_in(":root {");
         let media = declared_in("(prefers-color-scheme: dark)");
-        let attribute = declared_in(":root[data-theme='dark']");
+        let attribute = declared_in(":root[data-theme=\"dark\"]");
 
         // Set on individual elements by the markup rather than by the theme.
         let inline = ["fill", "heat", "offset", "part"];
@@ -4207,7 +4202,7 @@ mod tests {
 
     #[test]
     fn the_polarity_column_divides_by_every_review_that_judged_the_subject() {
-        let category = crate::read::SubjectCount {
+        let category = SubjectCount {
             praised: 2,
             criticised: 1,
             mixed: 1,

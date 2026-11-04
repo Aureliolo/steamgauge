@@ -2,30 +2,51 @@
    every model by size, and the way to give room back. Every part says what removing it costs,
    and anything that costs hours to redo asks once more, on the page, before it goes. */
 
-import { invoke, el, set, make, button, size, page, setPath } from './common.js';
+import { button, el, invoke, make, page, set, setPath, size } from './common.js';
 
 /* The parts in the order a person weighs them: what they came for first, what rebuilds itself
    last. `everywhere` is the action offered across every game at once, where one is safe. */
 const PARTS = [
-  { key: 'reviews', name: 'Downloaded reviews', cost: 'Fetched again from Steam in minutes.' },
-  { key: 'reads', name: 'Reads', cost: 'Hours of reading on this computer to redo.' },
-  { key: 'search', name: 'Search preparations', cost: 'Made again when a search needs them.', everywhere: 'search' },
-  { key: 'earlier', name: 'Earlier downloads', cost: 'Replaced by a newer download of the same game.', everywhere: 'earlier' },
-  { key: 'partial', name: 'Unfinished work', cost: 'What stopped downloads and reads left behind. Removing it makes them start over.', everywhere: 'partial' },
-  { key: 'other', name: 'Library records', cost: 'Download progress, groups and choices.' },
+  { cost: 'Fetched again from Steam in minutes.', key: 'reviews', name: 'Downloaded reviews' },
+  { cost: 'Hours of reading on this computer to redo.', key: 'reads', name: 'Reads' },
+  {
+    cost: 'Made again when a search needs them.',
+    everywhere: 'search',
+    key: 'search',
+    name: 'Search preparations',
+  },
+  {
+    cost: 'Replaced by a newer download of the same game.',
+    everywhere: 'earlier',
+    key: 'earlier',
+    name: 'Earlier downloads',
+  },
+  {
+    cost: 'What stopped downloads and reads left behind. Removing it makes them start over.',
+    everywhere: 'partial',
+    key: 'partial',
+    name: 'Unfinished work',
+  },
+  { cost: 'Download progress, groups and choices.', key: 'other', name: 'Library records' },
 ];
 
 /* What removing each thing from one game means, said before it happens. `heavy` asks again. */
 const REMOVALS = [
-  { what: 'search', label: 'Search preparations', parts: ['search'] },
-  { what: 'earlier', label: 'Earlier downloads', parts: ['earlier'] },
-  { what: 'partial', label: 'Unfinished work', parts: ['partial'] },
-  { what: 'reads', label: 'Reads', parts: ['reads'], heavy: 'Reading this game again takes hours.' },
+  { label: 'Search preparations', parts: ['search'], what: 'search' },
+  { label: 'Earlier downloads', parts: ['earlier'], what: 'earlier' },
+  { label: 'Unfinished work', parts: ['partial'], what: 'partial' },
   {
-    what: 'game',
+    heavy: 'Reading this game again takes hours.',
+    label: 'Reads',
+    parts: ['reads'],
+    what: 'reads',
+  },
+  {
+    heavy:
+      'Every review, every read and its place in groups go; adding it again downloads it from the start.',
     label: 'The whole game',
     parts: ['reviews', 'reads', 'search', 'earlier', 'partial', 'other'],
-    heavy: 'Every review, every read and its place in groups go; adding it again downloads it from the start.',
+    what: 'game',
   },
 ];
 
@@ -41,7 +62,9 @@ function legendSwatch(key) {
 function bar(segments, whole) {
   const track = make('div', 'room-bar');
   for (const [key, bytes] of segments) {
-    if (bytes <= 0 || whole <= 0) continue;
+    if (bytes <= 0 || whole <= 0) {
+      continue;
+    }
     const piece = make('span', `part-${key}`);
     piece.style.width = `${Math.max((100 * bytes) / whole, 0.6).toFixed(2)}%`;
     piece.title = `${PARTS.find((part) => part.key === key)?.name ?? key}: ${size(bytes)}`;
@@ -56,15 +79,66 @@ function removeButton(label, heavy, frees, act) {
   const ask = () => {
     holder.replaceChildren(
       make('span', 'remove-question', `${heavy} Frees ${size(frees)}.`),
-      make('span', 'remove-actions', button('Remove', 'danger small', act), button('Keep', 'ghost small', reset)),
+      make(
+        'span',
+        'remove-actions',
+        button('Remove', 'danger small', act),
+        button('Keep', 'ghost small', reset),
+      ),
     );
   };
-  const reset = () => holder.replaceChildren(button(label, 'quiet-button small', heavy ? ask : act));
+  const reset = () =>
+    holder.replaceChildren(button(label, 'quiet-button small', heavy ? ask : act));
   reset();
   return holder;
 }
 
-export function setUpStorage({ openGame }) {
+function holdsLabel(holds) {
+  if (holds.length === 2) {
+    return 'Library and models';
+  }
+  return holds[0] === 'library' ? 'Library' : 'Models';
+}
+
+function driveBlock(drive, library, models) {
+  const ours =
+    (drive.holds.includes('library') ? library : 0) + (drive.holds.includes('models') ? models : 0);
+  const used = Math.max(drive.total - drive.free, ours);
+  const segments = [];
+  if (drive.holds.includes('library')) {
+    segments.push(...PARTS.map((part) => [part.key, found.parts[part.key]]));
+  }
+  if (drive.holds.includes('models')) {
+    segments.push(['models', models]);
+  }
+  segments.push(['elsewhere', used - ours]);
+  return make(
+    'div',
+    'drive',
+    make(
+      'div',
+      'drive-head',
+      make('strong', null, drive.name),
+      make('span', 'quiet small', holdsLabel(drive.holds)),
+      make('span', 'drive-free', `${size(drive.free)} free of ${size(drive.total)}`),
+    ),
+    bar(segments, drive.total),
+    make(
+      'p',
+      'drive-key',
+      make('span', null, legendSwatch('reviews'), `SteamGauge ${size(ours)}`),
+      make(
+        'span',
+        null,
+        legendSwatch('elsewhere'),
+        `Other files ${size(Math.max(used - ours, 0))}`,
+      ),
+      make('span', null, make('span', 'swatch free'), `Free ${size(drive.free)}`),
+    ),
+  );
+}
+
+function setUpStorage({ openGame }) {
   page('storage', el('storage'), load);
 
   async function load() {
@@ -93,42 +167,24 @@ export function setUpStorage({ openGame }) {
   function draw() {
     const library = PARTS.reduce((total, part) => total + found.parts[part.key], 0);
     const models = found.model_rooms.reduce((total, model) => total + model.bytes, 0);
-    set(el('storage-sub'), `SteamGauge takes ${size(library + models)} on this computer: ${size(library)} of library and ${size(models)} of models.`);
+    set(
+      el('storage-sub'),
+      `SteamGauge takes ${size(library + models)} on this computer: ${size(library)} of library and ${size(models)} of models.`,
+    );
 
     el('drives').replaceChildren(
-      ...found.drives.map((drive) => {
-        const ours = (drive.holds.includes('library') ? library : 0) + (drive.holds.includes('models') ? models : 0);
-        const used = Math.max(drive.total - drive.free, ours);
-        const segments = [];
-        if (drive.holds.includes('library')) segments.push(...PARTS.map((part) => [part.key, found.parts[part.key]]));
-        if (drive.holds.includes('models')) segments.push(['models', models]);
-        segments.push(['elsewhere', used - ours]);
-        return make(
-          'div',
-          'drive',
-          make(
-            'div',
-            'drive-head',
-            make('strong', null, drive.name),
-            make('span', 'quiet small', drive.holds.length === 2 ? 'Library and models' : drive.holds[0] === 'library' ? 'Library' : 'Models'),
-            make('span', 'drive-free', `${size(drive.free)} free of ${size(drive.total)}`),
-          ),
-          bar(segments, drive.total),
-          make(
-            'p',
-            'drive-key',
-            make('span', null, legendSwatch('reviews'), `SteamGauge ${size(ours)}`),
-            make('span', null, legendSwatch('elsewhere'), `Other files ${size(Math.max(used - ours, 0))}`),
-            make('span', null, make('span', 'swatch free'), `Free ${size(drive.free)}`),
-          ),
-        );
-      }),
+      ...found.drives.map((drive) => driveBlock(drive, library, models)),
     );
 
     /* A part holding nothing is left out: there is nothing in it to weigh or to remove. */
     const held = [
       ...PARTS.map((part) => ({ ...part, bytes: found.parts[part.key] })),
-      { key: 'models', name: 'Models', cost: 'Downloaded again the next time each is needed.', bytes: models },
+      {
+        bytes: models,
+        cost: 'Downloaded again the next time each is needed.',
+        key: 'models',
+        name: 'Models',
+      },
     ].filter((part) => part.bytes > 0);
     el('parts').replaceChildren(
       ...held.map((part) =>
@@ -136,11 +192,20 @@ export function setUpStorage({ openGame }) {
           'li',
           'part-row',
           legendSwatch(part.key),
-          make('span', 'part-text', make('strong', null, part.name), make('span', 'quiet small', part.cost)),
+          make(
+            'span',
+            'part-text',
+            make('strong', null, part.name),
+            make('span', 'quiet small', part.cost),
+          ),
           make('span', 'part-size', size(part.bytes)),
           part.everywhere
             ? removeButton('Remove', null, part.bytes, () =>
-                act('free_room', { appId: null, what: part.everywhere }, `${part.name} removed from every game.`),
+                act(
+                  'free_room',
+                  { appId: null, what: part.everywhere },
+                  `${part.name} removed from every game.`,
+                ),
               )
             : make('span'),
         ),
@@ -157,7 +222,9 @@ export function setUpStorage({ openGame }) {
         choose.append(make('option', null, 'Remove…'));
         for (const removal of REMOVALS) {
           const frees = sum(game.parts, removal.parts);
-          if (frees === 0) continue;
+          if (frees === 0) {
+            continue;
+          }
           const option = make('option', null, `${removal.label}, ${size(frees)}`);
           option.value = removal.what;
           choose.append(option);
@@ -165,10 +232,16 @@ export function setUpStorage({ openGame }) {
         const tail = make('span', 'room-act', choose);
         choose.addEventListener('change', () => {
           const removal = REMOVALS.find((one) => one.what === choose.value);
-          if (!removal) return;
+          if (!removal) {
+            return;
+          }
           const frees = sum(game.parts, removal.parts);
           const go = () =>
-            act('free_room', { appId: game.app_id, what: removal.what }, `${removal.label} removed from ${game.name}.`);
+            act(
+              'free_room',
+              { appId: game.app_id, what: removal.what },
+              `${removal.label} removed from ${game.name}.`,
+            );
           if (!removal.heavy) {
             go();
             return;
@@ -180,7 +253,15 @@ export function setUpStorage({ openGame }) {
         return make(
           'li',
           'room',
-          make('span', 'room-text', name, bar(PARTS.map((part) => [part.key, game.parts[part.key]]), widest)),
+          make(
+            'span',
+            'room-text',
+            name,
+            bar(
+              PARTS.map((part) => [part.key, game.parts[part.key]]),
+              widest,
+            ),
+          ),
           make('span', 'room-size', size(game.total)),
           tail,
         );
@@ -189,7 +270,7 @@ export function setUpStorage({ openGame }) {
 
     el('model-rooms').replaceChildren(
       ...found.model_rooms.map((model) => {
-        const held = model.bytes > 0;
+        const downloaded = model.bytes > 0;
         return make(
           'li',
           'room',
@@ -197,13 +278,19 @@ export function setUpStorage({ openGame }) {
             'span',
             'room-text',
             make('strong', null, model.name),
-            make('span', 'quiet small', `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.${held ? '' : ' Not downloaded.'}`),
+            make(
+              'span',
+              'quiet small',
+              `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.${downloaded ? '' : ' Not downloaded.'}`,
+            ),
           ),
-          make('span', 'room-size', held ? size(model.bytes) : '–'),
-          held
+          make('span', 'room-size', downloaded ? size(model.bytes) : '–'),
+          downloaded
             ? removeButton(
                 'Remove',
-                model.used ? 'This computer uses it; it is downloaded again the next time it is needed.' : null,
+                model.used
+                  ? 'This computer uses it; it is downloaded again the next time it is needed.'
+                  : null,
                 model.bytes,
                 () => act('remove_model', { key: model.key }, `${model.name} removed.`),
               )
@@ -216,3 +303,5 @@ export function setUpStorage({ openGame }) {
     setPath(el('storage-models'), found.models);
   }
 }
+
+export { setUpStorage };

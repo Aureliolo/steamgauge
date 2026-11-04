@@ -6,10 +6,10 @@
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
-pub struct Dir(PathBuf);
+pub(crate) struct Dir(PathBuf);
 
 impl Dir {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         // Named for the process and thread so two tests running at once cannot share one, and
         // cleared first so a previous run that was killed cannot leave a file behind that a
         // later run then reads as its own.
@@ -24,7 +24,7 @@ impl Dir {
         Self(path)
     }
 
-    pub fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.0
     }
 }

@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 use crate::escape;
 
 #[derive(Debug)]
-pub struct Choice {
+pub(crate) struct Choice {
     pub id: String,
     pub name: String,
     /// What to type, shown as it is.
@@ -20,7 +20,7 @@ pub struct Choice {
 /// The picker for `choices`, the first chosen to start with. `group` keeps its ids apart from
 /// another picker's on the same page.
 #[must_use]
-pub fn html(group: &str, choices: &[Choice]) -> String {
+pub(crate) fn html(group: &str, choices: &[Choice]) -> String {
     let mut inputs = String::new();
     let mut chips = String::new();
     let mut panels = String::new();
@@ -61,7 +61,7 @@ pub fn html(group: &str, choices: &[Choice]) -> String {
 
 /// `page` without its pickers' rules, and the rules, for the stylesheet.
 #[must_use]
-pub fn rules(page: &str) -> (String, String) {
+pub(crate) fn rules(page: &str) -> (String, String) {
     let mut kept = String::with_capacity(page.len());
     let mut rules = String::new();
     let mut rest = page;
@@ -78,7 +78,7 @@ pub fn rules(page: &str) -> (String, String) {
 
 /// Code with its shell comments marked, so the stylesheet can set them apart.
 #[must_use]
-pub fn commented(code: &str) -> String {
+pub(crate) fn commented(code: &str) -> String {
     code.lines()
         .map(|line| {
             if line.starts_with('#') {
@@ -93,7 +93,7 @@ pub fn commented(code: &str) -> String {
 
 /// The little Markdown the cards and notes use: `code` and **strong**.
 #[must_use]
-pub fn inline(text: &str) -> String {
+pub(crate) fn inline(text: &str) -> String {
     let mut out = String::new();
     let mut code = false;
     let mut strong = false;

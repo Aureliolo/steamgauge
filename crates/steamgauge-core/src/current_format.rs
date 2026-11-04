@@ -148,7 +148,7 @@ mod tests {
             std::fs::read(snapshot.join("readings.parquet")).unwrap(),
             before
         );
-        assert!(crate::read::ReadReport::load(&snapshot).is_ok());
+        crate::read::ReadReport::load(&snapshot).unwrap();
     }
 
     #[test]
@@ -165,10 +165,8 @@ mod tests {
         let brought = bring_library(out.path()).unwrap();
         assert_eq!(brought.keyed, std::slice::from_ref(&snapshot));
         assert_eq!(brought.removed, []);
-        assert!(
-            crate::read::for_each_reading(&snapshot.join("readings.parquet"), |_, _, _, _, _| {})
-                .is_ok()
-        );
+        crate::read::for_each_reading(&snapshot.join("readings.parquet"), |_, _, _, _, _| {})
+            .unwrap();
         assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
     }
 

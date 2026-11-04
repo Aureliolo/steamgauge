@@ -20,7 +20,7 @@ use super::{library_dir, read_report, text};
 
 /// One update, where the window draws it.
 #[derive(Debug, Clone, Serialize)]
-pub struct UpdateOut {
+pub(super) struct UpdateOut {
     gid: String,
     title: String,
     posted: i64,
@@ -33,7 +33,7 @@ pub struct UpdateOut {
 
 /// A game's updates, oldest first.
 #[derive(Debug, Clone, Serialize)]
-pub struct GameUpdates {
+pub(super) struct GameUpdates {
     /// When Steam was last asked. None where it never was.
     asked: Option<i64>,
     updates: Vec<UpdateOut>,
@@ -47,7 +47,7 @@ pub struct GameUpdates {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
+pub(super) fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
     let kept = updates::kept(&library_dir(&app), app_id);
     GameUpdates {
         asked: kept.as_ref().map(|kept| kept.asked),
@@ -71,13 +71,13 @@ pub fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
 
 /// A game's counted reviews as last walked, and what they were walked from: the reading's own
 /// file and when it was written, so a read since walks again.
-type Walked = (PathBuf, Option<SystemTime>, Arc<Vec<Dated>>);
+type Walked = (PathBuf, Option<SystemTime>, Arc<[Dated]>);
 
 /// The last game walked. Choosing one update after another is the common case, and a large
 /// game's walk takes seconds. One game is kept, since only one page is open.
 static WALKED: Mutex<Option<Walked>> = Mutex::new(None);
 
-fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<Vec<Dated>>, String> {
+fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<[Dated]>, String> {
     let reading = snapshot.join("reading.json");
     let written = std::fs::metadata(&reading)
         .and_then(|found| found.modified())
@@ -91,7 +91,9 @@ fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<Vec<Dated>>, Str
     {
         return Ok(Arc::clone(reviews));
     }
-    let reviews = Arc::new(before_after::dated_reviews(snapshot, language).map_err(text)?);
+    let reviews: Arc<[Dated]> = before_after::dated_reviews(snapshot, language)
+        .map_err(text)?
+        .into();
     *walked = Some((reading, written, Arc::clone(&reviews)));
     Ok(reviews)
 }
@@ -100,7 +102,7 @@ fn dated(snapshot: &Path, language: Option<&str>) -> Result<Arc<Vec<Dated>>, Str
 /// over every reviewer or, where `kind` names one, over that kind's reviews alone. Off the
 /// window's thread, because the first choice on a game walks its capture.
 #[tauri::command]
-pub async fn before_after(
+pub(super) async fn before_after(
     app: AppHandle,
     app_id: u32,
     gid: String,

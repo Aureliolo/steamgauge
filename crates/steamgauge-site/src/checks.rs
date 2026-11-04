@@ -9,7 +9,7 @@ use crate::SITE;
 use crate::render::external;
 
 /// Everything wrong with the pages, given every file name the site will hold.
-pub fn check(pages: &BTreeMap<String, String>, files: &BTreeSet<String>) -> Vec<String> {
+pub(crate) fn check(pages: &BTreeMap<String, String>, files: &BTreeSet<String>) -> Vec<String> {
     let ids: BTreeMap<&str, BTreeSet<String>> = pages
         .iter()
         .map(|(name, html)| {
@@ -107,7 +107,7 @@ pub fn check(pages: &BTreeMap<String, String>, files: &BTreeSet<String>) -> Vec<
 
 /// Where a text holds a control character, a byte-order mark, or a bidirectional override or
 /// isolate, any of which can make what a reader sees differ from what the file says.
-pub fn controls(text: &str) -> impl Iterator<Item = String> + '_ {
+pub(crate) fn controls(text: &str) -> impl Iterator<Item = String> + '_ {
     text.lines().enumerate().flat_map(|(number, line)| {
         line.chars()
             .filter(|&c| {

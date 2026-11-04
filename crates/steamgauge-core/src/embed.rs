@@ -11,7 +11,9 @@ use std::{
 };
 
 use arrow::{
-    array::{Array, ArrayRef, FixedSizeListBuilder, Float32Builder, StringBuilder, UInt32Builder},
+    array::{
+        Array as _, ArrayRef, FixedSizeListBuilder, Float32Builder, StringBuilder, UInt32Builder,
+    },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
 };
@@ -22,7 +24,7 @@ use parquet::{
     basic::{Compression, ZstdLevel},
     file::properties::WriterProperties,
 };
-use sha2::{Digest, Sha256};
+use sha2::{Digest as _, Sha256};
 use tokenizers::{PaddingParams, Tokenizer};
 
 use crate::{
@@ -54,25 +56,25 @@ impl std::fmt::Debug for Embedder {
 impl Embedder {
     /// Which backend the model actually ended up on.
     #[must_use]
-    pub fn device(&self) -> &'static str {
+    pub const fn device(&self) -> &'static str {
         self.device_name
     }
 
     /// Which build of the graph is loaded. Part of a corpus's provenance.
     #[must_use]
-    pub fn precision(&self) -> model::Precision {
+    pub const fn precision(&self) -> model::Precision {
         self.precision
     }
 
     /// Which encoder is loaded. Part of a corpus's provenance, and what decides how wide
     /// every vector it produces is.
     #[must_use]
-    pub fn encoder(&self) -> Encoder {
+    pub const fn encoder(&self) -> Encoder {
         self.encoder
     }
 
     #[must_use]
-    pub fn dimensions(&self) -> usize {
+    pub const fn dimensions(&self) -> usize {
         self.encoder.dimensions()
     }
 
@@ -413,7 +415,7 @@ const ROW_GROUP_BUDGET: usize = 64 << 20;
 
 /// Vectors per row group under that budget, never fewer than a batch's worth.
 fn vectors_per_row_group(dimensions: usize) -> usize {
-    let bytes = dimensions.max(1) * std::mem::size_of::<f32>();
+    let bytes = dimensions.max(1) * size_of::<f32>();
     (ROW_GROUP_BUDGET / bytes).max(DEFAULT_BATCH_SIZE)
 }
 
@@ -583,7 +585,8 @@ pub(crate) fn for_each_vector(
     use arrow::array::{FixedSizeListArray, Float32Array, StringArray};
 
     let path = snapshot.join("embeddings.parquet");
-    let file = std::fs::File::open(&path).map_err(|_| Error::NoEmbeddings { path })?;
+    let file = std::fs::File::open(&path)
+        .map_err(|error| Error::unless_missing(error, || Error::NoEmbeddings { path }))?;
     let reader = ParquetRecordBatchReaderBuilder::try_new(file)?
         .with_batch_size(4096)
         .build()?;
@@ -680,6 +683,10 @@ pub fn vectors_for<S: std::hash::BuildHasher + Sync>(
     let texts = crate::capture::texts_for(&snapshot, ids)?;
 
     let mut wanted: HashMap<String, Vec<String>> = HashMap::new();
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "the ids under a hash only fill a map keyed by id, so their order never shows"
+    )]
     for (id, text) in texts {
         wanted.entry(sha256_hex(&text)).or_default().push(id);
     }
@@ -772,8 +779,10 @@ pub fn corpus_encoder(out_dir: &Path, app_id: u32) -> Result<String> {
     let snapshot = latest_snapshot(out_dir, app_id)?;
     let path = snapshot.join("embeddings.json");
     let sidecar: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&path).map_err(|_| Error::NoEmbeddings {
-            path: snapshot.join("embeddings.parquet"),
+        serde_json::from_slice(&std::fs::read(&path).map_err(|error| {
+            Error::unless_missing(error, || Error::NoEmbeddings {
+                path: snapshot.join("embeddings.parquet"),
+            })
         })?)?;
     sidecar
         .get("model")
@@ -796,8 +805,10 @@ pub fn latest_snapshot(out_dir: &Path, app_id: u32) -> Result<PathBuf> {
     let app_dir = out_dir.join(format!("appid={app_id}"));
     let mut captures: Vec<(i64, PathBuf)> = Vec::new();
 
-    for entry in std::fs::read_dir(&app_dir).map_err(|_| Error::NoCapture {
-        path: app_dir.clone(),
+    for entry in std::fs::read_dir(&app_dir).map_err(|error| {
+        Error::unless_missing(error, || Error::NoCapture {
+            path: app_dir.clone(),
+        })
     })? {
         let path = entry?.path();
         let Some(stamp) = path
@@ -1021,7 +1032,7 @@ mod tests {
         let vectors = embedder.embed(&texts(&["good", "bad game"])).unwrap();
         assert_eq!(vectors.len(), 2);
         assert!(vectors.iter().all(|vector| vector.len() == 384));
-        assert_eq!(embedder.embed(&[]).unwrap(), [] as [Vec<f32>; 0]);
+        assert_eq!(embedder.embed(&[]).unwrap(), <[Vec<f32>; 0]>::default());
     }
 
     #[test]

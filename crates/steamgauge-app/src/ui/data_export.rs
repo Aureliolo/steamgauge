@@ -4,14 +4,14 @@
 //! permission to choose or write a path: it can only ask for a game's data, and the person picks
 //! where it goes.
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 use super::{cockpit::file_safe, library_dir, work};
 
 /// Asks where to put a game's data, then puts writing it on the board. None where the person
 /// closed the dialog without choosing.
 #[tauri::command]
-pub async fn export_data(app: AppHandle, app_id: u32) -> Result<Option<u64>, String> {
+pub(super) async fn export_data(app: AppHandle, app_id: u32) -> Result<Option<u64>, String> {
     let name = steamgauge_core::report::crawl_facts(&library_dir(&app), app_id)
         .map_or_else(|_| format!("App {app_id}"), |facts| facts.title());
     let mut asking = rfd::AsyncFileDialog::new()

@@ -47,81 +47,11 @@ def wilson(hits: int, total: int, z: float = 1.959963985) -> tuple[float, float]
     return max(0.0, (centre - spread) / denominator), min(1.0, (centre + spread) / denominator)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--oof", required=True, help="directory of cv-*.npz fold logits")
-    parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
-    parser.add_argument(
-        "--min-claims",
-        type=int,
-        default=100,
-        help="below this a language is listed but its rate is not worth reading",
-    )
-    args = parser.parse_args()
+type Row = tuple[int, str, float, float, float, float, float]
 
-    logits, truth, _, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
-    parts = [np.load(path, allow_pickle=False) for path in sorted(Path(args.oof).glob("*.npz"))]
-    review_ids = np.concatenate([part["review_id"] for part in parts])
-    claim_index = np.concatenate([part["claim_index"] for part in parts])
 
-    # The language lives with the label, not with the logits, so the two are joined on the claim
-    # the labeller was actually shown. The labeller's own doubt comes across with it, because a
-    # language the model reads badly and a language the labeller was unsure in look identical in
-    # an agreement figure and are not the same problem at all.
-    labelled = {
-        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(args.data))
-    }
-    beside = [labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index)]
-    languages = np.array([one.language if one else "" for one in beside])
-    # What the labeller was sure of: not contested, and not hedged. Scoring the reader against a
-    # label its author doubted measures the doubt as much as the reading.
-    settled = np.array(
-        [bool(one and not one.ambiguous and one.confidence == "high") for one in beside]
-    )
-    missing = int((languages == "").sum())
-
-    probabilities = softmax(logits)
-    predicted = probabilities.argmax(axis=1)
-    correct = predicted == truth
-
-    print(f"{len(truth):,} out-of-fold claims over {len(subjects)} subjects")
-    if missing:
-        print(f"  {missing} carry no language in the label set and are left out")
-    print(
-        f"  {int(settled.sum()):,} were labelled without hedging "
-        f"({100 * settled.mean():.0f}%), which is the second column"
-    )
-    print(
-        f"\n{'language':12}{'claims':>8}{'share':>8}{'agreement':>11}{'95% interval':>20}"
-        f"{'settled only':>15}{'hedged':>9}"
-    )
-
-    whole = int((languages != "").sum())
-    rows = []
-    for name in sorted(set(languages.tolist())):
-        if not name:
-            continue
-        mine = languages == name
-        total = int(mine.sum())
-        hits = int(correct[mine].sum())
-        low, high = wilson(hits, total)
-        sure = mine & settled
-        clean = correct[sure].mean() if sure.any() else float("nan")
-        rows.append((total, name, hits / total, low, high, clean, 1.0 - sure.sum() / total))
-
-    for total, name, rate, low, high, clean, hedged in sorted(rows, reverse=True):
-        thin = "" if total >= args.min_claims else "   thin"
-        print(
-            f"{name:12}{total:>8,}{100 * total / whole:>7.1f}%{100 * rate:>10.1f}%"
-            f"   [{100 * low:>5.1f}, {100 * high:>5.1f}]{100 * clean:>14.1f}%"
-            f"{100 * hedged:>8.0f}%{thin}"
-        )
-
-    enough = [row for row in rows if row[0] >= args.min_claims]
-    print(
-        f"\n{len(enough)} of {len(rows)} languages have {args.min_claims} claims or more; "
-        f"the rest are listed for completeness and should not be quoted"
-    )
+def _print_gaps(enough: list[Row]) -> None:
+    """Print each language's gap to english, whole and on the claims the labeller was sure of."""
     english = next((row for row in enough if row[1] == "english"), None)
     if not english:
         return
@@ -147,6 +77,87 @@ def main() -> None:
             f"  {name:11}{whole_gap:>6.1f} points against english, {settled_gap:>5.1f} once "
             f"hedged claims are dropped ({100 * kept:.0f}% of it survives)"
         )
+
+
+def main() -> None:
+    """Print the reader's agreement with the labels for each language."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--oof", required=True, help="directory of cv-*.npz fold logits")
+    parser.add_argument("--data", default=str(HERE / "data" / "claims.jsonl"))
+    parser.add_argument(
+        "--min-claims",
+        type=int,
+        default=100,
+        help="below this a language is listed but its rate is not worth reading",
+    )
+    args = parser.parse_args()
+
+    logits, truth, _, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
+    parts = [np.load(path, allow_pickle=False) for path in sorted(Path(args.oof).glob("*.npz"))]
+    review_ids = np.concatenate([part["review_id"] for part in parts])
+    claim_index = np.concatenate([part["claim_index"] for part in parts])
+
+    # The language lives with the label, not with the logits, so the two are joined on the claim
+    # the labeller was actually shown. The labeller's own doubt comes across with it, because a
+    # language the model reads badly and a language the labeller was unsure in look identical in
+    # an agreement figure and are not the same problem at all.
+    labelled = {
+        (claim.review_id, claim.claim_index): claim for claim in claimdata.load(Path(args.data))
+    }
+    beside = [
+        labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index, strict=True)
+    ]
+    languages = np.array([one.language if one else "" for one in beside])
+    # What the labeller was sure of: not contested, and not hedged. Scoring the reader against a
+    # label its author doubted measures the doubt as much as the reading.
+    settled = np.array(
+        [bool(one and not one.ambiguous and one.confidence == "high") for one in beside]
+    )
+    missing = int((languages == "").sum())
+
+    probabilities = softmax(logits)
+    predicted = probabilities.argmax(axis=1)
+    correct = predicted == truth
+
+    print(f"{len(truth):,} out-of-fold claims over {len(subjects)} subjects")
+    if missing:
+        print(f"  {missing} carry no language in the label set and are left out")
+    print(
+        f"  {int(settled.sum()):,} were labelled without hedging "
+        f"({100 * settled.mean():.0f}%), which is the second column"
+    )
+    print(
+        f"\n{'language':12}{'claims':>8}{'share':>8}{'agreement':>11}{'95% interval':>20}"
+        f"{'settled only':>15}{'hedged':>9}"
+    )
+
+    whole = int((languages != "").sum())
+    rows: list[Row] = []
+    for name in sorted(set(languages.tolist())):
+        if not name:
+            continue
+        mine = languages == name
+        total = int(mine.sum())
+        hits = int(correct[mine].sum())
+        low, high = wilson(hits, total)
+        sure = mine & settled
+        clean = correct[sure].mean() if sure.any() else float("nan")
+        rows.append((total, name, hits / total, low, high, clean, 1.0 - sure.sum() / total))
+
+    for total, name, rate, low, high, clean, hedged in sorted(rows, reverse=True):
+        thin = "" if total >= args.min_claims else "   thin"
+        print(
+            f"{name:12}{total:>8,}{100 * total / whole:>7.1f}%{100 * rate:>10.1f}%"
+            f"   [{100 * low:>5.1f}, {100 * high:>5.1f}]{100 * clean:>14.1f}%"
+            f"{100 * hedged:>8.0f}%{thin}"
+        )
+
+    enough = [row for row in rows if row[0] >= args.min_claims]
+    print(
+        f"\n{len(enough)} of {len(rows)} languages have {args.min_claims} claims or more; "
+        f"the rest are listed for completeness and should not be quoted"
+    )
+    _print_gaps(enough)
 
 
 if __name__ == "__main__":

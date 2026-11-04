@@ -17,7 +17,7 @@
 /// being the same draw.
 #[must_use]
 pub(crate) fn rank(seed: u64, purpose: &str, id: &str) -> [u8; 32] {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
 
     let mut hasher = Sha256::new();
     hasher.update(seed.to_le_bytes());
@@ -37,7 +37,7 @@ pub(crate) struct Smallest<K: Ord, T> {
 }
 
 impl<K: Ord, T> Smallest<K, T> {
-    pub(crate) fn new(limit: usize) -> Self {
+    pub(crate) const fn new(limit: usize) -> Self {
         Self {
             limit,
             kept: Vec::new(),
@@ -105,7 +105,7 @@ mod tests {
         for index in 0..100_u32 {
             bounded.offer(index, index);
         }
-        assert_eq!(bounded.take(), [] as [u32; 0]);
+        assert_eq!(bounded.take(), <[u32; 0]>::default());
     }
 
     #[test]

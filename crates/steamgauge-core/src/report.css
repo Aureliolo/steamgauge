@@ -1,8 +1,6 @@
 /* One stylesheet, inlined into the page. Nothing is fetched to render this report. */
 
 :root {
-  color-scheme: light dark;
-
   --ink: #1f1b17;
   --ink-soft: #4a443d;
   --ink-faint: #6f675e;
@@ -27,6 +25,7 @@
      measure long text is comfortably read at. Reviews appear both inside a table that scrolls
      sideways and outside one, and they are the same thing to read in both places. */
   --measure: min(52rem, calc(min(68rem, 100vw) - 3rem));
+  color-scheme: light dark;
 }
 
 /* Screens only, both of them. Paper is white whatever the reader's machine prefers, and a
@@ -34,7 +33,7 @@
    the dark values here leaves the light ones above standing when the page is printed, which
    is the whole of what the print stylesheet has to do about colour. */
 @media screen and (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
+  :root:not([data-theme="light"]) {
     --ink: #f3eee6;
     --ink-soft: #cfc7bb;
     --ink-faint: #9a9186;
@@ -53,7 +52,7 @@
 }
 
 @media screen {
-  :root[data-theme='dark'] {
+  :root[data-theme="dark"] {
     --ink: #f3eee6;
     --ink-soft: #cfc7bb;
     --ink-faint: #9a9186;
@@ -79,15 +78,25 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+  font:
+    16px / 1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
     sans-serif;
   -webkit-text-size-adjust: 100%;
 }
 
 .wrap {
   max-width: 68rem;
-  margin: 0 auto;
   padding: 0 1.25rem;
+  margin: 0 auto;
+}
+
+a {
+  color: var(--accent);
 }
 
 h1,
@@ -98,23 +107,24 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
   margin: 0 0 0.25rem;
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
 }
 
 h2 {
-  font-size: clamp(1.3rem, 1.1rem + 1vw, 1.8rem);
   margin: 0 0 0.75rem;
+  font-size: clamp(1.3rem, 1.1rem + 1vw, 1.8rem);
 }
 
 h3 {
-  font-size: 1.1rem;
   margin: 2.5rem 0 0.5rem;
+  font-size: 1.1rem;
 }
 
 /* Narrowed away by the filter. Distinct from the hidden attribute, which on these same rows
    means folded shut, and which printing opens. */
 .filtered-out {
+  /* biome-ignore lint/complexity/noImportantStyles: it must beat every display rule on the table rows it hides, and any lower-specificity declaration would lose to them. */
   display: none !important;
 }
 
@@ -130,22 +140,22 @@ h3 {
   height: 1px;
   padding: 0;
   overflow: hidden;
-  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+  clip-path: inset(50%);
 }
 
 /* Present for a keyboard, out of the way for everyone else, and never a trap: it becomes
    visible the moment it is focused. */
 .skip {
   position: absolute;
-  left: -9999px;
   top: 0;
+  left: -9999px;
+  z-index: 10;
+  padding: 0.6rem 1rem;
   background: var(--card);
   border: 1px solid var(--accent);
   border-radius: 0 0 var(--radius) 0;
-  padding: 0.6rem 1rem;
-  z-index: 10;
 }
 
 .skip:focus {
@@ -153,29 +163,29 @@ h3 {
 }
 
 header.page {
-  border-bottom: 1px solid var(--line);
-  padding: 2.5rem 0 1.75rem;
   position: relative;
+  padding: 2.5rem 0 1.75rem;
+  border-bottom: 1px solid var(--line);
 }
 
 header.page .lede {
-  color: var(--ink-soft);
-  margin: 0;
   max-width: 46rem;
+  margin: 0;
+  color: var(--ink-soft);
 }
 
 .theme {
   position: absolute;
   top: 2.5rem;
   right: 1.25rem;
+  padding: 0.3rem 0.8rem;
   font: inherit;
   font-size: 0.85rem;
   color: var(--ink-soft);
+  cursor: pointer;
   background: var(--card);
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  padding: 0.3rem 0.8rem;
-  cursor: pointer;
 }
 
 .theme:hover {
@@ -185,22 +195,22 @@ header.page .lede {
 
 form.filter {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
+  align-items: center;
   margin-top: 1.25rem;
   font-size: 0.9rem;
   color: var(--ink-soft);
 }
 
 form.filter input {
+  min-width: 14rem;
+  padding: 0.35rem 0.9rem;
   font: inherit;
   color: var(--ink);
   background: var(--card);
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  min-width: 14rem;
 }
 
 form.filter input:hover {
@@ -208,47 +218,47 @@ form.filter input:hover {
 }
 
 .filter-count {
-  color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
 }
 
 /* Deliberately not sticky: the table headers below are, and two sticky bars fighting for
    the same edge is worse than one. */
 nav.contents {
-  border-bottom: 1px solid var(--line);
   background: var(--card);
+  border-bottom: 1px solid var(--line);
 }
 
 nav.contents ul {
-  list-style: none;
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1.25rem;
-  margin: 0;
   padding: 0.6rem 0;
+  margin: 0;
+  list-style: none;
 }
 
 nav.contents a {
   display: flex;
-  align-items: baseline;
   gap: 0.45rem;
-  text-decoration: none;
+  align-items: baseline;
   padding: 0.15rem 0;
+  text-decoration: none;
+}
+
+.nav-name {
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 nav.contents a:hover .nav-name {
   text-decoration: underline;
 }
 
-.nav-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
 .nav-count {
   font-size: 0.76rem;
-  color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
 }
 
 section.overview {
@@ -258,8 +268,8 @@ section.overview {
 table.matrix,
 table.corpora {
   width: 100%;
-  border-collapse: collapse;
   font-size: 0.9rem;
+  border-collapse: collapse;
 }
 
 table.corpora {
@@ -269,15 +279,15 @@ table.corpora {
 table.corpora th,
 table.corpora td {
   padding: 0.45rem 0.8rem;
-  border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;
+  border-bottom: 1px solid var(--line);
 }
 
-table.corpora thead th {
-  color: var(--ink-faint);
+table.corpora :where(thead) th {
   font-size: 0.76rem;
   font-weight: 600;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--line-strong);
@@ -285,61 +295,61 @@ table.corpora thead th {
 
 /* A Steam title is long and this table is only four columns wide, so the name wraps and the
    three figures beside it stay on the screen rather than off the side of a phone. */
-table.corpora tbody th {
+table.corpora :where(tbody) th {
   font-weight: 600;
   white-space: normal;
 }
 
 table.corpora .num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 table.matrix th,
 table.matrix td {
   padding: 0.45rem 0.8rem;
-  border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;
+  border-bottom: 1px solid var(--line);
 }
 
 /* A Steam title runs to forty characters and the columns are being compared with each other,
    so one long name wraps rather than taking a third of the table from the games beside it. */
 table.matrix thead th.num {
-  white-space: normal;
   min-width: 6rem;
   max-width: 9rem;
   vertical-align: bottom;
+  white-space: normal;
 }
 
-table.matrix thead th {
-  color: var(--ink-faint);
+table.matrix :where(thead) th {
   font-size: 0.76rem;
   font-weight: 600;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--line-strong);
 }
 
-table.matrix tbody th {
-  font-weight: 600;
+table.matrix :where(tbody) th {
   position: sticky;
   left: 0;
+  font-weight: 600;
   background: var(--card);
 }
 
 table.matrix .num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* The summary of a row, so it is read before the grid rather than found in it. The rate comes
    first so that every one of them sits at the same place down the column. A Steam title runs
    to forty characters and wraps after it, for the same reason the column headings do. */
 table.matrix .leader {
-  white-space: normal;
   min-width: 12rem;
   max-width: 14rem;
+  white-space: normal;
   border-right: 1px solid var(--line-strong);
 }
 
@@ -348,7 +358,7 @@ table.matrix .leader b {
   white-space: nowrap;
 }
 
-table.matrix .leader a {
+table.matrix :where(.leader) a {
   font-size: 0.82rem;
 }
 
@@ -395,8 +405,8 @@ section.game {
 }
 
 .facts dt {
-  color: var(--ink-faint);
   font-size: 0.8rem;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -409,8 +419,8 @@ section.game {
 /* One entry per induced subject: a name, a sentence, and the reviews folded under it. Laid
    out as a list rather than a table because these rows have no numbers to line up. */
 dl.induced {
-  margin: 0 0 1.5rem;
   max-width: var(--measure);
+  margin: 0 0 1.5rem;
 }
 
 dl.induced .found {
@@ -419,34 +429,34 @@ dl.induced .found {
 }
 
 dl.induced dt {
-  font-weight: 600;
   margin-bottom: 0.25rem;
+  font-weight: 600;
 }
 
 dl.induced dd {
   margin: 0;
 }
 
-dl.induced dd > p {
+:where(dl).induced :where(dd) > p {
   margin: 0 0 0.5rem;
   color: var(--ink-soft);
 }
 
 dl.induced summary {
-  cursor: pointer;
-  color: var(--ink-faint);
   font-size: 0.85rem;
+  color: var(--ink-faint);
+  cursor: pointer;
 }
 
 .headline {
+  max-width: 52rem;
+  padding: 1rem 1.25rem;
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
   background: var(--card);
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
   border-radius: var(--radius);
-  padding: 1rem 1.25rem;
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  max-width: 52rem;
 }
 
 /* Prose, so it reads as prose: no box, and the measure a paragraph wants. */
@@ -468,17 +478,17 @@ dl.induced summary {
   margin: 0 0 0.5rem;
 }
 
-.said-side.praise h4 {
+.said-side:where(.praise) h4 {
   color: var(--under);
 }
 
-.said-side.complaint h4 {
+.said-side:where(.complaint) h4 {
   color: var(--over);
 }
 
 .said-list {
-  margin: 0;
   padding: 0;
+  margin: 0;
   list-style: none;
 }
 
@@ -488,52 +498,52 @@ dl.induced summary {
   display: grid;
   gap: 0.15rem;
   padding: 0.4rem 0 0.4rem 0.75rem;
-  border-left: 3px solid var(--line-strong);
   margin-bottom: 0.35rem;
+  border-left: 3px solid var(--line-strong);
 }
 
-.said-side.praise li {
+.said-side:where(.praise) li {
   border-left-color: var(--under);
 }
 
-.said-side.complaint li {
+.said-side:where(.complaint) li {
   border-left-color: var(--over);
 }
 
 .said-count,
 .said-also {
-  color: var(--ink-faint);
   font-size: 0.85rem;
+  color: var(--ink-faint);
 }
 
 .said-list q {
-  color: var(--ink-soft);
   font-size: 0.9rem;
   font-style: italic;
+  color: var(--ink-soft);
 }
 
 .note {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
   max-width: 52rem;
   margin: 0.25rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
 }
 
 .warn {
+  max-width: 52rem;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.92rem;
   background: var(--warn-bg);
   border: 1px solid var(--warn-line);
   border-radius: var(--radius);
-  padding: 0.85rem 1.1rem;
-  font-size: 0.92rem;
-  max-width: 52rem;
 }
 
 figure.timeline {
+  padding: 0.75rem 0.9rem 0.5rem;
   margin: 0 0 1.5rem;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--card);
-  padding: 0.75rem 0.9rem 0.5rem;
 }
 
 figure.timeline svg {
@@ -542,17 +552,17 @@ figure.timeline svg {
   height: 160px;
 }
 
-figure.timeline .bar {
-  fill: var(--accent);
+:where(figure).timeline .bar {
   opacity: 0.55;
+  fill: var(--accent);
 }
 
 figure.timeline .share {
   fill: none;
   stroke: var(--over);
   stroke-width: 2;
-  vector-effect: non-scaling-stroke;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 figure.timeline .midline {
@@ -575,9 +585,9 @@ figure.timeline .hit:hover {
 figure.timeline figcaption {
   display: flex;
   justify-content: space-between;
+  padding-top: 0.35rem;
   font-size: 0.76rem;
   color: var(--ink-faint);
-  padding-top: 0.35rem;
 }
 
 /* Dashed and in ink, so an update reads as a moment on the chart rather than another series. */
@@ -590,11 +600,11 @@ figure.timeline .update {
 
 .update-around {
   max-width: var(--measure);
-  margin: 0 0 1.25rem;
   padding: 0.85rem 1.1rem;
+  margin: 0 0 1.25rem;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--card);
 }
 
 .update-around h4 {
@@ -608,21 +618,22 @@ figure.timeline .update {
 }
 
 .when {
-  color: var(--ink-faint);
   font-size: 0.85rem;
   font-weight: 400;
+  color: var(--ink-faint);
   white-space: nowrap;
 }
 
 ul.changes {
-  margin: 0;
   padding-left: 1.1rem;
+  margin: 0;
 }
 
 ul.changes li {
   margin: 0.15rem 0;
 }
 
+/* biome-ignore lint/suspicious/useBaseline: a browser without ::marker styling keeps the default bullet colour, which is readable, and no equivalent exists without replacing the list markers. */
 ul.changes li::marker {
   color: var(--ink-faint);
 }
@@ -641,16 +652,16 @@ details.every-update {
 }
 
 details.every-update summary {
-  cursor: pointer;
-  color: var(--ink-soft);
   font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
 }
 
 ol.updates-list {
-  margin: 0.5rem 0 0;
   padding-left: 0;
-  list-style: none;
+  margin: 0.5rem 0 0;
   font-size: 0.9rem;
+  list-style: none;
 }
 
 /* A date column beside the title where there is room for one, the date over the title where
@@ -660,8 +671,8 @@ ol.updates-list li {
   grid-template-columns: 10rem minmax(0, 1fr);
   gap: 0 0.75rem;
   padding: 0.3rem 0;
-  border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
+  border-top: 1px solid var(--line);
 }
 
 @media (max-width: 32rem) {
@@ -670,71 +681,71 @@ ol.updates-list li {
   }
 }
 
-ol.updates-list .said {
-  color: var(--ink-faint);
+:where(ol.updates-list) .said {
   font-size: 0.85rem;
+  color: var(--ink-faint);
 }
 
 .scroll {
   overflow-x: auto;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--card);
 }
 
 table.categories {
   width: 100%;
-  border-collapse: collapse;
   font-size: 0.95rem;
+  border-collapse: collapse;
 }
 
 table.categories th,
 table.categories td {
-  text-align: left;
   padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid var(--line);
   vertical-align: middle;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
 }
 
-table.categories thead th {
+table.categories :where(thead) th {
   position: sticky;
   top: 0;
-  background: var(--card);
-  color: var(--ink-faint);
+  z-index: 1;
   font-size: 0.78rem;
   font-weight: 600;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  background: var(--card);
   border-bottom: 1px solid var(--line-strong);
-  z-index: 1;
 }
 
 /* Six columns do not fit on a phone, and scrolling right to read the last of them is no use
    at all once the name of the row has gone off the left. The matrix keeps its first column
    for the same reason. */
-table.categories tbody th {
+table.categories :where(tbody) th {
   position: sticky;
   left: 0;
   background: var(--card);
 }
 
 table.categories .num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   white-space: nowrap;
 }
 
 button.sort {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0;
   font: inherit;
   color: inherit;
-  letter-spacing: inherit;
   text-transform: inherit;
+  letter-spacing: inherit;
   background: none;
   border: 0;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
 }
 
 .js button.sort {
@@ -745,17 +756,17 @@ button.sort {
   color: var(--ink);
 }
 
-th[aria-sort='none'] .arrow {
+.arrow {
+  border-right: 3px solid transparent;
+  border-bottom: 4px solid currentColor;
+  border-left: 3px solid transparent;
+}
+
+th[aria-sort="none"] .arrow {
   visibility: hidden;
 }
 
-.arrow {
-  border-left: 3px solid transparent;
-  border-right: 3px solid transparent;
-  border-bottom: 4px solid currentColor;
-}
-
-th[aria-sort='descending'] .arrow {
+th[aria-sort="descending"] .arrow {
   transform: rotate(180deg);
 }
 
@@ -774,13 +785,13 @@ html:not(.js) .arrow {
 }
 
 button.disclose {
+  padding: 0;
   font: inherit;
   color: inherit;
-  background: none;
-  border: 0;
-  padding: 0;
   text-align: left;
   cursor: pointer;
+  background: none;
+  border: 0;
 }
 
 button.disclose:focus-visible {
@@ -795,16 +806,16 @@ button.disclose:focus-visible {
 
 .name {
   display: inline-flex;
-  align-items: center;
   gap: 0.4rem;
+  align-items: center;
   font-weight: 600;
 }
 
 .chevron {
-  border-right: 2px solid var(--ink-faint);
-  border-bottom: 2px solid var(--ink-faint);
   width: 0.42rem;
   height: 0.42rem;
+  border-right: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint);
   transform: rotate(-45deg);
   transition: transform 0.15s ease;
 }
@@ -815,7 +826,7 @@ html:not(.js) .chevron {
   display: none;
 }
 
-button.disclose[aria-expanded='true'] .chevron {
+button.disclose[aria-expanded="true"] .chevron {
   transform: rotate(45deg);
 }
 
@@ -828,25 +839,25 @@ button.disclose[aria-expanded='true'] .chevron {
    in the timeline, and `height` is geometry on an SVG shape, so it would flatten every month
    in the chart to the same three pixels and leave only their position saying anything. */
 .bar-cell .bar,
-ul.languages .bar {
-  border-radius: 3px;
+:where(ul).languages .bar {
   background: var(--line);
+  border-radius: 3px;
 }
 
 .bar-cell .bar {
   position: absolute;
-  left: 0.9rem;
   right: 0.9rem;
   bottom: 0.35rem;
+  left: 0.9rem;
   height: 3px;
 }
 
 .bar-cell .bar::before,
 ul.languages .bar::before {
-  content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--fill) * 100%);
+  content: "";
   background: var(--accent);
   border-radius: 3px;
 }
@@ -856,9 +867,9 @@ ul.languages .bar::before {
 }
 
 .bar-cell .count {
-  color: var(--ink-faint);
-  font-size: 0.8rem;
   margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
 }
 
 .bias {
@@ -874,14 +885,14 @@ ul.languages .bar::before {
    reader sees the split without reading three numbers and adding them up. */
 .said .mix {
   position: absolute;
-  left: 0.9rem;
   right: 0.9rem;
   bottom: 0.35rem;
-  height: 3px;
+  left: 0.9rem;
   display: flex;
-  border-radius: 3px;
+  height: 3px;
   overflow: hidden;
   background: var(--line);
+  border-radius: 3px;
 }
 
 .said .mix > span {
@@ -907,31 +918,31 @@ ul.languages .bar::before {
 }
 
 .said .count {
-  color: var(--ink-faint);
-  font-size: 0.8rem;
   margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
 }
 
 .gauge {
-  display: inline-block;
   position: relative;
+  display: inline-block;
   width: 3.5rem;
   height: 0.7rem;
   margin-right: 0.5rem;
   vertical-align: middle;
-  border-left: 1px solid var(--line-strong);
   border-right: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-strong);
 }
 
 .gauge::before {
-  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
+  width: calc(var(--offset) * 50%);
   height: 3px;
   margin-top: -1.5px;
+  content: "";
   border-radius: 3px;
-  width: calc(var(--offset) * 50%);
 }
 
 .gauge.over::before {
@@ -939,24 +950,24 @@ ul.languages .bar::before {
 }
 
 .gauge.under::before {
-  background: var(--under);
-  left: auto;
   right: 50%;
+  left: auto;
+  background: var(--under);
 }
 
 .gauge::after {
-  content: '';
   position: absolute;
   top: 0;
   bottom: 0;
   left: 50%;
   width: 1px;
+  content: "";
   background: var(--line-strong);
 }
 
 tr.panel > td {
-  background: var(--paper);
   padding: 0.5rem 0.9rem 1.25rem;
+  background: var(--paper);
 }
 
 /* The evidence under a row is read at the width of the screen, not at the width of a table
@@ -973,11 +984,11 @@ details.legend {
 
 details.pile > summary,
 details.legend > summary {
-  cursor: pointer;
   display: inline-block;
+  padding: 0.35rem 0;
   font-size: 0.9rem;
   color: var(--accent);
-  padding: 0.35rem 0;
+  cursor: pointer;
 }
 
 details.pile > summary:hover,
@@ -997,9 +1008,9 @@ details.legend {
 }
 
 details.legend dl {
-  margin: 0 0 0.75rem;
   display: grid;
   gap: 0.5rem;
+  margin: 0 0 0.75rem;
 }
 
 details.legend dl > div {
@@ -1017,7 +1028,7 @@ details.legend dd {
   margin: 0;
 }
 
-details.legend p {
+:where(details).legend p {
   margin: 0 0 0.5rem;
 }
 
@@ -1042,8 +1053,8 @@ figure.spark polyline {
   fill: none;
   stroke: var(--accent);
   stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 /* The line covers only the months big enough to carry a rate, and without something running
@@ -1051,23 +1062,23 @@ figure.spark polyline {
 figure.spark .axis {
   stroke: var(--line);
   stroke-width: 1;
-  vector-effect: non-scaling-stroke;
   stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
 }
 
 figure.spark figcaption {
+  padding-top: 0.2rem;
   font-size: 0.74rem;
   color: var(--ink-faint);
-  padding-top: 0.2rem;
 }
 
 ol.reviews {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
   display: grid;
   gap: 0.75rem;
   max-width: var(--measure);
+  padding: 0;
+  margin: 0 0 1rem;
+  list-style: none;
 }
 
 /* One heading per side of a subject, coloured the way the bar above it is, so the list reads
@@ -1091,58 +1102,58 @@ h4.side.neutral {
 }
 
 h4.side .count {
-  color: var(--ink-faint);
-  font-weight: 400;
-  font-size: 0.82rem;
   margin-left: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--ink-faint);
 }
 
 /* The words one side uses and the other does not, as a row of small chips under the heading.
    Each carries its reviewer count, so a term is a number a reader can weigh, not a word cloud. */
 .stands-out {
-  margin: 0 0 0.6rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: baseline;
+  margin: 0 0 0.6rem;
   font-size: 0.82rem;
 }
 
 .stands-out .lead {
-  color: var(--ink-faint);
   margin-right: 0.2rem;
+  color: var(--ink-faint);
 }
 
 .stands-out .term {
+  padding: 0.1rem 0.6rem;
   color: var(--ink);
+  white-space: nowrap;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 0.1rem 0.6rem;
-  white-space: nowrap;
 }
 
 .stands-out .term .n {
-  color: var(--ink-faint);
   margin-left: 0.35rem;
   font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
 }
 
 li.review {
+  padding: 0.85rem 1rem;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.85rem 1rem;
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0.4rem 0.9rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
   font-size: 0.8rem;
   color: var(--ink-faint);
-  margin-bottom: 0.5rem;
 }
 
 .verdict {
@@ -1159,18 +1170,23 @@ li.review {
 
 .text p {
   margin: 0;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* Folding is a scripting nicety. Without it the whole review stays on the page rather than
    being clipped with no way to unclip it. */
 .js .text.long p {
   display: -webkit-box;
-  -webkit-line-clamp: 6;
-  line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  -webkit-line-clamp: 6;
+}
+
+@supports (line-clamp: 6) {
+  .js .text.long p {
+    line-clamp: 6;
+  }
 }
 
 .js .text.long.open p {
@@ -1180,13 +1196,13 @@ li.review {
 
 button.more {
   display: none;
+  padding: 0.3rem 0;
   font: inherit;
   font-size: 0.82rem;
   color: var(--accent);
+  cursor: pointer;
   background: none;
   border: 0;
-  padding: 0.3rem 0;
-  cursor: pointer;
 }
 
 .js button.more {
@@ -1200,31 +1216,31 @@ button.more:hover {
 .filed {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0.35rem;
+  align-items: center;
   margin-top: 0.6rem;
 }
 
 .chip {
+  padding: 0.1rem 0.55rem;
   font-size: 0.74rem;
   color: var(--ink-soft);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 0.1rem 0.55rem;
 }
 
 .chip.main {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
   font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .chip.top {
   color: var(--over);
-  border-color: var(--over);
   background: var(--over-soft);
+  border-color: var(--over);
 }
 
 .source {
@@ -1252,23 +1268,23 @@ button.more:hover {
 }
 
 table.who {
-  border-collapse: collapse;
-  font-size: 0.9rem;
-  margin-bottom: 0.75rem;
   min-width: 22rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  border-collapse: collapse;
 }
 
 table.who th,
 table.who td {
   padding: 0.4rem 0.8rem;
-  border-bottom: 1px solid var(--line);
   text-align: left;
+  border-bottom: 1px solid var(--line);
 }
 
 table.who thead th {
-  color: var(--ink-faint);
   font-size: 0.76rem;
   font-weight: 600;
+  color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--line-strong);
@@ -1279,14 +1295,14 @@ table.who tbody th {
 }
 
 table.who tr.split th {
+  padding-top: 1rem;
   font-weight: 600;
   color: var(--ink-soft);
-  padding-top: 1rem;
 }
 
 table.who .num {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   white-space: nowrap;
 }
 
@@ -1296,14 +1312,14 @@ table.who tr.too-few td {
 }
 
 h4:not(.side) {
-  font-size: 0.95rem;
   margin: 1.5rem 0 0.4rem;
+  font-size: 0.95rem;
 }
 
 ul.differ {
-  margin: 0 0 1rem;
-  padding-left: 1.1rem;
   max-width: var(--measure);
+  padding-left: 1.1rem;
+  margin: 0 0 1rem;
 }
 
 ul.differ li {
@@ -1311,19 +1327,19 @@ ul.differ li {
 }
 
 ul.languages {
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
-  max-width: 34rem;
   display: grid;
   gap: 0.3rem;
+  max-width: 34rem;
+  padding: 0;
+  margin: 0 0 1rem;
+  list-style: none;
 }
 
 ul.languages li {
   display: grid;
   grid-template-columns: 8rem 1fr 3.5rem 5rem;
-  align-items: center;
   gap: 0.75rem;
+  align-items: center;
   font-size: 0.88rem;
 }
 
@@ -1334,8 +1350,8 @@ ul.languages .bar {
 
 ul.languages .lang-share,
 ul.languages .lang-count {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 ul.languages .lang-share {
@@ -1366,10 +1382,6 @@ footer.page li {
   font-size: 0.92rem;
 }
 
-a {
-  color: var(--accent);
-}
-
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1378,8 +1390,8 @@ a {
 @media (max-width: 40rem) {
   table.corpora th,
   table.corpora td {
-    white-space: normal;
     padding: 0.45rem 0.4rem;
+    white-space: normal;
   }
 
   .bar-cell {
@@ -1398,6 +1410,7 @@ a {
 
 @media (prefers-reduced-motion: reduce) {
   * {
+    /* biome-ignore lint/complexity/noImportantStyles: the user's reduced-motion setting overrides every transition on the page, whatever its selector's specificity. */
     transition: none !important;
   }
 }
@@ -1416,6 +1429,7 @@ a {
   }
 
   tr.panel[hidden]:not(.filtered-out) {
+    /* biome-ignore lint/complexity/noImportantStyles: paper has to show every folded panel, and the user-agent rule for the hidden attribute would otherwise win. */
     display: table-row !important;
   }
 
@@ -1425,8 +1439,8 @@ a {
   }
 
   body {
-    background: #fff;
     color: #000;
+    background: #fff;
   }
 
   /* Sticky positioning has nowhere to stick on a page, and leaves the header floating over

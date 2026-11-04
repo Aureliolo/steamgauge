@@ -13,7 +13,7 @@
 //! shares. At three standard errors a library of ten games each gathering a few hundred reviews
 //! would show about one change chance made on every look. At four, about one look in thirty.
 
-use std::{collections::BTreeMap, io::Write, path::Path};
+use std::{collections::BTreeMap, io::Write as _, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -146,7 +146,7 @@ pub struct Since {
 impl Since {
     /// Whether anything moved by more than chance.
     #[must_use]
-    pub fn moved(&self) -> bool {
+    pub const fn moved(&self) -> bool {
         self.recommended.is_some() || !self.moves.is_empty()
     }
 }
@@ -337,7 +337,7 @@ impl LastSeen {
             let mut file = std::fs::File::create(&partial)?;
             file.write_all(&serde_json::to_vec_pretty(self)?)?;
             file.sync_all()?;
-        }
+        };
         std::fs::rename(&partial, &path)?;
         Ok(())
     }

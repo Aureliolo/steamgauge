@@ -4,24 +4,24 @@
 // A 503 read as "absent" is the dangerous case. The check for a taken tag would call the tag
 // free, and the check that a tag exists would try to make it again. Only a status below 500 is
 // an answer. Anything else is retried, and named if the last attempt fails too.
-import { realpathSync } from "node:fs";
-import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { realpathSync } from 'node:fs';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 const ATTEMPTS = 5;
-const FIRST_PAUSE_MS = 5_000;
+const FIRST_PAUSE_MS = 5000;
 
 // One request, by path under the API host. Resolves with whatever came back, errors included.
 export function askGitHub(token) {
   return async (method, path, body) => {
     const response = await fetch(`https://api.github.com${path}`, {
-      method,
       headers: {
-        accept: "application/vnd.github+json",
+        accept: 'application/vnd.github+json',
         authorization: `Bearer ${token}`,
-        "x-github-api-version": "2022-11-28",
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        'x-github-api-version': '2022-11-28',
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
       },
+      method,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     const text = await response.text();
@@ -31,7 +31,7 @@ export function askGitHub(token) {
     } catch {
       // Kept as text: an error page from a proxy is still worth printing.
     }
-    return { status: response.status, body: parsed };
+    return { body: parsed, status: response.status };
   };
 }
 
@@ -40,9 +40,10 @@ export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // `ask` until it answers with something other than a server error or nothing, waiting a little
 // longer each time.
 export async function answered(ask, wait, doing) {
-  let last = "";
+  let last = '';
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: a retry is made only after the previous attempt failed
       const answer = await ask();
       if (answer.status < 500) {
         return answer;
@@ -63,8 +64,8 @@ export async function answered(ask, wait, doing) {
 export function fromEnvironment() {
   const repository = process.env.GH_REPO ?? process.env.GITHUB_REPOSITORY;
   const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
-  if (!repository || !token) {
-    throw new Error("GH_REPO (or GITHUB_REPOSITORY) and GH_TOKEN must both be set.");
+  if (!(repository && token)) {
+    throw new Error('GH_REPO (or GITHUB_REPOSITORY) and GH_TOKEN must both be set.');
   }
   return { repository, token };
 }

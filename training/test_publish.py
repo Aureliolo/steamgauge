@@ -1,20 +1,29 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
 
 import publish
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 COMMIT = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
 HASH = "a" * 64
 
 
-def test_pinning_a_size_fills_its_repository_commit_tag_hashes_and_lengths_and_nothing_else():
+def test_pinning_a_size_fills_its_repository_commit_tag_hashes_and_lengths_and_nothing_else() -> (
+    None
+):
     source = publish.READER_RS.read_text(encoding="utf-8")
-    files = {name: (HASH, 1_234_567) for name in publish.MODEL_FILES}
+    files: dict[str, tuple[str, int]] = dict.fromkeys(publish.MODEL_FILES, (HASH, 1234567))
     release = ("someone/game-review-reader-small", COMMIT, "v7")
     pinned = publish.pin_reader(source, "small", "SMALL_FILES", release, files)
-    assert publish.pins_in(pinned, "SMALL_FILES") == {name: HASH for name in files}
+    assert publish.pins_in(pinned, "SMALL_FILES") == dict.fromkeys(files, HASH)
 
-    def constant(text, name):
-        return text.split(f"const {name}")[1].split("];")[0]
+    def constant(text: str, name: str) -> str:
+        return text.split(f"const {name}")[1].split("];", maxsplit=1)[0]
 
     assert constant(pinned, "SMALL_FILES").count("bytes: 1_234_567,") == len(files)
     assert constant(pinned, "STANDARD_FILES") == constant(source, "STANDARD_FILES"), (
@@ -27,7 +36,7 @@ def test_pinning_a_size_fills_its_repository_commit_tag_hashes_and_lengths_and_n
     assert standard == source.split('name: "standard"')[1].split("files:")[0]
 
 
-def test_pinning_a_search_model_fills_its_repository_commit_and_tag():
+def test_pinning_a_search_model_fills_its_repository_commit_and_tag() -> None:
     source = publish.SEARCH_RS.read_text(encoding="utf-8")
     release = ("someone/steamgauge-search-reranker", COMMIT, "v7")
     pinned = publish.pin_search(source, "RERANKER", release)
@@ -35,19 +44,19 @@ def test_pinning_a_search_model_fills_its_repository_commit_and_tag():
     for value in release:
         assert f'"{value}"' in reranker
 
-    def encoder(text):
-        return text.split("pub const ENCODER")[1].split("pub const RERANKER")[0]
+    def encoder(text: str) -> str:
+        return text.split("pub const ENCODER")[1].split("pub const RERANKER", maxsplit=1)[0]
 
     assert encoder(pinned) == encoder(source), "pinning one model must leave the other alone"
 
 
-def test_the_search_pins_are_read_from_the_tool_itself():
+def test_the_search_pins_are_read_from_the_tool_itself() -> None:
     pins = publish.pins_in(publish.SEARCH_RS.read_text(encoding="utf-8"), "ENCODER")
     assert set(pins) == set(publish.SEARCH_FILES)
     assert all(len(digest) == 64 for digest in pins.values())
 
 
-def test_the_writer_is_pinned_and_read_from_the_tool_itself():
+def test_the_writer_is_pinned_and_read_from_the_tool_itself() -> None:
     source = publish.WRITER_RS.read_text(encoding="utf-8")
     _, repo, constant, base = publish.WRITER
     pins = publish.pins_in(source, constant)
@@ -62,7 +71,7 @@ def test_the_writer_is_pinned_and_read_from_the_tool_itself():
     assert "36 layers" in card
 
 
-def test_only_the_named_fields_are_published():
+def test_only_the_named_fields_are_published() -> None:
     publish.checked([{"review_id": "1", "subject": "bugs"}], publish.LABEL_FIELDS, "labels")
     for leak in ("text", "review", "author_steamid", "author", "splitter"):
         with pytest.raises(SystemExit):
@@ -71,7 +80,7 @@ def test_only_the_named_fields_are_published():
         assert not fields & {"text", "review", "author", "author_steamid", "steamid"}
 
 
-def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path):
+def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path: Path) -> None:
     game = tmp_path / "7"
     for reading, subject in (("second", "story"), ("opus", "bugs")):
         (game / reading).mkdir(parents=True)
@@ -88,7 +97,7 @@ def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path):
     assert [(row["index"], row["subject"]) for row in again] == [(0, "story"), (1, "price")]
 
 
-def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_path):
+def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_path: Path) -> None:
     for person, subject in (("one", "story"), ("two", "bugs")):
         folder = tmp_path / "7" / "gold" / person
         folder.mkdir(parents=True)
@@ -110,17 +119,21 @@ def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_pa
     assert [(row["app_id"], row["by"]) for row in acceptable] == [(7, "one"), (7, "two")]
 
 
-def test_the_card_credits_each_person_by_the_name_they_gave_beside_their_handle():
-    agreed = {"claims": 0}
+def test_the_card_credits_each_person_by_the_name_they_gave_beside_their_handle() -> None:
+    agreed: dict[str, float] = {"claims": 0}
     names = {"one": "Ann One", "two": "Bo Two"}
-    alone = publish.dataset_card(1, 1, agreed, gold={"one": 200}, names=names)
+    alone = publish.dataset_card(
+        1, 1, agreed, labelled_by=publish.Credits(gold={"one": 200}, names=names)
+    )
     assert "200 claims labelled by one person, Ann One (`one`)." in alone
-    card = publish.dataset_card(1, 1, agreed, gold={"two": 580, "one": 200}, names=names)
+    card = publish.dataset_card(
+        1, 1, agreed, labelled_by=publish.Credits(gold={"two": 580, "one": 200}, names=names)
+    )
     assert "780 answers from 2 people" in card
     assert "Bo Two (`two`, 580), Ann One (`one`, 200)" in card
 
 
-def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path):
+def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path: Path) -> None:
     claim = '"app_id": 7, "review_id": "r", "index": 0, "start": 0, "end": 4, "subject": "bugs"'
     game = tmp_path / "claims" / "7"
     (game / "gold" / "stranger").mkdir(parents=True)
@@ -141,7 +154,9 @@ def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path):
         publish.stage_dataset(str(game.parent), str(facts), staging, str(people))
 
 
-def row(subject, polarity="praise", ambiguous=False, index=0):
+def row(
+    subject: str, polarity: str = "praise", *, ambiguous: bool = False, index: int = 0
+) -> dict[str, object]:
     return {
         "app_id": 1,
         "review_id": "r",
@@ -152,7 +167,7 @@ def row(subject, polarity="praise", ambiguous=False, index=0):
     }
 
 
-def test_kappa_is_zero_at_chance_and_one_at_perfect_agreement():
+def test_kappa_is_zero_at_chance_and_one_at_perfect_agreement() -> None:
     assert publish.kappa([("a", "a"), ("b", "b")]) == 1.0
     # Two labellers who each say `a` half the time and never for the same claim agree
     # exactly as often as chance, so the figure is minus one over one: nothing above it.
@@ -160,7 +175,7 @@ def test_kappa_is_zero_at_chance_and_one_at_perfect_agreement():
     assert publish.kappa([]) == 0.0
 
 
-def test_agreement_joins_on_the_claim_and_ignores_claims_read_once():
+def test_agreement_joins_on_the_claim_and_ignores_claims_read_once() -> None:
     first = [row("verdict", index=0), row("gameplay", "complaint", index=1), row("story", index=2)]
     again = [row("verdict", index=0), row("story", "complaint", index=1)]
     found = publish.agreement(first, again)
@@ -169,7 +184,7 @@ def test_agreement_joins_on_the_claim_and_ignores_claims_read_once():
     assert found["polarity"] == 1.0
 
 
-def test_the_card_carries_what_the_rows_say():
+def test_the_card_carries_what_the_rows_say() -> None:
     card = publish.dataset_card(
         10,
         2,
@@ -183,7 +198,7 @@ def test_the_card_carries_what_the_rows_say():
             "contested_kappa": 0.4,
         },
         reviews=3,
-        labellers={"model-a": 7, "model-b": 3},
+        labelled_by=publish.Credits(labellers={"model-a": 7, "model-b": 3}),
     )
     assert "10 claims from 3 Steam reviews of 2 games" in card
     assert "4 claims have a second label" in card

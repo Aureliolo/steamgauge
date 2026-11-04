@@ -24,7 +24,7 @@ use std::{
 
 use arrow::{
     array::{
-        Array, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, FixedSizeListArray,
+        Array as _, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, FixedSizeListArray,
         FixedSizeListBuilder, Float32Array, Float32Builder, Int8Array, Int8Builder, StringArray,
         StringBuilder, UInt32Array, UInt32Builder,
     },
@@ -475,51 +475,55 @@ fn each_row(part: &Path, mut visit: impl FnMut(Row<'_>)) -> Result<()> {
     let malformed = |field| Error::MalformedPayload { field };
     for batch in reader {
         let batch = batch?;
-        let column = |name: &'static str| batch.column_by_name(name).ok_or(malformed(name));
+        let column = |name: &'static str| batch.column_by_name(name).ok_or_else(|| malformed(name));
         let keys = column("key")?
             .as_any()
             .downcast_ref::<FixedSizeBinaryArray>()
-            .ok_or(malformed("key"))?;
+            .ok_or_else(|| malformed("key"))?;
         let reviews = column("recommendationid")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(malformed("recommendationid"))?;
+            .ok_or_else(|| malformed("recommendationid"))?;
         let starts = column("start")?
             .as_any()
             .downcast_ref::<UInt32Array>()
-            .ok_or(malformed("start"))?;
+            .ok_or_else(|| malformed("start"))?;
         let ends = column("end")?
             .as_any()
             .downcast_ref::<UInt32Array>()
-            .ok_or(malformed("end"))?;
+            .ok_or_else(|| malformed("end"))?;
         let subjects = column("subject")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(malformed("subject"))?;
+            .ok_or_else(|| malformed("subject"))?;
         let polarities = column("polarity")?
             .as_any()
             .downcast_ref::<StringArray>()
-            .ok_or(malformed("polarity"))?;
+            .ok_or_else(|| malformed("polarity"))?;
         let confidences = column("confidence")?
             .as_any()
             .downcast_ref::<Float32Array>()
-            .ok_or(malformed("confidence"))?;
+            .ok_or_else(|| malformed("confidence"))?;
         let scales = column("scale")?
             .as_any()
             .downcast_ref::<Float32Array>()
-            .ok_or(malformed("scale"))?;
+            .ok_or_else(|| malformed("scale"))?;
         let vectors = column("vector")?
             .as_any()
             .downcast_ref::<FixedSizeListArray>()
-            .ok_or(malformed("vector"))?;
+            .ok_or_else(|| malformed("vector"))?;
         let values = vectors
             .values()
             .as_any()
             .downcast_ref::<Int8Array>()
-            .ok_or(malformed("vector"))?
+            .ok_or_else(|| malformed("vector"))?
             .values();
         let width = usize::try_from(vectors.value_length()).unwrap_or(0);
         for row in 0..batch.num_rows() {
+            #[expect(
+                clippy::map_err_ignore,
+                reason = "the only failure is a key that is not 32 bytes, which the field name already says"
+            )]
             let key: [u8; 32] = keys.value(row).try_into().map_err(|_| malformed("key"))?;
             let from = (vectors.offset() + row) * width;
             visit(Row {
@@ -664,7 +668,9 @@ struct Taken {
 pub const TIMES_FILE: &str = "meaning-times.json";
 
 /// Seconds a claim takes on this project's machine, for an estimate before a machine has
-/// measured its own: 3,000 claims of 1466860 through the exported encoder in the app's batches,
+/// measured its own.
+///
+/// The figure is 3,000 claims of 1466860 through the exported encoder in the app's batches,
 /// on the processor and on a card a training run held half of.
 pub const PROCESSOR_SECONDS_PER_CLAIM: f64 = 0.118;
 pub const CARD_SECONDS_PER_CLAIM: f64 = 0.0087;
@@ -785,8 +791,6 @@ impl Choice {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicBool;
-
     use super::*;
 
     #[test]

@@ -6,7 +6,10 @@ param([Parameter(Mandatory)][string]$File)
 $ErrorActionPreference = 'Stop'
 Add-Type -Namespace Holders -Name RestartManager -MemberDefinition @'
 [StructLayout(LayoutKind.Sequential)]
-public struct UniqueProcess { public int ProcessId; public System.Runtime.InteropServices.ComTypes.FILETIME StartTime; }
+public struct UniqueProcess {
+  public int ProcessId;
+  public System.Runtime.InteropServices.ComTypes.FILETIME StartTime;
+}
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
 public struct ProcessInfo {
   public UniqueProcess Process;
@@ -17,10 +20,18 @@ public struct ProcessInfo {
   public uint TSSessionId;
   [MarshalAs(UnmanagedType.Bool)] public bool Restartable;
 }
-[DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)] public static extern int RmStartSession(out uint session, int flags, System.Text.StringBuilder key);
-[DllImport("rstrtmgr.dll")] public static extern int RmEndSession(uint session);
-[DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)] public static extern int RmRegisterResources(uint session, uint files, string[] names, uint processes, UniqueProcess[] none, uint services, string[] noServices);
-[DllImport("rstrtmgr.dll")] public static extern int RmGetList(uint session, out uint needed, ref uint count, [In, Out] ProcessInfo[] found, ref uint reasons);
+[DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
+public static extern int RmStartSession(out uint session, int flags, System.Text.StringBuilder key);
+[DllImport("rstrtmgr.dll")]
+public static extern int RmEndSession(uint session);
+[DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
+public static extern int RmRegisterResources(
+  uint session, uint files, string[] names,
+  uint processes, UniqueProcess[] none,
+  uint services, string[] noServices);
+[DllImport("rstrtmgr.dll")]
+public static extern int RmGetList(
+  uint session, out uint needed, ref uint count, [In, Out] ProcessInfo[] found, ref uint reasons);
 '@
 $RM = [Holders.RestartManager]
 $session = 0
@@ -44,7 +55,8 @@ try {
     $id = $holder.Process.ProcessId
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $id"
     if ($process -and $process.CommandLine) {
-      "Held by process $id, $($holder.AppName), started by $($process.ParentProcessId): $($process.CommandLine)"
+      $parent = $process.ParentProcessId
+      "Held by process $id, $($holder.AppName), started by ${parent}: $($process.CommandLine)"
     } else {
       "Held by process $id, $($holder.AppName), whose command this account cannot read."
     }

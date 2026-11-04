@@ -109,7 +109,9 @@ pub fn candidates(device: &str) -> usize {
     if device == "cpu" { 30 } else { 100 }
 }
 
-/// A claim the reranker scores below this is not shown. On the 1,029 judged pairs, scored by the
+/// A claim the reranker scores below this is not shown.
+///
+/// On the 1,029 judged pairs, scored by the
 /// exported graph: it keeps 93% of what was asked for and 81% of what was related, and
 /// leaves out half of what was not and 62% of what said the opposite. What it keeps is ordered by
 /// the same score, so the rest of those sit at the bottom.
@@ -155,7 +157,7 @@ impl Model {
     pub async fn ensure(
         self,
         cache_dir: &Path,
-        mut on_progress: impl FnMut(DownloadProgress),
+        mut on_progress: impl FnMut(DownloadProgress<'_>),
     ) -> Result<()> {
         let dir = self.dir(cache_dir);
         std::fs::create_dir_all(&dir)?;
@@ -330,7 +332,7 @@ impl SearchEncoder {
     }
 
     #[must_use]
-    pub fn device(&self) -> &'static str {
+    pub const fn device(&self) -> &'static str {
         self.0.device
     }
 
@@ -388,7 +390,7 @@ impl SearchReranker {
     }
 
     #[must_use]
-    pub fn device(&self) -> &'static str {
+    pub const fn device(&self) -> &'static str {
         self.0.device
     }
 
@@ -613,7 +615,7 @@ mod tests {
             encoder.claims(&texts(&["good"])).unwrap()[0],
             "padding is the end token, which says nothing"
         );
-        assert_eq!(encoder.claims(&[]).unwrap(), [] as [Vec<f32>; 0]);
+        assert_eq!(encoder.claims(&[]).unwrap(), <[Vec<f32>; 0]>::default());
 
         let asked = PROMPTS
             .query
@@ -649,7 +651,7 @@ mod tests {
             counted,
             "each claim scored for its own goods, in order"
         );
-        assert_eq!(reranker.score("bad", &[]).unwrap(), [] as [f32; 0]);
+        assert_eq!(reranker.score("bad", &[]).unwrap(), <[f32; 0]>::default());
     }
 
     #[test]

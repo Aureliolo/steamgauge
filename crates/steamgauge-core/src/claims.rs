@@ -493,7 +493,7 @@ fn an_ornament(claim: &str) -> bool {
 /// Han, kana and Hangul write a word in a character or two, so the two-character test that
 /// separates a drawing from a word in an alphabet would throw away the shortest reviews in a
 /// third of the corpus.
-fn writes_a_word_in_one_character(ch: char) -> bool {
+const fn writes_a_word_in_one_character(ch: char) -> bool {
     matches!(ch,
         '\u{3040}'..='\u{30FF}'      // kana
         | '\u{3400}'..='\u{4DBF}'    // Han, extension A
@@ -720,7 +720,7 @@ fn inside_a_link(text: &str, at: usize) -> bool {
 /// The straight double quote is both, so it toggles. The paired forms do not, which matters
 /// for the languages that use them: a Chinese review full of 「」 would otherwise flip in and
 /// out of quoted state on every mark.
-fn quote_state(ch: char, quoted: bool) -> Option<bool> {
+const fn quote_state(ch: char, quoted: bool) -> Option<bool> {
     match ch {
         '"' => Some(!quoted),
         '\u{201C}' | '\u{00AB}' | '\u{300C}' | '\u{300E}' => Some(true),
@@ -975,7 +975,7 @@ fn ends_on_the_word(text: &str, form: &str) -> bool {
 }
 
 /// Whether a character is a letter of the Cyrillic block.
-fn is_cyrillic(ch: char) -> bool {
+const fn is_cyrillic(ch: char) -> bool {
     matches!(ch, '\u{0400}'..='\u{04FF}')
 }
 
@@ -1075,7 +1075,7 @@ fn weight(piece: &str) -> usize {
 /// Whether a character belongs to a script that carries about a word per character and puts
 /// no spaces between them.
 #[must_use]
-pub fn writes_without_spaces(ch: char) -> bool {
+pub const fn writes_without_spaces(ch: char) -> bool {
     matches!(ch as u32,
         0x3040..=0x30FF   // Hiragana and Katakana
         | 0x3400..=0x4DBF // CJK unified ideographs, extension A
@@ -1315,7 +1315,7 @@ struct ClaimBatch {
 }
 
 impl ClaimBatch {
-    fn len(&self) -> usize {
+    const fn len(&self) -> usize {
         self.ids.len()
     }
 
@@ -1471,8 +1471,11 @@ mod tests {
 
     #[test]
     fn text_with_nothing_in_it_makes_no_claims() {
-        assert_eq!(split("   \n\n  "), [] as [std::borrow::Cow<'_, str>; 0]);
-        assert_eq!(split(""), [] as [std::borrow::Cow<'_, str>; 0]);
+        assert_eq!(
+            split("   \n\n  "),
+            <[std::borrow::Cow<'_, str>; 0]>::default()
+        );
+        assert_eq!(split(""), <[std::borrow::Cow<'_, str>; 0]>::default());
     }
 
     /// Every case below was flagged by a labeller reading real reviews, which is the only
@@ -1688,11 +1691,11 @@ mod tests {
     fn a_claim_that_is_only_censorship_is_not_a_claim() {
         assert_eq!(
             split("\u{2665}\u{2665}\u{2665}\u{2665}"),
-            [] as [std::borrow::Cow<'_, str>; 0]
+            <[std::borrow::Cow<'_, str>; 0]>::default()
         );
         assert_eq!(
             split("\u{2665}\u{2665}\u{2665}\u{2665}!"),
-            [] as [std::borrow::Cow<'_, str>; 0]
+            <[std::borrow::Cow<'_, str>; 0]>::default()
         );
         assert_eq!(
             split("This game is \u{2665}\u{2665}\u{2665}\u{2665} good.").len(),

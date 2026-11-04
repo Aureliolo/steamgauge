@@ -1,5 +1,5 @@
 use std::{
-    io::{IsTerminal, Write},
+    io::{IsTerminal as _, Write as _},
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -1020,10 +1020,14 @@ fn asked() -> Command {
     let asked = Cli::from_arg_matches(&matches)
         .unwrap_or_else(|error| error.exit())
         .command;
+    #[expect(
+        clippy::exit,
+        reason = "no subcommand ends the program with help, as clap does"
+    )]
     asked.unwrap_or_else(|| std::process::exit(command().print_help().map_or(1, |()| 0)))
 }
 
-pub async fn run() -> Result<()> {
+pub(crate) async fn run() -> Result<()> {
     let command = asked();
     command.library().map_or(Ok(()), bring_library)?;
     if let Some(done) = reference_work(&command) {
@@ -1389,7 +1393,7 @@ fn labelled_work(command: &Command) -> Option<Result<()>> {
 
 fn run_ingest_induced(
     app_id: u32,
-    from: &std::path::Path,
+    from: &Path,
     seed: u64,
     handout: Option<PathBuf>,
     to: Option<PathBuf>,
@@ -1400,11 +1404,15 @@ fn run_ingest_induced(
             .join(format!("{app_id}.json"))
     });
     let drawn: Vec<steamgauge_core::diverse::Handout> =
-        serde_json::from_slice(&std::fs::read(&handout).map_err(|_| {
-            anyhow::anyhow!(
-                "no handout at {}; run `steamgauge distinct {app_id}` first",
-                handout.display()
-            )
+        serde_json::from_slice(&std::fs::read(&handout).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                anyhow::anyhow!(
+                    "no handout at {}; run `steamgauge distinct {app_id}` first",
+                    handout.display()
+                )
+            } else {
+                anyhow::Error::from(error).context(format!("{} cannot be read", handout.display()))
+            }
         })?)?;
     let ids: Vec<String> = drawn.into_iter().map(|review| review.review_id).collect();
 
@@ -1450,13 +1458,7 @@ fn run_ingest_induced(
     Ok(())
 }
 
-fn run_report(
-    app_ids: &[u32],
-    out: &std::path::Path,
-    to: &std::path::Path,
-    examples: usize,
-    seed: u64,
-) -> Result<()> {
+fn run_report(app_ids: &[u32], out: &Path, to: &Path, examples: usize, seed: u64) -> Result<()> {
     // Every game before any of them: a page of six corpora that dies on the sixth has read
     // five of them and quoted a thousand reviews to say what one look would have said.
     for &app_id in app_ids {
@@ -1490,7 +1492,7 @@ fn run_report(
     Ok(())
 }
 
-fn run_export_data(app_id: u32, out: &std::path::Path, to: &std::path::Path) -> Result<()> {
+fn run_export_data(app_id: u32, out: &Path, to: &Path) -> Result<()> {
     let mut told = Instant::now();
     let exported = steamgauge_core::export::game(
         out,
@@ -1655,11 +1657,11 @@ struct Draw<'a> {
     batch_size: usize,
     seed: u64,
     english: f64,
-    to: &'a std::path::Path,
+    to: &'a Path,
     subset: &'a str,
 }
 
-fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> Result<()> {
+fn run_sample_claims(app_ids: &[u32], out: &Path, how: &Draw<'_>) -> Result<()> {
     let Draw {
         reviews,
         batch_size,
@@ -1724,7 +1726,7 @@ fn run_sample_claims(app_ids: &[u32], out: &std::path::Path, how: &Draw<'_>) -> 
 
 /// The review ids every label under one game's reference sets names, in any of its draws,
 /// second readings or gold.
-fn labelled_reviews(game: &std::path::Path) -> Result<std::collections::HashSet<String>> {
+fn labelled_reviews(game: &Path) -> Result<std::collections::HashSet<String>> {
     let mut ids = std::collections::HashSet::new();
     let mut pending = vec![game.to_path_buf()];
     while let Some(dir) = pending.pop() {
@@ -1746,11 +1748,7 @@ fn labelled_reviews(game: &std::path::Path) -> Result<std::collections::HashSet<
     Ok(ids)
 }
 
-fn run_export_review_facts(
-    from: &std::path::Path,
-    captures: &std::path::Path,
-    to: &std::path::Path,
-) -> Result<()> {
+fn run_export_review_facts(from: &Path, captures: &Path, to: &Path) -> Result<()> {
     #[derive(serde::Serialize)]
     struct Line<'a> {
         app_id: u32,
@@ -1791,7 +1789,7 @@ fn run_export_review_facts(
     Ok(())
 }
 
-fn run_export_training(from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+fn run_export_training(from: &Path, to: &Path) -> Result<()> {
     let report = steamgauge_core::claimset::export_training(from, to)?;
     println!("{} labelled claims -> {}", report.written, to.display());
     if report.no_claim > 0 {
@@ -1864,11 +1862,11 @@ fn refuse_held_back(app_ids: &[u32]) -> Result<()> {
 
 fn run_declined(
     app_ids: &[u32],
-    out: &std::path::Path,
+    out: &Path,
     claims: usize,
     batch_size: usize,
     seed: u64,
-    reference: &std::path::Path,
+    reference: &Path,
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
 
@@ -1907,12 +1905,12 @@ fn run_declined(
 
 fn run_export_pool(
     app_ids: &[u32],
-    out: &std::path::Path,
+    out: &Path,
     reviews: usize,
     english: f64,
     seed: u64,
-    reference: &std::path::Path,
-    to: &std::path::Path,
+    reference: &Path,
+    to: &Path,
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
 
@@ -1951,11 +1949,11 @@ fn run_export_pool(
 
 fn run_rare_claims_by_keyword(
     app_ids: &[u32],
-    out: &std::path::Path,
+    out: &Path,
     claims: usize,
     batch_size: usize,
     seed: u64,
-    reference: &std::path::Path,
+    reference: &Path,
     only: &[String],
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
@@ -2061,10 +2059,7 @@ fn reader_size(asked: Option<&str>) -> Result<&'static steamgauge_core::reader::
 /// A directory that already holds a model is left alone whatever the pins say, because that
 /// is how a freshly trained model is tried before it is published. Only an empty one is
 /// filled, and only from the pinned release.
-async fn fetch_reader(
-    size: &steamgauge_core::reader::Size,
-    model_dir: &std::path::Path,
-) -> Result<()> {
+async fn fetch_reader(size: &steamgauge_core::reader::Size, model_dir: &Path) -> Result<()> {
     if model_dir.join("model.onnx").is_file() {
         return Ok(());
     }
@@ -2114,7 +2109,7 @@ async fn ready_to_read(
     reader: Option<&str>,
     model: Option<PathBuf>,
     app_ids: &[u32],
-    out: &std::path::Path,
+    out: &Path,
 ) -> Result<PathBuf> {
     let size = reader_size(reader)?;
     let model_dir = model.unwrap_or_else(|| size.home());
@@ -2125,7 +2120,7 @@ async fn ready_to_read(
 
 fn run_read(
     app_ids: &[u32],
-    model_dir: &std::path::Path,
+    model_dir: &Path,
     options: &steamgauge_core::read::ReadOptions,
 ) -> Result<()> {
     // Loaded once for the whole slate. Building the session takes longer than reading a
@@ -2284,12 +2279,7 @@ fn print_differences(report: &steamgauge_core::read::ReadReport) {
     }
 }
 
-fn run_recount(
-    app_ids: &[u32],
-    out: &std::path::Path,
-    model_dir: &std::path::Path,
-    top_helpful: usize,
-) -> Result<()> {
+fn run_recount(app_ids: &[u32], out: &Path, model_dir: &Path, top_helpful: usize) -> Result<()> {
     let provenance = steamgauge_core::reader::Provenance::load(model_dir)?;
     eprintln!("reader       {}", model_dir.display());
     if !provenance.run_id.is_empty() {
@@ -2325,7 +2315,7 @@ fn run_recount(
 }
 
 /// Every app id under a reference root that has been labelled, in order.
-fn labelled_sets(reference: &std::path::Path) -> Result<Vec<u32>> {
+fn labelled_sets(reference: &Path) -> Result<Vec<u32>> {
     let mut found: Vec<u32> = std::fs::read_dir(reference)?
         .filter_map(std::result::Result::ok)
         .filter(|entry| entry.path().join("labels.json").is_file())
@@ -2340,7 +2330,7 @@ fn run_revisit(
     words: &[String],
     subjects: &[String],
     app_ids: &[u32],
-    reference: &std::path::Path,
+    reference: &Path,
     batch_size: usize,
 ) -> Result<()> {
     let question = steamgauge_core::claimset::Question {
@@ -2409,7 +2399,7 @@ fn a_person(written: &str) -> std::result::Result<String, String> {
 /// writes its answers as they are made and has nowhere to put an HTML file, and a written one
 /// has no port.
 enum Delivery<'a> {
-    Written(&'a std::path::Path),
+    Written(&'a Path),
     Served { answers: PathBuf, port: u16 },
 }
 
@@ -2431,7 +2421,7 @@ struct Asking<'a> {
 fn card_share(written: &str) -> std::result::Result<f64, String> {
     let share: f64 = written
         .parse()
-        .map_err(|_| format!("{written} is not a number"))?;
+        .map_err(|error| format!("{written} is not a number ({error})"))?;
     if share > 0.0 && share <= 1.0 {
         Ok(share)
     } else {
@@ -2461,8 +2451,8 @@ fn a_boundary(written: &str) -> std::result::Result<(String, String), String> {
 }
 
 fn run_gold(
-    reference: &std::path::Path,
-    out: &std::path::Path,
+    reference: &Path,
+    out: &Path,
     asking: &Asking<'_>,
     delivery: Delivery<'_>,
 ) -> Result<()> {
@@ -2731,7 +2721,7 @@ impl Adjudicated {
 /// Beside the file and then renamed over it, the way the server writes it, so a crash
 /// mid-write cannot leave half an adjudication where the whole one was. Rows are matched by
 /// claim, which is how the page and the server address them too.
-fn drop_answers(from: &std::path::Path, useless: &[AnswerKey]) -> Result<()> {
+fn drop_answers(from: &Path, useless: &[AnswerKey]) -> Result<()> {
     let rows: Vec<serde_json::Value> = serde_json::from_slice(&std::fs::read(from)?)?;
     let gone: std::collections::HashSet<&AnswerKey> = useless.iter().collect();
     let kept: Vec<serde_json::Value> = rows
@@ -2765,7 +2755,7 @@ fn drop_answers(from: &std::path::Path, useless: &[AnswerKey]) -> Result<()> {
 /// at, none of which any future build will score, so none of which the file need keep.
 fn adjudicate_one_game(
     app_id: u32,
-    dir: &std::path::Path,
+    dir: &Path,
     rows: &[&Adjudicated],
     cut: &steamgauge_core::claimset::CutSpans,
     by: &str,
@@ -2874,7 +2864,7 @@ fn adjudicate_one_game(
 /// one per language: a file replacing the whole game would lose every answer from the page
 /// before. An answer given again replaces the old one.
 fn file_gold(
-    dir: &std::path::Path,
+    dir: &Path,
     by: &str,
     mut given: Vec<steamgauge_core::claimset::ClaimLabel>,
 ) -> Result<usize> {
@@ -2903,7 +2893,7 @@ fn file_gold(
     Ok(given.len())
 }
 
-fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path) -> Result<()> {
+fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
     let answers: Vec<Adjudicated> = serde_json::from_slice(&std::fs::read(from)?)?;
     let person = answered_by(&answers)?.to_owned();
     let by = person.as_str();
@@ -2995,10 +2985,10 @@ fn run_ingest_gold(from: &std::path::Path, reference: &std::path::Path) -> Resul
 fn answered_by(answers: &[Adjudicated]) -> Result<&str> {
     let people: std::collections::BTreeSet<&str> =
         answers.iter().map(|answer| answer.by.as_str()).collect();
-    match people.into_iter().collect::<Vec<_>>()[..] {
+    match people.into_iter().collect::<Vec<_>>().as_slice() {
         [one] => Ok(steamgauge_core::gold::person(one)?),
         [] => anyhow::bail!("the file holds no answers"),
-        ref several => anyhow::bail!(
+        several => anyhow::bail!(
             "the file holds answers from {}; a page is answered by one person, so ingest each \
              person's file on its own",
             several.join(" and ")
@@ -3006,7 +2996,7 @@ fn answered_by(answers: &[Adjudicated]) -> Result<&str> {
     }
 }
 
-fn keep_judged(judged: &[Adjudicated], reference: &std::path::Path, by: &str) -> Result<()> {
+fn keep_judged(judged: &[Adjudicated], reference: &Path, by: &str) -> Result<()> {
     let mut by_game: std::collections::BTreeMap<u32, Vec<steamgauge_core::gold::Acceptable>> =
         std::collections::BTreeMap::new();
     for row in judged {
@@ -3037,12 +3027,7 @@ fn keep_judged(judged: &[Adjudicated], reference: &std::path::Path, by: &str) ->
     Ok(())
 }
 
-fn run_ingest_revisit(
-    app_id: u32,
-    from: &std::path::Path,
-    by: &str,
-    to: Option<PathBuf>,
-) -> Result<()> {
+fn run_ingest_revisit(app_id: u32, from: &Path, by: &str, to: Option<PathBuf>) -> Result<()> {
     if by.trim().is_empty() {
         anyhow::bail!("--by names the labeller who answered the revisit and cannot be empty");
     }
@@ -3064,7 +3049,7 @@ fn run_ingest_revisit(
 
 fn run_second_opinion(
     app_ids: &[u32],
-    reference: &std::path::Path,
+    reference: &Path,
     share: f64,
     batch_size: usize,
     seed: u64,
@@ -3142,7 +3127,7 @@ fn run_second_opinion(
 
 fn run_distinct(
     app_id: u32,
-    out: &std::path::Path,
+    out: &Path,
     count: usize,
     seed: u64,
     to: Option<PathBuf>,
@@ -3192,7 +3177,7 @@ fn run_distinct(
 }
 
 /// Every set named, or every set that has been labelled twice.
-fn read_twice(app_ids: &[u32], reference: &std::path::Path, labels: &str) -> Result<Vec<u32>> {
+fn read_twice(app_ids: &[u32], reference: &Path, labels: &str) -> Result<Vec<u32>> {
     let wanted: Vec<u32> = if app_ids.is_empty() {
         labelled_sets(reference)?
             .into_iter()
@@ -3217,7 +3202,7 @@ fn read_twice(app_ids: &[u32], reference: &std::path::Path, labels: &str) -> Res
 }
 
 /// Scores the model against what two labellers settled on, and against what they could not.
-fn run_ceiling(app_ids: &[u32], out: &std::path::Path, reference: &std::path::Path) -> Result<()> {
+fn run_ceiling(app_ids: &[u32], out: &Path, reference: &Path) -> Result<()> {
     use steamgauge_core::measure::{Role, SPLIT_SEED, role};
 
     let wanted = read_twice(app_ids, reference, "second")?;
@@ -3350,11 +3335,11 @@ fn print_ceiling_block(
 
 fn run_compare_labels(
     app_ids: &[u32],
-    reference: &std::path::Path,
+    reference: &Path,
     base: Option<&str>,
     labels: &str,
 ) -> Result<()> {
-    let base_of = |dir: &std::path::Path| {
+    let base_of = |dir: &Path| {
         base.map_or_else(
             || dir.join("labels.json"),
             |base| dir.join(base).join("labels.json"),
@@ -3454,8 +3439,8 @@ fn run_compare_labels(
 
 fn run_measure_claims(
     app_ids: &[u32],
-    out: &std::path::Path,
-    reference: &std::path::Path,
+    out: &Path,
+    reference: &Path,
     labels: Option<&str>,
 ) -> Result<()> {
     let pct =
@@ -3505,7 +3490,7 @@ fn run_measure_claims(
                 pct(share(found.contested_agreed, found.contested_answered)),
                 thousands(found.contested_answered)
             );
-        }
+        };
 
         let mut ranked: Vec<&steamgauge_core::measure::SubjectAgreement> = found
             .subjects
@@ -3594,8 +3579,7 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
 /// The one paragraph that decides whether a reader may call these numbers accuracy.
 fn print_what_these_figures_are(labels: Option<&str>) {
     if labels.is_some_and(|labels| {
-        std::path::Path::new(labels).parent()
-            == Some(std::path::Path::new(steamgauge_core::gold::GOLD))
+        Path::new(labels).parent() == Some(Path::new(steamgauge_core::gold::GOLD))
     }) {
         println!(
             "\nThese are ACCURACY figures. The labels were adjudicated by a person, so what is\n\
@@ -3617,7 +3601,7 @@ fn print_what_these_figures_are(labels: Option<&str>) {
 
 fn run_ingest_claims(
     app_id: u32,
-    from: &std::path::Path,
+    from: &Path,
     sheet: Option<&str>,
     by: &str,
     to: Option<PathBuf>,
@@ -3708,7 +3692,7 @@ fn run_ingest_claims(
     Ok(())
 }
 
-fn run_brief(to: &std::path::Path) -> Result<()> {
+fn run_brief(to: &Path) -> Result<()> {
     use steamgauge_core::taxonomy::{Unit, labelling_brief};
 
     let sheets = [
@@ -3735,7 +3719,7 @@ fn run_brief(to: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-fn run_claims(app_id: u32, out: &std::path::Path) -> Result<()> {
+fn run_claims(app_id: u32, out: &Path) -> Result<()> {
     eprintln!("splitting app {app_id}");
     let mut announced = 0;
     let report = steamgauge_core::claims::extract_corpus(out, app_id, |reviews, claims| {
@@ -3808,10 +3792,10 @@ struct NeighbourDraw {
 
 async fn run_rare_claims_by_neighbour(
     app_ids: &[u32],
-    out: &std::path::Path,
+    out: &Path,
     claims: usize,
     batch_size: usize,
-    reference: &std::path::Path,
+    reference: &Path,
     how: NeighbourDraw,
 ) -> Result<()> {
     refuse_held_back(app_ids)?;
@@ -3904,10 +3888,7 @@ async fn run_rare_claims_by_neighbour(
 
 /// What a neighbour draw found for each rare subject across every game drawn, and how to read
 /// it.
-fn say_margins(
-    by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
-    reference: &std::path::Path,
-) {
+fn say_margins(by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>, reference: &Path) {
     println!(
         "\nwhat was drawn for each subject, and by what margin over the nearest common subject.\n\
          The narrowest is the figure to read: below zero, the game barely holds the subject,\n\
@@ -3934,7 +3915,7 @@ fn say_margins(
 
 async fn run_embed(
     app_id: u32,
-    out: &std::path::Path,
+    out: &Path,
     batch_size: usize,
     model_dir: Option<PathBuf>,
     encoder: steamgauge_core::Encoder,
@@ -3989,7 +3970,7 @@ async fn run_embed(
 /// A client that says when Valve refuses it and how long it will wait. The wait can run to
 /// minutes, and a crawl that stops printing for minutes reads as a hang.
 /// Every game with a capture under `out`.
-fn captured_games(out: &std::path::Path) -> Vec<u32> {
+fn captured_games(out: &Path) -> Vec<u32> {
     let Ok(entries) = std::fs::read_dir(out) else {
         return Vec::new();
     };
@@ -4007,7 +3988,7 @@ fn captured_games(out: &std::path::Path) -> Vec<u32> {
 }
 
 /// Asks the store about the games about to be read that nobody has asked about yet.
-async fn ask_the_store_where_unknown(app_ids: &[u32], out: &std::path::Path) -> Result<()> {
+async fn ask_the_store_where_unknown(app_ids: &[u32], out: &Path) -> Result<()> {
     let unknown: Vec<u32> = app_ids
         .iter()
         .copied()
@@ -4018,7 +3999,7 @@ async fn ask_the_store_where_unknown(app_ids: &[u32], out: &std::path::Path) -> 
     if unknown.is_empty() {
         return Ok(());
     }
-    run_store_facts(&unknown, out, std::path::Path::new("reference/claims")).await
+    run_store_facts(&unknown, out, Path::new("reference/claims")).await
 }
 
 /// Asks the store whether each game is played only in a headset, and keeps the answer beside
@@ -4027,11 +4008,7 @@ async fn ask_the_store_where_unknown(app_ids: &[u32], out: &std::path::Path) -> 
 ///
 /// A game the store gives no answer for is said and left without one: reading it as a game
 /// played on a screen would be a guess recorded as a fact.
-async fn run_store_facts(
-    app_ids: &[u32],
-    out: &std::path::Path,
-    reference: &std::path::Path,
-) -> Result<()> {
+async fn run_store_facts(app_ids: &[u32], out: &Path, reference: &Path) -> Result<()> {
     let wanted: Vec<u32> = if app_ids.is_empty() {
         let mut every: std::collections::BTreeSet<u32> =
             steamgauge_core::claimset::labelled_games(reference)?
@@ -4126,7 +4103,7 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
 
     eprintln!("bringing app {app_id} up to date");
     let never = std::sync::atomic::AtomicBool::new(false);
-    let report = steamgauge_core::crawl::sweep(&client, app_id, out, &never, |progress| {
+    let report = crawl::sweep(&client, app_id, out, &never, |progress| {
         if interactive {
             let mut err = std::io::stderr();
             let _ = write!(
@@ -4184,7 +4161,7 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
 /// Asks Steam for what the game's developer has posted and keeps it beside the reviews. Best
 /// effort: reviews already fetched are the job, and a game whose updates Steam will not list
 /// keeps whatever was kept before.
-async fn refresh_updates(client: &steamgauge_core::SteamClient, app_id: u32, out: &Path) {
+async fn refresh_updates(client: &SteamClient, app_id: u32, out: &Path) {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| {
@@ -4253,7 +4230,7 @@ fn print_report(report: &CrawlReport) {
 ///
 /// A million-review crawl is several hours, and "11455.3s" is a number the reader has to do
 /// arithmetic on before it means anything.
-fn elapsed(taken: std::time::Duration) -> String {
+fn elapsed(taken: Duration) -> String {
     let seconds = taken.as_secs();
     if seconds < 60 {
         return format!("{:.1}s", taken.as_secs_f64());
@@ -4419,7 +4396,7 @@ mod tests {
 
         fn ingest(scratch: &Scratch, name: &str, answers: &[Value]) -> anyhow::Result<()> {
             let file = scratch.0.join(name);
-            std::fs::write(&file, serde_json::to_vec(answers).unwrap()).unwrap();
+            std::fs::write(&file, serde_json::to_vec(answers)?)?;
             run_ingest_gold(&file, &scratch.0.join("reference"))
         }
 

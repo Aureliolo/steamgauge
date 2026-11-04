@@ -1,7 +1,7 @@
 /* How the app runs on this computer: which reader reads every review, how much of the graphics
    card it takes, and what happens on its own. */
 
-import { invoke, el, set, make, roundShare, size, page } from './common.js';
+import { el, invoke, make, page, roundShare, set, size } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
@@ -22,9 +22,9 @@ const EVERY = { 1: 'Every hour', 6: 'Every six hours', 24: 'Once a day', 168: 'O
 const gib = (bytes) => `${Math.round(bytes / 2 ** 30)} GB`;
 
 /* Why this computer is recommended the reader it is, in one line. */
-export function reason(found) {
+function reason(found) {
   const recommended = found.sizes.find((one) => one.name === found.recommended);
-  const largest = found.sizes[found.sizes.length - 1];
+  const largest = found.sizes.at(-1);
   if (found.on_processor) {
     return found.reaches_card
       ? 'No graphics card the reader can use was found, so reading runs on the processor, where the small reader is the quickest.'
@@ -45,30 +45,43 @@ function sizeCard(found, option) {
   input.name = 'reader-size';
   input.value = option.name;
   input.checked = found.reads_with === option.name;
-  input.disabled = !option.runs_here || !option.published;
+  input.disabled = !(option.runs_here && option.published);
 
   const pills = make(
     'span',
     'size-pills',
     option.name === found.recommended ? make('span', 'pill accent', 'Recommended') : null,
-    option.bytes_left === 0 && option.published ? make('span', 'pill good', 'On this computer') : null,
+    option.bytes_left === 0 && option.published
+      ? make('span', 'pill good', 'On this computer')
+      : null,
   );
   const lines = [about];
-  if (!option.published) lines.push('Not published yet.');
-  else if (!option.runs_here) lines.push(`Needs ${gib(option.needs)} of card memory, more than this card can spare.`);
-  else if (option.bytes_left > 0) lines.push(`A ${size(option.bytes_left)} download, the first time it reads.`);
-  if (found.on_processor && option.times > 1.05) lines.push(`About ${Math.round(option.times)} times as long as the small reader.`);
+  if (!option.published) {
+    lines.push('Not published yet.');
+  } else if (!option.runs_here) {
+    lines.push(`Needs ${gib(option.needs)} of card memory, more than this card can spare.`);
+  } else if (option.bytes_left > 0) {
+    lines.push(`A ${size(option.bytes_left)} download, the first time it reads.`);
+  }
+  if (found.on_processor && option.times > 1.05) {
+    lines.push(`About ${Math.round(option.times)} times as long as the small reader.`);
+  }
 
   const label = make(
     'label',
     `size-card${input.disabled ? ' off' : ''}`,
     input,
-    make('span', 'size-body', make('span', 'size-title', make('strong', null, title), pills), make('span', 'size-about', lines.join(' '))),
+    make(
+      'span',
+      'size-body',
+      make('span', 'size-title', make('strong', null, title), pills),
+      make('span', 'size-about', lines.join(' ')),
+    ),
   );
   return label;
 }
 
-export function setUpSettings() {
+function setUpSettings() {
   page('settings', el('settings'), load);
   el('settings-form').addEventListener('change', save);
 
@@ -125,24 +138,27 @@ export function setUpSettings() {
     const picked = el('gpu-share').querySelector('input:checked');
     const reader = el('reader-sizes').querySelector('input:checked')?.value ?? null;
     const settings = {
+      /* The AI assistants page sets these. */
+      answer_over_http: shown.answer_over_http,
+      check_every_hours: Number(el('check-every').value) || shown.check_every_hours,
+      check_newer_version: el('check-newer-version').checked,
+      check_steam: el('check-steam').checked,
       gpu_share: picked ? Number(picked.value) : shown.gpu_share,
+      http_port: shown.http_port,
+      keep_up_to_date: el('keep-up-to-date').checked,
+      language: el('first-language').value || null,
+      notify_moves: el('notify-moves').checked,
+      read_after_download: el('read-after-download').checked,
       /* The recommended size is kept as no choice at all, so a better card later is taken up by
          itself. */
       reader: reader === options.recommended ? null : reader,
-      language: el('first-language').value || null,
-      check_steam: el('check-steam').checked,
-      check_every_hours: Number(el('check-every').value) || shown.check_every_hours,
-      keep_up_to_date: el('keep-up-to-date').checked,
       update_when: el('update-when').value,
-      notify_moves: el('notify-moves').checked,
-      read_after_download: el('read-after-download').checked,
-      check_newer_version: el('check-newer-version').checked,
-      /* The AI assistants page sets these. */
-      answer_over_http: shown.answer_over_http,
-      http_port: shown.http_port,
     };
     try {
-      shown = await invoke('save_settings', { settings, searchEveryGame: el('search-every-game').checked });
+      shown = await invoke('save_settings', {
+        searchEveryGame: el('search-every-game').checked,
+        settings,
+      });
       options = await invoke('reader_options');
       draw();
       el('settings-note').classList.remove('bad');
@@ -154,3 +170,5 @@ export function setUpSettings() {
     }
   }
 }
+
+export { reason, setUpSettings };

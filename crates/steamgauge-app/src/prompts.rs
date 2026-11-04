@@ -29,7 +29,7 @@ pub struct Spec {
     pub description: &'static str,
     pub arguments: &'static [Argument],
     /// The request. A required argument is always given.
-    text: fn(&Given) -> String,
+    text: fn(&Given<'_>) -> String,
 }
 
 const GAME: Argument = Argument {
@@ -124,7 +124,7 @@ pub const PROMPTS: &[Spec] = &[
 
 /// Every prompt, as a client lists them.
 #[must_use]
-pub fn list() -> ListPromptsResult {
+pub(crate) fn list() -> ListPromptsResult {
     ListPromptsResult::with_all_items(
         PROMPTS
             .iter()
@@ -155,7 +155,10 @@ pub fn list() -> ListPromptsResult {
 ///
 /// Fails on a prompt the server does not have, on an argument it does not take, and on a
 /// required argument missing, empty or not text.
-pub fn get(name: &str, arguments: Option<&JsonObject>) -> Result<GetPromptResult, ErrorData> {
+pub(crate) fn get(
+    name: &str,
+    arguments: Option<&JsonObject>,
+) -> Result<GetPromptResult, ErrorData> {
     let spec = PROMPTS
         .iter()
         .find(|spec| spec.name == name)
@@ -274,15 +277,13 @@ mod tests {
 
     #[test]
     fn a_missing_or_unknown_argument_and_an_unknown_prompt_are_refused() {
-        assert!(get("what_players_say", None).is_err());
-        assert!(get("what_players_say", Some(&given(&[("game", "  ")]))).is_err());
-        assert!(
-            get(
-                "what_players_say",
-                Some(&given(&[("game", "Hades II"), ("gmae", "x")]))
-            )
-            .is_err()
-        );
-        assert!(get("nothing", Some(&given(&[("game", "Hades II")]))).is_err());
+        get("what_players_say", None).unwrap_err();
+        get("what_players_say", Some(&given(&[("game", "  ")]))).unwrap_err();
+        get(
+            "what_players_say",
+            Some(&given(&[("game", "Hades II"), ("gmae", "x")])),
+        )
+        .unwrap_err();
+        get("nothing", Some(&given(&[("game", "Hades II")]))).unwrap_err();
     }
 }

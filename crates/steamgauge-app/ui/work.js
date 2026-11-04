@@ -2,28 +2,30 @@
    The core sends the whole board whenever a job moves, so every page that shows work draws from
    the same list and nothing is lost by leaving a page. */
 
-import { invoke, listen, make, button, whole, size, left, language } from './common.js';
+import { button, invoke, language, left, listen, make, size, whole } from './common.js';
 
 let board = [];
 const drawers = new Set();
 
-export const jobs = () => board;
+const jobs = () => board;
 
-export const active = (job) => job.state === 'queued' || job.state === 'running';
+const active = (job) => job.state === 'queued' || job.state === 'running';
 
 /* Jobs about one game, newest first. */
-export const jobsFor = (appId) => board.filter((job) => job.task.app_id === appId).reverse();
+const jobsFor = (appId) => board.filter((job) => job.task.app_id === appId).reverse();
 
-export function onWork(draw) {
+function onWork(draw) {
   drawers.add(draw);
   draw(board);
 }
 
 function drawAll() {
-  for (const draw of drawers) draw(board);
+  for (const draw of drawers) {
+    draw(board);
+  }
 }
 
-export async function startWork() {
+async function startWork() {
   await listen('work', ({ payload }) => {
     board = payload;
     drawAll();
@@ -35,19 +37,24 @@ export async function startWork() {
 /* Puts `items` in `list`. It leaves each node already there that would be drawn the same. The core
    sends the board four times a second while a job moves, so a tick then lays out only the job
    that moved, and a bar's animation runs on instead of starting over at every tick. */
-export function settle(list, items) {
+function settle(list, items) {
   items.forEach((item, at) => {
     const there = list.children[at];
-    if (!there) list.append(item);
-    else if (there.outerHTML !== item.outerHTML) there.replaceWith(item);
+    if (!there) {
+      list.append(item);
+    } else if (there.outerHTML !== item.outerHTML) {
+      there.replaceWith(item);
+    }
   });
-  while (list.children.length > items.length) list.lastElementChild.remove();
+  while (list.children.length > items.length) {
+    list.lastElementChild.remove();
+  }
 }
 
-export const queue = (...tasks) => invoke('queue', { tasks });
-export const stop = (id) => invoke('stop_job', { id });
+const queue = (...tasks) => invoke('queue', { tasks });
+const stop = (id) => invoke('stop_job', { id });
 
-export function taskName(task) {
+function taskName(task) {
   switch (task.kind) {
     case 'download':
       return 'Download every review';
@@ -87,13 +94,19 @@ function amount(job) {
         return `${whole.format(Math.round(value))} reviews`;
     }
   };
-  if (job.total === null) return job.done > 0 ? count(job.done) : '';
-  if (job.unit === 'bytes') return `${size(job.done)} of ${size(job.total)}`;
+  if (job.total === null) {
+    return job.done > 0 ? count(job.done) : '';
+  }
+  if (job.unit === 'bytes') {
+    return `${size(job.done)} of ${size(job.total)}`;
+  }
   return `${whole.format(Math.round(job.done))} of ${count(job.total)}`;
 }
 
 function speed(job) {
-  if (job.rate === null || job.rate <= 0) return '';
+  if (job.rate === null || job.rate <= 0) {
+    return '';
+  }
   switch (job.unit) {
     case 'bytes':
       return `${size(job.rate)}/s`;
@@ -106,9 +119,40 @@ function speed(job) {
   }
 }
 
+/* The one button a job in this state offers, or null. */
+function jobAction(job) {
+  if (job.state === 'running') {
+    return button('Stop', 'quiet-button small', () => stop(job.id));
+  }
+  if (job.state === 'queued') {
+    return button('Take off the list', 'ghost small', () => stop(job.id));
+  }
+  if (job.state === 'done' && job.task.kind === 'export') {
+    return button('Open', 'quiet-button small', () => invoke('open_report', { id: job.id }));
+  }
+  if (job.state === 'done' && job.task.kind === 'export_data') {
+    return button('Open the folder', 'quiet-button small', () =>
+      invoke('open_report', { id: job.id }),
+    );
+  }
+  return null;
+}
+
+function progressFill(job) {
+  const fill = make('span', 'fill');
+  if (job.total === null || job.total <= 0) {
+    /* No total to divide by: a bar that invents a denominator is a bar that lies. */
+    fill.classList.add('working');
+    fill.style.width = '100%';
+  } else {
+    fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
+  }
+  return fill;
+}
+
 /* One job, drawn whole: what it is, what it is doing, how far, how fast, how long, and what can
    be done about it. */
-export function jobItem(job, { named = true } = {}) {
+function jobItem(job, { named = true } = {}) {
   const item = make('li', `job ${job.state}`);
   /* Two jobs can read the same, and a drawing kept in place must keep the right one's buttons. */
   item.dataset.job = job.id;
@@ -119,53 +163,54 @@ export function jobItem(job, { named = true } = {}) {
     stopped: ['Stopped', ''],
   }[job.state];
   const kind = make('span', 'job-kind', taskName(job.task));
-  if (job.state === 'queued') kind.append(make('span', 'job-wait', ' · waiting its turn'));
-  /* A waiting job of the app's own says so in its note. */
-  else if (job.background) kind.append(make('span', 'job-wait', ' · started by the app'));
-  const actions = make('span', 'job-actions', ended ? make('span', `pill ${ended[1]}`, ended[0]) : null);
-  if (job.state === 'running') {
-    actions.append(button('Stop', 'quiet-button small', () => stop(job.id)));
-  } else if (job.state === 'queued') {
-    actions.append(button('Take off the list', 'ghost small', () => stop(job.id)));
-  } else if (job.state === 'done' && job.task.kind === 'export') {
-    actions.append(button('Open', 'quiet-button small', () => invoke('open_report', { id: job.id })));
-  } else if (job.state === 'done' && job.task.kind === 'export_data') {
-    actions.append(button('Open the folder', 'quiet-button small', () => invoke('open_report', { id: job.id })));
+  if (job.state === 'queued') {
+    kind.append(make('span', 'job-wait', ' · waiting its turn'));
+  } else if (job.background) {
+    /* A waiting job of the app's own says so in its note. */
+    kind.append(make('span', 'job-wait', ' · started by the app'));
+  }
+  const actions = make(
+    'span',
+    'job-actions',
+    ended ? make('span', `pill ${ended[1]}`, ended[0]) : null,
+  );
+  const action = jobAction(job);
+  if (action) {
+    actions.append(action);
   }
   item.append(
-    make('div', 'job-head', make('div', 'job-title', named && job.name ? make('span', 'job-name', job.name) : null, kind), actions),
+    make(
+      'div',
+      'job-head',
+      make('div', 'job-title', named && job.name ? make('span', 'job-name', job.name) : null, kind),
+      actions,
+    ),
   );
 
   if (job.state === 'running') {
-    const figures = [amount(job), speed(job), job.left === null ? '' : left(job.left)].filter(Boolean);
-    const fill = make('span', 'fill');
-    if (job.total === null || job.total <= 0) {
-      /* No total to divide by: a bar that invents a denominator is a bar that lies. */
-      fill.classList.add('working');
-      fill.style.width = '100%';
-    } else {
-      fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
-    }
-    item.append(make('div', 'track', fill), make('p', 'work-line', [job.step, ...figures].join(' · ')));
+    const figures = [amount(job), speed(job), job.left === null ? '' : left(job.left)].filter(
+      Boolean,
+    );
+    const fill = progressFill(job);
+    item.append(
+      make('div', 'track', fill),
+      make('p', 'work-line', [job.step, ...figures].join(' · ')),
+    );
   }
-  if (job.note) item.append(make('p', job.state === 'failed' ? 'job-note bad' : 'job-note', job.note));
+  if (job.note) {
+    item.append(make('p', job.state === 'failed' ? 'job-note bad' : 'job-note', job.note));
+  }
   return item;
 }
 
 /* The board in brief, for the foot of the rail: what is running and how much is waiting. */
-export function drawBrief(holder) {
+function drawBrief(holder) {
   onWork((all) => {
     const running = all.filter((job) => job.state === 'running');
     const waiting = all.filter((job) => job.state === 'queued').length;
     holder.hidden = running.length === 0 && waiting === 0;
     const items = running.map((job) => {
-      const fill = make('span', 'fill');
-      if (job.total === null || job.total <= 0) {
-        fill.classList.add('working');
-        fill.style.width = '100%';
-      } else {
-        fill.style.width = `${Math.min(100, (100 * job.done) / job.total).toFixed(1)}%`;
-      }
+      const fill = progressFill(job);
       const figures = job.left === null ? job.step : `${job.step}, ${left(job.left)}`;
       return make(
         'div',
@@ -176,7 +221,23 @@ export function drawBrief(holder) {
         make('div', 'track', fill),
       );
     });
-    if (waiting > 0) items.push(make('p', 'brief-waiting', `${whole.format(waiting)} waiting`));
+    if (waiting > 0) {
+      items.push(make('p', 'brief-waiting', `${whole.format(waiting)} waiting`));
+    }
     settle(holder, items);
   });
 }
+
+export {
+  active,
+  drawBrief,
+  jobItem,
+  jobs,
+  jobsFor,
+  onWork,
+  queue,
+  settle,
+  startWork,
+  stop,
+  taskName,
+};

@@ -102,7 +102,7 @@ fn mean_of(games: &[&GameShare], figure: impl Fn(&GameShare) -> Option<f64>) -> 
     )
 }
 
-fn game_share(game: &Counted, id: &str) -> GameShare {
+fn game_share(game: &Counted<'_>, id: &str) -> GameShare {
     let found = game.subjects.iter().find(|subject| subject.id == id);
     let raised = found.map_or(0, |subject| subject.mention_reviews);
     let (praised, criticised, mixed) = found.map_or((0, 0, 0), |subject| {
@@ -149,7 +149,7 @@ fn each_game(games: &[GameShare]) -> Figures {
 }
 
 /// The games' counts added and divided once.
-fn every_review(games: &[Counted], id: &str, shares: &[GameShare]) -> Figures {
+fn every_review(games: &[Counted<'_>], id: &str, shares: &[GameShare]) -> Figures {
     let reviews: u64 = games.iter().map(|game| game.reviews).sum();
     let raised: u64 = shares.iter().map(|game| game.raised).sum();
     let (praised, criticised, mixed) = games
@@ -177,8 +177,8 @@ fn every_review(games: &[Counted], id: &str, shares: &[GameShare]) -> Figures {
 /// Every subject any of `games` counted, in the order the first game to count it lists it, over
 /// the games with reviews. None where no game has any.
 #[must_use]
-pub fn across(games: &[Counted]) -> Vec<Across> {
-    let games: Vec<Counted> = games
+pub fn across(games: &[Counted<'_>]) -> Vec<Across> {
+    let games: Vec<Counted<'_>> = games
         .iter()
         .copied()
         .filter(|game| game.reviews > 0)

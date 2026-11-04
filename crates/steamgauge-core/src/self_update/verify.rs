@@ -261,13 +261,7 @@ mod tests {
     }
 
     fn check(arrived: &Arrived<'_>, running: &Version, builder: &Builder) -> Result<(), Refusal> {
-        verify(
-            &bundle(),
-            arrived,
-            running,
-            builder,
-            &embedded_root().unwrap(),
-        )
+        verify(&bundle(), arrived, running, builder, &embedded_root()?)
     }
 
     fn setup(version: &Version) -> Arrived<'_> {

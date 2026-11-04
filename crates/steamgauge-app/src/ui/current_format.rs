@@ -10,7 +10,7 @@ use std::{
     sync::OnceLock,
 };
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 use super::settings::{self, Settings};
 

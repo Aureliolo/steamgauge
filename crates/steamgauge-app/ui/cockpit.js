@@ -3,24 +3,24 @@
    library a welcome that says what the app does and finds the first game. */
 
 import {
+  button,
+  day,
+  el,
+  go,
   invoke,
   listen,
-  el,
-  set,
   make,
-  button,
-  whole,
-  roundShare,
-  day,
-  size,
   monthName,
   page,
-  go,
+  roundShare,
+  set,
   showing,
+  size,
+  whole,
 } from './common.js';
-import { onWork, jobs, jobItem, queue, stop, taskName, active, settle } from './work.js';
 import { reason } from './settings.js';
 import { drawSinceCard } from './since.js';
+import { active, jobItem, jobs, onWork, queue, settle, stop, taskName } from './work.js';
 
 let overview = null;
 let busy = false;
@@ -52,7 +52,7 @@ const ICONS = {
   unread: ['M4 5h12M4 10h8M4 15h10'],
 };
 
-export function setUpCockpit({ openGame, openSubject }) {
+function setUpCockpit({ openGame, openSubject }) {
   page('cockpit', el('cockpit'), load);
 
   /* Everything running, the next few waiting, and the last few finished: a library-wide update
@@ -60,16 +60,28 @@ export function setUpCockpit({ openGame, openSubject }) {
   onWork((all) => {
     /* Fetching a model is part of the welcome, not a sign the library is under way. */
     busy = all.some((job) => job.task.kind !== 'fetch_model');
-    fetching = new Set(all.filter((job) => job.task.kind === 'fetch_model' && active(job)).map((job) => job.task.model));
+    fetching = new Set(
+      all
+        .filter((job) => job.task.kind === 'fetch_model' && active(job))
+        .map((job) => job.task.model),
+    );
     /* Drawn again when the cockpit is shown, so a hidden one is not laid out at every tick. */
-    if (showing() === 'cockpit') drawWork(all);
+    if (showing() === 'cockpit') {
+      drawWork(all);
+    }
   });
   el('ready-fetch').addEventListener('click', () => {
-    if (readerKey) queue({ kind: 'fetch_model', model: readerKey });
+    if (readerKey) {
+      queue({ kind: 'fetch_model', model: readerKey });
+    }
   });
   el('fetch-every-model').addEventListener('click', () => {
-    const missing = (overview?.machine.models ?? []).filter((model) => !model.here && model.bytes_left > 0 && !fetching.has(model.key));
-    if (missing.length > 0) queue(...missing.map((model) => ({ kind: 'fetch_model', model: model.key })));
+    const missing = (overview?.machine.models ?? []).filter(
+      (model) => !model.here && model.bytes_left > 0 && !fetching.has(model.key),
+    );
+    if (missing.length > 0) {
+      queue(...missing.map((model) => ({ kind: 'fetch_model', model: model.key })));
+    }
   });
   el('ready-later').addEventListener('click', () => {
     try {
@@ -86,7 +98,9 @@ export function setUpCockpit({ openGame, openSubject }) {
   /* A finished job changes what the cockpit counts, so it counts again, but only while it is
      what is on screen: the walk over the library is not free. */
   listen('library', () => {
-    if (showing() === 'cockpit') load();
+    if (showing() === 'cockpit') {
+      load();
+    }
   });
 
   async function load() {
@@ -101,7 +115,9 @@ export function setUpCockpit({ openGame, openSubject }) {
     draw(overview, { openGame, openSubject });
     /* Only a cockpit somebody can see has been looked at: a window behind others redraws too. */
     if (overview.games > 0 && document.visibilityState === 'visible') {
-      invoke('looked', { appId: null }).catch(() => {});
+      invoke('looked', { appId: null }).catch(() => {
+        // The look is only a note for the next "since" line, so a failure costs nothing visible.
+      });
     }
   }
 }
@@ -112,8 +128,14 @@ export function setUpCockpit({ openGame, openSubject }) {
 function drawWork(all) {
   const running = all.filter((job) => job.state === 'running');
   const waiting = all.filter((job) => job.state === 'queued');
-  const finished = all.filter((job) => !active(job)).reverse().slice(0, FINISHED_SHOWN);
-  settle(el('cockpit-work'), [...running, ...finished].map((job) => jobItem(job)));
+  const finished = all
+    .filter((job) => !active(job))
+    .reverse()
+    .slice(0, FINISHED_SHOWN);
+  settle(
+    el('cockpit-work'),
+    [...running, ...finished].map((job) => jobItem(job)),
+  );
   const chips = waiting.slice(0, WAITING_SHOWN).map(waitingChip);
   if (waiting.length > WAITING_SHOWN) {
     chips.push(make('li', 'chip more', `and ${whole.format(waiting.length - WAITING_SHOWN)} more`));
@@ -127,7 +149,9 @@ function drawWork(all) {
     welcome(overview);
     drawMachine(overview);
   }
-  drawFetch(all.filter((job) => job.task.kind === 'fetch_model' && job.task.model === readerKey).pop());
+  drawFetch(
+    all.filter((job) => job.task.kind === 'fetch_model' && job.task.model === readerKey).pop(),
+  );
 }
 
 /* A waiting job in a few words, with the way to take it off the list. */
@@ -149,7 +173,9 @@ function welcome(found) {
   const first = found.games === 0 && !busy;
   el('cockpit-empty').hidden = !first;
   el('cockpit-full').hidden = first;
-  if (first) drawReady();
+  if (first) {
+    drawReady();
+  }
 }
 
 function laterChosen() {
@@ -173,8 +199,11 @@ async function drawReady() {
   const chosen = found.sizes.find((one) => one.name === found.reads_with);
   readerKey = chosen?.name ?? null;
   const underway = el('ready-job').childElementCount > 0;
-  el('welcome-ready').hidden = !underway && (!chosen || !chosen.published || chosen.bytes_left === 0 || laterChosen());
-  if (el('welcome-ready').hidden || underway) return;
+  el('welcome-ready').hidden =
+    !underway && (!chosen?.published || chosen.bytes_left === 0 || laterChosen());
+  if (el('welcome-ready').hidden || underway) {
+    return;
+  }
 
   set(el('ready-title'), `Download the ${chosen.name} reader`);
   set(el('ready-why'), reason(found));
@@ -186,7 +215,9 @@ async function drawReady() {
     short
       ? `It is a ${size(chosen.bytes_left)} download, and this drive has ${size(found.free_bytes)} free: make room first.`
       : `A ${size(chosen.bytes_left)} download, once` +
-          (found.free_bytes === null ? '.' : `, with ${size(found.free_bytes)} free on this drive.`) +
+          (found.free_bytes === null
+            ? '.'
+            : `, with ${size(found.free_bytes)} free on this drive.`) +
           ' It runs while you choose a first game.',
   );
   el('ready-fetch').disabled = short;
@@ -218,7 +249,10 @@ function draw(found, { openGame, openSubject }) {
 }
 
 /* One lane on a window narrower than this, as app.css lays it out. */
-const ONE_LANE = window.matchMedia('(max-width: 1080px)');
+const ONE_LANE = globalThis.matchMedia('(max-width: 1080px)');
+
+/* Bit i of a placement is panel i in the right lane. */
+const inRight = (placing, at) => Math.floor(placing / 2 ** at) % 2 === 1;
 
 /* How much nearer level the lanes must come before a panel changes lane, so one that moved
    stays put while what it holds grows and shrinks by a line or two. */
@@ -230,36 +264,57 @@ const SETTLED = 96;
 function balance() {
   const left = el('lane-left');
   const right = el('lane-right');
-  const panels = ['since-title', 'health-title', 'moves-title'].map((id) => el(id).closest('.panel'));
+  const panels = ['since-title', 'health-title', 'moves-title'].map((id) =>
+    el(id).closest('.panel'),
+  );
   if (ONE_LANE.matches) {
     left.append(...panels);
     return;
   }
   /* A page out of sight has nothing laid out to measure. */
-  if (panels[0].offsetParent === null) return;
-  const gap = parseFloat(getComputedStyle(left).rowGap);
+  if (panels[0].offsetParent === null) {
+    return;
+  }
+  const gap = Number.parseFloat(getComputedStyle(left).rowGap);
   const heights = panels.map((panel) => panel.offsetHeight);
-  /* Bit i of a placement set is panel i in the right lane. */
   const tallest = (placing) => {
     const lanes = [[], []];
-    heights.forEach((height, at) => lanes[(placing >> at) & 1].push(height));
-    return Math.max(...lanes.map((lane) => lane.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, lane.length - 1)));
+    for (const [at, height] of heights.entries()) {
+      lanes[inRight(placing, at) ? 1 : 0].push(height);
+    }
+    return Math.max(
+      ...lanes.map(
+        (lane) =>
+          lane.reduce((sum, height) => sum + height, 0) + gap * Math.max(0, lane.length - 1),
+      ),
+    );
   };
-  const now = panels.reduce((placing, panel, at) => (panel.parentElement === right ? placing | (1 << at) : placing), 0);
+  const now = panels.reduce(
+    (placing, panel, at) => (panel.parentElement === right ? placing + 2 ** at : placing),
+    0,
+  );
   /* Even placings from two: what is new stays on the left, and the right lane is never empty. */
   let best = 2;
-  for (let placing = 4; placing < 1 << panels.length; placing += 2) {
-    if (tallest(placing) < tallest(best)) best = placing;
+  for (let placing = 4; placing < 2 ** panels.length; placing += 2) {
+    if (tallest(placing) < tallest(best)) {
+      best = placing;
+    }
   }
-  if (now !== 0 && tallest(now) - tallest(best) < SETTLED) best = now;
-  panels.forEach((panel, at) => ((best >> at) & 1 ? right : left).append(panel));
+  if (now !== 0 && tallest(now) - tallest(best) < SETTLED) {
+    best = now;
+  }
+  for (const [at, panel] of panels.entries()) {
+    (inRight(best, at) ? right : left).append(panel);
+  }
 }
 
 let resizing = null;
-window.addEventListener('resize', () => {
+globalThis.addEventListener('resize', () => {
   clearTimeout(resizing);
   resizing = setTimeout(() => {
-    if (showing() === 'cockpit') balance();
+    if (showing() === 'cockpit') {
+      balance();
+    }
   }, 150);
 });
 
@@ -268,16 +323,16 @@ function figure(value, term) {
   return make('div', null, make('dt', null, term), make('dd', null, value));
 }
 
+function gamesTerm(found) {
+  if (found.games === 0) {
+    return 'games';
+  }
+  return found.read === found.games ? 'games, all read' : `games, ${whole.format(found.read)} read`;
+}
+
 function drawFigures(found) {
   el('health-stats').replaceChildren(
-    figure(
-      whole.format(found.games),
-      found.games === 0
-        ? 'games'
-        : found.read === found.games
-          ? 'games, all read'
-          : `games, ${whole.format(found.read)} read`,
-    ),
+    figure(whole.format(found.games), gamesTerm(found)),
     figure(whole.format(found.reviews), 'reviews held'),
     figure(whole.format(found.claims), 'claims read'),
     figure(size(found.disk_bytes), 'on disk'),
@@ -285,13 +340,20 @@ function drawFigures(found) {
 }
 
 function fact(term, value, under) {
-  return make('div', null, make('dt', null, term), make('dd', null, value, under ? make('small', null, under) : null));
+  return make(
+    'div',
+    null,
+    make('dt', null, term),
+    make('dd', null, value, under ? make('small', null, under) : null),
+  );
 }
 
 /* One thing the library would be better for, the games it concerns, and the one action that
    deals with all of them. */
-function attention(iconName, tone, title, games, describe, action, openGame) {
-  if (games.length === 0) return null;
+function attention({ iconName, tone, title, games, describe, action, openGame }) {
+  if (games.length === 0) {
+    return null;
+  }
   const shown = games.slice(0, 4);
   const list = make('ul', 'game-list');
   for (const game of shown) {
@@ -311,7 +373,12 @@ function attention(iconName, tone, title, games, describe, action, openGame) {
     'li',
     'attention-item',
     make('span', `attention-icon ${tone}`, icon(ICONS[iconName])),
-    make('div', 'attention-text', make('h4', null, title, ' ', make('span', 'count', whole.format(games.length))), list),
+    make(
+      'div',
+      'attention-text',
+      make('h4', null, title, ' ', make('span', 'count', whole.format(games.length))),
+      list,
+    ),
     button(action.label, 'quiet-button small', action.run),
   );
 }
@@ -320,42 +387,44 @@ function drawHealth(found, openGame) {
   const lists = el('health-lists');
   lists.replaceChildren(
     ...[
-      attention(
-        'fresh',
-        '',
-        'New reviews on Steam',
-        found.new_on_steam,
-        (game) => `+${whole.format(game.new)}`,
-        {
+      attention({
+        action: {
           label: 'Bring up to date',
-          run: () => invoke('queue_updates', { appIds: found.new_on_steam.map((game) => game.app_id) }),
+          run: () =>
+            invoke('queue_updates', { appIds: found.new_on_steam.map((game) => game.app_id) }),
         },
+        describe: (game) => `+${whole.format(game.new)}`,
+        games: found.new_on_steam,
+        iconName: 'fresh',
         openGame,
-      ),
-      attention(
-        'older',
-        'warn',
-        'Read by an older reader',
-        found.older_reader,
-        null,
-        {
+        title: 'New reviews on Steam',
+        tone: '',
+      }),
+      attention({
+        action: {
           label: 'Read again',
-          run: () => invoke('queue_reads', { appIds: found.older_reader.map((game) => game.app_id) }),
+          run: () =>
+            invoke('queue_reads', { appIds: found.older_reader.map((game) => game.app_id) }),
         },
+        describe: null,
+        games: found.older_reader,
+        iconName: 'older',
         openGame,
-      ),
-      attention(
-        'unread',
-        '',
-        'Downloaded, not read yet',
-        found.not_read,
-        null,
-        {
+        title: 'Read by an older reader',
+        tone: 'warn',
+      }),
+      attention({
+        action: {
           label: 'Read',
           run: () => invoke('queue_reads', { appIds: found.not_read.map((game) => game.app_id) }),
         },
+        describe: null,
+        games: found.not_read,
+        iconName: 'unread',
         openGame,
-      ),
+        title: 'Downloaded, not read yet',
+        tone: '',
+      }),
     ].filter(Boolean),
   );
   el('health-calm').hidden = lists.childElementCount > 0 || found.games === 0;
@@ -404,14 +473,18 @@ function drawMoves(found, { openGame, openSubject }) {
           'move-what',
           button(moved.name, 'link', () => openGame(moved.app_id)),
           make('span', 'side', `${side} about`),
-          button(moved.label.toLowerCase(), 'link', () => openSubject(moved.app_id, moved.subject, moved.side)),
+          button(moved.label.toLowerCase(), 'link', () =>
+            openSubject(moved.app_id, moved.subject, moved.side),
+          ),
         ),
         ...figures(moved.shift, moved.from, moved.to),
       ),
     );
   }
   const subjectsLeft = more(found.moves.length - MOVES_SHOWN, 'subjects that moved');
-  if (subjectsLeft) list.append(subjectsLeft);
+  if (subjectsLeft) {
+    list.append(subjectsLeft);
+  }
   for (const shifted of found.recommended.slice(0, MOVES_SHOWN)) {
     const rising = shifted.shift.recent > shifted.shift.before;
     list.append(
@@ -428,15 +501,60 @@ function drawMoves(found, { openGame, openSubject }) {
       ),
     );
   }
-  const gamesLeft = more(found.recommended.length - MOVES_SHOWN, 'games whose share recommending moved');
-  if (gamesLeft) list.append(gamesLeft);
+  const gamesLeft = more(
+    found.recommended.length - MOVES_SHOWN,
+    'games whose share recommending moved',
+  );
+  if (gamesLeft) {
+    list.append(gamesLeft);
+  }
   el('moves-calm').hidden = list.childElementCount > 0;
 }
 
+function modelWhere(model) {
+  if (model.here) {
+    return make('span', 'pill good', 'On this computer');
+  }
+  if (fetching.has(model.key)) {
+    return make('span', 'quiet small', `Downloading, ${size(model.bytes_left)}.`);
+  }
+  return make(
+    'span',
+    'model-fetch',
+    make(
+      'span',
+      'quiet small',
+      `A ${size(model.bytes_left)} download, the first time it is needed.`,
+    ),
+    button('Download now', 'quiet-button small', () =>
+      queue({ kind: 'fetch_model', model: model.key }),
+    ),
+  );
+}
+
+function modelItem(model) {
+  return make(
+    'li',
+    model.used ? 'model' : 'model unused',
+    make(
+      'span',
+      'model-name',
+      model.name,
+      model.release ? make('span', 'tag', model.release) : null,
+    ),
+    make('span', 'quiet', `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.`),
+    modelWhere(model),
+    model.newer
+      ? make('span', 'newer', `${model.newer} is out. It comes with the next SteamGauge update.`)
+      : null,
+  );
+}
+
 function drawMachine(found) {
-  const machine = found.machine;
+  const { machine } = found;
   /* A card's memory is sold in binary gigabytes: a 24 GB card reports 25.8 decimal ones. */
-  const memory = machine.card_bytes === null ? null : `${Math.round(machine.card_bytes / 2 ** 30)} GB`;
+  const memory =
+    machine.card_bytes === null ? null : `${Math.round(machine.card_bytes / 2 ** 30)} GB`;
   /* A model that is not published yet is nobody's to download, so it is not counted. */
   const published = machine.models.filter((model) => model.here || model.bytes_left > 0);
   const here = published.filter((model) => model.here).length;
@@ -444,7 +562,10 @@ function drawMachine(found) {
   el('machine-facts').replaceChildren(
     fact('Graphics card', machine.card ?? (memory ? 'Unnamed' : 'None reported'), memory),
     fact('Reader', machine.reader === 'standard' ? 'Standard' : 'Small'),
-    fact('Card time', machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share)),
+    fact(
+      'Card time',
+      machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share),
+    ),
     fact(
       'Models',
       here === published.length
@@ -470,36 +591,20 @@ function drawMachine(found) {
   const missing = machine.models.filter((model) => !model.here && model.bytes_left > 0);
   /* A model here and current needs nothing, so only one still to come or with a newer release
      takes room in the cockpit. Storage lists every one. */
-  const due = machine.models.filter((model) => (!model.here && model.bytes_left > 0) || model.newer);
+  const due = machine.models.filter(
+    (model) => (!model.here && model.bytes_left > 0) || model.newer,
+  );
   el('models-due').hidden = due.length === 0;
   for (const model of due) {
-    const where = model.here
-      ? make('span', 'pill good', 'On this computer')
-      : fetching.has(model.key)
-        ? make('span', 'quiet small', `Downloading, ${size(model.bytes_left)}.`)
-        : make(
-            'span',
-            'model-fetch',
-            make('span', 'quiet small', `A ${size(model.bytes_left)} download, the first time it is needed.`),
-            button('Download now', 'quiet-button small', () => queue({ kind: 'fetch_model', model: model.key })),
-          );
-    list.append(
-      make(
-        'li',
-        model.used ? 'model' : 'model unused',
-        make('span', 'model-name', model.name, model.release ? make('span', 'tag', model.release) : null),
-        make('span', 'quiet', `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.`),
-        where,
-        model.newer
-          ? make('span', 'newer', `${model.newer} is out. It comes with the next SteamGauge update.`)
-          : null,
-      ),
-    );
+    list.append(modelItem(model));
   }
   const waiting = missing.filter((model) => !fetching.has(model.key));
   const every = el('fetch-every-model');
   every.hidden = waiting.length < 2;
-  set(every, `Download every model now, ${size(waiting.reduce((total, model) => total + model.bytes_left, 0))}`);
+  set(
+    every,
+    `Download every model now, ${size(waiting.reduce((total, model) => total + model.bytes_left, 0))}`,
+  );
   set(
     el('models-checked'),
     machine.releases_checked > 0
@@ -507,3 +612,5 @@ function drawMachine(found) {
       : '',
   );
 }
+
+export { setUpCockpit };

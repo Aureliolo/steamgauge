@@ -1,13 +1,13 @@
 [package]
 name = "steamgauge-app"
-description = "Desktop application and command-line interface for SteamGauge."
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
+description = "Desktop application and command-line interface for SteamGauge."
 homepage.workspace = true
-authors.workspace = true
+repository.workspace = true
+license.workspace = true
 publish.workspace = true
 
 # The details Windows shows for steamgauge.exe under Properties that tauri-build does not set
@@ -26,45 +26,45 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "=1.0.104"
-steamgauge-core.workspace = true
+base64 = "=0.23.1"
+bytes = "=1.12.1"
 clap = { version = "=4.6.7", features = ["derive"] }
-serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.154"
-tauri = { version = "=2.12.5", features = [] }
-tauri-plugin-opener = "=2.7.2"
-tokio = { version = "=1.54.1", features = ["rt-multi-thread", "macros", "time", "io-std", "io-util", "net"] }
-# Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
-# notification plugin wraps this crate and drops the click on every desktop system.
-notify-rust = "=4.18.2"
-rfd = { version = "=0.17.2", default-features = false, features = ["gtk3"] }
-fs4 = "=1.1.0"
 # The folders Tauri names the app's from, found the same way when no window is open.
 dirs = "=7.0.0"
-# The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
-# pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
-# standard input and output and is itself a client of the open app.
-rmcp = { version = "=3.8.0", default-features = false, features = ["server", "client", "transport-io", "transport-streamable-http-server"] }
-interprocess = { version = "=2.4.7", features = ["tokio"] }
-schemars = "=1.2.3"
-base64 = "=0.23.1"
+fs4 = "=1.1.0"
 getrandom = "=0.4.3"
+http-body-util = "=0.1.5"
 # The same server over HTTP on 127.0.0.1, for clients that connect no other way: off until it is
 # switched on in Settings, and every request carries a token.
-hyper = { version = "=1.12.0", features = ["server", "http1"] }
+hyper = { version = "=1.12.0", features = ["http1", "server"] }
 hyper-util = { version = "=0.1.21", features = ["tokio"] }
-http-body-util = "=0.1.5"
-bytes = "=1.12.1"
-tokio-util = "=0.7.20"
+interprocess = { version = "=2.4.7", features = ["tokio"] }
 # Adding the app to an MCP client's own configuration in place, keeping that file's comments,
 # formatting and every other server: JSON with comments, TOML and YAML, each through a syntax
 # tree. serde-saphyr reads YAML strictly, so a written file is checked by a parser other than the
 # one that wrote it.
 jsonc-parser = { version = "=0.34.0", features = ["cst", "serde"] }
-toml_edit = { version = "=0.25.17", features = ["serde"] }
-yaml-edit = "=0.3.6"
+# Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
+# notification plugin wraps this crate and drops the click on every desktop system.
+notify-rust = "=4.18.2"
+rfd = { version = "=0.17.2", default-features = false, features = ["gtk3"] }
+# The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
+# pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
+# standard input and output and is itself a client of the open app.
+rmcp = { version = "=3.8.0", default-features = false, features = ["client", "server", "transport-io", "transport-streamable-http-server"] }
+schemars = "=1.2.3"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
 serde-saphyr = "=2.0.0"
+steamgauge-core.workspace = true
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-opener = "=2.7.2"
 # One app per user, so a client and the person share one library, one work board and one window.
 tauri-plugin-single-instance = "=2.5.5"
+tokio = { version = "=1.54.1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "time"] }
+tokio-util = "=0.7.20"
+toml_edit = { version = "=0.25.17", features = ["serde"] }
+yaml-edit = "=0.3.6"
 
 [dev-dependencies]
 glob = "=0.3.4"
@@ -74,12 +74,12 @@ tauri-build = { version = "=2.7.4", features = [] }
 
 [features]
 default = []
+coreml = ["steamgauge-core/coreml"]
+cuda = ["steamgauge-core/cuda"]
 # The window's pages served from inside the binary, with no developer tools. Every build that
 # ships has it; without it Tauri treats the build as development.
 custom-protocol = ["tauri/custom-protocol"]
 directml = ["steamgauge-core/directml"]
-coreml = ["steamgauge-core/coreml"]
-cuda = ["steamgauge-core/cuda"]
 webgpu = ["steamgauge-core/webgpu"]
 
 [lints]

@@ -121,7 +121,7 @@ impl WriterModel {
     pub async fn ensure(
         self,
         cache_dir: &Path,
-        mut on_progress: impl FnMut(DownloadProgress),
+        mut on_progress: impl FnMut(DownloadProgress<'_>),
     ) -> Result<()> {
         let dir = self.dir(cache_dir);
         std::fs::create_dir_all(&dir)?;
@@ -534,7 +534,9 @@ fn british(text: &str) -> String {
 }
 
 /// The paragraph without any sentence the brief does not bear out: one giving a number it was
-/// not told, or quoting words no label or quote it was given holds. `None` where nothing is
+/// not told, or quoting words no label or quote it was given holds.
+///
+/// `None` where nothing is
 /// left, because a paragraph of one surviving clause reads as the whole of what players say.
 /// What is kept is in British spelling outside its quotations.
 #[must_use]

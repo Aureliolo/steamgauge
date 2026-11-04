@@ -1,10 +1,12 @@
 //! Fetching a release's file, its build provenance, and the root Sigstore's signatures are
-//! checked against. Nothing fetched here is trusted for where it came from: the file is trusted
-//! once [`super::verify`] says so, and the provenance and the root carry their own signatures.
+//! checked against.
+//!
+//! Nothing fetched here is trusted for where it came from: the file is trusted
+//! once [`super::verify()`] says so, and the provenance and the root carry their own signatures.
 
 use std::{io::Write, path::Path, time::Duration};
 
-use sha2::{Digest, Sha256};
+use sha2::{Digest as _, Sha256};
 use sigstore_verify::trust_root::{TrustedRoot, TufBootstrap, TufConfig};
 
 use super::verify::{Refusal, embedded_root};
@@ -193,7 +195,9 @@ fn hex(bytes: &[u8]) -> String {
         })
 }
 
-/// Every bundle the attestations API's answer carries in full. One it gives only as a link to
+/// Every bundle the attestations API's answer carries in full.
+///
+/// One it gives only as a link to
 /// a compressed blob is passed over: the release asset is where a bundle is read from, and the
 /// API is only asked where that is missing.
 ///
@@ -236,8 +240,9 @@ async fn small(request: reqwest::RequestBuilder) -> Option<Vec<u8>> {
     Some(body)
 }
 
-/// The provenance bundles that may cover the file with digest `sha256` from release `version`:
-/// the one the release publishes beside its files, and only where that cannot be had, the
+/// The provenance bundles that may cover the file with digest `sha256` from release `version`.
+///
+/// That is the one the release publishes beside its files, and only where that cannot be had, the
 /// ones GitHub's attestations API keeps for the digest, which allows sixty unauthenticated
 /// questions an hour per address.
 ///
@@ -271,7 +276,9 @@ pub async fn provenance(
         .ok_or(Refusal::NoProvenance)
 }
 
-/// The trusted root for checking a signature: Sigstore's current one through TUF, which starts
+/// The trusted root for checking a signature.
+///
+/// It is Sigstore's current one through TUF, which starts
 /// from the TUF root embedded in this build and keeps what it verified in `cache`. Failing that,
 /// the copy in `cache` verified again offline, and failing that the trusted root embedded in this
 /// build.
@@ -552,7 +559,7 @@ mod tests {
                 r#"{"mediaType":"two"}"#.to_owned()
             ]
         );
-        assert!(bundles_in_answer(b"not json").is_err());
+        bundles_in_answer(b"not json").unwrap_err();
     }
 
     #[tokio::test]
