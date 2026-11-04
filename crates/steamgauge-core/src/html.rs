@@ -4054,7 +4054,7 @@ mod tests {
         // theme, which is exactly the kind of thing nobody notices until somebody else does.
         let light = declared_in(":root {");
         let media = declared_in("(prefers-color-scheme: dark)");
-        let attribute = declared_in(":root[data-theme='dark']");
+        let attribute = declared_in(":root[data-theme=\"dark\"]");
 
         // Set on individual elements by the markup rather than by the theme.
         let inline = ["fill", "heat", "offset", "part"];

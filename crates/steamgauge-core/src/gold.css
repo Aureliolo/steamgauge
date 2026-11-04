@@ -31,94 +31,143 @@
   }
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  background: var(--ground);
+  font:
+    16px / 1.55 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   color: var(--ink);
-  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--ground);
 }
 
-#app { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
+#app {
+  max-width: 1100px;
+  padding: 20px 16px 64px;
+  margin: 0 auto;
+}
 
 header.bar {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 16px;
+  align-items: baseline;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
-header.bar h1 { font-size: 1.05rem; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
-header.bar .count { color: var(--dim); font-variant-numeric: tabular-nums; }
-header.bar .spacer { flex: 1; }
+header.bar h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+header.bar .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+header.bar .spacer {
+  flex: 1;
+}
 
-.progress { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 10px 0 18px; }
-.progress i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.progress {
+  height: 3px;
+  margin: 10px 0 18px;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: 2px;
+}
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
 
 .card {
+  padding: 18px 20px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 18px 20px;
   box-shadow: 0 1px 2px var(--shade);
 }
 
 .claim {
-  font-size: 1.3rem;
-  line-height: 1.45;
-  font-weight: 560;
   margin: 0 0 14px;
+  font-size: 1.3rem;
+  font-weight: 560;
+  line-height: 1.45;
 }
 
 .review {
-  color: var(--dim);
-  font-size: 0.94rem;
-  white-space: pre-wrap;
   max-height: 9.5rem;
-  overflow-y: auto;
   padding: 10px 12px;
-  border-left: 2px solid var(--line);
+  overflow-y: auto;
+  font-size: 0.94rem;
+  color: var(--dim);
+  white-space: pre-wrap;
   background: var(--ground);
+  border-left: 2px solid var(--line);
   border-radius: 0 6px 6px 0;
 }
 
 .review mark {
-  background: var(--mark);
-  color: inherit;
-  box-shadow: inset 0 -2px 0 var(--mark-edge);
-  border-radius: 2px;
   padding: 0 1px;
+  color: inherit;
+  background: var(--mark);
+  border-radius: 2px;
+  box-shadow: inset 0 -2px 0 var(--mark-edge);
 }
 
 .shown {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  margin: 14px 0 0;
+  gap: 10px;
   padding-top: 12px;
+  margin: 14px 0 0;
   border-top: 1px dashed var(--line);
 }
 
-.shown b { font-weight: 600; }
-.shown .who { color: var(--dim); font-size: 0.85rem; }
+.shown b {
+  font-weight: 600;
+}
+.shown .who {
+  font-size: 0.85rem;
+  color: var(--dim);
+}
 
 button.take {
+  padding: 4px 10px;
   font: inherit;
   color: inherit;
+  cursor: pointer;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 4px 10px;
-  cursor: pointer;
 }
-button.take:hover, button.take:focus-visible { border-color: var(--accent); outline: none; }
+button.take:hover,
+button.take:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
 
-.rules { margin: 12px 0 0; font-size: 0.9rem; line-height: 1.5; }
-.rules p { margin: 6px 0; }
-.rules i { color: var(--dim); }
+.rules {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.rules p {
+  margin: 6px 0;
+}
+.rules i {
+  color: var(--dim);
+}
 
 .grid {
   display: grid;
@@ -129,93 +178,190 @@ button.take:hover, button.take:focus-visible { border-color: var(--accent); outl
 
 button.pick {
   display: flex;
-  align-items: baseline;
   gap: 8px;
-  text-align: left;
+  align-items: baseline;
+  padding: 7px 10px;
   font: inherit;
   color: inherit;
+  text-align: left;
+  cursor: pointer;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 7px 10px;
-  cursor: pointer;
 }
 
-button.pick:hover, button.pick:focus-visible { border-color: var(--accent); outline: none; }
-button.pick kbd {
-  font: 600 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+button.pick:hover,
+button.pick:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+:where(button).pick kbd {
+  min-width: 1.7em;
+  padding: 3px 5px;
+  font:
+    600 0.72rem / 1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   color: var(--dim);
+  text-align: center;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 3px 5px;
-  min-width: 1.7em;
+}
+button.pick .what {
+  font-size: 0.92rem;
+}
+button.pick.chosen {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  border-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+}
+/* The row that moves the page on, set apart so it reads as the last thing to press. */
+.row.last {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.row .label {
+  min-width: 6.5em;
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+
+button.tone {
+  padding: 6px 14px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+button.tone.chosen {
+  font-weight: 600;
+  border-color: currentColor;
+}
+button.tone[data-tone="praise"].chosen {
+  color: var(--praise);
+}
+button.tone[data-tone="complaint"].chosen {
+  color: var(--complaint);
+}
+
+.note {
+  margin: 18px 0 0;
+  font-size: 0.86rem;
+  color: var(--dim);
+}
+.note kbd {
+  padding: 1px 5px;
+  font:
+    600 0.78rem ui-monospace,
+    monospace;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.done {
+  padding: 48px 16px;
   text-align: center;
 }
-button.pick .what { font-size: 0.92rem; }
-button.pick.chosen { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
-
-.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
-/* The row that moves the page on, set apart so it reads as the last thing to press. */
-.row.last { border-top: 1px solid var(--line); padding-top: 14px; }
-.row .label { color: var(--dim); font-size: 0.85rem; min-width: 6.5em; }
-
-button.tone { font: inherit; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: inherit; cursor: pointer; }
-button.tone.chosen { border-color: currentColor; font-weight: 600; }
-button.tone[data-tone="praise"].chosen { color: var(--praise); }
-button.tone[data-tone="complaint"].chosen { color: var(--complaint); }
-
-.note { color: var(--dim); font-size: 0.86rem; margin: 18px 0 0; }
-.note kbd { border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font: 600 0.78rem ui-monospace, monospace; }
-
-.done { text-align: center; padding: 48px 16px; }
-.done h2 { font-size: 1.4rem; margin: 0 0 10px; }
+.done h2 {
+  margin: 0 0 10px;
+  font-size: 1.4rem;
+}
 
 button.go,
 label.go {
+  padding: 9px 18px;
   font: inherit;
   font-weight: 600;
-  padding: 9px 18px;
-  border-radius: 8px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
   color: #fff;
   cursor: pointer;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
 }
 button.go.quiet,
-label.go.quiet { background: var(--panel); color: var(--ink); border-color: var(--line); }
-label.go { display: inline-block; }
-.note.loaded { margin: 10px 0 0; color: var(--ink); }
+label.go.quiet {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+label.go {
+  display: inline-block;
+}
+.note.loaded {
+  margin: 10px 0 0;
+  color: var(--ink);
+}
 
-details.sheet { margin-top: 22px; }
-details.sheet summary { cursor: pointer; color: var(--dim); font-size: 0.9rem; }
-details.sheet dl { margin: 12px 0 0; }
-details.sheet dt { font-weight: 620; margin-top: 12px; }
-details.sheet dd { margin: 2px 0 0; color: var(--dim); font-size: 0.92rem; }
+details.sheet {
+  margin-top: 22px;
+}
+details.sheet summary {
+  font-size: 0.9rem;
+  color: var(--dim);
+  cursor: pointer;
+}
+details.sheet dl {
+  margin: 12px 0 0;
+}
+details.sheet dt {
+  margin-top: 12px;
+  font-weight: 620;
+}
+details.sheet dd {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  color: var(--dim);
+}
 
 details.howto {
+  padding: 12px 16px;
   margin: 0 0 16px;
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--panel);
-  padding: 12px 16px;
 }
-details.howto summary { cursor: pointer; font-weight: 620; }
-details.howto p { margin: 12px 0 0; font-size: 0.94rem; line-height: 1.55; color: var(--dim); }
-details.howto p b { color: var(--ink); font-weight: 620; }
+details.howto summary {
+  font-weight: 620;
+  cursor: pointer;
+}
+details.howto p {
+  margin: 12px 0 0;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: var(--dim);
+}
+details.howto p b {
+  font-weight: 620;
+  color: var(--ink);
+}
 details.howto kbd {
+  padding: 1px 5px;
+  font:
+    600 0.78rem ui-monospace,
+    monospace;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 1px 5px;
-  font: 600 0.78rem ui-monospace, monospace;
 }
 
 /* Says which of the two things on the card is the question and which is the context. Without
    it the review is the larger block and reads as the thing being asked about. */
 .asking {
-  color: var(--dim);
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
   margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
-.claim + .asking { margin-top: 16px; }
+.claim + .asking {
+  margin-top: 16px;
+}

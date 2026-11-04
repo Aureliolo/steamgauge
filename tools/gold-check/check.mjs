@@ -11,10 +11,11 @@
 // `served.mjs` is the other half: this one asserts the page fetches nothing and keeps its own
 // answers, which is what a file on disk has to do. That one asserts every answer reaches the
 // server, which is what `--serve` promises and is how the page is meant to be run.
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-
-import { connect, debuggerUrl, open, sleep } from "./chrome.mjs";
+import { resolve } from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { debuggerUrl, open, sleep } from '../chrome.mjs';
+import { connect } from './chrome.mjs';
 
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong.
 const PROBE = `(function () {
@@ -329,7 +330,7 @@ const EMPTIED = `(function () {
 })()`;
 
 const restoring = (saved) => `(function () {
-  var name = ${JSON.stringify(saved?.name ?? "")};
+  var name = ${JSON.stringify(saved?.name ?? '')};
   var rows = ${JSON.stringify(saved?.rows ?? [])};
   if (!rows.length) { return Promise.resolve(['no answered claim to restore']); }
   var input = document.getElementById('restore');
@@ -385,64 +386,68 @@ const NARROW = `(function () {
   return wrong;
 })()`;
 
-const file = resolve(process.argv[2] ?? "sample-gold.html");
+const file = resolve(process.argv[2] ?? 'sample-gold.html');
 const page = pathToFileURL(file).href;
 
-const chrome = await open(page, { prefix: "steamgauge-gold-check-" });
+const chrome = await open(page, { prefix: 'steamgauge-gold-check-' });
 
 let failed = true;
 try {
   const { socket, send, asked, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
-  await send("Network.enable", {});
-  await send("Page.reload", { ignoreCache: true });
+  await send('Network.enable', {});
+  await send('Page.reload', { ignoreCache: true });
   await ready();
 
   const fetched = asked.filter((url) => url !== page);
 
   // Walked first, on a page nobody has answered anything on, because answering moves which
   // question is on screen and the marks have to be checked against all of them.
-  const taken = (await evaluate(TAKE)).result?.result?.value ?? ["taking an answer could not be driven"];
-  await send("Page.reload", { ignoreCache: true });
+  const taken = (await evaluate(TAKE)).result?.result?.value ?? [
+    'taking an answer could not be driven',
+  ];
+  await send('Page.reload', { ignoreCache: true });
   await ready();
-  const marks = (await evaluate(MARKS)).result?.result?.value ?? ["the marks could not be read"];
-  await send("Page.reload", { ignoreCache: true });
+  const marks = (await evaluate(MARKS)).result?.result?.value ?? ['the marks could not be read'];
+  await send('Page.reload', { ignoreCache: true });
   await ready();
 
   const answer = await evaluate(PROBE);
   const wrong = [
     ...marks,
-    ...(answer.result?.result?.value ?? ["the page could not be driven at all"]),
+    ...(answer.result?.result?.value ?? ['the page could not be driven at all']),
   ];
 
   // Reloading is what a reader does after closing the tab, and it is the whole reason the
   // answers are kept at all.
-  await send("Page.reload", { ignoreCache: true });
+  await send('Page.reload', { ignoreCache: true });
   await ready();
   const again = (await evaluate(RELOADED)).result?.result?.value ?? [];
 
   const saved = (await evaluate(EMPTIED)).result?.result?.value ?? null;
-  await send("Page.reload", { ignoreCache: true });
+  await send('Page.reload', { ignoreCache: true });
   await ready();
   const restored = saved
     ? ((await evaluate(restoring(saved))).result?.result?.value ?? [
-        "loading answers back could not be driven",
+        'loading answers back could not be driven',
       ])
-    : ["nothing was stored to restore from"];
+    : ['nothing was stored to restore from'];
 
-  await send("Emulation.setDeviceMetricsOverride", {
-    width: 420,
-    height: 900,
+  await send('Emulation.setDeviceMetricsOverride', {
     deviceScaleFactor: 1,
+    height: 900,
     mobile: true,
+    width: 420,
   });
   await sleep(250);
   const narrow = (await evaluate(NARROW)).result?.result?.value ?? [];
 
   const all = [...taken, ...wrong, ...again, ...restored, ...narrow];
-  if (fetched.length) all.push(`the page fetched ${fetched.length}: ${fetched.join(", ")}`);
+  if (fetched.length > 0) {
+    all.push(`the page fetched ${fetched.length}: ${fetched.join(', ')}`);
+  }
 
-  if (all.length) {
-    console.error(`${file}\n  ${all.join("\n  ")}`);
+  if (all.length > 0) {
+    console.error(`${file}\n  ${all.join('\n  ')}`);
   } else {
     console.log(`${file}: adjudication page keeps every promise it makes`);
     failed = false;

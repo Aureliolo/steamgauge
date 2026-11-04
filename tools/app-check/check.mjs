@@ -15,55 +15,62 @@
 // of every stop for a person to look at.
 //
 // Chrome is found through CHROME_PATH, or in the usual places on each platform.
-import { readFile, mkdir, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
-import { dirname, extname, join, normalize, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
-
-import { audit } from "../accessibility.mjs";
-import { connect, debuggerUrl, open, sleep } from "../chrome.mjs";
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import { audit } from '../accessibility.mjs';
+import { connect, debuggerUrl, open, sleep } from '../chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const UI = resolve(HERE, "..", "..", "crates", "steamgauge-app", "ui");
+const UI = resolve(HERE, '..', '..', 'crates', 'steamgauge-app', 'ui');
 const TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
 };
 
-const shotsAt = process.argv.indexOf("--shots");
+const shotsAt = process.argv.indexOf('--shots');
 const shots = shotsAt === -1 ? null : resolve(process.argv[shotsAt + 1]);
 // `--pages` keeps each stop's page as rendered, so the words the window shows, most of them
 // written by its scripts, can be checked as prose.
-const pagesAt = process.argv.indexOf("--pages");
+const pagesAt = process.argv.indexOf('--pages');
 const pages = pagesAt === -1 ? null : resolve(process.argv[pagesAt + 1]);
 
 // The window's own files, with the stand-in loaded ahead of its script. Nothing outside the
 // window's folder is served.
 const server = createServer(async (request, response) => {
-  const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+  const path = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
   try {
-    if (path === "/__stub.js") {
-      response.writeHead(200, { "content-type": TYPES[".js"] });
-      response.end(await readFile(join(HERE, "stub.js")));
+    if (path === '/__stub.js') {
+      response.writeHead(200, { 'content-type': TYPES['.js'] });
+      response.end(await readFile(join(HERE, 'stub.js')));
       return;
     }
-    const file = normalize(join(UI, path === "/" ? "index.html" : path));
-    if (!file.startsWith(UI + sep)) throw new Error("outside the window's folder");
+    const file = normalize(join(UI, path === '/' ? 'index.html' : path));
+    if (!file.startsWith(UI + sep)) {
+      throw new Error("outside the window's folder");
+    }
     let body = await readFile(file);
-    if (file.endsWith("index.html")) {
+    if (file.endsWith('index.html')) {
       body = Buffer.from(
-        body.toString("utf8").replace('<script type="module"', '<script src="/__stub.js"></script>\n    <script type="module"'),
+        body
+          .toString('utf8')
+          .replace(
+            '<script type="module"',
+            '<script src="/__stub.js"></script>\n    <script type="module"',
+          ),
       );
     }
-    response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+    response.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' });
     response.end(body);
   } catch {
     response.writeHead(404);
     response.end();
   }
 });
-await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
+await new Promise((ready) => server.listen(0, '127.0.0.1', ready));
 const page = `http://127.0.0.1:${server.address().port}/index.html`;
 
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong rather
@@ -1015,38 +1022,48 @@ const PROBE = `(async function () {
   return wrong;
 })()`;
 
-const chrome = await open(page, { prefix: "steamgauge-app-check-" });
+const chrome = await open(page, { prefix: 'steamgauge-app-check-' });
 let failed = true;
 try {
   const { socket, send, asked, evaluate } = await connect(await debuggerUrl(chrome.port));
   const threw = [];
-  socket.addEventListener("message", (event) => {
+  socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data);
-    if (message.method === "Runtime.exceptionThrown") {
+    if (message.method === 'Runtime.exceptionThrown') {
       const details = message.params.exceptionDetails;
       threw.push(details.exception?.description ?? details.text);
     }
-    if (message.method === "Runtime.consoleAPICalled" && message.params.type === "error") {
-      threw.push(message.params.args.map((arg) => arg.value ?? arg.description).join(" "));
+    if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
+      threw.push(message.params.args.map((arg) => arg.value ?? arg.description).join(' '));
     }
   });
-  await send("Runtime.enable", {});
-  await send("Network.enable", {});
-  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  await send('Runtime.enable', {});
+  await send('Network.enable', {});
+  await send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height: 860,
+    mobile: false,
+    width: 1280,
+  });
   // A system whose own number format differs from the window's British English one.
-  await send("Emulation.setLocaleOverride", { locale: "de-CH" });
+  await send('Emulation.setLocaleOverride', { locale: 'de-CH' });
   // Opens `url` afresh. The page about to be left is marked first, because right after a
   // navigation it can still answer as ready and be checked in place of the new one.
   let loads = 0;
   const load = async (url) => {
-    await evaluate("window.__left = true");
+    await evaluate('window.__left = true');
     // A query of its own every time, so each load is a navigation and never a jump within the
     // page that a reload could overtake.
     loads += 1;
-    await send("Page.navigate", { url: `${url}${url.includes("?") ? "&" : "?"}load=${loads}` });
+    await send('Page.navigate', { url: `${url}${url.includes('?') ? '&' : '?'}load=${loads}` });
     for (let attempt = 0; attempt < 80; attempt += 1) {
-      const ready = await evaluate("document.readyState === 'complete' && !!window.__stub && !window.__left");
-      if (ready.result?.result?.value === true) return;
+      // biome-ignore lint/performance/noAwaitInLoops: a poll waits for the page to change, so each must finish before the next.
+      const ready = await evaluate(
+        "document.readyState === 'complete' && !!window.__stub && !window.__left",
+      );
+      if (ready.result?.result?.value === true) {
+        return;
+      }
       await sleep(250);
     }
     throw new Error(`${url} did not load`);
@@ -1056,7 +1073,12 @@ try {
   const answer = await evaluate(PROBE);
   // The narrowest window the app allows, where the library's table is the first thing to
   // run off the side.
-  await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height: 560,
+    mobile: false,
+    width: 760,
+  });
   const narrow = await evaluate(`(async function () {
     var wrong = [];
     for (var name of ['cockpit', 'library', 'compare', 'storage', 'assistants', 'settings', 'about']) {
@@ -1115,7 +1137,13 @@ try {
   // Every width from the narrowest to a common laptop's is asked whether the table fits.
   const sideways = [];
   for (const width of [760, 900, 1080, 1180, 1220, 1280, 1366]) {
-    await send("Emulation.setDeviceMetricsOverride", { width, height: 700, deviceScaleFactor: 1, mobile: false });
+    // biome-ignore lint/performance/noAwaitInLoops: one window is resized per width, and each size has to be measured before the next replaces it.
+    await send('Emulation.setDeviceMetricsOverride', {
+      deviceScaleFactor: 1,
+      height: 700,
+      mobile: false,
+      width,
+    });
     const fits = await evaluate(`(async function () {
       document.querySelector('[data-go="library"]').click();
       await new Promise(function (done) { setTimeout(done, 250); });
@@ -1129,11 +1157,18 @@ try {
       document.querySelector('table.games').style.letterSpacing = '';
       return fits;
     })()`);
-    if (fits.result?.result?.value !== true) sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
+    if (fits.result?.result?.value !== true) {
+      sideways.push(`the library's table needs scrolling sideways at ${width} pixels`);
+    }
   }
 
   // A wide screen is used across its whole width, and the cockpit shows everything at once.
-  await send("Emulation.setDeviceMetricsOverride", { width: 2000, height: 1080, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height: 1080,
+    mobile: false,
+    width: 2000,
+  });
   const wide = await evaluate(`(async function () {
     var wrong = [];
     var stage = document.getElementById('stage');
@@ -1188,7 +1223,12 @@ try {
 
   // At the usual width too, and when what moved runs long, what needs doing still follows
   // straight after what is new.
-  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height: 860,
+    mobile: false,
+    width: 1280,
+  });
   const middling = await evaluate(`(async function () {
     var moves = document.querySelector('.moves-panel');
     moves.style.minHeight = '1600px';
@@ -1228,8 +1268,8 @@ try {
     check('an empty library is not welcomed', shown('cockpit-empty') && !shown('cockpit-full'));
     check('a first visit does not offer the reader', shown('welcome-ready'));
     check('the reader on offer does not say its size and the room for it',
-      /1\.1 GB download/.test(document.getElementById('ready-room').textContent) &&
-      /182\.0 GB free/.test(document.getElementById('ready-room').textContent));
+      /1.1 GB download/.test(document.getElementById('ready-room').textContent) &&
+      /182.0 GB free/.test(document.getElementById('ready-room').textContent));
     check('the reader on offer does not say why', /RTX 4090/.test(document.getElementById('ready-why').textContent));
     document.getElementById('ready-fetch').click();
     await pause(300);
@@ -1288,24 +1328,38 @@ try {
   // and pictured when --shots asks.
   const unreachable = [];
   {
-    if (shots) await mkdir(shots, { recursive: true });
-    if (pages) await mkdir(pages, { recursive: true });
+    if (shots) {
+      await mkdir(shots, { recursive: true });
+    }
+    if (pages) {
+      await mkdir(pages, { recursive: true });
+    }
     // Alpha's data being written, or written, as the board would hold it.
     const exporting = (state) =>
       "var at=Math.floor(Date.now()/1000);window.__stub.board([{id:96,task:{kind:'export_data',app_id:1," +
-      "to:'C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data'},name:'Alpha',state:'" + state + "'," +
-      "step:'Writing the claims',unit:'reviews',done:" + (state === "done" ? 25900 : 9400) + ",total:25900," +
-      "rate:" + (state === "done" ? "null" : 4100) + ",left:" + (state === "done" ? "null" : 4) + ",note:" +
-      (state === "done"
+      "to:'C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data'},name:'Alpha',state:'" +
+      state +
+      "'," +
+      "step:'Writing the claims',unit:'reviews',done:" +
+      (state === 'done' ? 25_900 : 9400) +
+      ',total:25900,' +
+      'rate:' +
+      (state === 'done' ? 'null' : 4100) +
+      ',left:' +
+      (state === 'done' ? 'null' : 4) +
+      ',note:' +
+      (state === 'done'
         ? "'Saved 78,000 claims and the figures in C:\\\\Users\\\\someone\\\\Documents\\\\Alpha - SteamGauge data.'"
-        : "null") +
-      ",queued:at-10,started:at-5,ended:" + (state === "done" ? "at" : "null") + "}])";
+        : 'null') +
+      ',queued:at-10,started:at-5,ended:' +
+      (state === 'done' ? 'at' : 'null') +
+      '}])';
     // Every page whole, rather than the window's height of it, and settled: a page caught part way
     // through arriving is pictured faded, as nobody sees it.
     const unroll =
       "var still=document.createElement('style');still.textContent=" +
       "'*,*::before,*::after{animation:none!important;transition:none!important}';" +
-      "document.head.appendChild(still);" +
+      'document.head.appendChild(still);' +
       "document.body.style.overflow='visible';document.querySelector('.frame').style.height='auto';" +
       "document.querySelector('.frame').style.minHeight='100vh';" +
       "document.getElementById('stage').style.overflow='visible';";
@@ -1313,17 +1367,33 @@ try {
       await sleep(400);
       unreachable.push(...(await audit(evaluate, name)));
       // The words are the same in either scheme, so one copy is kept.
-      if (pages && !name.endsWith("-dark")) {
-        const html = await evaluate("document.documentElement.outerHTML");
-        await writeFile(join(pages, `${name}.html`), `<!doctype html>\n${html.result.result.value}`);
+      if (pages && !name.endsWith('-dark')) {
+        const html = await evaluate('document.documentElement.outerHTML');
+        await writeFile(
+          join(pages, `${name}.html`),
+          `<!doctype html>\n${html.result.result.value}`,
+        );
       }
-      if (!shots) return;
-      const picture = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
-      await writeFile(join(shots, `${name}.png`), Buffer.from(picture.result.data, "base64"));
+      if (!shots) {
+        return;
+      }
+      const picture = await send('Page.captureScreenshot', {
+        captureBeyondViewport: true,
+        format: 'png',
+      });
+      await writeFile(join(shots, `${name}.png`), Buffer.from(picture.result.data, 'base64'));
     };
-    for (const scheme of ["light", "dark"]) {
-      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
-      await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+    for (const scheme of ['light', 'dark']) {
+      // biome-ignore lint/performance/noAwaitInLoops: one tab is switched between colour schemes, and each scheme's screenshots must finish before the next scheme replaces it.
+      await send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-color-scheme', value: scheme }],
+      });
+      await send('Emulation.setDeviceMetricsOverride', {
+        deviceScaleFactor: 1,
+        height: 860,
+        mobile: false,
+        width: 1280,
+      });
 
       await load(`${page}?first`);
       await sleep(400);
@@ -1337,15 +1407,25 @@ try {
       await load(page);
       await sleep(400);
       await evaluate(unroll);
-      for (const name of ["cockpit", "library", "compare", "storage", "assistants", "settings", "about"]) {
+      for (const name of [
+        'cockpit',
+        'library',
+        'compare',
+        'storage',
+        'assistants',
+        'settings',
+        'about',
+      ]) {
+        // biome-ignore lint/performance/noAwaitInLoops: each page is opened and photographed in the one window before the next replaces it.
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
       // A comparison with games in it, as choosing two in the library opens it.
-      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await evaluate('document.querySelector(\'[data-go="library"]\').click()');
       await sleep(300);
       // The table is drawn again after each tick, so each row is found afresh.
       for (const row of [0, 1]) {
+        // biome-ignore lint/performance/noAwaitInLoops: the table is redrawn after each tick, so the second click must wait for the first.
         await evaluate(`document.querySelectorAll('#library-rows tr input')[${row}].click()`);
         await sleep(150);
       }
@@ -1360,37 +1440,39 @@ try {
       await evaluate("document.querySelector('#group-rows tr th button').click()");
       await shoot(`group-${scheme}`);
       // The cockpit's first card when nothing changed since the last look, and on a first look.
-      await evaluate("document.querySelector('[data-go=\"cockpit\"]').click();window.__stub.lately('calm')");
+      await evaluate(
+        "document.querySelector('[data-go=\"cockpit\"]').click();window.__stub.lately('calm')",
+      );
       await shoot(`cockpit-since-calm-${scheme}`);
       await evaluate("window.__stub.lately('first')");
       await shoot(`cockpit-since-first-${scheme}`);
       await evaluate("window.__stub.lately('moved')");
       // The cockpit while work runs: a download with its pace, a read, one waiting and one done.
       await evaluate(
-        "var at=Math.floor(Date.now()/1000);var job=function(id,kind,app,name,state,step,unit,done,total,rate,left,note){" +
-          "return {id:id,task:{kind:kind,app_id:app},name:name,state:state,step:step,unit:unit,done:done,total:total," +
+        'var at=Math.floor(Date.now()/1000);var job=function(id,kind,app,name,state,step,unit,done,total,rate,left,note){' +
+          'return {id:id,task:{kind:kind,app_id:app},name:name,state:state,step:step,unit:unit,done:done,total:total,' +
           "rate:rate,left:left,note:note,queued:at-600,started:state==='queued'?null:at-300,ended:state==='done'?at-60:null};};" +
-          "window.__stub.board([" +
+          'window.__stub.board([' +
           "job(91,'update',1,'Alpha','running','Downloading','reviews',6200,21000,48,310,null)," +
           "job(92,'read',2,'Beta','running','Reading','points',12000,18000,900,7,null)," +
           "job(93,'read',3,'Gamma','queued','Waiting','points',0,null,null,null,null)," +
           "job(94,'update',3,'Gamma','done','Done','reviews',900,900,null,null,'900 reviews downloaded.')]);" +
-          "document.querySelector('[data-go=\"cockpit\"]').click()",
+          'document.querySelector(\'[data-go="cockpit"]\').click()',
       );
       await shoot(`working-${scheme}`);
-      await evaluate("window.__stub.board([])");
-      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await evaluate('window.__stub.board([])');
+      await evaluate('document.querySelector(\'[data-go="library"]\').click()');
       await sleep(300);
       await evaluate(
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-${scheme}`);
       // A game's data being written, and then saved, under the button that asked for it.
-      await evaluate(exporting("running"));
+      await evaluate(exporting('running'));
       await shoot(`game-export-${scheme}`);
-      await evaluate(exporting("done"));
+      await evaluate(exporting('done'));
       await shoot(`game-export-done-${scheme}`);
-      await evaluate("window.__stub.board([])");
+      await evaluate('window.__stub.board([])');
       await evaluate(
         "var choice=document.getElementById('update-choice');choice.value='1840000000000005';choice.dispatchEvent(new Event('change'))",
       );
@@ -1422,14 +1504,14 @@ try {
           "unit:'reviews',done:2300,total:12000,rate:52,left:186,note:null,queued:at-60,started:at-45,ended:null}])",
       );
       await shoot(`downloading-${scheme}`);
-      await evaluate("window.__stub.board([])");
-      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await evaluate('window.__stub.board([])');
+      await evaluate('document.querySelector(\'[data-go="library"]\').click()');
       await sleep(300);
       await evaluate(
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Gamma/.test(r.textContent); })[0].querySelector('.game-link').click()",
       );
       await shoot(`game-unread-${scheme}`);
-      await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+      await evaluate('document.querySelector(\'[data-go="library"]\').click()');
       await sleep(300);
       await evaluate(
         "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Beta/.test(r.textContent); })[0].querySelector('.game-link').click()",
@@ -1442,82 +1524,113 @@ try {
         await evaluate(`window.__stub.update(${JSON.stringify(progress)})`);
         await sleep(400);
         unreachable.push(...(await audit(evaluate, `update-${name}-${scheme}`)));
-        if (!shots) return;
+        if (!shots) {
+          return;
+        }
         const box = await evaluate(
           "JSON.stringify(document.getElementById('newer-version').closest('.rail-foot').getBoundingClientRect())",
         );
         const { x, y, width, height } = JSON.parse(box.result.result.value);
-        const clip = { x: Math.max(0, x - 12), y: Math.max(0, y - 12), width: width + 24, height: height + 24, scale: 2 };
-        const picture = await send("Page.captureScreenshot", { format: "png", clip });
-        await writeFile(join(shots, `update-${name}-${scheme}.png`), Buffer.from(picture.result.data, "base64"));
+        const clip = {
+          height: height + 24,
+          scale: 2,
+          width: width + 24,
+          x: Math.max(0, x - 12),
+          y: Math.max(0, y - 12),
+        };
+        const picture = await send('Page.captureScreenshot', { clip, format: 'png' });
+        await writeFile(
+          join(shots, `update-${name}-${scheme}.png`),
+          Buffer.from(picture.result.data, 'base64'),
+        );
       };
-      await notice("offered", { state: "idle", why: null });
-      await notice("downloading", { state: "downloading", done: 31e6, total: 52e6, rate: 4.2e6, left: 5 });
-      await notice("verifying", { state: "verifying" });
-      await notice("installing", { state: "installing" });
-      await notice("failed", {
-        state: "failed",
-        why: "its signature could not be confirmed (the transparency log has no entry for it)",
+      await notice('offered', { state: 'idle', why: null });
+      await notice('downloading', {
+        done: 31e6,
+        left: 5,
+        rate: 4.2e6,
+        state: 'downloading',
+        total: 52e6,
+      });
+      await notice('verifying', { state: 'verifying' });
+      await notice('installing', { state: 'installing' });
+      await notice('failed', {
         file: false,
+        state: 'failed',
+        why: 'its signature could not be confirmed (the transparency log has no entry for it)',
       });
-      await notice("declined", {
-        state: "failed",
-        why: "the password prompt was closed",
+      await notice('declined', {
         file: true,
+        state: 'failed',
+        why: 'the password prompt was closed',
       });
-      await notice("elsewhere", {
-        state: "idle",
-        why: "update it with Scoop: `scoop update steamgauge`",
+      await notice('elsewhere', {
+        state: 'idle',
+        why: 'update it with Scoop: `scoop update steamgauge`',
       });
     }
     // The narrowest window the app allows, where a layout is first to give.
-    await send("Emulation.setDeviceMetricsOverride", { width: 760, height: 560, deviceScaleFactor: 1, mobile: false });
+    await send('Emulation.setDeviceMetricsOverride', {
+      deviceScaleFactor: 1,
+      height: 560,
+      mobile: false,
+      width: 760,
+    });
     await load(page);
     await sleep(400);
     await evaluate(unroll);
-    for (const name of ["cockpit", "library", "storage", "assistants", "settings", "about"]) {
+    for (const name of ['cockpit', 'library', 'storage', 'assistants', 'settings', 'about']) {
+      // biome-ignore lint/performance/noAwaitInLoops: each page is opened and photographed in the one window before the next replaces it.
       await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
       await shoot(`narrow-${name}`);
     }
-    await evaluate("document.querySelector('[data-go=\"library\"]').click()");
+    await evaluate('document.querySelector(\'[data-go="library"]\').click()');
     await sleep(300);
     await evaluate(
       "Array.prototype.filter.call(document.querySelectorAll('#library-rows tr'), function (r) { return /Alpha/.test(r.textContent); })[0].querySelector('.game-link').click()",
     );
-    await shoot("narrow-game");
-    await evaluate(exporting("done"));
-    await shoot("narrow-game-export");
-    await evaluate("window.__stub.board([])");
+    await shoot('narrow-game');
+    await evaluate(exporting('done'));
+    await shoot('narrow-game-export');
+    await evaluate('window.__stub.board([])');
     await evaluate(
       "var choice=document.getElementById('update-choice');choice.value='1840000000000002';choice.dispatchEvent(new Event('change'))",
     );
-    await shoot("narrow-game-update");
+    await shoot('narrow-game-update');
     await evaluate(
       "var first=document.getElementById('who-first');first.value='100-hours-or-more';first.dispatchEvent(new Event('change'))",
     );
-    await shoot("narrow-game-who");
+    await shoot('narrow-game-who');
     await load(`${page}?first`);
     await sleep(400);
     await evaluate(unroll);
-    await shoot("narrow-welcome");
+    await shoot('narrow-welcome');
   }
 
   socket.close();
   // A data: or blob: address is the page's own memory, not a request that leaves the machine.
   const fetched = asked.filter(
     (url) =>
-      !url.startsWith(`http://127.0.0.1:${server.address().port}/`) &&
-      !url.startsWith("data:") &&
-      !url.startsWith("blob:"),
+      !(
+        url.startsWith(`http://127.0.0.1:${server.address().port}/`) ||
+        url.startsWith('data:') ||
+        url.startsWith('blob:')
+      ),
   );
   const broke = [answer, narrow, first].find((r) => r.result?.exceptionDetails);
   if (broke) {
-    console.error("the window threw while being checked:");
-    console.error(broke.result.exceptionDetails.exception?.description ?? broke.result.exceptionDetails.text);
+    console.error('the window threw while being checked:');
+    console.error(
+      broke.result.exceptionDetails.exception?.description ?? broke.result.exceptionDetails.text,
+    );
   } else {
     const wrong = []
       .concat(threw.map((said) => `the window reported an error: ${said}`))
-      .concat(fetched.length === 0 ? [] : [`the window fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(", ")}`])
+      .concat(
+        fetched.length === 0
+          ? []
+          : [`the window fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(', ')}`],
+      )
       .concat(answer.result.result.value)
       .concat(narrow.result.result.value)
       .concat(sideways)
@@ -1528,11 +1641,13 @@ try {
       .concat(later.result.result.value)
       .concat(unreachable);
     if (wrong.length === 0) {
-      console.log("the window behaves as it says it does");
+      console.log('the window behaves as it says it does');
       failed = false;
     } else {
       console.error(`${wrong.length} promise(s) the window does not keep:`);
-      for (const claim of wrong) console.error(`  - ${claim}`);
+      for (const claim of wrong) {
+        console.error(`  - ${claim}`);
+      }
     }
   }
 } finally {

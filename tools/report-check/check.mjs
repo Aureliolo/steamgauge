@@ -14,13 +14,13 @@
 //   node tools/report-check/check.mjs page.html
 //
 // Chrome is found through CHROME_PATH, or in the usual places on each platform.
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-
-import { audit } from "../accessibility.mjs";
-import { connect, debuggerUrl, open, sleep } from "../chrome.mjs";
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { audit } from '../accessibility.mjs';
+import { connect, debuggerUrl, open, sleep } from '../chrome.mjs';
 
 // Runs inside the page. Returns a list of failures, so one run reports everything wrong
 // rather than the first thing wrong.
@@ -578,10 +578,10 @@ const ON_PAPER = `(function () {
   return wrong;
 })()`;
 
-const file = resolve(process.argv[2] ?? "sample-report.html");
+const file = resolve(process.argv[2] ?? 'sample-report.html');
 const page = pathToFileURL(file).href;
 // Somewhere to put the second copy of the page. Chrome's own profile is the launcher's.
-const scratch = await mkdtemp(join(tmpdir(), "steamgauge-report-page-"));
+const scratch = await mkdtemp(join(tmpdir(), 'steamgauge-report-page-'));
 
 // The same page as a reader with scripting off gets it. Driven as a page of its own rather than
 // by turning scripting off in the browser, because a debugger that cannot run script cannot ask
@@ -591,9 +591,9 @@ const scratch = await mkdtemp(join(tmpdir(), "steamgauge-report-page-"));
 // needs scripting. A policy stops every script and handler however it is written, and the
 // debugger is not bound by it. The report carries no <noscript>, the one thing a policy shows
 // differently from scripting turned off.
-const mute = join(scratch, "without-scripting.html");
-const markup = await readFile(file, "utf8");
-const head = /<head\b[^>]*>/i;
+const mute = join(scratch, 'without-scripting.html');
+const markup = await readFile(file, 'utf8');
+const head = /<head\b[^>]*>/iu;
 if (!head.test(markup)) {
   throw new Error(`${file} has no <head> to hold the policy that turns its script off`);
 }
@@ -601,59 +601,64 @@ await writeFile(
   mute,
   markup.replace(
     head,
-    (opened) =>
-      `${opened}<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`,
+    (opened) => `${opened}<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`,
   ),
 );
-const chrome = await open(page, { prefix: "steamgauge-report-check-" });
+const chrome = await open(page, { prefix: 'steamgauge-report-check-' });
 
 let failed = true;
 try {
   const { socket, send, asked, evaluate } = await connect(await debuggerUrl(chrome.port));
   // Loaded once already by the launch, before anything could watch it, so it is loaded again
   // with the network being listened to.
-  await send("Network.enable", {});
-  await send("Page.reload", { ignoreCache: true });
+  await send('Network.enable', {});
+  await send('Page.reload', { ignoreCache: true });
   for (let attempt = 0; attempt < 80; attempt += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll waits for the page to change, so each must finish before the next.
     const ready = await evaluate(
       "document.readyState === 'complete' && document.documentElement.classList.contains('js')",
     );
-    if (ready.result?.result?.value === true) break;
+    if (ready.result?.result?.value === true) {
+      break;
+    }
     await sleep(250);
   }
 
   const fetched = asked.filter((url) => url !== page);
   const answer = await evaluate(PROBE);
-  const unreachable = await audit(evaluate, "light");
-  await send("Emulation.setDeviceMetricsOverride", {
-    width: 420,
-    height: 900,
+  const unreachable = await audit(evaluate, 'light');
+  await send('Emulation.setDeviceMetricsOverride', {
     deviceScaleFactor: 1,
+    height: 900,
     mobile: false,
+    width: 420,
   });
   const phone = await evaluate(ON_A_PHONE);
-  unreachable.push(...(await audit(evaluate, "on a phone")));
-  await send("Emulation.clearDeviceMetricsOverride", {});
-  await send("Emulation.setEmulatedMedia", {
-    media: "screen",
-    features: [{ name: "prefers-color-scheme", value: "dark" }],
+  unreachable.push(...(await audit(evaluate, 'on a phone')));
+  await send('Emulation.clearDeviceMetricsOverride', {});
+  await send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: 'dark' }],
+    media: 'screen',
   });
-  unreachable.push(...(await audit(evaluate, "dark")));
-  await send("Emulation.setEmulatedMedia", { media: "screen" });
+  unreachable.push(...(await audit(evaluate, 'dark')));
+  await send('Emulation.setEmulatedMedia', { media: 'screen' });
   const ink = await evaluate(CONTRAST);
-  await send("Emulation.setEmulatedMedia", {
-    media: "print",
-    features: [{ name: "prefers-color-scheme", value: "dark" }],
+  await send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: 'dark' }],
+    media: 'print',
   });
   const paper = await evaluate(ON_PAPER);
 
-  await send("Emulation.setEmulatedMedia", { media: "screen" });
-  await send("Page.navigate", { url: pathToFileURL(mute).href });
+  await send('Emulation.setEmulatedMedia', { media: 'screen' });
+  await send('Page.navigate', { url: pathToFileURL(mute).href });
   for (let attempt = 0; attempt < 80; attempt += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: a poll waits for the page to change, so each must finish before the next.
     const ready = await evaluate(
       "document.readyState === 'complete' && document.querySelectorAll('tr.panel').length > 0",
     );
-    if (ready.result?.result?.value === true) break;
+    if (ready.result?.result?.value === true) {
+      break;
+    }
     await sleep(250);
   }
   const quiet = await evaluate(WITHOUT_SCRIPTING);
@@ -661,12 +666,15 @@ try {
   socket.close();
   const threw = [answer, phone, ink, paper, quiet].find((r) => r.result?.exceptionDetails);
   if (threw) {
-    console.error("the page threw while being checked:");
-    console.error(threw.result.exceptionDetails.exception?.description ?? threw.result.exceptionDetails.text);
+    console.error('the page threw while being checked:');
+    console.error(
+      threw.result.exceptionDetails.exception?.description ?? threw.result.exceptionDetails.text,
+    );
   } else {
-    const wrong = (fetched.length === 0
-      ? []
-      : [`the page fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(", ")}`]
+    const wrong = (
+      fetched.length === 0
+        ? []
+        : [`the page fetched ${fetched.length} thing(s): ${fetched.slice(0, 5).join(', ')}`]
     )
       .concat(answer.result.result.value)
       .concat(phone.result.result.value)
@@ -679,11 +687,15 @@ try {
       failed = false;
     } else {
       console.error(`${wrong.length} promise(s) the page does not keep:`);
-      for (const claim of wrong) console.error(`  - ${claim}`);
+      for (const claim of wrong) {
+        console.error(`  - ${claim}`);
+      }
     }
   }
 } finally {
   await chrome.close();
-  await rm(scratch, { recursive: true, force: true }).catch(() => {});
+  await rm(scratch, { force: true, recursive: true }).catch(() => {
+    // A scratch folder Windows still holds open is cleared with the temp folder later.
+  });
 }
 process.exit(failed ? 1 : 0);

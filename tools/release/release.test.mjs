@@ -2,32 +2,71 @@
 // and what a changelog tells a reader to download, so each rule they apply is pinned here.
 //
 //   node --test tools/release/
-import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { test } from "node:test";
-
-import { answered } from "./github.mjs";
-import { createRef, refState, resetRef } from "./github-ref.mjs";
-import { lockSubset, parseCrates } from "./lock-subset.mjs";
+import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { test as it } from 'node:test';
+import { checkedCode } from './checked.mjs';
+import { answered } from './github.mjs';
+import { createRef, refState, resetRef } from './github-ref.mjs';
+import { lockSubset, parseCrates } from './lock-subset.mjs';
+import { previousRelease, pullRequestNumber, renderNotes, shipsInDownload } from './notes.mjs';
 import {
   CPP_RUNTIME,
-  DIRECTML,
-  ONNX_RUNTIME,
   checkNotices,
   cratesWithoutText,
+  DIRECTML,
   listedCrates,
   normaliseText,
+  ONNX_RUNTIME,
   onnxRuntimeDistribution,
   renderNotices,
   withTexts,
-} from "./notices.mjs";
-import { previousRelease, pullRequestNumber, renderNotes, shipsInDownload } from "./notes.mjs";
-import { check as checkRuntime, imports, isWindows, place } from "./runtime-dlls.mjs";
-import { checkedCode } from "./checked.mjs";
-import { scopeOf } from "./scope.mjs";
-import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from "./version.mjs";
+} from './notices.mjs';
+import { check as checkRuntime, imports, isWindows, place } from './runtime-dlls.mjs';
+import { scopeOf } from './scope.mjs';
+import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from './version.mjs';
+
+const PRE_RELEASE_REFUSAL = /pre-release/u;
+const NOT_AFTER_REFUSAL = /does not come after/u;
+const NOT_A_VERSION_REFUSAL = /Not a version/u;
+const WORKSPACE_PACKAGE_VERSION = /\[workspace\.package\]\nversion = "0\.4\.0"/u;
+const MEMBER_OWN_VERSION_TABLE = /version = "1\.0\.0" \}/u;
+const OWN_VERSION_REFUSAL = /two sets its own version/u;
+const FAILED_WINDOWS_TEST = /test \(windows\): failure/u;
+const MISSING_WINDOWS_TEST = /test \(windows\): never ran/u;
+const OTHER_TREE_REFUSAL = /is not the code/u;
+const WITHOUT_PULL_REQUEST_REFUSAL = /without a pull request/u;
+const MORE_THAN_VERSION_REFUSAL = /more than the version/u;
+const SUBSET_SERDE_ENTRY = /name = "serde"\nversion = "2\.0\.0"/u;
+const OLD_SERDE_VERSION = /version = "1\.0\.0"/u;
+const SUBSET_UNUSED_CRATE = /name = "two"/u;
+const MISSING_CRATE_REFUSAL = /does not hold: serde 3\.0\.0/u;
+const BAD_CRATE_LINE_REFUSAL = /Not a "name version" line/u;
+const COREML_ARCHIVE = /\+coreml\.tar/u;
+const NO_ONNX_RUNTIME_REFUSAL = /no ONNX Runtime for/u;
+const SERDE_NOTICE_ROW =
+  /^serde 1\.0\.0 \| Apache-2\.0 \| MIT OR Apache-2\.0 \| https:\/\/crates\.io\/crates\/serde\/1\.0\.0$/mu;
+const APACHE_STANDARD_TEXT_LINE = /^Apache-2\.0, the standard text$/mu;
+const CARRIAGE_RETURN_OR_BOM = /\r|﻿/u;
+const WRONG_TARGET_REFUSAL = /not written for x86_64-unknown-linux-gnu/u;
+const SERDE_2_NOTICE_ROW = /^serde 2\.0\.0 \|.*\n/mu;
+const LEFT_OUT_CRATES_REFUSAL = /leaves out crates the build resolved: serde 2\.0\.0/u;
+const WEBVIEW2_LOADER_REFUSAL = /WebView2Loader\.dll ships/u;
+const WRONG_DIRECTML_REFUSAL = /not the DirectML 1\.15\.4/u;
+const DIRECTML_LICENCE_REFUSAL = /without DirectML's licence/u;
+const NO_DIRECTML_ARCHIVE_REFUSAL = /archive without DirectML\.dll/u;
+const CPP_RUNTIME_HEADING = /^4\. Microsoft Visual C\+\+ runtime$/mu;
+const CPP_RUNTIME_MENTION = /Visual C\+\+/u;
+const CPP_RUNTIME_WITHOUT_PART_REFUSAL =
+  /msvcp140\.dll, vcruntime140\.dll ship without the C\+\+ runtime's part/u;
+const CPP_RUNTIME_PART_WITHOUT_ARCHIVE_REFUSAL =
+  /part for the C\+\+ runtime in an archive without it/u;
+const DEBUG_RUNTIME_REFUSAL = /msvcp140d\.dll ships, and nothing says/u;
+const NO_MZ_HEADER_REFUSAL = /no MZ header/u;
+const FIVE_ATTEMPTS_REFUSAL = /failed on all 5 attempts/u;
+const REF_EXISTS_REFUSAL = /already exists at def/u;
 
 const MANIFEST = `[workspace]
 resolver = "3"
@@ -69,77 +108,82 @@ name = "two"
 version = "0.3.9"
 `;
 
-function workspace({ manifest = MANIFEST, lock = LOCK, two = "version.workspace = true" } = {}) {
-  const root = mkdtempSync(join(tmpdir(), "release-test-"));
-  writeFileSync(join(root, "Cargo.toml"), manifest);
-  writeFileSync(join(root, "Cargo.lock"), lock);
+function workspace({ manifest = MANIFEST, lock = LOCK, two = 'version.workspace = true' } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'release-test-'));
+  writeFileSync(join(root, 'Cargo.toml'), manifest);
+  writeFileSync(join(root, 'Cargo.lock'), lock);
   for (const [name, version] of [
-    ["one", "version.workspace = true"],
-    ["two", two],
+    ['one', 'version.workspace = true'],
+    ['two', two],
   ]) {
-    mkdirSync(join(root, "crates", name), { recursive: true });
-    writeFileSync(join(root, "crates", name, "Cargo.toml"), `[package]\nname = "${name}"\n${version}\n\n[dependencies]\nx = { version = "9.9.9" }\n`);
+    mkdirSync(join(root, 'crates', name), { recursive: true });
+    writeFileSync(
+      join(root, 'crates', name, 'Cargo.toml'),
+      `[package]\nname = "${name}"\n${version}\n\n[dependencies]\nx = { version = "9.9.9" }\n`,
+    );
   }
   return root;
 }
 
-test("versions order as semver orders them", () => {
-  assert.ok(compareVersions("0.10.0", "0.9.9") > 0);
-  assert.ok(compareVersions("1.0.0-rc.1", "1.0.0") < 0);
-  assert.ok(compareVersions("1.0.0-rc.2", "1.0.0-rc.10") < 0);
-  assert.ok(compareVersions("1.0.0-alpha", "1.0.0-alpha.1") < 0);
-  assert.equal(compareVersions("2.1.3", "2.1.3"), 0);
+it('versions order as semver orders them', () => {
+  assert.ok(compareVersions('0.10.0', '0.9.9') > 0);
+  assert.ok(compareVersions('1.0.0-rc.1', '1.0.0') < 0);
+  assert.ok(compareVersions('1.0.0-rc.2', '1.0.0-rc.10') < 0);
+  assert.ok(compareVersions('1.0.0-alpha', '1.0.0-alpha.1') < 0);
+  assert.equal(compareVersions('2.1.3', '2.1.3'), 0);
 });
 
-test("a bump only ever moves forward", () => {
-  assert.equal(nextVersion("0.3.9", "patch"), "0.3.10");
-  assert.equal(nextVersion("0.3.9", "minor"), "0.4.0");
-  assert.equal(nextVersion("0.3.9", "major"), "1.0.0");
-  assert.equal(nextVersion("0.3.9", "0.4.2"), "0.4.2");
-  assert.throws(() => nextVersion("0.3.9", "1.0.0-rc.1"), /pre-release/);
-  assert.throws(() => nextVersion("0.3.9", "0.3.9"), /does not come after/);
-  assert.throws(() => nextVersion("0.3.9", "0.2.0"), /does not come after/);
-  assert.throws(() => nextVersion("1.0.0-rc.1", "patch"), /pre-release/);
-  assert.throws(() => nextVersion("0.3.9", "v0.4.0"), /Not a version/);
+it('a bump only ever moves forward', () => {
+  assert.equal(nextVersion('0.3.9', 'patch'), '0.3.10');
+  assert.equal(nextVersion('0.3.9', 'minor'), '0.4.0');
+  assert.equal(nextVersion('0.3.9', 'major'), '1.0.0');
+  assert.equal(nextVersion('0.3.9', '0.4.2'), '0.4.2');
+  assert.throws(() => nextVersion('0.3.9', '1.0.0-rc.1'), PRE_RELEASE_REFUSAL);
+  assert.throws(() => nextVersion('0.3.9', '0.3.9'), NOT_AFTER_REFUSAL);
+  assert.throws(() => nextVersion('0.3.9', '0.2.0'), NOT_AFTER_REFUSAL);
+  assert.throws(() => nextVersion('1.0.0-rc.1', 'patch'), PRE_RELEASE_REFUSAL);
+  assert.throws(() => nextVersion('0.3.9', 'v0.4.0'), NOT_A_VERSION_REFUSAL);
 });
 
-test("the workspace version is read from its own table, not a dependency's", () => {
-  assert.equal(workspaceVersion(MANIFEST), "0.3.9");
-  assert.equal(workspaceVersion("[package]\nversion = \"1.0.0\"\n"), null);
+it("the workspace version is read from its own table, not a dependency's", () => {
+  assert.equal(workspaceVersion(MANIFEST), '0.3.9');
+  assert.equal(workspaceVersion('[package]\nversion = "1.0.0"\n'), null);
 });
 
-test("a bump moves the manifest and exactly the workspace's lock entries", () => {
+it("a bump moves the manifest and exactly the workspace's lock entries", () => {
   const root = workspace();
   try {
-    const result = bump(root, "minor");
-    assert.deepEqual(result, { from: "0.3.9", to: "0.4.0", files: ["Cargo.toml", "Cargo.lock"] });
-    const manifest = readFileSync(join(root, "Cargo.toml"), "utf8");
-    assert.match(manifest, /\[workspace\.package\]\nversion = "0\.4\.0"/);
-    assert.match(manifest, /version = "1\.0\.0" \}/);
-    const lock = readFileSync(join(root, "Cargo.lock"), "utf8");
+    const result = bump(root, 'minor');
+    assert.deepEqual(result, { files: ['Cargo.toml', 'Cargo.lock'], from: '0.3.9', to: '0.4.0' });
+    const manifest = readFileSync(join(root, 'Cargo.toml'), 'utf8');
+    assert.match(manifest, WORKSPACE_PACKAGE_VERSION);
+    assert.match(manifest, MEMBER_OWN_VERSION_TABLE);
+    const lock = readFileSync(join(root, 'Cargo.lock'), 'utf8');
     assert.equal(lock, LOCK.replaceAll('version = "0.3.9"', 'version = "0.4.0"'));
     assert.deepEqual(inspect(root).problems, []);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
-test("a crate with its own version is refused", () => {
+it('a crate with its own version is refused', () => {
   const root = workspace({ two: 'version = "0.3.9"' });
   try {
-    assert.match(inspect(root).problems.join("\n"), /two sets its own version/);
-    assert.throws(() => bump(root, "patch"), /two sets its own version/);
+    assert.match(inspect(root).problems.join('\n'), OWN_VERSION_REFUSAL);
+    assert.throws(() => bump(root, 'patch'), OWN_VERSION_REFUSAL);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
-test("a lock file behind the manifest is refused", () => {
-  const root = workspace({ lock: LOCK.replace('name = "two"\nversion = "0.3.9"', 'name = "two"\nversion = "0.3.8"') });
+it('a lock file behind the manifest is refused', () => {
+  const root = workspace({
+    lock: LOCK.replace('name = "two"\nversion = "0.3.9"', 'name = "two"\nversion = "0.3.8"'),
+  });
   try {
-    assert.deepEqual(inspect(root).problems, ["Cargo.lock records two 0.3.8, not 0.3.9."]);
+    assert.deepEqual(inspect(root).problems, ['Cargo.lock records two 0.3.8, not 0.3.9.']);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
@@ -147,10 +191,10 @@ test("a lock file behind the manifest is refused", () => {
 function files(manifest, lock) {
   const member = (name) => `[package]\nname = "${name}"\nversion.workspace = true\n`;
   const all = {
-    "Cargo.toml": manifest,
-    "Cargo.lock": lock,
-    "crates/one/Cargo.toml": member("one"),
-    "crates/two/Cargo.toml": member("two"),
+    'Cargo.lock': lock,
+    'Cargo.toml': manifest,
+    'crates/one/Cargo.toml': member('one'),
+    'crates/two/Cargo.toml': member('two'),
   };
   return (path) => {
     if (!(path in all)) {
@@ -163,274 +207,369 @@ function files(manifest, lock) {
 const RAISED_MANIFEST = MANIFEST.replace('version = "0.3.9"', 'version = "0.3.10"');
 const RAISED_LOCK = LOCK.replaceAll('version = "0.3.9"', 'version = "0.3.10"');
 
-test("a change that only raises the workspace version is a version change", () => {
+it('a change that only raises the workspace version is a version change', () => {
   const before = files(MANIFEST, LOCK);
-  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(RAISED_MANIFEST, RAISED_LOCK)), "version");
+  assert.equal(
+    scopeOf(['Cargo.lock', 'Cargo.toml'], before, files(RAISED_MANIFEST, RAISED_LOCK)),
+    'version',
+  );
 });
 
-test("anything beside the version in the same two files is code", () => {
+it('anything beside the version in the same two files is code', () => {
   const before = files(MANIFEST, LOCK);
   const dependency = RAISED_LOCK.replace('version = "2.0.0"', 'version = "2.0.1"');
-  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(RAISED_MANIFEST, dependency)), "code");
+  assert.equal(
+    scopeOf(['Cargo.lock', 'Cargo.toml'], before, files(RAISED_MANIFEST, dependency)),
+    'code',
+  );
   const pinned = RAISED_MANIFEST.replace('version = "1.0.0"', 'version = "1.0.1"');
-  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], before, files(pinned, RAISED_LOCK)), "code");
-  assert.equal(scopeOf(["Cargo.toml"], before, files(RAISED_MANIFEST, LOCK)), "code", "a lock left behind");
-  assert.equal(scopeOf(["Cargo.lock"], before, files(MANIFEST, dependency.replaceAll("0.3.10", "0.3.9"))), "code");
+  assert.equal(scopeOf(['Cargo.lock', 'Cargo.toml'], before, files(pinned, RAISED_LOCK)), 'code');
+  assert.equal(
+    scopeOf(['Cargo.toml'], before, files(RAISED_MANIFEST, LOCK)),
+    'code',
+    'a lock left behind',
+  );
+  assert.equal(
+    scopeOf(['Cargo.lock'], before, files(MANIFEST, dependency.replaceAll('0.3.10', '0.3.9'))),
+    'code',
+  );
 });
 
-test("a version that does not move forward is code", () => {
-  const lowered = files(MANIFEST.replace("0.3.9", "0.3.8"), LOCK.replaceAll('version = "0.3.9"', 'version = "0.3.8"'));
-  assert.equal(scopeOf(["Cargo.lock", "Cargo.toml"], files(MANIFEST, LOCK), lowered), "code");
+it('a version that does not move forward is code', () => {
+  const lowered = files(
+    MANIFEST.replace('0.3.9', '0.3.8'),
+    LOCK.replaceAll('version = "0.3.9"', 'version = "0.3.8"'),
+  );
+  assert.equal(scopeOf(['Cargo.lock', 'Cargo.toml'], files(MANIFEST, LOCK), lowered), 'code');
 });
 
-test("only the package managers' manifests is a packaging change, and nothing else is", () => {
+it("only the package managers' manifests is a packaging change, and nothing else is", () => {
   const same = files(MANIFEST, LOCK);
-  assert.equal(scopeOf(["Casks/steamgauge.rb", "bucket/steamgauge.json"], same, same), "packaging");
-  assert.equal(scopeOf(["Casks/steamgauge.rb", "tools/release/scope.mjs"], same, same), "code");
-  assert.equal(scopeOf(["bucketless/x"], same, same), "code");
-  assert.equal(scopeOf([], same, same), "code");
+  assert.equal(scopeOf(['Casks/steamgauge.rb', 'bucket/steamgauge.json'], same, same), 'packaging');
+  assert.equal(scopeOf(['Casks/steamgauge.rb', 'tools/release/scope.mjs'], same, same), 'code');
+  assert.equal(scopeOf(['bucketless/x'], same, same), 'code');
+  assert.equal(scopeOf([], same, same), 'code');
 });
 
 // main as a line of commits, newest last, each with what it changed and the pull request it came
 // from: `{ id, kind, pull, head, tree, checks }`.
-function history(commits, required = ["lint", "test (windows)"]) {
+function history(commits, required = ['lint', 'test (windows)']) {
   const at = new Map(commits.map((commit, index) => [commit.id, { ...commit, index }]));
-  const heads = new Map(commits.filter((commit) => commit.head).map((commit) => [commit.head, commit]));
+  const heads = new Map(
+    commits.filter((commit) => commit.head).map((commit) => [commit.head, commit]),
+  );
   return {
-    required,
-    parent: async (id) => commits[at.get(id).index - 1].id,
-    kind: async (id) => at.get(id).kind,
-    merged: async (id) => (at.get(id).pull === undefined ? null : { number: at.get(id).pull, head: at.get(id).head }),
-    tree: async (id) => (at.has(id) ? at.get(id).tree : heads.get(id).headTree ?? heads.get(id).tree),
     checks: async (head) => new Map(Object.entries(heads.get(head).checks ?? {})),
+    kind: async (id) => at.get(id).kind,
+    merged: async (id) =>
+      at.get(id).pull === undefined ? null : { head: at.get(id).head, number: at.get(id).pull },
+    parent: async (id) => commits[at.get(id).index - 1].id,
+    required,
+    tree: async (id) =>
+      at.has(id) ? at.get(id).tree : (heads.get(id).headTree ?? heads.get(id).tree),
   };
 }
 
-const PASSED = { lint: "success", "test (windows)": "success" };
+const PASSED = { lint: 'success', 'test (windows)': 'success' };
 
-test("a release is held to the checks its parent's pull request passed", async () => {
+it("a release is held to the checks its parent's pull request passed", async () => {
   const look = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
-    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+    { checks: PASSED, head: 'a-head', id: 'a', kind: 'code', pull: 1, tree: 't1' },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 2, tree: 't1' },
   ]);
-  assert.deepEqual(await checkedCode(look, "r"), { commit: "a", pull: 1 });
+  assert.deepEqual(await checkedCode(look, 'r'), { commit: 'a', pull: 1 });
 });
 
-test("manifests merged after the last release are walked past to the code they ship", async () => {
-  const skipped = { lint: "skipped", "test (windows)": "success" };
+it('manifests merged after the last release are walked past to the code they ship', async () => {
+  const skipped = { lint: 'skipped', 'test (windows)': 'success' };
   const look = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
-    { id: "m", kind: "packaging", pull: 2, head: "m-head", tree: "t2", checks: skipped },
-    { id: "r", kind: "version", pull: 3, head: "r-head", tree: "t3" },
+    { checks: PASSED, head: 'a-head', id: 'a', kind: 'code', pull: 1, tree: 't1' },
+    { checks: skipped, head: 'm-head', id: 'm', kind: 'packaging', pull: 2, tree: 't2' },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 3, tree: 't3' },
   ]);
-  assert.deepEqual(await checkedCode(look, "r"), { commit: "a", pull: 1 });
+  assert.deepEqual(await checkedCode(look, 'r'), { commit: 'a', pull: 1 });
 });
 
-test("a release is refused where the code it ships did not pass, or was not what was checked", async () => {
+it('a release is refused where the code it ships did not pass, or was not what was checked', async () => {
   const failed = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: { lint: "success", "test (windows)": "failure" } },
-    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+    {
+      checks: { lint: 'success', 'test (windows)': 'failure' },
+      head: 'a-head',
+      id: 'a',
+      kind: 'code',
+      pull: 1,
+      tree: 't1',
+    },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 2, tree: 't1' },
   ]);
-  await assert.rejects(checkedCode(failed, "r"), /test \(windows\): failure/);
+  await assert.rejects(checkedCode(failed, 'r'), FAILED_WINDOWS_TEST);
   const missing = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: { lint: "success" } },
-    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+    { checks: { lint: 'success' }, head: 'a-head', id: 'a', kind: 'code', pull: 1, tree: 't1' },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 2, tree: 't1' },
   ]);
-  await assert.rejects(checkedCode(missing, "r"), /test \(windows\): never ran/);
+  await assert.rejects(checkedCode(missing, 'r'), MISSING_WINDOWS_TEST);
   const otherTree = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", headTree: "t0", checks: PASSED },
-    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+    { checks: PASSED, head: 'a-head', headTree: 't0', id: 'a', kind: 'code', pull: 1, tree: 't1' },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 2, tree: 't1' },
   ]);
-  await assert.rejects(checkedCode(otherTree, "r"), /is not the code/);
+  await assert.rejects(checkedCode(otherTree, 'r'), OTHER_TREE_REFUSAL);
   const pushed = history([
-    { id: "a", kind: "code", tree: "t1" },
-    { id: "r", kind: "version", pull: 2, head: "r-head", tree: "t1" },
+    { id: 'a', kind: 'code', tree: 't1' },
+    { head: 'r-head', id: 'r', kind: 'version', pull: 2, tree: 't1' },
   ]);
-  await assert.rejects(checkedCode(pushed, "r"), /without a pull request/);
-  const notARelease = history([
-    { id: "a", kind: "code", pull: 1, head: "a-head", tree: "t1", checks: PASSED },
-    { id: "r", kind: "code", pull: 2, head: "r-head", tree: "t2" },
+  await assert.rejects(checkedCode(pushed, 'r'), WITHOUT_PULL_REQUEST_REFUSAL);
+  const codeAsRelease = history([
+    { checks: PASSED, head: 'a-head', id: 'a', kind: 'code', pull: 1, tree: 't1' },
+    { head: 'r-head', id: 'r', kind: 'code', pull: 2, tree: 't2' },
   ]);
-  await assert.rejects(checkedCode(notARelease, "r"), /more than the version/);
+  await assert.rejects(checkedCode(codeAsRelease, 'r'), MORE_THAN_VERSION_REFUSAL);
 });
 
-test("the lock subset keeps exactly the crates named, and the header", () => {
-  const { text, kept, of } = lockSubset(LOCK, parseCrates("one 0.3.9\nserde 2.0.0\n"));
+it('the lock subset keeps exactly the crates named, and the header', () => {
+  const { text, kept, of } = lockSubset(LOCK, parseCrates('one 0.3.9\nserde 2.0.0\n'));
   assert.equal(kept, 2);
   assert.equal(of, 4);
-  assert.ok(text.startsWith("# This file is automatically @generated by Cargo."));
-  assert.match(text, /name = "serde"\nversion = "2\.0\.0"/);
-  assert.doesNotMatch(text, /version = "1\.0\.0"/);
-  assert.doesNotMatch(text, /name = "two"/);
+  assert.ok(text.startsWith('# This file is automatically @generated by Cargo.'));
+  assert.match(text, SUBSET_SERDE_ENTRY);
+  assert.doesNotMatch(text, OLD_SERDE_VERSION);
+  assert.doesNotMatch(text, SUBSET_UNUSED_CRATE);
 });
 
-test("a crate the lock does not hold is an error, not an omission", () => {
-  assert.throws(() => lockSubset(LOCK, parseCrates("serde 3.0.0")), /does not hold: serde 3\.0\.0/);
-  assert.throws(() => parseCrates("serde v1.0.0 (proc-macro)"), /Not a "name version" line/);
+it('a crate the lock does not hold is an error, not an omission', () => {
+  assert.throws(() => lockSubset(LOCK, parseCrates('serde 3.0.0')), MISSING_CRATE_REFUSAL);
+  assert.throws(() => parseCrates('serde v1.0.0 (proc-macro)'), BAD_CRATE_LINE_REFUSAL);
 });
 
 const DIST = [
-  "target\tfeature_set\turl\tsha256_hash",
-  "x86_64-pc-windows-msvc\tdirectml\thttps://cdn.example/ms@1.28.0/x86_64-pc-windows-msvc+directml.tar.lzma2\taa",
-  "x86_64-pc-windows-msvc\twebgpu\thttps://cdn.example/ms@1.28.0/x86_64-pc-windows-msvc+webgpu.tar.lzma2\tbb",
-  "x86_64-unknown-linux-gnu\tnone\thttps://cdn.example/ms@1.28.0/x86_64-unknown-linux-gnu.tar.lzma2\tcc",
-  "aarch64-apple-darwin\tcoreml\thttps://cdn.example/ms@1.28.0/aarch64-apple-darwin+coreml.tar.lzma2\tdd",
-  "aarch64-apple-darwin\tcoreml,webgpu\thttps://cdn.example/ms@1.28.0/aarch64-apple-darwin+coreml,webgpu.tar.lzma2\tee",
-].join("\n");
+  'target\tfeature_set\turl\tsha256_hash',
+  'x86_64-pc-windows-msvc\tdirectml\thttps://cdn.example/ms@1.28.0/x86_64-pc-windows-msvc+directml.tar.lzma2\taa',
+  'x86_64-pc-windows-msvc\twebgpu\thttps://cdn.example/ms@1.28.0/x86_64-pc-windows-msvc+webgpu.tar.lzma2\tbb',
+  'x86_64-unknown-linux-gnu\tnone\thttps://cdn.example/ms@1.28.0/x86_64-unknown-linux-gnu.tar.lzma2\tcc',
+  'aarch64-apple-darwin\tcoreml\thttps://cdn.example/ms@1.28.0/aarch64-apple-darwin+coreml.tar.lzma2\tdd',
+  'aarch64-apple-darwin\tcoreml,webgpu\thttps://cdn.example/ms@1.28.0/aarch64-apple-darwin+coreml,webgpu.tar.lzma2\tee',
+].join('\n');
 
-test("the ONNX Runtime is the build ort-sys picks for the target and its providers", () => {
-  const cargoFeatures = ["api-17", "copy-dylibs", "download-binaries", "std", "tls-native"];
-  const windows = onnxRuntimeDistribution(DIST, "x86_64-pc-windows-msvc", [...cargoFeatures, "directml"]);
-  assert.deepEqual(windows.providers, ["directml"]);
-  assert.equal(windows.version, "1.28.0");
-  assert.deepEqual(onnxRuntimeDistribution(DIST, "x86_64-unknown-linux-gnu", cargoFeatures).providers, []);
-  assert.match(onnxRuntimeDistribution(DIST, "aarch64-apple-darwin", [...cargoFeatures, "coreml"]).url, /\+coreml\.tar/);
-  assert.throws(() => onnxRuntimeDistribution(DIST, "x86_64-unknown-linux-gnu", ["directml"]), /no ONNX Runtime for/);
+it('the ONNX Runtime is the build ort-sys picks for the target and its providers', () => {
+  const cargoFeatures = ['api-17', 'copy-dylibs', 'download-binaries', 'std', 'tls-native'];
+  const windows = onnxRuntimeDistribution(DIST, 'x86_64-pc-windows-msvc', [
+    ...cargoFeatures,
+    'directml',
+  ]);
+  assert.deepEqual(windows.providers, ['directml']);
+  assert.equal(windows.version, '1.28.0');
+  assert.deepEqual(
+    onnxRuntimeDistribution(DIST, 'x86_64-unknown-linux-gnu', cargoFeatures).providers,
+    [],
+  );
+  assert.match(
+    onnxRuntimeDistribution(DIST, 'aarch64-apple-darwin', [...cargoFeatures, 'coreml']).url,
+    COREML_ARCHIVE,
+  );
+  assert.throws(
+    () => onnxRuntimeDistribution(DIST, 'x86_64-unknown-linux-gnu', ['directml']),
+    NO_ONNX_RUNTIME_REFUSAL,
+  );
 });
 
-const pkg = (name, version, source = "registry+https://github.com/rust-lang/crates.io-index") => ({
-  name,
-  version,
-  source,
+const pkg = (name, version, source = 'registry+https://github.com/rust-lang/crates.io-index') => ({
   manifest_path: `/registry/${name}-${version}/Cargo.toml`,
+  name,
+  source,
+  version,
 });
 const ABOUT = {
   crates: [
-    { package: pkg("serde", "1.0.0"), license: "MIT OR Apache-2.0" },
-    { package: pkg("serde", "2.0.0"), license: "MIT" },
+    { license: 'MIT OR Apache-2.0', package: pkg('serde', '1.0.0') },
+    { license: 'MIT', package: pkg('serde', '2.0.0') },
   ],
   licenses: [
-    { id: "Apache-2.0", text: "Apache terms\r\n", source_path: null, used_by: [{ crate: pkg("serde", "1.0.0") }] },
-    { id: "MIT", text: "﻿Copyright (c) Serde authors\r\n", source_path: "LICENSE-MIT", used_by: [{ crate: pkg("serde", "2.0.0") }] },
+    {
+      id: 'Apache-2.0',
+      source_path: null,
+      text: 'Apache terms\r\n',
+      used_by: [{ crate: pkg('serde', '1.0.0') }],
+    },
+    {
+      id: 'MIT',
+      source_path: 'LICENSE-MIT',
+      text: '﻿Copyright (c) Serde authors\r\n',
+      used_by: [{ crate: pkg('serde', '2.0.0') }],
+    },
   ],
 };
-const NOTICE_TEXT = "Apache Serde\nCopyright its authors\n";
+const NOTICE_TEXT = 'Apache Serde\nCopyright its authors\n';
 
 function renderFor(target, { directml = true } = {}) {
   return renderNotices({
-    target,
     about: ABOUT,
-    notices: [{ text: NOTICE_TEXT, crates: ["serde 1.0.0"] }],
-    onnxRuntime: withTexts(ONNX_RUNTIME),
     directml: directml ? withTexts(DIRECTML) : null,
+    notices: [{ crates: ['serde 1.0.0'], text: NOTICE_TEXT }],
+    onnxRuntime: withTexts(ONNX_RUNTIME),
+    target,
   });
 }
 
-const WINDOWS = "x86_64-pc-windows-msvc";
+const WINDOWS = 'x86_64-pc-windows-msvc';
 const shipped = (extra = []) =>
   new Map([
-    ["steamgauge.exe", "00"],
-    ["README.md", "00"],
-    ["LICENSE", "00"],
-    ["THIRD-PARTY-NOTICES.txt", "00"],
-    ["DirectML.dll", DIRECTML.dll.get(WINDOWS)],
-    ["msvcp140.dll", "00"],
-    ["vcruntime140.dll", "00"],
+    ['steamgauge.exe', '00'],
+    ['README.md', '00'],
+    ['LICENSE', '00'],
+    ['THIRD-PARTY-NOTICES.txt', '00'],
+    ['DirectML.dll', DIRECTML.dll.get(WINDOWS)],
+    ['msvcp140.dll', '00'],
+    ['vcruntime140.dll', '00'],
     ...extra,
   ]);
 
-test("a crate given SPDX's template for a licence that names a holder is refused", () => {
+it("a crate given SPDX's template for a licence that names a holder is refused", () => {
   const about = {
-    crates: [...ABOUT.crates, { package: pkg("bare", "0.1.0"), license: "MIT" }],
+    crates: [...ABOUT.crates, { license: 'MIT', package: pkg('bare', '0.1.0') }],
     licenses: [
       ...ABOUT.licenses,
-      { id: "MIT", text: "Copyright (c) <year> <copyright holders>", source_path: null, used_by: [{ crate: pkg("serde", "1.0.0") }] },
+      {
+        id: 'MIT',
+        source_path: null,
+        text: 'Copyright (c) <year> <copyright holders>',
+        used_by: [{ crate: pkg('serde', '1.0.0') }],
+      },
     ],
   };
   assert.deepEqual(cratesWithoutText(about), [
-    "bare 0.1.0: no licence text at all",
+    'bare 0.1.0: no licence text at all',
     "serde 1.0.0: MIT is SPDX's template, with the holder left blank",
   ]);
   assert.deepEqual(cratesWithoutText(ABOUT), []);
 });
 
-test("the notices list every crate, carry each text once, and read back as written", () => {
+it('the notices list every crate, carry each text once, and read back as written', () => {
   const notices = renderFor(WINDOWS);
-  assert.deepEqual([...listedCrates(notices)].sort(), ["serde 1.0.0", "serde 2.0.0"]);
-  assert.match(notices, /^serde 1\.0\.0 \| Apache-2\.0 \| MIT OR Apache-2\.0 \| https:\/\/crates\.io\/crates\/serde\/1\.0\.0$/m);
-  assert.match(notices, /^Apache-2\.0, the standard text$/m);
-  const onnxNotices = new URL("../../third-party/onnxruntime/ThirdPartyNotices.txt", import.meta.url);
-  assert.ok(notices.includes(normaliseText(readFileSync(onnxNotices, "utf8"))));
+  assert.deepEqual(
+    [...listedCrates(notices)].sort((a, b) => a.localeCompare(b)),
+    ['serde 1.0.0', 'serde 2.0.0'],
+  );
+  assert.match(notices, SERDE_NOTICE_ROW);
+  assert.match(notices, APACHE_STANDARD_TEXT_LINE);
+  const onnxNotices = new URL(
+    '../../third-party/onnxruntime/ThirdPartyNotices.txt',
+    import.meta.url,
+  );
+  assert.ok(notices.includes(normaliseText(readFileSync(onnxNotices, 'utf8'))));
   assert.ok(notices.includes(NOTICE_TEXT));
-  assert.doesNotMatch(notices, /\r|﻿/);
-  const crates = parseCrates("one 0.3.9\nserde 1.0.0\nserde 2.0.0\n");
-  assert.deepEqual(checkNotices({ target: WINDOWS, notices, crates, lock: LOCK, files: shipped() }), []);
+  assert.doesNotMatch(notices, CARRIAGE_RETURN_OR_BOM);
+  const crates = parseCrates('one 0.3.9\nserde 1.0.0\nserde 2.0.0\n');
+  assert.deepEqual(
+    checkNotices({ crates, files: shipped(), lock: LOCK, notices, target: WINDOWS }),
+    [],
+  );
 });
 
-test("the check refuses notices that leave out a crate, a file or a licence", () => {
+it('the check refuses notices that leave out a crate, a file or a licence', () => {
   const notices = renderFor(WINDOWS);
-  const crates = parseCrates("serde 1.0.0\nserde 2.0.0\n");
-  const check = (overrides) => checkNotices({ target: WINDOWS, notices, crates, lock: LOCK, files: shipped(), ...overrides });
-  assert.deepEqual(check({ notices: "\n" }), ["THIRD-PARTY-NOTICES.txt is empty."]);
-  assert.match(check({ target: "x86_64-unknown-linux-gnu" }).join("\n"), /not written for x86_64-unknown-linux-gnu/);
+  const crates = parseCrates('serde 1.0.0\nserde 2.0.0\n');
+  const check = (overrides) =>
+    checkNotices({ crates, files: shipped(), lock: LOCK, notices, target: WINDOWS, ...overrides });
+  assert.deepEqual(check({ notices: '\n' }), ['THIRD-PARTY-NOTICES.txt is empty.']);
+  assert.match(check({ target: 'x86_64-unknown-linux-gnu' }).join('\n'), WRONG_TARGET_REFUSAL);
   assert.match(
-    check({ notices: notices.replace(/^serde 2\.0\.0 \|.*\n/m, "") }).join("\n"),
-    /leaves out crates the build resolved: serde 2\.0\.0/,
+    check({ notices: notices.replace(SERDE_2_NOTICE_ROW, '') }).join('\n'),
+    LEFT_OUT_CRATES_REFUSAL,
   );
-  assert.match(check({ files: shipped([["WebView2Loader.dll", "00"]]) }).join("\n"), /WebView2Loader\.dll ships/);
-  assert.match(check({ files: shipped([["DirectML.dll", "ff"]]) }).join("\n"), /not the DirectML 1\.15\.4/);
-  assert.match(check({ notices: renderFor(WINDOWS, { directml: false }) }).join("\n"), /without DirectML's licence/);
+  assert.match(
+    check({ files: shipped([['WebView2Loader.dll', '00']]) }).join('\n'),
+    WEBVIEW2_LOADER_REFUSAL,
+  );
+  assert.match(
+    check({ files: shipped([['DirectML.dll', 'ff']]) }).join('\n'),
+    WRONG_DIRECTML_REFUSAL,
+  );
+  assert.match(
+    check({ notices: renderFor(WINDOWS, { directml: false }) }).join('\n'),
+    DIRECTML_LICENCE_REFUSAL,
+  );
   const noDll = shipped();
-  noDll.delete("DirectML.dll");
-  assert.match(check({ files: noDll }).join("\n"), /archive without DirectML\.dll/);
+  noDll.delete('DirectML.dll');
+  assert.match(check({ files: noDll }).join('\n'), NO_DIRECTML_ARCHIVE_REFUSAL);
   assert.ok(
-    check({ notices: notices.replaceAll("3. ONNX Runtime", "3. Something") })
-      .join("\n")
+    check({ notices: notices.replaceAll('3. ONNX Runtime', '3. Something') })
+      .join('\n')
       .includes(`ONNX Runtime ${ONNX_RUNTIME.version}'s licence`),
   );
 });
 
-test("the C++ runtime beside the Windows binary has its part in the notices, and only there", () => {
+it('the C++ runtime beside the Windows binary has its part in the notices, and only there', () => {
   const notices = renderFor(WINDOWS);
-  assert.ok(notices.split("\n").includes(`  5. ${CPP_RUNTIME.heading}`));
+  assert.ok(notices.split('\n').includes(`  5. ${CPP_RUNTIME.heading}`));
   assert.ok(notices.includes(CPP_RUNTIME.redistribution) && notices.includes(CPP_RUNTIME.terms));
-  assert.match(renderFor(WINDOWS, { directml: false }), /^4\. Microsoft Visual C\+\+ runtime$/m);
-  assert.doesNotMatch(renderFor("x86_64-unknown-linux-gnu", { directml: false }), /Visual C\+\+/);
-  const crates = parseCrates("serde 1.0.0\nserde 2.0.0\n");
-  const check = (overrides) => checkNotices({ target: WINDOWS, notices, crates, lock: LOCK, files: shipped(), ...overrides });
-  assert.deepEqual(check({ files: shipped([["msvcp140_1.dll", "00"], ["vcruntime140_1.dll", "00"]]) }), []);
+  assert.match(renderFor(WINDOWS, { directml: false }), CPP_RUNTIME_HEADING);
+  assert.doesNotMatch(
+    renderFor('x86_64-unknown-linux-gnu', { directml: false }),
+    CPP_RUNTIME_MENTION,
+  );
+  const crates = parseCrates('serde 1.0.0\nserde 2.0.0\n');
+  const check = (overrides) =>
+    checkNotices({ crates, files: shipped(), lock: LOCK, notices, target: WINDOWS, ...overrides });
+  assert.deepEqual(
+    check({
+      files: shipped([
+        ['msvcp140_1.dll', '00'],
+        ['vcruntime140_1.dll', '00'],
+      ]),
+    }),
+    [],
+  );
   assert.match(
-    check({ notices: notices.replaceAll(CPP_RUNTIME.heading, "Something") }).join("\n"),
-    /msvcp140\.dll, vcruntime140\.dll ship without the C\+\+ runtime's part/,
+    check({ notices: notices.replaceAll(CPP_RUNTIME.heading, 'Something') }).join('\n'),
+    CPP_RUNTIME_WITHOUT_PART_REFUSAL,
   );
   const withoutRuntime = shipped();
-  withoutRuntime.delete("msvcp140.dll");
-  withoutRuntime.delete("vcruntime140.dll");
-  assert.match(check({ files: withoutRuntime }).join("\n"), /part for the C\+\+ runtime in an archive without it/);
-  assert.match(check({ files: shipped([["msvcp140d.dll", "00"]]) }).join("\n"), /msvcp140d\.dll ships, and nothing says/);
+  withoutRuntime.delete('msvcp140.dll');
+  withoutRuntime.delete('vcruntime140.dll');
+  assert.match(
+    check({ files: withoutRuntime }).join('\n'),
+    CPP_RUNTIME_PART_WITHOUT_ARCHIVE_REFUSAL,
+  );
+  assert.match(
+    check({ files: shipped([['msvcp140d.dll', '00']]) }).join('\n'),
+    DEBUG_RUNTIME_REFUSAL,
+  );
 });
 
 // A 64-bit PE image of one section holding an import table and a delay-load table naming
 // `direct` and `delayed`, which is all of a program the import reader looks at.
 function portableExecutable(direct, delayed = []) {
-  const image = Buffer.alloc(0x400);
-  image.write("MZ", 0, "latin1");
+  const image = Buffer.alloc(0x4_00);
+  image.write('MZ', 0, 'latin1');
   image.writeUInt32LE(0x40, 0x3c);
-  image.writeUInt32LE(0x4550, 0x40);
-  image.writeUInt16LE(0x8664, 0x44);
+  image.writeUInt32LE(0x45_50, 0x40);
+  image.writeUInt16LE(0x86_64, 0x44);
   image.writeUInt16LE(1, 0x46);
   image.writeUInt16LE(0xf0, 0x54);
   const optional = 0x58;
-  image.writeUInt16LE(0x20b, optional);
+  image.writeUInt16LE(0x2_0b, optional);
   image.writeUInt32LE(16, optional + 108);
-  const sectionAddress = 0x1000;
-  const sectionOffset = 0x200;
+  const sectionAddress = 0x10_00;
+  const sectionOffset = 0x2_00;
   const header = optional + 0xf0;
-  image.writeUInt32LE(0x200, header + 8);
+  image.writeUInt32LE(0x2_00, header + 8);
   image.writeUInt32LE(sectionAddress, header + 12);
-  image.writeUInt32LE(0x200, header + 16);
+  image.writeUInt32LE(0x2_00, header + 16);
   image.writeUInt32LE(sectionOffset, header + 20);
   const importAt = 0;
   const delayAt = (direct.length + 1) * 20;
   let nameAt = delayAt + (delayed.length + 1) * 32;
   const name = (text) => {
     const rva = sectionAddress + nameAt;
-    image.write(`${text}\0`, sectionOffset + nameAt, "latin1");
+    image.write(`${text}\0`, sectionOffset + nameAt, 'latin1');
     nameAt += text.length + 1;
     return rva;
   };
-  direct.forEach((dll, index) => image.writeUInt32LE(name(dll), sectionOffset + importAt + index * 20 + 12));
-  delayed.forEach((dll, index) => image.writeUInt32LE(name(dll), sectionOffset + delayAt + index * 32 + 4));
+  for (const [index, dll] of direct.entries()) {
+    image.writeUInt32LE(name(dll), sectionOffset + importAt + index * 20 + 12);
+  }
+  for (const [index, dll] of delayed.entries()) {
+    image.writeUInt32LE(name(dll), sectionOffset + delayAt + index * 32 + 4);
+  }
   if (direct.length > 0) {
     image.writeUInt32LE(sectionAddress + importAt, optional + 112 + 8);
   }
@@ -440,142 +579,183 @@ function portableExecutable(direct, delayed = []) {
   return image;
 }
 
-test("a program's imports are read from its import and delay-load tables", () => {
-  assert.deepEqual(imports(portableExecutable(["KERNEL32.dll", "MSVCP140.dll"], ["dbghelp.dll"])), [
-    "KERNEL32.dll",
-    "MSVCP140.dll",
-    "dbghelp.dll",
+it("a program's imports are read from its import and delay-load tables", () => {
+  assert.deepEqual(imports(portableExecutable(['KERNEL32.dll', 'MSVCP140.dll'], ['dbghelp.dll'])), [
+    'KERNEL32.dll',
+    'MSVCP140.dll',
+    'dbghelp.dll',
   ]);
   assert.deepEqual(imports(portableExecutable([])), []);
-  assert.throws(() => imports(Buffer.from("not a program at all, just text that is long enough")), /no MZ header/);
-  assert.ok(isWindows("KERNEL32.dll") && isWindows("api-ms-win-crt-runtime-l1-1-0.dll"));
-  assert.ok(!isWindows("MSVCP140.dll") && !isWindows("DirectML.dll"));
+  assert.throws(
+    () => imports(Buffer.from('not a program at all, just text that is long enough')),
+    NO_MZ_HEADER_REFUSAL,
+  );
+  assert.ok(isWindows('KERNEL32.dll') && isWindows('api-ms-win-crt-runtime-l1-1-0.dll'));
+  assert.ok(!(isWindows('MSVCP140.dll') || isWindows('DirectML.dll')));
 });
 
-test("the C++ runtime a program needs is placed beside it, and a folder missing one is refused", () => {
-  const root = mkdtempSync(join(tmpdir(), "runtime-dlls-"));
+it('the C++ runtime a program needs is placed beside it, and a folder missing one is refused', () => {
+  const root = mkdtempSync(join(tmpdir(), 'runtime-dlls-'));
   try {
-    const folder = join(root, "payload");
-    const redist = join(root, "redist");
+    const folder = join(root, 'payload');
+    const redist = join(root, 'redist');
     mkdirSync(folder);
     mkdirSync(redist);
-    writeFileSync(join(folder, "steamgauge.exe"), portableExecutable(["KERNEL32.dll", "MSVCP140.dll", "DirectML.dll"]));
-    writeFileSync(join(folder, "DirectML.dll"), portableExecutable(["d3d12.dll"]));
-    writeFileSync(join(redist, "msvcp140.dll"), portableExecutable(["VCRUNTIME140.dll", "KERNEL32.dll"]));
-    writeFileSync(join(redist, "vcruntime140.dll"), portableExecutable(["KERNEL32.dll"]));
-    writeFileSync(join(redist, "concrt140.dll"), portableExecutable(["KERNEL32.dll"]));
+    writeFileSync(
+      join(folder, 'steamgauge.exe'),
+      portableExecutable(['KERNEL32.dll', 'MSVCP140.dll', 'DirectML.dll']),
+    );
+    writeFileSync(join(folder, 'DirectML.dll'), portableExecutable(['d3d12.dll']));
+    writeFileSync(
+      join(redist, 'msvcp140.dll'),
+      portableExecutable(['VCRUNTIME140.dll', 'KERNEL32.dll']),
+    );
+    writeFileSync(join(redist, 'vcruntime140.dll'), portableExecutable(['KERNEL32.dll']));
+    writeFileSync(join(redist, 'concrt140.dll'), portableExecutable(['KERNEL32.dll']));
 
-    assert.deepEqual(checkRuntime(folder), ["steamgauge.exe imports MSVCP140.dll, which is neither beside it nor part of Windows."]);
-    assert.deepEqual(place(folder, redist), ["msvcp140.dll", "vcruntime140.dll"]);
+    assert.deepEqual(checkRuntime(folder), [
+      'steamgauge.exe imports MSVCP140.dll, which is neither beside it nor part of Windows.',
+    ]);
+    assert.deepEqual(place(folder, redist), ['msvcp140.dll', 'vcruntime140.dll']);
     assert.deepEqual(checkRuntime(folder), []);
     assert.deepEqual(place(folder, redist), []);
 
-    writeFileSync(join(folder, "DirectML.dll"), portableExecutable(["d3d12.dll", "WebView2Loader.dll"]));
+    writeFileSync(
+      join(folder, 'DirectML.dll'),
+      portableExecutable(['d3d12.dll', 'WebView2Loader.dll']),
+    );
     assert.deepEqual(checkRuntime(folder), [
-      "DirectML.dll imports WebView2Loader.dll, which is neither beside it nor part of Windows.",
+      'DirectML.dll imports WebView2Loader.dll, which is neither beside it nor part of Windows.',
     ]);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
-test("the changelog splits on what reaches the download", () => {
-  assert.equal(shipsInDownload(["crates/steamgauge-core/src/read.rs"]), true);
-  assert.equal(shipsInDownload(["Cargo.lock"]), true);
-  assert.equal(shipsInDownload(["rust-toolchain.toml"]), true);
-  assert.equal(shipsInDownload(["third-party/about.toml"]), true);
-  assert.equal(shipsInDownload([".github/workflows/release-build.yml"]), true);
-  assert.equal(shipsInDownload(["tools/release/package.sh"]), true);
-  assert.equal(shipsInDownload(["tools/release/package-managers.sh"]), true);
-  assert.equal(shipsInDownload(["tools/release/package-managers-pr.sh", "Casks/steamgauge.rb"]), false);
-  assert.equal(shipsInDownload(["training/train.py", "crates/steamgauge-core/src/taxonomy.rs"]), true);
-  assert.equal(shipsInDownload(["crates/steamgauge-core/examples/sample-report.rs"]), false);
-  assert.equal(shipsInDownload(["crates/steamgauge-core/tests/pipeline.rs"]), false);
-  assert.equal(shipsInDownload(["training/train.py", "reference/README.md", "tools/chrome.mjs"]), false);
-  assert.equal(shipsInDownload(["CONTRIBUTING.md", ".github/workflows/ci.yml", "training/Cargo.lock"]), false);
+it('the changelog splits on what reaches the download', () => {
+  assert.equal(shipsInDownload(['crates/steamgauge-core/src/read.rs']), true);
+  assert.equal(shipsInDownload(['Cargo.lock']), true);
+  assert.equal(shipsInDownload(['rust-toolchain.toml']), true);
+  assert.equal(shipsInDownload(['third-party/about.toml']), true);
+  assert.equal(shipsInDownload(['.github/workflows/release-build.yml']), true);
+  assert.equal(shipsInDownload(['tools/release/package.sh']), true);
+  assert.equal(shipsInDownload(['tools/release/package-managers.sh']), true);
+  assert.equal(
+    shipsInDownload(['tools/release/package-managers-pr.sh', 'Casks/steamgauge.rb']),
+    false,
+  );
+  assert.equal(
+    shipsInDownload(['training/train.py', 'crates/steamgauge-core/src/taxonomy.rs']),
+    true,
+  );
+  assert.equal(shipsInDownload(['crates/steamgauge-core/examples/sample-report.rs']), false);
+  assert.equal(shipsInDownload(['crates/steamgauge-core/tests/pipeline.rs']), false);
+  assert.equal(
+    shipsInDownload(['training/train.py', 'reference/README.md', 'tools/chrome.mjs']),
+    false,
+  );
+  assert.equal(
+    shipsInDownload(['CONTRIBUTING.md', '.github/workflows/ci.yml', 'training/Cargo.lock']),
+    false,
+  );
 });
 
-test("pull requests are found by the number a squash appends", () => {
-  assert.equal(pullRequestNumber("An encoder is traced as it is (#135)"), 135);
-  assert.equal(pullRequestNumber("Mentions #12 in passing"), null);
+it('pull requests are found by the number a squash appends', () => {
+  assert.equal(pullRequestNumber('An encoder is traced as it is (#135)'), 135);
+  assert.equal(pullRequestNumber('Mentions #12 in passing'), null);
 });
 
-test("the previous release is the newest below the tag, even once the tag is released", () => {
-  const tags = ["v0.2.0", "v0.10.0", "v0.9.1", "v1.0.0-rc.1", "nightly"];
-  assert.equal(previousRelease(tags, "1.0.0"), "v1.0.0-rc.1");
-  assert.equal(previousRelease(tags, "0.10.0"), "v0.9.1");
-  assert.equal(previousRelease(tags, "0.2.0"), null);
+it('the previous release is the newest below the tag, even once the tag is released', () => {
+  const tags = ['v0.2.0', 'v0.10.0', 'v0.9.1', 'v1.0.0-rc.1', 'nightly'];
+  assert.equal(previousRelease(tags, '1.0.0'), 'v1.0.0-rc.1');
+  assert.equal(previousRelease(tags, '0.10.0'), 'v0.9.1');
+  assert.equal(previousRelease(tags, '0.2.0'), null);
 });
 
-test("the notes list each side under its own heading and link the range", () => {
+it('the notes list each side under its own heading and link the range', () => {
   const notes = renderNotes(
     [
-      { title: "Reads faster", author: "a", url: "u1", ships: true },
-      { title: "A training run", author: "b", url: "u2", ships: false },
+      { author: 'a', ships: true, title: 'Reads faster', url: 'u1' },
+      { author: 'b', ships: false, title: 'A training run', url: 'u2' },
     ],
-    "o/r",
-    "v0.1.0",
-    "v0.2.0",
+    'o/r',
+    'v0.1.0',
+    'v0.2.0',
   );
   assert.equal(
     notes,
     [
       "## What's Changed",
-      "",
-      "### In what you download",
-      "",
-      "* Reads faster by @a in u1",
-      "",
-      "### Repository only: training, reference data, tools, CI and docs",
-      "",
-      "* A training run by @b in u2",
-      "",
-      "**Full Changelog**: https://github.com/o/r/compare/v0.1.0...v0.2.0",
-      "",
-    ].join("\n"),
+      '',
+      '### In what you download',
+      '',
+      '* Reads faster by @a in u1',
+      '',
+      '### Repository only: training, reference data, tools, CI and docs',
+      '',
+      '* A training run by @b in u2',
+      '',
+      '**Full Changelog**: https://github.com/o/r/compare/v0.1.0...v0.2.0',
+      '',
+    ].join('\n'),
   );
 });
 
-test("the first release says so, rather than listing the whole history", () => {
+it('the first release says so, rather than listing the whole history', () => {
   assert.equal(
-    renderNotes([{ title: "Reads faster", author: "a", url: "u1", ships: true }], "o/r", null, "v0.1.0"),
+    renderNotes(
+      [{ author: 'a', ships: true, title: 'Reads faster', url: 'u1' }],
+      'o/r',
+      null,
+      'v0.1.0',
+    ),
     "## What's Changed\n\nThe first release.\n\n**Full Changelog**: https://github.com/o/r/commits/v0.1.0\n",
   );
 });
 
-const still = async () => {};
+const still = () => Promise.resolve();
 
-test("a server error is asked again, and a 404 is an answer", async () => {
-  const answers = [{ status: 503, body: "" }, { status: 404, body: {} }];
+it('a server error is asked again, and a 404 is an answer', async () => {
+  const answers = [
+    { body: '', status: 503 },
+    { body: {}, status: 404 },
+  ];
   const seen = [];
-  const ask = async (method, path) => {
+  const ask = (method, path) => {
     seen.push(`${method} ${path}`);
-    return answers.shift();
+    return Promise.resolve(answers.shift());
   };
-  assert.equal(await refState(ask, "o/r", "tags/v1.0.0", still), "absent");
+  assert.equal(await refState(ask, 'o/r', 'tags/v1.0.0', still), 'absent');
   assert.equal(seen.length, 2);
   await assert.rejects(
-    answered(async () => ({ status: 502, body: "down" }), still, "Reading"),
-    /failed on all 5 attempts/,
+    answered(async () => ({ body: 'down', status: 502 }), still, 'Reading'),
+    FIVE_ATTEMPTS_REFUSAL,
   );
 });
 
-test("creating a ref that exists at the same commit is success, at another is refused", async () => {
+it('creating a ref that exists at the same commit is success, at another is refused', async () => {
   const at = (sha) => async (method) =>
-    method === "POST" ? { status: 422, body: {} } : { status: 200, body: { object: { sha } } };
-  assert.equal(await createRef(at("abc"), "o/r", "tags/v1.0.0", "abc", still), "existed");
-  await assert.rejects(createRef(at("def"), "o/r", "tags/v1.0.0", "abc", still), /already exists at def/);
+    method === 'POST' ? { body: {}, status: 422 } : { body: { object: { sha } }, status: 200 };
+  const target = { ref: 'tags/v1.0.0', repository: 'o/r', sha: 'abc', wait: still };
+  assert.equal(await createRef({ ask: at('abc'), ...target }), 'existed');
+  await assert.rejects(createRef({ ask: at('def'), ...target }), REF_EXISTS_REFUSAL);
 });
 
-test("resetting a branch moves one that exists and makes one that does not", async () => {
+it('resetting a branch moves one that exists and makes one that does not', async () => {
   const calls = [];
-  const existing = async (method, path, body) => {
+  const existing = (method, path, body) => {
     calls.push(`${method} ${path}`);
-    return method === "PATCH" ? { status: 200, body: { object: { sha: body.sha } } } : { status: 200, body: { object: { sha: "old" } } };
+    const sha = method === 'PATCH' ? body.sha : 'old';
+    return Promise.resolve({ body: { object: { sha } }, status: 200 });
   };
-  assert.equal(await resetRef(existing, "o/r", "heads/release/v0.1.0", "abc", still), "reset");
-  assert.deepEqual(calls, ["GET /repos/o/r/git/ref/heads/release/v0.1.0", "PATCH /repos/o/r/git/refs/heads/release/v0.1.0"]);
+  const branch = { ref: 'heads/release/v0.1.0', repository: 'o/r', sha: 'abc', wait: still };
+  assert.equal(await resetRef({ ask: existing, ...branch }), 'reset');
+  assert.deepEqual(calls, [
+    'GET /repos/o/r/git/ref/heads/release/v0.1.0',
+    'PATCH /repos/o/r/git/refs/heads/release/v0.1.0',
+  ]);
 
-  const missing = async (method) => (method === "GET" ? { status: 404, body: {} } : { status: 201, body: {} });
-  assert.equal(await resetRef(missing, "o/r", "heads/release/v0.1.0", "abc", still), "created");
+  const missing = async (method) =>
+    method === 'GET' ? { body: {}, status: 404 } : { body: {}, status: 201 };
+  assert.equal(await resetRef({ ask: missing, ...branch }), 'created');
 });

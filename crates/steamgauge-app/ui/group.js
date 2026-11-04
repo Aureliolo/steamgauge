@@ -3,18 +3,18 @@
    review weighing the same, and each game's own figures a click away. */
 
 import {
-  invoke,
-  el,
-  set,
-  make,
   button,
-  roundShare,
-  whole,
-  language,
-  page,
-  go,
   ENOUGH_TO_LEAN,
+  el,
+  go,
+  invoke,
+  language,
+  make,
+  page,
+  roundShare,
+  set,
   thin,
+  whole,
 } from './common.js';
 
 let name = null;
@@ -23,13 +23,12 @@ let weight = 'each_game';
 const open = new Set();
 
 const SAYS = {
-  each_game:
-    'Each game counts once, however many reviews it has.',
+  each_game: 'Each game counts once, however many reviews it has.',
   every_review:
     'Every review weighs the same, so the games with the most reviews decide most of each figure.',
 };
 
-export function setUpGroup({ openSubject }) {
+function setUpGroup({ openSubject }) {
   page(
     'group',
     el('group'),
@@ -53,7 +52,12 @@ export function setUpGroup({ openSubject }) {
     weight = event.target.value;
     draw();
   });
-  el('group-compare').addEventListener('click', () => go('compare', found.games.map((game) => game.app_id)));
+  el('group-compare').addEventListener('click', () =>
+    go(
+      'compare',
+      found.games.map((game) => game.app_id),
+    ),
+  );
 
   async function load() {
     set(el('group-title'), name ?? 'Group');
@@ -62,27 +66,20 @@ export function setUpGroup({ openSubject }) {
     } catch (failure) {
       found = null;
       set(el('group-sub'), String(failure));
-      for (const id of ['group-table', 'group-legend', 'group-unread', 'group-empty']) el(id).hidden = true;
+      for (const id of ['group-table', 'group-legend', 'group-unread', 'group-empty']) {
+        el(id).hidden = true;
+      }
       return;
     }
     draw();
   }
 
   function draw() {
-    if (!found) return;
-    const games = found.games;
-    const reviews = games.reduce((sum, game) => sum + game.reviews, 0);
-    const languages = new Set(games.map((game) => game.language));
-    const tongue = languages.size === 1 && games[0].language ? ` ${language(games[0].language)}` : '';
-    set(
-      el('group-sub'),
-      games.length === 0
-        ? 'None of its games is read yet.'
-        : `${whole.format(games.length)} read ${games.length === 1 ? 'game' : 'games'}, ` +
-            `${whole.format(reviews)}${tongue} reviews` +
-            (languages.size > 1 ? ' in several languages' : '') +
-            '.',
-    );
+    if (!found) {
+      return;
+    }
+    const { games } = found;
+    set(el('group-sub'), subLine(games));
     set(el('group-weight-says'), SAYS[weight]);
     el('group-compare').disabled = games.length < 2;
 
@@ -91,7 +88,7 @@ export function setUpGroup({ openSubject }) {
     const left = found.unread.map((game) => game.name);
     set(
       unread,
-      `${left.length > 1 ? `${left.slice(0, -1).join(', ')} and ${left[left.length - 1]} are` : `${left[0] ?? ''} is`} ` +
+      `${left.length > 1 ? `${left.slice(0, -1).join(', ')} and ${left.at(-1)} are` : `${left[0] ?? ''} is`} ` +
         'not read yet and left out.',
     );
 
@@ -100,7 +97,9 @@ export function setUpGroup({ openSubject }) {
       .filter((subject) => subject[weight].rate > 0)
       .sort((a, b) => b[weight].rate - a[weight].rate);
     const widest = Math.max(0.0001, ...ranked.map((subject) => subject[weight].high));
-    el('group-rows').replaceChildren(...ranked.flatMap((subject) => rows(subject, names, widest, games.length)));
+    el('group-rows').replaceChildren(
+      ...ranked.flatMap((subject) => rows(subject, names, widest, games.length)),
+    );
 
     el('group-table').hidden = ranked.length === 0;
     el('group-legend').hidden = ranked.length === 0;
@@ -112,8 +111,11 @@ export function setUpGroup({ openSubject }) {
     const shown = open.has(subject.id);
     const detail = `group-games-${subject.id}`;
     const toggle = button(subject.label, 'disclosure', () => {
-      if (open.has(subject.id)) open.delete(subject.id);
-      else open.add(subject.id);
+      if (open.has(subject.id)) {
+        open.delete(subject.id);
+      } else {
+        open.add(subject.id);
+      }
       draw();
     });
     toggle.setAttribute('aria-expanded', String(shown));
@@ -130,7 +132,11 @@ export function setUpGroup({ openSubject }) {
         'cell',
         make('span', 'rate', roundShare.format(figures.rate)),
         bar(figures, split, widest),
-        make('small', null, `${roundShare.format(figures.low)} to ${roundShare.format(figures.high)}`),
+        make(
+          'small',
+          null,
+          `${roundShare.format(figures.low)} to ${roundShare.format(figures.high)}`,
+        ),
       ),
       make('td', 'cell', lean(split)),
       make(
@@ -140,7 +146,9 @@ export function setUpGroup({ openSubject }) {
         most ? make('small', null, `most in ${most}`) : null,
       ),
     );
-    if (!shown) return [row];
+    if (!shown) {
+      return [row];
+    }
 
     const perGame = make(
       'ul',
@@ -154,12 +162,7 @@ export function setUpGroup({ openSubject }) {
           make(
             'small',
             null,
-            `${whole.format(game.raised)} of ${whole.format(game.reviews)} reviews` +
-              (game.raised === 0
-                ? ''
-                : game.raised >= ENOUGH_TO_LEAN || thin.shown
-                  ? `, ${roundShare.format(game.praising)} praise, ${roundShare.format(game.complaining)} complain`
-                  : ', too few to split'),
+            `${whole.format(game.raised)} of ${whole.format(game.reviews)} reviews${splitNote(game)}`,
           ),
         ),
       ),
@@ -172,6 +175,31 @@ export function setUpGroup({ openSubject }) {
   }
 }
 
+function subLine(games) {
+  if (games.length === 0) {
+    return 'None of its games is read yet.';
+  }
+  const reviews = games.reduce((sum, game) => sum + game.reviews, 0);
+  const languages = new Set(games.map((game) => game.language));
+  const tongue = languages.size === 1 && games[0].language ? ` ${language(games[0].language)}` : '';
+  return (
+    `${whole.format(games.length)} read ${games.length === 1 ? 'game' : 'games'}, ` +
+    `${whole.format(reviews)}${tongue} reviews` +
+    (languages.size > 1 ? ' in several languages' : '') +
+    '.'
+  );
+}
+
+function splitNote(game) {
+  if (game.raised === 0) {
+    return '';
+  }
+  if (game.raised >= ENOUGH_TO_LEAN || thin.shown) {
+    return `, ${roundShare.format(game.praising)} praise, ${roundShare.format(game.complaining)} complain`;
+  }
+  return ', too few to split';
+}
+
 const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
 
 /* How the reviews raising a subject split, by the weighting shown, or null below the floor. Asked
@@ -181,19 +209,28 @@ function leaning(subject) {
   const figures = subject[weight];
   const raised = subject.games.reduce((sum, game) => sum + game.raised, 0);
   if (weight === 'every_review') {
-    if (raised === 0 || (raised < ENOUGH_TO_LEAN && !thin.shown)) return { withheld: raised };
-    return { ...figures, note: raised < ENOUGH_TO_LEAN ? `from ${whole.format(raised)} reviews` : null };
+    if (raised === 0 || (raised < ENOUGH_TO_LEAN && !thin.shown)) {
+      return { withheld: raised };
+    }
+    return {
+      ...figures,
+      note: raised < ENOUGH_TO_LEAN ? `from ${whole.format(raised)} reviews` : null,
+    };
   }
-  if (!thin.shown) return figures.praising === null ? { withheld: raised } : figures;
+  if (!thin.shown) {
+    return figures.praising === null ? { withheld: raised } : figures;
+  }
   const some = subject.games.filter((game) => game.raised > 0);
-  if (some.length === 0) return { withheld: 0 };
+  if (some.length === 0) {
+    return { withheld: 0 };
+  }
   return {
-    praising: mean(some.map((game) => game.praising)),
     complaining: mean(some.map((game) => game.complaining)),
     mixed: mean(some.map((game) => game.mixed)),
     note: some.some((game) => game.raised < ENOUGH_TO_LEAN)
       ? `counting games with fewer than ${ENOUGH_TO_LEAN} reviews raising it`
       : null,
+    praising: mean(some.map((game) => game.praising)),
   };
 }
 
@@ -223,7 +260,9 @@ function bar(figures, split, widest) {
 }
 
 function lean(split) {
-  if (split.withheld !== undefined) return make('small', null, 'Too few reviews to split');
+  if (split.withheld !== undefined) {
+    return make('small', null, 'Too few reviews to split');
+  }
   return make(
     'span',
     null,
@@ -233,3 +272,5 @@ function lean(split) {
     split.note ? make('small', null, split.note) : null,
   );
 }
+
+export { setUpGroup };

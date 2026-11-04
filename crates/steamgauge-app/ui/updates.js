@@ -2,7 +2,7 @@
    weeks after it. The core decides what an update is and what changed across it. This draws
    what it is told. Titles come from Steam and are always set as text. */
 
-import { invoke, el, set, make, whole, tenth, day, openOutside } from './common.js';
+import { day, el, invoke, make, openOutside, set, tenth, whole } from './common.js';
 import { chosenKind } from './who.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -11,7 +11,7 @@ const CHART_WIDTH = 1000;
    two of them would otherwise overlap. */
 const TOO_CLOSE = 2.4;
 const NOTE = ' Vertical lines are updates. Click a mark under the chart to open one.';
-const NONE = { asked: null, updates: [], window_days: 28, enough: 100 };
+const NONE = { asked: null, enough: 100, updates: [], window_days: 28 };
 
 let game = null;
 let listed = NONE;
@@ -25,7 +25,7 @@ const dated = (unix) => day.format(new Date(unix * 1000));
 
 /* The updates kept for a game, marked on whichever months the timeline draws. An update chosen on
    the same game stays chosen, so coming back from the points behind a figure comes back to it. */
-export async function loadUpdates(appId) {
+async function loadUpdates(appId) {
   const kept = game === appId ? chosen : null;
   game = appId;
   chosen = null;
@@ -38,7 +38,9 @@ export async function loadUpdates(appId) {
   } catch {
     return;
   }
-  if (game !== appId) return;
+  if (game !== appId) {
+    return;
+  }
   listed = found;
   el('around').hidden = false;
   el('around-body').hidden = true;
@@ -46,33 +48,44 @@ export async function loadUpdates(appId) {
   drawLede();
   drawChoices();
   drawMarks();
-  if (kept !== null && listed.updates.some((update) => update.gid === kept)) choose(kept);
+  if (kept !== null && listed.updates.some((update) => update.gid === kept)) {
+    choose(kept);
+  }
 }
 
 /* Called whenever the timeline is drawn, with the months it drew. A timeline of one kind of
    reviewer is redrawn when the kind changes, and an update on show is counted again over it. */
-export function markUpdates(months) {
+function markUpdates(months) {
   drawn = months.length < 2 ? [] : months.map((month) => month.label);
   drawMarks();
-  if (chosen !== null && (chosenKind()?.id ?? null) !== countedOver) choose(chosen);
+  if (chosen !== null && (chosenKind()?.id ?? null) !== countedOver) {
+    choose(chosen);
+  }
 }
 
 /* Where an update falls on the months drawn, in columns from the left edge: its month's column
    and how far through it, or where the next column starts when its month has none. */
 function columnOf(update) {
-  if (drawn.length === 0 || update.month < drawn[0] || update.month > drawn[drawn.length - 1]) return null;
+  if (drawn.length === 0 || update.month < drawn[0] || update.month > drawn.at(-1)) {
+    return null;
+  }
   const column = drawn.findIndex((label) => label >= update.month);
   return drawn[column] === update.month ? column + update.through : column;
 }
 
 function drawLede() {
   const { asked, updates, window_days: days } = listed;
-  const choose = el('around-choose');
-  choose.hidden = updates.length === 0;
+  el('around-choose').hidden = updates.length === 0;
   if (asked === null) {
-    set(el('around-lede'), 'Steam has not been asked for this game’s updates yet. Bringing it up to date asks.');
+    set(
+      el('around-lede'),
+      'Steam has not been asked for this game’s updates yet. Bringing it up to date asks.',
+    );
   } else if (updates.length === 0) {
-    set(el('around-lede'), `Nothing its developer had posted on Steam by ${dated(asked)} reads as an update.`);
+    set(
+      el('around-lede'),
+      `Nothing its developer had posted on Steam by ${dated(asked)} reads as an update.`,
+    );
   } else {
     set(
       el('around-lede'),
@@ -95,17 +108,59 @@ function drawChoices() {
   select.value = '';
 }
 
+/* Updates closer together than a marker can be told apart are one marker. */
+function groupNearby(placed, months) {
+  const groups = [];
+  for (const update of placed) {
+    const at = (100 * update.at) / months;
+    const last = groups.at(-1);
+    if (last && at - last.from < TOO_CLOSE) {
+      last.updates.push({ ...update, pct: at });
+    } else {
+      groups.push({ from: at, updates: [{ ...update, pct: at }] });
+    }
+  }
+  return groups;
+}
+
+function markOf(updates) {
+  const middle = updates.reduce((sum, update) => sum + update.pct, 0) / updates.length;
+  const several = updates.length > 1;
+  const mark = make(
+    'button',
+    several ? 'update-mark' : 'update-mark one',
+    several ? String(updates.length) : '',
+  );
+  mark.type = 'button';
+  mark.style.left = `${Math.min(Math.max(middle, 0.6), 99.4)}%`;
+  const named = updates.map((update) => `${update.title}, ${dated(update.posted)}`);
+  const label = several
+    ? `${updates.length} updates, ${dated(updates[0].posted)} to ${dated(updates.at(-1).posted)}`
+    : named[0];
+  mark.setAttribute('aria-label', label);
+  mark.title = named.join('\n');
+  mark.dataset.gids = updates.map((update) => update.gid).join(' ');
+  /* The newest of a group, since an update is most often followed by its fixes and the
+     list beside it offers the rest. */
+  mark.addEventListener('click', () => choose(updates.at(-1).gid));
+  return mark;
+}
+
 /* Lines on the chart where each update falls, and under it the markers that choose one. */
 function drawMarks() {
   const svg = el('timeline-svg');
-  for (const old of svg.querySelectorAll('.update-line')) old.remove();
+  for (const old of svg.querySelectorAll('.update-line')) {
+    old.remove();
+  }
   const strip = el('update-strip');
   strip.replaceChildren();
   strip.hidden = true;
   const placed = listed.updates
     .map((update) => ({ ...update, at: columnOf(update) }))
     .filter((update) => update.at !== null);
-  if (placed.length === 0) return;
+  if (placed.length === 0) {
+    return;
+  }
 
   const months = drawn.length;
   const step = CHART_WIDTH / months;
@@ -113,7 +168,13 @@ function drawMarks() {
   for (const update of placed) {
     const x = (update.at * step).toFixed(2);
     const line = document.createElementNS(SVG, 'line');
-    for (const [key, value] of Object.entries({ class: 'update-line', x1: x, x2: x, y1: 0, y2: 160 })) {
+    for (const [key, value] of Object.entries({
+      class: 'update-line',
+      x1: x,
+      x2: x,
+      y1: 0,
+      y2: 160,
+    })) {
       line.setAttribute(key, value);
     }
     line.dataset.gid = update.gid;
@@ -121,36 +182,15 @@ function drawMarks() {
     svg.insertBefore(line, firstTarget);
   }
 
-  const groups = [];
-  for (const update of placed) {
-    const at = (100 * update.at) / months;
-    const last = groups[groups.length - 1];
-    if (last && at - last.from < TOO_CLOSE) last.updates.push({ ...update, pct: at });
-    else groups.push({ from: at, updates: [{ ...update, pct: at }] });
-  }
-  for (const group of groups) {
-    const { updates } = group;
-    const middle = updates.reduce((sum, update) => sum + update.pct, 0) / updates.length;
-    const several = updates.length > 1;
-    const mark = make('button', several ? 'update-mark' : 'update-mark one', several ? String(updates.length) : '');
-    mark.type = 'button';
-    mark.style.left = `${Math.min(Math.max(middle, 0.6), 99.4)}%`;
-    const named = updates.map((update) => `${update.title}, ${dated(update.posted)}`);
-    const label = several
-      ? `${updates.length} updates, ${dated(updates[0].posted)} to ${dated(updates[updates.length - 1].posted)}`
-      : named[0];
-    mark.setAttribute('aria-label', label);
-    mark.title = named.join('\n');
-    mark.dataset.gids = updates.map((update) => update.gid).join(' ');
-    /* The newest of a group, since an update is most often followed by its fixes and the
-       list beside it offers the rest. */
-    mark.addEventListener('click', () => choose(updates[updates.length - 1].gid));
-    strip.append(mark);
+  for (const { updates } of groupNearby(placed, months)) {
+    strip.append(markOf(updates));
   }
   strip.hidden = false;
   markChosen();
   const note = el('timeline-note');
-  if (!note.textContent.endsWith(NOTE)) note.append(NOTE);
+  if (!note.textContent.endsWith(NOTE)) {
+    note.append(NOTE);
+  }
 }
 
 function markChosen() {
@@ -188,7 +228,9 @@ async function choose(gid) {
     }
     return;
   }
-  if (appId !== game || chosen !== gid || countedOver !== (kind?.id ?? null)) return;
+  if (appId !== game || chosen !== gid || countedOver !== (kind?.id ?? null)) {
+    return;
+  }
   set(el('around-state'), '');
   drawAround(found, kind);
   body.hidden = false;
@@ -231,10 +273,14 @@ function drawAround(found, kind) {
   counts +=
     after.to === after.from
       ? `${whole.format(before.reviews)} reviews in the ${days} days before. It was posted after these reviews were ` +
-        `downloaded; bringing the game up to date fetches what followed.`
+        'downloaded; bringing the game up to date fetches what followed.'
       : `${whole.format(before.reviews)} reviews in the ${days} days before, ${whole.format(after.reviews)} in ` +
-        (found.after_whole ? `the ${days} days after.` : `the ${afterDays} days since, all this download holds.`);
-  if (found.nearby === 1) counts += ' One other update falls in these weeks. Its effects are in these figures too.';
+        (found.after_whole
+          ? `the ${days} days after.`
+          : `the ${afterDays} days since, all this download holds.`);
+  if (found.nearby === 1) {
+    counts += ' One other update falls in these weeks. Its effects are in these figures too.';
+  }
   if (found.nearby > 1) {
     counts += ` ${spelled(found.nearby)} other updates fall in these weeks. Their effects are in these figures too.`;
   }
@@ -244,19 +290,20 @@ function drawAround(found, kind) {
   thin.hidden = found.enough;
   set(
     thin,
-    found.enough
-      ? ''
-      : `Too few reviews to compare. Each side needs ${whole.format(enough)}.`,
+    found.enough ? '' : `Too few reviews to compare. Each side needs ${whole.format(enough)}.`,
   );
   el('around-table-wrap').hidden = !found.enough;
   el('around-summary').hidden = !found.enough;
 
   /* What changed is marked in the line and the table below. Only its absence needs saying. */
   const changed =
-    found.recommended?.change || found.subjects.some((subject) => subject.praise.change || subject.complaint.change);
+    found.recommended?.change ||
+    found.subjects.some((subject) => subject.praise.change || subject.complaint.change);
   const summary = el('around-summary');
   summary.replaceChildren(
-    changed ? '' : 'Nothing changed beyond chance, neither the share recommending the game nor any subject’s praise or complaints.',
+    changed
+      ? ''
+      : 'Nothing changed beyond chance, neither the share recommending the game nor any subject’s praise or complaints.',
   );
   summary.hidden = !found.enough || changed;
 
@@ -282,11 +329,13 @@ function drawAround(found, kind) {
 
   set(
     el('around-footnote'),
-    `Each share is of the reviews written in its window. A change is at least three standard errors and ` +
+    'Each share is of the reviews written in its window. A change is at least three standard errors and ' +
       `two points, with ${whole.format(enough)} reviews a side. The update may not be its cause.`,
   );
 }
 
-export function setUpUpdates() {
+function setUpUpdates() {
   el('update-choice').addEventListener('change', (event) => choose(event.target.value));
 }
+
+export { loadUpdates, markUpdates, setUpUpdates };

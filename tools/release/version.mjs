@@ -7,87 +7,118 @@
 //   node tools/release/version.mjs check                       prints the version once all agree
 //   node tools/release/version.mjs bump <patch|minor|major|X.Y.Z>
 //   node tools/release/version.mjs of-manifest < Cargo.toml    prints the workspace version
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import process from "node:process";
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
 
-import { isMain } from "./github.mjs";
+import { isMain } from './github.mjs';
 
-const VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
+const VERSION = /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<pre>[0-9A-Za-z.-]+))?$/u;
+const ALL_DIGITS = /^\d+$/u;
+const TABLE_HEADER_LINE = /^\s*\[/u;
+const VERSION_LINE = /^(?<head>\s*version\s*=\s*")(?<version>[^"]*)(?<tail>".*)$/u;
+const MEMBERS_LIST = /^members\s*=\s*\[(?<list>[^\]]*)\]/mu;
+const QUOTED_MEMBER = /"(?<member>[^"]+)"/gu;
+const PACKAGE_NAME_LINE = /^\s*name\s*=\s*"(?<name>[^"]+)"/u;
+const INHERITED_VERSION_DOTTED = /^\s*version\.workspace\s*=\s*true\b/u;
+const INHERITED_VERSION_INLINE = /^\s*version\s*=\s*\{\s*workspace\s*=\s*true\s*\}/u;
+const LOCK_PACKAGE_BOUNDARY = /\n(?=\[\[package\]\]\r?\n)/u;
+const LOCK_VERSION_FIELD = /^version = "[^"]*"/mu;
 
-export function parseVersion(text) {
+function parseVersion(text) {
   const match = VERSION.exec(text);
   if (match === null) {
     return null;
   }
+  const { major, minor, patch, pre } = match.groups;
   return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-    pre: match[4] === undefined ? [] : match[4].split("."),
+    major: Number(major),
+    minor: Number(minor),
+    patch: Number(patch),
+    pre: pre === undefined ? [] : pre.split('.'),
   };
 }
 
-// Negative when `left` is the older version, as semver orders them: a pre-release sorts below
-// the release it leads to, and numeric identifiers compare as numbers.
-export function compareVersions(left, right) {
-  const a = parseVersion(left);
-  const b = parseVersion(right);
-  if (a === null || b === null) {
-    throw new Error(`Not a version: ${a === null ? left : right}`);
+function compareIdentifiers(x, y) {
+  const [xn, yn] = [ALL_DIGITS.test(x), ALL_DIGITS.test(y)];
+  if (xn && yn) {
+    return Number(x) - Number(y);
   }
-  for (const part of ["major", "minor", "patch"]) {
-    if (a[part] !== b[part]) {
-      return a[part] - b[part];
-    }
+  if (xn !== yn) {
+    return xn ? -1 : 1;
   }
+  return x < y ? -1 : 1;
+}
+
+function comparePreReleases(a, b) {
   if (a.pre.length === 0 || b.pre.length === 0) {
     return b.pre.length - a.pre.length;
   }
   for (let i = 0; i < Math.min(a.pre.length, b.pre.length); i += 1) {
     const [x, y] = [a.pre[i], b.pre[i]];
-    if (x === y) {
-      continue;
+    if (x !== y) {
+      return compareIdentifiers(x, y);
     }
-    const [xn, yn] = [/^\d+$/.test(x), /^\d+$/.test(y)];
-    if (xn && yn) {
-      return Number(x) - Number(y);
-    }
-    if (xn !== yn) {
-      return xn ? -1 : 1;
-    }
-    return x < y ? -1 : 1;
   }
   return a.pre.length - b.pre.length;
+}
+
+// Negative when `left` is the older version, as semver orders them: a pre-release sorts below
+// the release it leads to, and numeric identifiers compare as numbers.
+function compareVersions(left, right) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  if (a === null || b === null) {
+    throw new Error(`Not a version: ${a === null ? left : right}`);
+  }
+  for (const part of ['major', 'minor', 'patch']) {
+    if (a[part] !== b[part]) {
+      return a[part] - b[part];
+    }
+  }
+  return comparePreReleases(a, b);
+}
+
+function raised(parsed, how) {
+  const { major, minor, patch } = parsed;
+  if (how === 'major') {
+    return `${major + 1}.0.0`;
+  }
+  if (how === 'minor') {
+    return `${major}.${minor + 1}.0`;
+  }
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+function exactRelease(how) {
+  const exact = parseVersion(how);
+  if (exact === null) {
+    throw new Error(`Not a version: ${how}`);
+  }
+  // Every release is published as the latest one and is immutable once it is, so a
+  // pre-release would stand as the newest release for good.
+  if (exact.pre.length > 0) {
+    throw new Error(`${how} is a pre-release; a release is three numbers, such as 1.0.0.`);
+  }
+  return how;
 }
 
 // The version after `current`. A pre-release has no obvious next patch, so it takes an exact
 // version. So does anything that would not move the version forward, because a release that
 // goes backwards or stands still is a tag that can never be made.
-export function nextVersion(current, how) {
+function nextVersion(current, how) {
   const parsed = parseVersion(current);
   if (parsed === null) {
     throw new Error(`The current version is not one: ${current}`);
   }
   let next;
-  if (how === "major" || how === "minor" || how === "patch") {
+  if (how === 'major' || how === 'minor' || how === 'patch') {
     if (parsed.pre.length > 0) {
       throw new Error(`${current} is a pre-release; name the exact version that follows it.`);
     }
-    const { major, minor, patch } = parsed;
-    next =
-      how === "major" ? `${major + 1}.0.0` : how === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+    next = raised(parsed, how);
   } else {
-    const exact = parseVersion(how);
-    if (exact === null) {
-      throw new Error(`Not a version: ${how}`);
-    }
-    // Every release is published as the latest one and is immutable once it is, so a
-    // pre-release would stand as the newest release for good.
-    if (exact.pre.length > 0) {
-      throw new Error(`${how} is a pre-release; a release is three numbers, such as 1.0.0.`);
-    }
-    next = how;
+    next = exactRelease(how);
   }
   if (compareVersions(next, current) <= 0) {
     throw new Error(`${next} does not come after ${current}.`);
@@ -102,117 +133,117 @@ function section(lines, table) {
     return null;
   }
   let end = start + 1;
-  while (end < lines.length && !/^\s*\[/.test(lines[end])) {
+  while (end < lines.length && !TABLE_HEADER_LINE.test(lines[end])) {
     end += 1;
   }
-  return { start: start + 1, end };
+  return { end, start: start + 1 };
 }
 
-const VERSION_LINE = /^(\s*version\s*=\s*")([^"]*)(".*)$/;
-
-export function workspaceVersion(manifest) {
-  const lines = manifest.split("\n");
-  const table = section(lines, "workspace.package");
+function workspaceVersion(manifest) {
+  const lines = manifest.split('\n');
+  const table = section(lines, 'workspace.package');
   if (table === null) {
     return null;
   }
   for (let i = table.start; i < table.end; i += 1) {
     const match = VERSION_LINE.exec(lines[i]);
     if (match !== null) {
-      return match[2];
+      return match.groups.version;
     }
   }
   return null;
 }
 
-export function withWorkspaceVersion(manifest, version) {
-  const lines = manifest.split("\n");
-  const table = section(lines, "workspace.package");
+function withWorkspaceVersion(manifest, version) {
+  const lines = manifest.split('\n');
+  const table = section(lines, 'workspace.package');
   for (let i = table?.start ?? 0; table !== null && i < table.end; i += 1) {
     if (VERSION_LINE.test(lines[i])) {
-      lines[i] = lines[i].replace(VERSION_LINE, `$1${version}$3`);
-      return lines.join("\n");
+      lines[i] = lines[i].replace(VERSION_LINE, `$<head>${version}$<tail>`);
+      return lines.join('\n');
     }
   }
-  throw new Error("The root Cargo.toml has no version under [workspace.package].");
+  throw new Error('The root Cargo.toml has no version under [workspace.package].');
 }
 
-export function workspaceMembers(manifest) {
-  const match = /^members\s*=\s*\[([^\]]*)\]/m.exec(manifest);
+function workspaceMembers(manifest) {
+  const match = MEMBERS_LIST.exec(manifest);
   if (match === null) {
-    throw new Error("The root Cargo.toml lists no workspace members.");
+    throw new Error('The root Cargo.toml lists no workspace members.');
   }
-  const members = [...match[1].matchAll(/"([^"]+)"/g)].map((found) => found[1]);
-  if (members.some((member) => member.includes("*"))) {
+  const members = [...match.groups.list.matchAll(QUOTED_MEMBER)].map(
+    (found) => found.groups.member,
+  );
+  if (members.some((member) => member.includes('*'))) {
     throw new Error("Workspace members are globbed; list them, so each one's version is checked.");
   }
   return members;
 }
 
 // A member crate's name, and whether its version is the workspace's rather than its own.
-export function memberPackage(manifest) {
-  const lines = manifest.split("\n");
-  const table = section(lines, "package");
+function memberPackage(manifest) {
+  const lines = manifest.split('\n');
+  const table = section(lines, 'package');
   if (table === null) {
-    throw new Error("A workspace member has no [package] table.");
+    throw new Error('A workspace member has no [package] table.');
   }
   const body = lines.slice(table.start, table.end);
-  const name = body.map((line) => /^\s*name\s*=\s*"([^"]+)"/.exec(line)).find(Boolean)?.[1];
+  const name = body.map((line) => PACKAGE_NAME_LINE.exec(line)).find(Boolean)?.groups.name;
   const inherits = body.some(
-    (line) => /^\s*version\.workspace\s*=\s*true\b/.test(line) || /^\s*version\s*=\s*\{\s*workspace\s*=\s*true\s*\}/.test(line),
+    (line) => INHERITED_VERSION_DOTTED.test(line) || INHERITED_VERSION_INLINE.test(line),
   );
-  return { name, inherits };
+  return { inherits, name };
 }
 
 // Cargo.lock's [[package]] entries, each as its own text, the file's header first.
 function lockBlocks(lock) {
-  return lock.split(/\n(?=\[\[package\]\]\r?\n)/);
+  return lock.split(LOCK_PACKAGE_BOUNDARY);
 }
 
 function blockField(block, field) {
-  return new RegExp(`^${field} = "([^"]*)"`, "m").exec(block)?.[1];
+  return new RegExp(`^${field} = "([^"]*)"`, 'mu').exec(block)?.[1];
 }
 
 // The version Cargo.lock records for each named crate of the workspace. Only entries without a
 // source are the workspace's own: a crate of the same name from a registry is somebody else's.
-export function lockVersions(lock, names) {
+function lockVersions(lock, names) {
   const found = new Map();
   for (const block of lockBlocks(lock).slice(1)) {
-    const name = blockField(block, "name");
-    if (names.includes(name) && blockField(block, "source") === undefined) {
-      found.set(name, blockField(block, "version"));
+    const name = blockField(block, 'name');
+    if (names.includes(name) && blockField(block, 'source') === undefined) {
+      found.set(name, blockField(block, 'version'));
     }
   }
   return found;
 }
 
-export function withLockVersions(lock, names, version) {
+function withLockVersions(lock, names, version) {
   const blocks = lockBlocks(lock);
   let changed = 0;
   for (let i = 1; i < blocks.length; i += 1) {
-    const name = blockField(blocks[i], "name");
-    if (names.includes(name) && blockField(blocks[i], "source") === undefined) {
-      blocks[i] = blocks[i].replace(/^version = "[^"]*"/m, `version = "${version}"`);
+    const name = blockField(blocks[i], 'name');
+    if (names.includes(name) && blockField(blocks[i], 'source') === undefined) {
+      blocks[i] = blocks[i].replace(LOCK_VERSION_FIELD, `version = "${version}"`);
       changed += 1;
     }
   }
   if (changed !== names.length) {
     throw new Error(`Cargo.lock holds ${changed} of the workspace's ${names.length} crates.`);
   }
-  return blocks.join("\n");
+  return blocks.join('\n');
 }
 
 function read(root, path) {
-  return readFileSync(join(root, path), "utf8");
+  return readFileSync(join(root, path), 'utf8');
 }
 
 // The workspace version, and every way the places it lives disagree with it.
-export function inspect(root) {
-  const manifest = read(root, "Cargo.toml");
+function inspect(root) {
+  const manifest = read(root, 'Cargo.toml');
   const version = workspaceVersion(manifest);
   const problems = [];
   if (version === null) {
-    problems.push("The root Cargo.toml has no version under [workspace.package].");
+    problems.push('The root Cargo.toml has no version under [workspace.package].');
   } else if (parseVersion(version) === null) {
     problems.push(`The workspace version ${version} is not a version.`);
   }
@@ -228,7 +259,7 @@ export function inspect(root) {
       problems.push(`${name} sets its own version rather than taking the workspace's.`);
     }
   }
-  const locked = lockVersions(read(root, "Cargo.lock"), names);
+  const locked = lockVersions(read(root, 'Cargo.lock'), names);
   for (const name of names) {
     if (!locked.has(name)) {
       problems.push(`Cargo.lock has no entry for ${name}.`);
@@ -236,44 +267,46 @@ export function inspect(root) {
       problems.push(`Cargo.lock records ${name} ${locked.get(name)}, not ${version}.`);
     }
   }
-  return { version, names, problems };
+  return { names, problems, version };
 }
 
 // Raises the version in the manifest and the lock file, and names them, for the commit that
 // carries the change.
-export function bump(root, how) {
+function bump(root, how) {
   const { version, names, problems } = inspect(root);
   if (problems.length > 0) {
-    throw new Error(problems.join("\n"));
+    throw new Error(problems.join('\n'));
   }
   const next = nextVersion(version, how);
-  writeFileSync(join(root, "Cargo.toml"), withWorkspaceVersion(read(root, "Cargo.toml"), next));
-  writeFileSync(join(root, "Cargo.lock"), withLockVersions(read(root, "Cargo.lock"), names, next));
-  const files = ["Cargo.toml", "Cargo.lock"];
+  writeFileSync(join(root, 'Cargo.toml'), withWorkspaceVersion(read(root, 'Cargo.toml'), next));
+  writeFileSync(join(root, 'Cargo.lock'), withLockVersions(read(root, 'Cargo.lock'), names, next));
+  const files = ['Cargo.toml', 'Cargo.lock'];
   const after = inspect(root);
   if (after.problems.length > 0 || after.version !== next) {
-    throw new Error(`The bump to ${next} left: ${after.problems.join(" ")}`);
+    throw new Error(`The bump to ${next} left: ${after.problems.join(' ')}`);
   }
-  return { from: version, to: next, files };
+  return { files, from: version, to: next };
 }
 
 function main() {
   const [command, argument] = process.argv.slice(2);
   const root = process.cwd();
-  if (command === "check") {
+  if (command === 'check') {
     const { version, problems } = inspect(root);
     if (problems.length > 0) {
-      throw new Error(problems.join("\n"));
+      throw new Error(problems.join('\n'));
     }
     console.log(version);
-  } else if (command === "bump" && argument !== undefined) {
+  } else if (command === 'bump' && argument !== undefined) {
     const { from, to, files } = bump(root, argument);
     console.error(`Version ${from} -> ${to}`);
-    console.log(`Updated: ${files.join(", ")}`);
-  } else if (command === "of-manifest") {
-    console.log(workspaceVersion(readFileSync(0, "utf8")) ?? "");
+    console.log(`Updated: ${files.join(', ')}`);
+  } else if (command === 'of-manifest') {
+    console.log(workspaceVersion(readFileSync(0, 'utf8')) ?? '');
   } else {
-    throw new Error("Usage: node tools/release/version.mjs check | bump <patch|minor|major|X.Y.Z> | of-manifest");
+    throw new Error(
+      'Usage: node tools/release/version.mjs check | bump <patch|minor|major|X.Y.Z> | of-manifest',
+    );
   }
 }
 
@@ -285,3 +318,17 @@ if (isMain(import.meta.url)) {
     process.exit(1);
   }
 }
+
+export {
+  bump,
+  compareVersions,
+  inspect,
+  lockVersions,
+  memberPackage,
+  nextVersion,
+  parseVersion,
+  withLockVersions,
+  withWorkspaceVersion,
+  workspaceMembers,
+  workspaceVersion,
+};

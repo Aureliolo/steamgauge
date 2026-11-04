@@ -8,10 +8,10 @@
 // the workspace version raised and nothing else, byte for byte.
 //
 //   node tools/release/scope.mjs <base> <head>   prints code, version or packaging
-import { execFileSync } from "node:child_process";
-import process from "node:process";
+import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 
-import { isMain } from "./github.mjs";
+import { isMain } from './github.mjs';
 import {
   compareVersions,
   memberPackage,
@@ -19,37 +19,39 @@ import {
   withWorkspaceVersion,
   workspaceMembers,
   workspaceVersion,
-} from "./version.mjs";
+} from './version.mjs';
 
-const PACKAGING = /^(Casks|bucket)\//;
-const VERSIONED = new Set(["Cargo.toml", "Cargo.lock"]);
+const PACKAGING = /^(?:Casks|bucket)\//u;
+const VERSIONED = new Set(['Cargo.toml', 'Cargo.lock']);
 
 // `before` and `after` read a file's text at each commit, or throw where it is absent.
-export function scopeOf(changed, before, after) {
+function scopeOf(changed, before, after) {
   if (changed.length === 0) {
-    return "code";
+    return 'code';
   }
   if (changed.every((path) => PACKAGING.test(path))) {
-    return "packaging";
+    return 'packaging';
   }
   if (changed.every((path) => VERSIONED.has(path)) && onlyTheVersion(before, after)) {
-    return "version";
+    return 'version';
   }
-  return "code";
+  return 'code';
 }
 
 function onlyTheVersion(before, after) {
   try {
-    const manifest = after("Cargo.toml");
-    const from = workspaceVersion(before("Cargo.toml"));
+    const manifest = after('Cargo.toml');
+    const from = workspaceVersion(before('Cargo.toml'));
     const to = workspaceVersion(manifest);
     if (from === null || to === null || compareVersions(to, from) <= 0) {
       return false;
     }
-    const names = workspaceMembers(manifest).map((member) => memberPackage(after(`${member}/Cargo.toml`)).name);
+    const names = workspaceMembers(manifest).map(
+      (member) => memberPackage(after(`${member}/Cargo.toml`)).name,
+    );
     return (
-      withWorkspaceVersion(before("Cargo.toml"), to) === manifest &&
-      withLockVersions(before("Cargo.lock"), names, to) === after("Cargo.lock")
+      withWorkspaceVersion(before('Cargo.toml'), to) === manifest &&
+      withLockVersions(before('Cargo.lock'), names, to) === after('Cargo.lock')
     );
   } catch {
     return false;
@@ -57,16 +59,20 @@ function onlyTheVersion(before, after) {
 }
 
 function git(...args) {
-  return execFileSync("git", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
 if (isMain(import.meta.url)) {
   const [base, head] = process.argv.slice(2);
   if (base === undefined || head === undefined) {
-    console.error("usage: scope.mjs <base> <head>");
+    console.error('usage: scope.mjs <base> <head>');
     process.exit(2);
   }
-  const changed = git("diff", "--name-only", "--no-renames", base, head).split("\n").filter(Boolean);
-  const at = (commit) => (path) => git("show", `${commit}:${path}`);
+  const changed = git('diff', '--name-only', '--no-renames', base, head)
+    .split('\n')
+    .filter(Boolean);
+  const at = (commit) => (path) => git('show', `${commit}:${path}`);
   console.log(scopeOf(changed, at(base), at(head)));
 }
+
+export { scopeOf };

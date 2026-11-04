@@ -4,10 +4,11 @@
 //
 //   cargo run -p steamgauge-core --example sample-gold -- sample-acceptable-gold.html --acceptable
 //   node tools/gold-check/acceptable.mjs sample-acceptable-gold.html
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-
-import { connect, debuggerUrl, open } from "./chrome.mjs";
+import { resolve } from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import { debuggerUrl, open } from '../chrome.mjs';
+import { connect } from './chrome.mjs';
 
 const PROBE = `(function () {
   var wrong = [];
@@ -70,22 +71,26 @@ const RELOADED = `(function () {
   return at === 3 ? [] : ['a reload starts at question ' + at + ' rather than the first unanswered one'];
 })()`;
 
-const file = resolve(process.argv[2] ?? "sample-acceptable-gold.html");
+const file = resolve(process.argv[2] ?? 'sample-acceptable-gold.html');
 const page = pathToFileURL(file).href;
-const chrome = await open(page, { prefix: "steamgauge-acceptable-check-" });
+const chrome = await open(page, { prefix: 'steamgauge-acceptable-check-' });
 
 let failed = true;
 try {
   const { socket, send, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
-  await send("Page.reload", { ignoreCache: true });
+  await send('Page.reload', { ignoreCache: true });
   await ready();
-  const wrong = (await evaluate(PROBE)).result?.result?.value ?? ["the page could not be driven at all"];
-  await send("Page.reload", { ignoreCache: true });
+  const wrong = (await evaluate(PROBE)).result?.result?.value ?? [
+    'the page could not be driven at all',
+  ];
+  await send('Page.reload', { ignoreCache: true });
   await ready();
-  const again = (await evaluate(RELOADED)).result?.result?.value ?? ["the page could not be read after a reload"];
+  const again = (await evaluate(RELOADED)).result?.result?.value ?? [
+    'the page could not be read after a reload',
+  ];
   const all = [...wrong, ...again];
-  if (all.length) {
-    console.error(`${file}\n  ${all.join("\n  ")}`);
+  if (all.length > 0) {
+    console.error(`${file}\n  ${all.join('\n  ')}`);
   } else {
     console.log(`${file}: acceptability questions keep every promise they make`);
     failed = false;

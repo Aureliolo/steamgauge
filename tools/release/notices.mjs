@@ -13,109 +13,157 @@
 // `check` reads an unpacked archive back: the notices must name every crate its build
 // resolved that did not come from this repository, and every file in it must be one whose
 // licence the notices or LICENSE cover.
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { isMain } from "./github.mjs";
-import { parseCrates } from "./lock-subset.mjs";
+import { isMain } from './github.mjs';
+import { parseCrates } from './lock-subset.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const THIRD_PARTY = join(ROOT, "third-party");
-const APP_MANIFEST = join(ROOT, "crates", "steamgauge-app", "Cargo.toml");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const THIRD_PARTY = join(ROOT, 'third-party');
+const APP_MANIFEST = join(ROOT, 'crates', 'steamgauge-app', 'Cargo.toml');
 
 // What third-party/ holds for the two components no crate carries the licence of. A new ONNX
 // Runtime arrives with an ort-sys update, and `write` refuses it until the texts here are
 // replaced with that version's and the version below with it.
-export const ONNX_RUNTIME = {
-  heading: "ONNX Runtime",
-  version: "1.31.0",
-  source: "https://github.com/microsoft/onnxruntime/tree/v1.31.0",
-  files: ["onnxruntime/LICENSE", "onnxruntime/ThirdPartyNotices.txt"],
+const ONNX_RUNTIME = {
+  files: ['onnxruntime/LICENSE', 'onnxruntime/ThirdPartyNotices.txt'],
+  heading: 'ONNX Runtime',
+  source: 'https://github.com/microsoft/onnxruntime/tree/v1.31.0',
+  version: '1.31.0',
 };
 
-export const DIRECTML = {
-  heading: "DirectML",
-  version: "1.15.4",
-  source: "https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4",
-  files: ["directml/LICENSE.txt", "directml/LICENSE-CODE.txt", "directml/ThirdPartyNotices.txt"],
+const DIRECTML = {
   // bin/x64-win/DirectML.dll in that package, byte for byte the file ort-sys puts beside the
   // binary. A different one is a different DirectML, whose terms have not been read.
-  dll: new Map([["x86_64-pc-windows-msvc", "9c9e6d822561c6c41b90e6994b3e8857cf1d66dbfb1e0c4c799c7c89b4e92da1"]]),
+  dll: new Map([
+    ['x86_64-pc-windows-msvc', '9c9e6d822561c6c41b90e6994b3e8857cf1d66dbfb1e0c4c799c7c89b4e92da1'],
+  ]),
+  files: ['directml/LICENSE.txt', 'directml/LICENSE-CODE.txt', 'directml/ThirdPartyNotices.txt'],
+  heading: 'DirectML',
+  source: 'https://www.nuget.org/packages/Microsoft.AI.DirectML/1.15.4',
+  version: '1.15.4',
 };
 
 // The C++ runtime tools/release/runtime-dlls.mjs places beside the Windows binary: whatever of
 // these the binary and DirectML.dll import, copied unmodified from the Visual C++ redistributable
 // folder of the Visual Studio that built them, so its version follows that Visual Studio's.
-export const CPP_RUNTIME = {
-  heading: "Microsoft Visual C++ runtime",
-  dll: /^(msvcp140(_[a-z0-9_]+)?|vcruntime140(_[a-z0-9_]+)?|concrt140|vccorlib140)\.dll$/i,
-  redistribution: "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
-  terms: "https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/",
+const CPP_RUNTIME = {
+  dll: /^(?:msvcp140(?:_[a-z0-9_]+)?|vcruntime140(?:_[a-z0-9_]+)?|concrt140|vccorlib140)\.dll$/iu,
+  heading: 'Microsoft Visual C++ runtime',
+  redistribution: 'https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution',
+  terms: 'https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/',
 };
 
 // Licences whose text names no copyright holder, so SPDX's copy of one is the licence itself.
-const WITHOUT_A_HOLDER = new Set(["Apache-2.0", "MPL-2.0", "CDLA-Permissive-2.0"]);
+const WITHOUT_A_HOLDER = new Set(['Apache-2.0', 'MPL-2.0', 'CDLA-Permissive-2.0']);
 
 // What cargo-about says, on a line of its own, when a clarification in about.toml no longer
 // matches the file it names or a crate could not be read. Either leaves a crate to whatever
 // the scan finds, which is how a changed licence would pass unread.
-const REFUSED_WARNINGS = [/failed to validate all files specified in clarification/, /unable to scan for license files/];
+const REFUSED_WARNINGS = [
+  /failed to validate all files specified in clarification/u,
+  /unable to scan for license files/u,
+];
 
-const RULE = "=".repeat(80);
-const THIN = "-".repeat(80);
-const CRATES_HEADING = "1. Rust crates";
-const OWN_FILES = new Set(["steamgauge", "steamgauge.exe", "README.md", "LICENSE", "THIRD-PARTY-NOTICES.txt"]);
+const RULE = '='.repeat(80);
+const THIN = '-'.repeat(80);
+const CRATES_HEADING = '1. Rust crates';
+const OWN_FILES = new Set([
+  'steamgauge',
+  'steamgauge.exe',
+  'README.md',
+  'LICENSE',
+  'THIRD-PARTY-NOTICES.txt',
+]);
+const LEADING_BYTE_ORDER_MARK = /^﻿/u;
+// Only ever passed to `replace`, which resets lastIndex, so sharing the global flag is safe.
+const CARRIAGE_RETURNS = /\r\n?/gu;
+const TRAILING_WHITESPACE = /\s+$/u;
+const TRAILING_NEWLINES = /\n+$/u;
+const LINE_BREAK = /\r?\n/u;
+const ONNX_RUNTIME_VERSION_IN_URL = /\/ms@(?<version>[^/]+)\//u;
+const LISTED_CRATE_ROW = /^(?<name>\S+) (?<version>\S+) \| /u;
+const LOCK_PACKAGE_BOUNDARY = /\n(?=\[\[package\]\]\r?\n)/u;
+const LOCK_NAME_FIELD = /^name = "(?<name>[^"]*)"/mu;
+const LOCK_VERSION_FIELD = /^version = "(?<version>[^"]*)"/mu;
+const LOCK_SOURCE_FIELD = /^source = "/mu;
+const NUMBERED_HEADING = /^\d+\. /u;
+const NOTICE_FILE_NAME = /^NOTICE(?:\.[A-Za-z]+)?$/iu;
 
 // Licence files as publishers ship them carry byte order marks and CRLF endings. One text file
 // reads the same everywhere with neither.
-export function normaliseText(text) {
-  const body = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").replace(/\s+$/, "");
+function normaliseText(text) {
+  const body = text
+    .replace(LEADING_BYTE_ORDER_MARK, '')
+    .replace(CARRIAGE_RETURNS, '\n')
+    .replace(TRAILING_WHITESPACE, '');
   return `${body}\n`;
 }
 
-const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+// The order `sort()` gives strings, stated so the sort does not depend on the default.
+function compareText(left, right) {
+  if (left < right) {
+    return -1;
+  }
+  return left > right ? 1 : 0;
+}
+
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 // The ONNX Runtime ort-sys downloads for `target` with `features`, as its build script picks
 // one from the table it ships: the row whose execution providers are exactly those enabled.
-export function onnxRuntimeDistribution(table, target, features) {
+function onnxRuntimeDistribution(table, target, features) {
   const rows = table
-    .split(/\r?\n/)
+    .split(LINE_BREAK)
     .slice(1)
-    .filter((line) => line.trim() !== "" && !line.startsWith("#"))
-    .map((line) => line.split("\t").map((cell) => cell.trim()));
-  const providers = (cell) => (cell === "none" ? [] : cell.split(","));
-  const offered = new Set(rows.flatMap((row) => providers(row[1])));
-  const wanted = [...new Set(features.filter((feature) => offered.has(feature)))].sort();
+    .filter((line) => line.trim() !== '' && !line.startsWith('#'))
+    .map((line) => line.split('\t').map((cell) => cell.trim()));
+  const providers = (cell) => (cell === 'none' ? [] : cell.split(','));
+  const offered = new Set(rows.flatMap((entry) => providers(entry[1])));
+  const wanted = [...new Set(features.filter((feature) => offered.has(feature)))].sort(compareText);
   const row = rows.find(
-    (candidate) => candidate[0] === target && providers(candidate[1]).sort().join(",") === wanted.join(","),
+    (candidate) =>
+      candidate[0] === target && providers(candidate[1]).sort().join(',') === wanted.join(','),
   );
   if (row === undefined) {
-    throw new Error(`ort-sys offers no ONNX Runtime for ${target} with ${wanted.join(", ") || "no execution provider"}.`);
+    throw new Error(
+      `ort-sys offers no ONNX Runtime for ${target} with ${wanted.join(', ') || 'no execution provider'}.`,
+    );
   }
-  const version = /\/ms@([^/]+)\//.exec(row[2])?.[1];
+  const version = ONNX_RUNTIME_VERSION_IN_URL.exec(row[2])?.groups.version;
   if (version === undefined) {
     throw new Error(`Cannot read the ONNX Runtime version from ${row[2]}.`);
   }
   return { providers: wanted, url: row[2], version };
 }
 
-const CRATES_IO = /^(registry|sparse)\+https:\/\/(github\.com\/rust-lang\/crates\.io-index|index\.crates\.io\/)$/;
+const CRATES_IO =
+  /^(?:registry|sparse)\+https:\/\/(?:github\.com\/rust-lang\/crates\.io-index|index\.crates\.io\/)$/u;
 
 // Where a crate's source can be had, which MPL-2.0 asks an executable to say of every file under
 // it and which is worth saying of all of them.
-export function sourceOf(pkg) {
-  if (CRATES_IO.test(pkg.source ?? "")) {
+function sourceOf(pkg) {
+  if (CRATES_IO.test(pkg.source ?? '')) {
     return `https://crates.io/crates/${pkg.name}/${pkg.version}`;
   }
-  if ((pkg.source ?? "").startsWith("git+")) {
-    return pkg.source.slice("git+".length);
+  if ((pkg.source ?? '').startsWith('git+')) {
+    return pkg.source.slice('git+'.length);
   }
-  return pkg.repository ?? "no published source";
+  return pkg.repository ?? 'no published source';
 }
 
 const crateKey = (pkg) => `${pkg.name} ${pkg.version}`;
@@ -133,7 +181,7 @@ function wrapList(prefix, items) {
     }
   }
   lines.push(line);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 // Every licence text cargo-about found, grouped by the text itself: one crate's LICENSE can be
@@ -142,7 +190,7 @@ function groupTexts(licences) {
   const groups = new Map();
   for (const licence of licences) {
     const text = normaliseText(licence.text);
-    const group = groups.get(text) ?? { ids: new Set(), crates: new Set(), standard: false };
+    const group = groups.get(text) ?? { crates: new Set(), ids: new Set(), standard: false };
     group.ids.add(licence.id);
     for (const use of licence.used_by) {
       group.crates.add(crateKey(use.crate));
@@ -151,22 +199,32 @@ function groupTexts(licences) {
     groups.set(text, group);
   }
   return [...groups.entries()]
-    .map(([text, group]) => ({ text, ...group, ids: [...group.ids].sort(), crates: [...group.crates].sort() }))
-    .sort((a, b) => a.ids.join().localeCompare(b.ids.join()) || a.crates[0].localeCompare(b.crates[0]));
+    .map(([text, group]) => ({
+      text,
+      ...group,
+      crates: [...group.crates].sort(compareText),
+      ids: [...group.ids].sort(compareText),
+    }))
+    .sort(
+      (a, b) => a.ids.join().localeCompare(b.ids.join()) || a.crates[0].localeCompare(b.crates[0]),
+    );
 }
 
 // The crates with no licence text of their own: none at all, or SPDX's template for a licence
 // that names a holder.
-export function cratesWithoutText(about) {
+function cratesWithoutText(about) {
   const problems = [];
   const covered = new Set();
   for (const licence of about.licenses) {
     const templated =
-      (licence.source_path === null || licence.source_path === undefined) && !WITHOUT_A_HOLDER.has(licence.id);
+      (licence.source_path === null || licence.source_path === undefined) &&
+      !WITHOUT_A_HOLDER.has(licence.id);
     for (const use of licence.used_by) {
       covered.add(crateKey(use.crate));
       if (templated) {
-        problems.push(`${crateKey(use.crate)}: ${licence.id} is SPDX's template, with the holder left blank`);
+        problems.push(
+          `${crateKey(use.crate)}: ${licence.id} is SPDX's template, with the holder left blank`,
+        );
       }
     }
   }
@@ -175,18 +233,18 @@ export function cratesWithoutText(about) {
       problems.push(`${crateKey(pkg)}: no licence text at all`);
     }
   }
-  return problems.sort();
+  return problems.sort(compareText);
 }
 
 function section(title) {
-  return [RULE, title, RULE, ""].join("\n");
+  return [RULE, title, RULE, ''].join('\n');
 }
 
 // ONNX_RUNTIME or DIRECTML with the texts third-party/ holds for it, as renderNotices takes them.
-export function withTexts(component) {
+function withTexts(component) {
   const texts = component.files.map((file) => {
-    const text = normaliseText(readFileSync(join(THIRD_PARTY, file), "utf8"));
-    return [THIN, file.slice(file.indexOf("/") + 1), THIN, "", text].join("\n");
+    const text = normaliseText(readFileSync(join(THIRD_PARTY, file), 'utf8'));
+    return [THIN, file.slice(file.indexOf('/') + 1), THIN, '', text].join('\n');
   });
   return { ...component, texts };
 }
@@ -195,8 +253,52 @@ export function withTexts(component) {
 // { text, crates }. `onnxRuntime` and `directml` are the entries above with their texts read
 // into `texts`, and `directml` is null for an archive DirectML.dll is not in. Every Windows
 // archive carries the C++ runtime, last.
-export function renderNotices({ target, about, notices, onnxRuntime, directml }) {
-  const cppRuntime = target.endsWith("-windows-msvc") ? (directml ? 5 : 4) : null;
+function renderNotices({ target, about, notices, onnxRuntime, directml }) {
+  const cppRuntime = cppPartNumber(target, directml);
+  const parts = [
+    ...headerParts({ cppRuntime, directml, onnxRuntime, target }),
+    ...cratesPart(about),
+    ...licenceTextParts(about.licenses),
+    ...noticesPart(notices),
+    ...onnxRuntimePart(onnxRuntime),
+    ...directmlPart(directml),
+    ...cppRuntimePart(cppRuntime),
+  ];
+  return `${parts.join('\n').replace(TRAILING_NEWLINES, '')}\n`;
+}
+
+// The part number of the C++ runtime, which comes last and so follows DirectML when it is there.
+function cppPartNumber(target, directml) {
+  if (!target.endsWith('-windows-msvc')) {
+    return null;
+  }
+  return directml ? 5 : 4;
+}
+
+function headerParts({ cppRuntime, directml, onnxRuntime, target }) {
+  const directmlSentence = directml ? ' DirectML.dll beside it is Microsoft DirectML, part 4.' : '';
+  const cppSentence = cppRuntime
+    ? ` The C++ runtime DLLs beside it are Microsoft's, part ${cppRuntime}.`
+    : '';
+  return [
+    'THIRD-PARTY SOFTWARE NOTICES',
+    `steamgauge for ${target}`,
+    '',
+    'The steamgauge binary in this archive is built from the Rust crates in part 1 and linked with',
+    `ONNX Runtime, part 3.${directmlSentence}${cppSentence}`,
+    'This file carries the licence each of them is used under here and the notices those licences',
+    "ask to accompany a copy. The program's own licence is LICENSE, beside this file.",
+    '',
+    `  ${CRATES_HEADING}`,
+    '  2. NOTICE files the crates carry',
+    `  3. ${onnxRuntime.heading} ${onnxRuntime.version}`,
+    ...(directml ? [`  4. ${directml.heading} ${directml.version}`] : []),
+    ...(cppRuntime ? [`  ${cppRuntime}. ${CPP_RUNTIME.heading}`] : []),
+    '',
+  ];
+}
+
+function cratesPart(about) {
   const used = new Map();
   for (const licence of about.licenses) {
     for (const use of licence.used_by) {
@@ -204,102 +306,110 @@ export function renderNotices({ target, about, notices, onnxRuntime, directml })
       used.set(key, (used.get(key) ?? new Set()).add(licence.id));
     }
   }
-  const crates = [...about.crates].sort((a, b) => crateKey(a.package).localeCompare(crateKey(b.package)));
-  const parts = [
-    "THIRD-PARTY SOFTWARE NOTICES",
-    `steamgauge for ${target}`,
-    "",
-    "The steamgauge binary in this archive is built from the Rust crates in part 1 and linked with",
-    `ONNX Runtime, part 3.${directml ? " DirectML.dll beside it is Microsoft DirectML, part 4." : ""}${
-      cppRuntime ? ` The C++ runtime DLLs beside it are Microsoft's, part ${cppRuntime}.` : ""
-    }`,
-    "This file carries the licence each of them is used under here and the notices those licences",
-    "ask to accompany a copy. The program's own licence is LICENSE, beside this file.",
-    "",
-    `  ${CRATES_HEADING}`,
-    "  2. NOTICE files the crates carry",
-    `  3. ${onnxRuntime.heading} ${onnxRuntime.version}`,
-    ...(directml ? [`  4. ${directml.heading} ${directml.version}`] : []),
-    ...(cppRuntime ? [`  ${cppRuntime}. ${CPP_RUNTIME.heading}`] : []),
-    "",
+  const crates = [...about.crates].sort((a, b) =>
+    crateKey(a.package).localeCompare(crateKey(b.package)),
+  );
+  return [
     section(CRATES_HEADING),
     `${crates.length} crates. Each line gives the crate and version, the licence it is used under here,`,
-    "the licence it declares, and where its source is.",
-    "",
+    'the licence it declares, and where its source is.',
+    '',
     ...crates.map((entry) => {
       const key = crateKey(entry.package);
-      const under = [...(used.get(key) ?? [])].sort().join(" AND ") || "none";
+      const under = [...(used.get(key) ?? [])].sort(compareText).join(' AND ') || 'none';
       return `${key} | ${under} | ${entry.license} | ${sourceOf(entry.package)}`;
     }),
-    "",
-    "The licence texts follow, each once, with the crates it is the text for. A crate that ships",
-    "its licence in a form not recognised as one, or not at all, is given the licence's standard",
-    "text, and only for a licence whose text names no copyright holder.",
-    "",
+    '',
   ];
-  for (const group of groupTexts(about.licenses)) {
+}
+
+function licenceTextParts(licences) {
+  const parts = [
+    'The licence texts follow, each once, with the crates it is the text for. A crate that ships',
+    "its licence in a form not recognised as one, or not at all, is given the licence's standard",
+    'text, and only for a licence whose text names no copyright holder.',
+    '',
+  ];
+  for (const group of groupTexts(licences)) {
     parts.push(
       THIN,
-      `${group.ids.join(", ")}${group.standard ? ", the standard text" : ""}`,
-      wrapList("Used by:", group.crates),
+      `${group.ids.join(', ')}${group.standard ? ', the standard text' : ''}`,
+      wrapList('Used by:', group.crates),
       THIN,
-      "",
+      '',
       group.text,
     );
   }
-  parts.push(
-    section("2. NOTICE files the crates carry"),
+  return parts;
+}
+
+function noticesPart(notices) {
+  const parts = [
+    section('2. NOTICE files the crates carry'),
     "The Apache License asks that the attribution notices in a work's NOTICE file travel with it.",
-    "These are those files, word for word.",
-    "",
-  );
+    'These are those files, word for word.',
+    '',
+  ];
   if (notices.length === 0) {
-    parts.push("None of the crates above carries one.", "");
+    parts.push('None of the crates above carries one.', '');
   }
   for (const notice of notices) {
-    parts.push(THIN, wrapList("In:", notice.crates), THIN, "", notice.text);
+    parts.push(THIN, wrapList('In:', notice.crates), THIN, '', notice.text);
   }
-  parts.push(
+  return parts;
+}
+
+function onnxRuntimePart(onnxRuntime) {
+  return [
     section(`3. ${onnxRuntime.heading} ${onnxRuntime.version}`),
-    "The prebuilt library the ort-sys crate downloads for this target, which the binary is linked",
-    "with. Its licence and third-party notices, as published with its source at",
+    'The prebuilt library the ort-sys crate downloads for this target, which the binary is linked',
+    'with. Its licence and third-party notices, as published with its source at',
     `${onnxRuntime.source}:`,
-    "",
+    '',
     ...onnxRuntime.texts,
-  );
-  if (directml) {
-    parts.push(
-      section(`4. ${directml.heading} ${directml.version}`),
-      "DirectML.dll is bin/x64-win/DirectML.dll from the Microsoft.AI.DirectML package at",
-      `${directml.source}.`,
-      "LICENSE.txt is the licence of DirectML.dll. LICENSE-CODE.txt is the licence of the package's",
-      "headers, which ONNX Runtime is compiled against. ThirdPartyNotices.txt covers what DirectML",
-      "contains.",
-      "",
-      ...directml.texts,
-    );
+  ];
+}
+
+function directmlPart(directml) {
+  if (!directml) {
+    return [];
   }
-  if (cppRuntime) {
-    parts.push(
-      section(`${cppRuntime}. ${CPP_RUNTIME.heading}`),
-      "The msvcp140 and vcruntime140 DLLs beside the binary are the C++ runtime that ONNX Runtime's",
-      "prebuilt library is compiled against, copied unmodified from the Visual C++ redistributable",
-      "folder of the Visual Studio that built this release; each file's version is in its",
-      "properties. Copyright (c) Microsoft Corporation. Visual Studio's licence terms let a program",
-      "distribute these files with it, as listed at",
-      `${CPP_RUNTIME.redistribution}.`,
-      "The runtime's own licence terms are at",
-      `${CPP_RUNTIME.terms}.`,
-      "",
-    );
+  return [
+    section(`4. ${directml.heading} ${directml.version}`),
+    'DirectML.dll is bin/x64-win/DirectML.dll from the Microsoft.AI.DirectML package at',
+    `${directml.source}.`,
+    "LICENSE.txt is the licence of DirectML.dll. LICENSE-CODE.txt is the licence of the package's",
+    'headers, which ONNX Runtime is compiled against. ThirdPartyNotices.txt covers what DirectML',
+    'contains.',
+    '',
+    ...directml.texts,
+  ];
+}
+
+function cppRuntimePart(cppRuntime) {
+  if (!cppRuntime) {
+    return [];
   }
-  return `${parts.join("\n").replace(/\n+$/, "")}\n`;
+  return [
+    section(`${cppRuntime}. ${CPP_RUNTIME.heading}`),
+    "The msvcp140 and vcruntime140 DLLs beside the binary are the C++ runtime that ONNX Runtime's",
+    'prebuilt library is compiled against, copied unmodified from the Visual C++ redistributable',
+    "folder of the Visual Studio that built this release; each file's version is in its",
+    "properties. Copyright (c) Microsoft Corporation. Visual Studio's licence terms let a program",
+    'distribute these files with it, as listed at',
+    `${CPP_RUNTIME.redistribution}.`,
+    "The runtime's own licence terms are at",
+    `${CPP_RUNTIME.terms}.`,
+    '',
+  ];
 }
 
 // The `name version` lines of part 1.
-export function listedCrates(notices) {
-  const lines = notices.split("\n");
-  const start = lines.findIndex((line, index) => line === CRATES_HEADING && lines[index - 1] === RULE);
+function listedCrates(notices) {
+  const lines = notices.split('\n');
+  const start = lines.findIndex(
+    (line, index) => line === CRATES_HEADING && lines[index - 1] === RULE,
+  );
   if (start === -1) {
     return null;
   }
@@ -308,21 +418,21 @@ export function listedCrates(notices) {
     if (line === RULE) {
       break;
     }
-    const match = /^(\S+) (\S+) \| /.exec(line);
+    const match = LISTED_CRATE_ROW.exec(line);
     if (match !== null) {
-      listed.add(`${match[1]} ${match[2]}`);
+      listed.add(`${match.groups.name} ${match.groups.version}`);
     }
   }
   return listed;
 }
 
 // The crates Cargo.lock says come from somewhere other than this repository.
-export function publishedCrates(lock) {
+function publishedCrates(lock) {
   const published = new Set();
-  for (const block of lock.split(/\n(?=\[\[package\]\]\r?\n)/).slice(1)) {
-    const name = /^name = "([^"]*)"/m.exec(block)?.[1];
-    const version = /^version = "([^"]*)"/m.exec(block)?.[1];
-    if (/^source = "/m.test(block)) {
+  for (const block of lock.split(LOCK_PACKAGE_BOUNDARY).slice(1)) {
+    const name = LOCK_NAME_FIELD.exec(block)?.groups.name;
+    const version = LOCK_VERSION_FIELD.exec(block)?.groups.version;
+    if (LOCK_SOURCE_FIELD.test(block)) {
       published.add(`${name} ${version}`);
     }
   }
@@ -330,83 +440,115 @@ export function publishedCrates(lock) {
 }
 
 // `files` maps each file name in the unpacked archive to its SHA-256.
-export function checkNotices({ target, notices, crates, lock, files }) {
-  const problems = [];
-  if (notices.trim() === "") {
-    return ["THIRD-PARTY-NOTICES.txt is empty."];
+function checkNotices({ target, notices, crates, lock, files }) {
+  if (notices.trim() === '') {
+    return ['THIRD-PARTY-NOTICES.txt is empty.'];
   }
-  if (!notices.split("\n", 2).includes(`steamgauge for ${target}`)) {
+  const hasDirectmlSection = notices.includes(
+    `${RULE}\n4. ${DIRECTML.heading} ${DIRECTML.version}\n${RULE}`,
+  );
+  return [
+    ...listingProblems({ crates, lock, notices, target }),
+    ...onnxRuntimeProblems(notices),
+    ...cppRuntimeProblems(notices, files),
+    ...shippedFileProblems({ files, hasDirectmlSection, target }),
+    ...(hasDirectmlSection && !files.has('DirectML.dll')
+      ? ["THIRD-PARTY-NOTICES.txt carries DirectML's licence for an archive without DirectML.dll."]
+      : []),
+  ];
+}
+
+function listingProblems({ crates, lock, notices, target }) {
+  const problems = [];
+  if (!notices.split('\n', 2).includes(`steamgauge for ${target}`)) {
     problems.push(`THIRD-PARTY-NOTICES.txt was not written for ${target}.`);
   }
   const listed = listedCrates(notices);
   if (listed === null || listed.size === 0) {
-    problems.push("THIRD-PARTY-NOTICES.txt lists no crates.");
+    problems.push('THIRD-PARTY-NOTICES.txt lists no crates.');
   } else {
     const published = publishedCrates(lock);
     const missing = [...crates].filter((key) => published.has(key) && !listed.has(key));
     if (missing.length > 0) {
-      problems.push(`THIRD-PARTY-NOTICES.txt leaves out crates the build resolved: ${missing.join(", ")}`);
+      problems.push(
+        `THIRD-PARTY-NOTICES.txt leaves out crates the build resolved: ${missing.join(', ')}`,
+      );
     }
   }
+  return problems;
+}
+
+function onnxRuntimeProblems(notices) {
   const [licence] = ONNX_RUNTIME.files;
-  if (
-    !notices.includes(`${RULE}\n3. ${ONNX_RUNTIME.heading} ${ONNX_RUNTIME.version}\n${RULE}`) ||
-    !notices.includes(normaliseText(readFileSync(join(THIRD_PARTY, licence), "utf8")))
-  ) {
-    problems.push(`THIRD-PARTY-NOTICES.txt does not carry ONNX Runtime ${ONNX_RUNTIME.version}'s licence.`);
-  }
-  const hasDirectmlSection = notices.includes(`${RULE}\n4. ${DIRECTML.heading} ${DIRECTML.version}\n${RULE}`);
-  const lines = notices.split("\n");
+  const carried =
+    notices.includes(`${RULE}\n3. ${ONNX_RUNTIME.heading} ${ONNX_RUNTIME.version}\n${RULE}`) &&
+    notices.includes(normaliseText(readFileSync(join(THIRD_PARTY, licence), 'utf8')));
+  return carried
+    ? []
+    : [`THIRD-PARTY-NOTICES.txt does not carry ONNX Runtime ${ONNX_RUNTIME.version}'s licence.`];
+}
+
+function cppRuntimeProblems(notices, files) {
+  const problems = [];
+  const lines = notices.split('\n');
   const hasCppSection = lines.some(
     (line, index) =>
       lines[index - 1] === RULE &&
       lines[index + 1] === RULE &&
-      /^\d+\. /.test(line) &&
-      line.slice(line.indexOf(" ") + 1) === CPP_RUNTIME.heading,
+      NUMBERED_HEADING.test(line) &&
+      line.slice(line.indexOf(' ') + 1) === CPP_RUNTIME.heading,
   );
   const cppFiles = [...files.keys()].filter((file) => CPP_RUNTIME.dll.test(file));
   if (cppFiles.length > 0 && !hasCppSection) {
-    problems.push(`${cppFiles.join(", ")} ship without the C++ runtime's part in THIRD-PARTY-NOTICES.txt.`);
+    problems.push(
+      `${cppFiles.join(', ')} ship without the C++ runtime's part in THIRD-PARTY-NOTICES.txt.`,
+    );
   }
   if (hasCppSection && cppFiles.length === 0) {
-    problems.push("THIRD-PARTY-NOTICES.txt has a part for the C++ runtime in an archive without it.");
+    problems.push(
+      'THIRD-PARTY-NOTICES.txt has a part for the C++ runtime in an archive without it.',
+    );
   }
+  return problems;
+}
+
+function shippedFileProblems({ files, hasDirectmlSection, target }) {
+  const problems = [];
   for (const [file, digest] of files) {
     if (CPP_RUNTIME.dll.test(file)) {
       continue;
     }
-    if (file === "DirectML.dll") {
+    if (file === 'DirectML.dll') {
       if (!hasDirectmlSection) {
         problems.push("DirectML.dll ships without DirectML's licence in THIRD-PARTY-NOTICES.txt.");
       }
       if (DIRECTML.dll.get(target) !== digest) {
-        problems.push(`DirectML.dll is not the DirectML ${DIRECTML.version} whose licence third-party/directml holds.`);
+        problems.push(
+          `DirectML.dll is not the DirectML ${DIRECTML.version} whose licence third-party/directml holds.`,
+        );
       }
     } else if (!OWN_FILES.has(file)) {
       problems.push(`${file} ships, and nothing says whose it is or what licence it is under.`);
     }
-  }
-  if (hasDirectmlSection && !files.has("DirectML.dll")) {
-    problems.push("THIRD-PARTY-NOTICES.txt carries DirectML's licence for an archive without DirectML.dll.");
   }
   return problems;
 }
 
 function cargoMetadata(target, feature) {
   const result = spawnSync(
-    "cargo",
+    'cargo',
     [
-      "metadata",
-      "--locked",
-      "--format-version",
-      "1",
-      "--filter-platform",
+      'metadata',
+      '--locked',
+      '--format-version',
+      '1',
+      '--filter-platform',
       target,
-      ...(feature ? ["--features", feature] : []),
-      "--manifest-path",
+      ...(feature ? ['--features', feature] : []),
+      '--manifest-path',
       APP_MANIFEST,
     ],
-    { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 },
   );
   if (result.status !== 0) {
     throw new Error(`cargo metadata failed:\n${result.stderr}`);
@@ -416,63 +558,70 @@ function cargoMetadata(target, feature) {
 
 function onnxRuntimeFor(target, feature) {
   const metadata = cargoMetadata(target, feature);
-  const ortSys = metadata.packages.filter((pkg) => pkg.name === "ort-sys");
+  const ortSys = metadata.packages.filter((pkg) => pkg.name === 'ort-sys');
   if (ortSys.length !== 1) {
     throw new Error(`Expected one ort-sys in the resolution, found ${ortSys.length}.`);
   }
   const node = metadata.resolve.nodes.find((candidate) => candidate.id === ortSys[0].id);
-  const table = readFileSync(join(dirname(ortSys[0].manifest_path), "build", "download", "dist.tsv"), "utf8");
+  const table = readFileSync(
+    join(dirname(ortSys[0].manifest_path), 'build', 'download', 'dist.tsv'),
+    'utf8',
+  );
   const distribution = onnxRuntimeDistribution(table, target, node.features);
   if (distribution.version !== ONNX_RUNTIME.version) {
     throw new Error(
       `ort-sys ${ortSys[0].version} links ONNX Runtime ${distribution.version}, and third-party/onnxruntime holds ` +
         `${ONNX_RUNTIME.version}'s licence and notices. Replace them with ${distribution.version}'s and update ` +
-        "ONNX_RUNTIME in tools/release/notices.mjs and third-party/README.md.",
+        'ONNX_RUNTIME in tools/release/notices.mjs and third-party/README.md.',
     );
   }
   return distribution;
 }
 
 function runCargoAbout(cargoAbout, target, feature) {
-  const scratch = mkdtempSync(join(tmpdir(), "notices-"));
+  const scratch = mkdtempSync(join(tmpdir(), 'notices-'));
   try {
-    const output = join(scratch, "about.json");
+    const output = join(scratch, 'about.json');
     const result = spawnSync(
       cargoAbout,
       [
-        "--color",
-        "never",
-        "generate",
-        "--locked",
-        "--fail",
-        "--format",
-        "json",
-        "--target",
+        '--color',
+        'never',
+        'generate',
+        '--locked',
+        '--fail',
+        '--format',
+        'json',
+        '--target',
         target,
-        ...(feature ? ["--features", feature] : []),
-        "--manifest-path",
+        ...(feature ? ['--features', feature] : []),
+        '--manifest-path',
         APP_MANIFEST,
-        "--config",
-        join(THIRD_PARTY, "about.toml"),
-        "--output-file",
+        '--config',
+        join(THIRD_PARTY, 'about.toml'),
+        '--output-file',
         output,
       ],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
     );
-    process.stderr.write(result.stderr ?? "");
+    process.stderr.write(result.stderr ?? '');
     if (result.error) {
       throw result.error;
     }
     if (result.status !== 0) {
       throw new Error(`cargo-about refused the crates for ${target}; its reasons are above.`);
     }
-    const refused = (result.stderr ?? "").split("\n").filter((line) => REFUSED_WARNINGS.some((warning) => warning.test(line)));
+    const refused = (result.stderr ?? '')
+      .split('\n')
+      .filter((line) => REFUSED_WARNINGS.some((warning) => warning.test(line)));
     if (refused.length > 0) {
-      throw new Error(`cargo-about could not read every crate's licence for ${target}:\n${refused.join("\n")}`);
+      throw new Error(
+        `cargo-about could not read every crate's licence for ${target}:\n${refused.join('\n')}`,
+      );
     }
-    return JSON.parse(readFileSync(output, "utf8"));
+    return JSON.parse(readFileSync(output, 'utf8'));
   } finally {
-    rmSync(scratch, { recursive: true, force: true });
+    rmSync(scratch, { force: true, recursive: true });
   }
 }
 
@@ -481,13 +630,15 @@ function noticeFiles(about) {
   const byText = new Map();
   for (const { package: pkg } of about.crates) {
     const root = dirname(pkg.manifest_path);
-    for (const file of readdirSync(root).filter((name) => /^NOTICE(\.[A-Za-z]+)?$/i.test(name)).sort()) {
-      const text = normaliseText(readFileSync(join(root, file), "utf8"));
+    for (const file of readdirSync(root)
+      .filter((name) => NOTICE_FILE_NAME.test(name))
+      .sort(compareText)) {
+      const text = normaliseText(readFileSync(join(root, file), 'utf8'));
       byText.set(text, [...(byText.get(text) ?? []), crateKey(pkg)]);
     }
   }
   return [...byText.entries()]
-    .map(([text, crates]) => ({ text, crates: crates.sort() }))
+    .map(([text, crates]) => ({ crates: crates.sort(compareText), text }))
     .sort((a, b) => a.crates[0].localeCompare(b.crates[0]));
 }
 
@@ -500,58 +651,65 @@ function write(cargoAbout, target, feature, outputPath) {
   const withoutText = cratesWithoutText(about);
   if (withoutText.length > 0) {
     throw new Error(
-      "These crates ship no licence text cargo-about recognises. Clarify each in " +
-        `third-party/about.toml with the file that is its licence:\n  ${withoutText.join("\n  ")}`,
+      'These crates ship no licence text cargo-about recognises. Clarify each in ' +
+        `third-party/about.toml with the file that is its licence:\n  ${withoutText.join('\n  ')}`,
     );
   }
   const notices = renderNotices({
-    target,
     about,
+    directml: distribution.providers.includes('directml') ? withTexts(DIRECTML) : null,
     notices: noticeFiles(about),
     onnxRuntime: withTexts(ONNX_RUNTIME),
-    directml: distribution.providers.includes("directml") ? withTexts(DIRECTML) : null,
+    target,
   });
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, notices);
-  console.error(`${outputPath}: ${about.crates.length} crates, ONNX Runtime ${distribution.version}.`);
+  console.error(
+    `${outputPath}: ${about.crates.length} crates, ONNX Runtime ${distribution.version}.`,
+  );
 }
 
-function check(target, noticesPath, cratesPath, lockPath, archiveDir) {
+function check({ archiveDir, cratesPath, lockPath, noticesPath, target }) {
   if (!existsSync(noticesPath)) {
     throw new Error(`${noticesPath} is missing.`);
   }
   const files = new Map(
     readdirSync(archiveDir, { withFileTypes: true }).map((entry) => {
       if (!entry.isFile()) {
-        throw new Error(`${join(archiveDir, entry.name)} is not a file; the archive is expected to be flat.`);
+        throw new Error(
+          `${join(archiveDir, entry.name)} is not a file; the archive is expected to be flat.`,
+        );
       }
       return [entry.name, sha256(readFileSync(join(archiveDir, entry.name)))];
     }),
   );
   const problems = checkNotices({
-    target,
-    notices: readFileSync(noticesPath, "utf8"),
-    crates: parseCrates(readFileSync(cratesPath, "utf8")),
-    lock: readFileSync(lockPath, "utf8"),
+    crates: parseCrates(readFileSync(cratesPath, 'utf8')),
     files,
+    lock: readFileSync(lockPath, 'utf8'),
+    notices: readFileSync(noticesPath, 'utf8'),
+    target,
   });
   if (problems.length > 0) {
-    throw new Error(problems.join("\n"));
+    throw new Error(problems.join('\n'));
   }
-  console.error(`${noticesPath}: covers the ${files.size} files and every published crate the build resolved.`);
+  console.error(
+    `${noticesPath}: covers the ${files.size} files and every published crate the build resolved.`,
+  );
 }
 
 if (isMain(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);
   try {
-    if (command === "write" && args.length === 4) {
+    if (command === 'write' && args.length === 4) {
       write(...args);
-    } else if (command === "check" && args.length === 5) {
-      check(...args);
+    } else if (command === 'check' && args.length === 5) {
+      const [target, noticesPath, cratesPath, lockPath, archiveDir] = args;
+      check({ archiveDir, cratesPath, lockPath, noticesPath, target });
     } else {
       throw new Error(
-        "Usage: node tools/release/notices.mjs write <cargo-about> <target> <feature or \"\"> <output>\n" +
-          "       node tools/release/notices.mjs check <target> <notices> <crates.txt> <Cargo.lock> <archive dir>",
+        'Usage: node tools/release/notices.mjs write <cargo-about> <target> <feature or ""> <output>\n' +
+          '       node tools/release/notices.mjs check <target> <notices> <crates.txt> <Cargo.lock> <archive dir>',
       );
     }
   } catch (error) {
@@ -559,3 +717,18 @@ if (isMain(import.meta.url)) {
     process.exit(1);
   }
 }
+
+export {
+  CPP_RUNTIME,
+  checkNotices,
+  cratesWithoutText,
+  DIRECTML,
+  listedCrates,
+  normaliseText,
+  ONNX_RUNTIME,
+  onnxRuntimeDistribution,
+  publishedCrates,
+  renderNotices,
+  sourceOf,
+  withTexts,
+};

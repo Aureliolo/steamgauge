@@ -1,7 +1,7 @@
 /* The AI assistants that steer SteamGauge: the ones on this computer it adds itself to, what to
    give any other, and the HTTP server for an assistant that cannot start a program. */
 
-import { invoke, el, set, make, page, copiers } from './common.js';
+import { copiers, el, invoke, make, page, set } from './common.js';
 
 let shown = null;
 
@@ -30,10 +30,23 @@ function clientRow(client, act) {
     return pressed;
   };
   const actions = make('div', 'actions');
-  if (client.state === 'installed') actions.append(button('Add', 'connect_client'));
-  if (client.state === 'elsewhere') actions.append(button('Start this copy', 'connect_client'));
-  if (client.state === 'added' || client.state === 'elsewhere') actions.append(button('Remove', 'disconnect_client'));
-  return make('li', 'mcp-client', make('strong', null, client.name), make('span', null, clientState(client)), make('span', null, client.file), actions);
+  if (client.state === 'installed') {
+    actions.append(button('Add', 'connect_client'));
+  }
+  if (client.state === 'elsewhere') {
+    actions.append(button('Start this copy', 'connect_client'));
+  }
+  if (client.state === 'added' || client.state === 'elsewhere') {
+    actions.append(button('Remove', 'disconnect_client'));
+  }
+  return make(
+    'li',
+    'mcp-client',
+    make('strong', null, client.name),
+    make('span', null, clientState(client)),
+    make('span', null, client.file),
+    actions,
+  );
 }
 
 function say(text, bad = false) {
@@ -86,10 +99,20 @@ async function load() {
 async function save() {
   try {
     const now = await invoke('settings');
-    const { shares, check_hours, library, clients, mcp_command, paste, http, search_every_game, ...settings } = now;
+    const {
+      shares,
+      check_hours,
+      library,
+      clients,
+      mcp_command,
+      paste,
+      http,
+      search_every_game,
+      ...settings
+    } = now;
     settings.answer_over_http = el('answer-over-http').checked;
     settings.http_port = Number.parseInt(el('http-port').value, 10) || now.http_port;
-    shown = await invoke('save_settings', { settings, searchEveryGame: search_every_game });
+    shown = await invoke('save_settings', { searchEveryGame: search_every_game, settings });
     draw();
     say('Saved.');
   } catch (failure) {

@@ -13,41 +13,42 @@
 //
 //   cargo run -p steamgauge-core --example sample-gold -- sample-gold.html
 //   node tools/gold-check/served.mjs sample-gold.html
-import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
-import { resolve } from "node:path";
+import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { resolve } from 'node:path';
+import process from 'node:process';
+import { debuggerUrl, open, sleep } from '../chrome.mjs';
+import { connect } from './chrome.mjs';
 
-import { connect, debuggerUrl, open, sleep } from "./chrome.mjs";
-
-const file = resolve(process.argv[2] ?? "sample-gold.html");
-const page = await readFile(file, "utf8");
+const file = resolve(process.argv[2] ?? 'sample-gold.html');
+const page = await readFile(file, 'utf8');
 
 let held = [];
 let posts = 0;
 const server = createServer((request, reply) => {
-  const path = (request.url ?? "/").split("?")[0];
-  if (request.method === "GET" && path === "/") {
-    reply.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  const [path] = (request.url ?? '/').split('?');
+  if (request.method === 'GET' && path === '/') {
+    reply.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     reply.end(page);
     return;
   }
-  if (request.method === "GET" && path === "/answers") {
-    reply.writeHead(200, { "Content-Type": "application/json" });
+  if (request.method === 'GET' && path === '/answers') {
+    reply.writeHead(200, { 'Content-Type': 'application/json' });
     reply.end(JSON.stringify(held));
     return;
   }
-  if (request.method === "POST" && path === "/answers") {
+  if (request.method === 'POST' && path === '/answers') {
     // The first post is kept late on purpose. A subject and a polarity are two keys and two
     // posts, and a page that sends the second before the first has been answered lets them
     // land in either order: the older one, with no polarity, then overwrites the newer. That
     // failed this check one run in twelve by chance. Held back, it fails every time it can.
     const late = posts === 0 ? 300 : 0;
     posts += 1;
-    let body = "";
-    request.on("data", (chunk) => {
+    let body = '';
+    request.on('data', (chunk) => {
       body += chunk;
     });
-    request.on("end", () => {
+    request.on('end', () => {
       setTimeout(() => {
         try {
           held = JSON.parse(body);
@@ -55,7 +56,7 @@ const server = createServer((request, reply) => {
           // A body that is not JSON is a failure the assertions below will report as a
           // missing answer, which is the shape the reader would see.
         }
-        reply.writeHead(200, { "Content-Type": "application/json" });
+        reply.writeHead(200, { 'Content-Type': 'application/json' });
         reply.end('{"saved":true}');
       }, late);
     });
@@ -63,7 +64,7 @@ const server = createServer((request, reply) => {
   }
   reply.writeHead(404).end();
 });
-await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
+await new Promise((ok) => server.listen(0, '127.0.0.1', ok));
 const served = `http://127.0.0.1:${server.address().port}/`;
 
 // Answers the first question by its keyboard shortcut, the way a reader does, and says which
@@ -94,45 +95,55 @@ const ANSWERED = `(function () {
   return counter ? counter.textContent : '';
 })()`;
 
-const chrome = await open(served, { prefix: "steamgauge-gold-served-" });
+const chrome = await open(served, { prefix: 'steamgauge-gold-served-' });
 let failed = true;
 try {
   const { socket, send, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
-  await send("Network.enable", {});
-  if (!(await ready())) throw new Error("the served page never became answerable");
+  await send('Network.enable', {});
+  if (!(await ready())) {
+    throw new Error('the served page never became answerable');
+  }
 
   const wrong = [];
   const pressed = (await evaluate(ANSWER)).result?.result?.value ?? {};
   await sleep(1000);
 
-  if (posts === 0) wrong.push("answering posted nothing, so the answer only exists in the browser");
-  if (!held.length) wrong.push("the post carried no answers");
-  if (held.length && held[0].subject !== pressed.subject) {
+  if (posts === 0) {
+    wrong.push('answering posted nothing, so the answer only exists in the browser');
+  }
+  if (held.length === 0) {
+    wrong.push('the post carried no answers');
+  }
+  if (held.length > 0 && held[0].subject !== pressed.subject) {
     wrong.push(
       `the posted answer says subject ${JSON.stringify(held[0].subject)}, not the ` +
         `${JSON.stringify(pressed.subject)} that was pressed`,
     );
   }
-  if (held.length && held[0].polarity !== "complaint") {
-    wrong.push(`the posted answer says polarity ${JSON.stringify(held[0].polarity)}, not the one pressed`);
+  if (held.length > 0 && held[0].polarity !== 'complaint') {
+    wrong.push(
+      `the posted answer says polarity ${JSON.stringify(held[0].polarity)}, not the one pressed`,
+    );
   }
-  if (pressed.kept !== "saved") {
+  if (pressed.kept !== 'saved') {
     wrong.push(`the header says ${JSON.stringify(pressed.kept)} rather than saved`);
   }
 
   // The promise that matters: a browser that remembers nothing still picks up the work,
   // because the file is the copy and this is only a cache.
   await evaluate(FORGET);
-  await send("Page.reload", { ignoreCache: true });
-  if (!(await ready())) throw new Error("the served page never became answerable again");
+  await send('Page.reload', { ignoreCache: true });
+  if (!(await ready())) {
+    throw new Error('the served page never became answerable again');
+  }
   await sleep(500);
-  const counter = (await evaluate(ANSWERED)).result?.result?.value ?? "";
-  if (!/\b1 answered\b/.test(counter)) {
+  const counter = (await evaluate(ANSWERED)).result?.result?.value ?? '';
+  if (!/\b1 answered\b/u.test(counter)) {
     wrong.push(`a browser with no storage read back ${JSON.stringify(counter)}, not 1 answered`);
   }
 
-  if (wrong.length) {
-    console.error(`${file}\n  ${wrong.join("\n  ")}`);
+  if (wrong.length > 0) {
+    console.error(`${file}\n  ${wrong.join('\n  ')}`);
   } else {
     console.log(`${file}: served, every answer reaches the file before the next question`);
     failed = false;
