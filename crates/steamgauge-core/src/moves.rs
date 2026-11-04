@@ -274,7 +274,7 @@ mod tests {
             .collect();
         months.extend((1..=3).map(|m| month(&format!("2024-{m:02}"), 10, 2, 9)));
         let found = recent(&reading(months)).unwrap();
-        assert_eq!(found.moves, [] as [Move; 0]);
+        assert_eq!(found.moves, <[Move; 0]>::default());
         assert_eq!(found.recommended, None);
     }
 
@@ -289,7 +289,7 @@ mod tests {
             one.complaining.clear();
         }
         let found = recent(&reading(months)).unwrap();
-        assert_eq!(found.moves, [] as [Move; 0]);
+        assert_eq!(found.moves, <[Move; 0]>::default());
         assert!(
             found.recommended.is_some(),
             "the recommendation share needs no sides"

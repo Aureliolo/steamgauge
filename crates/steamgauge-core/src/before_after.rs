@@ -22,7 +22,9 @@ use crate::{
     who::Membership,
 };
 
-/// Days in each window. Four whole weeks, so each window holds every day of the week four times
+/// Days in each window.
+///
+/// Four whole weeks, so each window holds every day of the week four times
 /// and neither leans on an extra weekend. That is close to the thirty days Steam's own recent
 /// reviews cover, which players already read as lately, and short enough that a game patched
 /// every month has most of each window to itself.
@@ -350,7 +352,9 @@ pub fn of_game(out_dir: &Path, snapshot: &Path, reading: &ReadReport) -> Result<
     })
 }
 
-/// The updates the most reviews followed, up to `how_many`, oldest first. Only updates with
+/// The updates the most reviews followed, up to `how_many`, oldest first.
+///
+/// Only updates with
 /// enough reviews either side are taken, and none within four weeks of one already taken, so a
 /// launch and its week of hotfixes are one moment rather than four.
 #[must_use]
@@ -374,7 +378,9 @@ pub fn biggest(arounds: &[Around], how_many: usize) -> Vec<&Around> {
 }
 
 /// Where a moment falls on a timeline of `months` (oldest first, a column each), in columns
-/// from its left edge: the month it falls in and how far through that month. A month with no
+/// from its left edge: the month it falls in and how far through that month.
+///
+/// A month with no
 /// reviews has no column, so a moment in one sits where the next column starts. None outside
 /// the months drawn.
 #[must_use]
@@ -411,7 +417,7 @@ pub fn through_month(at: i64) -> f64 {
     elapsed / f64::from(days_in(year, month))
 }
 
-fn days_in(year: i64, month: u8) -> u8 {
+const fn days_in(year: i64, month: u8) -> u8 {
     match month {
         4 | 6 | 9 | 11 => 30,
         2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
@@ -667,7 +673,7 @@ mod tests {
         );
         assert_eq!(
             created(written_by(&reviews, kind("steam-deck"))),
-            [] as [i64; 0]
+            <[i64; 0]>::default()
         );
     }
 
@@ -808,7 +814,7 @@ mod tests {
 
     #[test]
     fn reviews_are_held_up_to_the_capture_or_else_past_the_newest() {
-        let mut reading: ReadReport = crate::read::tests::reading_with(&serde_json::json!({}));
+        let mut reading = crate::read::tests::reading_with(&serde_json::json!({}));
         let reviews = written(500, 3, 0, 0);
         assert_eq!(held_until(&reading, &reviews), 500 + 60 + 1);
         assert_eq!(held_until(&reading, &[]), 0);

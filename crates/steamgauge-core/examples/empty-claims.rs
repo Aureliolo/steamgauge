@@ -142,13 +142,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(4);
 
     let mut all: HashMap<Empty, (usize, Vec<String>)> = HashMap::new();
-    let mut claims = 0usize;
+    let mut claims = 0_usize;
     let mut repeats: HashMap<String, usize> = HashMap::new();
 
     for app_id in app_ids {
         let snapshot = steamgauge_core::embed::latest_snapshot(std::path::Path::new(&out), app_id)?;
-        let mut here = 0usize;
-        let mut empty_here = 0usize;
+        let mut here = 0_usize;
+        let mut empty_here = 0_usize;
         steamgauge_core::capture::for_each_body(&snapshot, |_, _, text| {
             for claim in steamgauge_core::claims::split(text) {
                 here += 1;

@@ -58,6 +58,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "integer counts do not depend on order"
+        )]
         for key in heard {
             *counts.entry(key).or_default() += 1;
         }

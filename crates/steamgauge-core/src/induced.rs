@@ -216,9 +216,7 @@ mod tests {
     fn a_game_s_induced_subjects_live_under_reference_induced_by_its_app_id() {
         assert_eq!(
             default_path(620_980),
-            std::path::Path::new("reference")
-                .join("induced")
-                .join("620980.json")
+            Path::new("reference").join("induced").join("620980.json")
         );
     }
 

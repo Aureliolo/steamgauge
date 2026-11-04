@@ -17,14 +17,14 @@
 
 use std::{
     path::{Path, PathBuf},
-    str::FromStr,
+    str::FromStr as _,
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use serde_json::Value;
 
 /// The name the app is entered under in every client's configuration.
-pub const SERVER: &str = "steamgauge";
+pub(crate) const SERVER: &str = "steamgauge";
 
 /// What a person pastes to any assistant, this table's or not, to have it add the app to itself
 /// by the guide the documentation site publishes.
@@ -36,7 +36,7 @@ pub const PASTE: &str = concat!(
 
 /// Which system the folders are a person's on, where clients keep their files in different places.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum System {
+pub(crate) enum System {
     Windows,
     MacOs,
     Linux,
@@ -45,7 +45,7 @@ pub enum System {
 impl System {
     /// The system this program runs on.
     #[must_use]
-    pub const fn this() -> Self {
+    pub(crate) const fn this() -> Self {
         if cfg!(windows) {
             Self::Windows
         } else if cfg!(target_os = "macos") {
@@ -58,7 +58,7 @@ impl System {
 
 /// The folders a client's configuration is found from, so a test can stand in for the person's.
 #[derive(Debug, Clone)]
-pub struct Folders {
+pub(crate) struct Folders {
     /// The person's home folder.
     pub home: PathBuf,
     /// Where programs keep configuration: `%APPDATA%` on Windows, `~/Library/Application Support`
@@ -79,7 +79,7 @@ impl Folders {
     /// # Errors
     ///
     /// Fails where the system names no home or configuration folder.
-    pub fn of_this_user() -> Result<Self> {
+    pub(crate) fn of_this_user() -> Result<Self> {
         Ok(Self {
             home: dirs::home_dir().context("this system names no home folder")?,
             config: dirs::config_dir().context("this system names no configuration folder")?,
@@ -148,7 +148,7 @@ fn on_the_search_path(name: &str) -> Option<PathBuf> {
 /// Every client the app can add itself to, each as its own documentation gives its user-wide
 /// configuration. `docs/assistants.md` gives the rest, the ones that keep their servers where no
 /// documentation says, the command or the steps instead.
-pub const CLIENTS: &[Client] = &[
+pub(crate) const CLIENTS: &[Client] = &[
     Client {
         id: "claude-code",
         name: "Claude Code",
@@ -643,7 +643,7 @@ fn autohand_folder(folders: &Folders) -> PathBuf {
 
 /// The language a client's configuration is written in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Language {
+pub(crate) enum Language {
     /// JSON, comments and trailing commas allowed, and JSON5's unquoted keys.
     Json,
     Toml,
@@ -653,7 +653,7 @@ pub enum Language {
 impl Language {
     /// What a code block of it is marked as.
     #[must_use]
-    pub const fn name(self) -> &'static str {
+    pub(crate) const fn name(self) -> &'static str {
         match self {
             Self::Json => "json",
             Self::Toml => "toml",
@@ -664,7 +664,7 @@ impl Language {
 
 /// How a client keeps its servers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Holds {
+pub(crate) enum Holds {
     /// An object keyed by each server's name.
     Map,
     /// A list of servers, each carrying its `name`.
@@ -673,7 +673,7 @@ pub enum Holds {
 
 /// How a client writes one stdio server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Shape {
+pub(crate) enum Shape {
     /// `command` and `args`.
     Plain,
     /// The same with `type: stdio`.
@@ -702,7 +702,7 @@ impl Shape {
 
 /// Where in a client's file its servers are kept, and in what form.
 #[derive(Debug, Clone, Copy)]
-pub struct Format {
+pub(crate) struct Format {
     pub language: Language,
     /// The keys from the root to the servers, each one key: `["tools", "mcpServers"]`.
     pub container: &'static [&'static str],
@@ -746,7 +746,7 @@ impl Format {
 
 /// How the app's entry is put in a client's file.
 #[derive(Debug, Clone, Copy)]
-pub enum By {
+pub(crate) enum By {
     /// The app edits the file itself.
     Editing,
     /// The client rewrites its own file while it runs, so its own command adds the entry: the
@@ -760,7 +760,7 @@ pub enum By {
 
 /// One MCP client.
 #[derive(Debug, Clone, Copy)]
-pub struct Client {
+pub(crate) struct Client {
     /// What the client is called on the command line: `steamgauge connect cursor`.
     pub id: &'static str,
     /// What the window calls it.
@@ -781,7 +781,7 @@ pub struct Client {
 /// # Errors
 ///
 /// Fails, listing every client, where none is called `id`.
-pub fn by_id(id: &str) -> Result<&'static Client> {
+pub(crate) fn by_id(id: &str) -> Result<&'static Client> {
     CLIENTS
         .iter()
         .find(|client| client.id == id)
@@ -797,7 +797,7 @@ pub fn by_id(id: &str) -> Result<&'static Client> {
 /// Where a client stands with this copy of the app.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", tag = "state")]
-pub enum State {
+pub(crate) enum State {
     /// Nothing shows the client is on this computer.
     Absent,
     /// The client is here and its configuration has no entry for the app.
@@ -814,7 +814,7 @@ pub enum State {
 /// What the client is told to run: this copy's own path, which no installer puts on the search
 /// path everywhere, and `mcp`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Launch {
+pub(crate) struct Launch {
     pub program: String,
     pub args: Vec<String>,
 }
@@ -825,7 +825,7 @@ impl Launch {
     /// # Errors
     ///
     /// Fails if the system cannot say where this program is.
-    pub fn this_copy() -> Result<Self> {
+    pub(crate) fn this_copy() -> Result<Self> {
         let program = steady_path(&std::env::current_exe().context("where this program is")?);
         Ok(Self {
             program: program.display().to_string(),
@@ -835,7 +835,7 @@ impl Launch {
 
     /// The command as a person types it into a client that takes one line.
     #[must_use]
-    pub fn line(&self) -> String {
+    pub(crate) fn line(&self) -> String {
         std::iter::once(format!("\"{}\"", self.program))
             .chain(self.args.iter().cloned())
             .collect::<Vec<_>>()
@@ -869,7 +869,7 @@ fn steady_path(program: &Path) -> PathBuf {
 
 /// Where `client` stands with `launch`.
 #[must_use]
-pub fn state(client: &Client, folders: &Folders, launch: &Launch) -> State {
+pub(crate) fn state(client: &Client, folders: &Folders, launch: &Launch) -> State {
     let file = (client.file)(folders);
     let text = match std::fs::read_to_string(&file) {
         Ok(text) => text,
@@ -892,7 +892,7 @@ pub fn state(client: &Client, folders: &Folders, launch: &Launch) -> State {
 
 /// What adding the app to a client's file did.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Added {
+pub(crate) enum Added {
     /// The entry was written where there was none.
     Written(PathBuf),
     /// An entry that started something else was replaced.
@@ -903,7 +903,7 @@ pub enum Added {
 
 /// What taking the app out of a client's file did.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Removed {
+pub(crate) enum Removed {
     /// The entry was taken out.
     Taken(PathBuf),
     /// There was no entry to take out, and nothing was written.
@@ -924,7 +924,7 @@ fn read_or_empty(file: &Path) -> Result<String> {
 ///
 /// Fails if the file does not parse, cannot be read or written, or would change in any other way,
 /// and for a client added through its own command, where the command is not here or fails.
-pub fn add(client: &Client, folders: &Folders, launch: &Launch) -> Result<Added> {
+pub(crate) fn add(client: &Client, folders: &Folders, launch: &Launch) -> Result<Added> {
     let file = (client.file)(folders);
     let text = read_or_empty(&file)?;
     let was = entry_command(client.format, &text).map_err(|reason| refused(&file, &reason))?;
@@ -998,7 +998,7 @@ fn run(program: &Path, args: impl Iterator<Item = String>) -> Result<()> {
 /// # Errors
 ///
 /// Fails if `text` does not parse, or the entry cannot be written without changing anything else.
-pub fn with_entry(client: &Client, text: &str, launch: &Launch) -> Result<String> {
+pub(crate) fn with_entry(client: &Client, text: &str, launch: &Launch) -> Result<String> {
     let format = client.format;
     let entry = entry(format, launch);
     let written = match format.language {
@@ -1017,7 +1017,7 @@ pub fn with_entry(client: &Client, text: &str, launch: &Launch) -> Result<String
 ///
 /// Fails if the file does not parse, cannot be read or written, or would change in any other way,
 /// and for a client added through its own command, where the command is not here or fails.
-pub fn remove(client: &Client, folders: &Folders) -> Result<Removed> {
+pub(crate) fn remove(client: &Client, folders: &Folders) -> Result<Removed> {
     let file = (client.file)(folders);
     let Ok(text) = std::fs::read_to_string(&file) else {
         return Ok(Removed::NoEntry(file));
@@ -1561,7 +1561,10 @@ fn yaml_file(text: &str) -> Result<yaml_edit::YamlFile> {
 fn yaml_named(list: &yaml_edit::Sequence) -> Option<usize> {
     (0..list.len()).find(|&at| {
         list.get(at)
-            .and_then(|server| server.as_mapping().and_then(|server| server.get("name")))
+            .and_then(|server| {
+                let server = server.as_mapping()?;
+                server.get("name")
+            })
             .is_some_and(|name| name.to_string().trim().trim_matches(['"', '\'']) == SERVER)
     })
 }
@@ -1734,12 +1737,9 @@ mod tests {
         std::fs::read_to_string((client.file)(folders)).unwrap()
     }
 
-    fn json(text: &str) -> serde_json::Value {
-        jsonc_parser::parse_to_serde_value::<serde_json::Value>(
-            text,
-            &jsonc_parser::ParseOptions::default(),
-        )
-        .unwrap()
+    fn json(text: &str) -> Value {
+        jsonc_parser::parse_to_serde_value::<Value>(text, &jsonc_parser::ParseOptions::default())
+            .unwrap()
     }
 
     fn written_over(client: &Client, folders: &Folders, before: &str) -> String {
@@ -1881,7 +1881,7 @@ mod tests {
         let scratch = Scratch::new("shapes");
         let folders = scratch.folders();
         let here = launch("/opt/steamgauge");
-        let cases: &[(Shape, serde_json::Value)] = &[
+        let cases: &[(Shape, Value)] = &[
             (
                 Shape::Typed,
                 serde_json::json!({"type": "stdio", "command": "/opt/steamgauge", "args": ["mcp"]}),
@@ -2111,7 +2111,7 @@ mod tests {
         let file = (client.file)(&folders);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(&file, "{\"mcpServers\": [1, 2]}").unwrap();
-        assert!(add(&client, &folders, &launch("/opt/steamgauge")).is_err());
+        add(&client, &folders, &launch("/opt/steamgauge")).unwrap_err();
         assert_eq!(
             std::fs::read_to_string(&file).unwrap(),
             "{\"mcpServers\": [1, 2]}"
@@ -2142,7 +2142,7 @@ mod tests {
             state(claude, &folders, &launch("/opt/steamgauge")),
             State::Added
         );
-        assert!(remove(claude, &folders).is_err());
+        remove(claude, &folders).unwrap_err();
     }
 
     #[test]
@@ -2163,7 +2163,7 @@ mod tests {
                 client.id
             );
         }
-        assert!(by_id("cursor").is_ok());
+        by_id("cursor").unwrap();
         let refusal = by_id("nothing").unwrap_err().to_string();
         assert!(refusal.contains("codex"), "{refusal}");
     }

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use steamgauge_core::{embed, reader, search_models, state::CrawlState, writer};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 use super::{
     library_dir, shelf, text,
@@ -22,7 +22,7 @@ use super::{
 
 /// The room a game's files take, by what removing each costs.
 #[derive(Debug, Clone, Copy, Default, Serialize, PartialEq, Eq)]
-pub struct Parts {
+pub(super) struct Parts {
     /// The downloaded reviews of the newest download, fetched again from Steam in minutes.
     pub reviews: u64,
     /// The reads: hours of the reader's work to redo.
@@ -39,7 +39,7 @@ pub struct Parts {
 }
 
 impl Parts {
-    fn add(&mut self, part: Part, bytes: u64) {
+    const fn add(&mut self, part: Part, bytes: u64) {
         let slot = match part {
             Part::Reviews => &mut self.reviews,
             Part::Reads => &mut self.reads,
@@ -64,7 +64,7 @@ impl Parts {
         .fold(0, u64::saturating_add)
     }
 
-    fn plus(mut self, other: &Self) -> Self {
+    const fn plus(mut self, other: &Self) -> Self {
         self.reviews += other.reviews;
         self.reads += other.reads;
         self.search += other.search;
@@ -104,7 +104,7 @@ fn part_of(name: &str) -> Part {
 }
 
 /// Every byte under a folder, or in a file, which is what removing it gives back.
-pub fn bytes_under(path: &Path) -> u64 {
+pub(super) fn bytes_under(path: &Path) -> u64 {
     let Ok(entries) = std::fs::read_dir(path) else {
         return std::fs::metadata(path)
             .map_or(0, |found| if found.is_file() { found.len() } else { 0 });
@@ -171,7 +171,7 @@ fn game_parts(library: &Path, app_id: u32) -> Parts {
 
 /// One game and the room it takes.
 #[derive(Debug, Clone, Serialize)]
-pub struct GameRoom {
+pub(super) struct GameRoom {
     pub app_id: u32,
     pub name: String,
     pub parts: Parts,
@@ -180,7 +180,7 @@ pub struct GameRoom {
 
 /// One model in the cache and the room it takes.
 #[derive(Debug, Clone, Serialize)]
-pub struct ModelRoom {
+pub(super) struct ModelRoom {
     /// What the model is called, as the cockpit names it.
     pub name: String,
     /// How the window asks for it to be removed.
@@ -193,7 +193,7 @@ pub struct ModelRoom {
 
 /// A drive the app keeps something on.
 #[derive(Debug, Clone, Serialize)]
-pub struct Drive {
+pub(super) struct Drive {
     pub name: String,
     pub total: u64,
     pub free: u64,
@@ -202,7 +202,7 @@ pub struct Drive {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct Storage {
+pub(super) struct Storage {
     pub library: String,
     pub models: String,
     pub drives: Vec<Drive>,
@@ -345,7 +345,7 @@ fn measure(app: &AppHandle) -> Storage {
 }
 
 #[tauri::command]
-pub async fn storage(app: AppHandle) -> Storage {
+pub(super) async fn storage(app: AppHandle) -> Storage {
     tauri::async_runtime::spawn_blocking(move || measure(&app))
         .await
         .unwrap_or_else(|_| Storage {
@@ -361,7 +361,7 @@ pub async fn storage(app: AppHandle) -> Storage {
 /// What a person can ask to have removed from a game.
 #[derive(Debug, Clone, Copy, serde::Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Removal {
+pub(super) enum Removal {
     /// Its readings, which a read makes again.
     Reads,
     /// Its preparation for search by meaning.
@@ -374,7 +374,7 @@ pub enum Removal {
     Game,
 }
 
-fn active(job: &super::work::Job) -> bool {
+const fn active(job: &super::work::Job) -> bool {
     matches!(job.state, State::Queued | State::Running)
 }
 
@@ -458,7 +458,7 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
 }
 
 #[tauri::command]
-pub async fn free_room(
+pub(super) async fn free_room(
     app: AppHandle,
     work: tauri::State<'_, Work>,
     app_id: Option<u32>,
@@ -491,7 +491,7 @@ pub async fn free_room(
 }
 
 #[tauri::command]
-pub async fn remove_model(
+pub(super) async fn remove_model(
     app: AppHandle,
     work: tauri::State<'_, Work>,
     key: String,

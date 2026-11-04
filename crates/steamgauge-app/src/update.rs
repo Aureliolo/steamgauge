@@ -6,7 +6,7 @@
 
 use std::{
     fs::File,
-    io::{Seek, SeekFrom},
+    io::{Seek as _, SeekFrom},
     path::{Path, PathBuf},
     sync::OnceLock,
 };
@@ -14,11 +14,11 @@ use std::{
 use steamgauge_core::self_update::{self, Arrived, Install, Origins, RELEASE_BUILD, Version};
 
 /// The identifier `tauri.conf.json` gives the app, which names its folders on every system.
-pub const IDENTIFIER: &str = "com.aureliolo.steamgauge";
+pub(crate) const IDENTIFIER: &str = "com.aureliolo.steamgauge";
 
 /// How far an update has got.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Step {
+pub(crate) enum Step {
     Downloading { done: u64, total: Option<u64> },
     Verifying,
     Installing,
@@ -26,14 +26,14 @@ pub enum Step {
 
 /// Why an update stopped before installing anything.
 #[derive(Debug)]
-pub struct Stop {
+pub(crate) struct Stop {
     pub why: String,
     /// The verified file, where it is on disk for the person to install themselves.
     pub file: Option<PathBuf>,
 }
 
 impl Stop {
-    pub fn new(why: impl std::fmt::Display) -> Self {
+    pub(crate) fn new(why: impl std::fmt::Display) -> Self {
         Self {
             why: why.to_string(),
             file: None,
@@ -43,7 +43,7 @@ impl Stop {
 
 /// What follows once the new version is in place.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Then {
+pub(crate) enum Then {
     /// The setup program is installing it and closes this copy, so this copy exits now.
     Exit,
     /// It is installed. What is running is the old version until it starts again.
@@ -54,7 +54,7 @@ pub enum Then {
 /// `SteamGauge`'s release workflow at the version's tag, and the digest is the one taken as it
 /// arrived. The version it installed reads it to say its own build was checked.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub struct Verified {
+pub(crate) struct Verified {
     pub version: String,
     pub file: String,
     pub sha256: String,
@@ -63,10 +63,9 @@ pub struct Verified {
 impl Verified {
     /// What was kept, or none where nothing was or it cannot be read.
     #[must_use]
-    pub fn load(path: &Path) -> Option<Self> {
-        std::fs::read(path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+    pub(crate) fn load(path: &Path) -> Option<Self> {
+        let bytes = std::fs::read(path).ok()?;
+        serde_json::from_slice(&bytes).ok()
     }
 
     /// Written beside its place and moved over it, so a record is never half written.
@@ -74,7 +73,7 @@ impl Verified {
     /// # Errors
     ///
     /// Fails where the folder cannot be made or written to.
-    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+    pub(crate) fn save(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
@@ -86,7 +85,7 @@ impl Verified {
 
 /// Where an update keeps what it fetches, under the app's local data.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Folders {
+pub(crate) struct Folders {
     /// The release's file, removed before each update and when the app next opens.
     pub download: PathBuf,
     /// Sigstore's trusted root, as its TUF repository last served it.
@@ -97,7 +96,7 @@ pub struct Folders {
 
 impl Folders {
     #[must_use]
-    pub fn under(local: &Path) -> Self {
+    pub(crate) fn under(local: &Path) -> Self {
         Self {
             download: local.join("update"),
             tuf: local.join("sigstore-tuf"),
@@ -111,7 +110,7 @@ impl Folders {
 /// # Errors
 ///
 /// Says why this copy is not updated from inside itself.
-pub fn installed() -> Result<Install, String> {
+pub(crate) fn installed() -> Result<Install, String> {
     static FOUND: OnceLock<Result<Install, String>> = OnceLock::new();
     FOUND
         .get_or_init(|| {
@@ -165,9 +164,9 @@ fn for_download(path: &Path) -> std::io::Result<File> {
     options.write(true).create_new(true);
     #[cfg(windows)]
     {
-        use std::os::windows::fs::OpenOptionsExt;
-        options.share_mode(0);
-    }
+        use std::os::windows::fs::OpenOptionsExt as _;
+        options.share_mode(0)
+    };
     options.open(path)
 }
 
@@ -179,10 +178,10 @@ fn held(path: &Path) -> std::io::Result<File> {
     options.read(true);
     #[cfg(windows)]
     {
-        use std::os::windows::fs::OpenOptionsExt;
+        use std::os::windows::fs::OpenOptionsExt as _;
         const FILE_SHARE_READ: u32 = 0x1;
-        options.share_mode(FILE_SHARE_READ);
-    }
+        options.share_mode(FILE_SHARE_READ)
+    };
     options.open(path)
 }
 
@@ -194,7 +193,7 @@ fn held(path: &Path) -> std::io::Result<File> {
 ///
 /// Stops, having installed nothing, where the file cannot be fetched, does not verify, or cannot
 /// be put in place.
-pub async fn run(
+pub(crate) async fn run(
     folders: &Folders,
     version: &Version,
     reopen: bool,

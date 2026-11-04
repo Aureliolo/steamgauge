@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn a_client_can_be_built_with_ring_as_the_provider() {
-        assert!(super::builder().build().is_ok());
+        super::builder().build().unwrap();
         assert!(rustls::crypto::CryptoProvider::get_default().is_some());
     }
 

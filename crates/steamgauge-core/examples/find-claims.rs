@@ -80,9 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let share = |count: usize, whole: usize| 100.0 * count as f64 / whole.max(1) as f64;
     for phrase in &phrases {
         let found = hits.get(phrase.as_str()).copied().unwrap_or(0);
-        let people = reviewers
-            .get(phrase.as_str())
-            .map_or(0, std::collections::HashSet::len);
+        let people = reviewers.get(phrase.as_str()).map_or(0, HashSet::len);
         println!(
             "\n{phrase:?}: {found} claims ({:.2}%), {people} reviewers ({:.2}%)",
             share(found, claims),

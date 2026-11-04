@@ -164,7 +164,7 @@ mod tests {
     use super::*;
 
     fn unit(x: f32, y: f32) -> Vec<f32> {
-        let norm = (x * x + y * y).sqrt();
+        let norm = x.hypot(y);
         vec![x / norm, y / norm]
     }
 

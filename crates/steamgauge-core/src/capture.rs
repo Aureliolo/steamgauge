@@ -275,7 +275,7 @@ impl CaptureWriter {
     }
 
     #[must_use]
-    pub fn rows(&self) -> u64 {
+    pub const fn rows(&self) -> u64 {
         self.rows
     }
 
@@ -502,9 +502,10 @@ pub fn for_each_row(snapshot: &Path, mut visit: impl FnMut(Row, &str) -> Result<
     })
 }
 
-/// Every review's text as the capture held it at `as_of`: the crawl's shards and the sweeps
-/// started by then, with each review's newest copy among them counting, as [`for_each_row`]
-/// would have handed it over at that moment. A reading records `as_of` as when its capture last
+/// Every review's text as the capture held it at `as_of`.
+///
+/// The crawl's shards and the sweeps started by then count, each review's newest copy among them,
+/// as [`for_each_row`] would have handed it over at that moment. A reading records `as_of` as when its capture last
 /// changed, so this is the text that reading read.
 ///
 /// # Errors
@@ -617,24 +618,24 @@ fn side_by_side<T: Send>(
         .min(shards.len())
         .max(1);
     let mut walked: Vec<(usize, Result<Vec<T>>)> = std::thread::scope(|scope| {
-        let running: Vec<_> = (0..workers)
-            .map(|_| {
-                scope.spawn(|| {
-                    let mut mine = Vec::new();
-                    loop {
-                        let order = next.fetch_add(1, Ordering::Relaxed);
-                        let Some((shard, file)) = shards.get(order) else {
-                            return mine;
-                        };
-                        let mut taken = Vec::new();
-                        let read = each_batch_of(shard, *file, &newest, columns, |batch, kept| {
-                            take(batch, kept, &mut taken)
-                        });
-                        mine.push((order, read.map(|()| taken)));
-                    }
-                })
+        let running: Vec<_> = std::iter::repeat_with(|| {
+            scope.spawn(|| {
+                let mut mine = Vec::new();
+                loop {
+                    let order = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((shard, file)) = shards.get(order) else {
+                        return mine;
+                    };
+                    let mut taken = Vec::new();
+                    let read = each_batch_of(shard, *file, &newest, columns, |batch, kept| {
+                        take(batch, kept, &mut taken)
+                    });
+                    mine.push((order, read.map(|()| taken)));
+                }
             })
-            .collect();
+        })
+        .take(workers)
+        .collect();
         running
             .into_iter()
             .flat_map(|worker| {
@@ -1182,7 +1183,7 @@ mod tests {
             .column_by_name("raw_json")
             .unwrap()
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<StringArray>()
             .unwrap()
             .value(0);
         assert!(raw.contains("some_future_field"), "{raw}");
@@ -1581,7 +1582,7 @@ mod tests {
     fn a_record_of_copies_that_cannot_be_read_is_an_error_rather_than_none() {
         let scratch = Scratch::new("unreadable");
         std::fs::create_dir(scratch.0.join(Newest::FILE)).unwrap();
-        assert!(Newest::load(&scratch.0).is_err());
+        Newest::load(&scratch.0).unwrap_err();
     }
 
     #[test]

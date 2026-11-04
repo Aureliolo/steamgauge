@@ -511,7 +511,7 @@ pub struct ClaimIngest {
 
 impl ClaimIngest {
     #[must_use]
-    pub fn is_clean(&self) -> bool {
+    pub const fn is_clean(&self) -> bool {
         self.missing.is_empty() && self.unknown.is_empty() && self.rejected.is_empty()
     }
 }
@@ -533,10 +533,10 @@ impl ClaimIngest {
 /// Fails if the set has no drawn sample, or the sample cannot be read.
 pub fn draw_second(dir: &Path, share: f64, seed: u64) -> Result<Vec<DrawnReview>> {
     let drawn: Vec<DrawnReview> =
-        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: dir.join("sample.json"),
-            }
+            })
         })?)?;
 
     #[expect(
@@ -619,7 +619,7 @@ pub struct Question {
 }
 
 impl Question {
-    fn names_claims(&self) -> bool {
+    const fn names_claims(&self) -> bool {
         !self.words.is_empty()
             || !self.subjects.is_empty()
             || self.split_wrong.is_some()
@@ -690,16 +690,16 @@ pub fn draw_revisit(
     cut: &CutSpans,
 ) -> Result<Vec<DrawnReview>> {
     let drawn: Vec<DrawnReview> =
-        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: dir.join("sample.json"),
-            }
+            })
         })?)?;
     let labels: Vec<ClaimLabel> =
-        serde_json::from_slice(&std::fs::read(dir.join("labels.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+        serde_json::from_slice(&std::fs::read(dir.join("labels.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: dir.join("labels.json"),
-            }
+            })
         })?)?;
     let filed: std::collections::HashMap<(&str, u16), &ClaimLabel> = labels
         .iter()
@@ -917,12 +917,13 @@ pub fn draw_declined(
     seed: u64,
 ) -> Result<Vec<DrawnReview>> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let reading: crate::read::ReadReport =
-        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
-            crate::Error::NoClassifications {
+    let reading: crate::read::ReadReport = serde_json::from_slice(
+        &std::fs::read(snapshot.join("reading.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoClassifications {
                 path: snapshot.join("reading.json"),
-            }
-        })?)?;
+            })
+        })?,
+    )?;
 
     let already = already_drawn(dir);
 
@@ -949,6 +950,7 @@ pub fn draw_declined(
 }
 
 /// What this build cuts from one review: its text, and the spans of the claims cut from it.
+///
 /// The text travels with the spans because a label's span is met only once it is brought to
 /// its words, and that needs the review it was written about.
 #[derive(Debug, Clone, Default)]
@@ -1008,8 +1010,9 @@ fn game_of(dir: &Path, app_id: u32) -> std::path::PathBuf {
 /// Fails if the game keeps no review text, or the file cannot be read.
 pub fn kept_reviews(game: &Path) -> Result<std::collections::HashMap<String, KeptReview>> {
     let path = game.join(REVIEWS);
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|_| crate::Error::NoKeptText { path: path.clone() })?;
+    let raw = std::fs::read_to_string(&path).map_err(|error| {
+        crate::Error::unless_missing(error, || crate::Error::NoKeptText { path: path.clone() })
+    })?;
     raw.lines()
         .filter(|line| !line.trim().is_empty())
         .map(|line| {
@@ -1092,7 +1095,9 @@ pub(crate) type Picks = std::collections::HashMap<String, Vec<crate::claims::Spa
 pub(crate) type Found = Vec<(String, crate::claims::Span)>;
 
 /// What this build's splitter cuts from the named reviews of one game's capture, as a library
-/// holds them: for joining a reference label to a reading of the same capture. A label is asked
+/// holds them.
+///
+/// For joining a reference label to a reading of the same capture. A label is asked
 /// about against its kept text, [`spans_cut_in`].
 ///
 /// Only the reviews named are split. The capture is walked whole, which is cheap. Splitting a
@@ -1163,12 +1168,13 @@ pub fn draw_by_keyword(
     only: &[String],
 ) -> Result<KeywordDraw> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let reading: crate::read::ReadReport =
-        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
-            crate::Error::NoClassifications {
+    let reading: crate::read::ReadReport = serde_json::from_slice(
+        &std::fs::read(snapshot.join("reading.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoClassifications {
                 path: snapshot.join("reading.json"),
-            }
-        })?)?;
+            })
+        })?,
+    )?;
 
     let already = already_drawn(dir);
 
@@ -1350,10 +1356,10 @@ pub(crate) fn handouts(
 /// Fails if the set or the returned files cannot be read or written.
 pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> {
     let mut labels: Vec<ClaimLabel> =
-        serde_json::from_slice(&std::fs::read(dir.join("labels.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+        serde_json::from_slice(&std::fs::read(dir.join("labels.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: dir.join("labels.json"),
-            }
+            })
         })?)?;
     let mut held: std::collections::HashMap<(String, u16), &mut ClaimLabel> = labels
         .iter_mut()
@@ -1422,10 +1428,10 @@ pub fn default_reference_dir(app_id: u32) -> std::path::PathBuf {
 /// Fails if the sample or the returned files cannot be read.
 pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>, ClaimIngest)> {
     let drawn: Vec<DrawnReview> =
-        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+        serde_json::from_slice(&std::fs::read(dir.join("sample.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: dir.join("sample.json"),
-            }
+            })
         })?)?;
 
     // Only the claims the draw asks about. The rest of a review is in the handout because a
@@ -1510,6 +1516,10 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         }
     }
 
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "the missing list is sorted right after"
+    )]
     for (id, index) in wanted.keys() {
         if !seen.contains(&(id.clone(), *index)) {
             report.missing.push(format!("{id}#{index}"));
@@ -2068,7 +2078,10 @@ mod tests {
         let written = std::fs::read_to_string(&to).unwrap();
 
         assert_eq!(report.measured_on, 1, "the held-back game's keyword row");
-        assert_eq!(report.measured_on_games, [held_back].into_iter().collect());
+        assert_eq!(
+            report.measured_on_games,
+            std::iter::once(held_back).collect()
+        );
         assert_eq!(report.written, 3);
         assert!(
             written.contains(&format!("{trains_on}-keyword")),
@@ -2461,7 +2474,7 @@ mod tests {
         assert_eq!(drawn.cleared, 0);
         assert!(stale.is_dir());
 
-        assert!(draw_revisits(&root, &[Question::default()], 40).is_err());
+        draw_revisits(&root, &[Question::default()], 40).unwrap_err();
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -3028,13 +3041,10 @@ mod tests {
 
     #[test]
     fn the_reference_sets_live_under_reference_claims_a_directory_a_game() {
-        assert_eq!(
-            reference_root(),
-            std::path::Path::new("reference").join("claims")
-        );
+        assert_eq!(reference_root(), Path::new("reference").join("claims"));
         assert_eq!(
             default_reference_dir(42),
-            std::path::Path::new("reference").join("claims").join("42")
+            Path::new("reference").join("claims").join("42")
         );
     }
 

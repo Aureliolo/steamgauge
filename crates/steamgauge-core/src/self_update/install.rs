@@ -50,7 +50,9 @@ pub fn linux_folder(version: &Version) -> String {
     format!("steamgauge-{version}-x86_64-linux-gnu")
 }
 
-/// How a copy on Windows was installed, from where its program is: the setup program leaves
+/// How a copy on Windows was installed, from where its program is.
+///
+/// The setup program leaves
 /// its uninstaller beside it. Scoop and the portable archive leave none, and a setup program
 /// run over either would install a second copy elsewhere.
 ///
@@ -175,7 +177,9 @@ pub fn writable(dir: &Path) -> bool {
 }
 
 /// Runs the setup program as the in-app update runs it: passive, so it shows its progress and
-/// asks nothing. As an update it installs over this copy without uninstalling it and leaves its
+/// asks nothing.
+///
+/// As an update it installs over this copy without uninstalling it and leaves its
 /// shortcuts where they are. Where `reopen`, it starts the new program when done.
 #[must_use]
 pub fn setup_command(setup: &Path, reopen: bool) -> Command {
@@ -205,13 +209,15 @@ pub fn package_command(install: &Install, package: &Path) -> Option<Command> {
 /// pkexec's status when the person dismissed the prompt or was not allowed, which is not a
 /// failed install: nothing was tried.
 #[must_use]
-pub fn declined(status: Option<i32>) -> bool {
+pub const fn declined(status: Option<i32>) -> bool {
     matches!(status, Some(126 | 127))
 }
 
 /// Swaps `staged` and `bundle` as root, after macOS asks for an administrator's password, where
-/// this account cannot write beside the bundle. The swap is the same exchange as
-/// [`super::replace::swap`], made by `renamex_np` through JavaScript for Automation, which ships
+/// this account cannot write beside the bundle.
+///
+/// The swap is the same exchange as
+/// `super::replace::swap`, made by `renamex_np` through JavaScript for Automation, which ships
 /// with every macOS. Where the file system cannot exchange, the bundle is moved to `backup` and
 /// the new one into its place, and the old one is restored if that fails. Follows the privileged
 /// install of Tauri's updater, `plugins/updater/src/updater.rs` in tauri-apps/plugins-workspace
@@ -320,7 +326,7 @@ mod tests {
     fn a_windows_copy_beside_its_uninstaller_was_installed_by_the_setup_program() {
         let dir = Dir::new();
         let program = dir.path().join("steamgauge.exe");
-        assert!(on_windows(&program).is_err());
+        on_windows(&program).unwrap_err();
         std::fs::write(dir.path().join("uninstall.exe"), b"").unwrap();
         assert_eq!(on_windows(&program), Ok(Install::WindowsSetup));
     }

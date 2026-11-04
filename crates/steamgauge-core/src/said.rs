@@ -31,7 +31,7 @@
 //! term onto the claims it was counted from, which is the only honest answer a counter that
 //! does not parse can give.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -91,7 +91,7 @@ pub struct SaidAbout {
 /// Counts terms per side of every subject over a corpus, in bounded memory.
 pub(crate) struct Said {
     /// Per language the reviews were written in: the two sides of every subject.
-    languages: HashMap<String, Vec<[Counter; 2]>>,
+    languages: BTreeMap<String, Vec<[Counter; 2]>>,
     subjects: usize,
     /// What the review in hand has said so far, each term once per side of a subject.
     heard: HashSet<(usize, usize, String)>,
@@ -101,7 +101,7 @@ pub(crate) struct Said {
 impl Said {
     pub(crate) fn new(subjects: usize) -> Self {
         Self {
-            languages: HashMap::new(),
+            languages: BTreeMap::new(),
             subjects,
             heard: HashSet::new(),
             scratch: Terms::default(),
@@ -134,12 +134,16 @@ impl Said {
             .languages
             .entry(language.to_owned())
             .or_insert_with(|| {
-                (0..subjects)
-                    .map(|_| [Counter::default(), Counter::default()])
+                std::iter::repeat_with(<[Counter; 2]>::default)
+                    .take(subjects)
                     .collect()
             });
         let mut sides_taken: HashSet<(usize, usize)> = HashSet::new();
-        for (subject, side, term) in self.heard.drain() {
+        // Counter::add forgets the rarest terms once it is full, so the order terms arrive in
+        // decides which survive. Sorted, a run gives the same answer every time.
+        let mut heard: Vec<_> = self.heard.drain().collect();
+        heard.sort_unstable();
+        for (subject, side, term) in heard {
             let counter = &mut sides[subject][side];
             if sides_taken.insert((subject, side)) {
                 counter.reviews += 1;
@@ -154,8 +158,8 @@ impl Said {
     pub(crate) fn finish(self, subjects: &[(&str, &str)]) -> Vec<SaidAbout> {
         // The languages pooled, for the candidates, the totals and the words of the language.
         // The languages apart, for the comparison.
-        let mut pooled: Vec<[Counter; 2]> = (0..self.subjects)
-            .map(|_| [Counter::default(), Counter::default()])
+        let mut pooled: Vec<[Counter; 2]> = std::iter::repeat_with(<[Counter; 2]>::default)
+            .take(self.subjects)
             .collect();
         for sides in self.languages.values() {
             for (subject, [praise, complaint]) in sides.iter().enumerate() {
@@ -166,6 +170,10 @@ impl Said {
         let mut everywhere: HashMap<&str, u64> = HashMap::new();
         for [praise, complaint] in &pooled {
             for counter in [praise, complaint] {
+                #[expect(
+                    clippy::iter_over_hash_type,
+                    reason = "integer sums per term do not depend on order"
+                )]
                 for (term, count) in &counter.terms {
                     *everywhere.entry(term.as_str()).or_default() += count;
                 }
@@ -251,6 +259,10 @@ impl Counter {
     fn absorb(&mut self, other: &Self) {
         self.reviews += other.reviews;
         self.forgotten = self.forgotten.max(other.forgotten);
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "integer sums per term do not depend on order"
+        )]
         for (term, count) in &other.terms {
             *self.terms.entry(term.clone()).or_default() += count;
         }
@@ -410,7 +422,7 @@ fn coalesce(shown: &mut Vec<Term>) {
 
 /// Whether two counts are within a twentieth of each other, which is what "the same
 /// reviewers" means once a few of them have phrased a thing two ways.
-fn nearly(left: u64, right: u64) -> bool {
+const fn nearly(left: u64, right: u64) -> bool {
     left * 20 >= right * 19 && right * 20 >= left * 19
 }
 
@@ -452,7 +464,9 @@ fn shares_a_word(left: &str, right: &str) -> bool {
 const ENDINGS: &[&str] = &["", "s", "es", "ed", "ing"];
 
 /// Whether two terms are the same word in two forms: "server" and "servers", "listened" and
-/// "listening", "story" and "stories". The shared beginning has to be a word's worth of
+/// "listening", "story" and "stories".
+///
+/// The shared beginning has to be a word's worth of
 /// characters, because a three-letter agreement is a coincidence: "mode" and "mods" share
 /// "mod" and are two findings, and the endings they differ by settle it.
 ///
@@ -479,12 +493,12 @@ pub fn one_word_inflected(left: &str, right: &str) -> bool {
 }
 
 /// Whether a character is a Chinese ideograph, the script the dictionary cuts.
-fn is_han(ch: char) -> bool {
+const fn is_han(ch: char) -> bool {
     matches!(ch as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF)
 }
 
 /// Whether a character is a Korean syllable.
-fn is_hangul(ch: char) -> bool {
+const fn is_hangul(ch: char) -> bool {
     matches!(ch as u32, 0xAC00..=0xD7AF)
 }
 

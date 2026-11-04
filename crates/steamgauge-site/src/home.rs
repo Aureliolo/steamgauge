@@ -163,14 +163,14 @@ const SMALLPRINT: &str = "Apache-2.0. Not affiliated with or endorsed by Valve. 
 
 /// The window as the page shows it, in each colour scheme.
 #[derive(Debug)]
-pub struct Picture {
+pub(crate) struct Picture {
     pub width: u32,
     pub height: u32,
 }
 
 /// The front page, as the site's HTML.
 #[must_use]
-pub fn html(version: &str, picture: &Picture) -> String {
+pub(crate) fn html(version: &str, picture: &Picture) -> String {
     let assistants = crate::blocks::named_assistants();
     let tools = reference::tools().len();
     let mut page = format!(
@@ -251,7 +251,7 @@ fn installs(version: &str) -> String {
 
 /// The front page as Markdown.
 #[must_use]
-pub fn text(version: &str) -> String {
+pub(crate) fn text(version: &str) -> String {
     let mut page = format!("# SteamGauge\n\n{HEADLINE} {LEDE}\n\n");
     for card in CARDS {
         let _ = write!(

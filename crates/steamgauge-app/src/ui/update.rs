@@ -9,7 +9,7 @@ use steamgauge_core::{
     newer_version::{Asked, LATEST},
     self_update::Version,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use super::work::{EVERY, Meter, left};
 use crate::update::{self as updater, Folders, Step, Stop, Then};
@@ -17,7 +17,7 @@ use crate::update::{self as updater, Folders, Step, Stop, Then};
 /// Where the update stands, as the window draws it.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
-pub enum Progress {
+pub(super) enum Progress {
     /// Nothing under way. `why` says why this copy is not updated from the window, where it is
     /// not.
     Idle {
@@ -40,7 +40,7 @@ pub enum Progress {
 
 /// The update under way, if any, and the verified file a failed install leaves to be shown.
 #[derive(Debug, Default)]
-pub struct Updating {
+pub(super) struct Updating {
     now: Mutex<Option<Progress>>,
     file: Mutex<Option<PathBuf>>,
 }
@@ -68,7 +68,7 @@ impl Updating {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn update_state(updating: tauri::State<'_, Updating>) -> Progress {
+pub(super) fn update_state(updating: tauri::State<'_, Updating>) -> Progress {
     updating.current().unwrap_or_else(|| Progress::Idle {
         why: updater::installed().err(),
     })
@@ -80,7 +80,7 @@ pub fn update_state(updating: tauri::State<'_, Updating>) -> Progress {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn update_now(app: AppHandle, updating: tauri::State<'_, Updating>) {
+pub(super) fn update_now(app: AppHandle, updating: tauri::State<'_, Updating>) {
     {
         let mut now = updating
             .now
@@ -98,7 +98,7 @@ pub fn update_now(app: AppHandle, updating: tauri::State<'_, Updating>) {
             rate: None,
             left: None,
         });
-    }
+    };
     tauri::async_runtime::spawn(async move {
         let updating = app.state::<Updating>();
         if let Err(stop) = update(&app, &updating).await {
@@ -124,7 +124,7 @@ pub fn update_now(app: AppHandle, updating: tauri::State<'_, Updating>) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn show_update_file(updating: tauri::State<'_, Updating>) -> Result<(), String> {
+pub(super) fn show_update_file(updating: tauri::State<'_, Updating>) -> Result<(), String> {
     let file = updating
         .file
         .lock()
@@ -143,7 +143,7 @@ fn folders(app: &AppHandle) -> Option<Folders> {
 
 /// Removes what an earlier update downloaded, which has been installed or given up on by the
 /// time the app opens again.
-pub fn tidy(app: &AppHandle) {
+pub(super) fn tidy(app: &AppHandle) {
     if let Some(folders) = folders(app) {
         let _ = std::fs::remove_dir_all(folders.download);
     }
@@ -198,6 +198,6 @@ async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
     clippy::cast_precision_loss,
     reason = "a byte count is shown, and a file of 2^53 bytes is not downloaded"
 )]
-fn bytes(count: u64) -> f64 {
+const fn bytes(count: u64) -> f64 {
     count as f64
 }

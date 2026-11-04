@@ -23,7 +23,7 @@ pub use verify::{Arrived, Builder, RELEASE_BUILD, Refusal, verify};
 pub use semver::Version;
 use sigstore_verify::trust_root::TrustedRoot;
 
-/// Whether any of `bundles` proves `arrived`, as [`verify`] decides for one. The refusal given
+/// Whether any of `bundles` proves `arrived`, as [`verify()`] decides for one. The refusal given
 /// is the last bundle's, since the first is the release's own and the rest are GitHub's copies.
 ///
 /// # Errors
@@ -70,7 +70,7 @@ mod tests {
             &arrived,
             running,
             &RELEASE_BUILD,
-            &verify::embedded_root().unwrap(),
+            &verify::embedded_root()?,
         )
     }
 

@@ -6,7 +6,7 @@
 //! the page will not show as a number is left empty, and a column says why.
 //!
 //! Review text is written by strangers, and a spreadsheet runs a cell that starts like a formula.
-//! So in the CSV a text starting with one of [`FORMULA_STARTS`] carries a `'` before it, which is
+//! So in the CSV a text starting with one of `FORMULA_STARTS` carries a `'` before it, which is
 //! the standard defence. The JSON holds every text as it was written.
 
 use std::{
@@ -14,12 +14,12 @@ use std::{
     collections::HashMap,
     fmt::Write as _,
     fs::File,
-    io::{BufWriter, Write},
+    io::{BufWriter, Write as _},
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use serde::ser::{Serialize, SerializeMap, Serializer};
+use serde::ser::{Serialize, SerializeMap as _, Serializer};
 
 use crate::{
     Error, Result,
@@ -68,9 +68,11 @@ pub struct Exported {
     pub left_out: u64,
 }
 
-/// Writes a read game's data into a new folder at `to`: subjects, months, points and updates, each
-/// as CSV and JSON, and a README.txt saying what they hold. Says how many reviews of the capture
-/// it has walked, and of how many, as it writes the points.
+/// Writes a read game's data into a new folder at `to`.
+///
+/// The folder holds subjects, months, points and updates, each as CSV and JSON, and a README.txt
+/// saying what they hold. Says how many reviews of the capture it has walked, and of how many, as
+/// it writes the points.
 ///
 /// The files are written into `<to>.partial` and the folder takes its name only once all of them
 /// are whole, so a stopped or failed export leaves nothing that looks finished.
@@ -281,13 +283,15 @@ impl Cell {
 }
 
 impl Serialize for Cell {
-    fn serialize<S: Serializer>(&self, to: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         match self {
-            Self::Text(text) => to.serialize_str(text),
-            Self::Count(count) => to.serialize_u64(*count),
-            Self::Decimal(value) => to.serialize_f64(decimal(*value).parse().unwrap_or(*value)),
-            Self::Flag(flag) => to.serialize_bool(*flag),
-            Self::Empty => to.serialize_none(),
+            Self::Text(text) => serializer.serialize_str(text),
+            Self::Count(count) => serializer.serialize_u64(*count),
+            Self::Decimal(value) => {
+                serializer.serialize_f64(decimal(*value).parse().unwrap_or(*value))
+            }
+            Self::Flag(flag) => serializer.serialize_bool(*flag),
+            Self::Empty => serializer.serialize_none(),
         }
     }
 }
@@ -393,8 +397,8 @@ struct Object<'a> {
 }
 
 impl Serialize for Object<'_> {
-    fn serialize<S: Serializer>(&self, to: S) -> std::result::Result<S::Ok, S::Error> {
-        let mut object = to.serialize_map(Some(self.names.len()))?;
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        let mut object = serializer.serialize_map(Some(self.names.len()))?;
         for (name, cell) in self.names.iter().zip(self.cells) {
             object.serialize_entry(name, cell)?;
         }
@@ -412,7 +416,7 @@ struct Reviewers {
 }
 
 impl Reviewers {
-    fn everyone(report: &ReadReport) -> Self {
+    const fn everyone(report: &ReadReport) -> Self {
         Self {
             id: EVERYONE,
             label: "Everyone",
@@ -1905,13 +1909,12 @@ mod tests {
         let raw = std::fs::read_to_string(folder.join("points.csv")).unwrap();
         assert!(!raw.contains(",=1+1"), "no cell starts with a bare formula");
         assert!(raw.contains(",'=1+1 bug count.,"));
-        let json_text: Vec<&str> = points
-            .json
-            .iter()
-            .filter_map(|row| row["text"].as_str())
-            .collect();
         assert!(
-            json_text.contains(&"=1+1 bug count."),
+            points
+                .json
+                .iter()
+                .filter_map(|row| row["text"].as_str())
+                .any(|text| text == "=1+1 bug count."),
             "the JSON keeps it as written"
         );
 
@@ -2292,7 +2295,7 @@ mod tests {
         let fewer = ReadReport {
             unclassified_claims: report.claims / 2 - 1,
             claims: report.claims / 2 * 2,
-            ..report.clone()
+            ..report
         };
         let said = readme_of(
             &fewer,
@@ -2372,7 +2375,7 @@ mod tests {
         std::fs::create_dir(&to).unwrap();
         std::fs::write(to.join("mine.txt"), "kept").unwrap();
         let refused = game(out.path(), 1, &to, &never, |_, _| {}).unwrap_err();
-        assert!(matches!(refused, Error::Refused(ref why) if why.contains("is there already")));
+        assert!(matches!(&refused, Error::Refused(why) if why.contains("is there already")));
         assert_eq!(
             std::fs::read_to_string(to.join("mine.txt")).unwrap(),
             "kept"
@@ -2381,7 +2384,7 @@ mod tests {
 
         std::fs::create_dir(&partial).unwrap();
         let refused = game(out.path(), 1, &to, &never, |_, _| {}).unwrap_err();
-        assert!(matches!(refused, Error::Refused(ref why) if why.contains("did not finish")));
+        assert!(matches!(&refused, Error::Refused(why) if why.contains("did not finish")));
         assert!(partial.exists() && !to.exists());
         std::fs::remove_dir(&partial).unwrap();
 
@@ -2404,14 +2407,14 @@ mod tests {
         std::fs::write(&a_file, "").unwrap();
         let refused = game(out.path(), 1, &a_file.join("data"), &never, |_, _| {}).unwrap_err();
         assert!(
-            matches!(refused, Error::Refused(ref why) if why.contains(&a_file.display().to_string())),
+            matches!(&refused, Error::Refused(why) if why.contains(&a_file.display().to_string())),
             "a folder that cannot be made is named: {refused}"
         );
 
         let unread = crate::read::tests::corpus_of(out.path(), 4);
         let refused = game(out.path(), 4, &to, &never, |_, _| {}).unwrap_err();
         assert!(
-            matches!(refused, Error::NoClassifications { ref path } if *path == unread.join("reading.json"))
+            matches!(&refused, Error::NoClassifications { path } if *path == unread.join("reading.json"))
         );
         assert!(!partial.exists());
     }

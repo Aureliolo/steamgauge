@@ -22,7 +22,7 @@ use hyper_util::rt::TokioIo;
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 use tokio_util::sync::CancellationToken;
 
 use super::{mcp::Server, settings::Settings, text};
@@ -77,13 +77,13 @@ enum Answering {
 }
 
 #[derive(Debug, Default)]
-pub struct Http {
+pub(super) struct Http {
     state: Mutex<Option<(Answering, CancellationToken)>>,
 }
 
 /// How a client reaches the server, for Settings to show.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Reach {
+pub(super) struct Reach {
     /// The address, where the server answers.
     pub address: Option<String>,
     pub token: Option<String>,
@@ -91,7 +91,7 @@ pub struct Reach {
     pub problem: Option<String>,
 }
 
-pub fn reach(app: &AppHandle) -> Reach {
+pub(super) fn reach(app: &AppHandle) -> Reach {
     let state = app.state::<Http>();
     let state = state
         .state
@@ -122,7 +122,7 @@ fn address(port: u16) -> String {
 
 /// Starts, stops or moves the server to match Settings. Called when the app opens and whenever
 /// Settings or the token changes.
-pub fn follow(app: &AppHandle) {
+pub(super) fn follow(app: &AppHandle) {
     let settings = Settings::load(app);
     let wanted = settings.answer_over_http.then_some(settings.http_port);
     let token = match (wanted, local_data(app)) {
@@ -184,7 +184,7 @@ pub fn follow(app: &AppHandle) {
 }
 
 /// Draws a new token, so whoever held the old one is shut out, and answers with it from now on.
-pub fn new_token(app: &AppHandle) -> Result<(), String> {
+pub(super) fn new_token(app: &AppHandle) -> Result<(), String> {
     let local = local_data(app)?;
     write_token(&local, &draw_token().map_err(text)?).map_err(text)?;
     follow(app);

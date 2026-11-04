@@ -43,11 +43,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // A report of one game has no cross-game table and no contents, and is a different page
     // to drive. Both shapes ship, so both are worth being able to render.
     let alone = arguments.iter().any(|argument| argument == "--one-game");
-    let wanted = arguments
+    let wanted = match arguments
         .iter()
         .position(|argument| argument == "--games")
         .and_then(|slot| arguments.get(slot + 1))
-        .map_or(DEFAULT_GAMES, |count| count.parse().expect("--games count"));
+    {
+        Some(count) => count.parse()?,
+        None => DEFAULT_GAMES,
+    };
 
     let mut apps = vec![game(7, "A Measured Game <& Friends>", true)];
     if !alone {
@@ -58,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // of games, and every part of the page that grows with the number of them has to be
         // read at that size rather than at the size that fits in a screenshot.
         for extra in apps.len()..wanted {
-            let id = 100 + u32::try_from(extra).expect("more games than a page could hold");
+            let id = 100 + u32::try_from(extra)?;
             apps.push(game(id, &format!("Filler Game {extra}"), true));
         }
     }

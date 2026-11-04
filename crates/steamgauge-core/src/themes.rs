@@ -80,7 +80,7 @@ pub(crate) const FILE: &str = "themes.json";
 const THREADS: usize = 4;
 
 /// Every subject's themes on each side, for one reading.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Themes {
     /// The encoder whose vectors these were grouped by.
     pub encoder: String,
@@ -90,7 +90,7 @@ pub struct Themes {
 }
 
 /// One subject on one side.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubjectThemes {
     pub subject: String,
     /// "praise" or "complaint".
@@ -100,7 +100,7 @@ pub struct SubjectThemes {
     pub themes: Vec<Theme>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Theme {
     /// A short claim near the theme's centre, as a reviewer put it.
     pub label: String,
@@ -117,7 +117,7 @@ pub struct Theme {
 }
 
 /// One theme in a list across subjects: the subject, its place in that subject's list, and it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ranked<'a> {
     pub subject: &'a str,
     pub theme: usize,
@@ -290,7 +290,7 @@ fn neighbours(points: &[Point], alike: f32) -> Vec<Vec<usize>> {
 fn communities(points: &[Point], alike: f32) -> Vec<Vec<usize>> {
     let near = neighbours(points, alike);
     let mut order: Vec<usize> = (0..points.len()).collect();
-    order.sort_by_key(|&point| (std::cmp::Reverse(near[point].len()), point));
+    order.sort_by_key(|&point| (Reverse(near[point].len()), point));
     let mut taken = vec![false; points.len()];
     let mut found = Vec::new();
     for seed in order {
@@ -452,7 +452,9 @@ impl Said {
             },
         )?;
 
-        let mut gathered: Vec<Gathered> = (0..subjects * 2).map(|_| Gathered::default()).collect();
+        let mut gathered: Vec<Gathered> = std::iter::repeat_with(Gathered::default)
+            .take(subjects * 2)
+            .collect();
         let mut reviews: Vec<String> = Vec::new();
         crate::capture::for_each_row(snapshot, |row, text| {
             let Some(claims) = filed.get(&row.recommendationid) else {
@@ -605,6 +607,10 @@ impl Said {
             if by_group[group].is_empty() {
                 continue;
             }
+            #[expect(
+                clippy::iter_over_hash_type,
+                reason = "each key collects groups in the order of the outer loop, whatever order keys come in"
+            )]
             for key in gathered.claims.keys() {
                 groups_of.entry(*key).or_default().push(group);
             }
@@ -877,7 +883,7 @@ mod tests {
         {
             bytes[0] = (100.0 * cos).round() as i8;
             bytes[1] = (100.0 * sin).round() as i8;
-        }
+        };
         Point::new(&bytes)
     }
 

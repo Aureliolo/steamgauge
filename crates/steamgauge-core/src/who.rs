@@ -397,7 +397,9 @@ impl Tally {
 /// whole points.
 pub const ENOUGH: u64 = 100;
 
-/// How many standard errors a difference has to span. What moved tests some fifty shares a game
+/// How many standard errors a difference has to span.
+///
+/// What moved tests some fifty shares a game
 /// at three. A game's kinds of reviewer test some four hundred, and at three one of them would
 /// clear by chance on every game. At four, fewer than one game in thirty shows one that chance
 /// made.
@@ -1227,7 +1229,7 @@ mod tests {
             why("got-it-free", None).starts_with("Everyone else: 99 reviews"),
             "the side that is too small is the one named"
         );
-        assert!(compare(&report, "under-2-hours", Some("2-to-10-hours")).is_ok());
+        compare(&report, "under-2-hours", Some("2-to-10-hours")).unwrap();
         assert!(
             compare(&report, "under-2-hours", Some("30-to-100-hours")).is_err(),
             "a kind nobody wrote in is too few, not missing"

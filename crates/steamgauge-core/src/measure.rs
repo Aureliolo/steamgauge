@@ -247,9 +247,8 @@ impl ClaimAgreement {
         let subject = self
             .subject(id)
             .filter(|subject| subject.labelled >= ENOUGH_TO_CORRECT_A_ROW)?;
-        (of_claims > 0)
-            .then(|| claims as f64 / of_claims as f64)
-            .and_then(|observed| subject.corrected(observed))
+        let observed = (of_claims > 0).then(|| claims as f64 / of_claims as f64)?;
+        subject.corrected(observed)
     }
 }
 
@@ -447,12 +446,13 @@ fn beyond_the_first(
 ///
 /// Fails if the labels or the readings are missing or unreadable.
 pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimAgreement> {
-    let labels: Vec<ClaimLabel> =
-        serde_json::from_slice(&std::fs::read(reference.join("labels.json")).map_err(|_| {
-            crate::Error::NoReferenceSet {
+    let labels: Vec<ClaimLabel> = serde_json::from_slice(
+        &std::fs::read(reference.join("labels.json")).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
                 path: reference.join("labels.json"),
-            }
-        })?)?;
+            })
+        })?,
+    )?;
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(&snapshot, &labels)?;
@@ -599,7 +599,7 @@ const VALIDATION_SHARE: f64 = 0.15;
 /// added, and "the games it never saw" would quietly be different games on every run.
 #[must_use]
 pub fn role(app_id: u32, seed: u64) -> Role {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
 
     let digest = Sha256::digest(format!("{seed}:{app_id}").as_bytes());
     let head = u64::from_be_bytes(digest[..8].try_into().unwrap_or_default());
@@ -695,7 +695,7 @@ impl Ceiling {
     }
 
     /// Adds another game's claims to these, so several games are one figure.
-    pub fn extend(&mut self, other: &Self) {
+    pub const fn extend(&mut self, other: &Self) {
         self.compared += other.compared;
         self.labellers_agreed += other.labellers_agreed;
         self.model_agreed_where_they_did += other.model_agreed_where_they_did;
@@ -715,8 +715,11 @@ impl Ceiling {
 /// Fails if either labelling, the readings, or the capture is missing or unreadable.
 pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling> {
     let read_labels = |path: std::path::PathBuf| -> Result<Vec<ClaimLabel>> {
-        let bytes = std::fs::read(&path)
-            .map_err(|_| crate::Error::NoReferenceSet { path: path.clone() })?;
+        let bytes = std::fs::read(&path).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
+                path: path.clone(),
+            })
+        })?;
         Ok(serde_json::from_slice(&bytes)?)
     };
     let first = read_labels(reference.join("labels.json"))?;

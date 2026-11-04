@@ -18,10 +18,117 @@ steamgauge-core = { path = "crates/steamgauge-core" }
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unused_qualifications = "warn"
+unreachable_pub = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+meta_variable_misuse = "warn"
+missing_unsafe_on_extern = "warn"
+redundant_lifetimes = "warn"
+non_ascii_idents = "warn"
+ambiguous_negative_literals = "warn"
+deprecated_in_future = "warn"
+deref_into_dyn_supertrait = "warn"
+explicit_outlives_requirements = "warn"
+if_let_rescope = "warn"
+impl_trait_overcaptures = "warn"
+linker_messages = "warn"
+macro_use_extern_crate = "warn"
+redundant_imports = "warn"
+tail_expr_drop_order = "warn"
+unnameable_types = "warn"
+unused_import_braces = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
+bare_urls = "warn"
+invalid_html_tags = "warn"
+invalid_codeblock_attributes = "warn"
+invalid_rust_codeblocks = "warn"
+redundant_explicit_links = "warn"
+unescaped_backticks = "warn"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# The dependency tree picks these versions and no crate here controls them.
+multiple_crate_versions = "allow"
+# Writing to a String cannot fail and `let _ =` is the std idiom for it. The rest are best-effort
+# clean-ups of temporary folders and partial files, where a failure has nothing to report to.
+let_underscore_must_use = "allow"
+# Contradicts rustc's unreachable_pub, which asks for pub(crate) in a private module.
+redundant_pub_crate = "allow"
+# The page templates substitute `{name}` placeholders with str::replace, not format!.
+literal_string_with_formatting_args = "allow"
+# match and if let are Rust's own idiom, and its closures cannot move one value into both arms.
+option_if_let_else = "allow"
+# A lock is held on purpose for the whole critical section it protects, and the lint cannot tell.
+significant_drop_tightening = "allow"
+# Rewriting a*b+c as mul_add rounds differently and would shift reported figures.
+suboptimal_flops = "allow"
+# Restriction lints chosen one by one, since clippy's docs say never to enable the group.
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_in_result = "warn"
+str_to_string = "warn"
+rc_buffer = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_name_method = "warn"
+semicolon_outside_block = "warn"
+unneeded_field_pattern = "warn"
+verbose_file_reads = "warn"
+lossy_float_literal = "warn"
+mem_forget = "warn"
+mixed_read_write_in_expression = "warn"
+empty_structs_with_brackets = "warn"
+empty_enum_variants_with_brackets = "warn"
+format_push_string = "warn"
+if_then_some_else_none = "warn"
+infinite_loop = "warn"
+missing_assert_message = "warn"
+needless_raw_strings = "warn"
+redundant_type_annotations = "warn"
+renamed_function_params = "warn"
+try_err = "warn"
+undocumented_unsafe_blocks = "warn"
+unused_result_ok = "warn"
+unused_trait_names = "warn"
+clone_on_ref_ptr = "warn"
+exit = "warn"
+filetype_is_file = "warn"
+get_unwrap = "warn"
+map_with_unused_argument_over_ranges = "warn"
+pathbuf_init_then_push = "warn"
+string_lit_chars_any = "warn"
+assertions_on_result_states = "warn"
+pub_without_shorthand = "warn"
+ref_patterns = "warn"
+return_and_then = "warn"
+self_named_module_files = "warn"
+iter_over_hash_type = "warn"
+map_err_ignore = "warn"
+empty_drop = "warn"
+fn_to_numeric_cast_any = "warn"
+panic_in_result_fn = "warn"
+redundant_test_prefix = "warn"
+string_add = "warn"
+unnecessary_self_imports = "warn"
+unseparated_literal_suffix = "warn"
+zero_sized_map_values = "warn"
+non_zero_suggestions = "warn"
+as_pointer_underscore = "warn"
+precedence_bits = "warn"
 
 # Cargo's sixteen codegen units: one built twice as slowly and ran no faster, since reading runs
 # inside ONNX Runtime, which this setting never touches.

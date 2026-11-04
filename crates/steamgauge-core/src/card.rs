@@ -60,7 +60,7 @@ mod platform {
             .collect()
     }
 
-    pub fn largest() -> Option<super::Card> {
+    pub(super) fn largest() -> Option<super::Card> {
         adapters()
             .into_iter()
             .map(|(bytes, _)| bytes)
@@ -71,11 +71,9 @@ mod platform {
             })
     }
 
-    pub fn name() -> Option<String> {
-        adapters()
-            .into_iter()
-            .max_by_key(|(bytes, _)| *bytes)
-            .and_then(|(_, name)| name)
+    pub(super) fn name() -> Option<String> {
+        let (_, name) = adapters().into_iter().max_by_key(|(bytes, _)| *bytes)?;
+        name
     }
 }
 
@@ -150,7 +148,13 @@ fn bytes_of(dword: bool, raw: &[u8]) -> Option<u64> {
 }
 
 /// The largest of `nvidia-smi`'s per-card totals, which it prints in mebibytes, one per line.
-#[cfg_attr(any(windows, target_os = "macos"), allow(dead_code))]
+#[cfg_attr(
+    all(any(windows, target_os = "macos"), not(test)),
+    expect(
+        dead_code,
+        reason = "only the Linux nvidia-smi probe calls it, and tests everywhere"
+    )
+)]
 fn largest_mib(listing: &str) -> Option<u64> {
     listing
         .lines()

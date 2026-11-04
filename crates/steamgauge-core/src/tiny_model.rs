@@ -59,20 +59,20 @@ fn width_of(table: &[Vec<f32>]) -> i64 {
 
 /// One dimension of an input or an output.
 #[derive(Debug, Clone, Copy)]
-pub enum Dim {
+pub(crate) enum Dim {
     Named(&'static str),
     Sized(i64),
 }
 
 /// A graph taking `input_ids` and `attention_mask`, as every model this crate runs does.
 #[derive(Debug, Default)]
-pub struct Graph {
+pub(crate) struct Graph {
     body: Vec<u8>,
     nodes: usize,
 }
 
 impl Graph {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut graph = Self::default();
         let tokens = [Dim::Named("batch"), Dim::Named("tokens")];
         graph.input("input_ids", &tokens);
@@ -81,14 +81,14 @@ impl Graph {
     }
 
     /// Another input of token-shaped integers, taken and never read.
-    pub fn input(&mut self, name: &str, dims: &[Dim]) -> &mut Self {
+    pub(crate) fn input(&mut self, name: &str, dims: &[Dim]) -> &mut Self {
         bytes(&mut self.body, 11, &value_info(name, INT64, dims));
         self
     }
 
     /// A float input `past`, given back unchanged as `present`, as a decoder's cache of keys and
     /// values is handed from one step to the next.
-    pub fn passed(&mut self, past: &str, present: &str, dims: &[Dim]) -> &mut Self {
+    pub(crate) fn passed(&mut self, past: &str, present: &str, dims: &[Dim]) -> &mut Self {
         bytes(&mut self.body, 11, &value_info(past, FLOAT, dims));
         self.node("Identity", &[past], present, &[]);
         bytes(&mut self.body, 12, &value_info(present, FLOAT, dims));
@@ -97,7 +97,7 @@ impl Graph {
 
     /// `output`, shaped `[1, width]`: one at the length of `attention_mask` and nought elsewhere,
     /// so the likeliest next token is how many tokens the caller says were read.
-    pub fn counted(&mut self, output: &str, width: i64) -> &mut Self {
+    pub(crate) fn counted(&mut self, output: &str, width: i64) -> &mut Self {
         let (shape, second, length, depth, values) = (
             format!("{output}_shape"),
             format!("{output}_second"),
@@ -161,7 +161,7 @@ impl Graph {
     }
 
     /// `output`, shaped `[batch, tokens, width]`: row `id` of `table` for each token.
-    pub fn per_token(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
+    pub(crate) fn per_token(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
         let name = format!("{output}_table");
         self.table(&name, table);
         self.node("Gather", &[&name, "input_ids"], output, &[]);
@@ -175,14 +175,14 @@ impl Graph {
     }
 
     /// `output`, shaped `[batch, width]`: the rows of `table` for each token, summed.
-    pub fn summed(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
+    pub(crate) fn summed(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
         let dims = [Dim::Named("batch"), Dim::Sized(width_of(table))];
         self.summed_into(output, table, &dims, None)
     }
 
     /// `output`, shaped `[batch, subjects, answers]`: the rows of `table`, each `subjects` times
     /// `answers` wide, summed over the tokens and folded.
-    pub fn summed_folded(
+    pub(crate) fn summed_folded(
         &mut self,
         output: &str,
         table: &[Vec<f32>],
@@ -234,7 +234,7 @@ impl Graph {
     }
 
     /// Written as a model of opset 17, which every runtime this crate links has.
-    pub fn write(&self, path: &Path) {
+    pub(crate) fn write(&self, path: &Path) {
         let mut graph = self.body.clone();
         bytes(&mut graph, 2, b"tiny");
         let mut opset = Vec::new();
@@ -254,7 +254,7 @@ impl Graph {
 
 /// A tokenizer of whole words, one id each in the order given, splitting on whitespace and
 /// punctuation. Any word not given is `[UNK]`. `[PAD]` is id 0 and `[UNK]` id 1.
-pub fn word_tokenizer(words: &[&str]) -> serde_json::Value {
+pub(crate) fn word_tokenizer(words: &[&str]) -> serde_json::Value {
     let mut vocab = serde_json::Map::new();
     for (id, word) in ["[PAD]", "[UNK]"].iter().chain(words).enumerate() {
         vocab.insert((*word).to_owned(), id.into());
@@ -273,7 +273,7 @@ pub fn word_tokenizer(words: &[&str]) -> serde_json::Value {
 
 /// A tokenizer of single letters, each letter given its own id, that drops any letter it was
 /// not given, as a tokenizer without an unknown token does.
-pub fn letter_tokenizer(letters: &str) -> serde_json::Value {
+pub(crate) fn letter_tokenizer(letters: &str) -> serde_json::Value {
     let mut vocab = serde_json::Map::new();
     for (id, letter) in letters.chars().enumerate() {
         vocab.insert(letter.to_string(), id.into());
@@ -290,7 +290,7 @@ pub fn letter_tokenizer(letters: &str) -> serde_json::Value {
     })
 }
 
-pub fn write_json(path: &Path, value: &serde_json::Value) {
+pub(crate) fn write_json(path: &Path, value: &serde_json::Value) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).unwrap();
     }

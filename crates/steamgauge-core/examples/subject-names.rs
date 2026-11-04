@@ -62,9 +62,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 heard.insert((subject.clone(), term.to_owned()));
             });
         }
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "integer counts do not depend on order"
+        )]
         for subject in subjects {
             counts.entry(subject.to_owned()).or_default().0 += 1;
         }
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "integer counts do not depend on order"
+        )]
         for (subject, term) in heard {
             *counts
                 .entry(subject)

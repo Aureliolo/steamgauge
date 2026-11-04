@@ -56,7 +56,7 @@ struct Listed {
 /// # Errors
 ///
 /// Fails where GitHub cannot be reached, does not answer with a list of releases, or answers
-/// with more than [`MOST`] bytes.
+/// with more than `MOST` bytes.
 pub async fn between(
     api: &str,
     from: &semver::Version,

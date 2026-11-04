@@ -91,7 +91,7 @@ fn matches(word: &str, wanted: &str) -> bool {
 
 /// Scripts written without spaces between words, where a phrase can only be looked for as a
 /// run of characters.
-fn spaceless(c: char) -> bool {
+const fn spaceless(c: char) -> bool {
     matches!(c,
         '\u{3040}'..='\u{30FF}'   // hiragana and katakana
         | '\u{3400}'..='\u{4DBF}' // CJK extension A
@@ -321,8 +321,7 @@ pub(crate) mod tests {
 
     fn forms_of(query: &str, text: &str) -> Option<Vec<String>> {
         let mut forms = Vec::new();
-        Phrase::new(query)
-            .unwrap()
+        Phrase::new(query)?
             .found_in(text, |form| forms.push(form.to_owned()))
             .then_some(forms)
     }

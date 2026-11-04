@@ -31,7 +31,7 @@ use serde::Serialize;
 use steamgauge_core::{
     DEFAULT_PACE, Listing, SteamClient, embed, reading_time::ReadingTimes, report,
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 use kept::Kept;
 
@@ -146,7 +146,7 @@ async fn look_up(app: AppHandle, app_id: u32) -> Result<Found, String> {
     // hear that Steam is refusing than watch the box wait.
     let client = SteamClient::new(DEFAULT_PACE)
         .map_err(text)?
-        .with_patience(std::time::Duration::from_secs(30));
+        .with_patience(Duration::from_secs(30));
     let summary = client.summary(app_id).await.map_err(text)?;
     let held = embed::latest_snapshot(&library_dir(&app), app_id).is_ok();
     Ok(Found {
@@ -520,7 +520,7 @@ fn measurement(dir: &Path, app_id: u32) -> (bool, Option<steamgauge_core::ClaimA
 }
 
 /// What the reading pass wrote beside a snapshot's readings.
-fn read_report(snapshot: &std::path::Path) -> Result<steamgauge_core::read::ReadReport, String> {
+fn read_report(snapshot: &Path) -> Result<steamgauge_core::read::ReadReport, String> {
     steamgauge_core::read::ReadReport::load(snapshot).map_err(|error| match error {
         steamgauge_core::Error::NoClassifications { .. } => {
             "this game has not been read yet; run the reading pass first".to_owned()
@@ -1276,7 +1276,7 @@ impl Narrowed<'_> {
 
 /// The page of claims under a subject, and how many there are, from the readings alone.
 fn claims_under(
-    snapshot: &std::path::Path,
+    snapshot: &Path,
     narrowed: &Narrowed<'_>,
     from: usize,
     count: usize,
@@ -1306,13 +1306,13 @@ fn claims_under(
 /// walk per page rather than one per review, which is the difference between a click and a
 /// wait on a corpus of a million reviews.
 fn claims_using(
-    snapshot: &std::path::Path,
+    snapshot: &Path,
     narrowed: &Narrowed<'_>,
     term: &str,
     from: usize,
     count: usize,
 ) -> steamgauge_core::Result<(u64, Vec<Wanted>)> {
-    let mut filed: std::collections::HashMap<String, Vec<Filed>> = std::collections::HashMap::new();
+    let mut filed: HashMap<String, Vec<Filed>> = HashMap::new();
     steamgauge_core::read::for_each_full_reading(
         &snapshot.join("readings.parquet"),
         |id, at, found, confidence, polarity, also| {
@@ -1375,7 +1375,7 @@ pub(crate) fn mcp_tool_list() -> rmcp::model::ListToolsResult {
 ///
 /// Fails if the webview cannot be created, which on Linux means the system webview is
 /// missing and on Windows means `WebView2` is not installed.
-pub fn run() -> anyhow::Result<()> {
+pub(crate) fn run() -> anyhow::Result<()> {
     tauri::Builder::default()
         // First, so a second copy brings this one's window forward before it starts anything of
         // its own.

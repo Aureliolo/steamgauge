@@ -35,6 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let texts = steamgauge_core::capture::texts_for(&snapshot, &ids)?;
 
     let mut cut: HashMap<&str, Vec<std::ops::Range<usize>>> = HashMap::new();
+    #[expect(clippy::iter_over_hash_type, reason = "only fills a map keyed by id")]
     for (id, text) in &texts {
         cut.insert(id, steamgauge_core::claims::spans(text));
     }

@@ -2,7 +2,7 @@
 //! when it is given arguments. Neither is the real one. Anything a person can do in the
 //! window can be scripted, and anything a script can do can be watched happening.
 //!
-//! The library is the program; `main.rs` only calls [`run`]. [`reference`] is the one other
+//! The library is the program; `main.rs` only calls [`run`]. [`reference`](mod@reference) is the one other
 //! thing it shows outside, the tables the documentation site renders.
 
 mod cli;
@@ -13,12 +13,24 @@ pub mod reference;
 mod ui;
 mod update;
 
-/// Enough for the argument parser to build itself without inlining. Every subcommand and every
+/// Enough for the argument parser to build itself without inlining.
+///
+/// Every subcommand and every
 /// argument is a nested builder call, so an unoptimised build walks far deeper than Windows
 /// gives the main thread by default, and `cargo run -- --version` overflows before reaching any
 /// command at all. Reserved address space, not memory: nothing is paid unless it is touched.
 /// Whatever calls `reference::command()` needs it too.
 pub const CLI_STACK: usize = 32 * 1024 * 1024;
+
+/// What a thread panicked with, when it said.
+#[must_use]
+pub fn panic_message(payload: &(dyn std::any::Any + Send)) -> &str {
+    payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+        .unwrap_or("no message")
+}
 
 /// The program: the window, or the pipeline.
 ///
@@ -33,7 +45,9 @@ pub fn run() -> anyhow::Result<()> {
             .name("steamgauge-cli".to_owned())
             .spawn(|| tokio::runtime::Runtime::new()?.block_on(cli::run()))?
             .join()
-            .map_err(|_| anyhow::anyhow!("the command panicked"))?;
+            .map_err(|panic| {
+                anyhow::anyhow!("the command panicked: {}", panic_message(&*panic))
+            })?;
     }
     ui::run()
 }

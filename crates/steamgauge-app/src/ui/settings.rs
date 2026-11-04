@@ -7,14 +7,14 @@
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 /// The shares of the graphics card a person can give the app's reading and preparing.
-pub const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
+pub(super) const SHARES: [f64; 4] = [0.25, 0.5, 0.75, 1.0];
 
 /// How often, in hours, a person can have the open app ask Steam about the library: an hour is
 /// the least, since each time is a request per game.
-pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
+pub(super) const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
 
 /// How many new reviews on Steam bring a game up to date by itself. An update reads only the new
 /// and edited reviews, but loads the reader onto the graphics card to do it. Waiting saves that
@@ -23,7 +23,7 @@ pub const CHECK_HOURS: [u32; 4] = [1, 6, 24, 168];
     Debug, Clone, Copy, Default, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq,
 )]
 #[serde(rename_all = "snake_case")]
-pub enum UpdateWhen {
+pub(super) enum UpdateWhen {
     /// Any review Steam has that the library does not.
     AnyNew,
     /// 1% more than the library holds. A game of fewer than 100 reviews is kept up to date review
@@ -37,7 +37,7 @@ pub enum UpdateWhen {
     clippy::struct_excessive_bools,
     reason = "each is one switch in Settings; no two of them name one state"
 )]
-pub struct Settings {
+pub(super) struct Settings {
     /// The share of the card's time a read or a preparation may take, one of 0.25, 0.5, 0.75 or 1.
     pub gpu_share: f64,
     /// The reader size chosen, or none for the size recommended for this machine. A size the
@@ -71,7 +71,7 @@ pub struct Settings {
 }
 
 /// The port the HTTP server answers on until another is chosen.
-pub const HTTP_PORT: u16 = 47_800;
+pub(super) const HTTP_PORT: u16 = 47_800;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -101,7 +101,7 @@ pub(super) fn file(app: &AppHandle) -> Option<PathBuf> {
 
 impl Settings {
     /// What was chosen, or the defaults where nothing was or the file cannot be read.
-    pub fn load(app: &AppHandle) -> Self {
+    pub(super) fn load(app: &AppHandle) -> Self {
         // The settings are brought to the current format with the library, the first time
         // either is asked for.
         super::library_dir(app);
@@ -159,7 +159,7 @@ impl Settings {
 /// The settings, with whether every game read is also prepared for search, which the core keeps
 /// in the library because a preparation is a fact about the library's games.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Shown {
+pub(super) struct Shown {
     #[serde(flatten)]
     pub settings: Settings,
     pub search_every_game: bool,
@@ -179,7 +179,7 @@ pub struct Shown {
 
 /// One MCP client on this computer, as the AI assistants page lists it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Client {
+pub(super) struct Client {
     pub id: String,
     pub name: String,
     /// The configuration file the app's entry goes in.
@@ -217,7 +217,7 @@ fn clients_here() -> Vec<Client> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn connect_client(app: AppHandle, client: String) -> Result<Shown, String> {
+pub(super) fn connect_client(app: AppHandle, client: String) -> Result<Shown, String> {
     use crate::clients::{Folders, Launch, add, by_id};
 
     let found = by_id(&client).map_err(|e| e.to_string())?;
@@ -233,7 +233,7 @@ pub fn connect_client(app: AppHandle, client: String) -> Result<Shown, String> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn disconnect_client(app: AppHandle, client: String) -> Result<Shown, String> {
+pub(super) fn disconnect_client(app: AppHandle, client: String) -> Result<Shown, String> {
     use crate::clients::{Folders, by_id, remove};
 
     let found = by_id(&client).map_err(|e| e.to_string())?;
@@ -247,7 +247,7 @@ pub fn disconnect_client(app: AppHandle, client: String) -> Result<Shown, String
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn settings(app: AppHandle) -> Shown {
+pub(super) fn settings(app: AppHandle) -> Shown {
     let library = super::library_dir(&app);
     Shown {
         settings: Settings::load(&app),
@@ -265,13 +265,13 @@ pub fn settings(app: AppHandle) -> Shown {
 
 /// A new token for the HTTP server, which shuts out whoever held the old one.
 #[tauri::command]
-pub fn new_http_token(app: AppHandle) -> Result<Shown, String> {
+pub(super) fn new_http_token(app: AppHandle) -> Result<Shown, String> {
     super::mcp_http::new_token(&app)?;
     Ok(settings(app))
 }
 
 #[tauri::command]
-pub fn save_settings(
+pub(super) fn save_settings(
     app: AppHandle,
     settings: Settings,
     search_every_game: bool,
@@ -292,7 +292,7 @@ pub fn save_settings(
 }
 
 /// A reader size as the window names it: "Small reader".
-pub fn reader_name(size: &steamgauge_core::reader::Size) -> String {
+pub(super) fn reader_name(size: &steamgauge_core::reader::Size) -> String {
     let mut letters = size.name.chars();
     letters.next().map_or_else(String::new, |first| {
         format!("{}{} reader", first.to_uppercase(), letters.as_str())
@@ -300,7 +300,7 @@ pub fn reader_name(size: &steamgauge_core::reader::Size) -> String {
 }
 
 /// What sets a reader size apart from the others, as the window lists it beside the name.
-pub fn reader_role(size: &steamgauge_core::reader::Size) -> String {
+pub(super) fn reader_role(size: &steamgauge_core::reader::Size) -> String {
     let agreement = format!("{:.0}% agreement at 80% coverage", size.agreement * 100.0);
     if size.name == steamgauge_core::reader::SIZES[0].name {
         format!("faster, {agreement}")
@@ -311,7 +311,7 @@ pub fn reader_role(size: &steamgauge_core::reader::Size) -> String {
 
 /// One reader size as Settings offers it.
 #[derive(Debug, Clone, Serialize)]
-pub struct SizeOption {
+pub(super) struct SizeOption {
     pub name: &'static str,
     /// Its agreement with the benchmark labels on the 80% of claims it is surest of.
     pub agreement: f64,
@@ -330,7 +330,7 @@ pub struct SizeOption {
 
 /// This computer, the reader it is recommended, the one it reads with, and every size.
 #[derive(Debug, Clone, Serialize)]
-pub struct ReaderOptions {
+pub(super) struct ReaderOptions {
     pub card: Option<String>,
     pub card_bytes: Option<u64>,
     pub on_processor: bool,
@@ -348,7 +348,7 @@ pub struct ReaderOptions {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn reader_options(app: AppHandle) -> ReaderOptions {
+pub(super) fn reader_options(app: AppHandle) -> ReaderOptions {
     use steamgauge_core::reader::{SIZES, fits, on_the_processor};
 
     let card = steamgauge_core::card::largest();

@@ -7,7 +7,7 @@
 use std::{collections::HashMap, path::Path};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager as _};
 
 use super::{
     library_dir, read_report,
@@ -17,7 +17,7 @@ use super::{
 
 /// How many reviews Steam had for each game when the library was last checked against it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SteamTotals {
+pub(super) struct SteamTotals {
     pub checked: i64,
     pub games: HashMap<u32, u64>,
 }
@@ -25,21 +25,21 @@ pub struct SteamTotals {
 const TOTALS_FILE: &str = "steam-totals.json";
 
 impl SteamTotals {
-    pub fn load(dir: &Path) -> Self {
+    pub(super) fn load(dir: &Path) -> Self {
         std::fs::read(dir.join(TOTALS_FILE))
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default()
     }
 
-    pub fn save(&self, dir: &Path) -> std::io::Result<()> {
+    pub(super) fn save(&self, dir: &Path) -> std::io::Result<()> {
         write_whole(&dir.join(TOTALS_FILE), &serde_json::to_vec_pretty(self)?)
     }
 }
 
 /// The newest release each published repository carries, when that was last asked.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Releases {
+pub(super) struct Releases {
     pub checked: i64,
     pub newest: HashMap<String, String>,
 }
@@ -68,7 +68,7 @@ fn releases_file(app: &AppHandle) -> Option<std::path::PathBuf> {
 }
 
 impl Releases {
-    pub async fn fetch() -> Self {
+    pub(super) async fn fetch() -> Self {
         let mut newest = HashMap::new();
         for repository in published() {
             // A repository the Hub will not list today is left out rather than reported as
@@ -86,14 +86,14 @@ impl Releases {
         }
     }
 
-    pub fn load(app: &AppHandle) -> Self {
+    pub(super) fn load(app: &AppHandle) -> Self {
         releases_file(app)
             .and_then(|path| std::fs::read(path).ok())
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default()
     }
 
-    pub fn save(&self, app: &AppHandle) -> std::io::Result<()> {
+    pub(super) fn save(&self, app: &AppHandle) -> std::io::Result<()> {
         let Some(path) = releases_file(app) else {
             return Ok(());
         };
@@ -116,12 +116,12 @@ impl Releases {
 
 /// The groups a person sorts their games into.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
-pub struct Groups {
+pub(super) struct Groups {
     pub groups: Vec<Group>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
-pub struct Group {
+pub(super) struct Group {
     pub name: String,
     pub app_ids: Vec<u32>,
 }
@@ -159,7 +159,7 @@ impl Groups {
 }
 
 /// Takes a removed game out of every group, so no group names a game the library no longer has.
-pub fn drop_from_groups(dir: &Path, app_id: u32) -> std::io::Result<()> {
+pub(super) fn drop_from_groups(dir: &Path, app_id: u32) -> std::io::Result<()> {
     let mut groups = Groups::load(dir);
     let before = groups.clone();
     for group in &mut groups.groups {
@@ -181,7 +181,7 @@ fn write_whole(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 
 /// What one game's reading says, as a row needs it.
 #[derive(Debug, Clone, Serialize)]
-pub struct Read {
+pub(super) struct Read {
     pub language: Option<String>,
     pub reviews: u64,
     pub claims: u64,
@@ -193,7 +193,7 @@ pub struct Read {
 
 /// One game as the library lists it.
 #[derive(Debug, Clone, Serialize)]
-pub struct Row {
+pub(super) struct Row {
     pub app_id: u32,
     pub name: String,
     pub reviews: u64,
@@ -232,7 +232,7 @@ fn share(part: u64, whole: u64) -> Option<f64> {
 }
 
 /// Every game in the library, as rows.
-pub fn rows(app: &AppHandle) -> Vec<Row> {
+pub(super) fn rows(app: &AppHandle) -> Vec<Row> {
     let dir = library_dir(app);
     let settings = Settings::load(app);
     let current = reader_run(&settings);
@@ -282,7 +282,7 @@ pub fn rows(app: &AppHandle) -> Vec<Row> {
 }
 
 #[tauri::command]
-pub async fn games(app: AppHandle) -> Result<Vec<Row>, String> {
+pub(super) async fn games(app: AppHandle) -> Result<Vec<Row>, String> {
     tauri::async_runtime::spawn_blocking(move || rows(&app))
         .await
         .map_err(text)
@@ -293,7 +293,7 @@ pub async fn games(app: AppHandle) -> Result<Vec<Row>, String> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn groups(app: AppHandle) -> Groups {
+pub(super) fn groups(app: AppHandle) -> Groups {
     Groups::load(&library_dir(&app))
 }
 
@@ -302,7 +302,7 @@ pub fn groups(app: AppHandle) -> Groups {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, String> {
+pub(super) fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, String> {
     let dir = library_dir(&app);
     std::fs::create_dir_all(&dir).map_err(text)?;
     let groups = groups.tidied();
@@ -316,14 +316,14 @@ pub fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, String> {
 
 /// A game, named.
 #[derive(Debug, Clone, Serialize)]
-pub struct Named {
+pub(super) struct Named {
     pub app_id: u32,
     pub name: String,
 }
 
 /// One subject that moved in one game.
 #[derive(Debug, Clone, Serialize)]
-pub struct GameMove {
+pub(super) struct GameMove {
     pub app_id: u32,
     pub name: String,
     pub from: String,
@@ -335,7 +335,7 @@ pub struct GameMove {
 
 /// A game whose share recommending it moved.
 #[derive(Debug, Clone, Serialize)]
-pub struct GameShift {
+pub(super) struct GameShift {
     pub app_id: u32,
     pub name: String,
     pub from: String,
@@ -345,7 +345,7 @@ pub struct GameShift {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct NewOnSteam {
+pub(super) struct NewOnSteam {
     pub app_id: u32,
     pub name: String,
     pub new: u64,
@@ -353,7 +353,7 @@ pub struct NewOnSteam {
 
 /// A model this build uses, and where it stands on this machine.
 #[derive(Debug, Clone, Serialize)]
-pub struct ModelState {
+pub(super) struct ModelState {
     pub name: String,
     /// What a `fetch_model` job and Storage call it.
     pub key: &'static str,
@@ -368,7 +368,7 @@ pub struct ModelState {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct Machine {
+pub(super) struct Machine {
     pub card: Option<String>,
     pub card_bytes: Option<u64>,
     /// Whether this build can put a model on a graphics card at all.
@@ -451,7 +451,7 @@ fn machine(app: &AppHandle) -> Machine {
 
 /// Everything the cockpit shows.
 #[derive(Debug, Clone, Serialize)]
-pub struct Overview {
+pub(super) struct Overview {
     pub games: usize,
     pub read: usize,
     pub reviews: u64,
@@ -563,7 +563,7 @@ fn overview_of(app: &AppHandle) -> Overview {
 }
 
 #[tauri::command]
-pub async fn overview(app: AppHandle) -> Result<Overview, String> {
+pub(super) async fn overview(app: AppHandle) -> Result<Overview, String> {
     tauri::async_runtime::spawn_blocking(move || overview_of(&app))
         .await
         .map_err(text)
@@ -572,12 +572,12 @@ pub async fn overview(app: AppHandle) -> Result<Overview, String> {
 /// How often the open app looks at whether the counts have aged past the hours chosen in
 /// Settings. Asking whether is a read of two small files. Asking Steam is what the hours are for.
 /// The loop runs in the app rather than the window, so a minimised window keeps it going.
-pub const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
+pub(super) const LOOK_AGAIN_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 
 /// Asks Steam about the library, on opening and while the app stays open, where the person
 /// wants that and it has not been asked lately. The question is the app's own, so it waits for
 /// the person's work.
-pub fn check_when_due(app: &AppHandle) {
+pub(super) fn check_when_due(app: &AppHandle) {
     let dir = library_dir(app);
     let settings = Settings::load(app);
     if settings.check_steam
@@ -593,7 +593,7 @@ pub fn check_when_due(app: &AppHandle) {
 /// Whether a game Steam has `new` reviews for that the library does not is brought up to date by
 /// itself, given the `held` reviews the library has of it and how many new ones the person
 /// asked to wait for.
-pub(super) fn due(held: u64, new: u64, when: UpdateWhen) -> bool {
+pub(super) const fn due(held: u64, new: u64, when: UpdateWhen) -> bool {
     new > 0
         && match when {
             UpdateWhen::AnyNew => true,
@@ -604,7 +604,7 @@ pub(super) fn due(held: u64, new: u64, when: UpdateWhen) -> bool {
 /// Brings every game with enough new reviews on Steam up to date as work of the app's own, from
 /// what Steam last said, where the person wants that. The update reads the game again where it
 /// had been read, in the language it was read in.
-pub fn keep_up_to_date(app: &AppHandle) {
+pub(super) fn keep_up_to_date(app: &AppHandle) {
     let settings = Settings::load(app);
     if !(settings.check_steam && settings.keep_up_to_date) {
         return;
@@ -635,7 +635,7 @@ pub fn keep_up_to_date(app: &AppHandle) {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn queue_reads(app: AppHandle, app_ids: Vec<u32>) -> Vec<u64> {
+pub(super) fn queue_reads(app: AppHandle, app_ids: Vec<u32>) -> Vec<u64> {
     let dir = library_dir(&app);
     let first = Settings::load(&app).language;
     let work = app.state::<work::Work>();
@@ -657,7 +657,7 @@ pub fn queue_reads(app: AppHandle, app_ids: Vec<u32>) -> Vec<u64> {
     clippy::needless_pass_by_value,
     reason = "tauri hands a command its arguments by value"
 )]
-pub fn queue_updates(app: AppHandle, app_ids: Option<Vec<u32>>) -> Vec<u64> {
+pub(super) fn queue_updates(app: AppHandle, app_ids: Option<Vec<u32>>) -> Vec<u64> {
     let app_ids = app_ids.unwrap_or_else(|| {
         super::shelf(&library_dir(&app))
             .games
@@ -675,7 +675,7 @@ pub fn queue_updates(app: AppHandle, app_ids: Option<Vec<u32>>) -> Vec<u64> {
 /// One game side by side with others: its subjects as counts, so the window can show each as a
 /// share of the game's own reviews.
 #[derive(Debug, Clone, Serialize)]
-pub struct Compared {
+pub(super) struct Compared {
     pub app_id: u32,
     pub name: String,
     pub reviews: u64,
@@ -685,7 +685,7 @@ pub struct Compared {
 }
 
 #[tauri::command]
-pub async fn compare(app: AppHandle, app_ids: Vec<u32>) -> Result<Vec<Compared>, String> {
+pub(super) async fn compare(app: AppHandle, app_ids: Vec<u32>) -> Result<Vec<Compared>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dir = library_dir(&app);
         app_ids
@@ -712,7 +712,7 @@ pub async fn compare(app: AppHandle, app_ids: Vec<u32>) -> Result<Vec<Compared>,
 
 /// What players say across one group's read games, each subject counted both ways.
 #[derive(Debug, Clone, Serialize)]
-pub struct GroupReading {
+pub(super) struct GroupReading {
     pub name: String,
     /// The read games, in the group's order, with no subjects: those are in `subjects`.
     pub games: Vec<Compared>,
@@ -722,7 +722,7 @@ pub struct GroupReading {
 }
 
 #[tauri::command]
-pub async fn group_reading(app: AppHandle, name: String) -> Result<GroupReading, String> {
+pub(super) async fn group_reading(app: AppHandle, name: String) -> Result<GroupReading, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dir = library_dir(&app);
         let group = Groups::load(&dir)
@@ -743,7 +743,7 @@ pub async fn group_reading(app: AppHandle, name: String) -> Result<GroupReading,
                 None => unread.push(Named { app_id, name }),
             }
         }
-        let counted: Vec<steamgauge_core::group::Counted> = read
+        let counted: Vec<steamgauge_core::group::Counted<'_>> = read
             .iter()
             .map(|(_, reading)| steamgauge_core::group::Counted {
                 app_id: reading.app_id,
@@ -776,7 +776,10 @@ pub async fn group_reading(app: AppHandle, name: String) -> Result<GroupReading,
 
 /// Asks where to save a report of these games, then puts writing it on the board.
 #[tauri::command]
-pub async fn export_report(app: AppHandle, app_ids: Vec<u32>) -> Result<Option<u64>, String> {
+pub(super) async fn export_report(
+    app: AppHandle,
+    app_ids: Vec<u32>,
+) -> Result<Option<u64>, String> {
     if app_ids.is_empty() {
         return Err("choose at least one game to report on".to_owned());
     }

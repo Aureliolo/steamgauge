@@ -91,8 +91,10 @@ impl Paired {
 /// Fails if either file is missing or is not a list of labels.
 pub fn paired(first: &std::path::Path, second: &std::path::Path) -> Result<Paired> {
     let read = |path: &std::path::Path| -> Result<Vec<ClaimLabel>> {
-        let bytes = std::fs::read(path).map_err(|_| crate::Error::NoReferenceSet {
-            path: path.to_path_buf(),
+        let bytes = std::fs::read(path).map_err(|error| {
+            crate::Error::unless_missing(error, || crate::Error::NoReferenceSet {
+                path: path.to_path_buf(),
+            })
         })?;
         Ok(serde_json::from_slice(&bytes)?)
     };
@@ -123,6 +125,9 @@ pub fn compare(first: &std::path::Path, second: &std::path::Path) -> Result<Reli
     Ok(over(&paired(first, second)?))
 }
 
+/// A field's name and the way to read it from a label.
+type Field = (&'static str, fn(&ClaimLabel) -> String);
+
 /// The same comparison over claims already paired, so several games can be pooled.
 ///
 /// Pooled by adding the claims rather than averaging the games, for the same reason the
@@ -131,11 +136,8 @@ pub fn compare(first: &std::path::Path, second: &std::path::Path) -> Result<Reli
 #[must_use]
 pub fn over(paired: &Paired) -> Reliability {
     let pairs: Vec<(&ClaimLabel, &ClaimLabel)> = paired.both.iter().map(|(a, b)| (a, b)).collect();
-    let fields = [
-        (
-            "subject",
-            (|label: &ClaimLabel| label.subject.clone()) as fn(&ClaimLabel) -> String,
-        ),
+    let fields: [Field; 6] = [
+        ("subject", |label| label.subject.clone()),
         ("polarity", |label| label.polarity.clone()),
         ("ironic", |label| label.ironic.to_string()),
         ("ambiguous", |label| label.ambiguous.to_string()),
@@ -235,9 +237,7 @@ fn score(
         } else {
             // Ordered, so "story read as gameplay" and the reverse are one disagreement
             // rather than two halves of one.
-            let mut pair = [a, b];
-            pair.sort_unstable();
-            let [low, high] = pair;
+            let (low, high) = if a <= b { (a, b) } else { (b, a) };
             *splits.entry((low, high)).or_default() += 1;
         }
     }

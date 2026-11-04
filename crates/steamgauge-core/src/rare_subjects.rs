@@ -481,7 +481,7 @@ pub(crate) fn contains_term(haystack: &str, term: &str) -> bool {
     false
 }
 
-fn is_word_byte(byte: u8) -> bool {
+const fn is_word_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_' || byte >= 0x80
 }
 
@@ -710,12 +710,13 @@ pub fn draw_by_neighbour(
     mut on_progress: impl FnMut(u64),
 ) -> Result<Retrieved> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let reading: crate::read::ReadReport =
-        serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).map_err(|_| {
-            crate::Error::NoClassifications {
+    let reading: crate::read::ReadReport = serde_json::from_slice(
+        &std::fs::read(snapshot.join("reading.json")).map_err(|error| {
+            Error::unless_missing(error, || Error::NoClassifications {
                 path: snapshot.join("reading.json"),
-            }
-        })?)?;
+            })
+        })?,
+    )?;
     let depth = reading.depth;
 
     let already = crate::claimset::already_drawn(dir);
@@ -1144,7 +1145,7 @@ mod tests {
 
         assert_eq!(
             neighbours.margins(&[]).unwrap(),
-            [] as [Option<(usize, f32)>; 0]
+            <[Option<(usize, f32)>; 0]>::default()
         );
         let found = neighbours
             .margins(&[vec![0.8, 0.0, 0.6], vec![0.0, 0.28, 0.96]])

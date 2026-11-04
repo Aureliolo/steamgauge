@@ -43,8 +43,9 @@ pub fn splitter(text: &str) {
                 before.start <= span.start && before.end < span.end,
                 "claims out of order: {before:?} and then {span:?}"
             );
+            let starts_after = before.end <= span.start;
             assert!(
-                span.start >= before.end || span.start == before.start,
+                starts_after || span.start == before.start,
                 "claims {before:?} and {span:?} overlap without sharing a heading"
             );
         }
@@ -94,7 +95,7 @@ pub fn stored_span(text: &str) {
         .flat_map(|span| [span.start, span.end])
         .flat_map(|at| [at.saturating_sub(1), at, at + 1])
         .collect();
-    positions.extend((0..6).map(|_| draw.below(length + 3)));
+    positions.extend(std::iter::repeat_with(|| draw.below(length + 3)).take(6));
 
     for &from in &positions {
         for &to in &positions {
@@ -172,9 +173,11 @@ pub fn reader_window(text: &str) {
         at += claim.len() + 1;
     }
 
-    let nonsense: Vec<(usize, usize)> = (0..draw.below(12))
-        .map(|_| (draw.below(review.len() + 4), draw.below(review.len() + 4)))
-        .collect();
+    let how_many = draw.below(12);
+    let nonsense: Vec<(usize, usize)> =
+        std::iter::repeat_with(|| (draw.below(review.len() + 4), draw.below(review.len() + 4)))
+            .take(how_many)
+            .collect();
     let mut at = 0;
     for claim in &claims {
         let claim: &str = claim;

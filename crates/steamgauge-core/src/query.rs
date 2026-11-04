@@ -43,7 +43,7 @@ pub enum SortOrder {
 impl SortOrder {
     /// Valve's `EUserReviewsAppReviewsFilter` value for the order.
     #[must_use]
-    pub fn as_filter(self) -> u8 {
+    pub const fn as_filter(self) -> u8 {
         match self {
             Self::Recent => 1,
             Self::Updated => 2,
@@ -75,7 +75,7 @@ impl ReviewQuery {
     }
 
     #[must_use]
-    pub fn order(mut self, order: SortOrder) -> Self {
+    pub const fn order(mut self, order: SortOrder) -> Self {
         self.order = order;
         self
     }
@@ -101,7 +101,7 @@ impl ReviewQuery {
     /// cursor walk goes, and they let independent shards be crawled and resumed in
     /// parallel rather than as one 10,000-page sequence.
     #[must_use]
-    pub fn window(mut self, start: i64, end: i64) -> Self {
+    pub const fn window(mut self, start: i64, end: i64) -> Self {
         self.window = Some((start, end));
         self
     }

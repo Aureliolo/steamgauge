@@ -197,6 +197,18 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
+impl Error {
+    /// `missing()` where a read failed because the file is not there, and the I/O error itself
+    /// otherwise, so a file that exists but cannot be read is not reported as absent.
+    pub(crate) fn unless_missing(error: std::io::Error, missing: impl FnOnce() -> Self) -> Self {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            missing()
+        } else {
+            Self::Io(error)
+        }
+    }
+}
+
 impl From<reqwest::Error> for Error {
     fn from(failed: reqwest::Error) -> Self {
         Self::Http(failed)

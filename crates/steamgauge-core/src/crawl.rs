@@ -52,7 +52,7 @@ pub enum StopReason {
 
 impl StopReason {
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Exhausted => "Exhausted",
             Self::CursorRepeated => "CursorRepeated",
@@ -1102,7 +1102,7 @@ mod tests {
     #[tokio::test]
     async fn a_window_steam_stops_serving_early_is_walked_again() {
         let out = crate::tempdir::Dir::new();
-        let server = stand_in::Server::new(valve(corpus(), Some(shard::CORPUS_EPOCH), 1));
+        let server = stand_in::Server::new(valve(corpus(), Some(CORPUS_EPOCH), 1));
         let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
             .await
             .unwrap();
@@ -1114,7 +1114,7 @@ mod tests {
     #[tokio::test]
     async fn a_window_still_short_after_every_walk_is_left_for_the_next_run_to_finish() {
         let out = crate::tempdir::Dir::new();
-        let stalling = stand_in::Server::new(valve(corpus(), Some(shard::CORPUS_EPOCH), 3));
+        let stalling = stand_in::Server::new(valve(corpus(), Some(CORPUS_EPOCH), 3));
         let first = crawl(&client_of(&stalling), APP, &options(out.path()), |_| {})
             .await
             .unwrap();
@@ -1126,7 +1126,7 @@ mod tests {
             .iter()
             .map(stand_in::Asked::input)
             .filter(|input| {
-                input["date_range_start"] == shard::CORPUS_EPOCH
+                input["date_range_start"] == CORPUS_EPOCH
                     && input["cursor"] == "*"
                     && input["num_per_page"] != 1
             })
@@ -1159,7 +1159,7 @@ mod tests {
     const WATERMARK: i64 = 1_700_000_000;
 
     /// A capture of two reviews, crawled at [`WATERMARK`], as a sweep finds it.
-    fn captured(out: &std::path::Path, facts: &Value) -> std::path::PathBuf {
+    fn captured(out: &std::path::Path, facts: &Value) -> PathBuf {
         let dir = out
             .join(format!("appid={APP}"))
             .join(format!("snapshot={WATERMARK}"));

@@ -6,16 +6,18 @@
 //! anything appearing to go wrong.
 
 use std::{
-    io::Read,
+    io::Read as _,
     path::{Path, PathBuf},
 };
 
 use ort::session::Session;
-use sha2::{Digest, Sha256};
+use sha2::{Digest as _, Sha256};
 
 use crate::{Error, Result};
 
-/// Tokens a review is cut to. Every encoder here allows at least this many, and several
+/// Tokens a review is cut to.
+///
+/// Every encoder here allows at least this many, and several
 /// allow far more. They are held to the same limit so a comparison between them is about
 /// the encoder rather than about how much text each was allowed to read. Truncation affects
 /// roughly the top 1% of reviews by length.
@@ -71,7 +73,7 @@ pub enum Pooling {
 impl Encoder {
     /// The name this encoder is chosen by and cached under.
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::E5Small => "e5-small",
             Self::E5Base => "e5-base",
@@ -82,7 +84,7 @@ impl Encoder {
 
     /// The repository the graph and tokenizer come from, recorded with every corpus.
     #[must_use]
-    pub fn id(self) -> &'static str {
+    pub const fn id(self) -> &'static str {
         match self {
             Self::E5Small => "intfloat/multilingual-e5-small",
             Self::E5Base => "intfloat/multilingual-e5-base",
@@ -95,7 +97,7 @@ impl Encoder {
     /// the hash pinned below. A branch name would let whoever controls the repository decide
     /// what is downloaded. The hashes would refuse it, and the commit means nothing else is
     /// ever asked for.
-    fn revision(self) -> &'static str {
+    const fn revision(self) -> &'static str {
         match self {
             Self::E5Small => "614241f622f53c4eeff9890bdc4f31cfecc418b3",
             Self::E5Base => "d128750597153bb5987e10b1c3493a34e5a4502a",
@@ -113,7 +115,7 @@ impl Encoder {
     }
 
     #[must_use]
-    pub fn pooling(self) -> Pooling {
+    pub const fn pooling(self) -> Pooling {
         match self {
             Self::E5Small | Self::E5Base => Pooling::Mean,
             Self::ArcticMediumV2 | Self::GteBase => Pooling::Cls,
@@ -127,14 +129,14 @@ impl Encoder {
     /// classification needs. The others prefix queries only, so comparing reviews to
     /// reviews means no prefix at all.
     #[must_use]
-    pub fn prefix(self) -> &'static str {
+    pub const fn prefix(self) -> &'static str {
         match self {
             Self::E5Small | Self::E5Base => "query: ",
             Self::ArcticMediumV2 | Self::GteBase => "",
         }
     }
 
-    fn graph(self, precision: Precision) -> Asset {
+    const fn graph(self, precision: Precision) -> Asset {
         match (self, precision) {
             (Self::E5Small, Precision::Float16) => Asset {
                 remote: "onnx/model_O4.onnx",
@@ -187,7 +189,7 @@ impl Encoder {
         }
     }
 
-    fn tokenizer(self) -> Asset {
+    const fn tokenizer(self) -> Asset {
         let (sha256, bytes) = match self {
             Self::E5Small => (
                 "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
@@ -277,7 +279,7 @@ pub enum Precision {
 
 impl Precision {
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Float16 => "fp16",
             Self::Float32 => "fp32",
@@ -327,7 +329,7 @@ pub async fn ensure(
     cache_dir: &Path,
     encoder: Encoder,
     precision: Precision,
-    mut on_progress: impl FnMut(DownloadProgress),
+    mut on_progress: impl FnMut(DownloadProgress<'_>),
 ) -> Result<()> {
     let dir = encoder_dir(cache_dir, encoder);
     std::fs::create_dir_all(&dir)?;
@@ -385,7 +387,7 @@ pub(crate) async fn ensure_asset(
     source: Source,
     asset: Asset,
     dir: &Path,
-    on_progress: &mut impl FnMut(DownloadProgress),
+    on_progress: &mut impl FnMut(DownloadProgress<'_>),
 ) -> Result<()> {
     let path = dir.join(asset.local);
     if asset.present_in(dir) && sha256_file(&path)? == asset.sha256 {
@@ -413,7 +415,9 @@ pub(crate) async fn ensure_asset(
 }
 
 /// The release a published repository has gone furthest to, `v2` past `v1`, from the list of
-/// its tags on `hub`, which is [`HUB`]. Nothing is fetched from it: a newer release comes with
+/// its tags on `hub`, which is [`HUB`].
+///
+/// Nothing is fetched from it: a newer release comes with
 /// the build that pins it, and this only says one exists.
 ///
 /// # Errors
@@ -473,7 +477,7 @@ async fn download(
     url: &str,
     asset: Asset,
     path: &Path,
-    on_progress: &mut impl FnMut(DownloadProgress),
+    on_progress: &mut impl FnMut(DownloadProgress<'_>),
 ) -> Result<()> {
     let mut response = crate::http::send(|| http.get(url))
         .await?

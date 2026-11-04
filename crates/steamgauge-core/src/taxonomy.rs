@@ -133,7 +133,7 @@ pub fn categories_differ(was: &[String]) -> String {
 /// the same thing.
 #[must_use]
 pub fn sheet() -> String {
-    use sha2::{Digest, Sha256};
+    use sha2::{Digest as _, Sha256};
 
     let mut hasher = Sha256::new();
     hasher.update(labelling_brief(Unit::Claim).as_bytes());
@@ -1123,7 +1123,7 @@ mod tests {
 
     #[test]
     fn the_sheet_is_named_by_the_first_twelve_hex_digits_of_its_brief() {
-        use sha2::{Digest, Sha256};
+        use sha2::{Digest as _, Sha256};
 
         let digest = Sha256::digest(labelling_brief(Unit::Claim).as_bytes());
         let named = sheet();

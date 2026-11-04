@@ -15,19 +15,19 @@ use steamgauge_core::{
     read::ReadReport,
     since::{self, LastSeen, Look, Seen, Since, Standing},
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use super::{cockpit::Row, library_dir, now_unix, read_report, settings::Settings, text};
 
 /// The looks as they stood when the app opened.
 #[derive(Default)]
-pub struct Baseline(Mutex<Option<LastSeen>>);
+pub(super) struct Baseline(Mutex<Option<LastSeen>>);
 
 /// Held while the record is read, changed and written back, so two looks at once cannot lose one.
 static WRITING: Mutex<()> = Mutex::new(());
 
 /// Reads the record before anything can look, so this visit compares with the last one.
-pub fn remember(app: &AppHandle) {
+pub(super) fn remember(app: &AppHandle) {
     let _ = baseline(app);
 }
 
@@ -39,14 +39,13 @@ fn baseline(app: &AppHandle) -> LastSeen {
 }
 
 fn reading_of(dir: &std::path::Path, app_id: u32) -> Option<ReadReport> {
-    steamgauge_core::embed::latest_snapshot(dir, app_id)
-        .ok()
-        .and_then(|snapshot| read_report(&snapshot).ok())
+    let snapshot = steamgauge_core::embed::latest_snapshot(dir, app_id).ok()?;
+    read_report(&snapshot).ok()
 }
 
 /// One game's change since the cockpit was last seen.
 #[derive(Debug, Clone, Serialize)]
-pub struct GameSince {
+pub(super) struct GameSince {
     pub app_id: u32,
     pub name: String,
     #[serde(flatten)]
@@ -56,7 +55,7 @@ pub struct GameSince {
 /// What the cockpit's first card shows: when the person last looked, or never, and every game
 /// with something to say since.
 #[derive(Debug, Clone, Default, Serialize)]
-pub struct Lately {
+pub(super) struct Lately {
     pub looked: Option<i64>,
     pub games: Vec<GameSince>,
 }
@@ -96,7 +95,7 @@ fn since_each<'a>(
     found
 }
 
-pub fn lately(app: &AppHandle, rows: &[Row]) -> Lately {
+pub(super) fn lately(app: &AppHandle, rows: &[Row]) -> Lately {
     let Some(look) = baseline(app).cockpit else {
         return Lately::default();
     };
@@ -118,7 +117,7 @@ pub fn lately(app: &AppHandle, rows: &[Row]) -> Lately {
 
 /// The person has looked at the cockpit, where no game is named, or at one game's page.
 #[tauri::command]
-pub async fn looked(app: AppHandle, app_id: Option<u32>) -> Result<(), String> {
+pub(super) async fn looked(app: AppHandle, app_id: Option<u32>) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         remember(&app);
         let dir = library_dir(&app);
@@ -147,7 +146,7 @@ pub async fn looked(app: AppHandle, app_id: Option<u32>) -> Result<(), String> {
 /// What moved in one game since its page was last seen, or where it never was, since the cockpit
 /// last showed it. Nothing where neither has.
 #[tauri::command]
-pub async fn since_last_look(app: AppHandle, app_id: u32) -> Result<Option<Since>, String> {
+pub(super) async fn since_last_look(app: AppHandle, app_id: u32) -> Result<Option<Since>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let looks = baseline(&app);
         let Some(seen) = looks.page(app_id) else {
@@ -166,7 +165,7 @@ pub async fn since_last_look(app: AppHandle, app_id: u32) -> Result<Option<Since
 }
 
 /// A game removed from the library leaves no look behind.
-pub fn forget(dir: &std::path::Path, app_id: u32) -> Result<(), String> {
+pub(super) fn forget(dir: &std::path::Path, app_id: u32) -> Result<(), String> {
     let _writing = WRITING.lock().unwrap_or_else(PoisonError::into_inner);
     let mut looks = LastSeen::load(dir);
     if looks.latest(app_id).is_none() && !looks.told.contains_key(&app_id) {
@@ -226,7 +225,7 @@ fn words(game: &str, moved: &Move, read: u64) -> (String, String) {
 /// After an update the app made by itself has been read, one notification naming the game and
 /// the clearest subject that moved since the person last looked, where they asked for that and no
 /// notification has named that subject since.
-pub fn after_background_read(app: &AppHandle, app_id: u32) {
+pub(super) fn after_background_read(app: &AppHandle, app_id: u32) {
     if !Settings::load(app).notify_moves {
         return;
     }
