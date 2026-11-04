@@ -6,8 +6,8 @@ depends on. The window is `crates/steamgauge-app/ui/`. The site's front page is 
 `crates/steamgauge-site`, and the release deploys the site to GitHub Pages.
 
 There is no decision log. A settled design choice is written into `docs/architecture.md` (or
-`training/README.md`) as a present-tense fact. How it got there stays in git and the pull
-request.
+`training/README.md`) at once, as a present-tense fact. How it got there stays in git and the
+pull request. A choice that looks unbuilt is checked there and in memory, never asked again.
 
 ## Commands
 
