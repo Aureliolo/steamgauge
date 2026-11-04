@@ -123,9 +123,9 @@
       ]
     },
     {
-      "description": "A Python tool a workflow runs at an exact version with `pipx run <tool>==<version>`: ruff, pyright and yamllint.",
+      "description": "A Python tool a workflow runs at an exact version with `pipx run <tool>==<version>`, and CONTRIBUTING.md's copy of the command: ruff, pyright and yamllint.",
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/"],
+      "managerFilePatterns": ["/^\\.github/.+\\.ya?ml$/", "/^CONTRIBUTING\\.md$/"],
       "matchStrings": ["pipx run (?<depName>[A-Za-z0-9._-]+)==(?<currentValue>[0-9][^\\s]*)"],
       "datasourceTemplate": "pypi"
     },

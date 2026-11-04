@@ -13,9 +13,11 @@ Run the gates CI runs before pushing:
 ```sh
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --workspace
 cargo test --locked --workspace
-pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check training
 bash -c "cd training && python -m pytest -q"
+bash -c "cd training && pipx run pyright==1.1.414 --pythonpath .venv/Scripts/python.exe ."
 node --test tools/release/release.test.mjs
 ```
 

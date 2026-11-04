@@ -68,8 +68,17 @@ jobs:
       # --locked everywhere here, as the release build has it: a pull request that leaves
       # Cargo.lock behind its manifests fails now, not at a tag that cannot be taken back.
       - run: cargo clippy --locked --all-targets -- -D warnings
-      # The training scripts are Python; `training/ruff.toml` holds their width.
-      - run: pipx run ruff==0.15.2 check training && pipx run ruff==0.15.2 format --check training
+      # The [workspace.lints.rustdoc] table is read only by rustdoc.
+      - run: cargo doc --locked --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: -D warnings
+      # fuzz/ is a workspace of its own with a copy of the lint tables. It builds against the
+      # product's lock, which holds every crate it uses, so the copy only ever loses entries.
+      - run: |
+          cp Cargo.lock fuzz/Cargo.lock
+          cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+      # The training scripts are Python, with every rule ruff has on (`training/ruff.toml`).
+      - run: pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check training
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
@@ -234,6 +243,10 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -r "$RUNNER_TEMP/requirements.txt" "$torch+cpu"
       - run: python -m pytest -q
+        working-directory: training
+      # Strict, against the packages just installed (training/pyrightconfig.json).
+      - shell: bash
+        run: pipx run pyright==1.1.414 --pythonpath "$(python -c 'import sys; print(sys.executable)')" .
         working-directory: training
 
   # The report's folding, filtering, sorting and deep links only exist once a browser has run
