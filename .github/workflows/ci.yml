@@ -557,6 +557,23 @@ jobs:
       - name: Lint
         run: git ls-files -z '*.yml' '*.yaml' | xargs -0 pipx run yamllint==1.38.0 --strict
 
+  # JavaScript, CSS and JSON, held by Biome to every rule biome.jsonc does not turn off, and to its
+  # format. Biome is the exact version tools/package.json pins.
+  biome:
+    name: biome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it checks.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: tools
+      - name: Check
+        run: npx --prefix tools biome ci .
+
   # The PowerShell scripts, with PSScriptAnalyzer's optional rules on (PSScriptAnalyzerSettings.psd1).
   powershell:
     name: powershell
