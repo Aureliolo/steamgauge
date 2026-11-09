@@ -4463,5 +4463,25 @@ mod tests {
             assert!(ingest(&scratch, "empty.json", &[]).is_err());
             assert!(!set.join("gold").exists(), "nothing was filed");
         }
+
+        #[test]
+        fn an_acceptability_answer_given_against_another_sheet_is_refused_and_nothing_is_filed() {
+            let scratch = Scratch::new("judged");
+            let set = a_set(&scratch.0.join("reference"));
+            let judged = json!({
+                "app_id": 7, "review_id": "r1", "index": 0,
+                "offered": "price", "acceptable": true,
+                "sheet": "an-older-sheet", "by": "one"
+            });
+            let outcome = ingest(&scratch, "judged.json", &[judged]).map_err(|e| e.to_string());
+            let filed = set.join("gold").exists();
+            assert!(
+                outcome
+                    .as_ref()
+                    .is_err_and(|error| error.contains("an-older-sheet"))
+                    && !filed,
+                "ingested as {outcome:?}, and something filed under gold: {filed}"
+            );
+        }
     }
 }
