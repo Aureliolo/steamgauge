@@ -3450,4 +3450,74 @@ pub(crate) mod tests {
             );
         }
     }
+
+    #[test]
+    fn a_reading_and_its_report_agree_on_the_most_helpful_reviews_whatever_language_is_read() {
+        // No reference set or induced subjects exist for this game, so only the capture counts.
+        const APP: u32 = 3_999_999_997;
+        let reviews = [
+            ("a", "The story is gripping.", "schinese", "0.9"),
+            ("b", "Bugs everywhere.", "english", "0.5"),
+            ("c", "The music swells.", "english", "0.4"),
+        ]
+        .map(|(id, text, language, helpful)| {
+            serde_json::json!({
+                "recommendationid": id, "review": text, "language": language, "voted_up": true,
+                "weighted_vote_score": helpful, "votes_up": 3, "timestamp_created": CRAWLED,
+                "author": {"steamid": format!("7656{id}"), "playtime_at_review": 3_000},
+            })
+        });
+        // Each review raises subjects no other does, so the subjects a reading counts at the top
+        // of the pile name the reviews it put there.
+        let review_raising = |subject: &str| match subject {
+            "story" | "controls" => "a",
+            "bugs" => "b",
+            "audio" => "c",
+            _ => "another",
+        };
+        let at_the_top = |language: Option<&str>| {
+            let out = crate::tempdir::Dir::new();
+            let snapshot = capture_these(out.path(), APP, &reviews);
+            let options = ReadOptions {
+                language: language.map(str::to_owned),
+                ..options(out.path())
+            };
+            let reading = read_with(&mut Table::new(false), APP, &options, |_| {}).unwrap();
+            reading.save(&snapshot.join("reading.json")).unwrap();
+            let read: std::collections::BTreeSet<String> = reading
+                .subjects
+                .iter()
+                .filter(|subject| subject.top_mention_reviews > 0)
+                .map(|subject| review_raising(&subject.id).to_owned())
+                .collect();
+            let report = crate::report::build(
+                &[APP],
+                &crate::report::ReportOptions {
+                    out_dir: out.path().to_path_buf(),
+                    ..crate::report::ReportOptions::default()
+                },
+            )
+            .unwrap();
+            let shown: std::collections::BTreeSet<String> = report.apps[0]
+                .top
+                .iter()
+                .map(|example| example.review.id.clone())
+                .collect();
+            (read, shown)
+        };
+        let ids = |list: &[&str]| -> std::collections::BTreeSet<String> {
+            list.iter().map(|id| (*id).to_owned()).collect()
+        };
+
+        assert_eq!(
+            at_the_top(None),
+            (ids(&["a", "b"]), ids(&["a", "b"])),
+            "read in every language"
+        );
+        assert_eq!(
+            at_the_top(Some("english")),
+            (ids(&["b", "c"]), ids(&["b", "c"])),
+            "read in English"
+        );
+    }
 }
