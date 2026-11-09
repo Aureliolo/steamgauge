@@ -1310,4 +1310,35 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn the_claim_shown_for_each_of_the_most_helpful_reviews_is_the_same_on_every_build() {
+        // No reference set or induced subjects exist for this game, so only the capture counts.
+        const APP: u32 = 3_999_999_998;
+        let (out, _snapshot) = library(APP);
+        let options = ReportOptions {
+            out_dir: out.path().to_path_buf(),
+            ..ReportOptions::default()
+        };
+        // Each new map in a thread is seeded with a key of its own, so every build walks its
+        // subjects in a different order. Thirty-two builds all walking alike is a chance in
+        // billions.
+        let shown: HashSet<Vec<(String, (u32, u32), String)>> = (0..32)
+            .map(|_| {
+                build_one(APP, &options)
+                    .unwrap()
+                    .top
+                    .iter()
+                    .map(|example| {
+                        (
+                            example.review.id.clone(),
+                            example.at,
+                            example.polarity.clone(),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+        assert_eq!(shown.len(), 1, "{shown:?}");
+    }
 }
