@@ -3432,4 +3432,22 @@ pub(crate) mod tests {
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn a_read_of_a_capture_without_its_crawl_record_fails_before_any_batch_or_not_at_all() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        // An interrupted crawl leaves its shards and writes the record last.
+        std::fs::remove_file(snapshot.join("crawl.json")).unwrap();
+        let mut model = Table::new(false);
+        let read = read_with(&mut model, 1, &options(out.path()), |_| {});
+        if let Err(error) = &read {
+            assert_eq!(
+                model.runs,
+                0,
+                "batches run before the read failed with \"{error}\", readings left in place: {}",
+                snapshot.join("readings.parquet").exists()
+            );
+        }
+    }
 }
