@@ -2134,6 +2134,33 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_claim_whose_confidence_sits_exactly_on_its_line_is_answered() {
+        let dir = crate::tempdir::Dir::new();
+        tiny_reader(dir.path(), &serde_json::json!({"prefix": true}));
+        let claim = "it crashes and i hate it";
+        let sure = ClaimReader::load(dir.path())
+            .unwrap()
+            .read(&[alone(claim)])
+            .unwrap()[0]
+            .confidence;
+
+        let on_the_line = dir.path().join("on-the-line");
+        tiny_reader(
+            &on_the_line,
+            &serde_json::json!({"prefix": true, "threshold": sure}),
+        );
+        let mut reader = ClaimReader::load(&on_the_line).unwrap();
+        assert_eq!(
+            reader.provenance.bar(0, "english").to_bits(),
+            sure.to_bits(),
+            "the line is the confidence itself"
+        );
+        let read = reader.read(&[alone(claim)]).unwrap();
+        assert_eq!(read[0].confidence.to_bits(), sure.to_bits());
+        assert_eq!(read[0].subject, Some(sheet_row("bugs")));
+    }
+
+    #[test]
     fn a_claim_is_read_only_as_far_as_the_reader_was_trained_to_read() {
         let dir = crate::tempdir::Dir::new();
         tiny_reader(dir.path(), &serde_json::json!({"max_tokens": 3}));
