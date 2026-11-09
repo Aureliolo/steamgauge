@@ -1327,4 +1327,330 @@ mod tests {
         assert_eq!(named, None);
         assert!(facts(&dir).get("name").is_none());
     }
+
+    /// A review as Steam serves it, saying `text`, so a test can tell which copy a reader took.
+    fn review_saying(id: &str, text: &str, created: i64, updated: i64) -> Value {
+        let mut review = review(id, created, updated);
+        review["review"] = json!(text);
+        review
+    }
+
+    fn pairs(list: &[(&str, &str)]) -> Vec<(String, String)> {
+        list.iter()
+            .map(|(id, text)| ((*id).to_owned(), (*text).to_owned()))
+            .collect()
+    }
+
+    /// Every id handed over more than once, with how many times.
+    fn counted_twice(seen: &[(String, String)]) -> Vec<(String, usize)> {
+        let mut counts: std::collections::BTreeMap<String, usize> =
+            std::collections::BTreeMap::new();
+        for (id, _) in seen {
+            *counts.entry(id.clone()).or_default() += 1;
+        }
+        counts.into_iter().filter(|(_, n)| *n > 1).collect()
+    }
+
+    fn every_row(dir: &std::path::Path) -> Vec<(String, String)> {
+        let mut seen = Vec::new();
+        crate::capture::for_each_row(dir, |row, text| {
+            seen.push((row.recommendationid, text.to_owned()));
+            Ok(())
+        })
+        .unwrap();
+        seen.sort();
+        seen
+    }
+
+    fn every_row_kept(dir: &std::path::Path) -> Vec<(String, String)> {
+        let mut seen = crate::capture::rows_kept(dir, |row, text| {
+            Some((row.recommendationid, text.to_owned()))
+        })
+        .unwrap();
+        seen.sort();
+        seen
+    }
+
+    fn every_body(dir: &std::path::Path) -> Vec<(String, String)> {
+        let mut seen = Vec::new();
+        crate::capture::for_each_body(dir, |id, _, body| {
+            seen.push((id.to_owned(), body.to_owned()));
+            Ok(())
+        })
+        .unwrap();
+        seen.sort();
+        seen
+    }
+
+    /// A capture crawled at [`WATERMARK`] with three reviews, then a sweep that fetched an edit
+    /// of two of them and one written since, and was refused Valve's totals once its file was
+    /// whole. Returns the capture and when that sweep started.
+    async fn swept_until_the_summary_was_refused(out: &std::path::Path) -> (PathBuf, i64) {
+        let dir = out
+            .join(format!("appid={APP}"))
+            .join(format!("snapshot={WATERMARK}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut writer = CaptureWriter::create(&dir.join("shard-0000.parquet"), APP).unwrap();
+        let crawled = [
+            review_saying("r1", "crashes on launch", 500, 500),
+            review_saying("r2", "great game", 600, 600),
+            review_saying("r5", "too short", 700, 700),
+        ];
+        writer.write(&crawled.iter().collect::<Vec<_>>()).unwrap();
+        writer.close().unwrap();
+        write_facts(
+            &dir,
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 3, "name": "A Game"}),
+        )
+        .unwrap();
+
+        let w = WATERMARK;
+        let pages = vec![
+            vec![
+                review_saying("r3", "arrived since", w + 50, w + 50),
+                review_saying("r5", "longer now", 700, w + 20),
+                review_saying("r1", "fixed now", 500, w + 10),
+            ],
+            vec![review_saying("r2", "great game", 600, w - 2 * DAY)],
+        ];
+        let walk = edits(pages, 0);
+        // Refused rather than failed on the server, so the client gives up at once.
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) {
+                stand_in::Answer::status(403)
+            } else {
+                walk(asked)
+            }
+        });
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        let Err(refused) = sweep(&client_of(&server), APP, out, &stop, |_| {}).await else {
+            panic!("a sweep refused Valve's totals fails");
+        };
+        assert!(
+            matches!(refused, crate::Error::Throttled { status: 403, .. }),
+            "{refused:?}"
+        );
+        let swept: Vec<i64> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|entry| {
+                let name = entry.ok()?.file_name().into_string().ok()?;
+                name.strip_prefix("sweep-")?
+                    .strip_suffix(".parquet")?
+                    .parse()
+                    .ok()
+            })
+            .collect();
+        assert_eq!(swept.len(), 1, "the sweep's file is whole and named");
+        assert!(!dir.join(crate::capture::Newest::FILE).exists());
+        assert!(facts(&dir).get("swept_unix").is_none());
+        (dir, swept[0])
+    }
+
+    #[tokio::test]
+    async fn a_sweep_whose_summary_fails_after_the_walk_leaves_every_review_counted_once() {
+        let out = crate::tempdir::Dir::new();
+        let (dir, _) = swept_until_the_summary_was_refused(out.path()).await;
+        // A failed sweep may count nothing it fetched or all of it, but never both copies.
+        let nothing = pairs(&[
+            ("r1", "crashes on launch"),
+            ("r2", "great game"),
+            ("r5", "too short"),
+        ]);
+        let all = pairs(&[
+            ("r1", "fixed now"),
+            ("r2", "great game"),
+            ("r3", "arrived since"),
+            ("r5", "longer now"),
+        ]);
+        for (reader, seen) in [
+            ("for_each_row", every_row(&dir)),
+            ("rows_kept", every_row_kept(&dir)),
+            ("for_each_body", every_body(&dir)),
+        ] {
+            assert_eq!(
+                counted_twice(&seen),
+                Vec::<(String, usize)>::new(),
+                "{reader} counted {seen:?}"
+            );
+            assert!(seen == nothing || seen == all, "{reader} counted {seen:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sweep_whose_summary_fails_counts_twice_until_the_next_sweep_refetches() {
+        let out = crate::tempdir::Dir::new();
+        let (dir, refused_at) = swept_until_the_summary_was_refused(out.path()).await;
+
+        let mut as_of = Vec::new();
+        crate::capture::for_each_text_as_of(&dir, refused_at, |id, text| {
+            as_of.push((id.to_owned(), text.to_owned()));
+        })
+        .unwrap();
+        as_of.sort();
+        assert_eq!(
+            as_of,
+            pairs(&[
+                ("r1", "fixed now"),
+                ("r2", "great game"),
+                ("r3", "arrived since"),
+                ("r5", "longer now"),
+            ])
+        );
+        let twice = vec![("r1".to_owned(), 2), ("r5".to_owned(), 2)];
+        assert_eq!(counted_twice(&every_row(&dir)), twice);
+        assert_eq!(counted_twice(&every_row_kept(&dir)), twice);
+        assert_eq!(counted_twice(&every_body(&dir)), twice);
+
+        // A sweep's file is named for the second it started in, and one started in the same
+        // second as the refused sweep would write over its file.
+        while now_unix() <= refused_at {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let w = WATERMARK;
+        // r5 has been deleted on Steam since, so no sweep fetches it again.
+        let pages = vec![
+            vec![
+                review_saying("r4", "newest of all", w + 60, w + 60),
+                review_saying("r3", "arrived since", w + 50, w + 50),
+                review_saying("r1", "fixed now", 500, w + 10),
+            ],
+            vec![review_saying("r2", "great game", 600, w - 2 * DAY)],
+        ];
+        let server = stand_in::Server::new(edits(pages, 4));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        let report = sweep(&client_of(&server), APP, out.path(), &stop, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(
+            report.watermark, WATERMARK,
+            "the refused sweep moved nothing"
+        );
+        assert!(report.started > refused_at);
+        assert!(
+            dir.join(crate::capture::sweep_file(refused_at)).exists(),
+            "nothing removes the refused sweep's file"
+        );
+        let settled = pairs(&[
+            ("r1", "fixed now"),
+            ("r2", "great game"),
+            ("r3", "arrived since"),
+            ("r4", "newest of all"),
+            ("r5", "longer now"),
+            ("r5", "too short"),
+        ]);
+        assert_eq!(every_row(&dir), settled);
+        assert_eq!(every_row_kept(&dir), settled);
+        assert_eq!(every_body(&dir), settled);
+    }
+
+    /// The record a whole crawl of the two reviews [`captured`] writes leaves beside them.
+    fn whole_record() -> Value {
+        json!({
+            "app_id": APP, "name": "A Game", "review_score_desc": "Very Positive",
+            "rows_unique": 2, "valve_total_reviews": 2, "valve_total_positive": 2,
+            "valve_total_negative": 0, "coverage": 1.0, "snapshot_unix": WATERMARK, "shards": 1,
+        })
+    }
+
+    /// Steam's answer to a request for its totals that carries no totals at all.
+    fn no_summary() -> stand_in::Answer {
+        stand_in::Answer::json(&json!({"response": {"cursor": "*"}}))
+    }
+
+    /// Whether Valve's totals over the whole corpus are being asked for, rather than a window's.
+    fn whole_corpus(asked: &stand_in::Asked) -> bool {
+        counting(asked) && asked.input().get("date_range_start").is_none()
+    }
+
+    /// The error `report::crawl_facts` gives for the capture under `out`, where it gives one.
+    fn unreadable(out: &std::path::Path) -> Option<String> {
+        crate::report::crawl_facts(out, APP)
+            .err()
+            .map(|error| error.to_string())
+    }
+
+    #[tokio::test]
+    async fn every_crawl_record_a_sweep_or_a_crawl_leaves_reads_back() {
+        let pages = || {
+            vec![
+                vec![review("r3", WATERMARK + 50, WATERMARK + 50)],
+                vec![review("r1", 500, WATERMARK - 2 * DAY)],
+            ]
+        };
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        // A test thread has one scratch directory, so each library is a folder in it.
+        let scratch = crate::tempdir::Dir::new();
+        let library = |name: &str| {
+            let out = scratch.path().join(name);
+            std::fs::create_dir_all(&out).unwrap();
+            out
+        };
+
+        let swept_without = library("swept-without-summary");
+        captured(&swept_without, &whole_record());
+        assert_eq!(unreadable(&swept_without), None);
+        let walk = edits(pages(), 0);
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) {
+                no_summary()
+            } else {
+                walk(asked)
+            }
+        });
+        let swept = sweep(&client_of(&server), APP, &swept_without, &stop, |_| {}).await;
+        assert!(
+            matches!(swept, Err(crate::Error::NoSuchCorpus { app_id: APP })),
+            "{swept:?}"
+        );
+
+        let swept_zero = library("swept-total-zero");
+        captured(&swept_zero, &whole_record());
+        let server = stand_in::Server::new(edits(pages(), 0));
+        sweep(&client_of(&server), APP, &swept_zero, &stop, |_| {})
+            .await
+            .unwrap();
+
+        // Valve gives no total for the whole corpus while each window still counts its reviews.
+        let crawled_zero = library("crawled-total-zero");
+        let served = valve(corpus(), None, 0);
+        let server = stand_in::Server::new(move |asked| {
+            if whole_corpus(asked) {
+                summary_of(0)
+            } else {
+                served(asked)
+            }
+        });
+        crawl(&client_of(&server), APP, &options(&crawled_zero), |_| {})
+            .await
+            .unwrap();
+
+        let crawled_without = library("crawled-without-summary");
+        let served = valve(corpus(), None, 0);
+        let server = stand_in::Server::new(move |asked| {
+            if whole_corpus(asked) {
+                no_summary()
+            } else {
+                served(asked)
+            }
+        });
+        let crawled = crawl(&client_of(&server), APP, &options(&crawled_without), |_| {}).await;
+        assert!(
+            matches!(crawled, Err(crate::Error::NoSuchCorpus { app_id: APP })),
+            "{crawled:?}"
+        );
+        assert!(crate::embed::latest_snapshot(&crawled_without, APP).is_err());
+
+        assert_eq!(
+            [
+                ("sweep, no summary", unreadable(&swept_without)),
+                ("sweep, a total of 0", unreadable(&swept_zero)),
+                ("crawl, a total of 0", unreadable(&crawled_zero)),
+            ],
+            [
+                ("sweep, no summary", None),
+                ("sweep, a total of 0", None),
+                ("crawl, a total of 0", None),
+            ]
+        );
+    }
 }
