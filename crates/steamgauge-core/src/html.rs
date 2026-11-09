@@ -4702,6 +4702,14 @@ mod tests {
     }
 
     #[test]
+    fn a_share_declined_exactly_as_often_as_usual_is_not_called_below_it() {
+        // 300 of 3,000 claims against a usual share of 0.1.
+        let page = render(&sample_report("ordinary text"));
+        let said = between(&page, "<dt>Claims left unfiled</dt><dd>", "</dd>");
+        assert!(!said.contains("below"), "{said}");
+    }
+
+    #[test]
     fn reviews_the_model_said_nothing_about_are_counted_only_where_there_are_some() {
         assert!(
             render(&sample_report("ordinary text"))
