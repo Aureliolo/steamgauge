@@ -251,20 +251,6 @@ impl SubjectCount {
         (self.mention_reviews > 0)
             .then(|| self.positive_mentions as f64 / self.mention_reviews as f64)
     }
-
-    /// Reviews that both praise and criticise this subject, as a share of those raising it.
-    ///
-    /// The figure the old report had no way to produce. A subject praised by half and damned
-    /// by the other half, and one that every reviewer has mixed feelings about, are different
-    /// findings that a single positive share renders identically.
-    #[must_use]
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "review counts are far below 2^53"
-    )]
-    pub fn mixed_share(&self) -> Option<f64> {
-        (self.mention_reviews > 0).then(|| self.mixed as f64 / self.mention_reviews as f64)
-    }
 }
 
 /// One month of a corpus.
@@ -3011,28 +2997,6 @@ pub(crate) mod tests {
         };
         assert_eq!(primary(0.9, 0.95), Some(at("audio")));
         assert_eq!(primary(0.9, 0.9), Some(at("bugs")));
-    }
-
-    #[test]
-    fn the_mixed_share_is_of_the_reviews_that_raise_the_subject() {
-        let subject = SubjectCount {
-            id: "bugs".to_owned(),
-            label: "Bugs and crashes".to_owned(),
-            mention_reviews: 12,
-            primary_reviews: 6,
-            claims: 20,
-            praised: 4,
-            criticised: 5,
-            mixed: 3,
-            top_mention_reviews: 1,
-            positive_mentions: 4,
-        };
-        assert_eq!(subject.mixed_share(), Some(0.25));
-        let unraised = SubjectCount {
-            mention_reviews: 0,
-            ..subject
-        };
-        assert_eq!(unraised.mixed_share(), None);
     }
 
     #[test]
