@@ -1402,6 +1402,35 @@ mod tests {
     }
 
     #[test]
+    fn a_subject_mistaken_for_two_others_equally_often_names_the_same_one_every_time() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        // The corpus reads the first of these as audio and the second as bugs.
+        write_labels(
+            &reference,
+            &[
+                label("1", 1, (17, 37), "performance", "complaint", false),
+                label("3", 0, (0, 16), "performance", "complaint", false),
+            ],
+        );
+
+        // Each call builds its maps afresh, and std seeds every new map differently.
+        let named: std::collections::BTreeSet<Option<(&str, u64)>> = (0..32)
+            .map(|_| {
+                agreement(out.path(), 1, &reference)
+                    .unwrap()
+                    .subjects
+                    .iter()
+                    .find(|subject| subject.id == "performance")
+                    .unwrap()
+                    .mistaken_for
+            })
+            .collect();
+        assert_eq!(named.len(), 1, "{named:?}");
+    }
+
+    #[test]
     fn a_claim_two_labellers_read_is_scored_against_what_each_of_them_said() {
         let out = crate::tempdir::Dir::new();
         crate::read::tests::read_corpus_of(out.path(), 1);
