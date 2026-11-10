@@ -1189,29 +1189,6 @@ mod tests {
         assert!(raw.contains("some_future_field"), "{raw}");
     }
 
-    /// A scratch capture directory, removed on drop.
-    struct Scratch(std::path::PathBuf);
-
-    impl Scratch {
-        fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "steamgauge-capture-{name}-{}-{}",
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |d| d.as_nanos())
-            ));
-            std::fs::create_dir_all(&dir).unwrap();
-            Self(dir)
-        }
-    }
-
-    impl Drop for Scratch {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-
     fn review(id: &str, text: &str, created: i64, updated: i64) -> Value {
         json!({
             "recommendationid": id,
@@ -1233,8 +1210,8 @@ mod tests {
 
     #[test]
     fn the_text_as_of_a_moment_is_each_reviews_newest_copy_among_the_files_written_by_then() {
-        let scratch = Scratch::new("as-of");
-        let dir = &scratch.0;
+        let scratch = crate::tempdir::Dir::new();
+        let dir = scratch.path();
         // The crawl's copy of 2 claims a later edit than either sweep's, and still loses to
         // them: a swept copy always counts over the crawl's.
         write(
@@ -1274,8 +1251,8 @@ mod tests {
 
     #[test]
     fn every_reader_counts_the_newest_copy_of_a_swept_review_and_only_that() {
-        let scratch = Scratch::new("newest");
-        let dir = &scratch.0;
+        let scratch = crate::tempdir::Dir::new();
+        let dir = scratch.path();
         write(
             &dir.join("shard-0000.parquet"),
             &[
@@ -1350,7 +1327,7 @@ mod tests {
 
     #[test]
     fn a_row_says_who_wrote_it_as_far_as_steam_said() {
-        let scratch = Scratch::new("reviewer");
+        let scratch = crate::tempdir::Dir::new();
         let mut told = review("1", "played it a lot", 1, 1);
         told["author"] = json!({"steamid": "7", "playtime_at_review": 1234});
         told["primarily_steam_deck"] = json!(true);
@@ -1361,11 +1338,11 @@ mod tests {
         denied["written_during_early_access"] = json!(false);
         denied["received_for_free"] = json!(false);
         write(
-            &scratch.0.join("shard-0000.parquet"),
+            &scratch.path().join("shard-0000.parquet"),
             &[told, review("2", "said nothing about myself", 1, 1), denied],
         );
         let mut seen = Vec::new();
-        for_each_row(&scratch.0, |row, _| {
+        for_each_row(scratch.path(), |row, _| {
             seen.push((row.recommendationid, row.reviewer));
             Ok(())
         })
@@ -1390,8 +1367,9 @@ mod tests {
 
     #[test]
     fn a_review_steam_says_nothing_about_the_writer_of_counts_with_its_reviewer_unknown() {
-        let scratch = Scratch::new("no-reviewer");
-        let mut writer = CaptureWriter::create(&scratch.0.join("shard-0000.parquet"), 1).unwrap();
+        let scratch = crate::tempdir::Dir::new();
+        let mut writer =
+            CaptureWriter::create(&scratch.path().join("shard-0000.parquet"), 1).unwrap();
         writer
             .write(&[&json!({
                 "recommendationid": "1", "review": "fine", "language": "english",
@@ -1401,7 +1379,7 @@ mod tests {
         writer.close().unwrap();
 
         let mut seen = Vec::new();
-        for_each_row(&scratch.0, |row, _| {
+        for_each_row(scratch.path(), |row, _| {
             seen.push(row.reviewer);
             Ok(())
         })
@@ -1411,7 +1389,7 @@ mod tests {
 
     #[test]
     fn shards_read_side_by_side_come_back_in_capture_order() {
-        let scratch = Scratch::new("side-by-side");
+        let scratch = crate::tempdir::Dir::new();
         let mut wanted = Vec::new();
         for shard in 0..24 {
             let reviews: Vec<Value> = (0..5)
@@ -1422,19 +1400,19 @@ mod tests {
                 })
                 .collect();
             write(
-                &scratch.0.join(format!("shard-{shard:04}.parquet")),
+                &scratch.path().join(format!("shard-{shard:04}.parquet")),
                 &reviews,
             );
         }
 
-        let kept = rows_kept(&scratch.0, |row, _| Some(row.recommendationid)).unwrap();
+        let kept = rows_kept(scratch.path(), |row, _| Some(row.recommendationid)).unwrap();
 
         assert_eq!(kept, wanted);
     }
 
     #[test]
     fn a_reviews_published_facts_carry_neither_its_words_nor_its_author() {
-        let scratch = Scratch::new("facts");
+        let scratch = crate::tempdir::Dir::new();
         let mut full = review("1", "Crashes on launch. ünïcode", 100, 200);
         full["author"] = json!({
             "steamid": "76561198000000000",
@@ -1449,12 +1427,12 @@ mod tests {
         full["refunded"] = json!(false);
         full["primarily_steam_deck"] = json!(true);
         write(
-            &scratch.0.join("shard-0000.parquet"),
+            &scratch.path().join("shard-0000.parquet"),
             &[full, review("2", "not asked for", 1, 1)],
         );
 
         let wanted: std::collections::HashSet<String> = ["1".to_owned()].into();
-        let facts = facts_for(&scratch.0, &wanted).unwrap();
+        let facts = facts_for(scratch.path(), &wanted).unwrap();
 
         assert_eq!(facts.len(), 1, "only the reviews named are written");
         let one = &facts["1"];
@@ -1478,25 +1456,26 @@ mod tests {
 
     #[test]
     fn a_capture_nobody_has_swept_counts_every_row_it_holds() {
-        let scratch = Scratch::new("unswept");
+        let scratch = crate::tempdir::Dir::new();
         write(
-            &scratch.0.join("shard-0000.parquet"),
+            &scratch.path().join("shard-0000.parquet"),
             &[review("1", "one", 1, 1), review("2", "two", 2, 2)],
         );
         let mut rows = 0;
-        for_each_row(&scratch.0, |_, _| {
+        for_each_row(scratch.path(), |_, _| {
             rows += 1;
             Ok(())
         })
         .unwrap();
         assert_eq!(rows, 2);
-        assert!(Newest::load(&scratch.0).unwrap().copies.is_empty());
+        assert!(Newest::load(scratch.path()).unwrap().copies.is_empty());
     }
 
     #[test]
     fn a_writer_counts_the_reviews_it_has_written() {
-        let scratch = Scratch::new("rows");
-        let mut writer = CaptureWriter::create(&scratch.0.join("shard-0000.parquet"), 1).unwrap();
+        let scratch = crate::tempdir::Dir::new();
+        let mut writer =
+            CaptureWriter::create(&scratch.path().join("shard-0000.parquet"), 1).unwrap();
         assert_eq!(writer.rows(), 0);
         let (one, two) = (review("1", "one", 1, 1), review("2", "two", 2, 2));
         writer.write(&[&one, &two]).unwrap();
@@ -1507,38 +1486,38 @@ mod tests {
 
     #[test]
     fn a_review_without_words_is_given_by_no_reader() {
-        let scratch = Scratch::new("wordless");
+        let scratch = crate::tempdir::Dir::new();
         let mut silent = review("2", "", 1, 1);
         silent.as_object_mut().unwrap().remove("review");
         write(
-            &scratch.0.join("shard-0000.parquet"),
+            &scratch.path().join("shard-0000.parquet"),
             &[review("1", "fine", 1, 1), silent, review("3", "   ", 1, 1)],
         );
         let wanted: std::collections::HashSet<String> = ["1", "2"].map(str::to_owned).into();
 
         let mut rows = Vec::new();
-        for_each_row(&scratch.0, |row, _| {
+        for_each_row(scratch.path(), |row, _| {
             rows.push(row.recommendationid);
             Ok(())
         })
         .unwrap();
         assert_eq!(rows, ["1"], "a blank review is no row");
         assert_eq!(
-            texts_for(&scratch.0, &wanted)
+            texts_for(scratch.path(), &wanted)
                 .unwrap()
                 .into_keys()
                 .collect::<Vec<_>>(),
             ["1"]
         );
         assert_eq!(
-            reviews_for(&scratch.0, &wanted)
+            reviews_for(scratch.path(), &wanted)
                 .unwrap()
                 .into_keys()
                 .collect::<Vec<_>>(),
             ["1"]
         );
         assert_eq!(
-            facts_for(&scratch.0, &wanted)
+            facts_for(scratch.path(), &wanted)
                 .unwrap()
                 .into_keys()
                 .collect::<Vec<_>>(),
@@ -1548,18 +1527,18 @@ mod tests {
 
     #[test]
     fn a_review_recommends_the_game_only_where_it_says_so() {
-        let scratch = Scratch::new("recommends");
+        let scratch = crate::tempdir::Dir::new();
         let mut against = review("2", "no", 1, 1);
         against["voted_up"] = json!(false);
         let mut unsaid = review("3", "maybe", 1, 1);
         unsaid.as_object_mut().unwrap().remove("voted_up");
         write(
-            &scratch.0.join("shard-0000.parquet"),
+            &scratch.path().join("shard-0000.parquet"),
             &[review("1", "yes", 1, 1), against, unsaid],
         );
 
         let mut rows = Vec::new();
-        for_each_row(&scratch.0, |row, _| {
+        for_each_row(scratch.path(), |row, _| {
             rows.push((row.recommendationid, row.voted_up));
             Ok(())
         })
@@ -1572,7 +1551,7 @@ mod tests {
         assert_eq!(rows, expected);
 
         let wanted: std::collections::HashSet<String> = ["1", "2", "3"].map(str::to_owned).into();
-        let fetched = reviews_for(&scratch.0, &wanted).unwrap();
+        let fetched = reviews_for(scratch.path(), &wanted).unwrap();
         for (id, recommends) in expected {
             assert_eq!(fetched[&id].voted_up, recommends, "review {id}");
         }
@@ -1580,9 +1559,9 @@ mod tests {
 
     #[test]
     fn a_record_of_copies_that_cannot_be_read_is_an_error_rather_than_none() {
-        let scratch = Scratch::new("unreadable");
-        std::fs::create_dir(scratch.0.join(Newest::FILE)).unwrap();
-        Newest::load(&scratch.0).unwrap_err();
+        let scratch = crate::tempdir::Dir::new();
+        std::fs::create_dir(scratch.path().join(Newest::FILE)).unwrap();
+        Newest::load(scratch.path()).unwrap_err();
     }
 
     #[test]

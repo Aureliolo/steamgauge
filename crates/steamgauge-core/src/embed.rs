@@ -703,73 +703,6 @@ pub fn vectors_for<S: std::hash::BuildHasher + Sync>(
     Ok(found)
 }
 
-/// Embeds a named set of a capture's reviews with whatever encoder is loaded, ignoring the
-/// vectors the corpus already holds.
-///
-/// This is the path that makes an encoder measurable before a corpus is committed to it. A
-/// reference set is a thousand-odd reviews and costs seconds. Re-embedding six corpora to
-/// find out whether a candidate was worth having costs hours and cannot be undone cheaply.
-///
-/// Blank reviews are skipped, as everywhere else: an empty string embeds to a point that
-/// says nothing and lands on whichever anchor happens to sit nearest it.
-///
-/// # Errors
-///
-/// Fails if the capture cannot be read or the forward pass fails.
-pub fn embed_reviews<S: std::hash::BuildHasher + Sync>(
-    embedder: &mut Embedder,
-    out_dir: &Path,
-    app_id: u32,
-    ids: &HashSet<String, S>,
-    batch_size: usize,
-) -> Result<HashMap<String, Vec<f32>>> {
-    let snapshot = latest_snapshot(out_dir, app_id)?;
-    let texts = crate::capture::texts_for(&snapshot, ids)?;
-
-    // Batched in a fixed order, shortest first. A hash map hands its contents out in an
-    // order that changes between runs, and two reviews batched together are padded to the
-    // longer of the pair, so leaving the order to chance makes a review's vector depend on
-    // which run produced it. Sorting also keeps the padding waste down.
-    let mut ordered: Vec<(String, String)> = texts.into_iter().collect();
-    ordered.sort_unstable_by(|(left_id, left), (right_id, right)| {
-        left.len()
-            .cmp(&right.len())
-            .then_with(|| left_id.cmp(right_id))
-    });
-
-    let mut found = HashMap::new();
-    let mut batch_ids: Vec<String> = Vec::with_capacity(batch_size);
-    let mut batch_texts: Vec<String> = Vec::with_capacity(batch_size);
-    for (id, text) in ordered {
-        if text.trim().is_empty() {
-            continue;
-        }
-        batch_ids.push(id);
-        batch_texts.push(text);
-        if batch_texts.len() >= batch_size {
-            flush_batch(embedder, &mut batch_ids, &mut batch_texts, &mut found)?;
-        }
-    }
-    flush_batch(embedder, &mut batch_ids, &mut batch_texts, &mut found)?;
-    Ok(found)
-}
-
-fn flush_batch(
-    embedder: &mut Embedder,
-    ids: &mut Vec<String>,
-    texts: &mut Vec<String>,
-    found: &mut HashMap<String, Vec<f32>>,
-) -> Result<()> {
-    if texts.is_empty() {
-        return Ok(());
-    }
-    for (id, vector) in ids.drain(..).zip(embedder.embed(texts)?) {
-        found.insert(id, vector);
-    }
-    texts.clear();
-    Ok(())
-}
-
 /// The encoder a corpus was embedded with, as recorded beside its vectors.
 ///
 /// # Errors
@@ -1222,20 +1155,7 @@ mod tests {
         let wanted: HashSet<String> = ["r1", "r3"].map(str::to_owned).into();
         assert_eq!(
             vectors_for(out.path(), APP, &wanted).unwrap(),
-            HashMap::from([
-                ("r1".to_owned(), good_game.clone()),
-                ("r3".to_owned(), bad.clone())
-            ])
-        );
-        let asked: HashSet<String> = ["r1", "r3", "r4", "r5"].map(str::to_owned).into();
-        assert_eq!(
-            embed_reviews(&mut embedder, out.path(), APP, &asked, 2).unwrap(),
-            HashMap::from([
-                ("r1".to_owned(), good_game),
-                ("r3".to_owned(), bad),
-                ("r5".to_owned(), good),
-            ]),
-            "a blank review is never embedded"
+            HashMap::from([("r1".to_owned(), good_game), ("r3".to_owned(), bad)])
         );
     }
 
