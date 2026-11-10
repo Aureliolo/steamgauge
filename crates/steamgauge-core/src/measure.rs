@@ -551,9 +551,11 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
             read: said[index],
             agreed: agreed_per[index],
             seen,
+            // The subject it was taken for most often. Two taken for equally often: the one
+            // listed first on the sheet, so the same data names the same one every time.
             mistaken_for: confused[index]
                 .iter()
-                .max_by_key(|(_, count)| **count)
+                .max_by_key(|(other, count)| (**count, std::cmp::Reverse(**other)))
                 .and_then(|(other, count)| SHEET.get(*other).map(|named| (named.label, *count))),
         })
         .collect();
@@ -1416,17 +1418,17 @@ mod tests {
         );
 
         // Each call builds its maps afresh, and std seeds every new map differently.
-        let named: std::collections::BTreeSet<Option<(&str, u64)>> = (0..32)
-            .map(|_| {
-                agreement(out.path(), 1, &reference)
-                    .unwrap()
-                    .subjects
-                    .iter()
-                    .find(|subject| subject.id == "performance")
-                    .unwrap()
-                    .mistaken_for
-            })
-            .collect();
+        let named: std::collections::BTreeSet<Option<(&str, u64)>> = std::iter::repeat_with(|| {
+            agreement(out.path(), 1, &reference)
+                .unwrap()
+                .subjects
+                .iter()
+                .find(|subject| subject.id == "performance")
+                .unwrap()
+                .mistaken_for
+        })
+        .take(32)
+        .collect();
         assert_eq!(named.len(), 1, "{named:?}");
     }
 
