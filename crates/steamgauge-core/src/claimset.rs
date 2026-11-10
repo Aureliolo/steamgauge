@@ -1509,10 +1509,7 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         let earlier: Vec<ClaimLabel> = serde_json::from_slice(&bytes)?;
         for label in earlier {
             let key = (label.review_id.clone(), label.index);
-            let same_claim = wanted
-                .get(&key)
-                .is_some_and(|(_, claim)| (claim.start, claim.end) == (label.start, label.end));
-            if same_claim && seen.insert(key) {
+            if wanted.contains_key(&key) && seen.insert(key) {
                 labels.push(label);
                 report.kept += 1;
             }
@@ -1604,13 +1601,6 @@ fn read_again(set: &Path) -> Result<std::collections::HashMap<(String, u16), Cla
 ///
 /// Fails if a reference set cannot be read.
 pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
-    Ok(join_labels(reference_root)?.0)
-}
-
-/// The labelled claims, and the labels whose span no claim of their own set's draw covers.
-///
-/// Those have no text to export, and the export counts them as recut.
-fn join_labels(reference_root: &Path) -> Result<(Vec<LabelledClaim>, Vec<ClaimLabel>)> {
     let mut sets: Vec<std::path::PathBuf> = std::fs::read_dir(reference_root)
         .into_iter()
         .flatten()
@@ -1626,7 +1616,6 @@ fn join_labels(reference_root: &Path) -> Result<(Vec<LabelledClaim>, Vec<ClaimLa
     sets.sort();
 
     let mut found = Vec::new();
-    let mut unjoined = Vec::new();
     for set in sets {
         let labels: Vec<ClaimLabel> =
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
@@ -1636,51 +1625,22 @@ fn join_labels(reference_root: &Path) -> Result<(Vec<LabelledClaim>, Vec<ClaimLa
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
-        // and centre the window on the wrong half of the review. A label is joined by its span,
-        // because a set drawn again under another splitter renumbers its claims and leaves
-        // the labels as they were. Only a draw that recorded no span for a claim (an empty
-        // one) leaves the index as the one way to find it.
-        let mut text: std::collections::HashMap<&str, Vec<(&DrawnClaim, usize)>> =
+        // and centre the window on the wrong half of the review.
+        let mut text: std::collections::HashMap<(&str, u16), (&str, usize)> =
             std::collections::HashMap::new();
         let mut around: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
         for review in &drawn {
             let mut at = 0;
             for claim in &review.claims {
-                text.entry(review.id.as_str())
-                    .or_default()
-                    .push((claim, at));
+                text.insert((review.id.as_str(), claim.index), (claim.text.as_str(), at));
                 at += claim.text.len() + 1;
             }
             around.insert(review.id.as_str(), rejoined(review));
         }
 
         for label in labels {
-            let claims = text
-                .get(label.review_id.as_str())
-                .map_or(&[][..], Vec::as_slice);
-            let Some((claim, at)) = claims
-                .iter()
-                .find(|(claim, _)| {
-                    claim.start == label.start
-                        && claim.end == label.end
-                        && (claim.index == label.index || claim.start != claim.end)
-                })
-                .or_else(|| {
-                    claims
-                        .iter()
-                        .find(|(claim, _)| claim.index == label.index && claim.start == claim.end)
-                })
-                .map(|&(claim, at)| (claim.text.as_str(), at))
-            else {
-                unjoined.push(label);
+            let Some(&(claim, at)) = text.get(&(label.review_id.as_str(), label.index)) else {
                 continue;
-            };
-            let key = (label.review_id.clone(), label.index);
-            let second = match again.get(&key) {
-                Some(second) if (second.start, second.end) == (label.start, label.end) => {
-                    again.remove(&key)
-                }
-                _ => None,
             };
             found.push(LabelledClaim {
                 text: claim.to_owned(),
@@ -1689,19 +1649,12 @@ fn join_labels(reference_root: &Path) -> Result<(Vec<LabelledClaim>, Vec<ClaimLa
                     .cloned()
                     .unwrap_or_default(),
                 review_offset: at,
-                again: second,
+                again: again.remove(&(label.review_id.clone(), label.index)),
                 label,
             });
         }
     }
-    Ok((found, unjoined))
-}
-
-/// Whether a label is a teaching row on a game the model is measured on.
-fn is_measured_on(label: &ClaimLabel) -> bool {
-    TEACHING_SETS.contains(&label.subset.as_str())
-        && crate::measure::role(label.app_id, crate::measure::SPLIT_SEED)
-            != crate::measure::Role::Train
+    Ok(found)
 }
 
 /// What the training export wrote, and what it would not write.
@@ -1733,9 +1686,7 @@ pub struct ExportReport {
 /// them, and the export already carries a column for exactly that.
 fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<LabelledClaim> {
     let teaching = |one: &LabelledClaim| TEACHING_SETS.contains(&one.label.subset.as_str());
-    // Two draws number the same claim differently once either was cut under another splitter,
-    // so the span is what says they hold one claim.
-    let mut place: std::collections::HashMap<(u32, String, u32, u32), usize> =
+    let mut place: std::collections::HashMap<(u32, String, u16), usize> =
         std::collections::HashMap::new();
     let mut kept: Vec<LabelledClaim> = Vec::with_capacity(found.len());
 
@@ -1743,8 +1694,7 @@ fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<Labell
         let key = (
             claim.label.app_id,
             claim.label.review_id.clone(),
-            claim.label.start,
-            claim.label.end,
+            claim.label.index,
         );
         let Some(&at) = place.get(&key) else {
             place.insert(key, kept.len());
@@ -1785,19 +1735,14 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
     use std::io::Write as _;
 
     let mut report = ExportReport::default();
-    let (joined, unjoined) = join_labels(reference_root)?;
-    let found = read_once(joined, &mut report);
+    let found = read_once(labelled_claims(reference_root)?, &mut report);
     let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
         std::collections::BTreeMap::new();
-    for label in found
-        .iter()
-        .map(|claim| &claim.label)
-        .chain(unjoined.iter())
-    {
+    for claim in &found {
         wanted
-            .entry(label.app_id)
+            .entry(claim.label.app_id)
             .or_default()
-            .insert(label.review_id.clone());
+            .insert(claim.label.review_id.clone());
     }
     let cuts = wanted
         .into_iter()
@@ -1815,17 +1760,6 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
     let mut out = std::io::BufWriter::new(std::fs::File::create(to)?);
     let mut facts: std::collections::HashMap<u32, Option<bool>> = std::collections::HashMap::new();
 
-    // A label the draw holds no claim for has no text to write, so it is only counted, and a
-    // teaching one on a measured game is counted as that first, as it is below.
-    for label in &unjoined {
-        if is_measured_on(label) {
-            report.measured_on += 1;
-            report.measured_on_games.insert(label.app_id);
-        } else {
-            report.recut += 1;
-        }
-    }
-
     for claim in found {
         // Most of the set was cut before the rules that recognise these, so it still holds
         // thousands of them. A row whose text carries no proposition has a label that could
@@ -1840,7 +1774,10 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
         // drawn at random, and the coverage figure stops meaning what it says. The draw
         // commands refuse such a game, but the sets drawn before that guard existed are still
         // on disk, and the split reads whatever the export hands it.
-        if is_measured_on(label) {
+        if TEACHING_SETS.contains(&label.subset.as_str())
+            && crate::measure::role(label.app_id, crate::measure::SPLIT_SEED)
+                != crate::measure::Role::Train
+        {
             report.measured_on += 1;
             report.measured_on_games.insert(label.app_id);
             continue;
