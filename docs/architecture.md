@@ -20,6 +20,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   carry the span (`claims::Span`) and nothing else.
 - **No version stamp.** Whether this build still cuts a claim at a span is answered by splitting
   the review again.
+- **A label finds its claim by span.** A claim's index numbers it within one draw, and a set drawn
+  again under another splitter renumbers it.
 - `claims::words_at` is the one way a stored span becomes text, and `claims::is_not_a_claim` the
   one test for an empty piece. Every draw, ingest and export uses both.
 - **Labelled text is kept** in each game's `reviews.jsonl`, since a review can be edited. A later
