@@ -1217,7 +1217,11 @@ def aspect_scores(
             if covers is None and subject != claim.subject:
                 continue
             said = (covers or {claim.subject: claim.polarity}).get(subject)
-            answer = 0 if said is None else 1 + POLARITIES.index(said)
+            answer = (
+                0
+                if said is None
+                else 1 + (POLARITIES.index(said) if said in POLARITIES else NEUTRAL)
+            )
             rows.append((slot, subject == claim.subject, answer, int(predicted[at, slot])))
     if not rows:
         return {}
