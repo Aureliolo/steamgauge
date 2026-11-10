@@ -529,8 +529,8 @@ fn read_with(
     let captured = crate::report::crawl_facts(&options.out_dir, app_id).map_err(|error| {
         if matches!(error, Error::NoClassifications { .. }) {
             Error::Refused(format!(
-                "app {app_id}: its download never finished, so `crawl.json` is missing from {}; \
-                 download the game again",
+                "app {app_id}: its download never finished, so `crawl.json` is missing from {}. \
+                 Download the game again.",
                 snapshot.display()
             ))
         } else {
