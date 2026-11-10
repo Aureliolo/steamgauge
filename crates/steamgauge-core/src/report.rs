@@ -166,7 +166,9 @@ pub struct AppReport {
     pub reading: crate::read::ReadReport,
     /// Evidence per subject id, in taxonomy order.
     pub examples: Vec<(String, Vec<Example>)>,
-    /// The most-helpful reviews, which is what a reader skimming the store page sees.
+    /// The most-helpful reviews, which is what a reader skimming the store page sees. Each
+    /// shows the claim the reader is surest of, the earlier one in the review where two are
+    /// equally sure.
     pub top: Vec<Example>,
     /// Measured agreement against a reference set, or why there is none.
     pub agreement: Measurement,
@@ -530,6 +532,9 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         .filter(|claim| top_ids.contains(&claim.review_id))
         .filter_map(quote)
         .collect();
+    // A review lists once, with the claim the reader is surest of. Where two claims are equally
+    // sure, the one that comes first in the review wins, then the polarity by name. The order
+    // within a review is total, so the pick never rests on the order the claims were drawn in.
     // By id within a count of votes, so the claims of one review sit together for the dedup
     // even where another review drew as many votes.
     top.sort_by(|a, b| {
@@ -537,6 +542,9 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
             .votes_up
             .cmp(&a.review.votes_up)
             .then_with(|| a.review.id.cmp(&b.review.id))
+            .then_with(|| b.confidence.total_cmp(&a.confidence))
+            .then_with(|| a.at.cmp(&b.at))
+            .then_with(|| a.polarity.cmp(&b.polarity))
     });
     top.dedup_by(|a, b| a.review.id == b.review.id);
 
