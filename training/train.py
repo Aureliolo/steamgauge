@@ -1112,7 +1112,11 @@ def area_under_risk_coverage(confidence: FloatArray, correct: FloatArray) -> flo
     """
     order = np.argsort(-confidence)
     ranked = correct[order]
-    risks = [1.0 - ranked[: size + 1].mean() for size in range(len(ranked))]
+    # Claims of equal confidence are answered or declined together, so the curve has one point
+    # for the whole tie and its height cannot depend on the order the tied claims arrived in.
+    ordered = confidence[order]
+    ends = np.append(np.flatnonzero(ordered[:-1] > ordered[1:]) + 1, len(ordered))
+    risks = [1.0 - ranked[:size].mean() for size in ends.tolist() if size]
     return float(np.mean(risks)) if risks else 0.0
 
 
