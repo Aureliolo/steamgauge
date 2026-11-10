@@ -523,6 +523,20 @@ fn read_with(
 ) -> Result<ReadReport> {
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
+    // The record is written by the last step of a download, and the reading's date comes from
+    // it. It is checked first because a read that fails on it afterwards has spent the whole
+    // card on a corpus whose reading cannot be saved.
+    let captured = crate::report::crawl_facts(&options.out_dir, app_id).map_err(|error| {
+        if matches!(error, Error::NoClassifications { .. }) {
+            Error::Refused(format!(
+                "app {app_id}: its download never finished, so `crawl.json` is missing from {}; \
+                 download the game again",
+                snapshot.display()
+            ))
+        } else {
+            error
+        }
+    })?;
 
     let context = model.model_provenance().context;
     // A reader told whether a game is played in a headset has to be told for every game: read
@@ -567,7 +581,6 @@ fn read_with(
             return Err(error);
         }
     };
-    let captured = crate::report::crawl_facts(&options.out_dir, app_id)?;
 
     Ok(ReadReport {
         elapsed: started.elapsed(),
