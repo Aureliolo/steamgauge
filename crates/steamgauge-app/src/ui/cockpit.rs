@@ -198,7 +198,7 @@ pub(super) struct Row {
     pub name: String,
     pub reviews: u64,
     pub valve_total: u64,
-    pub coverage: f64,
+    pub coverage: Option<f64>,
     pub verdict: String,
     /// The share of Steam's reviews recommending the game, at the last download or update.
     pub recommended: Option<f64>,

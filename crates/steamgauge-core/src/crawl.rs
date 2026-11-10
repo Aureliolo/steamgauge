@@ -1612,12 +1612,12 @@ mod tests {
 
         // Valve gives no total for the whole corpus while each window still counts its reviews.
         let crawled_zero = library("crawled-total-zero");
-        let served = valve(corpus(), None, 0);
+        let windows = valve(corpus(), None, 0);
         let server = stand_in::Server::new(move |asked| {
             if whole_corpus(asked) {
                 summary_of(0)
             } else {
-                served(asked)
+                windows(asked)
             }
         });
         crawl(&client_of(&server), APP, &options(&crawled_zero), |_| {})
@@ -1625,12 +1625,12 @@ mod tests {
             .unwrap();
 
         let crawled_without = library("crawled-without-summary");
-        let served = valve(corpus(), None, 0);
+        let pages_of_windows = valve(corpus(), None, 0);
         let server = stand_in::Server::new(move |asked| {
             if whole_corpus(asked) {
                 no_summary()
             } else {
-                served(asked)
+                pages_of_windows(asked)
             }
         });
         let crawled = crawl(&client_of(&server), APP, &options(&crawled_without), |_| {}).await;
@@ -1638,7 +1638,7 @@ mod tests {
             matches!(crawled, Err(crate::Error::NoSuchCorpus { app_id: APP })),
             "{crawled:?}"
         );
-        assert!(crate::embed::latest_snapshot(&crawled_without, APP).is_err());
+        crate::embed::latest_snapshot(&crawled_without, APP).unwrap_err();
 
         assert_eq!(
             [

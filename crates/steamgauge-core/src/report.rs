@@ -79,7 +79,9 @@ pub struct CrawlFacts {
     pub valve_total_reviews: u64,
     pub valve_total_positive: u64,
     pub valve_total_negative: u64,
-    pub coverage: f64,
+    /// None where Steam reports a total of 0, which leaves nothing to measure a share against.
+    #[serde(default)]
+    pub coverage: Option<f64>,
     pub snapshot_unix: i64,
     pub shards: u64,
     /// When the capture was last brought up to date, where it has been. The three sweep
@@ -808,7 +810,7 @@ mod tests {
                 valve_total_reviews: 0,
                 valve_total_positive: 0,
                 valve_total_negative: 0,
-                coverage: 1.0,
+                coverage: Some(1.0),
                 snapshot_unix: 0,
                 shards: 1,
                 swept_unix: None,

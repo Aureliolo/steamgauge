@@ -538,10 +538,12 @@ fn facts(out: &mut String, app: &AppReport) {
         out,
         "Downloaded",
         &format!(
-            "{} of the {} Steam reports ({})",
+            "{} of the {} Steam reports{}",
             thousands(crawl.rows_unique),
             thousands(crawl.valve_total_reviews),
-            coverage(crawl.coverage)
+            crawl
+                .coverage
+                .map_or_else(String::new, |share| format!(" ({})", coverage(share)))
         ),
     );
     if !crawl.review_score_desc.is_empty() {
@@ -2593,7 +2595,7 @@ mod tests {
                     valve_total_reviews: 1_000,
                     valve_total_positive: 700,
                     valve_total_negative: 300,
-                    coverage: 1.0,
+                    coverage: Some(1.0),
                     snapshot_unix: 1_700_000_000,
                     shards: 1,
                     swept_unix: None,
