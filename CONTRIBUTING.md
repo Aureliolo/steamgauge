@@ -95,8 +95,9 @@ open, so a build fails with "Access is denied" until the run stops.
 
 The splitter (`splitter`), a stored span brought to its words (`stored_span`), the reader's window
 (`reader_window`) and the terms a claim is counted under (`terms`) are fuzzed. `fuzz/src/lib.rs`
-says what each target asserts. CI runs them for ten minutes on every pull request and an hour
-every Monday. A crash fails the check and attaches its input as an artefact.
+says what each target asserts. CI runs them for ten minutes on a pull request that touches what
+they are built from (`fuzzed` in `tools/release/scope.mjs`) and for an hour every Monday. A crash
+fails the check and attaches its input as an artefact.
 
 `fuzz/` is a workspace of its own. It needs a nightly toolchain and cargo-fuzz:
 

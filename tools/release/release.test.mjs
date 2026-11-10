@@ -25,7 +25,7 @@ import {
   withTexts,
 } from './notices.mjs';
 import { check as checkRuntime, imports, isWindows, place } from './runtime-dlls.mjs';
-import { scopeOf } from './scope.mjs';
+import { fuzzedBy, scopeOf } from './scope.mjs';
 import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from './version.mjs';
 
 const PRE_RELEASE_REFUSAL = /pre-release/u;
@@ -249,6 +249,50 @@ it("only the package managers' manifests is a packaging change, and nothing else
   assert.equal(scopeOf(['Casks/steamgauge.rb', 'tools/release/scope.mjs'], same, same), 'code');
   assert.equal(scopeOf(['bucketless/x'], same, same), 'code');
   assert.equal(scopeOf([], same, same), 'code');
+});
+
+for (const path of [
+  'fuzz/fuzz_targets/splitter.rs',
+  '.clusterfuzzlite/build.sh',
+  'crates/steamgauge-core/src/splitter.rs',
+  'Cargo.toml',
+  'Cargo.lock',
+  'rust-toolchain.toml',
+  '.cargo/config.toml',
+  '.github/workflows/fuzz.yml',
+]) {
+  it(`a change to ${path} reaches what the fuzz targets are built from`, () => {
+    assert.equal(fuzzedBy([path]), true);
+  });
+}
+
+it('a change to nothing the fuzz targets are built from leaves them alone', () => {
+  assert.equal(
+    fuzzedBy([
+      'README.md',
+      'crates/steamgauge-app/ui/index.html',
+      'crates/steamgauge-site/src/home.rs',
+      'docs/architecture.md',
+      '.github/workflows/ci.yml',
+      'fuzzy/x',
+      'crates/steamgauge-core-extra/x',
+    ]),
+    false,
+  );
+});
+
+it('a rename into or out of a folder the fuzz targets are built from reaches them', () => {
+  // scope.mjs lists a rename as the old path and the new one.
+  assert.equal(fuzzedBy(['docs/splitter.rs', 'crates/steamgauge-core/src/splitter.rs']), true);
+  assert.equal(fuzzedBy(['crates/steamgauge-core/src/splitter.rs', 'docs/splitter.rs']), true);
+});
+
+it('a change to a path the fuzz targets are built from and to one they are not reaches them', () => {
+  assert.equal(fuzzedBy(['README.md', 'Cargo.lock', 'docs/architecture.md']), true);
+});
+
+it('a change that lists no path is not known to leave the fuzz targets alone', () => {
+  assert.equal(fuzzedBy([]), true);
 });
 
 // main as a line of commits, newest last, each with what it changed and the pull request it came
