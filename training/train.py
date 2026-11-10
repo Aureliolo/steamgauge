@@ -500,32 +500,9 @@ def forever(loader: Iterable[Item]) -> Iterator[Item]:
 
     The pool is read at the labelled set's pace, one batch per step, and is many times its
     size. Which epoch it is on is of no interest, only that every step has a batch.
-
-    Its shuffling draws from a random state of its own, derived from the seed. The global
-    generator is put back after every batch, so the labelled loader's order is the same with
-    or without a pool.
     """
-    own = torch.Generator().manual_seed(torch.initial_seed() + 1).get_state()
-    return _drawn_apart(forever_batches(loader), own)
-
-
-def forever_batches(loader: Iterable[Item]) -> Iterator[Item]:
-    """Yield the loader again from the top whenever it runs out."""
     while True:
         yield from loader
-
-
-def _drawn_apart(batches: Iterator[Item], state: torch.Tensor) -> Iterator[Item]:
-    """Advance `batches` under `state` and leave the global random state as it was found."""
-    while True:
-        outside = torch.get_rng_state()
-        torch.set_rng_state(state)
-        try:
-            batch = next(batches)
-        finally:
-            state = torch.get_rng_state()
-            torch.set_rng_state(outside)
-        yield batch
 
 
 def recompute_activations(model: ClaimReader) -> None:
@@ -1662,7 +1639,10 @@ def taught_batches_of(
         "from games this run trains on"
     )
     taught = DataLoader(
-        Pool(
+        # Its own generator keeps the pool's shuffle off the global one the labelled loader
+        # draws from, so the labelled order depends on the seed alone.
+        generator=torch.Generator().manual_seed(args.seed + 1),
+        dataset=Pool(
             pool_kept,
             tokenizer,
             data.subjects,
