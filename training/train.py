@@ -1109,11 +1109,20 @@ def area_under_risk_coverage(confidence: FloatArray, correct: FloatArray) -> flo
     Lower is better. A threshold is a policy. This is the property the policy is drawn from,
     and it is what tells you whether a backbone knows when it does not know. Two models can
     reach the same accuracy and only one of them be usable with abstention.
+
+    Claims of equal confidence are answered together, so each block of them is one point of the
+    curve, weighted by the coverage it adds: its share of all claims.
     """
+    if not len(confidence):
+        return 0.0
     order = np.argsort(-confidence)
     ranked = correct[order]
-    risks = [1.0 - ranked[: size + 1].mean() for size in range(len(ranked))]
-    return float(np.mean(risks)) if risks else 0.0
+    ordered = confidence[order]
+    ends = np.append(np.flatnonzero(ordered[:-1] > ordered[1:]) + 1, len(ordered))
+    risks = np.array([1.0 - ranked[:size].mean() for size in ends.tolist()])
+    # Repeating each block's risk once per claim in it is the weighted sum, and without ties
+    # it is the plain mean of per-claim risks to the last bit.
+    return float(np.repeat(risks, np.diff(ends, prepend=0)).mean())
 
 
 class Agreement(TypedDict):
@@ -1213,7 +1222,11 @@ def aspect_scores(
             if covers is None and subject != claim.subject:
                 continue
             said = (covers or {claim.subject: claim.polarity}).get(subject)
-            answer = 0 if said is None else 1 + POLARITIES.index(said)
+            answer = (
+                0
+                if said is None
+                else 1 + (POLARITIES.index(said) if said in POLARITIES else NEUTRAL)
+            )
             rows.append((slot, subject == claim.subject, answer, int(predicted[at, slot])))
     if not rows:
         return {}
@@ -1599,6 +1612,24 @@ def split_loaders(
     return datasets, loaders
 
 
+def pool_loader[T](
+    pool: Dataset[T], batch_size: int, seed: int, *, drop_last: bool
+) -> DataLoader[T]:
+    """Return the shuffled loader over the pool.
+
+    Its own generator keeps the pool's shuffle off the global one the labelled loader draws
+    from, so the labelled order depends on the seed alone.
+    """
+    return DataLoader(
+        pool,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=drop_last,
+        num_workers=0,
+        generator=torch.Generator().manual_seed(seed + 1),
+    )
+
+
 def taught_batches_of(
     args: argparse.Namespace, data: Labelled, tokenizer: PreTrainedTokenizerBase, micro: int
 ) -> tuple[Iterator[Item] | None, int]:
@@ -1630,19 +1661,14 @@ def taught_batches_of(
         f"pool {len(pool_kept)} of {len(unlabelled)} unlabelled claims, "
         "from games this run trains on"
     )
-    taught = DataLoader(
-        Pool(
-            pool_kept,
-            tokenizer,
-            data.subjects,
-            reading_of(args, headset_marker=data.headset_marker),
-            (targets[0][safe], targets[1][safe]),
-        ),
-        batch_size=args.pool_batch_size or micro,
-        shuffle=True,
-        drop_last=args.cuda_graphs,
-        num_workers=0,
+    pool = Pool(
+        pool_kept,
+        tokenizer,
+        data.subjects,
+        reading_of(args, headset_marker=data.headset_marker),
+        (targets[0][safe], targets[1][safe]),
     )
+    taught = pool_loader(pool, args.pool_batch_size or micro, args.seed, drop_last=args.cuda_graphs)
     return forever(taught), len(pool_kept)
 
 

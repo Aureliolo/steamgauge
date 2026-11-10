@@ -42,6 +42,16 @@ def test_the_best_epoch_comes_back_after_worse_ones() -> None:
         assert torch.equal(weight, at_best[name]), name
 
 
+def test_a_worse_epoch_after_a_better_one_is_declined_and_the_first_stays_best() -> None:
+    built = model()
+    best = BestEpoch()
+    assert best.offer(0.64, 1, built)
+    assert not best.offer(0.60, 2, built)
+    assert not best.offer(0.62, 3, built)
+    assert best.epoch == 1
+    assert best.score == 0.64
+
+
 def test_a_tie_keeps_the_earlier_epoch() -> None:
     built = model()
     best = BestEpoch()

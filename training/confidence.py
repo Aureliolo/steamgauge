@@ -42,7 +42,7 @@ import onnxruntime
 
 import claimdata
 from frontier import READ_BATCH, encode_pair, open_tokenizer
-from train import Claims, Reading, ShippedTokenizer
+from train import Claims, Reading, ShippedTokenizer, area_under_risk_coverage
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -147,11 +147,7 @@ def augrc(confidence: FloatArray, correct: FloatArray) -> float:
 
 def aurc(confidence: FloatArray, correct: FloatArray) -> float:
     """Selective risk averaged over every coverage. Kept for comparison with AUGRC."""
-    ranked = correct[np.argsort(-confidence)]
-    if not len(ranked):
-        return 0.0
-    sizes = np.arange(1, len(ranked) + 1)
-    return float((1.0 - np.cumsum(ranked) / sizes).mean())
+    return area_under_risk_coverage(confidence, correct)
 
 
 def cut_points(score: FloatArray) -> IntArray:

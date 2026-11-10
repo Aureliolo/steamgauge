@@ -104,6 +104,16 @@ def test_the_scores_count_what_lies_beyond_the_first_subject_on_its_own() -> Non
     assert missed["per_subject"]["audio"]["f1"] == pytest.approx(1.0)
 
 
+def test_a_polarity_outside_the_known_three_is_scored_as_neutral() -> None:
+    claims = [dataclasses.replace(claim(1), subject="audio", polarity="mixed", also=())]
+    logits = torch.full((1, len(SUBJECTS), ASPECT_ANSWERS), -9.0)
+    for subject, answer in enumerate([3, 0, 0, 0]):
+        logits[0, subject, answer] = 9.0
+    scores = aspect_scores(logits, claims, SUBJECTS)
+    assert "all" in scores
+    assert scores["polarity_where_both_say_covered"] == pytest.approx(1.0)
+
+
 def test_a_line_per_subject_keeps_the_promise_or_is_not_drawn(tmp_path: Path) -> None:
     # Six held-out claims. Controls is covered by the three the head is surest of, and called
     # on a fourth it is not: a line at 0.75 keeps every call right. Story is never covered, so
