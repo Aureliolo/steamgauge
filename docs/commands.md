@@ -176,7 +176,6 @@ steamgauge disconnect <CLIENT>
 
 ## Measuring and training the reader
 
-- `claims <APP_ID>`: Split every review into the claims it makes.
 - `embed <APP_ID>`: Embed a game's reviews, for `distinct`.
 - `store-facts [APP_IDS]...`: Ask the store whether each game is played only in a VR headset, and
   keep the answer beside its download and its reference sets.

@@ -145,7 +145,6 @@ pub const MEASURING_HEADING: &str = "Measuring and training the reader";
 /// The commands that measure and train the reader, none of them needed for a report, which
 /// `--help` lists apart from the rest.
 pub const MEASURING: &[&str] = &[
-    "claims",
     "embed",
     "store-facts",
     "sample-claims",
@@ -205,19 +204,6 @@ enum Command {
         /// Milliseconds between requests.
         #[arg(long, default_value_t = 250)]
         pace_ms: u64,
-    },
-
-    /// Split every review into the claims it makes.
-    ///
-    /// A review is not one opinion, and a whole-review vector is the average of the ones it
-    /// holds. This writes claims.parquet beside the download, carrying offsets rather than
-    /// text so the corpus is not stored twice.
-    Claims {
-        /// Steam app ID, as it appears in the store URL.
-        app_id: u32,
-        /// Directory holding the download.
-        #[arg(short, long, default_value = "data")]
-        out: PathBuf,
     },
 
     /// Embed a game's reviews, for `distinct`.
@@ -904,7 +890,6 @@ impl Command {
         match self {
             Self::Crawl { out, .. }
             | Self::Sweep { out, .. }
-            | Self::Claims { out, .. }
             | Self::Embed { out, .. }
             | Self::SampleClaims { out, .. }
             | Self::Declined { out, .. }
@@ -1055,7 +1040,6 @@ pub(crate) async fn run() -> Result<()> {
             out,
             pace_ms,
         } => run_sweep(app_id, &out, Duration::from_millis(pace_ms)).await,
-        Command::Claims { app_id, out } => run_claims(app_id, &out),
         Command::StoreFacts {
             app_ids,
             out,
@@ -1199,7 +1183,6 @@ async fn encoder_work(command: Command) -> Result<()> {
         | Command::Brief { .. } => unreachable!("reference_work answers every reference command"),
         Command::Crawl { .. }
         | Command::Sweep { .. }
-        | Command::Claims { .. }
         | Command::Read { .. }
         | Command::StoreFacts { .. }
         | Command::Recount { .. }
@@ -3716,31 +3699,6 @@ fn run_brief(to: &Path) -> Result<()> {
     let induction = to.join("induction-brief.txt");
     std::fs::write(&induction, steamgauge_core::taxonomy::induction_brief())?;
     println!("brief    {}", induction.display());
-    Ok(())
-}
-
-fn run_claims(app_id: u32, out: &Path) -> Result<()> {
-    eprintln!("splitting app {app_id}");
-    let mut announced = 0;
-    let report = steamgauge_core::claims::extract_corpus(out, app_id, |reviews, claims| {
-        if reviews / 100_000 > announced {
-            announced = reviews / 100_000;
-            eprintln!("  {reviews} reviews, {claims} claims");
-        }
-    })?;
-
-    println!("app          {}", report.app_id);
-    println!("reviews      {}", report.reviews);
-    println!("claims       {}", report.claims);
-    println!("per review   {:.2}", report.per_review());
-    println!("distinct     {}", report.distinct);
-    if let Some(share) = report.repeated() {
-        println!(
-            "repeated     {:.1}% of claims are said in the same words elsewhere",
-            share * 100.0
-        );
-    }
-    println!("empty        {} reviews split into nothing", report.empty);
     Ok(())
 }
 

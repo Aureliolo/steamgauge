@@ -86,6 +86,9 @@ enum Part {
 }
 
 /// What a file in a game's newest download is, by the name the core writes it under.
+///
+/// `claims.parquet` is named although nothing writes it now: a download made by an earlier
+/// build can hold it, and it goes with the game's readings.
 fn part_of(name: &str) -> Part {
     let left_over = Path::new(name).extension().is_some_and(|extension| {
         extension.eq_ignore_ascii_case("partial") || extension.eq_ignore_ascii_case("part")
