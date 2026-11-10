@@ -39,6 +39,17 @@ def test_without_ties_the_area_is_the_one_the_running_mean_gives() -> None:
     assert aurc(confidence, correct) == 0.40429215726996426
 
 
+@pytest.mark.parametrize("area", [area_under_risk_coverage, aurc])
+@pytest.mark.parametrize("tied", [[1.0, 0.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 0.0]])
+def test_a_block_of_tied_claims_weighs_the_coverage_it_adds(
+    area: Callable[[FloatArray, FloatArray], float], tied: list[float]
+) -> None:
+    # Blocks of 1 and 3 claims. Risk after the first block is 0, after all four 1/4.
+    # Area: 1/4 * 0 + 3/4 * 1/4 = 0.1875, whatever order the three tied claims come in.
+    confidence = np.array([0.9, 0.5, 0.5, 0.5])
+    assert area(confidence, np.array([1.0, *tied])) == pytest.approx(0.1875)
+
+
 def test_the_two_area_functions_agree_with_ties() -> None:
     generator = np.random.default_rng(3)
     confidence = generator.integers(0, 5, 80).astype(float)

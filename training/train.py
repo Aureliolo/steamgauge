@@ -1109,15 +1109,20 @@ def area_under_risk_coverage(confidence: FloatArray, correct: FloatArray) -> flo
     Lower is better. A threshold is a policy. This is the property the policy is drawn from,
     and it is what tells you whether a backbone knows when it does not know. Two models can
     reach the same accuracy and only one of them be usable with abstention.
+
+    Claims of equal confidence are answered together, so each block of them is one point of the
+    curve, weighted by the coverage it adds: its share of all claims.
     """
+    if not len(confidence):
+        return 0.0
     order = np.argsort(-confidence)
     ranked = correct[order]
-    # Claims of equal confidence are answered or declined together, so the curve has one point
-    # for the whole tie and its height cannot depend on the order the tied claims arrived in.
     ordered = confidence[order]
     ends = np.append(np.flatnonzero(ordered[:-1] > ordered[1:]) + 1, len(ordered))
-    risks = [1.0 - ranked[:size].mean() for size in ends.tolist() if size]
-    return float(np.mean(risks)) if risks else 0.0
+    risks = np.array([1.0 - ranked[:size].mean() for size in ends.tolist()])
+    # Repeating each block's risk once per claim in it is the weighted sum, and without ties
+    # it is the plain mean of per-claim risks to the last bit.
+    return float(np.repeat(risks, np.diff(ends, prepend=0)).mean())
 
 
 class Agreement(TypedDict):
