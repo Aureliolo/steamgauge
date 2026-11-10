@@ -2078,6 +2078,19 @@ fn share_of(part: u64, whole: u64) -> f64 {
     }
 }
 
+/// How a declined share stands against the usual one, in the words the page puts between them.
+/// Two shares that print alike are level: "10.0% ... below the 10.0%" reads as an easier game
+/// when the page shows no difference.
+fn relation(share: f64, usual: f64) -> &'static str {
+    if percent(share) == percent(usual) {
+        "level with"
+    } else if share > usual {
+        "above"
+    } else {
+        "below"
+    }
+}
+
 fn trust(out: &mut String, app: &AppReport) {
     out.push_str("<h3>How far to trust this</h3>\n");
     out.push_str("<dl class=\"facts wide\">\n");
@@ -2126,18 +2139,10 @@ fn trust(out: &mut String, app: &AppReport) {
                 .usual_declined
                 .map_or_else(String::new, |usual| {
                     let usual = f64::from(usual);
-                    // Two shares that print alike are level: "10.0% ... below the 10.0%"
-                    // reads as an easier game when the page shows no difference.
-                    let (ours, theirs) = (percent(share), percent(usual));
-                    let relation = if ours == theirs {
-                        "level with"
-                    } else if share > usual {
-                        "above"
-                    } else {
-                        "below"
-                    };
                     format!(
-                        ", {relation} the {theirs} it usually declines on a game it has never seen"
+                        ", {} the {} it usually declines on a game it has never seen",
+                        relation(share, usual),
+                        percent(usual)
                     )
                 }),
             None => String::new(),
@@ -4715,6 +4720,14 @@ mod tests {
         let page = render(&sample_report("ordinary text"));
         let said = between(&page, "<dt>Claims left unfiled</dt><dd>", "</dd>");
         assert!(!said.contains("below"), "{said}");
+    }
+
+    #[test]
+    fn a_declined_share_that_prints_apart_from_the_usual_one_says_which_side_it_is_on() {
+        assert_eq!(relation(0.12, 0.1), "above");
+        assert_eq!(relation(0.08, 0.1), "below");
+        assert_eq!(relation(0.1004, 0.1), "level with");
+        assert_eq!(relation(0.0996, 0.1), "level with");
     }
 
     #[test]
