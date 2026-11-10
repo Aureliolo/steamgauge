@@ -466,7 +466,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
     }
 
     let drawn = shortlist(&snapshot, options)?;
-    let top_ids: HashSet<String> = top_of_the_pile(&snapshot, reading.top_helpful)?;
+    let top_ids = top_of_the_pile(&snapshot, reading.top_helpful, reading.language.as_deref())?;
     let mut wanted: HashSet<String> = drawn
         .values()
         .flat_map(|claims| claims.iter().map(|one| one.review_id.clone()))
@@ -532,21 +532,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         .filter(|claim| top_ids.contains(&claim.review_id))
         .filter_map(quote)
         .collect();
-    // A review lists once, with the claim the reader is surest of. Where two claims are equally
-    // sure, the one that comes first in the review wins, then the polarity by name. The order
-    // within a review is total, so the pick never rests on the order the claims were drawn in.
-    // By id within a count of votes, so the claims of one review sit together for the dedup
-    // even where another review drew as many votes.
-    top.sort_by(|a, b| {
-        b.review
-            .votes_up
-            .cmp(&a.review.votes_up)
-            .then_with(|| a.review.id.cmp(&b.review.id))
-            .then_with(|| b.confidence.total_cmp(&a.confidence))
-            .then_with(|| a.at.cmp(&b.at))
-            .then_with(|| a.polarity.cmp(&b.polarity))
-    });
-    top.dedup_by(|a, b| a.review.id == b.review.id);
+    one_claim_per_review(&mut top);
 
     let reference = crate::claimset::default_reference_dir(app_id);
     let agreement = agreement_for(app_id, &options.out_dir, &reference);
@@ -569,6 +555,24 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
         themes: crate::themes::Themes::load(&snapshot),
         paragraph: crate::writer::Paragraph::shown(&snapshot),
     })
+}
+
+/// Lists each review once, most votes first, with the claim the reader is surest of. Where two
+/// claims are equally sure, the one that comes first in the review wins, then the polarity by
+/// name. The order within a review is total, so the pick never rests on the order the claims
+/// were drawn in. By id within a count of votes, so the claims of one review sit together for
+/// the dedup even where another review drew as many votes.
+fn one_claim_per_review(top: &mut Vec<Example>) {
+    top.sort_by(|a, b| {
+        b.review
+            .votes_up
+            .cmp(&a.review.votes_up)
+            .then_with(|| a.review.id.cmp(&b.review.id))
+            .then_with(|| b.confidence.total_cmp(&a.confidence))
+            .then_with(|| a.at.cmp(&b.at))
+            .then_with(|| a.polarity.cmp(&b.polarity))
+    });
+    top.dedup_by(|a, b| a.review.id == b.review.id);
 }
 
 /// The subjects induced for a game, kept at `set` (its [`crate::induced::default_path`]), each
@@ -605,14 +609,22 @@ pub fn induced_for(set: &Path, snapshot: &Path, examples: usize) -> Result<Vec<I
         .collect())
 }
 
-/// The ids of the most-helpful reviews in a capture, as Steam ranks them.
+/// The ids of the most-helpful reviews in a capture, as Steam ranks them, among the reviews in
+/// `language` where the reading named one.
 ///
 /// The reading pass counted these by the same rule, so a report and the counts it renders
 /// agree on which reviews are "the top of the pile" without either storing a list.
-fn top_of_the_pile(snapshot: &Path, how_many: u64) -> Result<HashSet<String>> {
+fn top_of_the_pile(
+    snapshot: &Path,
+    how_many: u64,
+    language: Option<&str>,
+) -> Result<HashSet<String>> {
     let wanted = usize::try_from(how_many).unwrap_or(usize::MAX);
     let mut ranked: Smallest<std::cmp::Reverse<u64>, String> = Smallest::new(wanted);
     crate::capture::for_each_row(snapshot, |row, _| {
+        if language.is_some_and(|only| only != row.language) {
+            return Ok(());
+        }
         // The same key the reading pass ranks by, bit for bit, so the two cannot disagree
         // about which reviews the top of the pile contains.
         ranked.offer(
@@ -1323,6 +1335,7 @@ mod tests {
 
     #[test]
     fn the_claim_shown_for_each_of_the_most_helpful_reviews_is_the_same_on_every_build() {
+        type Shown = Vec<(String, (u32, u32), String)>;
         // No reference set or induced subjects exist for this game, so only the capture counts.
         const APP: u32 = 3_999_999_998;
         let (out, _snapshot) = library(APP);
@@ -1333,22 +1346,22 @@ mod tests {
         // Each new map in a thread is seeded with a key of its own, so every build walks its
         // subjects in a different order. Thirty-two builds all walking alike is a chance in
         // billions.
-        let shown: HashSet<Vec<(String, (u32, u32), String)>> = (0..32)
-            .map(|_| {
-                build_one(APP, &options)
-                    .unwrap()
-                    .top
-                    .iter()
-                    .map(|example| {
-                        (
-                            example.review.id.clone(),
-                            example.at,
-                            example.polarity.clone(),
-                        )
-                    })
-                    .collect()
-            })
-            .collect();
+        let shown: HashSet<Shown> = std::iter::repeat_with(|| {
+            build_one(APP, &options)
+                .unwrap()
+                .top
+                .iter()
+                .map(|example| {
+                    (
+                        example.review.id.clone(),
+                        example.at,
+                        example.polarity.clone(),
+                    )
+                })
+                .collect()
+        })
+        .take(32)
+        .collect();
         assert_eq!(shown.len(), 1, "{shown:?}");
     }
 }
