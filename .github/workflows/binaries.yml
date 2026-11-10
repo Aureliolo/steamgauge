@@ -98,15 +98,6 @@ jobs:
         if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
 
-      # The pull request starts from the dependencies the run on main built. The cache holds
-      # target/, triple directory included, and its key carries the runner's system.
-      - name: Cache the build
-        if: needs.scope.outputs.code != 'false'
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: ${{ matrix.target }}
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
       - name: Build
         if: needs.scope.outputs.code != 'false'
         env:

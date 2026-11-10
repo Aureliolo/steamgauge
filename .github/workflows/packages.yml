@@ -136,16 +136,7 @@ jobs:
           unzip -q -o "${archive}" cargo-tauri -d "${RUNNER_TEMP}"
           echo "CARGO_TAURI=${RUNNER_TEMP}/cargo-tauri" >> "${GITHUB_ENV}"
 
-      # The pull request starts from the dependencies the run on main built, and compiles only what
-      # it changed. The release itself (release-build.yml) builds from nothing. The cache holds
-      # target/, triple directory included, and its key carries the runner's system.
-      - name: Cache the build
-        if: needs.scope.outputs.code != 'false'
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          key: ${{ matrix.target }}
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
+      # No cache, as in the release build, so this builds what a release would.
       - name: Build
         if: needs.scope.outputs.code != 'false'
         shell: bash
