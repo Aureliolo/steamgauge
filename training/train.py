@@ -1607,6 +1607,24 @@ def split_loaders(
     return datasets, loaders
 
 
+def pool_loader[T](
+    pool: Dataset[T], batch_size: int, seed: int, *, drop_last: bool
+) -> DataLoader[T]:
+    """Return the shuffled loader over the pool.
+
+    Its own generator keeps the pool's shuffle off the global one the labelled loader draws
+    from, so the labelled order depends on the seed alone.
+    """
+    return DataLoader(
+        pool,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=drop_last,
+        num_workers=0,
+        generator=torch.Generator().manual_seed(seed + 1),
+    )
+
+
 def taught_batches_of(
     args: argparse.Namespace, data: Labelled, tokenizer: PreTrainedTokenizerBase, micro: int
 ) -> tuple[Iterator[Item] | None, int]:
@@ -1638,22 +1656,14 @@ def taught_batches_of(
         f"pool {len(pool_kept)} of {len(unlabelled)} unlabelled claims, "
         "from games this run trains on"
     )
-    taught = DataLoader(
-        # Its own generator keeps the pool's shuffle off the global one the labelled loader
-        # draws from, so the labelled order depends on the seed alone.
-        generator=torch.Generator().manual_seed(args.seed + 1),
-        dataset=Pool(
-            pool_kept,
-            tokenizer,
-            data.subjects,
-            reading_of(args, headset_marker=data.headset_marker),
-            (targets[0][safe], targets[1][safe]),
-        ),
-        batch_size=args.pool_batch_size or micro,
-        shuffle=True,
-        drop_last=args.cuda_graphs,
-        num_workers=0,
+    pool = Pool(
+        pool_kept,
+        tokenizer,
+        data.subjects,
+        reading_of(args, headset_marker=data.headset_marker),
+        (targets[0][safe], targets[1][safe]),
     )
+    taught = pool_loader(pool, args.pool_batch_size or micro, args.seed, drop_last=args.cuda_graphs)
     return forever(taught), len(pool_kept)
 
 
