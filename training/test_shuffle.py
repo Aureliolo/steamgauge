@@ -12,11 +12,11 @@ from train import forever
 from typed_calls import manual_seed
 
 
-def loader(size: int) -> DataLoader[tuple[torch.Tensor]]:
+def loader(size: int) -> DataLoader[tuple[torch.Tensor, ...]]:
     return DataLoader(TensorDataset(torch.arange(size)), batch_size=2, shuffle=True, num_workers=0)
 
 
-def order(batches: DataLoader[tuple[torch.Tensor]]) -> list[int]:
+def order(batches: DataLoader[tuple[torch.Tensor, ...]]) -> list[int]:
     return [int(one) for (batch,) in batches for one in batch]
 
 
