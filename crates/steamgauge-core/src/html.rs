@@ -2126,10 +2126,18 @@ fn trust(out: &mut String, app: &AppReport) {
                 .usual_declined
                 .map_or_else(String::new, |usual| {
                     let usual = f64::from(usual);
+                    // Two shares that print alike are level: "10.0% ... below the 10.0%"
+                    // reads as an easier game when the page shows no difference.
+                    let (ours, theirs) = (percent(share), percent(usual));
+                    let relation = if ours == theirs {
+                        "level with"
+                    } else if share > usual {
+                        "above"
+                    } else {
+                        "below"
+                    };
                     format!(
-                        ", {} the {} it usually declines on a game it has never seen",
-                        if share > usual { "above" } else { "below" },
-                        percent(usual)
+                        ", {relation} the {theirs} it usually declines on a game it has never seen"
                     )
                 }),
             None => String::new(),
@@ -4689,7 +4697,7 @@ mod tests {
     fn what_was_declined_is_set_against_what_is_usually_declined() {
         let page = render(&sample_report("ordinary text"));
         assert!(
-            page.contains("below the 10.0% it usually declines on a game it has never seen"),
+            page.contains("level with the 10.0% it usually declines on a game it has never seen"),
             "the same share as usual is not called unusual"
         );
 
