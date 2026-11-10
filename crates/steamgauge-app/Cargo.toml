@@ -51,7 +51,7 @@ rfd = { version = "=0.17.2", default-features = false, features = ["gtk3"] }
 # The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
 # pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
 # standard input and output and is itself a client of the open app.
-rmcp = { version = "=3.8.0", default-features = false, features = ["client", "server", "transport-io", "transport-streamable-http-server"] }
+rmcp = { version = "=3.9.0", default-features = false, features = ["client", "server", "transport-io", "transport-streamable-http-server"] }
 schemars = "=1.2.3"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
