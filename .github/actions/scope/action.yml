@@ -8,7 +8,7 @@ description: >-
   first parent, which is the base it merges onto, so what is classified is what merging would
   change. The classifier is the base's, so a pull request cannot rewrite it to pass itself, and
   nothing of the pull request's is run. Anything but a pull request, and a base that has no
-  classifier yet, runs everything.
+  classifier yet or one that cannot say whether the fuzz targets are touched, runs everything.
 
 outputs:
   code:
@@ -17,6 +17,11 @@ outputs:
   kind:
     description: code, version or packaging.
     value: ${{ steps.scope.outputs.kind }}
+  fuzzed:
+    description: >-
+      'true' where the change touches what the fuzz targets build from, and always for a base
+      whose classifier cannot say, 'false' where it does not.
+    value: ${{ steps.scope.outputs.fuzzed }}
 
 runs:
   using: composite
@@ -28,16 +33,23 @@ runs:
       run: |
         set -euo pipefail
         kind=code
+        fuzzed=true
         if [[ "${EVENT}" == pull_request ]]; then
           base="$(git rev-parse HEAD^1)"
           classifier="${RUNNER_TEMP}/base-classifier"
           mkdir -p "${classifier}"
           if git archive "${base}" tools/release | tar -x -C "${classifier}" && [[ -f "${classifier}/tools/release/scope.mjs" ]]; then
             kind="$(node "${classifier}/tools/release/scope.mjs" "${base}" HEAD)"
+            # A classifier that does not know the question ignores it and prints a kind again.
+            answer="$(node "${classifier}/tools/release/scope.mjs" "${base}" HEAD fuzzed)"
+            if [[ "${answer}" == true || "${answer}" == false ]]; then
+              fuzzed="${answer}"
+            fi
           fi
         fi
-        echo "This change is ${kind}."
+        echo "This change is ${kind}. It touches what the fuzz targets build from: ${fuzzed}."
         {
           echo "kind=${kind}"
           echo "code=$([[ "${kind}" == code ]] && echo true || echo false)"
+          echo "fuzzed=${fuzzed}"
         } >> "${GITHUB_OUTPUT}"

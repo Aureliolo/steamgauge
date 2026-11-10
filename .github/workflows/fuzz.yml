@@ -2,14 +2,16 @@ name: fuzz
 
 # The splitter, the reader's window and the term cut read text written by strangers, and a panic
 # in any of them stops the reading of a whole library. ClusterFuzzLite builds the targets under
-# fuzz/ with AddressSanitizer in OSS-Fuzz's image (.clusterfuzzlite/) and runs them: briefly on
-# every pull request, for an hour every Monday on main, with the corpus that run grows pruned
-# after it. The corpus is kept as an artefact of these runs, which is where the pull request run
-# starts from. A crash fails the job, attaches the input that caused it to the run, and goes to
-# code scanning beside the Scorecard results.
+# fuzz/ with AddressSanitizer in OSS-Fuzz's image (.clusterfuzzlite/) and runs them: for ten
+# minutes on a pull request that touches what the targets are built from (tools/release/scope.mjs
+# lists it), and for an hour every Monday on main, with the corpus that run grows pruned after it.
+# A pull request that touches none of it, or holds no code, skips the job, which the ruleset
+# counts as passed. The corpus is kept as an artefact of the weekly runs, which is where the pull
+# request run starts from. A crash fails the job, attaches the input that caused it to the run,
+# and goes to code scanning beside the Scorecard results.
 #
 # No paths filter, for the reason workflows.yml gives: a check that never reports holds a pull
-# request forever once it is required.
+# request forever once it is required. The scope job decides instead, and it always reports.
 on:
   # Every pull request, whatever it targets, so that one stacked on another is checked too.
   pull_request:
@@ -24,8 +26,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request that holds no code skips the fuzzing, which the ruleset counts as passed; see
-  # ci.yml and .github/actions/scope.
+  # A pull request that holds no code, or touches nothing the targets are built from, skips the
+  # fuzzing, which the ruleset counts as passed; see ci.yml and .github/actions/scope.
   scope:
     name: scope
     if: github.event_name == 'pull_request'
@@ -35,6 +37,7 @@ jobs:
       contents: read # Fetches the two commits a pull request compares.
     outputs:
       code: ${{ steps.scope.outputs.code }}
+      fuzzed: ${{ steps.scope.outputs.fuzzed }}
     steps:
       # The pull request's merge commit and the base under it, which is all the classifier reads.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,7 +50,7 @@ jobs:
   pull-request:
     name: fuzz
     needs: scope
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.scope.outputs.code != 'false' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.scope.outputs.code != 'false' && needs.scope.outputs.fuzzed != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:

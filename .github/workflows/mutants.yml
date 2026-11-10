@@ -77,7 +77,12 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install
 
+      # The weekly shards on main save this cache and a pull request restores it: both build the
+      # core's tests with the same command.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: mutants
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: $/.github/actions/onnx-runtime
 
       # The release archive, refused unless it matches the digest written here.
@@ -167,7 +172,12 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install
 
+      # The weekly shards on main save this cache and a pull request restores it: both build the
+      # core's tests with the same command.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: mutants
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: $/.github/actions/onnx-runtime
 
       - name: Install cargo-mutants

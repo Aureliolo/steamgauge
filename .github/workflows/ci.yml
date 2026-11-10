@@ -26,6 +26,9 @@ env:
 # steps skipped rather than being skipped itself, so it reports under the name the ruleset
 # requires; any other is skipped, which the ruleset counts as passed. Should the scope job fail,
 # everything runs.
+#
+# Build caches are written by the run on main alone. A pull request restores them, and one that
+# saved its own would push main's out of the repository's cache limit.
 jobs:
   scope:
     name: scope
@@ -61,6 +64,8 @@ jobs:
       # `glib-sys` failing its build script, which names nothing about Tauri.
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: $/.github/actions/onnx-runtime
       - run: cargo fmt --all -- --check
       # Deliberately not --all-features: the cuda and coreml backends need vendor toolchains
@@ -170,6 +175,8 @@ jobs:
           persist-credentials: false
       - if: needs.scope.outputs.code != 'false'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - if: needs.scope.outputs.code != 'false'
         uses: $/.github/actions/onnx-runtime
         with:
@@ -210,6 +217,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - if: needs.scope.outputs.code != 'false'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          # Named, so that docs.yml restores the debug build of the workspace this job saves.
+          shared-key: workspace-debug
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - if: needs.scope.outputs.code != 'false'
         uses: $/.github/actions/onnx-runtime
       - if: needs.scope.outputs.code != 'false'
@@ -267,6 +278,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: $/.github/actions/onnx-runtime
       # axe-core, which checks every page and state of the report and the window against WCAG
       # 2.2 at levels A and AA, at the version and hash the lock file pins, with no install

@@ -7,7 +7,12 @@
 // are also where a dependency moves, so the head's two files have to be exactly the base's with
 // the workspace version raised and nothing else, byte for byte.
 //
-//   node tools/release/scope.mjs <base> <head>   prints code, version or packaging
+// Whether a change reaches what the fuzz targets are built from is a second question, asked with
+// a third argument. A classifier that predates it ignores the argument and answers the first
+// question, which is how the scope action tells that the base cannot answer it.
+//
+//   node tools/release/scope.mjs <base> <head>          prints code, version or packaging
+//   node tools/release/scope.mjs <base> <head> fuzzed   prints true or false
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 
@@ -24,6 +29,18 @@ import {
 const PACKAGING = /^(?:Casks|bucket)\//u;
 const VERSIONED = new Set(['Cargo.toml', 'Cargo.lock']);
 
+// Everything fuzz/Cargo.toml and .clusterfuzzlite/build.sh build the targets from: the harness
+// and its image, the core crate they depend on by path, the workspace manifest that crate
+// inherits its version and lints from, the lock file build.sh copies, the toolchain build.sh
+// reads, cargo's own configuration, and the workflow that runs them.
+const FUZZ_FOLDERS = /^(?:\.cargo|\.clusterfuzzlite|crates\/steamgauge-core|fuzz)\//u;
+const FUZZ_FILES = new Set([
+  '.github/workflows/fuzz.yml',
+  'Cargo.lock',
+  'Cargo.toml',
+  'rust-toolchain.toml',
+]);
+
 // `before` and `after` read a file's text at each commit, or throw where it is absent.
 function scopeOf(changed, before, after) {
   if (changed.length === 0) {
@@ -36,6 +53,13 @@ function scopeOf(changed, before, after) {
     return 'version';
   }
   return 'code';
+}
+
+// A change that lists no path is not known to leave the targets alone.
+function fuzzedBy(changed) {
+  return (
+    changed.length === 0 || changed.some((path) => FUZZ_FOLDERS.test(path) || FUZZ_FILES.has(path))
+  );
 }
 
 function onlyTheVersion(before, after) {
@@ -63,7 +87,7 @@ function git(...args) {
 }
 
 if (isMain(import.meta.url)) {
-  const [base, head] = process.argv.slice(2);
+  const [base, head, question] = process.argv.slice(2);
   if (base === undefined || head === undefined) {
     console.error('usage: scope.mjs <base> <head>');
     process.exit(2);
@@ -72,7 +96,7 @@ if (isMain(import.meta.url)) {
     .split('\n')
     .filter(Boolean);
   const at = (commit) => (path) => git('show', `${commit}:${path}`);
-  console.log(scopeOf(changed, at(base), at(head)));
+  console.log(question === 'fuzzed' ? fuzzedBy(changed) : scopeOf(changed, at(base), at(head)));
 }
 
-export { scopeOf };
+export { fuzzedBy, scopeOf };
