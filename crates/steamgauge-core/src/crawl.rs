@@ -118,6 +118,7 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
 ///
 /// Propagates transport, throttling, database and Parquet failures. An interrupted crawl
 /// leaves its completed shards on disk and resumes from them on the next run.
+/// A crawl whose record could not be written is resumed as well, and the next run writes it.
 pub async fn crawl(
     client: &SteamClient,
     app_id: u32,
@@ -167,9 +168,6 @@ pub async fn crawl(
     .await?;
 
     let complete = state.all_shards_done(crawl_id)?;
-    if complete {
-        state.finish_crawl(crawl_id)?;
-    }
     let (windows, pages) = state.completed_totals(crawl_id)?;
     let recorded = recorded_fields(&dir)?;
     let unique = match recorded.get("swept_unix").and_then(Value::as_i64) {
@@ -204,6 +202,10 @@ pub async fn crawl(
         shards_short,
     };
     write_sidecar(&report, snapshot, recorded)?;
+    // Finishing last keeps a crawl whose record is missing resumable.
+    if complete {
+        state.finish_crawl(crawl_id)?;
+    }
     Ok(report)
 }
 
@@ -1711,6 +1713,27 @@ mod tests {
 
         resumed_crawl(out.path()).await.unwrap_err();
         assert_eq!(std::fs::read(short.dir.join("crawl.json")).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_whose_record_was_not_written_is_resumed_and_writes_it() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let blocker = short.dir.join("crawl.json.partial");
+        std::fs::create_dir(&blocker).unwrap();
+        resumed_crawl(out.path()).await.unwrap_err();
+        std::fs::remove_dir(&blocker).unwrap();
+
+        let again = resumed_crawl(out.path()).await.unwrap();
+        assert!(again.resumed && again.complete);
+        assert_eq!(again.dir, short.dir);
+        assert_eq!(again.shards, 0);
+        let record = facts(&again.dir);
+        assert_eq!(record["complete"], true);
+        assert_eq!(record["rows_unique"], 70);
+
+        let after = resumed_crawl(out.path()).await.unwrap();
+        assert!(!after.resumed);
     }
 
     #[tokio::test]
