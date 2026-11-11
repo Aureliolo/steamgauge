@@ -72,8 +72,8 @@ pub struct Progress {
 #[derive(Debug, Clone)]
 pub struct CrawlReport {
     pub app_id: u32,
-    /// The store's name for the app, where the store would give one. Empty otherwise, and
-    /// every caller falls back to the id rather than treating it as a failure.
+    /// The store's name for the app, or the one the crawl record holds where the store gives
+    /// none. Empty where neither has one, and every caller falls back to the id.
     pub name: String,
     pub shards: usize,
     pub pages: u32,
@@ -170,11 +170,24 @@ pub async fn crawl(
     if complete {
         state.finish_crawl(crawl_id)?;
     }
-    let (unique, pages) = state.completed_totals(crawl_id)?;
+    let (windows, pages) = state.completed_totals(crawl_id)?;
+    let recorded = recorded_fields(&dir)?;
+    let unique = match recorded.get("swept_unix").and_then(Value::as_i64) {
+        Some(swept) => windows.saturating_add(crate::capture::only_swept(&dir, swept)?),
+        None => windows,
+    };
+    let name = match client.name(app_id).await {
+        Some(name) => name,
+        None => recorded
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+    };
 
     let report = CrawlReport {
         app_id,
-        name: client.name(app_id).await.unwrap_or_default(),
+        name,
         shards: shards_total,
         pages,
         unique,
@@ -190,8 +203,21 @@ pub async fn crawl(
         shards_restarted,
         shards_short,
     };
-    write_sidecar(&report, snapshot)?;
+    write_sidecar(&report, snapshot, recorded)?;
     Ok(report)
+}
+
+/// The fields `crawl.json` holds, or none where the record is missing, cut off or no object.
+/// A first run has no record, and a write in place that died can leave half of one.
+fn recorded_fields(dir: &std::path::Path) -> Result<serde_json::Map<String, Value>> {
+    match std::fs::read(dir.join("crawl.json")) {
+        Ok(bytes) => Ok(match serde_json::from_slice(&bytes) {
+            Ok(Value::Object(fields)) => fields,
+            _ => serde_json::Map::new(),
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::Map::new()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// Continues an unfinished crawl where one exists, otherwise plans a new one.
@@ -457,7 +483,15 @@ async fn walk_shard(
 
 /// A snapshot that does not record the parameters it was gathered under cannot be compared
 /// to any other snapshot, so the metadata travels with the Parquet files.
-fn write_sidecar(report: &CrawlReport, snapshot: i64) -> Result<()> {
+///
+/// The crawl sets its own fields and keeps the rest, since a sweep may have run between two
+/// runs of one crawl. A sweep field of a type the sweep itself would not read is dropped, so
+/// the record still reads as [`crate::report::CrawlFacts`].
+fn write_sidecar(
+    report: &CrawlReport,
+    snapshot: i64,
+    mut recorded: serde_json::Map<String, Value>,
+) -> Result<()> {
     let meta = json!({
         "app_id": report.app_id,
         "name": report.name,
@@ -479,11 +513,21 @@ fn write_sidecar(report: &CrawlReport, snapshot: i64) -> Result<()> {
         "shards_short": report.shards_short,
         "elapsed_secs": report.elapsed.as_secs_f64(),
     });
-    std::fs::write(
-        report.dir.join("crawl.json"),
-        serde_json::to_vec_pretty(&meta)?,
-    )?;
-    Ok(())
+    if let Value::Object(set) = meta {
+        recorded.extend(set);
+    }
+    if recorded
+        .get("swept_unix")
+        .is_some_and(|v| v.as_i64().is_none())
+    {
+        recorded.remove("swept_unix");
+    }
+    for key in ["sweeps", "rows_swept"] {
+        if recorded.get(key).is_some_and(|v| v.as_u64().is_none()) {
+            recorded.remove(key);
+        }
+    }
+    write_facts(&report.dir, &Value::Object(recorded))
 }
 
 /// How far a sweep has got.
@@ -1437,5 +1481,308 @@ mod tests {
                 ("crawl, a total of 0", None),
             ]
         );
+    }
+
+    /// A crawl whose first window Steam keeps cutting short, so that one window is left.
+    async fn short_crawl(out: &std::path::Path) -> CrawlReport {
+        let server = stand_in::Server::new(valve(corpus(), Some(CORPUS_EPOCH), 3));
+        let report = crawl(&client_of(&server), APP, &options(out), |_| {})
+            .await
+            .unwrap();
+        assert!(!report.complete);
+        report
+    }
+
+    async fn resumed_crawl(out: &std::path::Path) -> Result<CrawlReport> {
+        let server = stand_in::Server::new(valve(corpus(), None, 0));
+        crawl(&client_of(&server), APP, &options(out), |_| {}).await
+    }
+
+    /// `inner`, with a store that has no name for the game.
+    fn nameless(
+        inner: impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static,
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        move |asked| {
+            if asked.path() == "/api/appdetails" {
+                stand_in::Answer::json(&json!({}))
+            } else {
+                inner(asked)
+            }
+        }
+    }
+
+    fn snapshot_of(dir: &std::path::Path) -> i64 {
+        dir.file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.strip_prefix("snapshot="))
+            .and_then(|stamp| stamp.parse().ok())
+            .unwrap()
+    }
+
+    /// A sweep after the crawl that brings in one new review and one edit of a crawled one.
+    async fn sweep_after(out: &std::path::Path, snapshot: i64) -> SweepReport {
+        let pages = vec![vec![
+            review("late-0", 1_710_000_000, snapshot + 1),
+            review("arrived", snapshot + 1, snapshot + 1),
+        ]];
+        let server = stand_in::Server::new(edits(pages, 71));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        sweep(&client_of(&server), APP, out, &stop, |_| {})
+            .await
+            .unwrap()
+    }
+
+    fn amend(dir: &std::path::Path, change: impl FnOnce(&mut serde_json::Map<String, Value>)) {
+        let mut record = facts(dir);
+        change(record.as_object_mut().unwrap());
+        write_facts(dir, &record).unwrap();
+    }
+
+    fn library_in(scratch: &crate::tempdir::Dir, name: &str) -> PathBuf {
+        let out = scratch.path().join(name);
+        std::fs::create_dir_all(&out).unwrap();
+        out
+    }
+
+    #[tokio::test]
+    async fn a_crawl_resumed_after_a_sweep_keeps_what_the_sweep_recorded() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let swept = sweep_after(out.path(), snapshot_of(&short.dir)).await;
+        amend(&short.dir, |record| {
+            record.insert("kept".to_owned(), json!(1));
+        });
+
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert!(resumed.resumed && resumed.complete);
+        assert_eq!(resumed.dir, short.dir);
+        let record = facts(&resumed.dir);
+        assert_eq!(record["swept_unix"], swept.started);
+        assert_eq!(record["sweeps"], 1);
+        assert_eq!(record["rows_swept"], 2);
+        assert_eq!(record["kept"], 1);
+        assert_eq!(record["rows_unique"], 71);
+        assert_eq!(resumed.unique, 71);
+        assert_eq!(ids_in(&resumed.dir).len(), 71);
+        let share = 71.0 / 70.0;
+        assert!((record["coverage"].as_f64().unwrap() - share).abs() < 1e-9);
+        assert!((resumed.coverage().unwrap() - share).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_file_the_record_has_not_reached_adds_nothing_to_a_crawl() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let snapshot = snapshot_of(&short.dir);
+        let swept = sweep_after(out.path(), snapshot).await;
+        let unrecorded = review("unrecorded", snapshot + 2, snapshot + 2);
+        let mut writer = CaptureWriter::create(
+            &short
+                .dir
+                .join(crate::capture::sweep_file(swept.started + 10)),
+            APP,
+        )
+        .unwrap();
+        writer.write(&[&unrecorded]).unwrap();
+        writer.close().unwrap();
+
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert_eq!(facts(&resumed.dir)["rows_unique"], 71);
+        assert_eq!(resumed.unique, 71);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_the_store_gives_no_name_keeps_the_name_recorded() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        assert_eq!(facts(&short.dir)["name"], "A Game");
+
+        let windows = valve(corpus(), None, 0);
+        let server = stand_in::Server::new(nameless(move |asked| {
+            if whole_corpus(asked) {
+                summary_of(0)
+            } else {
+                windows(asked)
+            }
+        }));
+        let resumed = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(resumed.name, "A Game");
+        let record = facts(&resumed.dir);
+        assert_eq!(record["name"], "A Game");
+        assert!(record["coverage"].is_null(), "{record}");
+        assert_eq!(resumed.coverage(), None);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_with_no_name_from_the_store_or_the_record_writes_an_empty_one() {
+        let scratch = crate::tempdir::Dir::new();
+        let first = library_in(&scratch, "never-named");
+        let server = stand_in::Server::new(nameless(valve(corpus(), None, 0)));
+        let crawled = crawl(&client_of(&server), APP, &options(&first), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(crawled.name, "");
+        assert_eq!(facts(&crawled.dir)["name"], "");
+        assert_eq!(unreadable(&first), None);
+
+        let second = library_in(&scratch, "named-with-a-number");
+        let short = short_crawl(&second).await;
+        amend(&short.dir, |record| {
+            record.insert("name".to_owned(), json!(7));
+        });
+        let server = stand_in::Server::new(nameless(valve(corpus(), None, 0)));
+        let resumed = crawl(&client_of(&server), APP, &options(&second), |_| {})
+            .await
+            .unwrap();
+        assert!(resumed.resumed);
+        assert_eq!(facts(&resumed.dir)["name"], "");
+        assert_eq!(unreadable(&second), None);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_resumed_over_a_record_it_cannot_take_fields_from_writes_every_field() {
+        let scratch = crate::tempdir::Dir::new();
+        for name in ["removed", "not-json", "an-array", "cut-down"] {
+            let out = library_in(&scratch, name);
+            let short = short_crawl(&out).await;
+            let record = short.dir.join("crawl.json");
+            match name {
+                "removed" => std::fs::remove_file(&record).unwrap(),
+                "not-json" => std::fs::write(&record, b"not json").unwrap(),
+                "an-array" => std::fs::write(&record, b"[]").unwrap(),
+                _ => write_facts(
+                    &short.dir,
+                    &json!({"app_id": APP, "snapshot_unix": snapshot_of(&short.dir)}),
+                )
+                .unwrap(),
+            }
+
+            let resumed = resumed_crawl(&out).await.unwrap();
+            assert!(resumed.resumed && resumed.complete, "{name}");
+            assert_eq!(resumed.dir, short.dir, "{name}");
+            let record = facts(&resumed.dir);
+            assert_eq!(record["rows_unique"], 70, "{name}");
+            assert_eq!(record["name"], "A Game", "{name}");
+            assert_eq!(record["shards_short"], 0, "{name}");
+            assert_eq!(unreadable(&out), None, "{name}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sweep_field_of_the_wrong_type_adds_nothing_to_a_crawl_and_goes() {
+        let scratch = crate::tempdir::Dir::new();
+        let first = library_in(&scratch, "swept-unix-a-string");
+        let short = short_crawl(&first).await;
+        sweep_after(&first, snapshot_of(&short.dir)).await;
+        amend(&short.dir, |record| {
+            record.insert("swept_unix".to_owned(), json!("soon"));
+        });
+        let resumed = resumed_crawl(&first).await.unwrap();
+        let record = facts(&resumed.dir);
+        assert_eq!(record["rows_unique"], 70);
+        assert_eq!(resumed.unique, 70);
+        assert!(record.get("swept_unix").is_none(), "{record}");
+        assert_eq!(record["sweeps"], 1);
+        assert_eq!(unreadable(&first), None);
+
+        let second = library_in(&scratch, "sweeps-a-string");
+        let short = short_crawl(&second).await;
+        let swept = sweep_after(&second, snapshot_of(&short.dir)).await;
+        amend(&short.dir, |record| {
+            record.insert("sweeps".to_owned(), json!("x"));
+            record.insert("rows_swept".to_owned(), json!(-1));
+        });
+        let resumed = resumed_crawl(&second).await.unwrap();
+        let record = facts(&resumed.dir);
+        assert_eq!(record["rows_unique"], 71);
+        assert_eq!(record["swept_unix"], swept.started);
+        assert!(record.get("sweeps").is_none() && record.get("rows_swept").is_none());
+        assert_eq!(unreadable(&second), None);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_whose_record_cannot_be_written_leaves_the_earlier_record_whole() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let before = std::fs::read(short.dir.join("crawl.json")).unwrap();
+        std::fs::create_dir(short.dir.join("crawl.json.partial")).unwrap();
+
+        resumed_crawl(out.path()).await.unwrap_err();
+        assert_eq!(std::fs::read(short.dir.join("crawl.json")).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn a_resumed_crawl_takes_its_record_from_its_own_folder() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let snapshot = snapshot_of(&short.dir);
+        let newer = out
+            .path()
+            .join(format!("appid={APP}"))
+            .join(format!("snapshot={}", snapshot + 1000));
+        std::fs::create_dir_all(&newer).unwrap();
+        let kept = review("elsewhere", 1, 1);
+        let mut writer = CaptureWriter::create(&newer.join("shard-0000.parquet"), APP).unwrap();
+        writer.write(&[&kept]).unwrap();
+        writer.close().unwrap();
+        write_facts(
+            &newer,
+            &json!({
+                "app_id": APP, "snapshot_unix": snapshot + 1000,
+                "swept_unix": snapshot + 500, "sweeps": 2, "rows_swept": 9,
+            }),
+        )
+        .unwrap();
+
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert_eq!(resumed.dir, short.dir);
+        let record = facts(&resumed.dir);
+        for key in ["swept_unix", "sweeps", "rows_swept"] {
+            assert!(record.get(key).is_none(), "{key}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sweep_keeps_every_field_it_does_not_set() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({
+                "snapshot_unix": WATERMARK, "rows_unique": 2, "name": "A Game",
+                "complete": false, "kept": 1,
+            }),
+        );
+        let pages = vec![vec![review("r3", WATERMARK + 5, WATERMARK + 5)]];
+        let server = stand_in::Server::new(edits(pages, 3));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        sweep(&client_of(&server), APP, out.path(), &stop, |_| {})
+            .await
+            .unwrap();
+        let record = facts(&dir);
+        assert_eq!(record["name"], "A Game");
+        assert_eq!(record["complete"], false);
+        assert_eq!(record["kept"], 1);
+        assert_eq!(record["rows_unique"], 3);
+    }
+
+    #[tokio::test]
+    async fn a_name_set_after_a_write_that_died_before_its_rename_keeps_the_rest() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": WATERMARK + 9, "kept": 1}),
+        );
+        std::fs::write(dir.join("crawl.json.partial"), b"{\"name\": \"Cut").unwrap();
+        let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
+        name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        let record = facts(&dir);
+        assert_eq!(record["name"], "A Game");
+        assert_eq!(record["swept_unix"], WATERMARK + 9);
+        assert_eq!(record["kept"], 1);
+        assert!(!dir.join("crawl.json.partial").exists());
     }
 }

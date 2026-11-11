@@ -36,6 +36,7 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
   `newest.json` says which copy of an edited review counts.
 - Every file is written beside its place and renamed when whole.
+  Every writer of `crawl.json` sets its own fields and keeps the rest.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in
   `announcements.json`. `updates::is_update` decides which are updates.
 - Whether the store lists a game as VR-only is kept in `game.json`, and the labeller and reader

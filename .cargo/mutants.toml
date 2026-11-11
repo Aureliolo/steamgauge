@@ -46,6 +46,10 @@ exclude_re = [
   'src[/\\]claims\.rs:\d+:\d+: replace > with >= in tidied$',
   # Two equal shares print alike and are called level before the comparison is reached.
   'src[/\\]html\.rs:\d+:\d+: replace > with >= in relation$',
+  # A record that is there and cannot be read is kept whole only when the write after it would
+  # succeed, as over a file locked for a moment. No test can make one read fail and the next
+  # write succeed, and a record that stays unreadable fails the write either way.
+  'src[/\\]crawl\.rs:\d+:\d+: replace match guard error\.kind\(\) == std::io::ErrorKind::NotFound with true in recorded_fields$',
   # Every Russian form ends on a Cyrillic letter, so a stop after any other letter matches none
   # of them whether or not it is let through; the check spares every other script the work.
   'src[/\\]claims\.rs:\d+:\d+: replace is_cyrillic -> bool with true$',
