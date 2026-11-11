@@ -1,8 +1,10 @@
 name: Ubuntu packages
 description: >-
   Installs Ubuntu packages from Azure's mirror of the archive, which sits in the runners' own
-  network. A runner image points some or all of its sources at Canonical's own servers, and while
-  those do not answer, every install stalls until the job's time limit.
+  network, taking the archives a run on main kept for the same runner image. A runner image points
+  some or all of its sources at Canonical's own servers, and while those do not answer, every
+  install stalls until the job's time limit. apt checks every kept archive against the signed
+  index it has just fetched and downloads any that differ, so the cache adds nothing it trusts.
 
 inputs:
   packages:
@@ -12,9 +14,26 @@ inputs:
 runs:
   using: composite
   steps:
+    - id: where
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        set -euo pipefail
+        list="$(tr ' ' '\n' <<<"${PACKAGES}" | sed '/^$/d' | sort -u | sha256sum | cut -c1-16)"
+        {
+          echo "dir=${RUNNER_TEMP}/ubuntu-packages"
+          echo "key=ubuntu-packages-${ImageOS}-${ImageVersion}-${list}"
+        } >> "${GITHUB_OUTPUT}"
+    - id: kept
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.where.outputs.dir }}
+        key: ${{ steps.where.outputs.key }}
     - shell: bash
       env:
         PACKAGES: ${{ inputs.packages }}
+        ARCHIVES: ${{ steps.where.outputs.dir }}
       run: |
         set -euo pipefail
         shopt -s nullglob
@@ -24,6 +43,17 @@ runs:
           [[ -f "${sources}" ]] || continue
           sudo sed -i -E 's#https?://([a-z]+\.)*ubuntu\.com/ubuntu([/ ]|$)#https://azure.archive.ubuntu.com/ubuntu\2#g' "${sources}"
         done
+        # apt downloads as its own user into partial/, then moves each whole archive beside it.
+        mkdir -p "${ARCHIVES}"
+        sudo install -d -o _apt -m 0700 "${ARCHIVES}/partial"
         read -ra names <<<"${PACKAGES}"
         sudo apt-get update
-        sudo apt-get install -y "${names[@]}"
+        sudo apt-get install -y -o "Dir::Cache::Archives=${ARCHIVES}" "${names[@]}"
+        sudo rm -rf "${ARCHIVES}/partial" "${ARCHIVES}/lock"
+    # Only main writes, as with the build caches, so a pull request never spends the repository's
+    # 10 GB on a copy of what main already holds.
+    - if: github.ref == 'refs/heads/main' && steps.kept.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.where.outputs.dir }}
+        key: ${{ steps.where.outputs.key }}
