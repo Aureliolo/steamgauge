@@ -1051,7 +1051,7 @@ fn bar(
     let telling = app.clone();
     let mut across = Across::new();
     let (fetching, checking) = (format!("Fetching {what}"), format!("Checking {what}"));
-    let total = (total > 0.0).then_some(total);
+    let total = a_total(total);
     match total {
         Some(total) => tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total)),
         None => tell(app, id, &checking, Unit::Bytes, 0.0, None),
@@ -1059,6 +1059,38 @@ fn bar(
     move |progress| {
         let (saying, done, of) = told(total, &mut across, progress, [&fetching, &checking]);
         tell(&telling, id, saying, Unit::Bytes, done, of);
+    }
+}
+
+/// The total a bar counts towards. A total of nothing is none, so the bar tells no figure.
+fn a_total(total: f64) -> Option<f64> {
+    (total > 0.0).then_some(total)
+}
+
+/// Whether preparing a game fetches the search models, given whether a fetch has hashed each.
+const fn search_models_wanted(encoder_hashed: bool, reranker_hashed: bool) -> bool {
+    !(encoder_hashed && reranker_hashed)
+}
+
+/// Whether preparing a game fetches the writer.
+const fn writer_wanted(writing: bool, hashed: bool) -> bool {
+    writing && !hashed
+}
+
+/// The bytes the two search models would fetch, as a bar's total.
+fn search_total(encoder_left: u64, reranker_left: u64) -> Option<f64> {
+    a_total(float(encoder_left + reranker_left))
+}
+
+/// A report with the file named as the whole fetch counts it.
+const fn named<'a>(
+    file: &'a str,
+    progress: steamgauge_core::model::DownloadProgress<'_>,
+) -> steamgauge_core::model::DownloadProgress<'a> {
+    steamgauge_core::model::DownloadProgress {
+        file,
+        downloaded: progress.downloaded,
+        total: progress.total,
     }
 }
 
@@ -1393,9 +1425,8 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
     };
 
     let cache = steamgauge_core::model::default_cache_dir();
-    if !(ENCODER.fetched(&cache) && RERANKER.fetched(&cache)) {
-        let total = float(ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache));
-        let total = (total > 0.0).then_some(total);
+    if search_models_wanted(ENCODER.fetched(&cache), RERANKER.fetched(&cache)) {
+        let total = search_total(ENCODER.bytes_left(&cache), RERANKER.bytes_left(&cache));
         if total.is_none() {
             tell(
                 app,
@@ -1413,10 +1444,7 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
             model
                 .ensure(&cache, move |progress| {
                     let file = format!("{}/{}", model.name, progress.file);
-                    let progress = steamgauge_core::model::DownloadProgress {
-                        file: &file,
-                        ..progress
-                    };
+                    let progress = named(&file, progress);
                     let (saying, done, of) = told(
                         total,
                         across,
@@ -1429,7 +1457,7 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
                 .map_err(text)?;
         }
     }
-    if writing && !WRITER.fetched(&cache) {
+    if writer_wanted(writing, WRITER.fetched(&cache)) {
         WRITER
             .ensure(
                 &cache,
@@ -1722,6 +1750,50 @@ mod tests {
         assert_eq!(
             told(Some(150.0), &mut across, progress("b", 50, Some(50)), words),
             ("Checking", 150.0, Some(150.0))
+        );
+    }
+
+    #[test]
+    fn a_preparation_fetches_what_no_fetch_has_hashed() {
+        assert!(!search_models_wanted(true, true));
+        assert!(search_models_wanted(true, false));
+        assert!(search_models_wanted(false, true));
+        assert!(search_models_wanted(false, false));
+    }
+
+    #[test]
+    fn a_preparation_fetches_the_writer_only_when_asked_for_paragraphs() {
+        assert!(writer_wanted(true, false));
+        assert!(!writer_wanted(true, true));
+        assert!(!writer_wanted(false, false));
+        assert!(!writer_wanted(false, true));
+    }
+
+    #[test]
+    fn a_total_of_nothing_is_told_as_none() {
+        assert_eq!(a_total(0.0), None);
+        assert_eq!(a_total(5.0), Some(5.0));
+    }
+
+    #[test]
+    fn the_search_models_total_is_what_both_would_fetch() {
+        assert_eq!(search_total(0, 0), None);
+        assert_eq!(search_total(7, 3), Some(10.0));
+        assert_eq!(search_total(0, 4), Some(4.0));
+        assert_eq!(search_total(4, 0), Some(4.0));
+    }
+
+    #[test]
+    fn a_report_is_counted_under_the_name_it_is_given() {
+        let progress = steamgauge_core::model::DownloadProgress {
+            file: "model.onnx",
+            downloaded: 3,
+            total: Some(9),
+        };
+        let named = named("search-encoder/model.onnx", progress);
+        assert_eq!(
+            (named.file, named.downloaded, named.total),
+            ("search-encoder/model.onnx", 3, Some(9))
         );
     }
 
