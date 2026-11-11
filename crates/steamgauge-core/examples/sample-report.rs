@@ -169,7 +169,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             valve_total_positive: positive,
             valve_total_negative: reviews - positive,
             // Never all of it: the one number a reader may take as a claim of completeness.
-            coverage: 0.998,
+            coverage: Some(0.998),
             snapshot_unix: 1_759_000_000,
             swept_unix: Some(1_759_500_000),
             sweeps: 1,

@@ -56,7 +56,7 @@ struct Game {
     name: String,
     reviews: u64,
     valve_total: u64,
-    coverage: f64,
+    coverage: Option<f64>,
     verdict: String,
     snapshot: i64,
     stage: &'static str,

@@ -523,6 +523,20 @@ fn read_with(
 ) -> Result<ReadReport> {
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
+    // The record is written by the last step of a download, and the reading's date comes from
+    // it. It is checked first because a read that fails on it afterwards has spent the whole
+    // card on a corpus whose reading cannot be saved.
+    let captured = crate::report::crawl_facts(&options.out_dir, app_id).map_err(|error| {
+        if matches!(error, Error::NoClassifications { .. }) {
+            Error::Refused(format!(
+                "app {app_id}: its download never finished, so `crawl.json` is missing from {}. \
+                 Download the game again.",
+                snapshot.display()
+            ))
+        } else {
+            error
+        }
+    })?;
 
     let context = model.model_provenance().context;
     // A reader told whether a game is played in a headset has to be told for every game: read
@@ -567,7 +581,6 @@ fn read_with(
             return Err(error);
         }
     };
-    let captured = crate::report::crawl_facts(&options.out_dir, app_id)?;
 
     Ok(ReadReport {
         elapsed: started.elapsed(),
@@ -3431,5 +3444,93 @@ pub(crate) mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_read_of_a_capture_without_its_crawl_record_fails_before_any_batch_or_not_at_all() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        // An interrupted crawl leaves its shards and writes the record last.
+        std::fs::remove_file(snapshot.join("crawl.json")).unwrap();
+        let mut model = Table::new(false);
+        let read = read_with(&mut model, 1, &options(out.path()), |_| {});
+        if let Err(error) = &read {
+            assert_eq!(
+                model.runs,
+                0,
+                "batches run before the read failed with \"{error}\", readings left in place: {}",
+                snapshot.join("readings.parquet").exists()
+            );
+        }
+    }
+
+    #[test]
+    fn a_reading_and_its_report_agree_on_the_most_helpful_reviews_whatever_language_is_read() {
+        // No reference set or induced subjects exist for this game, so only the capture counts.
+        const APP: u32 = 3_999_999_997;
+        let reviews = [
+            ("a", "The story is gripping.", "schinese", "0.9"),
+            ("b", "Bugs everywhere.", "english", "0.5"),
+            ("c", "The music swells.", "english", "0.4"),
+        ]
+        .map(|(id, text, language, helpful)| {
+            serde_json::json!({
+                "recommendationid": id, "review": text, "language": language, "voted_up": true,
+                "weighted_vote_score": helpful, "votes_up": 3, "timestamp_created": CRAWLED,
+                "author": {"steamid": format!("7656{id}"), "playtime_at_review": 3_000},
+            })
+        });
+        // Each review raises subjects no other does, so the subjects a reading counts at the top
+        // of the pile name the reviews it put there.
+        let review_raising = |subject: &str| match subject {
+            "story" | "controls" => "a",
+            "bugs" => "b",
+            "audio" => "c",
+            _ => "another",
+        };
+        let at_the_top = |language: Option<&str>| {
+            let out = crate::tempdir::Dir::new();
+            let snapshot = capture_these(out.path(), APP, &reviews);
+            let options = ReadOptions {
+                language: language.map(str::to_owned),
+                ..options(out.path())
+            };
+            let reading = read_with(&mut Table::new(false), APP, &options, |_| {}).unwrap();
+            reading.save(&snapshot.join("reading.json")).unwrap();
+            let read: std::collections::BTreeSet<String> = reading
+                .subjects
+                .iter()
+                .filter(|subject| subject.top_mention_reviews > 0)
+                .map(|subject| review_raising(&subject.id).to_owned())
+                .collect();
+            let report = crate::report::build(
+                &[APP],
+                &crate::report::ReportOptions {
+                    out_dir: out.path().to_path_buf(),
+                    ..crate::report::ReportOptions::default()
+                },
+            )
+            .unwrap();
+            let shown: std::collections::BTreeSet<String> = report.apps[0]
+                .top
+                .iter()
+                .map(|example| example.review.id.clone())
+                .collect();
+            (read, shown)
+        };
+        let ids = |list: &[&str]| -> std::collections::BTreeSet<String> {
+            list.iter().map(|id| (*id).to_owned()).collect()
+        };
+
+        assert_eq!(
+            at_the_top(None),
+            (ids(&["a", "b"]), ids(&["a", "b"])),
+            "read in every language"
+        );
+        assert_eq!(
+            at_the_top(Some("english")),
+            (ids(&["b", "c"]), ids(&["b", "c"])),
+            "read in English"
+        );
     }
 }

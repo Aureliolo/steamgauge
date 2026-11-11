@@ -1327,4 +1327,115 @@ mod tests {
         assert_eq!(named, None);
         assert!(facts(&dir).get("name").is_none());
     }
+
+    /// The record a whole crawl of the two reviews [`captured`] writes leaves beside them.
+    fn whole_record() -> Value {
+        json!({
+            "app_id": APP, "name": "A Game", "review_score_desc": "Very Positive",
+            "rows_unique": 2, "valve_total_reviews": 2, "valve_total_positive": 2,
+            "valve_total_negative": 0, "coverage": 1.0, "snapshot_unix": WATERMARK, "shards": 1,
+        })
+    }
+
+    /// Steam's answer to a request for its totals that carries no totals at all.
+    fn no_summary() -> stand_in::Answer {
+        stand_in::Answer::json(&json!({"response": {"cursor": "*"}}))
+    }
+
+    /// Whether Valve's totals over the whole corpus are being asked for, rather than a window's.
+    fn whole_corpus(asked: &stand_in::Asked) -> bool {
+        counting(asked) && asked.input().get("date_range_start").is_none()
+    }
+
+    /// The error `report::crawl_facts` gives for the capture under `out`, where it gives one.
+    fn unreadable(out: &std::path::Path) -> Option<String> {
+        crate::report::crawl_facts(out, APP)
+            .err()
+            .map(|error| error.to_string())
+    }
+
+    #[tokio::test]
+    async fn every_crawl_record_a_sweep_or_a_crawl_leaves_reads_back() {
+        let pages = || {
+            vec![
+                vec![review("r3", WATERMARK + 50, WATERMARK + 50)],
+                vec![review("r1", 500, WATERMARK - 2 * DAY)],
+            ]
+        };
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        // A test thread has one scratch directory, so each library is a folder in it.
+        let scratch = crate::tempdir::Dir::new();
+        let library = |name: &str| {
+            let out = scratch.path().join(name);
+            std::fs::create_dir_all(&out).unwrap();
+            out
+        };
+
+        let swept_without = library("swept-without-summary");
+        captured(&swept_without, &whole_record());
+        assert_eq!(unreadable(&swept_without), None);
+        let walk = edits(pages(), 0);
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) {
+                no_summary()
+            } else {
+                walk(asked)
+            }
+        });
+        let swept = sweep(&client_of(&server), APP, &swept_without, &stop, |_| {}).await;
+        assert!(
+            matches!(swept, Err(crate::Error::NoSuchCorpus { app_id: APP })),
+            "{swept:?}"
+        );
+
+        let swept_zero = library("swept-total-zero");
+        captured(&swept_zero, &whole_record());
+        let server = stand_in::Server::new(edits(pages(), 0));
+        sweep(&client_of(&server), APP, &swept_zero, &stop, |_| {})
+            .await
+            .unwrap();
+
+        // Valve gives no total for the whole corpus while each window still counts its reviews.
+        let crawled_zero = library("crawled-total-zero");
+        let windows = valve(corpus(), None, 0);
+        let server = stand_in::Server::new(move |asked| {
+            if whole_corpus(asked) {
+                summary_of(0)
+            } else {
+                windows(asked)
+            }
+        });
+        crawl(&client_of(&server), APP, &options(&crawled_zero), |_| {})
+            .await
+            .unwrap();
+
+        let crawled_without = library("crawled-without-summary");
+        let pages_of_windows = valve(corpus(), None, 0);
+        let server = stand_in::Server::new(move |asked| {
+            if whole_corpus(asked) {
+                no_summary()
+            } else {
+                pages_of_windows(asked)
+            }
+        });
+        let crawled = crawl(&client_of(&server), APP, &options(&crawled_without), |_| {}).await;
+        assert!(
+            matches!(crawled, Err(crate::Error::NoSuchCorpus { app_id: APP })),
+            "{crawled:?}"
+        );
+        crate::embed::latest_snapshot(&crawled_without, APP).unwrap_err();
+
+        assert_eq!(
+            [
+                ("sweep, no summary", unreadable(&swept_without)),
+                ("sweep, a total of 0", unreadable(&swept_zero)),
+                ("crawl, a total of 0", unreadable(&crawled_zero)),
+            ],
+            [
+                ("sweep, no summary", None),
+                ("sweep, a total of 0", None),
+                ("crawl, a total of 0", None),
+            ]
+        );
+    }
 }

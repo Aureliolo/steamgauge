@@ -97,7 +97,9 @@ async function showGame(appId, named = null) {
       : [
           ['Held here', whole.format(game.reviews), 'reviews downloaded'],
           ['Steam reports', whole.format(game.valve_total), 'reviews in total'],
-          ['Coverage', share.format(game.coverage), "of Steam's total"],
+          ...(game.coverage === null
+            ? []
+            : [['Coverage', share.format(game.coverage), "of Steam's total"]]),
           stageTile(game.stage),
         ],
   );
