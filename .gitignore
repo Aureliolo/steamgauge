@@ -19,6 +19,9 @@ reference/**/returned/
 reference/distinct/*.json
 corpus/
 raw/
+# A file is written beside its place as `<name>.partial` and renamed when whole, so one cut
+# short by a kill holds whatever its whole file would have.
+*.partial
 
 # Rendered reports quote review text, which is the same reason the captures are not here.
 steamgauge-report.html
