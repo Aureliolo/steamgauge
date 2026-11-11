@@ -36,7 +36,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
   `newest.json` says which copy of an edited review counts. A sweep holds a lock on `sweep.lock`
   in the capture while it runs. A second sweep of the game is refused meanwhile, whichever
-  program starts it.
+  program starts it. The file is named for the sweep's start, which is at least a second past the
+  last recorded sweep's and every sweep file's.
 - Every file is written beside its place and renamed when whole.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in

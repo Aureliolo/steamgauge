@@ -1114,7 +1114,7 @@ pub fn sweep_file(started: i64) -> String {
 
 /// The capture's files in the order they count: the crawl's shards, then each sweep from the
 /// earliest, each with the sweep that wrote it, or zero for the crawl's own.
-fn shards_of(snapshot: &Path) -> Result<Vec<(std::path::PathBuf, i64)>> {
+pub(crate) fn shards_of(snapshot: &Path) -> Result<Vec<(std::path::PathBuf, i64)>> {
     let mut shards: Vec<(std::path::PathBuf, i64)> = std::fs::read_dir(snapshot)?
         .filter_map(std::result::Result::ok)
         .map(|entry| entry.path())

@@ -84,8 +84,8 @@ pub struct CrawlFacts {
     pub coverage: Option<f64>,
     pub snapshot_unix: i64,
     pub shards: u64,
-    /// When the capture was last brought up to date, where it has been. The three sweep
-    /// fields are written by the first sweep, so a capture never brought up to date has none.
+    /// The start of the sweep that last brought the capture up to date, where one has. The three
+    /// sweep fields are written by the first sweep, so a capture never brought up to date has none.
     #[serde(default)]
     pub swept_unix: Option<i64>,
     #[serde(default)]

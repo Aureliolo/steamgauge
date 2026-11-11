@@ -544,7 +544,9 @@ pub struct SweepProgress {
 pub struct SweepReport {
     pub app_id: u32,
     pub dir: PathBuf,
-    /// When the sweep started, which is the file it wrote and the next sweep's watermark.
+    /// When the sweep started: this computer's clock, or one second past the last recorded sweep
+    /// and the newest sweep file where the clock has not passed them. It names the file the sweep
+    /// wrote and is the next sweep's watermark.
     pub started: i64,
     /// Everything written or edited since this moment was fetched.
     pub watermark: i64,
@@ -614,8 +616,17 @@ pub async fn sweep(
         .ok_or(crate::Error::MalformedPayload {
             field: "snapshot_unix",
         })?;
-    let started = now_unix();
     forget_unfinished_sweeps(&dir)?;
+    // One past the last recorded sweep and the newest sweep file where the clock has not passed
+    // them, as when two sweeps run in one second. The file is named for the start, and each of
+    // those files may be counted.
+    let floor = crate::capture::shards_of(&dir)?
+        .into_iter()
+        .map(|(_, start)| start)
+        .filter(|start| *start > 0)
+        .chain(facts.get("swept_unix").and_then(Value::as_i64))
+        .max();
+    let started = floor.map_or_else(now_unix, |floor| now_unix().max(floor.saturating_add(1)));
 
     let mut newest = crate::capture::Newest::load(&dir)?;
     let path = dir.join(crate::capture::sweep_file(started));
@@ -1371,6 +1382,106 @@ mod tests {
         );
         assert!(!dir.join(crate::capture::Newest::FILE).exists());
         assert_eq!(facts(&dir)["sweeps"], 3);
+    }
+
+    async fn swept_once(out: &std::path::Path, page: Vec<Vec<Value>>, total: usize) -> SweepReport {
+        let server = stand_in::Server::new(edits(page, total));
+        sweeping(&server, APP, out).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_sweep_starts_one_second_past_a_recorded_sweep_the_clock_has_not_passed() {
+        let out = crate::tempdir::Dir::new();
+        let ahead = now_unix() + 3600;
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": ahead, "rows_unique": 2, "name": "A Game"}),
+        );
+        let page = vec![vec![review("r3", ahead, ahead)]];
+
+        let first = swept_once(out.path(), page.clone(), 3).await;
+        assert_eq!(first.started, ahead + 1);
+        assert_eq!((first.rows, first.new), (1, 1));
+        assert!(dir.join(crate::capture::sweep_file(ahead + 1)).exists());
+
+        let second = swept_once(out.path(), page, 3).await;
+        assert_eq!(second.started, ahead + 2);
+        assert!(dir.join(crate::capture::sweep_file(ahead + 1)).exists());
+        assert_eq!(facts(&dir)["swept_unix"], ahead + 2);
+        let ids = ids_in(&dir);
+        assert!(["r1", "r2", "r3"].iter().all(|id| ids.contains(*id)));
+    }
+
+    #[tokio::test]
+    async fn a_sweep_in_the_second_the_last_one_recorded_keeps_that_sweeps_file() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2, "name": "A Game"}),
+        );
+        // Both sweeps then start inside the next second.
+        let turned = now_unix();
+        while now_unix() == turned {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let page = vec![vec![review("r3", WATERMARK + 50, WATERMARK + 50)]];
+
+        let first = swept_once(out.path(), page.clone(), 3).await;
+        let second = swept_once(out.path(), page, 3).await;
+        assert!(second.started > first.started);
+        assert!(dir.join(crate::capture::sweep_file(first.started)).exists());
+        let ids = ids_in(&dir);
+        assert!(["r1", "r2", "r3"].iter().all(|id| ids.contains(*id)));
+    }
+
+    #[tokio::test]
+    async fn a_sweep_starts_at_the_clock_once_it_has_passed_the_recorded_sweep() {
+        let out = crate::tempdir::Dir::new();
+        captured(
+            out.path(),
+            &json!({"snapshot_unix": 1, "swept_unix": WATERMARK}),
+        );
+        let page = vec![vec![review("r1", 500, WATERMARK - 2 * DAY)]];
+        let before = now_unix();
+        let report = swept_once(out.path(), page, 2).await;
+        let after = now_unix();
+        assert!((before..=after).contains(&report.started));
+
+        let other = crate::tempdir::Dir::new();
+        captured(
+            other.path(),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": "soon"}),
+        );
+        let page = vec![vec![review("r3", WATERMARK + 5, WATERMARK + 5)]];
+        let before = now_unix();
+        let report = swept_once(other.path(), page, 3).await;
+        let after = now_unix();
+        assert_eq!(report.rows, 1);
+        assert!((before..=after).contains(&report.started));
+    }
+
+    #[tokio::test]
+    async fn a_retry_after_a_failed_record_write_starts_past_the_file_the_index_counts() {
+        let out = crate::tempdir::Dir::new();
+        let ahead = now_unix() + 3600;
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": ahead, "rows_unique": 2, "name": "A Game"}),
+        );
+        let page = vec![vec![review("r3", ahead, ahead)]];
+        let blocker = dir.join("crawl.json.partial");
+        std::fs::create_dir(&blocker).unwrap();
+        let server = stand_in::Server::new(edits(page.clone(), 3));
+        sweeping(&server, APP, out.path()).await.unwrap_err();
+        std::fs::remove_dir(&blocker).unwrap();
+        let first = dir.join(crate::capture::sweep_file(ahead + 1));
+        assert!(first.exists());
+
+        let retry = swept_once(out.path(), page, 3).await;
+        assert_eq!(retry.started, ahead + 2);
+        assert!(first.exists());
+        let ids = ids_in(&dir);
+        assert!(["r1", "r2", "r3"].iter().all(|id| ids.contains(*id)));
     }
 
     fn sweeping(
