@@ -628,7 +628,7 @@ pub struct SweepReport {
     pub new: u64,
     /// Of those, copies of reviews the crawl or a recorded sweep already held.
     pub edited: u64,
-    /// The capture's unique reviews after the sweep, against Valve's total now.
+    /// The capture's unique reviews after the sweep, against Valve's total as the walk began.
     pub unique: u64,
     pub valve_total: u64,
     pub stop: StopReason,
@@ -661,7 +661,10 @@ const SWEEP_SLACK: i64 = 24 * 60 * 60;
 /// `stop` is looked at between pages. A sweep told to stop returns [`crate::Error::Stopped`]
 /// having changed nothing: its file is left unfinished, under a name no reader looks for, and
 /// the next sweep walks again from the same watermark. Once the walk is done it finishes,
-/// because what follows is a single answer from Steam and the records it updates.
+/// because what follows is the record it updates.
+///
+/// Steam's totals are asked before the walk. A sweep refused them has asked for no page and
+/// written no file.
 ///
 /// # Errors
 ///
@@ -704,6 +707,10 @@ pub async fn sweep(
         None => crate::capture::Newest::default(),
     };
     let path = dir.join(crate::capture::sweep_file(started));
+    // Valve's total moves with the corpus, so coverage is read against today's figure rather
+    // than the one the crawl saw. Asked before the walk, which makes the sweep's file whole, so
+    // a refusal leaves no file the record has not reached.
+    let summary = client.summary(app_id).await?;
     let walked = walk_since(
         client,
         app_id,
@@ -713,10 +720,6 @@ pub async fn sweep(
         (stop, &mut on_progress),
     )
     .await?;
-    // Valve's total moves with the corpus, so coverage is re-read against today's figure
-    // rather than the one the crawl saw. Asked before anything is recorded, so the records
-    // below are written together or not at all.
-    let summary = client.summary(app_id).await?;
     if walked.rows == 0 {
         std::fs::remove_file(&path)?;
     }
@@ -2337,6 +2340,136 @@ mod tests {
         let report = swept_once(out.path(), pages, 4).await;
         assert_eq!((report.rows, report.new), (2, 2));
         assert_eq!(facts(&dir)["rows_unique"], 4);
+    }
+
+    fn names_in(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[tokio::test]
+    async fn a_sweep_refused_its_totals_has_asked_for_no_page_and_changes_nothing() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let page = vec![vec![
+            review("r3", w + 50, w + 50),
+            review("r1", 500, w + 40),
+        ]];
+        let inner = edits(page, 3);
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) {
+                no_summary()
+            } else {
+                inner(asked)
+            }
+        });
+        let before = std::fs::read(dir.join("crawl.json")).unwrap();
+        let names = names_in(&dir);
+
+        let refused = sweeping(&server, APP, out.path()).await;
+        assert!(matches!(refused, Err(crate::Error::NoSuchCorpus { .. })));
+        assert_eq!(counted_ids(&dir), ["r1", "r2"]);
+        assert!(server.asked().iter().all(counting));
+        assert_eq!(std::fs::read(dir.join("crawl.json")).unwrap(), before);
+        let left: Vec<String> = names_in(&dir)
+            .into_iter()
+            .filter(|name| name.starts_with("sweep-"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+        assert_eq!(
+            names_in(&dir)
+                .into_iter()
+                .filter(|name| name != SWEEP_LOCK)
+                .collect::<Vec<_>>(),
+            names
+                .into_iter()
+                .filter(|name| name != SWEEP_LOCK)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_sweep_asks_steam_its_totals_once() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let page = vec![vec![
+            review("r3", w + 50, w + 50),
+            review("r1", 500, w + 40),
+        ]];
+        let inner = edits(page, 3);
+        let totals = std::sync::atomic::AtomicUsize::new(0);
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) && totals.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0 {
+                no_summary()
+            } else {
+                inner(asked)
+            }
+        });
+        let report = sweeping(&server, APP, out.path()).await.unwrap();
+        assert_eq!((report.rows, report.new, report.edited), (2, 1, 1));
+        assert_eq!(report.valve_total, 3);
+        assert_eq!(counted_ids(&dir), ["r1", "r2", "r3"]);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_whose_walk_fails_after_its_totals_leaves_the_record_as_it_was() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let pages = vec![
+            vec![review("r3", w + 50, w + 50)],
+            vec![review("r1", 500, w + 40)],
+        ];
+        let inner = edits(pages, 3);
+        let server = stand_in::Server::new(move |asked| {
+            if !counting(asked) && offset(asked) == 1 {
+                stand_in::Answer::status(403)
+            } else {
+                inner(asked)
+            }
+        });
+        let before = std::fs::read(dir.join("crawl.json")).unwrap();
+
+        let failed = sweeping(&server, APP, out.path()).await;
+        assert!(failed.is_err(), "{failed:?}");
+        assert_eq!(server.asked().iter().filter(|a| counting(a)).count(), 1);
+        assert_eq!(counted_ids(&dir), ["r1", "r2"]);
+        assert_eq!(std::fs::read(dir.join("crawl.json")).unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_told_to_stop_before_its_first_page_asks_the_totals_once_and_changes_nothing() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let server = stand_in::Server::new(edits(one_new_review(), 3));
+        let before = std::fs::read(dir.join("crawl.json")).unwrap();
+        let client = client_of(&server);
+        let stop = std::sync::atomic::AtomicBool::new(true);
+
+        let stopped = sweep(&client, APP, out.path(), &stop, |_| {}).await;
+        assert!(matches!(stopped, Err(crate::Error::Stopped)), "{stopped:?}");
+        assert_eq!(server.asked().iter().filter(|a| counting(a)).count(), 1);
+        assert_eq!(server.asked().len(), 1);
+        assert_eq!(counted_ids(&dir), ["r1", "r2"]);
+        assert_eq!(std::fs::read(dir.join("crawl.json")).unwrap(), before);
     }
 
     #[tokio::test]

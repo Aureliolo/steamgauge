@@ -45,6 +45,7 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   last recorded sweep's and every sweep file's. A sweep records the next watermark as
   `walk_from_unix`: the later of the one it walked from and the earlier of its start and the
   newest edit on the first page Steam served it. It writes no copy a recorded sweep already holds.
+  A sweep asks Steam its totals before it walks, so a sweep refused them writes no file.
 - Every file is written beside its place and renamed when whole.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
   A crawl and a name lookup read and write it under the sweep's lock, and are refused while
