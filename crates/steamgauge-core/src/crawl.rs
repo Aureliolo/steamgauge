@@ -112,7 +112,8 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
     (valve_total > 0).then(|| unique as f64 / valve_total as f64)
 }
 
-/// Downloads every review Valve will serve for `app_id` into an immutable Parquet capture.
+/// Downloads every review Valve will serve for `app_id`, written up to the newest edit Steam
+/// served as the crawl began, into an immutable Parquet capture.
 ///
 /// # Errors
 ///
@@ -141,6 +142,7 @@ pub async fn crawl(
         .join(format!("appid={app_id}"))
         .join(format!("snapshot={snapshot}"));
     std::fs::create_dir_all(&dir)?;
+    let newest_edit = state.newest_edit(crawl_id)?;
 
     let pending = state.pending_shards(crawl_id)?;
     let shards_total = pending.len();
@@ -156,6 +158,7 @@ pub async fn crawl(
             crawl_id,
             dir: &dir,
             concurrency: options.concurrency,
+            keep_until: newest_edit,
         },
         pending,
         |shards_done, unique| {
@@ -207,7 +210,12 @@ pub async fn crawl(
         shards_restarted,
         shards_short,
     };
-    write_sidecar(&report, snapshot, recorded)?;
+    write_sidecar(
+        &report,
+        snapshot,
+        newest_edit.map(|edit| edit.saturating_add(1)),
+        recorded,
+    )?;
     // Finishing last keeps a crawl whose record is missing resumable.
     if complete {
         state.finish_crawl(crawl_id)?;
@@ -295,6 +303,8 @@ struct ShardRun<'a> {
     crawl_id: i64,
     dir: &'a std::path::Path,
     concurrency: usize,
+    /// The newest creation time a shard keeps, where the crawl kept a newest edit.
+    keep_until: Option<i64>,
 }
 
 /// Walks every outstanding window, up to `concurrency` at a time.
@@ -310,6 +320,7 @@ async fn run_shards(
         crawl_id,
         dir,
         concurrency,
+        keep_until,
     } = run;
     let permits = Arc::new(Semaphore::new(concurrency.max(1)));
     let mut tasks = JoinSet::new();
@@ -321,7 +332,7 @@ async fn run_shards(
         tasks.spawn(async move {
             let _permit = permits.acquire_owned().await;
             state.mark_running(crawl_id, record.idx)?;
-            let outcome = crawl_shard(&client, app_id, record.shard, &path).await?;
+            let outcome = crawl_shard(&client, app_id, record.shard, &path, keep_until).await?;
             // A window still short after every walk is left unfinished on purpose. Marking
             // it done would fold a known undercount into the corpus and report it as
             // complete. Left as it is, the crawl reports itself incomplete and the next run
@@ -351,7 +362,9 @@ async fn run_shards(
         let outcome = joined.map_err(|e| crate::Error::ShardPanicked {
             detail: e.to_string(),
         })??;
-        tally.duplicates += outcome.fetched.saturating_sub(outcome.rows);
+        tally.duplicates += outcome
+            .fetched
+            .saturating_sub(outcome.rows.saturating_add(outcome.past));
         if outcome.walks > 1 {
             tally.shards_restarted += 1;
         }
@@ -410,6 +423,8 @@ struct ShardOutcome {
     pages: u32,
     stop: StopReason,
     max_created: Option<i64>,
+    /// Reviews left out as written after the crawl's newest edit.
+    past: u64,
     /// Walks taken. More than one means Steam stopped early at least once.
     walks: u32,
     /// Still short after every walk, so the window is not known to be complete.
@@ -427,17 +442,19 @@ async fn crawl_shard(
     app_id: u32,
     shard: Shard,
     path: &std::path::Path,
+    keep_until: Option<i64>,
 ) -> Result<ShardOutcome> {
-    let mut last = walk_shard(client, app_id, shard, path, MAX_PER_PAGE).await?;
+    let mut last = walk_shard(client, app_id, shard, path, MAX_PER_PAGE, keep_until).await?;
     for walk in 2..=MAX_SHARD_WALKS {
-        if !fell_short(last.rows, shard.expected) {
+        // The count held the reviews left out as too new, so they stand for rows here.
+        if !fell_short(last.rows + last.past, shard.expected) {
             return Ok(last);
         }
         let per_page = MAX_PER_PAGE.saturating_sub(u16::try_from(walk - 1).unwrap_or(0));
-        last = walk_shard(client, app_id, shard, path, per_page).await?;
+        last = walk_shard(client, app_id, shard, path, per_page, keep_until).await?;
         last.walks = walk;
     }
-    let short = fell_short(last.rows, shard.expected);
+    let short = fell_short(last.rows + last.past, shard.expected);
     Ok(ShardOutcome { short, ..last })
 }
 
@@ -447,12 +464,14 @@ async fn walk_shard(
     shard: Shard,
     path: &std::path::Path,
     per_page: u16,
+    keep_until: Option<i64>,
 ) -> Result<ShardOutcome> {
     let mut writer = CaptureWriter::create(path, app_id)?;
     let mut cursor = "*".to_owned();
     let mut seen: HashSet<String> = HashSet::new();
     let mut pages: u32 = 0;
     let mut fetched: u64 = 0;
+    let mut past: u64 = 0;
     let mut max_created: Option<i64> = None;
 
     let stop = loop {
@@ -468,16 +487,28 @@ async fn walk_shard(
         }
         fetched = fetched.saturating_add(count(page.reviews.len()));
 
-        let fresh: Vec<&Value> = page
-            .reviews
-            .iter()
-            .filter(|review| {
-                review
-                    .get("recommendationid")
-                    .and_then(Value::as_str)
-                    .is_some_and(|id| seen.insert(id.to_owned()))
-            })
-            .collect();
+        let mut fresh: Vec<&Value> = Vec::new();
+        for review in &page.reviews {
+            let new = review
+                .get("recommendationid")
+                .and_then(Value::as_str)
+                .is_some_and(|id| seen.insert(id.to_owned()));
+            if !new {
+                continue;
+            }
+            // Written after the newest edit Steam served as the crawl began. The first sweep
+            // walks from the second after that edit and brings it in, so a shard that kept it
+            // would have it counted twice.
+            let created = review.get("timestamp_created").and_then(Value::as_i64);
+            if keep_until
+                .zip(created)
+                .is_some_and(|(until, created)| created > until)
+            {
+                past = past.saturating_add(1);
+            } else {
+                fresh.push(review);
+            }
+        }
         for review in &fresh {
             if let Some(ts) = review.get("timestamp_created").and_then(Value::as_i64) {
                 max_created = Some(max_created.map_or(ts, |current: i64| current.max(ts)));
@@ -501,6 +532,7 @@ async fn walk_shard(
         pages,
         stop,
         max_created,
+        past,
         walks: 1,
         short: false,
     })
@@ -511,10 +543,12 @@ async fn walk_shard(
 ///
 /// The crawl sets its own fields and keeps the rest, since a sweep may have run between two
 /// runs of one crawl. A sweep field of a type the sweep itself would not read is dropped, so
-/// the record still reads as [`crate::report::CrawlFacts`].
+/// the record still reads as [`crate::report::CrawlFacts`]. It sets `walk_from_unix`, one second
+/// past the crawl's newest edit, only where the record holds none, since a sweep moves it on.
 fn write_sidecar(
     report: &CrawlReport,
     snapshot: i64,
+    walk_from: Option<i64>,
     mut recorded: serde_json::Map<String, Value>,
 ) -> Result<()> {
     let meta = json!({
@@ -540,6 +574,14 @@ fn write_sidecar(
     });
     if let Value::Object(set) = meta {
         recorded.extend(set);
+    }
+    if let Some(from) = walk_from
+        && recorded
+            .get("walk_from_unix")
+            .and_then(Value::as_i64)
+            .is_none()
+    {
+        recorded.insert("walk_from_unix".to_owned(), json!(from));
     }
     if recorded
         .get("swept_unix")
@@ -1469,6 +1511,264 @@ mod tests {
         assert!(resumed.resumed && resumed.complete);
         assert_eq!(resumed.unique, 70);
         assert_eq!(newest_edit_kept(out.path()), None);
+    }
+
+    async fn swept(server: &stand_in::Server, out: &std::path::Path) -> SweepReport {
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        sweep(&client_of(server), APP, out, &stop, |_| {})
+            .await
+            .unwrap()
+    }
+
+    fn walk_from(dir: &std::path::Path) -> Option<i64> {
+        facts(dir)["walk_from_unix"].as_i64()
+    }
+
+    /// `inner`, which then adds `late` to `corpus` once it has answered its first query for a page
+    /// of reviews, as reviews written while a crawl plans are.
+    fn arriving_after_the_first_page(
+        inner: impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static,
+        corpus: &Held,
+        late: Vec<Value>,
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        let arriving = Arc::clone(corpus);
+        let arrived = std::sync::atomic::AtomicBool::new(false);
+        move |asked| {
+            let answer = inner(asked);
+            if asked.path() != "/api/appdetails"
+                && !counting(asked)
+                && !arrived.swap(true, std::sync::atomic::Ordering::SeqCst)
+            {
+                arriving.lock().unwrap().extend(late.clone());
+            }
+            answer
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sweep_after_a_crawl_brings_in_what_steam_stamped_after_the_crawls_newest_edit() {
+        let out = crate::tempdir::Dir::new();
+        let stamped = now_unix() - 3600;
+        let corpus = held(vec![
+            review("r1", stamped - 1000, stamped - 1000),
+            review("r2", stamped - 500, stamped - 500),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(walk_from(&report.dir), Some(stamped - 499));
+
+        corpus.lock().unwrap()[0] = review("r1", stamped - 1000, stamped + 6);
+        corpus
+            .lock()
+            .unwrap()
+            .push(review("r3", stamped + 5, stamped + 5));
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (2, 1, 1));
+        assert_eq!(facts(&report.dir)["rows_unique"], 3);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_straight_after_a_crawl_writes_no_row() {
+        let out = crate::tempdir::Dir::new();
+        let now = now_unix();
+        let corpus = held(vec![
+            review("r1", now - 1000, now - 1000),
+            review("r2", now - 500, now - 500),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (0, 0, 0));
+        assert_eq!(facts(&report.dir)["rows_unique"], 2);
+    }
+
+    #[tokio::test]
+    async fn a_review_that_arrives_while_a_crawl_plans_is_counted_once() {
+        let out = crate::tempdir::Dir::new();
+        let stamped = now_unix() - 3600;
+        let corpus = held(vec![
+            review("r1", stamped - 1000, stamped - 1000),
+            review("r2", stamped - 500, stamped - 500),
+        ]);
+        let server = stand_in::Server::new(arriving_after_the_first_page(
+            changing_steam(&corpus),
+            &corpus,
+            vec![review("r3", stamped + 1, stamped + 1)],
+        ));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(report.unique, 2);
+
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (1, 1, 0));
+        assert_eq!(facts(&report.dir)["rows_unique"], 3);
+        let mut ids: Vec<String> = ids_in(&report.dir).into_iter().collect();
+        ids.sort();
+        assert_eq!(ids, ["r1", "r2", "r3"]);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_whose_newest_windows_hold_no_review_starts_the_first_walk_past_its_newest_edit()
+     {
+        let out = crate::tempdir::Dir::new();
+        let early = CORPUS_EPOCH + 2 * 365 * DAY;
+        let edit = now_unix() - 1000;
+        let mut reviews: Vec<Value> = (0..50_i64)
+            .map(|i| review(&format!("r{i}"), early + i * DAY, early + i * DAY))
+            .collect();
+        reviews[0] = review("r0", early, edit);
+        let server = stand_in::Server::new(changing_steam(&held(reviews)));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(report.unique, 50);
+        assert_eq!(walk_from(&report.dir), Some(edit + 1));
+
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (0, 0, 0));
+    }
+
+    #[tokio::test]
+    async fn a_crawl_with_the_clock_behind_the_newest_edit_starts_the_first_walk_past_that_edit() {
+        let out = crate::tempdir::Dir::new();
+        let now = now_unix();
+        let corpus = held(vec![
+            review("r1", now - 1000, now + 1800),
+            review("r2", now + 900, now + 900),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(walk_from(&report.dir), Some(now + 1801));
+
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (0, 0, 0));
+        assert_eq!(facts(&report.dir)["rows_unique"], 2);
+    }
+
+    #[tokio::test]
+    async fn reviews_that_arrive_before_the_plan_counts_do_not_make_a_window_short() {
+        let out = crate::tempdir::Dir::new();
+        let stamped = now_unix() - 3600;
+        let corpus = held(
+            (0..5_i64)
+                .map(|i| review(&format!("r{i}"), stamped - 1000 + i, stamped - 1000 + i))
+                .collect(),
+        );
+        let late = (0..30_i64)
+            .map(|i| review(&format!("late{i}"), stamped + 1 + i, stamped + 1 + i))
+            .collect();
+        let server = stand_in::Server::new(arriving_after_the_first_page(
+            changing_steam(&corpus),
+            &corpus,
+            late,
+        ));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert!(report.complete);
+        assert_eq!(report.unique, 5);
+        assert_eq!(report.shards_short, 0);
+        assert_eq!(report.duplicates_this_run, 0);
+
+        let swept = swept(&server, out.path()).await;
+        assert_eq!((swept.rows, swept.new, swept.edited), (30, 30, 0));
+        assert_eq!(facts(&report.dir)["rows_unique"], 35);
+    }
+
+    #[tokio::test]
+    async fn two_crawls_of_a_quiet_game_a_second_apart_ask_different_window_queries() {
+        let now = now_unix();
+        let early = CORPUS_EPOCH + 2 * 365 * DAY;
+        let mut reviews: Vec<Value> = (0..50_i64)
+            .map(|i| review(&format!("r{i}"), early + i * DAY, early + i * DAY))
+            .collect();
+        reviews[0] = review("r0", early, now - 1000);
+        let corpus = held(reviews);
+        let (first, second) = (
+            stand_in::Server::new(changing_steam(&corpus)),
+            stand_in::Server::new(changing_steam(&corpus)),
+        );
+        let (out_a, out_b) = (crate::tempdir::Dir::new(), crate::tempdir::Dir::new());
+        crawl(&client_of(&first), APP, &options(out_a.path()), |_| {})
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        crawl(&client_of(&second), APP, &options(out_b.path()), |_| {})
+            .await
+            .unwrap();
+
+        let windows = |server: &stand_in::Server| -> Vec<(i64, i64)> {
+            server
+                .asked()
+                .iter()
+                .filter(|asked| asked.path() != "/api/appdetails")
+                .map(stand_in::Asked::input)
+                .filter(|input| input["filter"] != 2)
+                .filter_map(|input| {
+                    Some((
+                        input["date_range_start"].as_i64()?,
+                        input["date_range_end"].as_i64()?,
+                    ))
+                })
+                .collect()
+        };
+        let before = windows(&first);
+        assert!(
+            windows(&second).iter().any(|query| !before.contains(query)),
+            "a second crawl asks a window the first did not, so Steam's cache cannot serve it"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_crawl_resumed_after_a_sweep_keeps_the_sweeps_walk_start() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let top = 1_710_000_000 + 29 * DAY;
+        assert_eq!(walk_from(&short.dir), Some(top + 1));
+
+        let pages = vec![vec![review("arrived", top + 100, top + 100)]];
+        let server = stand_in::Server::new(edits(pages, 71));
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        sweep(&client_of(&server), APP, out.path(), &stop, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(walk_from(&short.dir), Some(top + 100));
+
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert!(resumed.complete);
+        assert_eq!(walk_from(&resumed.dir), Some(top + 100));
+    }
+
+    #[tokio::test]
+    async fn a_resumed_crawl_with_no_record_still_records_its_walk_start() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        std::fs::remove_file(short.dir.join("crawl.json")).unwrap();
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert!(resumed.resumed);
+        assert_eq!(walk_from(&resumed.dir), Some(1_710_000_000 + 29 * DAY + 1));
+    }
+
+    #[tokio::test]
+    async fn a_resumed_crawl_that_kept_no_newest_edit_keeps_every_review_and_sets_no_walk_start() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        std::fs::remove_file(short.dir.join("crawl.json")).unwrap();
+        rusqlite::Connection::open(out.path().join("state.sqlite"))
+            .unwrap()
+            .execute("DELETE FROM newest_edit", [])
+            .unwrap();
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert!(resumed.complete);
+        assert_eq!(resumed.unique, 70);
+        assert_eq!(walk_from(&resumed.dir), None);
     }
 
     #[test]
