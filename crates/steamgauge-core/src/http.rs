@@ -136,15 +136,11 @@ mod tests {
 
     #[tokio::test]
     async fn a_failure_is_explained_down_to_its_cause() {
-        // Nothing listens on a port the system handed out and took back.
-        let port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
+        // Nothing can listen on port 0. A port the system handed out and took back is handed to
+        // the next test that asks, and then something answers on it.
         let http = super::builder().build().unwrap();
         let failed = http
-            .get(format!("http://127.0.0.1:{port}/file"))
+            .get("http://127.0.0.1:0/file")
             .send()
             .await
             .unwrap_err();
