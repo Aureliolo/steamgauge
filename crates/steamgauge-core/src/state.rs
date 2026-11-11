@@ -174,8 +174,9 @@ impl CrawlState {
     /// Fails if the query cannot be run.
     pub fn pending_shards(&self, crawl_id: i64) -> Result<Vec<ShardRecord>> {
         let conn = self.lock();
-        // A shard marked running belongs to a process that is gone, and a half-written
-        // Parquet file has no footer, so it starts over rather than resuming mid-file.
+        // A shard marked running belongs to a process that is gone, as a live crawl holds its
+        // game's `crawl.lock`. A half-written Parquet file has no footer, so it starts over
+        // rather than resuming mid-file.
         conn.execute(
             "UPDATE shard SET status = 'pending' WHERE crawl_id = ?1 AND status = 'running'",
             params![crawl_id],
