@@ -1908,6 +1908,18 @@ mod tests {
         assert!(!droppable(&Task::Prepare { app_id: 1 }));
     }
 
+    #[test]
+    fn a_stopped_model_fetch_says_its_fetched_files_are_kept() {
+        let note = stopped_note(&Task::FetchModel {
+            model: "writer".to_owned(),
+        });
+        assert_eq!(
+            note,
+            "Stopped. Its files already fetched are kept, and the rest comes when it is first needed."
+        );
+        assert_eq!(stopped_note(&Task::Check), "Stopped.");
+    }
+
     /// Sets a marker when dropped, as work holding a half-written file would let it go.
     struct Marks(Arc<AtomicBool>);
 
