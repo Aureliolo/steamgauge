@@ -142,10 +142,12 @@ impl Model {
         model::bytes_left(&[self.tokenizer, self.graph], &self.dir(cache_dir))
     }
 
-    /// Whether both files are here, so a window can say what a first search would fetch.
+    /// Whether a fetch has hashed both files to their pins, so a preparation has nothing to
+    /// fetch. A copy can be here before any fetch has hashed it.
     #[must_use]
     pub fn fetched(self, cache_dir: &Path) -> bool {
-        self.bytes_left(cache_dir) == 0
+        let dir = self.dir(cache_dir);
+        self.tokenizer.hashed_in(&dir) && self.graph.hashed_in(&dir)
     }
 
     /// Makes sure both files are here and match their pins, and fetches what is missing.
@@ -705,6 +707,16 @@ mod tests {
                 ENCODER.repository, ENCODER.revision
             )
         );
+
+        let later = Model {
+            graph: Asset {
+                sha256: crate::embed::sha256_hex("THE GRAPH").leak(),
+                ..model.graph
+            },
+            ..model
+        };
+        assert!(!later.fetched(cache.path()));
+        assert_eq!(later.bytes_left(cache.path()), 9);
     }
 
     #[test]

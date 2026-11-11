@@ -230,10 +230,28 @@ pub(crate) struct Asset {
 }
 
 impl Asset {
-    /// Whether the copy in `dir` is at least the right length. The hash is what decides. This
-    /// is what a window can ask about without reading a gigabyte.
-    pub(crate) fn present_in(self, dir: &Path) -> bool {
+    /// Where a fetch notes the hash it found this file to have.
+    fn note(self, dir: &Path) -> PathBuf {
+        dir.join(format!("{}.sha256", self.local))
+    }
+
+    fn at_length(self, dir: &Path) -> bool {
         std::fs::metadata(dir.join(self.local)).is_ok_and(|found| found.len() == self.bytes)
+    }
+
+    /// Whether the copy in `dir` is at its pinned length, with no note of another hash beside
+    /// it. A fetch still hashes it. This is what a window can ask about without reading a
+    /// gigabyte.
+    pub(crate) fn present_in(self, dir: &Path) -> bool {
+        self.at_length(dir)
+            && std::fs::read_to_string(self.note(dir)).map_or(true, |noted| noted == self.sha256)
+    }
+
+    /// Whether a fetch has hashed the copy in `dir` to this pin. A file with no pin never is.
+    pub(crate) fn hashed_in(self, dir: &Path) -> bool {
+        !self.sha256.is_empty()
+            && self.at_length(dir)
+            && std::fs::read_to_string(self.note(dir)).is_ok_and(|noted| noted == self.sha256)
     }
 
     /// Whether the copy in `dir` is the pinned file, by its hash. It reads the whole file.
@@ -242,7 +260,7 @@ impl Asset {
     ///
     /// Fails if a file of the right length cannot be read.
     pub(crate) fn matches_in(self, dir: &Path) -> Result<bool> {
-        Ok(self.present_in(dir) && sha256_file(&dir.join(self.local))? == self.sha256)
+        Ok(self.at_length(dir) && sha256_file(&dir.join(self.local))? == self.sha256)
     }
 }
 
@@ -441,7 +459,7 @@ async fn turn(dir: &Path) -> Result<std::fs::File> {
 /// matches its hash.
 ///
 /// Two fetches into one folder take turns, in one program or two, and the second uses the
-/// first's copy.
+/// first's copy. The hash found is noted beside the file, as `<name>.sha256`.
 ///
 /// # Errors
 ///
@@ -458,6 +476,7 @@ pub(crate) async fn ensure_asset(
     let _turn = turn(dir).await?;
     let path = dir.join(asset.local);
     if asset.matches_in(dir)? {
+        std::fs::write(asset.note(dir), asset.sha256)?;
         return Ok(());
     }
     if !source.is_pinned() {
@@ -478,6 +497,7 @@ pub(crate) async fn ensure_asset(
             actual,
         });
     }
+    std::fs::write(asset.note(dir), asset.sha256)?;
     Ok(())
 }
 
@@ -985,6 +1005,78 @@ mod tests {
             "{fetched:?}"
         );
         assert!(!dir.path().join("model.onnx").exists());
+        assert!(!dir.path().join("model.onnx.sha256").exists());
+    }
+
+    #[tokio::test]
+    async fn a_fetch_notes_the_hash_it_found() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let pin = pinned_to(GRAPH);
+        assert!(!pin.hashed_in(dir.path()));
+        fetch(source, pin, dir.path()).await.0.unwrap();
+        assert!(pin.hashed_in(dir.path()) && pin.present_in(dir.path()));
+        let note = std::fs::read_to_string(dir.path().join("model.onnx.sha256")).unwrap();
+        assert_eq!(note, pin.sha256);
+        assert_eq!(note.len(), 64);
+
+        let unmet = crate::tempdir::Dir::new();
+        std::fs::write(unmet.path().join("model.onnx"), GRAPH).unwrap();
+        assert!(pin.present_in(unmet.path()) && !pin.hashed_in(unmet.path()));
+        let asked = server.asked().len();
+        fetch(source, pin, unmet.path()).await.0.unwrap();
+        assert_eq!(server.asked().len(), asked);
+        assert!(pin.hashed_in(unmet.path()));
+
+        std::fs::write(dir.path().join("model.onnx"), b"short").unwrap();
+        assert!(!pin.hashed_in(dir.path()));
+    }
+
+    #[tokio::test]
+    async fn a_noted_copy_is_hashed_before_it_is_fetched_again() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let pin = pinned_to(GRAPH);
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        std::fs::write(dir.path().join("model.onnx.sha256"), "another hash").unwrap();
+        fetch(source, pin, dir.path()).await.0.unwrap();
+        assert!(server.asked().is_empty());
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("model.onnx.sha256")).unwrap(),
+            pin.sha256
+        );
+    }
+
+    #[tokio::test]
+    async fn a_copy_noted_under_another_hash_counts_towards_a_download() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let pin = pinned_to(GRAPH);
+        let other = pinned_to(b"other bytes");
+        std::fs::write(dir.path().join("model.onnx"), b"other bytes").unwrap();
+        std::fs::write(dir.path().join("model.onnx.sha256"), other.sha256).unwrap();
+        assert!(!pin.present_in(dir.path()));
+        assert_eq!(bytes_left(&[pin], dir.path()), 11);
+        assert!(!pin.hashed_in(dir.path()));
+
+        fetch(source, pin, dir.path()).await.0.unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert_eq!(server.asked().len(), 1);
+        assert!(pin.present_in(dir.path()) && pin.hashed_in(dir.path()));
+    }
+
+    #[test]
+    fn a_file_with_no_pin_is_never_hashed_to_it() {
+        let dir = crate::tempdir::Dir::new();
+        let asset = Asset {
+            remote: "model.onnx",
+            local: "model.onnx",
+            sha256: "",
+            bytes: 11,
+        };
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        std::fs::write(dir.path().join("model.onnx.sha256"), "").unwrap();
+        assert!(!asset.hashed_in(dir.path()));
     }
 
     #[tokio::test]

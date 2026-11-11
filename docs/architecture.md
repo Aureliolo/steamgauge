@@ -131,6 +131,9 @@ in thirty.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
   A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
   the same turn and leaves `fetch.lock`.
+- A fetch notes the hash it found beside each model file, as `model.onnx.sha256`. A file whose
+  note names another hash is of another release and is fetched when first needed. A preparation
+  fetches until every file's note names its pin.
 - The reader in the app's model folder follows the build's pins, in the folder named for its
   size. A copy with a file missing, or of another release, is fetched when first needed. A
   reader anywhere else is never fetched over.

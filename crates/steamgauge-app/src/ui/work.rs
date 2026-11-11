@@ -1051,12 +1051,39 @@ fn bar(
     let telling = app.clone();
     let mut across = Across::new();
     let (fetching, checking) = (format!("Fetching {what}"), format!("Checking {what}"));
-    tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total));
-    move |progress| {
-        let done = float(across.add(progress.file, progress.downloaded));
-        let saying = if done >= total { &checking } else { &fetching };
-        tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+    let total = (total > 0.0).then_some(total);
+    match total {
+        Some(total) => tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total)),
+        None => tell(app, id, &checking, Unit::Bytes, 0.0, None),
     }
+    move |progress| {
+        let (saying, done, of) = told(total, &mut across, progress, [&fetching, &checking]);
+        tell(&telling, id, saying, Unit::Bytes, done, of);
+    }
+}
+
+/// What a bar says of one report from a fetch. With a total across the files, it counts every
+/// file towards it. With none, bytes that arrive all the same are counted against that file's
+/// own length.
+fn told<'a>(
+    total: Option<f64>,
+    across: &mut Across,
+    progress: steamgauge_core::model::DownloadProgress<'_>,
+    [fetching, checking]: [&'a str; 2],
+) -> (&'a str, f64, Option<f64>) {
+    let Some(total) = total else {
+        return (
+            fetching,
+            float(progress.downloaded),
+            progress.total.map(float),
+        );
+    };
+    let done = float(across.add(progress.file, progress.downloaded));
+    (
+        if done >= total { checking } else { fetching },
+        done,
+        Some(total),
+    )
 }
 
 /// Fetches one model where it is not on this computer yet. One already here is left as it is.
@@ -1357,8 +1384,8 @@ async fn prepare(
     .map_err(text)?
 }
 
-/// Every model preparing a game needs that is not here yet, fetched and checked against its pins:
-/// the search models always, and the writer once somebody has asked for paragraphs.
+/// Every model preparing a game needs that no fetch has hashed yet, fetched and hashed against
+/// its pins: the search models always, and the writer once somebody has asked for paragraphs.
 async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<(), String> {
     use steamgauge_core::{
         search_models::{ENCODER, RERANKER},
@@ -1366,9 +1393,19 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
     };
 
     let cache = steamgauge_core::model::default_cache_dir();
-    let left = ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache);
-    if left > 0 {
-        let total = float(left);
+    if !(ENCODER.fetched(&cache) && RERANKER.fetched(&cache)) {
+        let total = float(ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache));
+        let total = (total > 0.0).then_some(total);
+        if total.is_none() {
+            tell(
+                app,
+                id,
+                "Checking the search models",
+                Unit::Bytes,
+                0.0,
+                None,
+            );
+        }
         let mut across = Across::new();
         for model in [ENCODER, RERANKER] {
             let telling = app.clone();
@@ -1376,22 +1413,28 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
             model
                 .ensure(&cache, move |progress| {
                     let file = format!("{}/{}", model.name, progress.file);
-                    let done = float(across.add(&file, progress.downloaded));
-                    let saying = if done >= total {
-                        "Checking the search models"
-                    } else {
-                        "Fetching the search models"
+                    let progress = steamgauge_core::model::DownloadProgress {
+                        file: &file,
+                        ..progress
                     };
-                    tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+                    let (saying, done, of) = told(
+                        total,
+                        across,
+                        progress,
+                        ["Fetching the search models", "Checking the search models"],
+                    );
+                    tell(&telling, id, saying, Unit::Bytes, done, of);
                 })
                 .await
                 .map_err(text)?;
         }
     }
-    let left = WRITER.bytes_left(&cache);
-    if writing && left > 0 {
+    if writing && !WRITER.fetched(&cache) {
         WRITER
-            .ensure(&cache, bar(app, id, float(left), "the writer"))
+            .ensure(
+                &cache,
+                bar(app, id, float(WRITER.bytes_left(&cache)), "the writer"),
+            )
             .await
             .map_err(text)?;
     }
@@ -1648,6 +1691,38 @@ mod tests {
         assert_eq!(titled("search-reranker").unwrap(), "The search reranker");
         assert_eq!(titled("writer").unwrap(), "The writer");
         assert_eq!(titled("huge").unwrap_err(), "No model is called huge.");
+    }
+
+    #[test]
+    fn bytes_that_come_with_no_total_are_told_against_their_own_file() {
+        let progress = |file, downloaded, total| steamgauge_core::model::DownloadProgress {
+            file,
+            downloaded,
+            total,
+        };
+        let words = ["Fetching", "Checking"];
+        let mut across = Across::new();
+        assert_eq!(
+            told(None, &mut across, progress("a", 40, Some(100)), words),
+            ("Fetching", 40.0, Some(100.0))
+        );
+        assert_eq!(
+            told(None, &mut across, progress("b", 7, None), words),
+            ("Fetching", 7.0, None)
+        );
+        assert_eq!(
+            told(
+                Some(150.0),
+                &mut across,
+                progress("a", 100, Some(100)),
+                words
+            ),
+            ("Fetching", 100.0, Some(150.0))
+        );
+        assert_eq!(
+            told(Some(150.0), &mut across, progress("b", 50, Some(50)), words),
+            ("Checking", 150.0, Some(150.0))
+        );
     }
 
     #[test]

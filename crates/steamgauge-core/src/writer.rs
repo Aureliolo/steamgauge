@@ -107,9 +107,11 @@ impl WriterModel {
         model::bytes_left(&self.assets, &self.dir(cache_dir))
     }
 
+    /// Whether a fetch has hashed every file to its pin, so a preparation has nothing to fetch.
     #[must_use]
     pub fn fetched(self, cache_dir: &Path) -> bool {
-        self.bytes_left(cache_dir) == 0
+        let dir = self.dir(cache_dir);
+        self.assets.iter().all(|asset| asset.hashed_in(&dir))
     }
 
     /// Makes sure every file is here and matches its pin, and fetches what is missing.
@@ -789,6 +791,20 @@ mod tests {
             hub.asked()[0].path(),
             "/someone/steamgauge-writer/resolve/614241f622f53c4eeff9890bdc4f31cfecc418b3/tokenizer.json"
         );
+
+        let later = WriterModel {
+            assets: [
+                model.assets[0],
+                model.assets[1],
+                Asset {
+                    sha256: crate::embed::sha256_hex("MODEL.ONNX.DATA").leak(),
+                    ..model.assets[2]
+                },
+            ],
+            ..model
+        };
+        assert!(!later.fetched(cache.path()));
+        assert_eq!(later.bytes_left(cache.path()), 15);
     }
 
     #[test]
