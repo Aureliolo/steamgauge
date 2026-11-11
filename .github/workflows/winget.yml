@@ -3,14 +3,20 @@ name: winget
 # Submits one release to microsoft/winget-pkgs, and only when dispatched by hand on that
 # release's tag:
 #
-#   gh workflow run winget.yml --ref vX.Y.Z
+#   gh workflow run winget.yml --ref vX.Y.Z                    (writes and checks, submits nothing)
+#   gh workflow run winget.yml --ref vX.Y.Z -f submit=true     (then opens the pull request)
 #
 # The release never does this itself, so a release is not a pull request on someone else's
-# repository. Microsoft's tools/release/winget-submit.sh opens it from a fork with a classic token,
-# since GitHub lets no fine-grained token open one. The manifests are written again here from the
+# repository. tools/release/winget-submit.sh opens it from a fork with a classic token, since
+# GitHub lets no fine-grained token open one. The manifests are written again here from the
 # published release, because the release run's own files expire.
 on:
   workflow_dispatch:
+    inputs:
+      submit:
+        description: Open the pull request on microsoft/winget-pkgs once every check passes
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -94,6 +100,7 @@ jobs:
   submit:
     name: submit
     needs: [write, test]
+    if: inputs.submit
     runs-on: windows-2025
     timeout-minutes: 20
     # The token is a secret of this environment, which only release tags can deploy to.

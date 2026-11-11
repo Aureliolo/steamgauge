@@ -160,15 +160,17 @@ in its secret `PACKAGING_APP_KEY`.
 ### winget
 
 No release submits to `microsoft/winget-pkgs`. For a release worth a submission, dispatch
-`winget.yml` on its tag:
+`winget.yml` on its tag, first without submitting and then with it:
 
 ```bash
 gh workflow run winget.yml --repo Aureliolo/steamgauge --ref vX.Y.Z
+gh workflow run winget.yml --repo Aureliolo/steamgauge --ref vX.Y.Z -f submit=true
 ```
 
-It writes the manifests from the published release, tests them with the pinned winget, checks the
-setup program against the release and opens the pull request with `tools/release/winget-submit.sh`.
-A second dispatch for the same version finds the open pull request and opens no second one.
+Each run writes the manifests from the published release and tests them with the pinned winget.
+Only the second checks the setup program against the release and opens the pull request with
+`tools/release/winget-submit.sh`. A further dispatch for the same version finds the open pull
+request and opens no second one.
 
 The first package's pull request is already open upstream, so nothing is submitted until it merges.
 
