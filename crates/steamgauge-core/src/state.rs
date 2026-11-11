@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS shard (
     max_created INTEGER,
     PRIMARY KEY (crawl_id, idx)
 );
+CREATE TABLE IF NOT EXISTS newest_edit (
+    crawl_id INTEGER PRIMARY KEY REFERENCES crawl(id),
+    unix     INTEGER NOT NULL
+);
 ";
 
 #[derive(Debug)]
@@ -265,6 +269,35 @@ impl CrawlState {
         Ok(remaining == 0)
     }
 
+    /// Keeps the newest edit Steam served as the crawl began.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the row cannot be written.
+    pub fn record_newest_edit(&self, crawl_id: i64, unix: i64) -> Result<()> {
+        self.lock().execute(
+            "INSERT OR REPLACE INTO newest_edit (crawl_id, unix) VALUES (?1, ?2)",
+            params![crawl_id, unix],
+        )?;
+        Ok(())
+    }
+
+    /// The newest edit Steam served as the crawl began, or none where none was kept.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the query cannot be run.
+    pub fn newest_edit(&self, crawl_id: i64) -> Result<Option<i64>> {
+        Ok(self
+            .lock()
+            .query_row(
+                "SELECT unix FROM newest_edit WHERE crawl_id = ?1",
+                params![crawl_id],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
     /// # Errors
     ///
     /// Fails if the rows cannot be updated.
@@ -285,6 +318,10 @@ impl CrawlState {
     pub fn forget(&self, app_id: u32) -> Result<()> {
         let mut conn = self.lock();
         let both = conn.transaction()?;
+        both.execute(
+            "DELETE FROM newest_edit WHERE crawl_id IN (SELECT id FROM crawl WHERE app_id = ?1)",
+            params![app_id],
+        )?;
         both.execute(
             "DELETE FROM shard WHERE crawl_id IN (SELECT id FROM crawl WHERE app_id = ?1)",
             params![app_id],
@@ -356,6 +393,47 @@ mod tests {
         assert!(state.resumable(7).unwrap().is_none());
         assert!(state.pending_shards(gone).unwrap().is_empty());
         assert_eq!(state.resumable(8).unwrap().unwrap().total_shards, 2);
+    }
+
+    #[test]
+    fn the_newest_edit_of_a_crawl_is_kept_and_goes_with_its_game() {
+        let (state, _d) = state();
+        let first = state.begin_crawl(1, 1000, "url", 30).unwrap();
+        let second = state.begin_crawl(2, 1000, "url", 30).unwrap();
+        state.record_newest_edit(first, 500).unwrap();
+        assert_eq!(state.newest_edit(first).unwrap(), Some(500));
+        assert_eq!(state.newest_edit(second).unwrap(), None);
+
+        state.forget(1).unwrap();
+        assert_eq!(state.newest_edit(first).unwrap(), None);
+    }
+
+    #[test]
+    fn a_state_an_earlier_release_made_gains_the_newest_edit_table_on_open() {
+        let dir = tempdir::Dir::new();
+        let path = dir.path().join("state.sqlite");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE crawl (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, app_id INTEGER NOT NULL,
+                    snapshot_unix INTEGER NOT NULL, params_url TEXT NOT NULL,
+                    valve_total INTEGER NOT NULL, finished_unix INTEGER);
+                 CREATE TABLE shard (
+                    crawl_id INTEGER NOT NULL REFERENCES crawl(id), idx INTEGER NOT NULL,
+                    start_date INTEGER NOT NULL, end_date INTEGER NOT NULL,
+                    expected INTEGER NOT NULL, status TEXT NOT NULL,
+                    row_count INTEGER NOT NULL DEFAULT 0, pages INTEGER NOT NULL DEFAULT 0,
+                    stop_reason TEXT, max_created INTEGER, PRIMARY KEY (crawl_id, idx));
+                 INSERT INTO crawl (app_id, snapshot_unix, params_url, valve_total)
+                    VALUES (7, 1000, 'url', 30);",
+            )
+            .unwrap();
+        let state = CrawlState::open(&path).unwrap();
+        assert_eq!(state.newest_edit(1).unwrap(), None);
+        state.record_newest_edit(1, 900).unwrap();
+        assert_eq!(state.newest_edit(1).unwrap(), Some(900));
+        state.forget(7).unwrap();
     }
 
     #[test]

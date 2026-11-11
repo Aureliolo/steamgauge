@@ -2705,9 +2705,6 @@ pub(crate) mod tests {
             .write(&[&steam_review("2", "The story is bugs.")])
             .unwrap();
         writer.close().unwrap();
-        let mut newest = crate::capture::Newest::default();
-        newest.record("2", 0, swept);
-        newest.save(&snapshot).unwrap();
         let mut crawl: serde_json::Value =
             serde_json::from_slice(&std::fs::read(snapshot.join("crawl.json")).unwrap()).unwrap();
         crawl["swept_unix"] = serde_json::json!(swept);

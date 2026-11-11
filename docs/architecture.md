@@ -32,13 +32,24 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - Reviews come from Steam's `IUserReviewsService/GetAppReviews`, with the census arguments in
   `input_json` and Valve's default filters overridden. No key.
 - A crawl is planned in date windows, and each window is walked again while it falls short of
-  Valve's count. A capture is Parquet shards written once and never changed.
+  Valve's count. Before it plans, a crawl asks Steam for its newest edit and keeps that stamp in
+  `state.sqlite`. It keeps the reviews written up to that edit and records `walk_from_unix` one
+  second past it, so the first sweep brings in what came after. A capture is Parquet shards
+  written once and never changed.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
-  `newest.json` says which copy of an edited review counts. A sweep holds a lock on `sweep.lock`
+  The newest copy of an edited review among the whole sweep files counts, and a sweep's record
+  counts the reviews only those files hold from them. A sweep counts a review as new where
+  no sweep file the record has reached holds it. A sweep holds a lock on `sweep.lock`
   in the capture while it runs. A second sweep of the game is refused meanwhile, whichever
-  program starts it.
+  program starts it. The file is named for the sweep's start, which is at least a second past the
+  last recorded sweep's and every sweep file's. A sweep records the next watermark as
+  `walk_from_unix`: the later of the one it walked from and the earlier of its start and the
+  newest edit on the first page Steam served it. It writes no copy a recorded sweep already holds.
+  A sweep asks Steam its totals before it walks, so a sweep refused them writes no file.
 - Every file is written beside its place and renamed when whole.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
+  A crawl and a name lookup read and write it under the sweep's lock, and are refused while
+  another job holds it.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in
   `announcements.json`. `updates::is_update` decides which are updates.
 - Whether the store lists a game as VR-only is kept in `game.json`, and the labeller and reader
