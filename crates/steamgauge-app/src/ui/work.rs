@@ -426,8 +426,9 @@ impl Work {
     /// once it is whole and resumes from those, and a check writes nothing until it ends.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
     /// letting go of its game only then, not before another job could start on the same files.
-    pub(super) fn stop(&self, app: &AppHandle, id: u64) {
-        {
+    /// A waiting job taken off lets go of its game at once, so every lane is rung.
+    pub(super) fn stop(&self, id: u64) {
+        let taken_off = {
             let mut board = self.lock();
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
@@ -445,9 +446,14 @@ impl Work {
                 job.state = State::Stopped;
                 job.ended = Some(now_unix());
                 job.note = Some("Taken off the list before it started.".to_owned());
+                true
+            } else {
+                false
             }
+        };
+        if taken_off {
+            self.ring();
         }
-        self.send(app, true);
     }
 
     /// Takes finished jobs off the board.
@@ -614,10 +620,14 @@ impl Work {
             let _ = app.emit("library", game);
         }
         // A finished job frees its game for the other lanes.
+        self.ring();
+        background
+    }
+
+    fn ring(&self) {
         for lane in LANES {
             self.bell(lane).notify_one();
         }
-        background
     }
 
     /// Where a finished report or a game's data was saved. Only what this app wrote can be opened
@@ -1575,7 +1585,8 @@ pub(super) fn queue(app: AppHandle, work: tauri::State<'_, Work>, tasks: Vec<Tas
     reason = "tauri hands a command its arguments by value"
 )]
 pub(super) fn stop_job(app: AppHandle, work: tauri::State<'_, Work>, id: u64) {
-    work.stop(&app, id);
+    work.stop(id);
+    work.send(&app, true);
 }
 
 #[tauri::command]
@@ -1874,6 +1885,42 @@ mod tests {
         assert!(droppable(&Task::Check));
         assert!(!droppable(&Task::Update { app_id: 1 }));
         assert!(!droppable(&read(1)));
+    }
+
+    /// Whether the lane's bell has been rung since it was last taken, which takes the ring.
+    async fn rung(work: &Work, lane: Lane) -> bool {
+        tokio::time::timeout(Duration::ZERO, work.bell(lane).notified())
+            .await
+            .is_ok()
+    }
+
+    #[tokio::test]
+    async fn taking_a_waiting_job_off_the_board_rings_every_lane() {
+        let work = Work::default();
+        put(&work, Task::Update { app_id: 9 }, false);
+        assert!(work.take(Lane::Network).is_some());
+        let download = put(&work, Task::Download { app_id: 7 }, false);
+        let held = put(&work, read(7), false);
+        assert!(work.take(Lane::Machine).is_none());
+        assert!(!rung(&work, Lane::Machine).await);
+        work.stop(download);
+        assert_eq!(job(&work, download).state, State::Stopped);
+        for lane in LANES {
+            assert!(rung(&work, lane).await, "{lane:?} was not rung");
+        }
+        assert_eq!(work.take(Lane::Machine).map(|(id, _, _)| id), Some(held));
+    }
+
+    #[test]
+    fn a_running_job_told_to_stop_keeps_its_game_until_it_ends() {
+        let work = Work::default();
+        let update = put(&work, Task::Update { app_id: 7 }, false);
+        let (_, _, flag) = work.take(Lane::Network).unwrap();
+        put(&work, read(7), false);
+        work.stop(update);
+        assert_eq!(job(&work, update).state, State::Running);
+        assert!(flag.load(Ordering::Relaxed));
+        assert!(work.take(Lane::Machine).is_none());
     }
 
     #[test]
