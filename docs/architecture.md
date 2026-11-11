@@ -141,7 +141,8 @@ in thirty.
   finish leaves no half file, and the files it finished are kept.
 - A job is named as the store names its game, never by its number.
 - The reader, the search encoder and the reranker are let go after two minutes unused. The card
-  holds the reader or the encoder, never both.
+  holds the reader or the encoder, never both. A fetch that downloads a search model lets go of
+  the encoder and the reranker, so the next use loads the new files.
 - The app's own jobs (updates, Steam checks) pause while a job the person started runs.
 - Updates run only while the app is open, minimised included, from a loop in the core. Steam is
   asked every hour, six hours, day or week, as Settings chooses.

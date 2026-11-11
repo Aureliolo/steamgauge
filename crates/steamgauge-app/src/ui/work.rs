@@ -1118,7 +1118,48 @@ fn told<'a>(
     )
 }
 
-/// Fetches one model where it is not on this computer yet. One already here is left as it is.
+/// Drops the kept encoder and reranker after a fetch replaced a search model's files. Off the
+/// async threads, since it waits for a search in flight.
+async fn let_go_of_search_models(app: &AppHandle) -> Result<(), String> {
+    let models = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        models.state::<super::Models>().let_go_of_search();
+    })
+    .await
+    .map_err(text)
+}
+
+/// What follows a search model's fetch. When bytes came the kept models are let go, whether the
+/// fetch ended well or not, and the fetch's own error is the one passed on.
+async fn after_a_search_fetch(
+    fetched: Result<(), String>,
+    bytes_came: bool,
+    let_go: impl Future<Output = Result<(), String>>,
+) -> Result<(), String> {
+    if !bytes_came {
+        return fetched;
+    }
+    let let_go = let_go.await;
+    fetched.and(let_go)
+}
+
+/// A flag a fetch's progress closure sets when it is told of bytes.
+#[derive(Clone, Default)]
+struct BytesCame(Arc<AtomicBool>);
+
+impl BytesCame {
+    fn set(&self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether bytes came since the last call.
+    fn take(&self) -> bool {
+        self.0.swap(false, Ordering::Relaxed)
+    }
+}
+
+/// Fetches one model where it is not on this computer yet. One already here is left as it is. A
+/// search model it had to download is loaded afresh at its next use.
 async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, String> {
     let model = Fetchable::named(name)?;
     let cache = steamgauge_core::model::default_cache_dir();
@@ -1128,10 +1169,16 @@ async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, Stri
         Fetchable::Reader(size) => fetch_reader(app, id, size).await?,
         Fetchable::Search(search) => {
             let total = float(search.bytes_left(&cache));
-            search
-                .ensure(&cache, bar(app, id, total, &what))
+            let came = BytesCame::default();
+            let (seen, mut telling) = (came.clone(), bar(app, id, total, &what));
+            let fetched = search
+                .ensure(&cache, move |progress| {
+                    seen.set();
+                    telling(progress);
+                })
                 .await
-                .map_err(text)?;
+                .map_err(text);
+            after_a_search_fetch(fetched, came.take(), let_go_of_search_models(app)).await?;
         }
         Fetchable::Writer => {
             let writer = steamgauge_core::writer::WRITER;
@@ -1438,11 +1485,14 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
             );
         }
         let mut across = Across::new();
+        let came = BytesCame::default();
         for model in [ENCODER, RERANKER] {
             let telling = app.clone();
             let across = &mut across;
-            model
+            let seen = came.clone();
+            let fetched = model
                 .ensure(&cache, move |progress| {
+                    seen.set();
                     let file = format!("{}/{}", model.name, progress.file);
                     let progress = named(&file, progress);
                     let (saying, done, of) = told(
@@ -1454,7 +1504,8 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
                     tell(&telling, id, saying, Unit::Bytes, done, of);
                 })
                 .await
-                .map_err(text)?;
+                .map_err(text);
+            after_a_search_fetch(fetched, came.take(), let_go_of_search_models(app)).await?;
         }
     }
     if writer_wanted(writing, WRITER.fetched(&cache)) {
@@ -1709,6 +1760,35 @@ pub(super) fn open_report(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_search_fetch_lets_go_once_when_bytes_came_and_never_when_none_did() {
+        let lets_go = |fetched: Result<(), String>, bytes_came| async move {
+            let calls = std::sync::atomic::AtomicU32::new(0);
+            let result = after_a_search_fetch(fetched, bytes_came, async {
+                calls.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            })
+            .await;
+            (result, calls.load(Ordering::Relaxed))
+        };
+
+        let (result, calls) = lets_go(Err("the second file failed".to_owned()), true).await;
+        assert_eq!(result.unwrap_err(), "the second file failed");
+        assert_eq!(calls, 1, "bytes then an error");
+
+        let (result, calls) = lets_go(Err("no route".to_owned()), false).await;
+        assert_eq!(result.unwrap_err(), "no route");
+        assert_eq!(calls, 0, "no bytes");
+
+        let (result, calls) = lets_go(Ok(()), false).await;
+        result.unwrap();
+        assert_eq!(calls, 0, "no bytes and no error");
+
+        let (result, calls) = lets_go(Ok(()), true).await;
+        result.unwrap();
+        assert_eq!(calls, 1, "bytes then success");
+    }
 
     #[test]
     fn a_model_is_fetched_by_the_name_storage_lists_it_under_and_no_other() {
