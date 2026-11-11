@@ -27,8 +27,8 @@ fn bring(app: &AppHandle) -> PathBuf {
     }
     let library = place_library(app);
     // A reading that could not be brought keeps its old format, and every pass that reads it
-    // then says it was written by another build and to read the game again, which is the
-    // one thing that fixes it.
+    // says so. The next open brings it again, and reading the game again mends what that
+    // cannot.
     let _ = steamgauge_core::current_format::bring_library(&library);
     library
 }

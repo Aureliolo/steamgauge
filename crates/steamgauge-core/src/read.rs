@@ -3488,10 +3488,14 @@ pub(crate) mod tests {
             .expect_err("readings with no span were streamed as though they had one");
         let why = refused.to_string();
         assert!(
-            why.contains("another build")
-                && why.contains("`start`")
-                && why.contains("steamgauge read"),
-            "the refusal does not say what the file is or what to do: {why}"
+            why.contains("another build") && why.contains("`start`"),
+            "the refusal does not say what the file is: {why}"
+        );
+        let bring = why.find("running any `steamgauge` command on it");
+        let read = why.find("read the game again");
+        assert!(
+            matches!((bring, read), (Some(bring), Some(read)) if bring < read),
+            "the refusal does not name the bring before a read: {why}"
         );
         assert!(
             why.contains(&path.display().to_string()),
