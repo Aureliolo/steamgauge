@@ -546,9 +546,11 @@ pub struct SweepReport {
     pub dir: PathBuf,
     /// When the sweep started: this computer's clock, or one second past the last recorded sweep
     /// and the newest sweep file where the clock has not passed them. It names the file the sweep
-    /// wrote and is the next sweep's watermark.
+    /// wrote.
     pub started: i64,
-    /// Everything written or edited since this moment was fetched.
+    /// The moment this sweep walked back towards: the record's `walk_from_unix`, or the last
+    /// sweep's start where the record holds none as a whole number, or the crawl's start where it
+    /// was never swept.
     pub watermark: i64,
     pub pages: u32,
     /// Rows written: reviews new since the watermark plus reviews edited since it.
@@ -610,8 +612,9 @@ pub async fn sweep(
     let _lock = sweep_lock(&dir, app_id)?;
     let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
     let watermark = facts
-        .get("swept_unix")
+        .get("walk_from_unix")
         .and_then(Value::as_i64)
+        .or_else(|| facts.get("swept_unix").and_then(Value::as_i64))
         .or_else(|| facts.get("snapshot_unix").and_then(Value::as_i64))
         .ok_or(crate::Error::MalformedPayload {
             field: "snapshot_unix",
@@ -666,6 +669,13 @@ pub async fn sweep(
         .saturating_add(walked.rows);
     if let Some(object) = facts.as_object_mut() {
         object.insert("swept_unix".to_owned(), json!(started));
+        // The later of this sweep's watermark and the earlier of its start and the newest edit on
+        // the first page. The walk asked only up to its start, and a value behind the watermark
+        // would bring a shard's review in again as an edit.
+        object.insert(
+            "walk_from_unix".to_owned(),
+            json!(watermark.max(started.min(walked.top))),
+        );
         object.insert("sweeps".to_owned(), json!(sweeps));
         object.insert("rows_swept".to_owned(), json!(swept_rows));
         object.insert("rows_unique".to_owned(), json!(unique));
@@ -794,17 +804,20 @@ struct Walked {
     new: u64,
     edited: u64,
     stop: StopReason,
+    /// The newest edit on the first page, or `i64::MIN` where that page held no review with an id.
+    top: i64,
 }
 
-/// Walks the corpus newest edit first, writing every review touched since `watermark` to
-/// `path` and noting each in `newest` and counting each new or edited against `recorded`, the
-/// copies the recorded sweeps hold, until it is safely past the watermark or `halt` is set.
+/// Walks the corpus newest edit first, writing every review touched since `watermark` that no
+/// recorded sweep holds already to `path` and noting each in `newest` and counting each new or
+/// edited against `recorded`, the copies the recorded sweeps hold, until it is safely past the
+/// watermark or `halt` is set.
 ///
 /// The walk asks for the reviews written up to `started`, which is every review there is when
 /// it starts. Steam keeps each answer it gives a caller without a key for ten minutes and
 /// gives it to anyone who asks the same thing, so a sweep asking what any other caller asked
-/// could be served pages from before the latest edits, and the next sweep, starting from
-/// this one, would never look for them again. Bounded by its own start, every sweep asks
+/// could be served pages from before the latest edits, and would miss them until the next
+/// sweep. Bounded by its own start, every sweep asks
 /// something nobody has asked before.
 async fn walk_since(
     client: &SteamClient,
@@ -822,6 +835,7 @@ async fn walk_since(
     let mut cursor = "*".to_owned();
     let mut pages: u32 = 0;
     let (mut new, mut edited) = (0_u64, 0_u64);
+    let mut top = i64::MIN;
 
     let stop = loop {
         if halt.load(std::sync::atomic::Ordering::Relaxed) {
@@ -846,7 +860,19 @@ async fn walk_since(
             let stamp = |field: &str| review.get(field).and_then(Value::as_i64).unwrap_or(0);
             let updated = stamp("timestamp_updated");
             newest_on_page = newest_on_page.max(updated);
-            if updated < watermark || !seen.insert(id.to_owned()) {
+            if updated < watermark {
+                continue;
+            }
+            // A copy a recorded sweep holds at this edit or a later one is already counted, and
+            // still shows how far back this page reaches.
+            if recorded
+                .copies
+                .get(id)
+                .is_some_and(|&(held, _)| held >= updated)
+            {
+                continue;
+            }
+            if !seen.insert(id.to_owned()) {
                 continue;
             }
             // Created since the watermark and in no recorded sweep file is a review the record
@@ -858,6 +884,9 @@ async fn walk_since(
             }
             newest.record(id, updated, started);
             fresh.push(review);
+        }
+        if pages == 1 {
+            top = newest_on_page;
         }
         writer.write(&fresh)?;
         on_progress(SweepProgress {
@@ -883,6 +912,7 @@ async fn walk_since(
         new,
         edited,
         stop,
+        top,
     })
 }
 
@@ -1457,6 +1487,192 @@ mod tests {
         );
         assert!(!dir.join(crate::capture::Newest::FILE).exists());
         assert_eq!(facts(&dir)["sweeps"], 3);
+        assert_eq!(facts(&dir)["walk_from_unix"], WATERMARK);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_walks_from_the_recorded_walk_start_where_the_last_sweep_started_later() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({
+                "snapshot_unix": WATERMARK - DAY,
+                "swept_unix": WATERMARK + 3600,
+                "walk_from_unix": WATERMARK,
+                "rows_unique": 2,
+            }),
+        );
+        let page = vec![vec![review("r1", 500, WATERMARK + 60)]];
+        let report = swept_once(out.path(), page, 2).await;
+        assert_eq!(report.watermark, WATERMARK);
+        assert_eq!((report.rows, report.edited), (1, 1));
+        assert_eq!(facts(&dir)["walk_from_unix"], WATERMARK + 60);
+    }
+
+    #[tokio::test]
+    async fn the_review_at_the_watermark_is_not_fetched_twice_and_one_stamped_beside_it_is() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let first = vec![vec![review("r3", w + 50, w + 50)]];
+        swept_once(out.path(), first, 3).await;
+        assert_eq!(facts(&dir)["walk_from_unix"], w + 50);
+
+        let second = vec![vec![
+            review("r4", w + 50, w + 50),
+            review("r3", w + 50, w + 50),
+        ]];
+        let report = swept_once(out.path(), second, 4).await;
+        assert_eq!((report.rows, report.new, report.edited), (1, 1, 0));
+        assert_eq!(facts(&dir)["rows_unique"], 4);
+        assert_eq!(
+            ids_in(&dir),
+            ["r1", "r2", "r3", "r4"]
+                .map(str::to_owned)
+                .into_iter()
+                .collect()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_later_page_does_not_move_the_walk_start_past_the_first() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let pages = vec![
+            vec![review("r3", w + 50, w + 50)],
+            vec![review("r4", w + 70, w + 70)],
+        ];
+        swept_once(out.path(), pages, 4).await;
+        assert_eq!(facts(&dir)["walk_from_unix"], w + 50);
+
+        let page = vec![vec![
+            review("r5", w + 60, w + 60),
+            review("r4", w + 70, w + 70),
+            review("r3", w + 50, w + 50),
+        ]];
+        let report = swept_once(out.path(), page, 5).await;
+        assert_eq!((report.rows, report.new), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn an_edit_stamped_after_the_sweeps_start_leaves_the_walk_start_at_that_start() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let far = now_unix() + 3600;
+        let first = swept_once(out.path(), vec![vec![review("r1", 500, far)]], 2).await;
+        assert_eq!(facts(&dir)["walk_from_unix"], first.started);
+
+        let page = vec![vec![
+            review("r1", 500, far),
+            review("r3", first.started + 1, first.started + 1),
+        ]];
+        let second = swept_once(out.path(), page, 3).await;
+        assert_eq!((second.rows, second.new), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn a_walk_start_that_is_no_whole_number_falls_back_to_the_last_sweep() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": 1, "swept_unix": WATERMARK, "walk_from_unix": "soon"}),
+        );
+        let page = vec![vec![review("r3", WATERMARK + 5, WATERMARK + 5)]];
+        let report = swept_once(out.path(), page, 3).await;
+        assert_eq!(report.watermark, WATERMARK);
+        assert_eq!(report.rows, 1);
+        assert_eq!(facts(&dir)["walk_from_unix"], WATERMARK + 5);
+    }
+
+    #[tokio::test]
+    async fn a_page_of_copies_the_capture_holds_does_not_end_the_walk() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let held = vec![review("r3", w + 50, w + 50), review("r4", w + 50, w + 50)];
+        swept_once(out.path(), vec![held.clone()], 4).await;
+
+        let pages = vec![held, vec![review("r5", w + 52, w + 52)]];
+        let report = swept_once(out.path(), pages, 5).await;
+        assert_eq!(report.pages, 3);
+        assert_eq!((report.rows, report.new), (1, 1));
+        assert_eq!(
+            ids_in(&dir),
+            ["r1", "r2", "r3", "r4", "r5"]
+                .map(str::to_owned)
+                .into_iter()
+                .collect()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_sweep_refused_its_totals_leaves_the_walk_start_as_it_was() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let pages = vec![vec![
+            review("r5", w + 60, w + 60),
+            review("r3", w + 50, w + 50),
+        ]];
+        let inner = edits(pages.clone(), 4);
+        let server = stand_in::Server::new(move |asked| {
+            if counting(asked) {
+                no_summary()
+            } else {
+                inner(asked)
+            }
+        });
+        let refused = sweeping(&server, APP, out.path()).await;
+        assert!(matches!(refused, Err(crate::Error::NoSuchCorpus { .. })));
+        assert!(facts(&dir).get("walk_from_unix").is_none());
+
+        let report = swept_once(out.path(), pages, 4).await;
+        assert_eq!((report.rows, report.new), (2, 2));
+        assert_eq!(facts(&dir)["rows_unique"], 4);
+    }
+
+    #[tokio::test]
+    async fn a_retry_writes_again_the_copy_only_a_failed_sweep_holds_and_the_next_sweep_does_not() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let page = vec![vec![
+            review("r3", w + 50, w + 50),
+            review("r1", 500, w + 40),
+        ]];
+        let blocker = dir.join("crawl.json.partial");
+        std::fs::create_dir(&blocker).unwrap();
+        let server = stand_in::Server::new(edits(page.clone(), 3));
+        sweeping(&server, APP, out.path()).await.unwrap_err();
+        std::fs::remove_dir(&blocker).unwrap();
+
+        let first = swept_once(out.path(), page.clone(), 3).await;
+        assert_eq!((first.rows, first.new, first.edited), (2, 1, 1));
+        assert_eq!(facts(&dir)["rows_unique"], 3);
+        assert_eq!(facts(&dir)["rows_swept"], 2);
+
+        let second = swept_once(out.path(), page, 3).await;
+        assert_eq!((second.rows, second.new, second.edited), (0, 0, 0));
+        assert_eq!(facts(&dir)["rows_swept"], 2);
     }
 
     async fn swept_once(out: &std::path::Path, page: Vec<Vec<Value>>, total: usize) -> SweepReport {

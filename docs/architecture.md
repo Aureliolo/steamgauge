@@ -38,7 +38,9 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   no sweep file the record has reached holds it. A sweep holds a lock on `sweep.lock`
   in the capture while it runs. A second sweep of the game is refused meanwhile, whichever
   program starts it. The file is named for the sweep's start, which is at least a second past the
-  last recorded sweep's and every sweep file's.
+  last recorded sweep's and every sweep file's. A sweep records the next watermark as
+  `walk_from_unix`: the later of the one it walked from and the earlier of its start and the
+  newest edit on the first page Steam served it. It writes no copy a recorded sweep already holds.
 - Every file is written beside its place and renamed when whole.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in
