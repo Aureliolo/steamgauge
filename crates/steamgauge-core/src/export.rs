@@ -100,7 +100,6 @@ pub fn game(
         return Err(Error::Refused(format!("{} names no folder", to.display())));
     };
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let reading = snapshot.join("reading.json");
     let report = ReadReport::load(&snapshot)?;
     let facts = crate::report::crawl_facts(out_dir, app_id)?;
     let measurement = crate::report::agreement_for(
@@ -113,7 +112,6 @@ pub fn game(
         title: facts.title(),
         report: &report,
         measurement: &measurement,
-        read_unix: modified(&reading),
         exported_unix: unix_now(),
         swept_since: facts
             .swept_unix
@@ -164,15 +162,6 @@ pub fn game(
     }
 }
 
-fn modified(path: &Path) -> i64 {
-    std::fs::metadata(path)
-        .and_then(|found| found.modified())
-        .ok()
-        .and_then(|when| when.duration_since(std::time::UNIX_EPOCH).ok())
-        .and_then(|since| i64::try_from(since.as_secs()).ok())
-        .unwrap_or(0)
-}
-
 fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -187,7 +176,6 @@ struct Game<'a> {
     title: String,
     report: &'a ReadReport,
     measurement: &'a Measurement,
-    read_unix: i64,
     exported_unix: i64,
     /// When the capture was brought up to date after the reading was counted, where it was.
     swept_since: Option<i64>,
@@ -1118,7 +1106,7 @@ fn what_was_read(game: &Game<'_>, written: Written) -> String {
         out,
         "Read by {} on {}, run {}",
         report.reader,
-        day_or_unknown(game.read_unix),
+        day_or_unknown(report.read_unix),
         report.read_with
     );
     if report.depth == crate::read::Depth::Shallow {
@@ -1426,23 +1414,28 @@ mod tests {
     }
 
     #[test]
-    fn a_file_and_the_export_are_dated_by_the_clock() {
-        let since = |when: std::time::SystemTime| {
-            i64::try_from(
-                when.duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            )
-            .unwrap()
-        };
-        let out = crate::tempdir::Dir::new();
-        let file = out.path().join("reading.json");
-        std::fs::write(&file, "{}").unwrap();
-        let written = since(std::fs::metadata(&file).unwrap().modified().unwrap());
-        assert_eq!(modified(&file), written);
-        assert_eq!(modified(&out.path().join("missing.json")), 0);
-        let clock = since(std::time::SystemTime::now());
+    fn the_export_is_dated_by_the_clock() {
+        let clock = i64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
+        .unwrap();
         assert!((unix_now() - clock).abs() <= 5, "now is now");
+    }
+
+    #[test]
+    fn the_day_read_is_the_readings_own() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_corpus_of(out.path(), 1);
+        let mut report = ReadReport::load(&snapshot).unwrap();
+        report.read_unix = MARCH;
+        report.save(&snapshot.join("reading.json")).unwrap();
+        let (_exported, _told) = export(out.path(), 1);
+        let readme =
+            std::fs::read_to_string(out.path().join("Test Game data").join("README.txt")).unwrap();
+        assert!(readme.contains("Read by Table Reader on 2024-03-01, run run-1."));
     }
 
     #[test]
@@ -1518,7 +1511,6 @@ mod tests {
     struct Fixture {
         out: crate::tempdir::Dir,
         report: ReadReport,
-        snapshot: PathBuf,
         folder: PathBuf,
         exported: Exported,
         told: Vec<(u64, u64)>,
@@ -1534,7 +1526,6 @@ mod tests {
             folder: out.path().join("Test Game data"),
             out,
             report,
-            snapshot,
             exported,
             told,
         }
@@ -1834,7 +1825,6 @@ mod tests {
         let Fixture {
             out: _out,
             report,
-            snapshot,
             folder,
             ..
         } = seven();
@@ -1856,7 +1846,7 @@ mod tests {
         assert!(readme.contains("Steam has not been asked for this game's posts"));
         assert!(readme.contains("What is measured is 3 games it had never seen"));
         assert!(readme.contains("7 reviews in every language, taken apart into"));
-        let read_on = crate::time::iso_day(modified(&snapshot.join("reading.json"))).unwrap();
+        let read_on = crate::time::iso_day(report.read_unix).unwrap();
         assert!(readme.contains(&format!("Read by Table Reader on {read_on}, run run-1.")));
         assert!(readme.contains(&format!(
             "The reviews were downloaded up to {}.",
@@ -2240,7 +2230,6 @@ mod tests {
                 title: "Nine".to_owned(),
                 report,
                 measurement: &Measurement::Unlabelled,
-                read_unix: MARCH,
                 exported_unix: MARCH + 86_400,
                 swept_since,
                 updates: Some(Vec::new()),
@@ -2253,8 +2242,9 @@ mod tests {
     fn the_readme_says_what_the_reading_was_and_what_to_watch_for() {
         let out = crate::tempdir::Dir::new();
         let snapshot = read_corpus_of(out.path(), 1);
-        let report: ReadReport =
+        let mut report: ReadReport =
             serde_json::from_slice(&std::fs::read(snapshot.join("reading.json")).unwrap()).unwrap();
+        report.read_unix = MARCH;
         let plain = readme_of(&report, Written::default(), None);
         assert!(plain.contains("Exported by SteamGauge"));
         assert!(plain.contains("on 2024-03-02. Every figure"));
