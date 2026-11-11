@@ -10,7 +10,12 @@
 //! changed is held in both versions. Which version counts is decided once, in [`Newest`], and
 //! every pass that reads the capture goes through it.
 
-use std::{collections::HashMap, fs::File, path::Path, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    path::Path,
+    sync::Arc,
+};
 
 use arrow::{
     array::{
@@ -78,6 +83,25 @@ impl Newest {
                 self.copies.insert(id.to_owned(), (updated, sweep));
             }
         }
+    }
+
+    /// The newest copy of every review among the sweep files in `files`, the crawl's shards
+    /// skipped.
+    fn among(files: &[(std::path::PathBuf, i64)]) -> Result<Self> {
+        let mut newest = Self::default();
+        for (shard, file) in files.iter().filter(|(_, file)| *file > 0) {
+            each_batch_of(shard, *file, &Self::default(), &[], |batch, kept| {
+                for row in 0..batch.num_rows() {
+                    let updated = kept
+                        .updated
+                        .filter(|column| !column.is_null(row))
+                        .map_or(0, |column| column.value(row));
+                    newest.record(kept.ids.value(row), updated, *file);
+                }
+                Ok(())
+            })?;
+        }
+        Ok(newest)
     }
 
     /// Whether a row is the copy of its review that counts. `file` is the sweep that wrote
@@ -520,19 +544,7 @@ pub fn for_each_text_as_of(
         .into_iter()
         .filter(|(_, file)| *file <= as_of)
         .collect();
-    let mut newest = Newest::default();
-    for (shard, file) in shards.iter().filter(|(_, file)| *file > 0) {
-        each_batch_of(shard, *file, &Newest::default(), &[], |batch, kept| {
-            for row in 0..batch.num_rows() {
-                let updated = kept
-                    .updated
-                    .filter(|column| !column.is_null(row))
-                    .map_or(0, |column| column.value(row));
-                newest.record(kept.ids.value(row), updated, *file);
-            }
-            Ok(())
-        })?;
-    }
+    let newest = Newest::among(&shards)?;
     for (shard, file) in &shards {
         each_batch_of(shard, *file, &newest, &["review"], |batch, kept| {
             let texts = batch
@@ -548,6 +560,36 @@ pub fn for_each_text_as_of(
         })?;
     }
     Ok(())
+}
+
+/// How many reviews the sweeps started by `as_of` hold that no crawl shard does.
+///
+/// A crawl adds these to its windows' count, since the windows never fetched them. An edited
+/// review is in a shard already, so only a review that arrived after the crawl counts.
+///
+/// # Errors
+///
+/// Fails if a shard or a sweep file cannot be read.
+pub(crate) fn only_swept(snapshot: &Path, as_of: i64) -> Result<u64> {
+    let files = shards_of(snapshot)?;
+    let swept: Vec<_> = files
+        .iter()
+        .filter(|(_, file)| (1..=as_of).contains(file))
+        .cloned()
+        .collect();
+    let mut only: HashSet<String> = Newest::among(&swept)?.copies.into_keys().collect();
+    for (shard, file) in files.iter().filter(|(_, file)| *file == 0) {
+        if only.is_empty() {
+            break;
+        }
+        each_batch_of(shard, *file, &Newest::default(), &[], |_, kept| {
+            for row in 0..kept.ids.len() {
+                only.remove(kept.ids.value(row));
+            }
+            Ok(())
+        })?;
+    }
+    Ok(u64::try_from(only.len()).unwrap_or(u64::MAX))
 }
 
 /// [`for_each_row`], with the Steam id of each review's writer beside it, which is what a link
@@ -1247,6 +1289,36 @@ mod tests {
                 ("3".to_owned(), "three".to_owned()),
             ]
         );
+    }
+
+    #[test]
+    fn the_reviews_only_a_sweep_holds_are_told_from_its_edits() {
+        let scratch = crate::tempdir::Dir::new();
+        let dir = scratch.path();
+        write(
+            &dir.join("shard-0000.parquet"),
+            &[review("1", "one", 10, 10)],
+        );
+        write(
+            &dir.join("shard-0001.parquet"),
+            &[review("2", "two", 11, 11)],
+        );
+        write(
+            &dir.join(sweep_file(500)),
+            &[
+                review("1", "edited", 10, 450),
+                review("3", "three", 420, 420),
+            ],
+        );
+        write(
+            &dir.join(sweep_file(600)),
+            &[
+                review("3", "three", 420, 420),
+                review("4", "four", 550, 550),
+            ],
+        );
+        let only = |as_of| only_swept(dir, as_of).unwrap();
+        assert_eq!([only(0), only(500), only(600)], [0, 1, 2]);
     }
 
     #[test]
