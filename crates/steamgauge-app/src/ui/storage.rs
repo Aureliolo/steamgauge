@@ -17,7 +17,7 @@ use tauri::{AppHandle, Manager as _};
 
 use super::{
     library_dir, shelf, text,
-    work::{State, Task, Work},
+    work::{Job, State, Task, Work},
 };
 
 /// The room a game's files take, by what removing each costs.
@@ -377,7 +377,7 @@ pub(super) enum Removal {
     Game,
 }
 
-const fn active(job: &super::work::Job) -> bool {
+const fn active(job: &Job) -> bool {
     matches!(job.state, State::Queued | State::Running)
 }
 
@@ -394,6 +394,26 @@ fn busy_game(work: &Work, app_id: u32) -> Option<String> {
                 Some(format!("This game is busy: {}.", job.step.to_lowercase()))
             }
             _ => None,
+        })
+}
+
+/// Why a model may not be removed now, if it may not.
+fn model_busy(jobs: &[Job], key: &str) -> Option<String> {
+    let mut active_jobs = jobs.iter().filter(|job| active(job));
+    if active_jobs
+        .clone()
+        .any(|job| matches!(job.task, Task::Read { .. } | Task::Prepare { .. }))
+    {
+        return Some(
+            "A read or a preparation is running or waiting. Models are removed once it is done."
+                .to_owned(),
+        );
+    }
+    active_jobs
+        .any(|job| matches!(&job.task, Task::FetchModel { model } if model == key))
+        .then(|| {
+            "A fetch of this model is waiting or running. Models are removed once it is done."
+                .to_owned()
         })
 }
 
@@ -499,16 +519,8 @@ pub(super) async fn remove_model(
     work: tauri::State<'_, Work>,
     key: String,
 ) -> Result<Storage, String> {
-    let reading = work
-        .jobs()
-        .into_iter()
-        .filter(active)
-        .any(|job| matches!(job.task, Task::Read { .. } | Task::Prepare { .. }));
-    if reading {
-        return Err(
-            "A read or a preparation is running or waiting; models are removed once it is done."
-                .to_owned(),
-        );
+    if let Some(why) = model_busy(&work.jobs(), &key) {
+        return Err(why);
     }
     let cache = steamgauge_core::model::default_cache_dir();
     let reader_in_use = super::work::reader_here(&super::settings::Settings::load(&app)).name;
@@ -548,7 +560,8 @@ pub(super) async fn remove_model(
 
 #[cfg(test)]
 mod tests {
-    use super::{Part, Parts, Removal, game_parts, part_of, remove_from_game};
+    use super::{Part, Parts, Removal, game_parts, model_busy, part_of, remove_from_game};
+    use crate::ui::work::{Job, State, Task, Unit};
     use std::path::{Path, PathBuf};
 
     struct Scratch(PathBuf);
@@ -651,5 +664,87 @@ mod tests {
         game(&scratch.0);
         remove_from_game(&scratch.0, 7, Removal::Game).unwrap();
         assert!(!scratch.0.join("appid=7").exists());
+    }
+
+    fn job(task: Task, state: State) -> Job {
+        Job {
+            id: 0,
+            task,
+            name: String::new(),
+            state,
+            step: String::new(),
+            unit: Unit::Reviews,
+            done: 0.0,
+            total: None,
+            rate: None,
+            left: None,
+            note: None,
+            queued: 0,
+            started: None,
+            ended: None,
+            background: false,
+        }
+    }
+
+    #[test]
+    fn a_model_is_not_removed_while_a_fetch_of_it_waits_or_runs() {
+        let fetch = |model: &str| Task::FetchModel {
+            model: model.to_owned(),
+        };
+        let read = || Task::Read {
+            app_id: 7,
+            language: None,
+        };
+        let fetch_sentence =
+            "A fetch of this model is waiting or running. Models are removed once it is done.";
+        let read_sentence =
+            "A read or a preparation is running or waiting. Models are removed once it is done.";
+        for (state, busy) in [
+            (State::Queued, true),
+            (State::Running, true),
+            (State::Done, false),
+            (State::Failed, false),
+            (State::Stopped, false),
+        ] {
+            let jobs = [job(fetch("writer"), state)];
+            assert_eq!(
+                model_busy(&jobs, "writer").as_deref(),
+                busy.then_some(fetch_sentence),
+                "{state:?}"
+            );
+            assert_eq!(model_busy(&jobs, "small"), None, "{state:?} other model");
+        }
+
+        for task in [read(), Task::Prepare { app_id: 7 }] {
+            let state = if matches!(task, Task::Read { .. }) {
+                State::Queued
+            } else {
+                State::Running
+            };
+            assert_eq!(
+                model_busy(&[job(task, state)], "writer").as_deref(),
+                Some(read_sentence)
+            );
+        }
+        for state in [State::Done, State::Failed, State::Stopped] {
+            assert_eq!(
+                model_busy(&[job(read(), state)], "writer"),
+                None,
+                "{state:?}"
+            );
+        }
+        let download = job(Task::Download { app_id: 7 }, State::Queued);
+        assert_eq!(model_busy(&[download], "writer"), None);
+
+        let reading = job(read(), State::Queued);
+        let fetching = job(fetch("writer"), State::Queued);
+        assert_eq!(
+            model_busy(&[reading.clone(), fetching.clone()], "writer").as_deref(),
+            Some(read_sentence)
+        );
+        assert_eq!(
+            model_busy(&[fetching, reading], "writer").as_deref(),
+            Some(read_sentence)
+        );
     }
 }
