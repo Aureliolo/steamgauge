@@ -32,7 +32,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - Reviews come from Steam's `IUserReviewsService/GetAppReviews`, with the census arguments in
   `input_json` and Valve's default filters overridden. No key.
 - A crawl is planned in date windows, and each window is walked again while it falls short of
-  Valve's count. A capture is Parquet shards written once and never changed.
+  Valve's count. Before it plans, a crawl asks Steam for its newest edit and keeps that stamp in
+  `state.sqlite`. A capture is Parquet shards written once and never changed.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
   `newest.json` says which copy of an edited review counts. A sweep counts a review as new where
   no sweep file the record has reached holds it. A sweep holds a lock on `sweep.lock`

@@ -225,7 +225,8 @@ fn recorded_fields(dir: &std::path::Path) -> Result<serde_json::Map<String, Valu
 /// Continues an unfinished crawl where one exists, otherwise plans a new one.
 ///
 /// Resuming reuses the original snapshot timestamp so every shard of one corpus lands in
-/// the same directory, however many runs it took to finish.
+/// the same directory, however many runs it took to finish. A new crawl first asks Steam for
+/// its newest edit and keeps it, and a resumed one finds it in the state.
 async fn prepare(
     client: &SteamClient,
     app_id: u32,
@@ -239,11 +240,23 @@ async fn prepare(
         return Ok((found.id, found.snapshot_unix, true));
     }
     let snapshot = now_unix();
+    let first = client
+        .fetch(
+            &ReviewQuery::new(app_id)
+                .order(SortOrder::Updated)
+                .window(CORPUS_EPOCH, snapshot),
+            app_id,
+        )
+        .await?;
+    let edit = newest_on(&first.reviews);
+    // The newest edit Steam serves now is a stamp from the clock that stamps every review. The
+    // windows run to the later of it and this computer's clock, so they hold everything written
+    // before it and no other crawl has asked them.
     let shards = shard::plan(
         client,
         app_id,
         CORPUS_EPOCH,
-        now_unix(),
+        snapshot.max(edit),
         options.shard_target,
     )
     .await?;
@@ -253,6 +266,9 @@ async fn prepare(
         &ReviewQuery::new(app_id).to_url(),
         valve_total,
     )?;
+    if edit >= CORPUS_EPOCH {
+        state.record_newest_edit(crawl_id, edit)?;
+    }
     state.record_shards(crawl_id, &shards)?;
     Ok((crawl_id, snapshot, false))
 }
@@ -797,6 +813,22 @@ pub async fn name_where_missing(
     Ok(Some(name))
 }
 
+/// The newest `timestamp_updated` among the reviews with an id, 0 for one without the stamp and
+/// `i64::MIN` where no review has an id.
+fn newest_on(reviews: &[Value]) -> i64 {
+    reviews
+        .iter()
+        .filter(|review| review.get("recommendationid").is_some_and(Value::is_string))
+        .map(|review| {
+            review
+                .get("timestamp_updated")
+                .and_then(Value::as_i64)
+                .unwrap_or(0)
+        })
+        .max()
+        .unwrap_or(i64::MIN)
+}
+
 /// What one walk in last-edit order brought in.
 struct Walked {
     pages: u32,
@@ -851,7 +883,7 @@ async fn walk_since(
             break StopReason::Exhausted;
         }
 
-        let mut newest_on_page = i64::MIN;
+        let newest_on_page = newest_on(&page.reviews);
         let mut fresh: Vec<&Value> = Vec::new();
         for review in &page.reviews {
             let Some(id) = review.get("recommendationid").and_then(Value::as_str) else {
@@ -859,7 +891,6 @@ async fn walk_since(
             };
             let stamp = |field: &str| review.get(field).and_then(Value::as_i64).unwrap_or(0);
             let updated = stamp("timestamp_updated");
-            newest_on_page = newest_on_page.max(updated);
             if updated < watermark {
                 continue;
             }
@@ -1081,7 +1112,8 @@ mod tests {
 
     /// Valve as far as a crawl can tell: `reviews` newest first, a page at a time, counted and
     /// served by window, with the name of the game beside them. The first `stalls` walks of the
-    /// window starting at `stalled` end after their first page, as Steam's do now and then.
+    /// window starting at `stalled` end after their first page, as Steam's do now and then. It
+    /// also serves the first page in last-edit order, which a crawl asks before it plans.
     fn valve(
         reviews: Vec<Value>,
         stalled: Option<i64>,
@@ -1104,7 +1136,13 @@ mod tests {
                 })
                 .cloned()
                 .collect();
-            served.sort_by_key(|review| std::cmp::Reverse(review["timestamp_created"].as_i64()));
+            let by_edit = input["filter"] == 2;
+            let order = if by_edit {
+                "timestamp_updated"
+            } else {
+                "timestamp_created"
+            };
+            served.sort_by_key(|review| std::cmp::Reverse(review[order].as_i64()));
             if counting(asked) {
                 let distinct: HashSet<&str> = served
                     .iter()
@@ -1113,7 +1151,7 @@ mod tests {
                 return summary_of(distinct.len());
             }
             let from = offset(asked);
-            if stalled == Some(start) {
+            if stalled == Some(start) && !by_edit {
                 let mut walks = walks.lock().unwrap();
                 if from == 0 {
                     *walks += 1;
@@ -1233,6 +1271,198 @@ mod tests {
         assert_eq!(report.unique, 70);
     }
 
+    type Held = Arc<std::sync::Mutex<Vec<Value>>>;
+
+    fn held(reviews: Vec<Value>) -> Held {
+        Arc::new(std::sync::Mutex::new(reviews))
+    }
+
+    /// Valve over a corpus the test can change: counted and served by creation window, in
+    /// last-edit order where asked (`filter` 2), else newest written first.
+    fn changing_steam(
+        corpus: &Held,
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        let corpus = Arc::clone(corpus);
+        move |asked| {
+            if asked.path() == "/api/appdetails" {
+                return name_of_the_game("A Game");
+            }
+            let input = asked.input();
+            let (start, end) = (
+                input["date_range_start"].as_i64().unwrap_or(i64::MIN),
+                input["date_range_end"].as_i64().unwrap_or(i64::MAX),
+            );
+            let order = if input["filter"] == 2 {
+                "timestamp_updated"
+            } else {
+                "timestamp_created"
+            };
+            let mut served: Vec<Value> = corpus
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|review| {
+                    (start..=end).contains(&review["timestamp_created"].as_i64().unwrap())
+                })
+                .cloned()
+                .collect();
+            served.sort_by_key(|review| std::cmp::Reverse(review[order].as_i64()));
+            if counting(asked) {
+                return summary_of(served.len());
+            }
+            page_of(&served, offset(asked))
+        }
+    }
+
+    /// The newest `date_range_end` among the queries that are not in last-edit order.
+    fn newest_window_end(server: &stand_in::Server) -> Option<i64> {
+        server
+            .asked()
+            .iter()
+            .filter(|asked| asked.path() != "/api/appdetails")
+            .map(stand_in::Asked::input)
+            .filter(|input| input["filter"] != 2)
+            .filter_map(|input| input["date_range_end"].as_i64())
+            .max()
+    }
+
+    fn newest_edit_kept(out: &std::path::Path) -> Option<i64> {
+        CrawlState::open(&out.join("state.sqlite"))
+            .unwrap()
+            .newest_edit(1)
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_crawl_keeps_steams_newest_edit_and_ends_its_windows_at_its_own_clock() {
+        let out = crate::tempdir::Dir::new();
+        let stamped = now_unix() - 3600;
+        let corpus = held(vec![
+            review("r1", stamped - 1000, stamped - 1000),
+            review("r2", stamped - 500, stamped - 500),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+
+        assert_eq!(report.unique, 2);
+        assert_eq!(newest_edit_kept(out.path()), Some(stamped - 500));
+        assert_eq!(
+            newest_window_end(&server),
+            facts(&report.dir)["snapshot_unix"].as_i64()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_crawl_with_the_clock_behind_the_newest_edit_plans_up_to_that_edit() {
+        let out = crate::tempdir::Dir::new();
+        let now = now_unix();
+        let corpus = held(vec![
+            review("r1", now - 1000, now + 1800),
+            review("r2", now + 900, now + 900),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+
+        assert_eq!(report.unique, 2);
+        assert_eq!(newest_window_end(&server), Some(now + 1800));
+        assert_eq!(newest_edit_kept(out.path()), Some(now + 1800));
+    }
+
+    #[tokio::test]
+    async fn a_crawl_served_reviews_with_no_edit_time_keeps_no_newest_edit() {
+        let out = crate::tempdir::Dir::new();
+        let now = now_unix();
+        let mut reviews = vec![
+            review("r1", now - 1000, now - 1000),
+            review("r2", now - 500, now - 500),
+        ];
+        for review in &mut reviews {
+            review.as_object_mut().unwrap().remove("timestamp_updated");
+        }
+        let server = stand_in::Server::new(changing_steam(&held(reviews)));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+
+        assert_eq!(report.unique, 2);
+        assert_eq!(newest_edit_kept(out.path()), None);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_whose_newest_windows_hold_no_review_still_keeps_the_newest_edit() {
+        let out = crate::tempdir::Dir::new();
+        let now = now_unix();
+        let early = CORPUS_EPOCH + 400 * DAY;
+        let corpus = held(vec![
+            review("r1", early, now - 100),
+            review("r2", early + DAY, early + DAY),
+        ]);
+        let server = stand_in::Server::new(changing_steam(&corpus));
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+
+        assert_eq!(report.unique, 2);
+        assert!(report.complete);
+        assert_eq!(newest_edit_kept(out.path()), Some(now - 100));
+    }
+
+    #[tokio::test]
+    async fn a_resumed_crawl_asks_steam_no_first_page_and_keeps_the_edit_it_began_with() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let kept = newest_edit_kept(out.path());
+        assert_eq!(kept, Some(1_710_000_000 + 29 * DAY));
+
+        let server = stand_in::Server::new(valve(corpus(), None, 0));
+        let resumed = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert!(resumed.resumed && resumed.complete);
+        assert_eq!(resumed.dir, short.dir);
+        assert!(
+            server
+                .asked()
+                .iter()
+                .all(|asked| asked.input()["filter"] != 2)
+        );
+        assert_eq!(newest_edit_kept(out.path()), kept);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_an_earlier_release_began_with_no_newest_edit_is_resumed() {
+        let out = crate::tempdir::Dir::new();
+        short_crawl(out.path()).await;
+        rusqlite::Connection::open(out.path().join("state.sqlite"))
+            .unwrap()
+            .execute("DELETE FROM newest_edit", [])
+            .unwrap();
+        let resumed = resumed_crawl(out.path()).await.unwrap();
+        assert!(resumed.resumed && resumed.complete);
+        assert_eq!(resumed.unique, 70);
+        assert_eq!(newest_edit_kept(out.path()), None);
+    }
+
+    #[test]
+    fn the_newest_edit_of_a_page_is_read_from_the_reviews_with_an_id() {
+        assert_eq!(newest_on(&[]), i64::MIN);
+        assert_eq!(newest_on(&[json!({"timestamp_updated": 9})]), i64::MIN);
+        let mut stampless = review("r1", 1, 1);
+        stampless
+            .as_object_mut()
+            .unwrap()
+            .remove("timestamp_updated");
+        assert_eq!(newest_on(std::slice::from_ref(&stampless)), 0);
+        assert_eq!(
+            newest_on(&[review("r2", 1, 5), stampless, review("r3", 1, 7)]),
+            7
+        );
+    }
+
     #[tokio::test]
     async fn a_window_still_short_after_every_walk_is_left_for_the_next_run_to_finish() {
         let out = crate::tempdir::Dir::new();
@@ -1251,6 +1481,7 @@ mod tests {
                 input["date_range_start"] == CORPUS_EPOCH
                     && input["cursor"] == "*"
                     && input["num_per_page"] != 1
+                    && input["filter"] != 2
             })
             .map(|input| input["num_per_page"].clone())
             .collect();
