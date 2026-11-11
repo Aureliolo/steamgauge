@@ -96,6 +96,16 @@ jobs:
         if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
 
+      # On Windows, where this build takes longest, a pull request starts from the dependencies the
+      # run on main built. Linux builds without one, since the repository's 10 GB of cache holds no
+      # more.
+      - name: Cache the build (Windows)
+        if: runner.os == 'Windows' && needs.scope.outputs.code != 'false'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
       - name: Build
         if: needs.scope.outputs.code != 'false'
         env:
