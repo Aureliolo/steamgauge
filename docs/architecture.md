@@ -56,7 +56,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   are both told.
 - The library is under the local app data folder. `STEAMGAUGE_DATA` moves it.
 - **Every pass reads the current format only.** `current_format` converts what an earlier release
-  kept, once, and removes what it cannot express rather than guess.
+  kept, once, and removes what it cannot express rather than guess. A file it rewrites keeps the
+  time it was written, which a game's vectors, themes and exports are held to.
 
 ## Reading
 

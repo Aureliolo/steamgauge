@@ -4,6 +4,8 @@
 //! earlier release wrote differently is rewritten here, once, before anything reads it. Each
 //! step recognises its file by its shape, not by a version stamp, and leaves a file already in
 //! the current format as it is, so bringing a library twice changes nothing the second time.
+//! A file a step rewrites keeps the time it was written, since a game's vectors, its themes and
+//! an export are recorded by that time.
 //!
 //! What an earlier release wrote that the current format cannot express is removed rather than
 //! guessed at: a game whose reading goes is a game downloaded and not yet read, which the
@@ -83,7 +85,9 @@ fn bring_reading(snapshot: &Path, brought: &mut Brought) -> Result<()> {
     // Releases before 0.2.0 kept the reader's held-out figure as `frozen`, in the same shape.
     if let Some(figure) = fields.remove("frozen") {
         fields.entry("held_out").or_insert(figure);
-        std::fs::write(&path, serde_json::to_vec_pretty(&reading)?)?;
+        let partial = snapshot.join("reading.json.partial");
+        std::fs::write(&partial, serde_json::to_vec_pretty(&reading)?)?;
+        replace_keeping_time(&partial, &path)?;
         brought.renamed.push(snapshot.to_path_buf());
     }
     match crate::read::key_readings(snapshot) {
@@ -98,6 +102,31 @@ fn bring_reading(snapshot: &Path, brought: &mut Brought) -> Result<()> {
         Err(failed) => return Err(failed),
     }
     Ok(())
+}
+
+/// Puts `partial` in place of `file` with the time `file` was written, which what was made from
+/// the file is recorded by. Where it cannot, `partial` is removed and `file` is left as it was.
+///
+/// # Errors
+///
+/// Fails if the time of `file` cannot be read, the time cannot be set on `partial`, or the
+/// rename fails.
+pub(crate) fn replace_keeping_time(partial: &Path, file: &Path) -> std::io::Result<()> {
+    // The time goes on before the rename, so a stop between the two leaves the old file whole
+    // and never a new one that carries the time of the bring.
+    let put = || -> std::io::Result<()> {
+        let written = std::fs::metadata(file)?.modified()?;
+        std::fs::File::options()
+            .write(true)
+            .open(partial)?
+            .set_modified(written)?;
+        std::fs::rename(partial, file)
+    };
+    let put = put();
+    if put.is_err() {
+        let _ = std::fs::remove_file(partial);
+    }
+    put
 }
 
 fn remove_reading(snapshot: &Path, why: &str, brought: &mut Brought) -> Result<()> {
@@ -119,6 +148,9 @@ fn remove_reading(snapshot: &Path, why: &str, brought: &mut Brought) -> Result<(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::time::{Duration, UNIX_EPOCH};
+
     use super::*;
     use crate::read::tests::{read_these, unkey_readings};
 
@@ -256,6 +288,182 @@ mod tests {
         assert_eq!(brought.removed.len(), 1);
         assert!(brought.removed[0].1.contains("review 1"), "{brought:?}");
         assert!(!snapshot.join("reading.json").exists());
+    }
+
+    fn written_at(path: &Path, seconds: u64) {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(UNIX_EPOCH + Duration::from_secs(seconds))
+            .unwrap();
+    }
+
+    fn prepared(snapshot: &Path) -> u64 {
+        crate::meaning::prepare(
+            snapshot,
+            |texts| {
+                Ok(texts
+                    .iter()
+                    .map(|_| {
+                        let mut vector = vec![0.0_f32; crate::search_models::DIMENSIONS];
+                        vector[0] = 1.0;
+                        vector
+                    })
+                    .collect())
+            },
+            (&AtomicBool::new(false), 1.0),
+            |_| {},
+        )
+        .unwrap()
+        .embedded
+    }
+
+    #[test]
+    fn readings_keyed_keep_the_time_their_vectors_and_themes_name() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(
+            out.path(),
+            1,
+            &[
+                review("1", "Bugs everywhere. The music is lovely."),
+                review("2", "The story is good."),
+            ],
+        );
+        let readings = snapshot.join("readings.parquet");
+        written_at(&readings, 1_700_000_000);
+        let embedded = prepared(&snapshot);
+        crate::themes::find(&snapshot, crate::themes::Closeness::USED)
+            .unwrap()
+            .save(&snapshot)
+            .unwrap();
+        unkey_readings(&snapshot);
+        written_at(&readings, 1_700_000_000);
+        assert_eq!(
+            crate::meaning::status(&snapshot),
+            crate::meaning::Status::Ready
+        );
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.keyed, std::slice::from_ref(&snapshot));
+        assert_eq!(
+            crate::meaning::readings_written(&snapshot),
+            Some(1_700_000_000)
+        );
+        assert_eq!(
+            crate::meaning::status(&snapshot),
+            crate::meaning::Status::Ready
+        );
+        assert_eq!(crate::meaning::held(&snapshot).0, embedded);
+        assert!(crate::themes::Themes::load(&snapshot).is_some());
+
+        assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
+        assert_eq!(
+            crate::meaning::readings_written(&snapshot),
+            Some(1_700_000_000)
+        );
+        assert_eq!(
+            crate::meaning::status(&snapshot),
+            crate::meaning::Status::Ready
+        );
+    }
+
+    #[test]
+    fn a_figure_renamed_keeps_the_time_its_reading_was_written() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        let figure = serde_json::json!(
+            {"games": 10, "claims": 7, "coverage": 0.9, "accuracy": 0.8, "macro_f1": 0.7}
+        );
+        edit_reading(&snapshot, |fields| {
+            fields.remove("held_out");
+            fields.insert("frozen".to_owned(), figure.clone());
+        });
+        let reading = snapshot.join("reading.json");
+        written_at(&reading, 1_700_000_000);
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.renamed, std::slice::from_ref(&snapshot));
+        assert_eq!(brought.failed, []);
+        assert_eq!(
+            std::fs::metadata(&reading).unwrap().modified().unwrap(),
+            UNIX_EPOCH + Duration::from_secs(1_700_000_000)
+        );
+        assert!(!snapshot.join("reading.json.partial").exists());
+        let stored: Value = serde_json::from_slice(&std::fs::read(&reading).unwrap()).unwrap();
+        assert!(stored.get("held_out").is_some() && stored.get("frozen").is_none());
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_replaced_is_left_with_no_partial_beside_it() {
+        let out = crate::tempdir::Dir::new();
+        let file = out.path().join("a.json");
+        std::fs::create_dir(&file).unwrap();
+        let partial = out.path().join("a.json.partial");
+        std::fs::write(&partial, b"{}").unwrap();
+
+        assert!(replace_keeping_time(&partial, &file).is_err());
+        assert!(file.is_dir());
+        assert!(!partial.exists());
+    }
+
+    #[test]
+    fn a_file_replaced_keeps_its_whole_time_and_takes_the_new_content() {
+        let out = crate::tempdir::Dir::new();
+        let file = out.path().join("a.json");
+        std::fs::write(&file, b"{}").unwrap();
+        let at = UNIX_EPOCH + Duration::new(1_700_000_000, 123_456_700);
+        std::fs::File::options()
+            .write(true)
+            .open(&file)
+            .unwrap()
+            .set_modified(at)
+            .unwrap();
+        let partial = out.path().join("a.json.partial");
+        std::fs::write(&partial, b"{\"a\": 1}").unwrap();
+
+        replace_keeping_time(&partial, &file).unwrap();
+        assert_eq!(std::fs::metadata(&file).unwrap().modified().unwrap(), at);
+        assert_eq!(std::fs::read(&file).unwrap(), b"{\"a\": 1}");
+        assert!(!partial.exists());
+    }
+
+    #[test]
+    fn a_file_that_is_not_there_gives_an_error_and_leaves_no_partial() {
+        let out = crate::tempdir::Dir::new();
+        let partial = out.path().join("a.json.partial");
+        std::fs::write(&partial, b"{}").unwrap();
+
+        let failed = replace_keeping_time(&partial, &out.path().join("a.json")).unwrap_err();
+        assert_eq!(failed.kind(), std::io::ErrorKind::NotFound);
+        assert!(!partial.exists());
+    }
+
+    #[test]
+    fn a_library_with_a_figure_to_rename_and_readings_to_key_keeps_both_times() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        unkey_readings(&snapshot);
+        edit_reading(&snapshot, |fields| {
+            let figure = fields.remove("held_out").unwrap_or(Value::Null);
+            fields.insert("frozen".to_owned(), figure);
+        });
+        written_at(&snapshot.join("reading.json"), 1_700_000_000);
+        written_at(&snapshot.join("readings.parquet"), 1_700_000_500);
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.failed, []);
+        assert_eq!(brought.renamed, std::slice::from_ref(&snapshot));
+        assert_eq!(brought.keyed, std::slice::from_ref(&snapshot));
+        assert_eq!(
+            crate::meaning::readings_written(&snapshot),
+            Some(1_700_000_500)
+        );
+        let reading = std::fs::metadata(snapshot.join("reading.json")).unwrap();
+        assert_eq!(
+            reading.modified().unwrap(),
+            UNIX_EPOCH + Duration::from_secs(1_700_000_000)
+        );
     }
 
     #[test]
