@@ -14,7 +14,7 @@ arrow = "=60.1.0"
 csv = "=1.4.0"
 jieba-rs = "=0.11.0"
 ndarray = "=0.17.2"
-ort = { version = "=2.0.0-rc.15", features = ["download-binaries", "ndarray"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["api-31", "ndarray", "std", "tracing"] }
 parquet = "=60.1.0"
 percent-encoding = "=2.3.2"
 reqwest = { version = "=0.13.5", default-features = false, features = ["gzip", "http2", "json", "rustls-no-provider"] }
@@ -46,10 +46,14 @@ winreg = "=0.56.0"
 # start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
 # tens of megabytes rather than the ~750 MB a bundled CUDA runtime would cost.
 [features]
-default = ["self-update"]
+default = ["prebuilt-onnx-runtime", "self-update"]
 coreml = ["ort/coreml"]
 cuda = ["ort/cuda"]
 directml = ["ort/directml"]
+# ONNX Runtime as ort's build script downloads it, over OpenSSL on Linux, and copies beside the
+# binary. The fuzz harness builds the core without it and loads the runtime at run time instead,
+# so its image fetches nothing it never runs.
+prebuilt-onnx-runtime = ["ort/copy-dylibs", "ort/download-binaries", "ort/tls-native"]
 # The app's own update. The fuzz harness builds the core without it: it fuzzes what reads review
 # text, and aws-lc, which Sigstore's verification runs on, does not build under OSS-Fuzz's
 # compiler flags.
