@@ -2077,6 +2077,25 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_folder_that_is_not_the_apps_holds_a_reader_by_its_graph_alone() {
+        let hub = hub_with_contents();
+        let size = published_on(&hub, CONTENTS, true);
+        let root = crate::tempdir::Dir::new();
+        assert!(!root.path().starts_with(crate::model::default_cache_dir()));
+
+        let empty = root.path().join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(!size.here(&empty));
+        assert_eq!(size.left_to_fetch(&empty), 9 + 13 + 10);
+
+        let tried = root.path().join("tried");
+        std::fs::create_dir_all(&tried).unwrap();
+        std::fs::write(tried.join("model.onnx"), CONTENTS[0]).unwrap();
+        assert!(size.here(&tried));
+        assert_eq!(size.left_to_fetch(&tried), 0);
+    }
+
+    #[test]
     fn half_of_memory_a_card_shares_with_the_processor_is_the_cards() {
         let shared = |gib: u64| {
             Some(crate::card::Card {
