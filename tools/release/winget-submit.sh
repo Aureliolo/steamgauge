@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Opens the pull request that submits a release's winget manifests to microsoft/winget-pkgs, for
-# release.yml's winget job.
+# winget.yml.
 #
 #   GH_TOKEN=<classic token, public_repo> tools/release/winget-submit.sh <version> <manifest folder>
 #

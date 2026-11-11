@@ -25,13 +25,18 @@ on:
         description: The release whose attached steamgauge.json Scoop also installs from, by its address
         type: string
         required: true
+      winget_only:
+        description: Test the winget manifests alone, for a submission dispatched on a tag
+        type: boolean
+        default: false
 
 permissions: {}
 
 # Its own group: called by the release, `github.workflow` is the release's name, and a group
-# matching the release's own would hold this run behind the run that called it.
+# matching the release's own would hold this run behind the run that called it. The winget-only
+# call, dispatched on a tag the release also ran on, has a group of its own for the same reason.
 concurrency:
-  group: package-managers-${{ github.ref }}
+  group: package-managers-${{ github.ref }}-${{ inputs.winget_only }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -113,7 +118,7 @@ jobs:
   homebrew:
     name: package managers (homebrew)
     needs: signed
-    if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
+    if: ${{ !cancelled() && !inputs.winget_only && (inputs.files != '' || needs.signed.outputs.version != '') }}
     runs-on: macos-26
     timeout-minutes: 20
     permissions:
@@ -180,7 +185,7 @@ jobs:
   scoop:
     name: package managers (scoop)
     needs: signed
-    if: ${{ !cancelled() && (inputs.files != '' || needs.signed.outputs.version != '') }}
+    if: ${{ !cancelled() && !inputs.winget_only && (inputs.files != '' || needs.signed.outputs.version != '') }}
     runs-on: windows-2025
     timeout-minutes: 20
     permissions:

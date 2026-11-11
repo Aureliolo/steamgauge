@@ -79,8 +79,8 @@ GITHUB_REPOSITORY=Aureliolo/steamgauge GH_TOKEN="$(gh auth token)" node tools/re
     uninstalls it. winget comes from its own pinned release.
 12. **package managers (main)** opens a pull request putting the cask and Scoop manifest on
     `main`, as the packaging App, and merges it once its checks pass.
-13. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program
-    against the release and submits the manifests to `microsoft/winget-pkgs` with `tools/release/winget-submit.sh`.
+13. **winget** is not part of the release. A submission to `microsoft/winget-pkgs` is dispatched
+    by hand for a release worth one (see [winget](#winget)).
 
 ## A dry run
 
@@ -159,42 +159,26 @@ in its secret `PACKAGING_APP_KEY`.
 
 ### winget
 
-A new winget package waits on a moderator, so the first version is submitted by hand. The
-**winget** job stays off until the repository variable `WINGET` is `submit`.
+No release submits to `microsoft/winget-pkgs`. For a release worth a submission, dispatch
+`winget.yml` on its tag:
 
-1. Once the first release's **package managers** jobs pass, its run summary gives two commands
-   under **winget**. Run them in Git Bash, from a checkout of the tag, signed in with `gh` as
-   the account that owns the fork:
+```bash
+gh workflow run winget.yml --repo Aureliolo/steamgauge --ref vX.Y.Z
+```
 
-   ```bash
-   gh run download <run id> --repo Aureliolo/steamgauge --name package-managers --dir package-managers
-   GH_TOKEN="$(gh auth token)" bash tools/release/winget-submit.sh X.Y.Z package-managers/winget
-   ```
+It writes the manifests from the published release, tests them with the pinned winget, checks the
+setup program against the release and opens the pull request with `tools/release/winget-submit.sh`.
+A second dispatch for the same version finds the open pull request and opens no second one.
 
-   The script opens the pull request from your fork of `winget-pkgs`. A re-run finds the open pull
-   request and opens no second one. The run keeps the files for 30 days. After that, write them
-   again in the checkout:
+The first package's pull request is already open upstream, so nothing is submitted until it merges.
 
-   ```bash
-   gh release download vX.Y.Z --repo Aureliolo/steamgauge --dir release \
-     --pattern SHA256SUMS --pattern steamgauge-X.Y.Z.intoto.jsonl
-   gh attestation verify release/SHA256SUMS --repo Aureliolo/steamgauge \
-     --bundle release/steamgauge-X.Y.Z.intoto.jsonl \
-     --signer-workflow Aureliolo/steamgauge/.github/workflows/release-build.yml \
-     --source-ref refs/tags/vX.Y.Z --deny-self-hosted-runners
-   bash tools/release/package-managers.sh X.Y.Z release/SHA256SUMS package-managers
-   ```
+One-off setup for the dispatch:
 
-2. Wait for a moderator to merge it.
-3. Make a **classic** token with only the `public_repo` scope and an expiry, since no
+1. Make a **classic** token with only the `public_repo` scope and an expiry, since no
    fine-grained token can open that pull request. Make it on an account used for nothing else,
    with its own fork of `microsoft/winget-pkgs` and no access to this repository.
-4. Create an environment named `winget`, limited to tags matching `v*`, with the token in its
-   secret `WINGET_TOKEN`.
-5. Set the repository variable `WINGET` to `submit`.
-
-From then on every release submits itself. When the token expires the job fails, and a new one is
-made the same way.
+2. Create an environment named `winget`, limited to tags matching `v*`, with the token in its
+   secret `WINGET_TOKEN`. When the token expires the run fails, and a new one is made the same way.
 
 ## Windows hardening
 
@@ -263,5 +247,5 @@ release** can be run by hand to start the release workflow again on an existing 
   the `packages` environment and re-run the job.
 - **Pull request #N failed: ...**, **... conflicts with main** or **... is OPEN, not merged**: the
   message names the reason. A re-run of the job picks the pull request up where it is.
-- **WINGET is set to submit, but the secret WINGET_TOKEN ...** or a refusal from `winget-submit.sh`:
-  make a new token (see [winget](#winget)) and re-run the job.
+- **The secret WINGET_TOKEN in the winget environment is missing** or a refusal from
+  `winget-submit.sh`: make a new token (see [winget](#winget)) and dispatch again.
