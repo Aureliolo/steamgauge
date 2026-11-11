@@ -94,7 +94,9 @@ jobs:
 
       - name: Install the webview Tauri links against
         if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+        uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
 
       # On Windows, where this build takes longest, a pull request starts from the dependencies the
       # run on main built. Linux builds without one, since the repository's 10 GB of cache holds no

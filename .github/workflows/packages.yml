@@ -84,7 +84,9 @@ jobs:
       # help2man writes the man page the Linux packages carry from the program's own --help.
       - name: Install the webview Tauri links against, help2man, and a display for the window
         if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man xvfb
+        uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man xvfb
 
       # nFPM, which makes the .deb and the .rpm; the release archive, refused unless it has the
       # digest written here.

@@ -58,7 +58,9 @@ jobs:
           persist-credentials: false
       # The generator reads the app's own tables, so it links the app and with it Tauri, which
       # needs WebKitGTK on Linux to build at all.
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       # A pull request restores the debug build of the workspace that ci.yml's Linux test job
       # saves on main, since this workflow is not run there on a push.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
