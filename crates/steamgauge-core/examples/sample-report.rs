@@ -209,6 +209,7 @@ fn game(app_id: u32, name: &str, measured: bool) -> AppReport {
             threshold: 0.77,
             device: "directml".to_owned(),
             captured_unix: 1_759_000_000,
+            read_unix: 1_759_000_000,
             said: said_about(&subjects),
             subjects: subjects.clone(),
             languages: vec![

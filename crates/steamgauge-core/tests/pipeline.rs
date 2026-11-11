@@ -271,8 +271,8 @@ fn reading_json(given: &serde_json::Value) -> Vec<u8> {
         "silent_reviews": 0, "claimless_reviews": 0, "positive": 0, "top_helpful": 0,
         "model": MODEL, "trained_on": "labels-a", "read_with": "run-a", "reader": "Reader",
         "read_by_rule": "lines-a", "usual_declined": null, "held_out": null, "context": false,
-        "threshold": 0.5, "device": "cpu", "captured_unix": 0, "subjects": [], "said": [],
-        "languages": [], "unread_languages": [], "strict_languages": [], "months": [], "who": [],
+        "threshold": 0.5, "device": "cpu", "captured_unix": 0, "read_unix": 0, "subjects": [],
+        "said": [], "languages": [], "unread_languages": [], "strict_languages": [], "months": [], "who": [],
     });
     for (key, value) in given.as_object().unwrap() {
         fields[key] = value.clone();

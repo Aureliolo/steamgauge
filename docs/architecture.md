@@ -57,7 +57,7 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - The library is under the local app data folder. `STEAMGAUGE_DATA` moves it.
 - **Every pass reads the current format only.** `current_format` converts what an earlier release
   kept, once, and removes what it cannot express rather than guess. A file it rewrites keeps the
-  time it was written, which a game's vectors, themes and exports are held to.
+  time it was written, which a game's vectors and themes are held to.
 
 ## Reading
 
@@ -78,7 +78,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   its language's. Both are fitted out of fold to keep three in four right.
 - A language with fewer than 100 labelled claims has no line and declines.
 - `steamgauge recount` replays stored readings through the counting without the model. It refuses
-  a reading this build would cut differently.
+  a reading this build would cut differently. A reading holds the day its game was read, which a
+  recount keeps and an export names.
 
 ## Counting
 

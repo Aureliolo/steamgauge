@@ -790,7 +790,7 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     Ok(serde_json::from_slice(&bytes)?)
 }
 
-fn now_unix() -> i64 {
+pub(crate) fn now_unix() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(0))
@@ -862,6 +862,7 @@ mod tests {
                 threshold: 0.5,
                 device: "cpu".to_owned(),
                 captured_unix: 0,
+                read_unix: 0,
                 subjects: categories
                     .into_iter()
                     .map(|(id, mentions, top)| crate::read::SubjectCount {

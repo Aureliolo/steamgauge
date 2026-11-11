@@ -4,8 +4,8 @@
 //! earlier release wrote differently is rewritten here, once, before anything reads it. Each
 //! step recognises its file by its shape, not by a version stamp, and leaves a file already in
 //! the current format as it is, so bringing a library twice changes nothing the second time.
-//! A file a step rewrites keeps the time it was written, since a game's vectors, its themes and
-//! an export are recorded by that time.
+//! A file a step rewrites keeps the time it was written, since a game's vectors
+//! and its themes and its themes are recorded by that time.
 //!
 //! What an earlier release wrote that the current format cannot express is removed rather than
 //! guessed at: a game whose reading goes is a game downloaded and not yet read, which the
@@ -22,6 +22,9 @@ use crate::{Error, Result};
 pub struct Brought {
     /// Readings given the fingerprint of the text each answer was read from.
     pub keyed: Vec<PathBuf>,
+    /// Readings given the day their game was read, which earlier releases told by the time of
+    /// the file.
+    pub dated: Vec<PathBuf>,
     /// Readings whose held-out figure was under the name releases before 0.2.0 gave it.
     pub renamed: Vec<PathBuf>,
     /// Readings removed, each with why. Their game is left to be read again.
@@ -82,13 +85,35 @@ fn bring_reading(snapshot: &Path, brought: &mut Brought) -> Result<()> {
         )?;
         return Ok(());
     }
+    // Earlier releases told the day a game was read by when this file was written, which a
+    // recount moved.
+    let dated = if fields.contains_key("read_unix") {
+        false
+    } else {
+        let written = std::fs::metadata(&path)?
+            .modified()?
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| i64::try_from(since.as_secs()).unwrap_or(0));
+        fields.insert("read_unix".to_owned(), Value::from(written));
+        true
+    };
     // Releases before 0.2.0 kept the reader's held-out figure as `frozen`, in the same shape.
-    if let Some(figure) = fields.remove("frozen") {
+    let renamed = if let Some(figure) = fields.remove("frozen") {
         fields.entry("held_out").or_insert(figure);
+        true
+    } else {
+        false
+    };
+    if dated || renamed {
         let partial = snapshot.join("reading.json.partial");
         std::fs::write(&partial, serde_json::to_vec_pretty(&reading)?)?;
         replace_keeping_time(&partial, &path)?;
-        brought.renamed.push(snapshot.to_path_buf());
+        if dated {
+            brought.dated.push(snapshot.to_path_buf());
+        }
+        if renamed {
+            brought.renamed.push(snapshot.to_path_buf());
+        }
     }
     match crate::read::key_readings(snapshot) {
         Ok(true) => brought.keyed.push(snapshot.to_path_buf()),
@@ -463,6 +488,84 @@ mod tests {
         assert_eq!(
             reading.modified().unwrap(),
             UNIX_EPOCH + Duration::from_secs(1_700_000_000)
+        );
+    }
+
+    #[test]
+    fn a_reading_with_no_day_is_given_the_time_its_file_was_written() {
+        let out = crate::tempdir::Dir::new();
+        let first = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        let second = read_these(out.path(), 2, &[review("1", "Bugs everywhere.")]);
+        let third = read_these(out.path(), 3, &[review("1", "Bugs everywhere.")]);
+        for snapshot in [&first, &second] {
+            edit_reading(snapshot, |fields| {
+                fields.remove("read_unix");
+            });
+        }
+        edit_reading(&second, |fields| {
+            let figure = fields.remove("held_out").unwrap_or(Value::Null);
+            fields.insert("frozen".to_owned(), figure);
+        });
+        edit_reading(&third, |fields| {
+            fields.insert("read_unix".to_owned(), Value::from(0));
+        });
+        for snapshot in [&first, &second] {
+            written_at(&snapshot.join("reading.json"), 1_700_000_000);
+        }
+        let untouched = std::fs::read(third.join("reading.json")).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.failed, []);
+        let mut dated = brought.dated.clone();
+        dated.sort();
+        assert_eq!(dated, [first.clone(), second.clone()]);
+        assert_eq!(brought.renamed, std::slice::from_ref(&second));
+        for snapshot in [&first, &second] {
+            assert_eq!(
+                crate::read::ReadReport::load(snapshot).unwrap().read_unix,
+                1_700_000_000
+            );
+            assert!(!snapshot.join("reading.json.partial").exists());
+        }
+
+        assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
+        assert_eq!(
+            std::fs::read(third.join("reading.json")).unwrap(),
+            untouched
+        );
+    }
+
+    #[test]
+    fn a_reading_with_no_who_is_removed_and_never_dated() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        edit_reading(&snapshot, |fields| {
+            fields.remove("who");
+            fields.remove("read_unix");
+        });
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.removed.len(), 1);
+        assert_eq!(brought.dated, Vec::<PathBuf>::new());
+        assert!(!snapshot.join("reading.json").exists());
+    }
+
+    #[test]
+    fn a_reading_is_dated_only_once_its_file_is_in_place() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        edit_reading(&snapshot, |fields| {
+            fields.remove("read_unix");
+        });
+        std::fs::create_dir(snapshot.join("reading.json.partial")).unwrap();
+        let before = std::fs::read(snapshot.join("reading.json")).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.dated, Vec::<PathBuf>::new());
+        assert_eq!(brought.failed.len(), 1);
+        assert_eq!(
+            std::fs::read(snapshot.join("reading.json")).unwrap(),
+            before
         );
     }
 

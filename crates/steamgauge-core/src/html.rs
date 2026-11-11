@@ -2646,6 +2646,7 @@ mod tests {
                     threshold: 0.5,
                     device: "cpu".to_owned(),
                     captured_unix: 1_700_000_000,
+                    read_unix: 0,
                     subjects: vec![
                         category("bugs", "Bugs and crashes", 400, 30),
                         category("performance", "Performance", 100, 2),

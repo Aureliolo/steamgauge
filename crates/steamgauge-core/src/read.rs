@@ -375,6 +375,11 @@ pub struct ReadReport {
     /// When the capture this describes was last changed: its crawl, or the last sweep that
     /// brought it up to date. A capture swept since is one these counts no longer describe.
     pub captured_unix: i64,
+    /// When the reader finished answering this corpus, in seconds since the epoch, and 0 where
+    /// no bring has dated a reading written without it. A recount keeps it, since a recount
+    /// asks the reader nothing.
+    #[serde(default)]
+    pub read_unix: i64,
     pub subjects: Vec<SubjectCount>,
     /// The terms that separate each subject's praise from its complaints, in taxonomy order.
     pub said: Vec<crate::said::SaidAbout>,
@@ -609,6 +614,7 @@ fn read_with(
         held_out: model.model_provenance().held_out,
         context,
         captured_unix: captured.changed_unix(),
+        read_unix: crate::report::now_unix(),
         ..counted
     })
 }
@@ -621,6 +627,7 @@ fn read_with(
 /// so they are replayed from `readings.parquet` through the same counting a reading goes
 /// through, and the counts land in `reading.json` as before. The readings themselves are
 /// never rewritten: what the replay writes goes to a file beside them and is thrown away.
+/// The reading keeps the day its game was read.
 ///
 /// The provenance must be the reader that answered: the language lines it draws are part of
 /// the counting, and a reading records which lines it was answered under.
@@ -724,6 +731,7 @@ pub fn recount_corpus(
         held_out: provenance.held_out.or(earlier.held_out),
         context,
         captured_unix: earlier.captured_unix,
+        read_unix: earlier.read_unix,
         ..counted
     })
 }
@@ -1612,6 +1620,7 @@ impl Counting {
             threshold: 0.0,
             device: String::new(),
             captured_unix: 0,
+            read_unix: 0,
             subjects: SHEET
                 .iter()
                 .zip(&self.tallies)
@@ -2312,6 +2321,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_recount_keeps_the_day_its_game_was_read() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut model = Table::new(false);
+        let mut read = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        read.read_unix = 1_700_000_000;
+        read.save(&snapshot.join("reading.json")).unwrap();
+
+        let again = recount_corpus(
+            out.path(),
+            1,
+            2,
+            &model.provenance,
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(again.read_unix, 1_700_000_000);
+    }
+
+    #[test]
+    fn a_read_says_when_it_answered() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let mut model = Table::new(false);
+        let mut first = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        first.read_unix = 1_700_000_000;
+        first.save(&snapshot.join("reading.json")).unwrap();
+
+        let again = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        let clock = crate::report::now_unix();
+        assert!((again.read_unix - clock).abs() <= 5, "{}", again.read_unix);
+    }
+
+    #[test]
     fn a_recount_of_a_readings_own_answers_gives_the_counts_it_gave() {
         let out = crate::tempdir::Dir::new();
         let snapshot = corpus(out.path());
@@ -2562,7 +2606,8 @@ pub(crate) mod tests {
             "positive": 0, "top_helpful": 0, "model": "m", "trained_on": "labels-a",
             "read_with": "run-a", "reader": "Reader", "read_by_rule": "lines-a",
             "usual_declined": null, "held_out": null, "context": false, "threshold": 0.5,
-            "device": "cpu", "captured_unix": 0, "subjects": [], "said": [], "languages": [],
+            "device": "cpu", "captured_unix": 0, "read_unix": 0, "subjects": [], "said": [],
+            "languages": [],
             "unread_languages": [], "strict_languages": [], "months": [], "who": [],
         });
         for (key, value) in given.as_object().expect("fields") {
@@ -3348,6 +3393,7 @@ pub(crate) mod tests {
             threshold: 0.5,
             device: String::new(),
             captured_unix: 0,
+            read_unix: 0,
             subjects: Vec::new(),
             said: Vec::new(),
             languages: Vec::new(),

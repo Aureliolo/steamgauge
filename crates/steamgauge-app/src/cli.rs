@@ -939,6 +939,9 @@ fn bring_library(library: &Path) -> Result<()> {
             snapshot.display()
         );
     }
+    for snapshot in &brought.dated {
+        eprintln!("{}: reading given the day it was read", snapshot.display());
+    }
     for (snapshot, why) in &brought.removed {
         eprintln!(
             "{}: reading removed, read the game again: {why}",
