@@ -180,7 +180,11 @@ pub async fn crawl(
     let record_lock = sweep_lock(&dir, app_id)?;
     let recorded = recorded_fields(&dir)?;
     let unique = match recorded.get("swept_unix").and_then(Value::as_i64) {
-        Some(swept) => windows.saturating_add(crate::capture::only_swept(&dir, swept)?),
+        Some(swept) => windows.saturating_add(crate::capture::only_swept(
+            &dir,
+            swept,
+            &crate::capture::Newest::default(),
+        )?),
         None => windows,
     };
     let name = match asked_name {
@@ -651,8 +655,8 @@ const SWEEP_SLACK: i64 = 24 * 60 * 60;
 /// One walk in last-edit order serves for both. A new review's last edit is its creation,
 /// so the same walk that finds edits finds arrivals, and it stops at the watermark rather
 /// than at the end of the corpus, which is what makes a sweep a few pages rather than a
-/// crawl. The rows land in a sweep file of their own and [`crate::capture::Newest`] records
-/// which copy of each review now counts, so nothing already captured is touched.
+/// crawl. The rows land in a sweep file of their own, and the newest copy of each review among
+/// the sweep files counts, so nothing already captured is touched.
 ///
 /// `stop` is looked at between pages. A sweep told to stop returns [`crate::Error::Stopped`]
 /// having changed nothing: its file is left unfinished, under a name no reader looks for, and
@@ -695,7 +699,6 @@ pub async fn sweep(
         .max();
     let started = floor.map_or_else(now_unix, |floor| now_unix().max(floor.saturating_add(1)));
 
-    let mut newest = crate::capture::Newest::load(&dir)?;
     let recorded = match facts.get("swept_unix").and_then(Value::as_i64) {
         Some(swept) => crate::capture::Newest::swept_by(&dir, swept)?,
         None => crate::capture::Newest::default(),
@@ -706,7 +709,7 @@ pub async fn sweep(
         app_id,
         (watermark, started),
         &path,
-        (&mut newest, &recorded),
+        &recorded,
         (stop, &mut on_progress),
     )
     .await?;
@@ -716,14 +719,14 @@ pub async fn sweep(
     let summary = client.summary(app_id).await?;
     if walked.rows == 0 {
         std::fs::remove_file(&path)?;
-    } else {
-        newest.save(&dir)?;
     }
+    // Counted from the files, so a review only an unrecorded sweep file holds is counted where
+    // Steam serves it to no later walk.
     let unique = facts
         .get("rows_unique")
         .and_then(Value::as_u64)
         .unwrap_or(0)
-        .saturating_add(walked.new);
+        .saturating_add(crate::capture::only_swept(&dir, started, &recorded)?);
     let valve_total = summary.total_reviews;
     let sweeps = facts.get("sweeps").and_then(Value::as_u64).unwrap_or(0) + 1;
     let swept_rows = facts
@@ -813,7 +816,7 @@ fn sweep_lock(dir: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
 
 /// Deletes what sweeps that never finished left behind. Each sweep writes a file named for when
 /// it started, so a stopped one leaves a file no later sweep will write over, and nothing in it
-/// was ever counted: `Newest` is saved only once a sweep's file is whole. Called under the
+/// was ever counted: a pass reads whole files only. Called under the
 /// sweep's lock, so nothing it deletes is a file a running sweep is writing.
 fn forget_unfinished_sweeps(dir: &std::path::Path) -> Result<()> {
     for entry in std::fs::read_dir(dir)?.filter_map(std::result::Result::ok) {
@@ -906,7 +909,7 @@ struct Walked {
 }
 
 /// Walks the corpus newest edit first, writing every review touched since `watermark` that no
-/// recorded sweep holds already to `path` and noting each in `newest` and counting each new or
+/// recorded sweep holds already to `path` and counting each new or
 /// edited against `recorded`, the copies the recorded sweeps hold, until it is safely past the
 /// watermark or `halt` is set.
 ///
@@ -921,7 +924,7 @@ async fn walk_since(
     app_id: u32,
     (watermark, started): (i64, i64),
     path: &std::path::Path,
-    (newest, recorded): (&mut crate::capture::Newest, &crate::capture::Newest),
+    recorded: &crate::capture::Newest,
     (halt, on_progress): (
         &std::sync::atomic::AtomicBool,
         &mut impl FnMut(SweepProgress),
@@ -978,7 +981,6 @@ async fn walk_since(
             } else {
                 edited += 1;
             }
-            newest.record(id, updated, started);
             fresh.push(review);
         }
         if pages == 1 {
@@ -1947,9 +1949,6 @@ mod tests {
             &json!({"snapshot_unix": WATERMARK, "swept_unix": WATERMARK, "rows_unique": 2, "name": "A Game"}),
         );
         // Written while the sweep before this one was walking, and fetched by it.
-        let mut newest = crate::capture::Newest::default();
-        newest.record("r9", WATERMARK + 2, WATERMARK);
-        newest.save(&dir).unwrap();
         std::fs::write(dir.join("sweep-1.parquet.partial"), b"stopped").unwrap();
         let recorded = dir.join(crate::capture::sweep_file(WATERMARK));
         written_to(&recorded, &[review("r9", WATERMARK + 2, WATERMARK + 2)]);
@@ -1993,7 +1992,7 @@ mod tests {
         assert!(!dir.join("sweep-1.parquet.partial").exists());
         assert!(recorded.exists());
         assert!(
-            crate::capture::Newest::load(&dir)
+            crate::capture::Newest::swept_by(&dir, i64::MAX)
                 .unwrap()
                 .copies
                 .contains_key("r3")
@@ -2037,6 +2036,97 @@ mod tests {
         );
     }
 
+    /// The id of every review a pass of the capture counts, one entry per count.
+    fn counted_ids(dir: &std::path::Path) -> Vec<String> {
+        let mut ids = crate::capture::rows_kept(dir, |row, _| Some(row.recommendationid)).unwrap();
+        ids.sort();
+        ids
+    }
+
+    fn r1_r2_r3() -> Vec<String> {
+        ["r1", "r2", "r3"].map(str::to_owned).into()
+    }
+
+    fn arrivals_and_an_edit() -> Vec<Vec<Value>> {
+        vec![vec![
+            review("r3", WATERMARK + 50, WATERMARK + 50),
+            review("r1", 500, WATERMARK + 40),
+        ]]
+    }
+
+    #[tokio::test]
+    async fn a_sweep_neither_reads_nor_writes_an_index_file() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let index = dir.join("newest.json");
+        std::fs::create_dir(&index).unwrap();
+
+        let report = swept_once(out.path(), arrivals_and_an_edit(), 3).await;
+        assert_eq!((report.rows, report.new, report.edited), (2, 1, 1));
+        assert_eq!(counted_ids(&dir), r1_r2_r3());
+        assert_eq!(std::fs::read_dir(&index).unwrap().count(), 0);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_that_writes_rows_leaves_no_index_file() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        swept_once(out.path(), arrivals_and_an_edit(), 3).await;
+        assert!(!dir.join("newest.json").exists());
+    }
+
+    #[tokio::test]
+    async fn a_whole_sweep_file_the_record_does_not_hold_counts_each_review_once() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        written_to(
+            &dir.join(crate::capture::sweep_file(WATERMARK + 60)),
+            &[
+                review("r3", WATERMARK + 50, WATERMARK + 50),
+                review("r1", 500, WATERMARK + 40),
+            ],
+        );
+        assert_eq!(counted_ids(&dir), r1_r2_r3());
+
+        let page = vec![vec![review("r3", WATERMARK + 50, WATERMARK + 50)]];
+        let report = swept_once(out.path(), page, 2).await;
+        assert_eq!((report.rows, report.new, report.edited), (1, 1, 0));
+        assert_eq!(counted_ids(&dir), r1_r2_r3());
+        assert_eq!(facts(&dir)["rows_unique"], 3);
+    }
+
+    #[tokio::test]
+    async fn a_review_only_an_unrecorded_sweep_file_holds_is_counted_by_the_next_sweep() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        written_to(
+            &dir.join(crate::capture::sweep_file(WATERMARK + 60)),
+            &[
+                review("r3", WATERMARK + 50, WATERMARK + 50),
+                review("r1", 500, WATERMARK + 40),
+            ],
+        );
+        for _ in 0..2 {
+            let report = swept_once(out.path(), vec![vec![]], 2).await;
+            assert_eq!((report.rows, report.new, report.edited), (0, 0, 0));
+            assert_eq!(counted_ids(&dir), r1_r2_r3());
+            assert_eq!(report.unique, 3);
+            assert_eq!(facts(&dir)["rows_unique"], 3);
+        }
+    }
+
     #[tokio::test]
     async fn a_retry_counts_an_edit_of_a_review_a_recorded_sweep_holds_as_an_edit() {
         let out = crate::tempdir::Dir::new();
@@ -2049,9 +2139,6 @@ mod tests {
             &dir.join(crate::capture::sweep_file(swept)),
             &[review("r3", swept, swept)],
         );
-        let mut newest = crate::capture::Newest::default();
-        newest.record("r3", swept, swept);
-        newest.save(&dir).unwrap();
         let w = WATERMARK;
         let page = vec![vec![
             review("r4", w + 60, w + 60),
@@ -2090,7 +2177,7 @@ mod tests {
             !dir.join(crate::capture::sweep_file(report.started))
                 .exists()
         );
-        assert!(!dir.join(crate::capture::Newest::FILE).exists());
+        assert!(!dir.join("newest.json").exists());
         assert_eq!(facts(&dir)["sweeps"], 3);
         assert_eq!(facts(&dir)["walk_from_unix"], WATERMARK);
     }

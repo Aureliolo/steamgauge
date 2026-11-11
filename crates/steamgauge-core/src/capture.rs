@@ -25,7 +25,7 @@ use parquet::{
     basic::{Compression, ZstdLevel},
     file::properties::WriterProperties,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::{Error, Result};
@@ -36,38 +36,14 @@ use crate::{Error, Result};
 /// wrote it. A row whose id is here counts only if it is that copy. A row whose id is not here
 /// was captured once and counts as it is. The map holds one entry per swept review, which is
 /// what changed since the crawl rather than the corpus, so it fits in memory where the corpus
-/// would not.
-#[derive(Debug, Default, Serialize, Deserialize)]
+/// would not. Built from the sweep files at every pass and kept in no file.
+#[derive(Debug, Default)]
 pub struct Newest {
     /// Id to the last-edit time of the copy that counts and the sweep holding it.
-    #[serde(default)]
     pub copies: HashMap<String, (i64, i64)>,
 }
 
 impl Newest {
-    pub const FILE: &'static str = "newest.json";
-
-    /// What the capture records, or nothing where no sweep has run.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the file exists and cannot be parsed.
-    pub fn load(snapshot: &Path) -> Result<Self> {
-        match std::fs::read(snapshot.join(Self::FILE)) {
-            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(error) => Err(error.into()),
-        }
-    }
-
-    /// # Errors
-    ///
-    /// Fails if the capture directory cannot be written to.
-    pub fn save(&self, snapshot: &Path) -> Result<()> {
-        std::fs::write(snapshot.join(Self::FILE), serde_json::to_vec(self)?)?;
-        Ok(())
-    }
-
     /// Notes a copy a sweep wrote. A later edit wins. The same edit fetched twice belongs to
     /// the later sweep, so exactly one copy counts however often it was fetched.
     pub fn record(&mut self, id: &str, updated: i64, sweep: i64) {
@@ -156,8 +132,9 @@ fn each_batch(
     columns: &[&str],
     mut visit: impl FnMut(&RecordBatch, &Kept<'_>) -> Result<()>,
 ) -> Result<()> {
-    let newest = Newest::load(snapshot)?;
-    for (shard, file) in shards_of(snapshot)? {
+    let shards = shards_of(snapshot)?;
+    let newest = Newest::among(&shards)?;
+    for (shard, file) in shards {
         each_batch_of(&shard, file, &newest, columns, &mut visit)?;
     }
     Ok(())
@@ -571,18 +548,20 @@ pub fn for_each_text_as_of(
     Ok(())
 }
 
-/// How many reviews the sweeps started by `as_of` hold that no crawl shard does.
+/// How many reviews the sweeps started by `as_of` hold that no crawl shard holds and `counted`
+/// does not.
 ///
-/// A crawl adds these to its windows' count, since the windows never fetched them. An edited
-/// review is in a shard already, so only a review that arrived after the crawl counts.
+/// A crawl adds these to its windows' count, and a sweep those its record has not counted. An
+/// edited review is in a shard already, so only a review that arrived after the crawl counts.
 ///
 /// # Errors
 ///
 /// Fails if a shard or a sweep file cannot be read.
-pub(crate) fn only_swept(snapshot: &Path, as_of: i64) -> Result<u64> {
+pub(crate) fn only_swept(snapshot: &Path, as_of: i64, counted: &Newest) -> Result<u64> {
     let mut only: std::collections::HashSet<String> = Newest::swept_by(snapshot, as_of)?
         .copies
         .into_keys()
+        .filter(|id| !counted.copies.contains_key(id))
         .collect();
     for (shard, file) in shards_of(snapshot)?.iter().filter(|(_, file)| *file == 0) {
         if only.is_empty() {
@@ -658,8 +637,8 @@ fn side_by_side<T: Send>(
 ) -> Result<Vec<T>> {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    let newest = Newest::load(snapshot)?;
     let shards = shards_of(snapshot)?;
+    let newest = Newest::among(&shards)?;
     let next = AtomicUsize::new(0);
     let workers = std::thread::available_parallelism()
         .map_or(1, std::num::NonZero::get)
@@ -1323,8 +1302,10 @@ mod tests {
                 review("4", "four", 550, 550),
             ],
         );
-        let only = |as_of| only_swept(dir, as_of).unwrap();
+        let only = |as_of| only_swept(dir, as_of, &Newest::default()).unwrap();
         assert_eq!([only(0), only(500), only(600)], [0, 1, 2]);
+        let counted = Newest::swept_by(dir, 500).unwrap();
+        assert_eq!(only_swept(dir, 600, &counted).unwrap(), 1);
     }
 
     #[test]
@@ -1351,11 +1332,6 @@ mod tests {
             &dir.join(sweep_file(600)),
             &[review("3", "arrived later", 420, 420)],
         );
-        let mut newest = Newest::default();
-        newest.record("1", 450, 500);
-        newest.record("3", 420, 500);
-        newest.record("3", 420, 600);
-        newest.save(dir).unwrap();
 
         let mut seen: Vec<(String, String)> = Vec::new();
         for_each_row(dir, |row, text| {
@@ -1546,7 +1522,63 @@ mod tests {
         })
         .unwrap();
         assert_eq!(rows, 2);
-        assert!(Newest::load(scratch.path()).unwrap().copies.is_empty());
+    }
+
+    /// Two shards holding reviews 1 and 2, a sweep file that edits 1 and brings in 3, and the
+    /// unfinished file of a sweep that stopped.
+    fn swept_capture(dir: &Path) {
+        write(
+            &dir.join("shard-0000.parquet"),
+            &[review("1", "crashes on launch", 100, 100)],
+        );
+        write(
+            &dir.join("shard-0001.parquet"),
+            &[review("2", "great game", 100, 100)],
+        );
+        write(
+            &dir.join(sweep_file(500)),
+            &[
+                review("1", "fixed now", 100, 450),
+                review("3", "arrived later", 420, 420),
+            ],
+        );
+        std::fs::write(dir.join("sweep-700.parquet.partial"), b"cut short").unwrap();
+    }
+
+    fn counted_by_both_roads(dir: &Path) {
+        let expected = ["1=fixed now", "2=great game", "3=arrived later"].map(str::to_owned);
+        let mut seen = Vec::new();
+        for_each_row(dir, |row, text| {
+            seen.push(format!("{}={text}", row.recommendationid));
+            Ok(())
+        })
+        .unwrap();
+        seen.sort();
+        assert_eq!(seen, expected);
+        let mut kept = rows_kept(dir, |row, text| {
+            Some(format!("{}={text}", row.recommendationid))
+        })
+        .unwrap();
+        kept.sort();
+        assert_eq!(kept, expected);
+    }
+
+    #[test]
+    fn a_whole_sweep_file_counts_with_no_index_beside_it() {
+        let scratch = crate::tempdir::Dir::new();
+        swept_capture(scratch.path());
+        counted_by_both_roads(scratch.path());
+    }
+
+    #[test]
+    fn an_index_file_an_earlier_release_left_is_never_read() {
+        let scratch = crate::tempdir::Dir::new();
+        swept_capture(scratch.path());
+        let index = scratch.path().join("newest.json");
+        std::fs::write(&index, br#"{"copies":{"1":[45"#).unwrap();
+        counted_by_both_roads(scratch.path());
+        std::fs::write(&index, br#"{"copies":{"1":[999,700]}}"#).unwrap();
+        counted_by_both_roads(scratch.path());
     }
 
     #[test]
@@ -1633,13 +1665,6 @@ mod tests {
         for (id, recommends) in expected {
             assert_eq!(fetched[&id].voted_up, recommends, "review {id}");
         }
-    }
-
-    #[test]
-    fn a_record_of_copies_that_cannot_be_read_is_an_error_rather_than_none() {
-        let scratch = crate::tempdir::Dir::new();
-        std::fs::create_dir(scratch.path().join(Newest::FILE)).unwrap();
-        Newest::load(scratch.path()).unwrap_err();
     }
 
     #[test]

@@ -37,7 +37,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   second past it, so the first sweep brings in what came after. A capture is Parquet shards
   written once and never changed.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
-  `newest.json` says which copy of an edited review counts. A sweep counts a review as new where
+  The newest copy of an edited review among the whole sweep files counts, and a sweep's record
+  counts the reviews only those files hold from them. A sweep counts a review as new where
   no sweep file the record has reached holds it. A sweep holds a lock on `sweep.lock`
   in the capture while it runs. A second sweep of the game is refused meanwhile, whichever
   program starts it. The file is named for the sweep's start, which is at least a second past the
