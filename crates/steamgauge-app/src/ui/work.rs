@@ -1100,16 +1100,15 @@ async fn read(
             "this game has no reviews downloaded yet: download it, then read it".to_owned(),
         );
     }
+    let capture = float(
+        steamgauge_core::read::finished_download(&out_dir, app_id)
+            .map_err(text)?
+            .rows_unique,
+    );
     let size = reader_here(&settings);
     let model_dir = size.home();
     fetch_reader(app, id, size).await?;
     know_the_game(app, id, app_id, &out_dir).await?;
-
-    let capture = float(
-        steamgauge_core::report::crawl_facts(&out_dir, app_id)
-            .map_err(text)?
-            .rows_unique,
-    );
     let options = steamgauge_core::read::ReadOptions {
         out_dir: out_dir.clone(),
         language,
