@@ -536,7 +536,7 @@ pub(super) async fn remove_model(
     if !home.starts_with(&cache) {
         return Err("That model is not in the app's model folder.".to_owned());
     }
-    let writer_goes = key == writer::WRITER.name;
+    let writer_goes = is_the_writer(&key);
     let models = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         // A model still loaded holds its files open, and Windows removes no file held open.
@@ -546,6 +546,11 @@ pub(super) async fn remove_model(
     .await
     .map_err(text)??;
     Ok(storage(app).await)
+}
+
+/// Whether the model called `key` is the writer, whose removal turns writing off.
+fn is_the_writer(key: &str) -> bool {
+    key == writer::WRITER.name
 }
 
 /// Empties a model's folder, and turns the writer off when it was the writer's. A fetch holding
@@ -570,11 +575,18 @@ fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        Part, Parts, Removal, game_parts, model_busy, part_of, remove_from_game, take_away,
+        Part, Parts, Removal, game_parts, is_the_writer, model_busy, part_of, remove_from_game,
+        take_away,
     };
     use crate::ui::work::{Job, State, Task, Unit};
     use std::path::{Path, PathBuf};
     use steamgauge_core::writer;
+
+    #[test]
+    fn only_the_writers_removal_turns_writing_off() {
+        assert!(is_the_writer(writer::WRITER.name));
+        assert!(!is_the_writer("search"));
+    }
 
     struct Scratch(PathBuf);
 
