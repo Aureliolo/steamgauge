@@ -798,15 +798,8 @@ const SWEEP_LOCK: &str = "sweep.lock";
 /// Takes the lock on a capture, or refuses where it is held. A sweep holds it until its record is
 /// written. A crawl and a name lookup hold it from their read of the record to their write. The
 /// system lets go when the file is dropped or the program ends.
-///
-/// The file is opened to write, never to append, because Windows refuses to lock a handle
-/// opened to append.
 fn sweep_lock(dir: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(dir.join(SWEEP_LOCK))?;
+    let file = crate::lock_file::open(&dir.join(SWEEP_LOCK))?;
     match file.try_lock() {
         Ok(()) => Ok(file),
         Err(std::fs::TryLockError::WouldBlock) => Err(crate::Error::Refused(format!(
