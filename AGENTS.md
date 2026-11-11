@@ -16,6 +16,7 @@ cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings   # not --all-features: cuda/coreml need vendor toolchains
 cargo test --locked --workspace
 node --test tools/release/release.test.mjs
+bash tools/release/winget-submit-test.sh
 typos && git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all   # CONTRIBUTING.md lists the other static gates
 cargo build --release -p steamgauge-app --features directml   # always; without it reads run on CPU
 bash -c "cd tools && npm ci --ignore-scripts"   # once: axe-core, which the browser checks below run on every page

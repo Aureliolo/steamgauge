@@ -87,6 +87,8 @@ jobs:
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
+      # The script that submits the winget manifests, run against a fake gh.
+      - run: bash tools/release/winget-submit-test.sh
       # The Windows setup program's script is Tauri's at the pinned bundler plus one change; a
       # tauri-cli bump that moves Tauri's script fails here until the copy is taken again.
       - run: bash tools/release/installer-template-check.sh
