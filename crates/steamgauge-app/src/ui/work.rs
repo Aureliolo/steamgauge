@@ -1943,6 +1943,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_job_told_to_stop_before_its_work_starts_ends_stopped_with_nothing_kept() {
+        let dropped = Arc::new(AtomicBool::new(false));
+        let held = Marks(Arc::clone(&dropped));
+        let flag = AtomicBool::new(true);
+        let ended = tokio::time::timeout(
+            Duration::from_secs(2),
+            unless_stopped(&flag, async move {
+                let _held = held;
+                std::future::pending::<Result<(), String>>().await
+            }),
+        )
+        .await
+        .expect("the work outlived its stop");
+        assert_eq!(ended, Err("stopped".to_owned()));
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
     async fn a_job_that_panics_ends_as_failed() {
         let ended = in_own_task(None, async {
             assert!(Duration::ZERO > Duration::from_secs(1), "work that panics");

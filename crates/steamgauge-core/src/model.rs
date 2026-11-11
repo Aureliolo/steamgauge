@@ -1310,6 +1310,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_fetch_dropped_while_it_waits_for_its_turn_writes_nothing() {
+        let dir = crate::tempdir::Dir::new();
+        let holder = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(dir.path().join(FETCH_LOCK))
+            .unwrap();
+        holder.lock().unwrap();
+        let server = stand_in::Server::new(|_| stand_in::Answer::body(GRAPH));
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let waiting = tokio::time::timeout(
+            std::time::Duration::from_millis(600),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await;
+        assert!(waiting.is_err(), "the fetch did not wait for its turn");
+        assert!(server.asked().is_empty());
+        let names: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(names, [std::ffi::OsString::from(FETCH_LOCK)]);
+        drop(holder);
+        let again = fetch(source, pinned_to(GRAPH), dir.path()).await;
+        again.0.unwrap();
+    }
+
+    #[tokio::test]
     async fn a_free_folder_is_taken_without_waiting_and_its_lock_file_stays() {
         let dir = crate::tempdir::Dir::new();
         let (server, source) = hub(GRAPH);
