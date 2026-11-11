@@ -68,6 +68,7 @@ pub(crate) struct Answer {
     headers: Vec<(String, String)>,
     body: Vec<u8>,
     hang_up: bool,
+    stalled: bool,
 }
 
 impl Answer {
@@ -77,6 +78,15 @@ impl Answer {
             headers: Vec::new(),
             body: Vec::new(),
             hang_up: false,
+            stalled: false,
+        }
+    }
+
+    /// A download that stops arriving part way.
+    pub(crate) fn stalled(self) -> Self {
+        Self {
+            stalled: true,
+            ..self
         }
     }
 
@@ -179,7 +189,7 @@ fn serve(stream: TcpStream, handler: &Handler, asked: &Mutex<Vec<Asked>>) {
     let mut head = format!(
         "HTTP/1.1 {} Stand-in\r\nContent-Length: {}\r\nConnection: close\r\n",
         answer.status,
-        answer.body.len()
+        answer.body.len() + usize::from(answer.stalled)
     );
     for (name, value) in &answer.headers {
         let _ = write!(head, "{name}: {value}\r\n");
@@ -188,6 +198,10 @@ fn serve(stream: TcpStream, handler: &Handler, asked: &Mutex<Vec<Asked>>) {
     let _ = stream.write_all(head.as_bytes());
     let _ = stream.write_all(&answer.body);
     let _ = stream.flush();
+    if answer.stalled {
+        // The byte promised never comes: the client is held until it hangs up.
+        let _ = std::io::copy(&mut stream, &mut std::io::sink());
+    }
 }
 
 fn read(stream: &TcpStream) -> Option<Asked> {
