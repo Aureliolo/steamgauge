@@ -10,12 +10,7 @@
 //! changed is held in both versions. Which version counts is decided once, in [`Newest`], and
 //! every pass that reads the capture goes through it.
 
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    path::Path,
-    sync::Arc,
-};
+use std::{collections::HashMap, fs::File, path::Path, sync::Arc};
 
 use arrow::{
     array::{
@@ -577,7 +572,8 @@ pub(crate) fn only_swept(snapshot: &Path, as_of: i64) -> Result<u64> {
         .filter(|(_, file)| (1..=as_of).contains(file))
         .cloned()
         .collect();
-    let mut only: HashSet<String> = Newest::among(&swept)?.copies.into_keys().collect();
+    let mut only: std::collections::HashSet<String> =
+        Newest::among(&swept)?.copies.into_keys().collect();
     for (shard, file) in files.iter().filter(|(_, file)| *file == 0) {
         if only.is_empty() {
             break;

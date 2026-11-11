@@ -1644,24 +1644,20 @@ mod tests {
     #[tokio::test]
     async fn a_crawl_resumed_over_a_record_it_cannot_take_fields_from_writes_every_field() {
         let scratch = crate::tempdir::Dir::new();
-        let spoilt: [(&str, fn(&std::path::Path, i64)); 4] = [
-            ("removed", |dir, _| {
-                std::fs::remove_file(dir.join("crawl.json")).unwrap();
-            }),
-            ("not-json", |dir, _| {
-                std::fs::write(dir.join("crawl.json"), b"not json").unwrap();
-            }),
-            ("an-array", |dir, _| {
-                std::fs::write(dir.join("crawl.json"), b"[]").unwrap();
-            }),
-            ("cut-down", |dir, snapshot| {
-                write_facts(dir, &json!({"app_id": APP, "snapshot_unix": snapshot})).unwrap();
-            }),
-        ];
-        for (name, spoil) in spoilt {
+        for name in ["removed", "not-json", "an-array", "cut-down"] {
             let out = library_in(&scratch, name);
             let short = short_crawl(&out).await;
-            spoil(&short.dir, snapshot_of(&short.dir));
+            let record = short.dir.join("crawl.json");
+            match name {
+                "removed" => std::fs::remove_file(&record).unwrap(),
+                "not-json" => std::fs::write(&record, b"not json").unwrap(),
+                "an-array" => std::fs::write(&record, b"[]").unwrap(),
+                _ => write_facts(
+                    &short.dir,
+                    &json!({"app_id": APP, "snapshot_unix": snapshot_of(&short.dir)}),
+                )
+                .unwrap(),
+            }
 
             let resumed = resumed_crawl(&out).await.unwrap();
             assert!(resumed.resumed && resumed.complete, "{name}");
@@ -1713,7 +1709,7 @@ mod tests {
         let before = std::fs::read(short.dir.join("crawl.json")).unwrap();
         std::fs::create_dir(short.dir.join("crawl.json.partial")).unwrap();
 
-        assert!(resumed_crawl(out.path()).await.is_err());
+        resumed_crawl(out.path()).await.unwrap_err();
         assert_eq!(std::fs::read(short.dir.join("crawl.json")).unwrap(), before);
     }
 
