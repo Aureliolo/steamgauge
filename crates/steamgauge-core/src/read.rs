@@ -793,7 +793,7 @@ fn kept_answers(
 /// Gives a readings file written before readings carried the text they answered its
 /// `text_key` column, from the capture as it stood when it was read, so a later read keeps
 /// exactly the answers it would have kept had the column always been there. True where the file
-/// needed it. A file that carries it is left as it is.
+/// needed it. A file that carries it is left as it is. The file keeps the time it was written.
 ///
 /// # Errors
 ///
@@ -862,7 +862,7 @@ pub(crate) fn key_readings(snapshot: &Path) -> Result<bool> {
     })();
     match written {
         Ok(()) => {
-            std::fs::rename(&partial, &path)?;
+            crate::current_format::replace_keeping_time(&partial, &path)?;
             Ok(true)
         }
         Err(failed) => {
