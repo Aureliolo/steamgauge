@@ -515,6 +515,31 @@ pub fn read_corpus(
     read_with(model, app_id, options, on_progress)
 }
 
+/// The crawl record of a game's newest download, which a read checks before anything else.
+///
+/// The record is written by the last step of a download, and the reading's date comes from it.
+/// A read that fails on it afterwards has spent the whole card, and in the window the reader's
+/// download, on a corpus whose reading cannot be saved.
+///
+/// # Errors
+///
+/// [`Error::Refused`] when the download never finished and left no `crawl.json`, and any error
+/// of finding the download or reading its record.
+pub fn finished_download(out_dir: &Path, app_id: u32) -> Result<crate::report::CrawlFacts> {
+    crate::report::crawl_facts(out_dir, app_id).map_err(|error| {
+        if let Error::NoClassifications { path } = &error {
+            let folder = path.parent().unwrap_or(path);
+            Error::Refused(format!(
+                "app {app_id}: its download never finished, so `crawl.json` is missing from {}. \
+                 Download the game again.",
+                folder.display()
+            ))
+        } else {
+            error
+        }
+    })
+}
+
 fn read_with(
     model: &mut impl Model,
     app_id: u32,
@@ -523,20 +548,7 @@ fn read_with(
 ) -> Result<ReadReport> {
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
-    // The record is written by the last step of a download, and the reading's date comes from
-    // it. It is checked first because a read that fails on it afterwards has spent the whole
-    // card on a corpus whose reading cannot be saved.
-    let captured = crate::report::crawl_facts(&options.out_dir, app_id).map_err(|error| {
-        if matches!(error, Error::NoClassifications { .. }) {
-            Error::Refused(format!(
-                "app {app_id}: its download never finished, so `crawl.json` is missing from {}. \
-                 Download the game again.",
-                snapshot.display()
-            ))
-        } else {
-            error
-        }
-    })?;
+    let captured = finished_download(&options.out_dir, app_id)?;
 
     let context = model.model_provenance().context;
     // A reader told whether a game is played in a headset has to be told for every game: read
@@ -3462,6 +3474,23 @@ pub(crate) mod tests {
                 snapshot.join("readings.parquet").exists()
             );
         }
+    }
+
+    #[test]
+    fn a_download_without_its_crawl_record_is_refused_with_what_to_do() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        finished_download(out.path(), 1).unwrap();
+
+        std::fs::remove_file(snapshot.join("crawl.json")).unwrap();
+        let Err(Error::Refused(said)) = finished_download(out.path(), 1) else {
+            panic!("a download without crawl.json is not refused");
+        };
+        assert!(
+            said.contains("never finished") && said.contains("Download the game again"),
+            "{said}"
+        );
+        assert!(said.contains(&snapshot.display().to_string()), "{said}");
     }
 
     #[test]
