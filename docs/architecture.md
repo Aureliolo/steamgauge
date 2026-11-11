@@ -128,7 +128,8 @@ in thirty.
 - **Jobs run on three lanes**: downloads and updates, reads and preparations, and files. Each lane
   runs one job at a time, and no job starts on a game another job is using or waiting for.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
-  A second fetch waits on the folder's `fetch.lock`, then uses that copy.
+  A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
+  the same turn and leaves `fetch.lock`.
 - A job is named as the store names its game, never by its number.
 - The reader, the search encoder and the reranker are let go after two minutes unused. The card
   holds the reader or the encoder, never both.

@@ -374,22 +374,58 @@ impl Source {
     }
 }
 
-/// The file a fetch locks in a model's folder. Every program here that fetches takes it
-/// first, so the window and a command in a terminal take turns.
+/// The file a fetch or a removal locks in a model's folder. Each takes it first, so
+/// the window and a command in a terminal take turns. It is never removed.
 const FETCH_LOCK: &str = "fetch.lock";
 
-/// Waits for this folder's turn to be fetched into. The handle is the lock, let go when it is
-/// dropped or its program ends.
+/// Opens the folder's lock file for writing, made where missing and never truncated.
+fn lock_file(dir: &Path) -> std::io::Result<std::fs::File> {
+    std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(dir.join(FETCH_LOCK))
+}
+
+/// Removes what was fetched into `dir`, unless a fetch holds the folder, and says whether it
+/// did. `fetch.lock` stays, since a fetch that opened it earlier would otherwise hold a file no
+/// later fetch sees.
+///
+/// # Errors
+///
+/// Propagates filesystem failures.
+pub fn remove_fetched(dir: &Path) -> Result<bool> {
+    if !dir.is_dir() {
+        return Ok(true);
+    }
+    let lock = lock_file(dir)?;
+    match lock.try_lock() {
+        Ok(()) => {}
+        Err(std::fs::TryLockError::WouldBlock) => return Ok(false),
+        Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+    }
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if entry.file_name() == FETCH_LOCK {
+            continue;
+        }
+        if entry.file_type()?.is_dir() {
+            std::fs::remove_dir_all(entry.path())?;
+        } else {
+            std::fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(true)
+}
+
+/// Waits for this folder's turn. The handle is the lock, let go when it is dropped or its
+/// program ends.
 ///
 /// The lock is asked for before the first pause, so a free folder costs no wait. The file is
 /// never truncated or removed: a fetch that opened it before a removal would lock a file no
 /// later fetch can see.
 async fn turn(dir: &Path) -> Result<std::fs::File> {
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(false)
-        .open(dir.join(FETCH_LOCK))?;
+    let file = lock_file(dir)?;
     loop {
         match file.try_lock() {
             Ok(()) => return Ok(file),
@@ -1137,6 +1173,93 @@ mod tests {
         again.0.unwrap();
         assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
         assert_eq!(server.asked().len(), 2);
+    }
+
+    #[test]
+    fn a_removal_leaves_a_folder_another_program_fetches_into() {
+        let dir = crate::tempdir::Dir::new();
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        std::fs::write(dir.path().join("model.partial"), b"half").unwrap();
+        let held = lock_file(dir.path()).unwrap();
+        held.lock().unwrap();
+
+        assert!(!remove_fetched(dir.path()).unwrap());
+        assert!(dir.path().join("model.onnx").is_file());
+        assert!(dir.path().join("model.partial").is_file());
+
+        drop(held);
+        assert!(remove_fetched(dir.path()).unwrap());
+        assert!(!dir.path().join("model.onnx").exists());
+        assert!(!dir.path().join("model.partial").exists());
+        assert!(dir.path().join(FETCH_LOCK).is_file());
+    }
+
+    #[test]
+    fn a_removal_with_no_fetch_empties_the_folder_and_nested_folders() {
+        let dir = crate::tempdir::Dir::new();
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub").join("tokenizer.json"), b"{}").unwrap();
+
+        assert!(remove_fetched(dir.path()).unwrap());
+        let left: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(left, [std::ffi::OsString::from(FETCH_LOCK)]);
+    }
+
+    #[tokio::test]
+    async fn a_removal_is_refused_while_this_programs_fetch_holds_the_folder() {
+        let dir = crate::tempdir::Dir::new();
+        let server = stand_in::Server::new(move |_| {
+            stand_in::Answer::body(GRAPH[..GRAPH.len() - 1].to_vec()).stalled()
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let (reported, report) = tokio::sync::oneshot::channel();
+        let mut reported = Some(reported);
+        let client = client().unwrap();
+        let mut on_progress = |_: DownloadProgress<'_>| {
+            if let Some(reported) = reported.take() {
+                let _ = reported.send(());
+            }
+        };
+        let mut fetching = std::pin::pin!(ensure_asset(
+            &client,
+            source,
+            pinned_to(GRAPH),
+            dir.path(),
+            &mut on_progress,
+        ));
+        tokio::select! {
+            result = &mut fetching => panic!("the stalled fetch ended: {result:?}"),
+            _ = report => {
+                assert!(!remove_fetched(dir.path()).unwrap());
+                assert!(dir.path().join("model.partial").is_file());
+            }
+        }
+    }
+
+    #[test]
+    fn a_fetch_that_opened_the_lock_before_a_removal_still_takes_its_turn() {
+        let dir = crate::tempdir::Dir::new();
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        let early = lock_file(dir.path()).unwrap();
+        assert!(remove_fetched(dir.path()).unwrap());
+        let later = lock_file(dir.path()).unwrap();
+        later.try_lock().unwrap();
+        assert!(matches!(
+            early.try_lock(),
+            Err(std::fs::TryLockError::WouldBlock)
+        ));
+
+        let gone = crate::tempdir::Dir::new().path().join("nothing");
+        assert!(remove_fetched(&gone).unwrap());
+        assert!(!gone.exists());
     }
 
     #[tokio::test]
