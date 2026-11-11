@@ -269,7 +269,9 @@ jobs:
       # help2man writes the man page the Linux packages carry from the program's own --help.
       - name: Install the webview Tauri links against, and help2man
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man
+        uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev help2man
 
       # nFPM makes the .deb and the .rpm, Tauri's bundler the Windows setup program and the macOS
       # disk image. Each is the tool's release archive for this system, refused unless it has the
@@ -635,7 +637,9 @@ jobs:
 
       - name: Install the display a window needs here
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+        uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: xvfb
 
       - name: Install and run
         shell: bash

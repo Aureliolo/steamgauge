@@ -62,7 +62,9 @@ jobs:
       # The desktop shell is Tauri, which links against the system webview. On Linux that is
       # WebKitGTK, and without it the workspace does not build at all: the failure is
       # `glib-sys` failing its build script, which names nothing about Tauri.
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -216,7 +218,9 @@ jobs:
         with:
           persist-credentials: false
       - if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+        uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       - if: needs.scope.outputs.code != 'false'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
