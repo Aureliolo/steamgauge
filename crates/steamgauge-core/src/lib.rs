@@ -153,10 +153,12 @@ pub enum Error {
 
     /// Written by another build: a column this one reads is absent or of another type. The
     /// readings inside cannot be partly interpreted, so they are refused rather than joined
-    /// to whatever the columns that are there happen to say.
+    /// to whatever the columns that are there happen to say. The bring is named before a read,
+    /// since it mends an earlier release's file in place and a read answers every claim again.
     #[error(
-        "{path} was written by another build and has no usable `{field}` column; re-run \
-         `steamgauge read`"
+        "{path} was written by another build and has no usable `{field}` column. Opening its \
+         library in the app, or running any `steamgauge` command on it, brings it to this \
+         build's format. If this still shows after that, read the game again."
     )]
     StaleClassifications {
         path: std::path::PathBuf,
