@@ -99,6 +99,20 @@ impl Newest {
         Ok(newest)
     }
 
+    /// The newest copy of every review among the sweep files started at or before `as_of`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a shard or a sweep file cannot be read.
+    pub(crate) fn swept_by(snapshot: &Path, as_of: i64) -> Result<Self> {
+        let files = shards_of(snapshot)?;
+        let swept: Vec<_> = files
+            .into_iter()
+            .filter(|(_, file)| (1..=as_of).contains(file))
+            .collect();
+        Self::among(&swept)
+    }
+
     /// Whether a row is the copy of its review that counts. `file` is the sweep that wrote
     /// the row, or zero for the crawl's own shards.
     #[must_use]
@@ -566,15 +580,11 @@ pub fn for_each_text_as_of(
 ///
 /// Fails if a shard or a sweep file cannot be read.
 pub(crate) fn only_swept(snapshot: &Path, as_of: i64) -> Result<u64> {
-    let files = shards_of(snapshot)?;
-    let swept: Vec<_> = files
-        .iter()
-        .filter(|(_, file)| (1..=as_of).contains(file))
-        .cloned()
+    let mut only: std::collections::HashSet<String> = Newest::swept_by(snapshot, as_of)?
+        .copies
+        .into_keys()
         .collect();
-    let mut only: std::collections::HashSet<String> =
-        Newest::among(&swept)?.copies.into_keys().collect();
-    for (shard, file) in files.iter().filter(|(_, file)| *file == 0) {
+    for (shard, file) in shards_of(snapshot)?.iter().filter(|(_, file)| *file == 0) {
         if only.is_empty() {
             break;
         }

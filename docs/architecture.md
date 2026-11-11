@@ -34,7 +34,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - A crawl is planned in date windows, and each window is walked again while it falls short of
   Valve's count. A capture is Parquet shards written once and never changed.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
-  `newest.json` says which copy of an edited review counts. A sweep holds a lock on `sweep.lock`
+  `newest.json` says which copy of an edited review counts. A sweep counts a review as new where
+  no sweep file the record has reached holds it. A sweep holds a lock on `sweep.lock`
   in the capture while it runs. A second sweep of the game is refused meanwhile, whichever
   program starts it. The file is named for the sweep's start, which is at least a second past the
   last recorded sweep's and every sweep file's.

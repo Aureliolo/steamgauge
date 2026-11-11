@@ -553,9 +553,9 @@ pub struct SweepReport {
     pub pages: u32,
     /// Rows written: reviews new since the watermark plus reviews edited since it.
     pub rows: u64,
-    /// Of those, reviews the capture had never held.
+    /// Of those, reviews created since the watermark that no recorded sweep held.
     pub new: u64,
-    /// Of those, reviews the capture already held in an older form.
+    /// Of those, copies of reviews the crawl or a recorded sweep already held.
     pub edited: u64,
     /// The capture's unique reviews after the sweep, against Valve's total now.
     pub unique: u64,
@@ -629,13 +629,17 @@ pub async fn sweep(
     let started = floor.map_or_else(now_unix, |floor| now_unix().max(floor.saturating_add(1)));
 
     let mut newest = crate::capture::Newest::load(&dir)?;
+    let recorded = match facts.get("swept_unix").and_then(Value::as_i64) {
+        Some(swept) => crate::capture::Newest::swept_by(&dir, swept)?,
+        None => crate::capture::Newest::default(),
+    };
     let path = dir.join(crate::capture::sweep_file(started));
     let walked = walk_since(
         client,
         app_id,
         (watermark, started),
         &path,
-        &mut newest,
+        (&mut newest, &recorded),
         (stop, &mut on_progress),
     )
     .await?;
@@ -793,7 +797,8 @@ struct Walked {
 }
 
 /// Walks the corpus newest edit first, writing every review touched since `watermark` to
-/// `path` and noting each in `newest`, until it is safely past the watermark or `halt` is set.
+/// `path` and noting each in `newest` and counting each new or edited against `recorded`, the
+/// copies the recorded sweeps hold, until it is safely past the watermark or `halt` is set.
 ///
 /// The walk asks for the reviews written up to `started`, which is every review there is when
 /// it starts. Steam keeps each answer it gives a caller without a key for ten minutes and
@@ -806,7 +811,7 @@ async fn walk_since(
     app_id: u32,
     (watermark, started): (i64, i64),
     path: &std::path::Path,
-    newest: &mut crate::capture::Newest,
+    (newest, recorded): (&mut crate::capture::Newest, &crate::capture::Newest),
     (halt, on_progress): (
         &std::sync::atomic::AtomicBool,
         &mut impl FnMut(SweepProgress),
@@ -844,9 +849,9 @@ async fn walk_since(
             if updated < watermark || !seen.insert(id.to_owned()) {
                 continue;
             }
-            // Created since the watermark and never swept before is a review the capture
-            // has not seen. Anything else is a copy of one it has.
-            if stamp("timestamp_created") >= watermark && !newest.copies.contains_key(id) {
+            // Created since the watermark and in no recorded sweep file is a review the record
+            // has not counted. Anything else is a copy of one it has.
+            if stamp("timestamp_created") >= watermark && !recorded.copies.contains_key(id) {
                 new += 1;
             } else {
                 edited += 1;
@@ -1263,6 +1268,14 @@ mod tests {
         dir
     }
 
+    /// A finished sweep file holding `reviews`.
+    fn written_to(path: &std::path::Path, reviews: &[Value]) {
+        let mut writer = CaptureWriter::create(path, APP).unwrap();
+        let rows: Vec<&Value> = reviews.iter().collect();
+        writer.write(&rows).unwrap();
+        writer.close().unwrap();
+    }
+
     /// Steam answering a sweep: `pages` in last-edit order, and `total` as the corpus's size.
     fn edits(
         pages: Vec<Vec<Value>>,
@@ -1296,14 +1309,15 @@ mod tests {
         let out = crate::tempdir::Dir::new();
         let dir = captured(
             out.path(),
-            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2, "name": "A Game"}),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": WATERMARK, "rows_unique": 2, "name": "A Game"}),
         );
         // Written while the sweep before this one was walking, and fetched by it.
         let mut newest = crate::capture::Newest::default();
         newest.record("r9", WATERMARK + 2, WATERMARK);
         newest.save(&dir).unwrap();
         std::fs::write(dir.join("sweep-1.parquet.partial"), b"stopped").unwrap();
-        std::fs::write(dir.join("sweep-2.parquet"), b"finished").unwrap();
+        let recorded = dir.join(crate::capture::sweep_file(WATERMARK));
+        written_to(&recorded, &[review("r9", WATERMARK + 2, WATERMARK + 2)]);
 
         let w = WATERMARK;
         let pages = vec![
@@ -1342,7 +1356,7 @@ mod tests {
         let swept = dir.join(crate::capture::sweep_file(report.started));
         assert!(swept.exists());
         assert!(!dir.join("sweep-1.parquet.partial").exists());
-        assert!(dir.join("sweep-2.parquet").exists());
+        assert!(recorded.exists());
         assert!(
             crate::capture::Newest::load(&dir)
                 .unwrap()
@@ -1356,6 +1370,67 @@ mod tests {
         assert_eq!(facts["rows_unique"], 5);
         assert_eq!(facts["valve_total_reviews"], 10);
         assert_eq!(facts["coverage"], 0.5);
+    }
+
+    #[tokio::test]
+    async fn a_retry_after_a_failed_record_write_counts_what_the_first_try_fetched() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let w = WATERMARK;
+        let page = vec![vec![
+            review("r3", w + 50, w + 50),
+            review("r1", 500, w + 40),
+        ]];
+        let blocker = dir.join("crawl.json.partial");
+        std::fs::create_dir(&blocker).unwrap();
+        let server = stand_in::Server::new(edits(page.clone(), 3));
+        sweeping(&server, APP, out.path()).await.unwrap_err();
+        std::fs::remove_dir(&blocker).unwrap();
+
+        let retry = swept_once(out.path(), page, 3).await;
+        assert_eq!((retry.rows, retry.new, retry.edited), (2, 1, 1));
+        assert_eq!(retry.unique, 3);
+        let facts = facts(&dir);
+        assert_eq!(facts["rows_unique"], 3);
+        assert_eq!(facts["rows_swept"], 2);
+        assert_eq!(
+            ids_in(&dir),
+            ["r1", "r2", "r3"].map(str::to_owned).into_iter().collect()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_retry_counts_an_edit_of_a_review_a_recorded_sweep_holds_as_an_edit() {
+        let out = crate::tempdir::Dir::new();
+        let swept = WATERMARK + 10;
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "swept_unix": swept, "rows_unique": 3}),
+        );
+        written_to(
+            &dir.join(crate::capture::sweep_file(swept)),
+            &[review("r3", swept, swept)],
+        );
+        let mut newest = crate::capture::Newest::default();
+        newest.record("r3", swept, swept);
+        newest.save(&dir).unwrap();
+        let w = WATERMARK;
+        let page = vec![vec![
+            review("r4", w + 60, w + 60),
+            review("r3", swept, w + 60),
+        ]];
+        let blocker = dir.join("crawl.json.partial");
+        std::fs::create_dir(&blocker).unwrap();
+        let server = stand_in::Server::new(edits(page.clone(), 4));
+        sweeping(&server, APP, out.path()).await.unwrap_err();
+        std::fs::remove_dir(&blocker).unwrap();
+
+        let retry = swept_once(out.path(), page, 4).await;
+        assert_eq!((retry.rows, retry.new, retry.edited), (2, 1, 1));
+        assert_eq!(facts(&dir)["rows_unique"], 4);
     }
 
     #[tokio::test]
