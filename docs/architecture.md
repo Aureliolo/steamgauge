@@ -44,6 +44,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   newest edit on the first page Steam served it. It writes no copy a recorded sweep already holds.
 - Every file is written beside its place and renamed when whole.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
+  A crawl and a name lookup read and write it under the sweep's lock, and are refused while
+  another job holds it.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in
   `announcements.json`. `updates::is_update` decides which are updates.
 - Whether the store lists a game as VR-only is kept in `game.json`, and the labeller and reader

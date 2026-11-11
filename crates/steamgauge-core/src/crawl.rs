@@ -119,6 +119,8 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
 /// Propagates transport, throttling, database and Parquet failures. An interrupted crawl
 /// leaves its completed shards on disk and resumes from them on the next run.
 /// A crawl whose record could not be written is resumed as well, and the next run writes it.
+/// [`crate::Error::Refused`] where another job holds the capture's lock when the crawl comes to
+/// write its record. The crawl is resumed by the next run, which writes it.
 pub async fn crawl(
     client: &SteamClient,
     app_id: u32,
@@ -169,12 +171,16 @@ pub async fn crawl(
 
     let complete = state.all_shards_done(crawl_id)?;
     let (windows, pages) = state.completed_totals(crawl_id)?;
+    // Asked before the lock, since a sweep begun while the store answers would be refused.
+    let asked_name = client.name(app_id).await;
+    // Held in a binding until the record is written: `_` would let go at once.
+    let record_lock = sweep_lock(&dir, app_id)?;
     let recorded = recorded_fields(&dir)?;
     let unique = match recorded.get("swept_unix").and_then(Value::as_i64) {
         Some(swept) => windows.saturating_add(crate::capture::only_swept(&dir, swept)?),
         None => windows,
     };
-    let name = match client.name(app_id).await {
+    let name = match asked_name {
         Some(name) => name,
         None => recorded
             .get("name")
@@ -206,6 +212,7 @@ pub async fn crawl(
     if complete {
         state.finish_crawl(crawl_id)?;
     }
+    drop(record_lock);
     Ok(report)
 }
 
@@ -613,7 +620,8 @@ const SWEEP_SLACK: i64 = 24 * 60 * 60;
 /// # Errors
 ///
 /// Fails if the capture is missing, the network does, or the files cannot be written.
-/// [`crate::Error::Refused`] while another sweep of the game runs, in this program or another.
+/// [`crate::Error::Refused`] while another job holds the capture's lock, in this program or
+/// another.
 pub async fn sweep(
     client: &SteamClient,
     app_id: u32,
@@ -623,9 +631,8 @@ pub async fn sweep(
 ) -> Result<SweepReport> {
     let begun = Instant::now();
     let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
-    // Held in a binding until `sweep` returns: `_` would let go at once.
-    // Held in a binding until `sweep` returns: `_` would let go at once.
-    let _lock = sweep_lock(&dir, app_id)?;
+    // Held in a binding until the record is written: `_` would let go at once.
+    let lock = sweep_lock(&dir, app_id)?;
     let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
     let watermark = facts
         .get("walk_from_unix")
@@ -714,6 +721,9 @@ pub async fn sweep(
         );
     }
     write_facts(&dir, &facts)?;
+    // The lookup takes the lock itself, and a second handle in one program is refused as another
+    // program's would be.
+    drop(lock);
     // The store is being asked about the game anyway. A name it will not give is not a reason
     // to fail a sweep that has already landed.
     let _ = name_where_missing(client, out_dir, app_id).await;
@@ -734,12 +744,13 @@ pub async fn sweep(
     })
 }
 
-/// The file a sweep locks. It stays in the capture, since removing it would let a program that
-/// has it open lock a file no other program can find.
+/// The file a sweep, a crawl's record step and a name lookup lock. It stays in the capture,
+/// since removing it would let a program that has it open lock a file no other program can find.
 const SWEEP_LOCK: &str = "sweep.lock";
 
-/// Takes the lock on a capture that a sweep holds while it runs, or refuses where it is held.
-/// The system lets go when the file is dropped or the program ends.
+/// Takes the lock on a capture, or refuses where it is held. A sweep holds it until its record is
+/// written. A crawl and a name lookup hold it from their read of the record to their write. The
+/// system lets go when the file is dropped or the program ends.
 ///
 /// The file is opened to write, never to append, because Windows refuses to lock a handle
 /// opened to append.
@@ -789,28 +800,41 @@ fn write_facts(dir: &std::path::Path, facts: &Value) -> Result<()> {
 /// # Errors
 ///
 /// Fails if there is no capture or its crawl record cannot be read or written.
+/// [`crate::Error::Refused`] where another job holds the capture's lock once the store has
+/// answered.
 pub async fn name_where_missing(
     client: &SteamClient,
     out_dir: &std::path::Path,
     app_id: u32,
 ) -> Result<Option<String>> {
     let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
-    if facts
-        .get("name")
-        .and_then(Value::as_str)
-        .is_some_and(|name| !name.is_empty())
-    {
+    let first: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
+    if has_name(&first) {
         return Ok(None);
     }
     let Some(name) = client.name(app_id).await.filter(|name| !name.is_empty()) else {
         return Ok(None);
     };
+    // The store is asked first, so no request runs under the lock. A sweep may have landed
+    // meanwhile, and the record is read again to keep what it wrote.
+    let _lock = sweep_lock(&dir, app_id)?;
+    let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
+    if has_name(&facts) {
+        return Ok(None);
+    }
     if let Some(object) = facts.as_object_mut() {
         object.insert("name".to_owned(), json!(name));
     }
     write_facts(&dir, &facts)?;
     Ok(Some(name))
+}
+
+/// Whether a crawl record holds a name that is not empty.
+fn has_name(facts: &Value) -> bool {
+    facts
+        .get("name")
+        .and_then(Value::as_str)
+        .is_some_and(|name| !name.is_empty())
 }
 
 /// The newest `timestamp_updated` among the reviews with an id, 0 for one without the stamp and
@@ -2726,5 +2750,182 @@ mod tests {
         assert_eq!(record["swept_unix"], WATERMARK + 9);
         assert_eq!(record["kept"], 1);
         assert!(!dir.join("crawl.json.partial").exists());
+    }
+
+    /// The lock a capture's other program holds, taken on a handle of the test's own.
+    fn lock_held_by_another_program(dir: &std::path::Path) -> std::fs::File {
+        let other = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(dir.join(SWEEP_LOCK))
+            .unwrap();
+        other.try_lock().unwrap();
+        other
+    }
+
+    /// `inner`, except that the store's answer about the game's name sets `asked` and then waits
+    /// until `released` is set, or ten seconds.
+    fn name_held_back(
+        inner: impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static,
+        (asked, released): (
+            Arc<std::sync::atomic::AtomicBool>,
+            Arc<std::sync::atomic::AtomicBool>,
+        ),
+    ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
+        move |request| {
+            use std::sync::atomic::Ordering::SeqCst;
+            if request.path() == "/api/appdetails" {
+                asked.store(true, SeqCst);
+                let began = Instant::now();
+                while !released.load(SeqCst) && began.elapsed() < Duration::from_secs(10) {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+            inner(request)
+        }
+    }
+
+    /// Waits until `flag` is set, or ten seconds.
+    async fn until_set(flag: &std::sync::atomic::AtomicBool) {
+        let began = Instant::now();
+        while !flag.load(std::sync::atomic::Ordering::SeqCst)
+            && began.elapsed() < Duration::from_secs(10)
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn a_crawl_writes_no_record_while_another_program_holds_the_lock() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let before = std::fs::read(short.dir.join("crawl.json")).unwrap();
+        let other = lock_held_by_another_program(&short.dir);
+
+        let refused = resumed_crawl(out.path()).await;
+        assert!(
+            matches!(refused, Err(crate::Error::Refused(_))),
+            "{refused:?}"
+        );
+        assert_eq!(std::fs::read(short.dir.join("crawl.json")).unwrap(), before);
+
+        drop(other);
+        let again = resumed_crawl(out.path()).await.unwrap();
+        assert!(again.resumed && again.complete);
+        assert_eq!(again.dir, short.dir);
+        assert_eq!(facts(&again.dir)["rows_unique"], 70);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_that_reads_its_record_before_the_lock_is_refused_by_it() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let record = short.dir.join("crawl.json");
+        let bytes = std::fs::read(&record).unwrap();
+        let other = lock_held_by_another_program(&short.dir);
+        std::fs::remove_file(&record).unwrap();
+        std::fs::create_dir(&record).unwrap();
+
+        let refused = resumed_crawl(out.path()).await;
+        assert!(
+            matches!(refused, Err(crate::Error::Refused(_))),
+            "{refused:?}"
+        );
+
+        std::fs::remove_dir(&record).unwrap();
+        std::fs::write(&record, bytes).unwrap();
+        drop(other);
+        let again = resumed_crawl(out.path()).await.unwrap();
+        assert!(again.resumed && again.complete);
+    }
+
+    #[tokio::test]
+    async fn a_sweep_that_lands_while_a_crawl_asks_the_store_keeps_its_record() {
+        use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let (asked, released) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let server = stand_in::Server::new(name_held_back(
+            valve(corpus(), None, 0),
+            (Arc::clone(&asked), Arc::clone(&released)),
+        ));
+        let sweeping_meanwhile = async {
+            until_set(&asked).await;
+            let swept = sweep_after(out.path(), snapshot_of(&short.dir)).await;
+            released.store(true, SeqCst);
+            swept
+        };
+        let (client, settings) = (client_of(&server), options(out.path()));
+        let (resumed, swept) =
+            tokio::join!(crawl(&client, APP, &settings, |_| {}), sweeping_meanwhile);
+        let resumed = resumed.unwrap();
+        assert!(resumed.resumed && resumed.complete);
+        let record = facts(&resumed.dir);
+        assert_eq!(record["swept_unix"], swept.started);
+        assert_eq!(record["sweeps"], 1);
+        assert_eq!(record["rows_swept"], 2);
+        assert_eq!(record["rows_unique"], 71);
+    }
+
+    #[tokio::test]
+    async fn a_name_lookup_writes_nothing_while_another_program_holds_the_lock() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(out.path(), &json!({"snapshot_unix": WATERMARK}));
+        let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
+        let before = std::fs::read(dir.join("crawl.json")).unwrap();
+        let other = lock_held_by_another_program(&dir);
+
+        let refused = name_where_missing(&client_of(&store), out.path(), APP).await;
+        assert!(
+            matches!(refused, Err(crate::Error::Refused(_))),
+            "{refused:?}"
+        );
+        assert_eq!(std::fs::read(dir.join("crawl.json")).unwrap(), before);
+
+        drop(other);
+        let named = name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        assert_eq!(named.as_deref(), Some("A Game"));
+    }
+
+    #[tokio::test]
+    async fn a_sweep_that_lands_while_a_name_lookup_asks_the_store_keeps_its_record() {
+        use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let (asked, released) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let store = stand_in::Server::new(name_held_back(
+            |_| name_of_the_game("Late Name"),
+            (Arc::clone(&asked), Arc::clone(&released)),
+        ));
+        let walk = stand_in::Server::new(edits(one_new_review(), 3));
+        let sweeping_meanwhile = async {
+            until_set(&asked).await;
+            let swept = sweeping(&walk, APP, out.path()).await;
+            released.store(true, SeqCst);
+            swept
+        };
+        let client = client_of(&store);
+        let (looked_up, swept) = tokio::join!(
+            name_where_missing(&client, out.path(), APP),
+            sweeping_meanwhile
+        );
+        swept.unwrap();
+        assert_eq!(looked_up.unwrap(), None);
+        let record = facts(&dir);
+        assert_eq!(record["name"], "A Game");
+        assert_eq!(record["sweeps"], 1);
+        assert_eq!(record["rows_unique"], 3);
     }
 }
