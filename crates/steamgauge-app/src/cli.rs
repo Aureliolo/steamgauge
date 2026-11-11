@@ -2040,13 +2040,13 @@ fn reader_size(asked: Option<&str>) -> Result<&'static steamgauge_core::reader::
     Ok(size)
 }
 
-/// Fetches the published reader when the directory holds none.
+/// Fetches the published reader where none is here.
 ///
-/// A directory that already holds a model is left alone whatever the pins say, because that
-/// is how a freshly trained model is tried before it is published. Only an empty one is
-/// filled, and only from the pinned release.
+/// A reader in any folder but the size's own in the app's model folder is left alone whatever
+/// the pins say, because that is how a freshly trained model is tried before it is published.
+/// The app's own copy follows the pins.
 async fn fetch_reader(size: &steamgauge_core::reader::Size, model_dir: &Path) -> Result<()> {
-    if model_dir.join("model.onnx").is_file() {
+    if size.here(model_dir) {
         return Ok(());
     }
     if !size.published.is_pinned() {

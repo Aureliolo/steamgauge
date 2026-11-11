@@ -235,6 +235,15 @@ impl Asset {
     pub(crate) fn present_in(self, dir: &Path) -> bool {
         std::fs::metadata(dir.join(self.local)).is_ok_and(|found| found.len() == self.bytes)
     }
+
+    /// Whether the copy in `dir` is the pinned file, by its hash. It reads the whole file.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a file of the right length cannot be read.
+    pub(crate) fn matches_in(self, dir: &Path) -> Result<bool> {
+        Ok(self.present_in(dir) && sha256_file(&dir.join(self.local))? == self.sha256)
+    }
 }
 
 /// What fetching these files into `dir` would download. Only the ones not there count.
@@ -448,7 +457,7 @@ pub(crate) async fn ensure_asset(
 ) -> Result<()> {
     let _turn = turn(dir).await?;
     let path = dir.join(asset.local);
-    if asset.present_in(dir) && sha256_file(&path)? == asset.sha256 {
+    if asset.matches_in(dir)? {
         return Ok(());
     }
     if !source.is_pinned() {

@@ -280,13 +280,9 @@ fn read_offer(
     };
     Ok(ReadOffer {
         reader: size.name,
-        download_bytes: if published {
-            size.published.bytes_left(&home)
-        } else {
-            0
-        },
+        download_bytes: size.left_to_fetch(&home),
         published,
-        here: home.join("model.onnx").is_file(),
+        here: size.here(&home),
         choices,
     })
 }

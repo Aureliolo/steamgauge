@@ -396,14 +396,13 @@ fn machine(app: &AppHandle) -> Machine {
     let mut models: Vec<ModelState> = SIZES
         .iter()
         .map(|size| {
-            let left = size.published.bytes_left(&size.home());
+            let home = size.home();
             ModelState {
                 name: super::settings::reader_name(size),
                 key: size.name,
                 role: super::settings::reader_role(size),
-                here: size.home().join("model.onnx").is_file()
-                    && (left == 0 || !size.published.is_pinned()),
-                bytes_left: if size.published.is_pinned() { left } else { 0 },
+                here: size.here(&home),
+                bytes_left: size.left_to_fetch(&home),
                 release: release(size.published.release),
                 newer: releases.newer(size.published.repository, size.published.release),
                 used: size.name == reader.name,

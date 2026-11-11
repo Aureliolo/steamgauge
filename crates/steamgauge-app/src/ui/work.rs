@@ -955,7 +955,7 @@ async fn fetch_reader(
     size: &'static steamgauge_core::reader::Size,
 ) -> Result<(), String> {
     let model_dir = size.home();
-    if model_dir.join("model.onnx").is_file() {
+    if size.here(&model_dir) {
         return Ok(());
     }
     if !size.published.is_pinned() {

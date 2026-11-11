@@ -131,6 +131,9 @@ in thirty.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
   A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
   the same turn and leaves `fetch.lock`.
+- The reader in the app's model folder follows the build's pins, in the folder named for its
+  size. A copy with a file missing, or of another release, is fetched when first needed. A
+  reader anywhere else is never fetched over.
 - A job is named as the store names its game, never by its number.
 - The reader, the search encoder and the reranker are let go after two minutes unused. The card
   holds the reader or the encoder, never both.
