@@ -59,7 +59,8 @@ libloading = "=0.9.0"
 # newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
 # model, so nothing is ever loaded.
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic"] }
-# Without the app's own update, which reads no stranger's text.
+# Without the app's own update, which reads no stranger's text, and without the prebuilt ONNX
+# Runtime, which only a model run needs.
 steamgauge-core = { path = "../crates/steamgauge-core", default-features = false }
 
 [lints.clippy]
