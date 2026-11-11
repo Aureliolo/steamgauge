@@ -374,8 +374,38 @@ impl Source {
     }
 }
 
+/// The file a fetch locks in a model's folder. Every program here that fetches takes it
+/// first, so the window and a command in a terminal take turns.
+const FETCH_LOCK: &str = "fetch.lock";
+
+/// Waits for this folder's turn to be fetched into. The handle is the lock, let go when it is
+/// dropped or its program ends.
+///
+/// The lock is asked for before the first pause, so a free folder costs no wait. The file is
+/// never truncated or removed: a fetch that opened it before a removal would lock a file no
+/// later fetch can see.
+async fn turn(dir: &Path) -> Result<std::fs::File> {
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(dir.join(FETCH_LOCK))?;
+    loop {
+        match file.try_lock() {
+            Ok(()) => return Ok(file),
+            Err(std::fs::TryLockError::WouldBlock) => {
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+            Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+        }
+    }
+}
+
 /// Fetches one pinned file from a Hugging Face repository unless the copy on disk already
 /// matches its hash.
+///
+/// Two fetches into one folder take turns, in one program or two, and the second uses the
+/// first's copy.
 ///
 /// # Errors
 ///
@@ -389,6 +419,7 @@ pub(crate) async fn ensure_asset(
     dir: &Path,
     on_progress: &mut impl FnMut(DownloadProgress<'_>),
 ) -> Result<()> {
+    let _turn = turn(dir).await?;
     let path = dir.join(asset.local);
     if asset.present_in(dir) && sha256_file(&path)? == asset.sha256 {
         return Ok(());
@@ -937,6 +968,293 @@ mod tests {
         );
         assert!(!dir.path().join("model.onnx").exists());
         assert!(!dir.path().join("model.partial").exists());
+    }
+
+    #[tokio::test]
+    async fn two_fetches_into_one_folder_at_once_download_the_file_once() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let asset = pinned_to(GRAPH);
+        let (first, second) = tokio::join!(
+            fetch(source, asset, dir.path()),
+            fetch(source, asset, dir.path())
+        );
+        first.0.unwrap();
+        second.0.unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert!(!dir.path().join("model.partial").exists());
+        assert_eq!(server.asked().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_fetch_waits_while_another_program_holds_the_folder() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        let held = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(dir.path().join(FETCH_LOCK))
+            .unwrap();
+        held.lock().unwrap();
+
+        let waiting = tokio::time::timeout(
+            std::time::Duration::from_millis(300),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await;
+        assert!(waiting.is_err(), "the fetch did not wait");
+        assert!(server.asked().is_empty());
+
+        drop(held);
+        fetch(source, pinned_to(GRAPH), dir.path()).await.0.unwrap();
+        assert_eq!(server.asked().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_fetch_that_waited_on_a_failed_one_fetches_for_itself() {
+        let dir = crate::tempdir::Dir::new();
+        let count = std::sync::atomic::AtomicUsize::new(0);
+        let server = stand_in::Server::new(move |_| {
+            if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                stand_in::Answer::body(b"graph".to_vec())
+            } else {
+                stand_in::Answer::body(GRAPH)
+            }
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let asset = pinned_to(GRAPH);
+        let (first, second) = tokio::join!(
+            fetch(source, asset, dir.path()),
+            fetch(source, asset, dir.path())
+        );
+        assert!(
+            matches!(first.0, Err(Error::ModelLength { .. })),
+            "{:?}",
+            first.0
+        );
+        second.0.unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert_eq!(server.asked().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn fetches_into_two_folders_at_once_do_not_wait_for_each_other() {
+        let root = crate::tempdir::Dir::new();
+        let first_dir = root.path().join("first");
+        let second_dir = root.path().join("second");
+        std::fs::create_dir(&first_dir).unwrap();
+        std::fs::create_dir(&second_dir).unwrap();
+        let seen = std::sync::Mutex::new(Vec::<String>::new());
+        let server = stand_in::Server::new(move |asked| {
+            let path = asked.path();
+            seen.lock().unwrap().push(path.to_owned());
+            if path.ends_with("first/model.onnx") {
+                let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                while std::time::Instant::now() < until {
+                    if seen
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .any(|seen| seen.ends_with("second/model.onnx"))
+                    {
+                        return stand_in::Answer::body(GRAPH);
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                return stand_in::Answer::status(500);
+            }
+            stand_in::Answer::body(GRAPH)
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let first = Asset {
+            remote: "first/model.onnx",
+            ..pinned_to(GRAPH)
+        };
+        let second = Asset {
+            remote: "second/model.onnx",
+            ..pinned_to(GRAPH)
+        };
+        let (first, second) = tokio::join!(
+            fetch(source, first, &first_dir),
+            fetch(source, second, &second_dir)
+        );
+        first.0.unwrap();
+        second.0.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_fetch_dropped_part_way_lets_go_of_the_folder() {
+        let dir = crate::tempdir::Dir::new();
+        let count = std::sync::atomic::AtomicUsize::new(0);
+        let server = stand_in::Server::new(move |_| {
+            if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                stand_in::Answer::body(GRAPH[..GRAPH.len() - 1].to_vec()).stalled()
+            } else {
+                stand_in::Answer::body(GRAPH)
+            }
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let (reported, report) = tokio::sync::oneshot::channel();
+        let mut reported = Some(reported);
+        {
+            let client = client().unwrap();
+            let mut on_progress = |_: DownloadProgress<'_>| {
+                if let Some(reported) = reported.take() {
+                    let _ = reported.send(());
+                }
+            };
+            let first = ensure_asset(
+                &client,
+                source,
+                pinned_to(GRAPH),
+                dir.path(),
+                &mut on_progress,
+            );
+            tokio::select! {
+                result = first => panic!("the stalled fetch ended: {result:?}"),
+                _ = report => {}
+            }
+        }
+        let again = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await
+        .expect("the dropped fetch still held the folder");
+        again.0.unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert_eq!(server.asked().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_free_folder_is_taken_without_waiting_and_its_lock_file_stays() {
+        let dir = crate::tempdir::Dir::new();
+        let (server, source) = hub(GRAPH);
+        std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await
+        .expect("a free folder was waited for")
+        .0
+        .unwrap();
+        assert!(server.asked().is_empty());
+        assert!(dir.path().join(FETCH_LOCK).exists());
+
+        let (_server, source) = hub(GRAPH);
+        let other = crate::tempdir::Dir::new();
+        fetch(source, pinned_to(GRAPH), other.path())
+            .await
+            .0
+            .unwrap();
+        assert!(other.path().join(FETCH_LOCK).exists());
+    }
+
+    /// Stands in for another program: the test binary run again with a folder to fetch into,
+    /// which it does against a hub that stops part way, and then waits to be killed.
+    #[tokio::test]
+    async fn a_fetcher_program_for_the_tests_that_kill_one() {
+        let Some(dir) = std::env::var_os("STEAMGAUGE_TEST_FETCH_DIR") else {
+            return;
+        };
+        let server = stand_in::Server::new(|_| {
+            stand_in::Answer::body(GRAPH[..GRAPH.len() - 1].to_vec()).stalled()
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let (reported, report) = tokio::sync::oneshot::channel();
+        let mut reported = Some(reported);
+        let client = client().unwrap();
+        let dir = PathBuf::from(dir);
+        let mut on_progress = |_: DownloadProgress<'_>| {
+            if let Some(reported) = reported.take() {
+                let _ = reported.send(());
+            }
+        };
+        let first = ensure_asset(&client, source, pinned_to(GRAPH), &dir, &mut on_progress);
+        tokio::pin!(first);
+        tokio::select! {
+            result = &mut first => panic!("the stalled fetch ended: {result:?}"),
+            _ = report => {}
+        }
+        println!("PART WAY");
+        std::thread::sleep(std::time::Duration::from_secs(60));
+    }
+
+    /// Kills the program it holds when dropped, so a failed assertion leaves none running.
+    struct Program(std::process::Child);
+
+    impl Drop for Program {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    #[tokio::test]
+    async fn two_programs_take_turns_and_a_killed_one_lets_go_at_once() {
+        let dir = crate::tempdir::Dir::new();
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "model::tests::a_fetcher_program_for_the_tests_that_kill_one",
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("STEAMGAUGE_TEST_FETCH_DIR", dir.path())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let output = child.stdout.take().unwrap();
+        let mut program = Program(child);
+        let part_way = std::io::BufRead::lines(std::io::BufReader::new(output))
+            .map_while(std::result::Result::ok)
+            .any(|line| line.contains("PART WAY"));
+        assert!(part_way, "the other program never got part way");
+
+        let (server, source) = hub(GRAPH);
+        let waiting = tokio::time::timeout(
+            std::time::Duration::from_millis(300),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await;
+        assert!(waiting.is_err(), "the fetch did not wait for the program");
+        assert!(server.asked().is_empty());
+
+        program.0.kill().unwrap();
+        program.0.wait().unwrap();
+        let partial = dir.path().join("model.partial");
+        assert_eq!(std::fs::read(&partial).unwrap(), &GRAPH[..GRAPH.len() - 1]);
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            fetch(source, pinned_to(GRAPH), dir.path()),
+        )
+        .await
+        .expect("the killed program still held the folder")
+        .0
+        .unwrap();
+        assert_eq!(std::fs::read(dir.path().join("model.onnx")).unwrap(), GRAPH);
+        assert!(!partial.exists());
+        assert_eq!(server.asked().len(), 1);
+        assert!(dir.path().join(FETCH_LOCK).exists());
     }
 
     #[tokio::test]
