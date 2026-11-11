@@ -691,7 +691,6 @@ pub async fn sweep(
     let floor = crate::capture::shards_of(&dir)?
         .into_iter()
         .map(|(_, start)| start)
-        .filter(|start| *start > 0)
         .chain(facts.get("swept_unix").and_then(Value::as_i64))
         .max();
     let started = floor.map_or_else(now_unix, |floor| now_unix().max(floor.saturating_add(1)));
