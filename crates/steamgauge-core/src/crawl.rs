@@ -1682,6 +1682,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_window_whose_last_walk_reaches_the_count_only_with_the_reviews_past_the_plan_is_not_short()
+     {
+        let out = crate::tempdir::Dir::new();
+        let stamped = now_unix() - 3600;
+        let early = CORPUS_EPOCH + 2 * 365 * DAY;
+        let corpus = held(
+            (0..40_i64)
+                .map(|i| review(&format!("r{i}"), early + i * DAY, early + i * DAY))
+                .collect(),
+        );
+        let late = (0..50_i64)
+            .map(|i| review(&format!("late{i}"), stamped + 1 + i, stamped + 1 + i))
+            .collect();
+        let inner = arriving_after_the_first_page(changing_steam(&corpus), &corpus, late);
+        // The window of the late reviews ends after its first page on its first two walks.
+        let walks = std::sync::Mutex::new(0_usize);
+        let stalling = move |asked: &stand_in::Asked| {
+            let input = asked.input();
+            let reaches_late = input["date_range_end"].as_i64().unwrap_or(i64::MAX) > stamped;
+            let answer = inner(asked);
+            if asked.path() == "/api/appdetails"
+                || counting(asked)
+                || input["filter"] == 2
+                || !reaches_late
+            {
+                return answer;
+            }
+            let mut walks = walks.lock().unwrap();
+            if offset(asked) == 0 {
+                *walks += 1;
+            }
+            if *walks <= 2 && offset(asked) > 0 {
+                return stand_in::Answer::json(&json!({"response": {
+                    "query_summary": {"num_reviews": 0},
+                    "reviews": [],
+                    "cursor": input["cursor"].clone(),
+                }}));
+            }
+            answer
+        };
+        let server = stand_in::Server::new(stalling);
+        let report = crawl(&client_of(&server), APP, &options(out.path()), |_| {})
+            .await
+            .unwrap();
+        assert_eq!(report.shards_restarted, 1);
+        assert_eq!(report.shards_short, 0);
+        assert!(report.complete);
+        assert_eq!(report.unique, 40);
+    }
+
+    #[tokio::test]
     async fn two_crawls_of_a_quiet_game_a_second_apart_ask_different_window_queries() {
         let now = now_unix();
         let early = CORPUS_EPOCH + 2 * 365 * DAY;
