@@ -531,38 +531,50 @@ pub(super) async fn remove_model(
     else {
         return Err(format!("No model is called {key}."));
     };
-    // Still asked for, the writer would be fetched again by the next game prepared.
-    if key == writer::WRITER.name {
-        writer::Choice { write: false }
-            .save(&library)
-            .map_err(text)?;
-    }
     // Only ever a folder inside the cache, whatever a reader size's home says: a model being
     // tried from a working tree is not the app's to delete.
     if !home.starts_with(&cache) {
         return Err("That model is not in the app's model folder.".to_owned());
     }
+    let writer_goes = key == writer::WRITER.name;
     let models = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         // A model still loaded holds its files open, and Windows removes no file held open.
         models.state::<super::Models>().let_go();
-        if home.exists() {
-            std::fs::remove_dir_all(&home)
-        } else {
-            Ok(())
-        }
+        take_away(&home, &library, writer_goes)
     })
     .await
-    .map_err(text)?
-    .map_err(text)?;
+    .map_err(text)??;
     Ok(storage(app).await)
+}
+
+/// Empties a model's folder, and turns the writer off when it was the writer's. A fetch holding
+/// the folder refuses the removal and leaves writing as it was.
+fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), String> {
+    if !steamgauge_core::model::remove_fetched(home).map_err(text)? {
+        return Err(
+            "This model is being fetched, here or by a command in a terminal. \
+            Models are removed once it is done."
+                .to_owned(),
+        );
+    }
+    // Still asked for, the writer would be fetched again by the next game prepared.
+    if writer_goes {
+        writer::Choice { write: false }
+            .save(library)
+            .map_err(text)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Part, Parts, Removal, game_parts, model_busy, part_of, remove_from_game};
+    use super::{
+        Part, Parts, Removal, game_parts, model_busy, part_of, remove_from_game, take_away,
+    };
     use crate::ui::work::{Job, State, Task, Unit};
     use std::path::{Path, PathBuf};
+    use steamgauge_core::writer;
 
     struct Scratch(PathBuf);
 
@@ -684,6 +696,34 @@ mod tests {
             ended: None,
             background: false,
         }
+    }
+
+    #[test]
+    fn a_removal_refused_by_a_fetch_leaves_the_files_and_writing_on() {
+        let scratch = Scratch::new("model-held");
+        let home = scratch.0.join("model");
+        let library = scratch.0.join("library");
+        file(&home.join("model.onnx"), 5);
+        std::fs::create_dir_all(&library).unwrap();
+        writer::Choice { write: true }.save(&library).unwrap();
+        let held = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(home.join("fetch.lock"))
+            .unwrap();
+        held.lock().unwrap();
+
+        let refused = take_away(&home, &library, true).unwrap_err();
+        assert!(refused.contains("being fetched"), "{refused}");
+        assert!(home.join("model.onnx").is_file());
+        assert!(writer::Choice::load(&library).write);
+
+        drop(held);
+        take_away(&home, &library, true).unwrap();
+        assert!(!home.join("model.onnx").exists());
+        assert!(home.join("fetch.lock").is_file());
+        assert!(!writer::Choice::load(&library).write);
     }
 
     #[test]
