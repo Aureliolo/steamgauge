@@ -551,8 +551,10 @@ async fn download(
         .error_for_status()?;
 
     // Written beside the target and renamed, so an interrupted download is never mistaken
-    // for a complete one on the next run.
+    // for a complete one on the next run. Whatever ends a download short of the rename, an
+    // error or a stop, takes the partial with it.
     let partial = path.with_extension("partial");
+    let unfinished = Unfinished(&partial);
     let mut file = std::fs::File::create(&partial)?;
     let mut downloaded = 0;
 
@@ -560,7 +562,6 @@ async fn download(
         downloaded += chunk.len() as u64;
         if downloaded > asset.bytes {
             drop(file);
-            std::fs::remove_file(&partial)?;
             return Err(Error::ModelLength {
                 file: asset.local,
                 expected: asset.bytes,
@@ -575,14 +576,24 @@ async fn download(
     }
     drop(file);
     if downloaded != asset.bytes {
-        std::fs::remove_file(&partial)?;
         return Err(Error::ModelLength {
             file: asset.local,
             expected: asset.bytes,
         });
     }
     std::fs::rename(&partial, path)?;
+    drop(unfinished);
     Ok(())
+}
+
+/// A `.partial` being written. Dropped, it removes the file, so a download that does not finish
+/// leaves nothing behind.
+struct Unfinished<'a>(&'a Path);
+
+impl Drop for Unfinished<'_> {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(self.0);
+    }
 }
 
 fn sha256_file(path: &Path) -> Result<String> {
@@ -1260,6 +1271,42 @@ mod tests {
         let gone = crate::tempdir::Dir::new().path().join("nothing");
         assert!(remove_fetched(&gone).unwrap());
         assert!(!gone.exists());
+    }
+
+    #[tokio::test]
+    async fn a_fetch_dropped_part_way_leaves_no_partial() {
+        let dir = crate::tempdir::Dir::new();
+        let server = stand_in::Server::new(move |_| {
+            stand_in::Answer::body(GRAPH[..GRAPH.len() - 1].to_vec()).stalled()
+        });
+        let source = Source {
+            hub: server.origin().leak(),
+            repository: "someone/encoder",
+            revision: COMMIT,
+        };
+        let (reported, report) = tokio::sync::oneshot::channel();
+        let mut reported = Some(reported);
+        {
+            let client = client().unwrap();
+            let mut on_progress = |_: DownloadProgress<'_>| {
+                if let Some(reported) = reported.take() {
+                    let _ = reported.send(());
+                }
+            };
+            let first = ensure_asset(
+                &client,
+                source,
+                pinned_to(GRAPH),
+                dir.path(),
+                &mut on_progress,
+            );
+            tokio::select! {
+                result = first => panic!("the stalled fetch ended: {result:?}"),
+                _ = report => {}
+            }
+        }
+        assert!(!dir.path().join("model.partial").exists());
+        assert!(!dir.path().join("model.onnx").exists());
     }
 
     #[tokio::test]

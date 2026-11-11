@@ -134,6 +134,8 @@ in thirty.
 - The reader in the app's model folder follows the build's pins, in the folder named for its
   size. A copy with a file missing, or of another release, is fetched when first needed. A
   reader anywhere else is never fetched over.
+- Stop drops a download, a Steam check and a model fetch where they stand. A fetch that does not
+  finish leaves no half file, and the files it finished are kept.
 - A job is named as the store names its game, never by its number.
 - The reader, the search encoder and the reranker are let go after two minutes unused. The card
   holds the reader or the encoder, never both.

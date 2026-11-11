@@ -215,7 +215,6 @@ struct Board {
     next: u64,
     meters: HashMap<u64, Meter>,
     stops: HashMap<u64, Arc<AtomicBool>>,
-    aborts: HashMap<u64, tokio::task::AbortHandle>,
     /// Jobs of the app's own told to stop for the person's work, which wait again rather than
     /// ending.
     yielding: HashSet<u64>,
@@ -287,9 +286,13 @@ impl Job {
 }
 
 /// Whether a job is dropped where it stands when stopped: a crawl records each window only once
-/// it is whole and resumes from those, and a check writes nothing until it ends.
+/// it is whole and resumes from those, a check writes nothing until it ends, and a model file
+/// takes its name only once it is whole.
 const fn droppable(task: &Task) -> bool {
-    matches!(task, Task::Download { .. } | Task::Check)
+    matches!(
+        task,
+        Task::Download { .. } | Task::Check | Task::FetchModel { .. }
+    )
 }
 
 /// The board and a bell for each lane.
@@ -402,19 +405,16 @@ impl Work {
     /// is done.
     fn make_way(&self) {
         let mut board = self.lock();
-        let running: Vec<(u64, bool)> = board
+        let running: Vec<u64> = board
             .jobs
             .iter()
             .filter(|job| job.background && job.state == State::Running)
-            .map(|job| (job.id, droppable(&job.task)))
+            .map(|job| job.id)
             .collect();
-        for (id, droppable) in running {
+        for id in running {
             board.yielding.insert(id);
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
-            }
-            if droppable && let Some(abort) = board.aborts.get(&id) {
-                abort.abort();
             }
         }
     }
@@ -422,8 +422,8 @@ impl Work {
     /// Stops a job: a waiting one never starts, and a running one is told to stop where it
     /// can. It keeps what it finished.
     ///
-    /// A download and a check are dropped where they stand: a crawl records each window only
-    /// once it is whole and resumes from those, and a check writes nothing until it ends.
+    /// A download, a check and a model fetch are dropped where they stand, and a read or a
+    /// preparation while it fetches its models. `droppable` gives the reasons.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
     /// letting go of its game only then, not before another job could start on the same files.
     /// A waiting job taken off lets go of its game at once, so every lane is rung.
@@ -432,13 +432,6 @@ impl Work {
             let mut board = self.lock();
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
-            }
-            let droppable = board
-                .jobs
-                .iter()
-                .any(|job| job.id == id && droppable(&job.task));
-            if droppable && let Some(abort) = board.aborts.get(&id) {
-                abort.abort();
             }
             if let Some(job) = board.jobs.iter_mut().find(|job| job.id == id)
                 && job.state == State::Queued
@@ -569,7 +562,6 @@ impl Work {
         let (game, background) = {
             let mut board = self.lock();
             board.meters.remove(&id);
-            board.aborts.remove(&id);
             let stopped = board
                 .stops
                 .remove(&id)
@@ -657,7 +649,7 @@ const fn stopped_note(task: &Task) -> &'static str {
         Task::Export { .. } => "Stopped before the report was saved.",
         Task::ExportData { .. } => "Stopped. Nothing was saved.",
         Task::FetchModel { .. } => {
-            "Stopped. Its files already fetched are kept; the rest comes when it is first needed."
+            "Stopped. Its files already fetched are kept, and the rest comes when it is first needed."
         }
     }
 }
@@ -711,33 +703,58 @@ pub(super) fn start(app: &AppHandle) {
     }
 }
 
-/// Runs a job in a task of its own, so stopping a download can drop it where it stands: a
-/// download resumes from what it kept, and an update starts again from its watermark.
+/// Runs a job in a task of its own. A droppable job is dropped where it stands once it is told
+/// to stop.
 async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Result<Ended, String> {
-    let job = {
-        let app = app.clone();
-        tokio::spawn(async move {
-            match task {
-                Task::Download { app_id } => download(&app, id, app_id).await,
-                Task::Update { app_id } => update(&app, id, app_id, stop).await,
-                Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
-                Task::Recount { app_id } => recount(&app, id, app_id, stop).await,
-                Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
-                Task::Check => check(&app, id).await,
-                Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
-                Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
-                Task::FetchModel { model } => fetch_model(&app, id, &model).await,
-            }
-        })
-    };
-    app.state::<Work>()
-        .lock()
-        .aborts
-        .insert(id, job.abort_handle());
+    let dropped_by = droppable(&task).then(|| Arc::clone(&stop));
+    let app = app.clone();
+    in_own_task(dropped_by, async move {
+        match task {
+            Task::Download { app_id } => download(&app, id, app_id).await,
+            Task::Update { app_id } => update(&app, id, app_id, stop).await,
+            Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
+            Task::Recount { app_id } => recount(&app, id, app_id, stop).await,
+            Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
+            Task::Check => check(&app, id).await,
+            Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
+            Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
+            Task::FetchModel { model } => fetch_model(&app, id, &model).await,
+        }
+    })
+    .await
+}
+
+/// Runs a job's work in a task of its own, so work that panics ends as failed and its lane goes
+/// on. Given a stop flag, the work is dropped inside that task once the flag is set, and nothing
+/// of it runs on.
+async fn in_own_task<T: Send + 'static>(
+    stop: Option<Arc<AtomicBool>>,
+    work: impl Future<Output = Result<T, String>> + Send + 'static,
+) -> Result<T, String> {
+    let job = tokio::spawn(async move {
+        match stop {
+            Some(stop) => unless_stopped(&stop, work).await,
+            None => work.await,
+        }
+    });
     match job.await {
         Ok(ended) => ended,
-        Err(joined) if joined.is_cancelled() => Err("stopped".to_owned()),
         Err(joined) => Err(format!("the job failed: {joined}")),
+    }
+}
+
+/// Runs work that may be dropped where it stands, and drops it once its job is told to stop.
+async fn unless_stopped<T>(
+    stop: &AtomicBool,
+    work: impl Future<Output = Result<T, String>>,
+) -> Result<T, String> {
+    tokio::select! {
+        ended = work => ended,
+        () = async {
+            while !stop.load(Ordering::Relaxed) {
+                tokio::time::sleep(EVERY).await;
+            }
+        } => Err("stopped".to_owned()),
     }
 }
 
@@ -1117,7 +1134,7 @@ async fn read(
     );
     let size = reader_here(&settings);
     let model_dir = size.home();
-    fetch_reader(app, id, size).await?;
+    unless_stopped(&stop, fetch_reader(app, id, size)).await?;
     know_the_game(app, id, app_id, &out_dir).await?;
     let options = steamgauge_core::read::ReadOptions {
         out_dir: out_dir.clone(),
@@ -1256,7 +1273,7 @@ async fn prepare(
 
     let dir = library_dir(app);
     let writing = steamgauge_core::writer::Choice::load(&dir).write;
-    fetch_for_prepare(app, id, writing).await?;
+    unless_stopped(&stop, fetch_for_prepare(app, id, writing)).await?;
 
     let share = Settings::load(app).gpu_share;
     let models = app.state::<super::Models>();
@@ -1880,11 +1897,69 @@ mod tests {
     }
 
     #[test]
-    fn only_a_download_and_a_check_are_dropped_where_they_stand() {
+    fn a_download_a_check_and_a_model_fetch_are_dropped_where_they_stand() {
         assert!(droppable(&Task::Download { app_id: 1 }));
         assert!(droppable(&Task::Check));
+        assert!(droppable(&Task::FetchModel {
+            model: "writer".to_owned()
+        }));
         assert!(!droppable(&Task::Update { app_id: 1 }));
         assert!(!droppable(&read(1)));
+        assert!(!droppable(&Task::Prepare { app_id: 1 }));
+    }
+
+    /// Sets a marker when dropped, as work holding a half-written file would let it go.
+    struct Marks(Arc<AtomicBool>);
+
+    impl Drop for Marks {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_job_told_to_stop_is_dropped_inside_its_own_task() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let held = Marks(Arc::clone(&dropped));
+        let work = async move {
+            let _held = held;
+            std::future::pending::<Result<(), String>>().await
+        };
+        let setter = {
+            let flag = Arc::clone(&flag);
+            async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                flag.store(true, Ordering::Relaxed);
+            }
+        };
+        let (ended, ()) = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(in_own_task(Some(flag), work), setter)
+        })
+        .await
+        .expect("the work was never told to stop");
+        assert_eq!(ended, Err("stopped".to_owned()));
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn a_job_that_panics_ends_as_failed() {
+        let ended = in_own_task(None, async {
+            assert!(Duration::ZERO > Duration::from_secs(1), "work that panics");
+            Ok::<(), String>(())
+        })
+        .await;
+        assert!(ended.unwrap_err().starts_with("the job failed"));
+    }
+
+    #[tokio::test]
+    async fn work_that_ends_is_handed_back_as_it_ended() {
+        let flag = AtomicBool::new(false);
+        assert_eq!(unless_stopped(&flag, async { Ok(3) }).await, Ok(3));
+        assert_eq!(
+            unless_stopped(&flag, async { Err::<u8, _>("no room".to_owned()) }).await,
+            Err("no room".to_owned())
+        );
     }
 
     /// Whether the lane's bell has been rung since it was last taken, which takes the ring.
