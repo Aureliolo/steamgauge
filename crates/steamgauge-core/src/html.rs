@@ -2078,6 +2078,19 @@ fn share_of(part: u64, whole: u64) -> f64 {
     }
 }
 
+/// How a declined share stands against the usual one, in the words the page puts between them.
+/// Two shares that print alike are level: "10.0% ... below the 10.0%" reads as an easier game
+/// when the page shows no difference.
+fn relation(share: f64, usual: f64) -> &'static str {
+    if percent(share) == percent(usual) {
+        "level with"
+    } else if share > usual {
+        "above"
+    } else {
+        "below"
+    }
+}
+
 fn trust(out: &mut String, app: &AppReport) {
     out.push_str("<h3>How far to trust this</h3>\n");
     out.push_str("<dl class=\"facts wide\">\n");
@@ -2128,7 +2141,7 @@ fn trust(out: &mut String, app: &AppReport) {
                     let usual = f64::from(usual);
                     format!(
                         ", {} the {} it usually declines on a game it has never seen",
-                        if share > usual { "above" } else { "below" },
+                        relation(share, usual),
                         percent(usual)
                     )
                 }),
@@ -4689,7 +4702,7 @@ mod tests {
     fn what_was_declined_is_set_against_what_is_usually_declined() {
         let page = render(&sample_report("ordinary text"));
         assert!(
-            page.contains("below the 10.0% it usually declines on a game it has never seen"),
+            page.contains("level with the 10.0% it usually declines on a game it has never seen"),
             "the same share as usual is not called unusual"
         );
 
@@ -4699,6 +4712,22 @@ mod tests {
             render(&unusual)
                 .contains("That is 3.0 times what it declines on a game it has never seen")
         );
+    }
+
+    #[test]
+    fn a_share_declined_exactly_as_often_as_usual_is_not_called_below_it() {
+        // 300 of 3,000 claims against a usual share of 0.1.
+        let page = render(&sample_report("ordinary text"));
+        let said = between(&page, "<dt>Claims left unfiled</dt><dd>", "</dd>");
+        assert!(!said.contains("below"), "{said}");
+    }
+
+    #[test]
+    fn a_declined_share_that_prints_apart_from_the_usual_one_says_which_side_it_is_on() {
+        assert_eq!(relation(0.12, 0.1), "above");
+        assert_eq!(relation(0.08, 0.1), "below");
+        assert_eq!(relation(0.1004, 0.1), "level with");
+        assert_eq!(relation(0.0996, 0.1), "level with");
     }
 
     #[test]

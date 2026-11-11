@@ -2884,12 +2884,6 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
     let (judged, answers): (Vec<Adjudicated>, Vec<Adjudicated>) = answers
         .into_iter()
         .partition(|answer| answer.offered.is_some());
-    if !judged.is_empty() {
-        keep_judged(&judged, reference, by)?;
-        if answers.is_empty() {
-            return Ok(());
-        }
-    }
 
     // A subject without a polarity is a claim somebody is still on, not a label: the page
     // keeps it so they can finish it, and a gold label with half its answer would be scored
@@ -2905,7 +2899,20 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
         );
     }
 
-    answered_this_sheet(answers.iter().map(|answer| answer.sheet.as_deref()))?;
+    // Every row is checked before the first is filed, so a file drawn under another sheet
+    // leaves the reference set as it was.
+    answered_this_sheet(
+        judged
+            .iter()
+            .chain(&answers)
+            .map(|answer| answer.sheet.as_deref()),
+    )?;
+    if !judged.is_empty() {
+        keep_judged(&judged, reference, by)?;
+        if answers.is_empty() {
+            return Ok(());
+        }
+    }
     let mut by_game: std::collections::BTreeMap<u32, Vec<&Adjudicated>> =
         std::collections::BTreeMap::new();
     for answer in &answers {
@@ -4462,6 +4469,26 @@ mod tests {
             assert!(ingest(&scratch, "climbs.json", &[answer(0, "story", "../one")]).is_err());
             assert!(ingest(&scratch, "empty.json", &[]).is_err());
             assert!(!set.join("gold").exists(), "nothing was filed");
+        }
+
+        #[test]
+        fn an_acceptability_answer_given_against_another_sheet_is_refused_and_nothing_is_filed() {
+            let scratch = Scratch::new("judged");
+            let set = a_set(&scratch.0.join("reference"));
+            let judged = json!({
+                "app_id": 7, "review_id": "r1", "index": 0,
+                "offered": "price", "acceptable": true,
+                "sheet": "an-older-sheet", "by": "one"
+            });
+            let outcome = ingest(&scratch, "judged.json", &[judged]).map_err(|e| e.to_string());
+            let filed = set.join("gold").exists();
+            assert!(
+                outcome
+                    .as_ref()
+                    .is_err_and(|error| error.contains("an-older-sheet"))
+                    && !filed,
+                "ingested as {outcome:?}, and something filed under gold: {filed}"
+            );
         }
     }
 }
