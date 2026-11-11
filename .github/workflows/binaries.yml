@@ -63,9 +63,8 @@ jobs:
             # whether ONNX Runtime, linked prebuilt and without debug information, was compiled
             # with Spectre mitigations; those guard secrets from code sharing a process, and this
             # one holds no secret and runs no code but its own. The C it compiles itself has
-            # /Qspectre (.cargo/config.toml).
+            # /Qspectre (.cargo/config.toml), and the C runtime is the one the release links.
             accepted: BA2014 BA2024
-            spectre: spectre
           - platform: linux
             # renovate: datasource=github-runners depName=ubuntu
             runner: ubuntu-24.04
@@ -77,7 +76,6 @@ jobs:
             # BA3031 asks for LLVM's SafeStack, which Rust offers only as a nightly sanitiser
             # (-Zsanitizer=safe-stack); a release built on the stable toolchain cannot have it.
             accepted: BA3031
-            spectre: ''
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -104,7 +102,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           FEATURES: ${{ matrix.features }}
           CARGO_PROFILE_RELEASE_DEBUG: ${{ matrix.debug }}
-          VSCMD_ARG_VCVARS_SPECTRE: ${{ matrix.spectre }}
         run: |
           set -euo pipefail
           rustup target add "${TARGET}"
