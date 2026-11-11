@@ -378,12 +378,11 @@ jobs:
           {
             echo '### winget'
             echo
-            echo 'The winget job is off until the first version is in winget-pkgs. Submit this one by hand, on Windows, with'
-            echo "Microsoft's wingetcreate (\`winget install Microsoft.WingetCreate\`), signed in as the account that owns the fork:"
+            echo 'The winget job is off until the first version is in winget-pkgs. Submit this one by hand, from a checkout of the tag, signed in as the account that owns the fork:'
             echo
-            echo '```powershell'
+            echo '```bash'
             echo "gh run download ${GITHUB_RUN_ID} --repo ${GITHUB_REPOSITORY} --name package-managers --dir package-managers"
-            echo "wingetcreate submit --prtitle \"New package: Aureliolo.SteamGauge version ${VERSION}\" package-managers/winget"
+            echo "GH_TOKEN=\"\$(gh auth token)\" bash tools/release/winget-submit.sh ${VERSION} package-managers/winget"
             echo '```'
             echo
             echo "Once a moderator has merged it, set the repository variable \`WINGET\` to \`submit\`; .github/release-process.md has the rest."
@@ -536,10 +535,12 @@ jobs:
           fi
 
   # winget takes packages only through a pull request to microsoft/winget-pkgs, which Microsoft's
-  # wingetcreate opens from a fork with a classic token; GitHub lets no fine-grained token open
-  # one. A new package waits on a moderator, so the first version is submitted by hand (the write
-  # job's summary gives the command); this job runs once the repository variable WINGET is set to
-  # `submit`, after that one is accepted.
+  # tools/release/winget-submit.sh opens from a fork with a classic token; GitHub lets no
+  # fine-grained token open one. A new package waits on a moderator, so the first version is
+  # submitted by hand (the write job's summary gives the command). This job runs once the
+  # repository variable WINGET is set to `submit`, after that one is accepted. It needs
+  # package-managers-test, which runs `winget validate` on these manifests, and the script ticks
+  # the pull request's "validated" box on that job's strength.
   winget:
     name: winget
     if: github.repository == 'Aureliolo/steamgauge' && github.ref_type == 'tag' && vars.WINGET == 'submit'
@@ -553,10 +554,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-    env:
-      # renovate: datasource=github-release-attachments depName=microsoft/winget-create versioning=loose
-      WINGETCREATE_TAG: v1.12.13.0
-      WINGETCREATE_SHA256: 24042bd37915805615e6cf969ac57c6439124c3fe85823327f5f3fb24bd9ffea
 
     steps:
       - name: Refuse to go on without the token
@@ -568,13 +565,10 @@ jobs:
             exit 1
           }
 
-      - name: Download wingetcreate and check it
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $url = "https://github.com/microsoft/winget-create/releases/download/$env:WINGETCREATE_TAG/wingetcreate.exe"
-          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\wingetcreate.exe"
-          $hash = (Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\wingetcreate.exe").Hash.ToLowerInvariant()
-          if ($hash -ne $env:WINGETCREATE_SHA256) { throw "wingetcreate.exe hashes to $hash, not the pinned $env:WINGETCREATE_SHA256." }
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Download the manifests
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -609,11 +603,8 @@ jobs:
           if ($installers[0].Groups['hash'].Value -cne $hash) { throw "$setup hashes to $hash, not what the manifest says." }
 
       - name: Submit them
+        shell: bash
         env:
-          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
           VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          & "$env:RUNNER_TEMP\wingetcreate.exe" submit --prtitle "New version: Aureliolo.SteamGauge version $env:VERSION" `
-            --no-open package-managers/winget
+        run: bash tools/release/winget-submit.sh "${VERSION}" package-managers/winget

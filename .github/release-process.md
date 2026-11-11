@@ -80,7 +80,7 @@ GITHUB_REPOSITORY=Aureliolo/steamgauge GH_TOKEN="$(gh auth token)" node tools/re
 12. **package managers (main)** opens a pull request putting the cask and Scoop manifest on
     `main`, as the packaging App, and merges it once its checks pass.
 13. **winget**, once the repository variable `WINGET` is `submit`, checks the setup program
-    against the release and submits the manifests to `microsoft/winget-pkgs` with `wingetcreate`.
+    against the release and submits the manifests to `microsoft/winget-pkgs` with `tools/release/winget-submit.sh`.
 
 ## A dry run
 
@@ -163,17 +163,17 @@ A new winget package waits on a moderator, so the first version is submitted by 
 **winget** job stays off until the repository variable `WINGET` is `submit`.
 
 1. Once the first release's **package managers** jobs pass, its run summary gives two commands
-   under **winget**. Run them on Windows, with `winget install GitHub.cli Microsoft.WingetCreate`
-   done first:
+   under **winget**. Run them in Git Bash, from a checkout of the tag, signed in with `gh` as
+   the account that owns the fork:
 
-   ```powershell
+   ```bash
    gh run download <run id> --repo Aureliolo/steamgauge --name package-managers --dir package-managers
-   wingetcreate submit --prtitle "New package: Aureliolo.SteamGauge version X.Y.Z" package-managers/winget
+   GH_TOKEN="$(gh auth token)" bash tools/release/winget-submit.sh X.Y.Z package-managers/winget
    ```
 
-   `wingetcreate` signs in to GitHub the first time and opens the pull request from your fork of
-   `winget-pkgs`. The run keeps the files for 30 days. After that, write them again in a checkout
-   of the tag:
+   The script opens the pull request from your fork of `winget-pkgs`. A re-run finds the open pull
+   request and opens no second one. The run keeps the files for 30 days. After that, write them
+   again in the checkout:
 
    ```bash
    gh release download vX.Y.Z --repo Aureliolo/steamgauge --dir release \
@@ -263,5 +263,5 @@ release** can be run by hand to start the release workflow again on an existing 
   the `packages` environment and re-run the job.
 - **Pull request #N failed: ...**, **... conflicts with main** or **... is OPEN, not merged**: the
   message names the reason. A re-run of the job picks the pull request up where it is.
-- **WINGET is set to submit, but the secret WINGET_TOKEN ...** or a refusal from `wingetcreate`:
+- **WINGET is set to submit, but the secret WINGET_TOKEN ...** or a refusal from `winget-submit.sh`:
   make a new token (see [winget](#winget)) and re-run the job.

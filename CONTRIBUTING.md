@@ -19,6 +19,7 @@ pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check tra
 bash -c "cd training && python -m pytest -q"
 bash -c "cd training && pipx run pyright==1.1.414 --pythonpath .venv/Scripts/python.exe ."
 node --test tools/release/release.test.mjs
+bash tools/release/winget-submit-test.sh
 ```
 
 - Clippy runs without `--all-features`, because the cuda and coreml backends need vendor
