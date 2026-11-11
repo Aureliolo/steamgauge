@@ -1791,6 +1791,17 @@ mod tests {
     }
 
     #[test]
+    fn bytes_that_came_are_told_once_per_file() {
+        let came = BytesCame::default();
+        assert!(!came.take(), "nothing came yet");
+        let closure = came.clone();
+        closure.set();
+        assert!(came.take(), "a clone's progress closure told of bytes");
+        assert!(!came.take(), "told once, so the next file starts afresh");
+        assert!(!closure.take(), "the clone shares the one flag");
+    }
+
+    #[test]
     fn a_model_is_fetched_by_the_name_storage_lists_it_under_and_no_other() {
         let titled = |name: &str| Fetchable::named(name).map(Fetchable::title);
         assert_eq!(titled("small").unwrap(), "The small reader");
