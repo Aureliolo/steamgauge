@@ -43,13 +43,20 @@ runs:
           [[ -f "${sources}" ]] || continue
           sudo sed -i -E 's#https?://([a-z]+\.)*ubuntu\.com/ubuntu([/ ]|$)#https://azure.archive.ubuntu.com/ubuntu\2#g' "${sources}"
         done
-        # apt downloads as its own user into partial/, then moves each whole archive beside it.
+        # apt downloads as its own user, which cannot reach the runner's home, so the archives go
+        # through apt's own folder and are copied back out after the install.
         mkdir -p "${ARCHIVES}"
-        sudo install -d -o _apt -m 0700 "${ARCHIVES}/partial"
+        kept=("${ARCHIVES}"/*.deb)
+        if ((${#kept[@]})); then
+          sudo cp "${kept[@]}" /var/cache/apt/archives/
+        fi
         read -ra names <<<"${PACKAGES}"
         sudo apt-get update
-        sudo apt-get install -y -o "Dir::Cache::Archives=${ARCHIVES}" "${names[@]}"
-        sudo rm -rf "${ARCHIVES}/partial" "${ARCHIVES}/lock"
+        sudo apt-get install -y -o APT::Keep-Downloaded-Packages=true "${names[@]}"
+        fetched=(/var/cache/apt/archives/*.deb)
+        if ((${#fetched[@]})); then
+          cp "${fetched[@]}" "${ARCHIVES}/"
+        fi
     # Only main writes, as with the build caches, so a pull request never spends the repository's
     # 10 GB on a copy of what main already holds.
     - if: github.ref == 'refs/heads/main' && steps.kept.outputs.cache-hit != 'true'
