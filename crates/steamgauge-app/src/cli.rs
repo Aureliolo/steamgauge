@@ -2306,15 +2306,19 @@ fn run_recount(app_ids: &[u32], out: &Path, model_dir: &Path, top_helpful: usize
     Ok(())
 }
 
-/// Every app id under a reference root that has been labelled, in order.
-fn labelled_sets(reference: &Path) -> Result<Vec<u32>> {
-    let mut found: Vec<u32> = std::fs::read_dir(reference)?
-        .filter_map(std::result::Result::ok)
-        .filter(|entry| entry.path().join("labels.json").is_file())
-        .filter_map(|entry| entry.file_name().to_str()?.parse::<u32>().ok())
-        .collect();
-    found.sort_unstable();
-    Ok(found)
+/// Every game under a reference root whose named set has been labelled, in order: the random
+/// draw where `set` is `None`.
+fn labelled_with(reference: &Path, set: Option<&str>) -> Result<Vec<u32>> {
+    Ok(steamgauge_core::claimset::labelled_games(reference)?
+        .into_iter()
+        .filter(|app_id| {
+            let mut dir = reference.join(app_id.to_string());
+            if let Some(set) = set {
+                dir.push(set);
+            }
+            dir.join("labels.json").is_file()
+        })
+        .collect())
 }
 
 /// Draws the claims a revision puts back in question, one set per game.
@@ -3065,7 +3069,7 @@ fn run_second_opinion(
         );
     }
     let wanted = if app_ids.is_empty() {
-        labelled_sets(reference)?
+        labelled_with(reference, subset)?
     } else {
         app_ids.to_vec()
     };
@@ -3179,7 +3183,7 @@ fn run_distinct(
 /// Every set named, or every set that has been labelled twice.
 fn read_twice(app_ids: &[u32], reference: &Path, labels: &str) -> Result<Vec<u32>> {
     let wanted: Vec<u32> = if app_ids.is_empty() {
-        labelled_sets(reference)?
+        labelled_with(reference, None)?
             .into_iter()
             .filter(|app_id| {
                 reference
@@ -4303,6 +4307,21 @@ mod tests {
         std::fs::write(dir.join("appid=8/writing.lock"), b"").unwrap();
 
         assert_eq!(super::captured_games(&dir), [7]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_set_is_asked_of_every_game_where_it_is_labelled() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-sets-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        // 7 was drawn only to teach, 8 has a random draw alone, 9 has both.
+        for set in ["7/keyword", "8", "9", "9/keyword"] {
+            std::fs::create_dir_all(dir.join(set)).unwrap();
+            std::fs::write(dir.join(set).join("labels.json"), b"[]").unwrap();
+        }
+
+        assert_eq!(super::labelled_with(&dir, Some("keyword")).unwrap(), [7, 9]);
+        assert_eq!(super::labelled_with(&dir, None).unwrap(), [8, 9]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
