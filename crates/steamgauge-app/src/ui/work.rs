@@ -296,6 +296,54 @@ impl Board {
         self.next
     }
 
+    /// Records how a job ended at `at`, and gives the one game it used and whether the app had
+    /// started it by itself.
+    fn end(&mut self, id: u64, ended: &Result<Ended, String>, at: i64) -> (Option<u32>, bool) {
+        self.meters.remove(&id);
+        let stopped = self
+            .stops
+            .remove(&id)
+            .is_some_and(|stop| stop.load(Ordering::Relaxed));
+        let yielded = self.yielding.remove(&id);
+        let Some(job) = self.jobs.iter_mut().find(|job| job.id == id) else {
+            return (None, false);
+        };
+        job.ended = Some(at);
+        job.rate = None;
+        job.left = None;
+        match ended {
+            Err(_) if yielded => job.wait_again(),
+            Ok(ended) => {
+                job.state = State::Done;
+                job.note = Some(ended.note.clone());
+                if let Some(total) = job.total {
+                    job.done = total;
+                }
+            }
+            Err(_) if stopped => {
+                job.state = State::Stopped;
+                job.note = Some(stopped_note(&job.task).to_owned());
+            }
+            Err(failure) => {
+                job.state = State::Failed;
+                job.note = Some(failure.clone());
+            }
+        }
+        let said = (job.task.one_game(), job.background);
+        // The newest finished jobs stay, so the cockpit can say what just happened. The job that
+        // just ended is the newest, also where others ended in the same second.
+        let mut finished: Vec<(bool, i64, u64)> = self
+            .jobs
+            .iter()
+            .filter(|job| !matches!(job.state, State::Queued | State::Running))
+            .map(|job| (job.id == id, job.ended.unwrap_or_default(), job.id))
+            .collect();
+        finished.sort_unstable_by(|a, b| b.cmp(a));
+        let dropped: HashSet<u64> = finished.into_iter().skip(KEPT).map(|(.., id)| id).collect();
+        self.jobs.retain(|job| !dropped.contains(&job.id));
+        said
+    }
+
     /// Gives a game's name to each of its jobs that had none.
     fn name(&mut self, app_id: u32, name: &str) {
         for job in &mut self.jobs {
@@ -440,7 +488,7 @@ impl Work {
     }
 
     /// Stops every job of the app's own that is running, to wait again once the person's work
-    /// is done.
+    /// is done. One already told to stop is left ending as it was told.
     fn make_way(&self) {
         let mut board = self.lock();
         let running: Vec<u64> = board
@@ -448,6 +496,12 @@ impl Work {
             .iter()
             .filter(|job| job.background && job.state == State::Running)
             .map(|job| job.id)
+            .filter(|id| {
+                !board
+                    .stops
+                    .get(id)
+                    .is_some_and(|stop| stop.load(Ordering::Relaxed))
+            })
             .collect();
         for id in running {
             board.yielding.insert(id);
@@ -464,10 +518,12 @@ impl Work {
     /// preparation while it fetches its models. `droppable` gives the reasons.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
     /// letting go of its games only then, not before another job could start on the same files.
-    /// A waiting job taken off lets go of its games at once, so every lane is rung.
+    /// A waiting job taken off lets go of its games at once, so every lane is rung. A job of the
+    /// app's own that was stepping aside ends instead of waiting again.
     pub(super) fn stop(&self, id: u64) {
         let taken_off = {
             let mut board = self.lock();
+            board.yielding.remove(&id);
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
             }
@@ -637,53 +693,7 @@ impl Work {
 
     /// Records how a job ended, and says whether the app had started it by itself.
     fn finish(&self, app: &AppHandle, id: u64, ended: &Result<Ended, String>) -> bool {
-        let (game, background) = {
-            let mut board = self.lock();
-            board.meters.remove(&id);
-            let stopped = board
-                .stops
-                .remove(&id)
-                .is_some_and(|stop| stop.load(Ordering::Relaxed));
-            let yielded = board.yielding.remove(&id);
-            if let Some(job) = board.jobs.iter_mut().find(|job| job.id == id) {
-                job.ended = Some(now_unix());
-                job.rate = None;
-                job.left = None;
-                match ended {
-                    Err(_) if yielded => job.wait_again(),
-                    Ok(ended) => {
-                        job.state = State::Done;
-                        job.note = Some(ended.note.clone());
-                        if let Some(total) = job.total {
-                            job.done = total;
-                        }
-                    }
-                    Err(_) if stopped => {
-                        job.state = State::Stopped;
-                        job.note = Some(stopped_note(&job.task).to_owned());
-                    }
-                    Err(failure) => {
-                        job.state = State::Failed;
-                        job.note = Some(failure.clone());
-                    }
-                }
-            }
-            // The newest finished jobs stay, so the cockpit can say what just happened.
-            let finished: Vec<u64> = board
-                .jobs
-                .iter()
-                .rev()
-                .filter(|job| !matches!(job.state, State::Queued | State::Running))
-                .skip(KEPT)
-                .map(|job| job.id)
-                .collect();
-            board.jobs.retain(|job| !finished.contains(&job.id));
-            board
-                .jobs
-                .iter()
-                .find(|job| job.id == id)
-                .map_or((None, false), |job| (job.task.one_game(), job.background))
-        };
+        let (game, background) = self.lock().end(id, ended, now_unix());
         self.send(app, true);
         // The one game the job used, so a page showing another one is left as it is.
         if ended.is_ok() {
@@ -2353,6 +2363,115 @@ mod tests {
         assert_eq!(job(&work, update).state, State::Running);
         assert!(flag.load(Ordering::Relaxed));
         assert!(work.take(Lane::Machine).is_none());
+    }
+
+    /// Puts one more than `KEPT` downloads of the person's on the board.
+    fn crowd(work: &Work) -> Vec<u64> {
+        (100..)
+            .take(KEPT + 1)
+            .map(|app_id| put(work, Task::Download { app_id }, false))
+            .collect()
+    }
+
+    #[test]
+    fn the_finished_jobs_kept_are_the_newest_to_end() {
+        let work = Work::default();
+        let own = put(&work, Task::Update { app_id: 7 }, true);
+        assert!(work.take(Lane::Network).is_some());
+        let others = crowd(&work);
+        let mut board = work.lock();
+        // The last queued ends first, so ending order and queue order disagree.
+        for (at, &other) in (0..).zip(others.iter().rev()) {
+            board.end(other, &Ok(Ended::said("Done.")), at);
+        }
+        assert_eq!(
+            board.end(own, &Ok(Ended::said("Done.")), 100),
+            (Some(7), true),
+            "a job of the app's own stays the app's, so what follows it waits behind the person's"
+        );
+        let kept: Vec<u64> = board.jobs.iter().map(|job| job.id).collect();
+        assert_eq!(kept.len(), KEPT);
+        assert!(kept.contains(&own), "the job that just ended is shown");
+        let gone: Vec<u64> = others.iter().rev().take(2).copied().collect();
+        assert!(
+            gone.iter().all(|id| !kept.contains(id)),
+            "the two that ended first are taken off"
+        );
+    }
+
+    #[test]
+    fn the_job_that_just_ended_is_kept_where_others_ended_in_the_same_second() {
+        let work = Work::default();
+        let own = put(&work, Task::Update { app_id: 7 }, true);
+        assert!(work.take(Lane::Network).is_some());
+        let others = crowd(&work);
+        let mut board = work.lock();
+        for &other in &others {
+            board.end(other, &Ok(Ended::said("Done.")), 100);
+        }
+        board.end(own, &Ok(Ended::said("Done.")), 100);
+        assert!(board.jobs.iter().any(|job| job.id == own));
+        assert_eq!(board.jobs.len(), KEPT);
+    }
+
+    #[test]
+    fn the_persons_stop_of_a_job_stepping_aside_ends_it() {
+        for stop_first in [false, true] {
+            let work = Work::default();
+            let own = put(&work, read(8), true);
+            assert!(work.take(Lane::Machine).is_some());
+            put(&work, Task::Update { app_id: 9 }, false);
+            if stop_first {
+                work.stop(own);
+                work.make_way();
+            } else {
+                work.make_way();
+                work.stop(own);
+            }
+            // The person asks for more work while the stopped job winds down.
+            work.make_way();
+            let mut board = work.lock();
+            board.end(own, &Err("Stopped.".to_owned()), 1);
+            let state = board.jobs.iter().find(|job| job.id == own).unwrap().state;
+            assert_eq!(state, State::Stopped, "stopped first: {stop_first}");
+        }
+    }
+
+    #[test]
+    fn a_job_that_errs_is_stopped_only_where_it_was_told_to_stop() {
+        for told in [false, true] {
+            let work = Work::default();
+            let update = put(&work, Task::Update { app_id: 7 }, false);
+            assert!(work.take(Lane::Network).is_some());
+            if told {
+                work.stop(update);
+            }
+            let mut board = work.lock();
+            board.end(update, &Err("Steam did not answer.".to_owned()), 1);
+            let ended = board.jobs.iter().find(|job| job.id == update).unwrap();
+            let expected = if told {
+                (State::Stopped, stopped_note(&ended.task))
+            } else {
+                (State::Failed, "Steam did not answer.")
+            };
+            assert_eq!((ended.state, ended.note.as_deref().unwrap()), expected);
+        }
+    }
+
+    #[test]
+    fn a_job_stepping_aside_waits_again_when_it_ends() {
+        let work = Work::default();
+        let own = put(&work, read(8), true);
+        assert!(work.take(Lane::Machine).is_some());
+        put(&work, Task::Update { app_id: 9 }, false);
+        work.make_way();
+        let mut board = work.lock();
+        assert_eq!(
+            board.end(own, &Err("Stopped.".to_owned()), 1),
+            (Some(8), true)
+        );
+        let state = board.jobs.iter().find(|job| job.id == own).unwrap().state;
+        assert_eq!(state, State::Queued);
     }
 
     #[test]
