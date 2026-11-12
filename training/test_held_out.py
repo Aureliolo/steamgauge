@@ -6,7 +6,7 @@ python -m pytest test_held_out.py
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -17,7 +17,7 @@ from train import confidence_of, expected_calibration_error, risk_coverage, sele
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from train import ClaimReader, Item
+    from train import Item
 
 # Between the steps of the sweep, so no step lands on a claim's confidence.
 CONFIDENCE = np.array([0.955, 0.905, 0.605, 0.305])
@@ -93,7 +93,7 @@ def test_confidence_is_the_top_probability_in_the_loaders_order() -> None:
     model = GivenLogits([[[0.0, three], [three, 0.0]], [[0.0, 0.0]]])
     batch = {"input_ids": torch.zeros(2, 4), "attention_mask": torch.ones(2, 4)}
     loader: list[Item] = [batch, {key: value[:1] for key, value in batch.items()}]
-    confidence, predicted = confidence_of(cast("ClaimReader", model), loader, "cpu")
+    confidence, predicted = confidence_of(model, loader, "cpu")
     assert model.evaluating
     assert confidence.tolist() == pytest.approx([0.75, 0.75, 0.5])
     assert predicted.tolist() == [1, 0, 0]
