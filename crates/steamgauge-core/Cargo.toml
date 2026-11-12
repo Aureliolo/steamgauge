@@ -9,6 +9,11 @@ repository.workspace = true
 license.workspace = true
 publish.workspace = true
 
+# Its refusal of a snapshot in the library has tests, which an example runs only when asked.
+[[example]]
+name = "prepare-cost"
+test = true
+
 [dependencies]
 arrow = "=60.1.0"
 csv = "=1.4.0"

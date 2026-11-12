@@ -47,6 +47,9 @@ use crate::{
 /// Where a reading's vectors are kept, beside it in the snapshot.
 pub const DIR: &str = "meaning";
 const SIDECAR: &str = "meaning.json";
+/// The file a preparation locks in the parts' folder from its start until it returns, so a
+/// second one of the capture is refused before it writes. It stays.
+const PREPARATION_LOCK: &str = "preparation.lock";
 
 /// A part is written at least this often, so stopping a preparation on a processor, where a
 /// claim takes the better part of a tenth of a second, loses a minute of it and no more.
@@ -347,7 +350,9 @@ pub struct Prepared {
 ///
 /// Fails if the reading, the capture or the parts cannot be read or written, or if `embed`
 /// fails.
-/// [`crate::Error::Refused`] at once while the game's files are being removed.
+/// [`crate::Error::Refused`] at once while the game's files are being removed. It is also given
+/// at once while another preparation of the capture runs, in this program or another, and
+/// embeds nothing.
 pub fn prepare(
     snapshot: &Path,
     mut embed: impl FnMut(&[String]) -> Result<Vec<Vec<f32>>>,
@@ -357,6 +362,18 @@ pub fn prepare(
     let _writing = crate::lock_file::writing_in(snapshot)?;
     let dir = snapshot.join(DIR);
     std::fs::create_dir_all(&dir)?;
+    let alone = crate::lock_file::open(&dir.join(PREPARATION_LOCK))?;
+    match alone.try_lock() {
+        Ok(()) => {}
+        Err(std::fs::TryLockError::WouldBlock) => {
+            return Err(Error::Refused(
+                "Another job is preparing this download for search, in this program or another. \
+                 Try again once it ends."
+                    .to_owned(),
+            ));
+        }
+        Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+    }
     // A reading replaced since the parts were written is carried on from rather than thrown
     // away: a claim is the bytes it covers, so a vector keyed by those bytes is still its
     // vector, and only what the new reading added is missing.
@@ -874,6 +891,81 @@ mod tests {
         drop(removal);
         let prepared = prepare(&snapshot, embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
         assert!(prepared.finished);
+    }
+
+    #[test]
+    fn a_second_preparation_of_a_capture_is_refused_and_touches_nothing() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        let parts: Vec<(PathBuf, Vec<u8>)> = every_part(dir.path())
+            .into_iter()
+            .map(|part| {
+                let bytes = std::fs::read(&part).unwrap();
+                (part, bytes)
+            })
+            .collect();
+        assert_eq!(held(dir.path()).0, 5);
+        let other = Sidecar {
+            encoder: ENCODER.name.to_owned(),
+            complete: true,
+            readings: readings_written(dir.path()),
+        };
+        write_sidecar(&dir.path().join(DIR), &other).unwrap();
+        let record = std::fs::read(dir.path().join(DIR).join(SIDECAR)).unwrap();
+
+        let running = crate::lock_file::open(&dir.path().join(DIR).join(PREPARATION_LOCK)).unwrap();
+        running.try_lock().unwrap();
+        let refused = prepare(
+            dir.path(),
+            |_| panic!("a refused preparation embeds nothing"),
+            (&AtomicBool::new(false), 1.0),
+            |_| {},
+        );
+        assert!(
+            matches!(&refused, Err(Error::Refused(said)) if said.contains("preparing this download")),
+            "{refused:?}"
+        );
+        for (part, bytes) in &parts {
+            assert_eq!(&std::fs::read(part).unwrap(), bytes);
+        }
+        assert_eq!(
+            std::fs::read(dir.path().join(DIR).join(SIDECAR)).unwrap(),
+            record
+        );
+
+        drop(running);
+        prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+    }
+
+    #[test]
+    fn a_preparation_holds_its_lock_while_it_embeds() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        let lock = dir.path().join(DIR).join(PREPARATION_LOCK);
+
+        let prepared = prepare(
+            dir.path(),
+            |texts| {
+                let other = crate::lock_file::open(&lock).unwrap();
+                assert!(matches!(
+                    other.try_lock(),
+                    Err(std::fs::TryLockError::WouldBlock)
+                ));
+                assert!(matches!(
+                    other.try_lock_shared(),
+                    Err(std::fs::TryLockError::WouldBlock)
+                ));
+                embed(texts)
+            },
+            (&AtomicBool::new(false), 1.0),
+            |_| {},
+        )
+        .unwrap();
+        assert!(prepared.finished);
+        assert_eq!(std::fs::metadata(&lock).unwrap().len(), 0);
+        let after = crate::lock_file::open(&lock).unwrap();
+        after.try_lock().unwrap();
     }
 
     #[test]

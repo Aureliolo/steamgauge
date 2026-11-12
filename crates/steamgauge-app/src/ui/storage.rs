@@ -90,7 +90,12 @@ enum Part {
 ///
 /// `claims.parquet` is named although nothing writes it now: a download made by an earlier
 /// build can hold it, and it goes with the game's readings.
+///
+/// A lock file is no part, so no removal of a part takes one.
 fn part_of(within: &Path) -> Part {
+    if is_lock(within) {
+        return Part::Other;
+    }
     let name = within
         .file_name()
         .and_then(|name| name.to_str())
@@ -692,6 +697,9 @@ mod tests {
             ("model.onnx.part", Part::Partial),
             ("part-00000.parquet", Part::Other),
             ("groups.json", Part::Other),
+            ("meaning/preparation.lock", Part::Other),
+            ("readings.lock", Part::Other),
+            ("shard.partial.lock", Part::Other),
         ] {
             assert_eq!(part_of(Path::new(name)), part, "{name}");
         }
