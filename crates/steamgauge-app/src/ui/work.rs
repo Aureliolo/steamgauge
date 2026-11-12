@@ -2438,6 +2438,27 @@ mod tests {
     }
 
     #[test]
+    fn a_job_that_errs_is_stopped_only_where_it_was_told_to_stop() {
+        for told in [false, true] {
+            let work = Work::default();
+            let update = put(&work, Task::Update { app_id: 7 }, false);
+            assert!(work.take(Lane::Network).is_some());
+            if told {
+                work.stop(update);
+            }
+            let mut board = work.lock();
+            board.end(update, &Err("Steam did not answer.".to_owned()), 1);
+            let ended = board.jobs.iter().find(|job| job.id == update).unwrap();
+            let expected = if told {
+                (State::Stopped, stopped_note(&ended.task))
+            } else {
+                (State::Failed, "Steam did not answer.")
+            };
+            assert_eq!((ended.state, ended.note.as_deref().unwrap()), expected);
+        }
+    }
+
+    #[test]
     fn a_job_stepping_aside_waits_again_when_it_ends() {
         let work = Work::default();
         let own = put(&work, read(8), true);
