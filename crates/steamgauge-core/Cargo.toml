@@ -38,6 +38,7 @@ tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"
 tokio = { version = "=1.54.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
 [dev-dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 steamgauge-stand-ins.workspace = true
 
 # A macOS app bundle and a Linux archive are unpacked from the verified file and moved into
@@ -49,9 +50,6 @@ tar = { version = "=0.4.46", default-features = false, optional = true }
 
 [target."cfg(windows)".dependencies]
 winreg = "=0.56.0"
-
-[dev-dependencies]
-proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 
 # GPU backends are opt-in at build time so the default binary needs no vendor runtime to
 # start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
