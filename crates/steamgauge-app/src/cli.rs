@@ -4322,6 +4322,23 @@ mod tests {
 
         assert_eq!(super::labelled_with(&dir, Some("keyword")).unwrap(), [7, 9]);
         assert_eq!(super::labelled_with(&dir, None).unwrap(), [8, 9]);
+
+        // Only 9's random draw has a second reading.
+        std::fs::create_dir_all(dir.join("9/second")).unwrap();
+        std::fs::write(dir.join("9/second/labels.json"), b"[]").unwrap();
+        assert_eq!(super::read_twice(&[], &dir, "second").unwrap(), [9]);
+        assert_eq!(super::read_twice(&[8], &dir, "second").unwrap(), [8]);
+        let none = super::read_twice(&[], &dir, "third").unwrap_err();
+        assert!(none.to_string().contains("has a `third` labelling yet"));
+
+        // A teaching set no game holds is refused before anything is drawn.
+        let refused = super::run_second_opinion(&[], &dir, 1.0, 20, 1, Some("declined"), "second");
+        assert!(
+            refused
+                .unwrap_err()
+                .to_string()
+                .starts_with("no labelled sets under")
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
