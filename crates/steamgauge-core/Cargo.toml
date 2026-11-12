@@ -60,5 +60,10 @@ prebuilt-onnx-runtime = ["ort/copy-dylibs", "ort/download-binaries", "ort/tls-na
 self-update = ["dep:flate2", "dep:rustix", "dep:sigstore-verify", "dep:tar"]
 webgpu = ["ort/webgpu"]
 
+# Its refusal of a snapshot in the library has tests, which an example runs only when asked.
+[[example]]
+name = "prepare-cost"
+test = true
+
 [lints]
 workspace = true
