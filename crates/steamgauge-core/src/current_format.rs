@@ -57,8 +57,8 @@ const WRITER_BY_GRAPH: (&str, &str) = (
 ///
 /// Fails if the library cannot be listed. A reading that cannot be brought does not stop the
 /// rest: one the current format cannot express is removed and listed in [`Brought::removed`],
-/// and one that cannot be read or written is listed in [`Brought::failed`].
-/// A game whose files are being removed is listed in [`Brought::failed`].
+/// and one that cannot be read or written is listed in [`Brought::failed`], as is a game whose
+/// files are being removed.
 pub fn bring_library(library: &Path) -> Result<Brought> {
     let mut brought = Brought::default();
     let Ok(games) = std::fs::read_dir(library) else {
@@ -73,18 +73,16 @@ pub fn bring_library(library: &Path) -> Result<Brought> {
         {
             continue;
         }
-        let _writing = crate::lock_file::writing_in(&game);
-        #[expect(
-            clippy::used_underscore_binding,
-            reason = "the binding holds the lock until the game is brought, and is read once"
-        )]
-        if let Err(refused) = &_writing {
-            brought.failed.push((game, refused.to_string()));
-            continue;
-        }
+        // Held until the game is brought, so a removal waits for the whole of it.
+        let _writing = match crate::lock_file::writing_in(&game) {
+            Ok(held) => held,
+            Err(refused) => {
+                brought.failed.push((game, refused.to_string()));
+                continue;
+            }
+        };
         for snapshot in std::fs::read_dir(&game)? {
             let snapshot = snapshot?.path();
-            // Before the reading, which a record by name outlives however the reading goes.
             // Before the reading, which a record by name outlives however the reading goes.
             match name_files(&snapshot) {
                 Ok(true) => brought.named.push(snapshot.clone()),
