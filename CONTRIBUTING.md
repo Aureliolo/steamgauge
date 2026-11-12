@@ -38,6 +38,7 @@ cargo machete                                                      # dependencie
 typos                                                              # British spelling, _typos.toml
 npx markdownlint-cli2                                              # .markdownlint-cli2.jsonc
 git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
+git ls-files -z '*Dockerfile' | xargs -0 hadolint --failure-threshold style
 npx --prefix tools biome ci .                                     # JavaScript, CSS, JSON: biome.jsonc
 git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 lint     # and `format --check`
 git ls-files -z '*.yml' '*.yaml' | xargs -0 yamllint --strict       # .yamllint.yaml

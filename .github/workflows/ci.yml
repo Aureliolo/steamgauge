@@ -583,6 +583,37 @@ jobs:
           set -euo pipefail
           git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck --enable=all
 
+  # Every Dockerfile, every hadolint rule down to style, and the shell in its RUN lines through
+  # the shellcheck hadolint carries.
+  dockerfile:
+    name: dockerfile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # Reads the files it lints.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install hadolint
+        env:
+          # renovate: datasource=github-release-attachments depName=hadolint/hadolint versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+          HADOLINT_TAG: v2.15.1
+          HADOLINT_SHA256: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+        run: |
+          set -euo pipefail
+          tool="${RUNNER_TEMP}/hadolint/hadolint"
+          mkdir -p "${RUNNER_TEMP}/hadolint"
+          curl -fsSL --proto '=https' --tlsv1.2 --retry 6 --retry-all-errors -o "${tool}" \
+            "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_TAG}/hadolint-linux-x86_64"
+          echo "${HADOLINT_SHA256}  ${tool}" | sha256sum --check --strict
+          chmod +x "${tool}"
+          echo "${RUNNER_TEMP}/hadolint" >> "${GITHUB_PATH}"
+      - name: Lint
+        run: |
+          set -euo pipefail
+          git ls-files -z '*Dockerfile' '*.dockerfile' | xargs -0 --no-run-if-empty hadolint --failure-threshold style
+
   # Every YAML file, held to .yamllint.yaml, warnings included.
   yaml:
     name: yaml
