@@ -109,6 +109,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   means no paragraph. `paragraph.json` holds it for one set of themes and one writer.
 - A game's vectors, themes and paragraph name every file of the model that made them, by its
   pinned hash. After a model release they are not read, and the game is prepared again.
+- A preparation holds a lock on `meaning/preparation.lock` in the capture while it runs. A second
+  preparation of the capture is refused meanwhile, whichever program starts it.
 
 What counts as a change:
 

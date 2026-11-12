@@ -2,7 +2,7 @@
 //! card is held by one batch, which every other window on the machine waits behind to be drawn.
 //!
 //!     cargo run --release -p steamgauge-core --features directml --example prepare-cost -- \
-//!         <snapshot of a read game, a copy outside the library>
+//!         <a copy of a read game's snapshot, in a folder not named appid=<id>>
 //!
 //! The snapshot's vectors are removed first, so each run prepares all of it.
 
@@ -13,12 +13,44 @@ use std::{
 
 use steamgauge_core::{meaning, model::default_cache_dir, search_models::SearchEncoder};
 
+/// The name of the first parent folder spelt like a game's, `appid=` and digits in any case.
+fn in_a_game_folder(snapshot: &std::path::Path) -> Option<String> {
+    snapshot
+        .ancestors()
+        .skip(1)
+        .filter_map(|folder| folder.file_name()?.to_str())
+        .find(|name| {
+            name.get(.."appid=".len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("appid="))
+                && name.len() > "appid=".len()
+                && name["appid=".len()..]
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit())
+        })
+        .map(str::to_owned)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let snapshot = std::path::PathBuf::from(
         std::env::args()
             .nth(1)
             .ok_or("name the snapshot of a read game")?,
     );
+    // A game's folder in the library holds parts the window may be preparing, and the path
+    // can reach it under another name: other letters, or a link.
+    for resolved in [
+        std::path::absolute(&snapshot)?,
+        std::fs::canonicalize(&snapshot)?,
+    ] {
+        if let Some(name) = in_a_game_folder(&resolved) {
+            return Err(format!(
+                "This example removes a snapshot's vectors, so it refuses one in a folder named \
+                 like a game's, here `{name}`. Copy the snapshot folder alone into a folder not \
+                 named `appid=<id>`."
+            )
+            .into());
+        }
+    }
     // Where `meaning` keeps a snapshot's vectors.
     let _ = std::fs::remove_dir_all(snapshot.join("meaning"));
 
