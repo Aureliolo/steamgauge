@@ -521,12 +521,38 @@ fn remove_from_each(library: &Path, games: &[u32], what: Removal) -> Vec<Spared>
 }
 
 /// A refused removal from one named game is an error. Across every game, the games left are the
-/// answer.
-fn spared_or_refused(named: Option<u32>, spared: Vec<Spared>) -> Result<Vec<Spared>, String> {
-    match (named, spared.first()) {
+/// answer, those the board left first.
+fn spared_or_refused(
+    named: Option<u32>,
+    busy: Vec<(u32, String)>,
+    spared: Vec<Spared>,
+) -> Result<Vec<Spared>, String> {
+    let left: Vec<Spared> = busy
+        .into_iter()
+        .map(|(app_id, why)| Spared { app_id, why })
+        .chain(spared)
+        .collect();
+    match (named, left.first()) {
         (Some(_), Some(first)) => Err(first.why.clone()),
-        _ => Ok(spared),
+        _ => Ok(left),
     }
+}
+
+/// Runs `remove` on the games of `targets` the board can hold, off the window's thread, and lets
+/// go of them only once it has ended, so no job starts on a game whose files are going. Gives the
+/// games `remove` left and those the board found busy.
+async fn remove_while_held(
+    work: &Work,
+    targets: &[u32],
+    remove: impl FnOnce(&[u32]) -> Vec<Spared> + Send + 'static,
+) -> Result<(Vec<Spared>, Vec<(u32, String)>), String> {
+    let (held, busy) = work.hold(targets);
+    let removing = held.games().to_vec();
+    let spared = tauri::async_runtime::spawn_blocking(move || remove(&removing))
+        .await
+        .map_err(text)?;
+    drop(held);
+    Ok((spared, busy))
 }
 
 #[tauri::command]
@@ -545,17 +571,11 @@ pub(super) async fn free_room(
             .map(|game| game.app_id)
             .collect(),
     };
-    for &app_id in &targets {
-        if let Some(why) = work.busy(app_id) {
-            return Err(why);
-        }
-    }
-    let removing = targets.clone();
-    let spared =
-        tauri::async_runtime::spawn_blocking(move || remove_from_each(&library, &removing, what))
-            .await
-            .map_err(text)?;
-    let spared = spared_or_refused(app_id, spared)?;
+    let (spared, busy) = remove_while_held(&work, &targets, move |games| {
+        remove_from_each(&library, games, what)
+    })
+    .await?;
+    let spared = spared_or_refused(app_id, busy, spared)?;
     Ok(Storage {
         spared,
         ..storage(app).await
@@ -625,11 +645,35 @@ fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), Strin
 mod tests {
     use super::{
         Part, Parts, Removal, Spared, game_parts, is_the_writer, model_busy, part_of,
-        remove_from_each, remove_from_game, spared_or_refused, take_away,
+        remove_from_each, remove_from_game, remove_while_held, spared_or_refused, take_away,
     };
-    use crate::ui::work::{Job, State, Task, Unit};
+    use crate::ui::work::{Job, State, Task, Unit, Work};
     use std::path::{Path, PathBuf};
+    use std::sync::Arc;
     use steamgauge_core::writer;
+
+    #[tokio::test]
+    async fn a_removal_holds_its_games_until_it_has_ended() {
+        let work = Arc::new(Work::default());
+        let board = Arc::clone(&work);
+        let (spared, busy) = remove_while_held(&work, &[7, 8], move |games| {
+            let held: Vec<u32> = board
+                .hold(&[7, 8, 9])
+                .1
+                .into_iter()
+                .map(|(game, _)| game)
+                .collect();
+            vec![Spared {
+                app_id: 0,
+                why: format!("removing {games:?}, held {held:?}"),
+            }]
+        })
+        .await
+        .unwrap();
+        assert_eq!(spared[0].why, "removing [7, 8], held [7, 8]");
+        assert_eq!(busy, Vec::new());
+        assert_eq!(work.hold(&[7, 8]).1, Vec::new());
+    }
 
     #[test]
     fn only_the_writers_removal_turns_writing_off() {
@@ -956,10 +1000,33 @@ mod tests {
                 why: "x".to_owned(),
             }]
         };
-        assert_eq!(spared_or_refused(Some(8), one()), Err("x".to_owned()));
-        assert_eq!(spared_or_refused(None, one()), Ok(one()));
-        assert_eq!(spared_or_refused(Some(8), Vec::new()), Ok(Vec::new()));
-        assert_eq!(spared_or_refused(None, Vec::new()), Ok(Vec::new()));
+        let busy = || vec![(7, "This game is busy: waiting.".to_owned())];
+        assert_eq!(
+            spared_or_refused(Some(8), Vec::new(), one()),
+            Err("x".to_owned())
+        );
+        assert_eq!(spared_or_refused(None, Vec::new(), one()), Ok(one()));
+        assert_eq!(
+            spared_or_refused(Some(8), Vec::new(), Vec::new()),
+            Ok(Vec::new())
+        );
+        assert_eq!(
+            spared_or_refused(None, Vec::new(), Vec::new()),
+            Ok(Vec::new())
+        );
+        assert_eq!(
+            spared_or_refused(Some(7), busy(), Vec::new()),
+            Err("This game is busy: waiting.".to_owned())
+        );
+        let listed = spared_or_refused(None, busy(), one()).unwrap();
+        assert_eq!(
+            listed
+                .iter()
+                .map(|spared| spared.app_id)
+                .collect::<Vec<_>>(),
+            [7, 8]
+        );
+        assert_eq!(listed[0].why, "This game is busy: waiting.");
     }
 
     fn job(task: Task, state: State) -> Job {

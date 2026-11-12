@@ -138,7 +138,7 @@ in thirty.
 - **Jobs run on three lanes**: downloads and updates, reads and preparations, and files. Each lane
   runs one job at a time, and no job starts on a game another job is using or waiting for. A
   report uses every game in its list. A Steam check or a model fetch uses no game, so no game holds
-  it back.
+  it back. Removing a game's files holds the game as a job does.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
   A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
   the same turn and leaves `fetch.lock`.
