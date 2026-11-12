@@ -1129,7 +1129,7 @@ async fn search_by_meaning(
 ) -> Result<Vec<NearClaim>, String> {
     use steamgauge_core::{
         meaning::nearest,
-        search_models::{SHOWN_FROM, SearchEncoder, SearchReranker, candidates},
+        search_models::{ENCODER, RERANKER, SHOWN_FROM, SearchEncoder, SearchReranker, candidates},
     };
 
     /// Enough to read through, and past it the claims are the least near of the near.
@@ -1142,6 +1142,13 @@ async fn search_by_meaning(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let cache = steamgauge_core::model::default_cache_dir();
+        if ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache) > 0 {
+            return Err(
+                "The search models are not all on this computer, or are of another \
+                        release. Preparing a game fetches them."
+                    .to_owned(),
+            );
+        }
         let mut reranking = reranker.lock()?;
         let reranker = reranking.get(&cache, SearchReranker::load)?;
         let wanted = {

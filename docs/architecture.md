@@ -102,6 +102,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   decoded greedily in `writer.rs` on the processor, because DirectML runs it slower and wrongly.
 - A sentence with a number or quote the themes do not hold is dropped, and fewer than two left
   means no paragraph. `paragraph.json` holds it for one set of themes and one writer.
+- A game's vectors, themes and paragraph name every file of the model that made them, by its
+  pinned hash. After a model release they are not read, and the game is prepared again.
 
 What counts as a change:
 
