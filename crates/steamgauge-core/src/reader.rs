@@ -1927,6 +1927,45 @@ pub(crate) mod tests {
         assert!(opens < closes && closes <= review.len());
     }
 
+    /// The trainer cuts the same window in `training/train.py`, and `training/test_window.py`
+    /// holds it to these same cases. A model read a window other than the one it was trained on
+    /// still answers, so only the two tests side by side show the drift.
+    #[test]
+    fn every_window_case_is_cut_as_the_trainer_cuts_it() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            name: String,
+            review: String,
+            offsets: Vec<(usize, usize)>,
+            at: usize,
+            length: usize,
+            budget: usize,
+            window: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct Cases {
+            cases: Vec<Case>,
+        }
+        let cases: Cases =
+            serde_json::from_str(include_str!("../../../reference/window-cases.json")).unwrap();
+        assert_eq!(cases.cases.len(), 8);
+        for case in cases.cases {
+            let asked = Asked {
+                claim: &case.review[case.at..case.at + case.length],
+                language: "english",
+                review: &case.review,
+                at: case.at,
+                headset_only: false,
+            };
+            assert_eq!(
+                window_around(&asked, &case.offsets, case.budget, false),
+                case.window,
+                "{}",
+                case.name
+            );
+        }
+    }
+
     /// A size published on a stand-in Hub, whose files hold `contents` and are pinned to them,
     /// or to nothing where `pin` is false.
     fn published_on(hub: &stand_in::Server, contents: [&[u8]; 3], pin: bool) -> Size {

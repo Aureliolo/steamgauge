@@ -309,7 +309,7 @@ class Claims(Dataset[Item]):
         # sequence, and again where it sits inside the window.
         spare = max(self.reading.max_length - 2 * (last - first) - SPECIAL_TOKENS_ON_A_PAIR, 0) // 2
         opens = offsets[max(first - spare, 0)][0]
-        closes = offsets[min(last + spare, len(offsets)) - 1][1]
+        closes = offsets[min(max(last + spare, 1), len(offsets)) - 1][1]
         if not self.reading.mark:
             return claim.review[opens:closes]
         # Where the claim sits inside its window, said in the text itself. A pair alone gives
