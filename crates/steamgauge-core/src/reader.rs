@@ -244,6 +244,10 @@ pub struct Provenance {
     pub held_out: Option<HeldOut>,
 }
 
+/// The file a reader's lines and run are recorded in, small enough to hash whenever a window
+/// asks.
+const RECORD: &str = "reader.json";
+
 impl Provenance {
     /// Reads `reader.json` alone, for the passes that need what the model promised and not
     /// the model: a recount of stored readings has every answer already.
@@ -253,9 +257,9 @@ impl Provenance {
     /// Fails if the file is missing or is not a reader's record.
     pub fn load(dir: &Path) -> Result<Self> {
         Ok(serde_json::from_slice(
-            &std::fs::read(dir.join("reader.json")).map_err(|error| {
+            &std::fs::read(dir.join(RECORD)).map_err(|error| {
                 Error::unless_missing(error, || Error::NoAnchors {
-                    path: dir.join("reader.json"),
+                    path: dir.join(RECORD),
                 })
             })?,
         )?)
@@ -367,6 +371,36 @@ impl Size {
             return local;
         }
         crate::model::default_cache_dir().join(self.dir)
+    }
+
+    /// Whether `dir` holds this size to read with. In the size's own folder in the app's model
+    /// folder that is the published reader with nothing left to fetch. A graph anywhere else,
+    /// or where nothing is published, is somebody's own and is never fetched over.
+    #[must_use]
+    pub fn here(&self, dir: &Path) -> bool {
+        self.state_in(dir, &crate::model::default_cache_dir()).0
+    }
+
+    /// What a read with this size still has to download into `dir`. Nothing where the size is
+    /// here or nothing is published.
+    #[must_use]
+    pub fn left_to_fetch(&self, dir: &Path) -> u64 {
+        self.state_in(dir, &crate::model::default_cache_dir()).1
+    }
+
+    /// Whether `dir` is here, and what is left to fetch into it, given the app's model folder.
+    fn state_in(&self, dir: &Path, cache: &Path) -> (bool, u64) {
+        let graph = dir.join("model.onnx").is_file();
+        let pinned = self.published.is_pinned();
+        if graph && (!pinned || dir != cache.join(self.dir)) {
+            return (true, 0);
+        }
+        let left = if pinned {
+            self.published.bytes_left(dir)
+        } else {
+            0
+        };
+        (graph && left == 0, left)
     }
 
     /// The size asked for by name.
@@ -539,9 +573,21 @@ impl Published {
     }
 
     /// What fetching this size into `dir` would download. Only the files not there count.
+    /// The record counts unless it hashes to its pin, since two releases can differ in nothing
+    /// else.
     #[must_use]
     pub fn bytes_left(&self, dir: &Path) -> u64 {
-        crate::model::bytes_left(self.files, dir)
+        self.files
+            .iter()
+            .filter(|file| {
+                if file.local == RECORD {
+                    !file.matches_in(dir).unwrap_or(false)
+                } else {
+                    !file.present_in(dir)
+                }
+            })
+            .map(|file| file.bytes)
+            .sum()
     }
 
     /// Every pinned file's length together: the whole download, whatever is already here.
@@ -1979,6 +2025,74 @@ pub(crate) mod tests {
                 crate::model::default_cache_dir().join(size.dir)
             );
         }
+    }
+
+    #[test]
+    fn a_reader_is_here_by_its_pins_in_the_apps_folder_and_by_its_graph_anywhere_else() {
+        let hub = hub_with_contents();
+        let size = published_on(&hub, CONTENTS, true);
+        let root = crate::tempdir::Dir::new();
+        let cache = root.path().join("cache");
+        let elsewhere = root.path().join("elsewhere");
+        let folder = cache.join(size.dir);
+        let write = |dir: &Path, name: &str, content: &[u8]| {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(dir.join(name), content).unwrap();
+        };
+
+        write(&folder, "model.onnx", CONTENTS[0]);
+        assert_eq!(size.state_in(&folder, &cache), (false, 23));
+
+        write(&folder, "tokenizer.json", CONTENTS[1]);
+        write(&folder, "reader.json", CONTENTS[2]);
+        assert_eq!(size.state_in(&folder, &cache), (true, 0));
+
+        write(&folder, "reader.json", b"THE RECORD");
+        assert_eq!(size.state_in(&folder, &cache), (false, 10));
+        assert_eq!(size.published.bytes_left(&folder), 10);
+
+        write(&folder, "reader.json", CONTENTS[2]);
+        std::fs::remove_file(folder.join("tokenizer.json")).unwrap();
+        std::fs::remove_file(folder.join("reader.json")).unwrap();
+        assert_eq!(size.state_in(&folder, &elsewhere), (true, 0));
+
+        let other = cache.join(SIZES[1].dir);
+        write(&other, "model.onnx", CONTENTS[0]);
+        write(&cache, "model.onnx", CONTENTS[0]);
+        assert_eq!(size.state_in(&other, &cache), (true, 0));
+        assert_eq!(size.state_in(&cache, &cache), (true, 0));
+
+        let unpublished = published_on(&hub, CONTENTS, false);
+        assert_eq!(unpublished.state_in(&folder, &cache), (true, 0));
+
+        let without_graph = cache.join("without graph");
+        write(&without_graph, "tokenizer.json", CONTENTS[1]);
+        write(&without_graph, "reader.json", CONTENTS[2]);
+        let own = cache.join(size.dir);
+        std::fs::remove_file(own.join("model.onnx")).unwrap();
+        write(&own, "tokenizer.json", CONTENTS[1]);
+        write(&own, "reader.json", CONTENTS[2]);
+        assert_eq!(size.state_in(&own, &cache), (false, 9));
+        assert_eq!(size.state_in(&without_graph, &cache), (false, 9));
+    }
+
+    #[test]
+    fn a_folder_that_is_not_the_apps_holds_a_reader_by_its_graph_alone() {
+        let hub = hub_with_contents();
+        let size = published_on(&hub, CONTENTS, true);
+        let root = crate::tempdir::Dir::new();
+        assert!(!root.path().starts_with(crate::model::default_cache_dir()));
+
+        let empty = root.path().join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(!size.here(&empty));
+        assert_eq!(size.left_to_fetch(&empty), 9 + 13 + 10);
+
+        let tried = root.path().join("tried");
+        std::fs::create_dir_all(&tried).unwrap();
+        std::fs::write(tried.join("model.onnx"), CONTENTS[0]).unwrap();
+        assert!(size.here(&tried));
+        assert_eq!(size.left_to_fetch(&tried), 0);
     }
 
     #[test]

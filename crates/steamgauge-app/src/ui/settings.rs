@@ -374,11 +374,7 @@ pub(super) fn reader_options(app: AppHandle) -> ReaderOptions {
                     name: size.name,
                     agreement: size.agreement,
                     download_bytes: size.published.total_bytes(),
-                    bytes_left: if published {
-                        size.published.bytes_left(&size.home())
-                    } else {
-                        0
-                    },
+                    bytes_left: size.left_to_fetch(&size.home()),
                     published,
                     needs: size.needs,
                     runs_here: super::work::runs_here(size, card, reaches),
