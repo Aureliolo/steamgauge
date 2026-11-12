@@ -849,6 +849,14 @@ mod tests {
     }
 
     #[test]
+    fn the_writer_is_recorded_by_the_pin_of_every_file_in_order() {
+        let pins: Vec<&str> = WRITER.assets.iter().map(|asset| asset.sha256).collect();
+        assert_eq!(pins.len(), 3);
+        assert_eq!(WRITER.pins(), pins.join("+"));
+        assert_ne!(WRITER.pins(), crate::search_models::ENCODER.pins());
+    }
+
+    #[test]
     fn a_paragraph_stands_only_for_the_themes_it_was_written_from() {
         let dir = crate::tempdir::Dir::new();
         let themes = dir.path().join(crate::themes::FILE);

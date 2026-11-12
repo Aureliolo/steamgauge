@@ -434,6 +434,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_model_is_recorded_by_its_tokenizer_and_graph_pins_and_no_two_alike() {
+        assert_eq!(
+            ENCODER.pins(),
+            format!("{}+{}", ENCODER.tokenizer.sha256, ENCODER.graph.sha256)
+        );
+        assert_eq!(
+            RERANKER.pins(),
+            format!("{}+{}", RERANKER.tokenizer.sha256, RERANKER.graph.sha256)
+        );
+        assert_ne!(ENCODER.pins(), RERANKER.pins());
+    }
+
+    #[test]
     fn the_prompts_carry_every_place_they_are_filled_in() {
         assert!(PROMPTS.query.contains("{instruction}") && PROMPTS.query.contains("{query}"));
         for hole in ["{instruction}", "{query}", "{claim}"] {
