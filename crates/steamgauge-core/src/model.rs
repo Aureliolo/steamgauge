@@ -273,6 +273,16 @@ pub(crate) fn bytes_left(assets: &[Asset], dir: &Path) -> u64 {
         .sum()
 }
 
+/// Every file's pinned hash, in order. It names one release of a model whatever it is
+/// published as, which is what a result is recorded as made by.
+pub(crate) fn pins(assets: &[Asset]) -> String {
+    assets
+        .iter()
+        .map(|asset| asset.sha256)
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
 /// Which build of the graph to run.
 ///
 /// Measured on a 2,875-text corpus under e5-small rather than assumed, because the obvious
@@ -771,6 +781,17 @@ mod tests {
         Encoder::ArcticMediumV2,
         Encoder::GteBase,
     ];
+
+    #[test]
+    fn pins_name_every_file_in_order() {
+        let asset = |sha256| Asset {
+            remote: "f",
+            local: "f",
+            sha256,
+            bytes: 1,
+        };
+        assert_eq!(pins(&[asset("aa"), asset("bb")]), "aa+bb");
+    }
 
     #[test]
     fn every_pinned_hash_is_a_sha256() {

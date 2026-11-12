@@ -101,6 +101,12 @@ impl WriterModel {
         cache_dir.join(self.name)
     }
 
+    /// Every file's pin, which names the writer whatever it is published as.
+    #[must_use]
+    pub fn pins(self) -> String {
+        model::pins(&self.assets)
+    }
+
     /// What writing a first paragraph would fetch. Only the files not here count.
     #[must_use]
     pub fn bytes_left(self, cache_dir: &Path) -> u64 {
@@ -598,7 +604,7 @@ pub struct Paragraph {
     pub text: String,
     /// When the themes it was written from were last written, in seconds since the epoch.
     themes: Option<u64>,
-    /// The graph's pin, which names the writer whatever it is published as.
+    /// Every file's pin, which names the writer whatever it is published as.
     writer: String,
 }
 
@@ -616,7 +622,7 @@ impl Paragraph {
         Self {
             text,
             themes: themes_written(snapshot),
-            writer: WRITER.assets[1].sha256.to_owned(),
+            writer: WRITER.pins(),
         }
     }
 
@@ -625,9 +631,8 @@ impl Paragraph {
     pub fn load(snapshot: &Path) -> Option<Self> {
         let paragraph: Self =
             serde_json::from_slice(&std::fs::read(snapshot.join(FILE)).ok()?).ok()?;
-        (paragraph.writer == WRITER.assets[1].sha256
-            && paragraph.themes == themes_written(snapshot))
-        .then_some(paragraph)
+        (paragraph.writer == WRITER.pins() && paragraph.themes == themes_written(snapshot))
+            .then_some(paragraph)
     }
 
     /// The text to show for the themes at `snapshot`: none where nothing was written for them,
@@ -844,6 +849,14 @@ mod tests {
     }
 
     #[test]
+    fn the_writer_is_recorded_by_the_pin_of_every_file_in_order() {
+        let pins: Vec<&str> = WRITER.assets.iter().map(|asset| asset.sha256).collect();
+        assert_eq!(pins.len(), 3);
+        assert_eq!(WRITER.pins(), pins.join("+"));
+        assert_ne!(WRITER.pins(), crate::search_models::ENCODER.pins());
+    }
+
+    #[test]
     fn a_paragraph_stands_only_for_the_themes_it_was_written_from() {
         let dir = crate::tempdir::Dir::new();
         let themes = dir.path().join(crate::themes::FILE);
@@ -881,6 +894,15 @@ mod tests {
             Paragraph::load(dir.path()),
             None,
             "the themes were found again since"
+        );
+
+        let mut by_the_graph_alone = Paragraph::new("Players like it.".to_owned(), dir.path());
+        by_the_graph_alone.writer = WRITER.assets[1].sha256.to_owned();
+        by_the_graph_alone.save(dir.path()).unwrap();
+        assert_eq!(
+            Paragraph::load(dir.path()),
+            None,
+            "a record of the graph alone is another writer's"
         );
     }
 

@@ -948,9 +948,15 @@ fn bring_library(library: &Path) -> Result<()> {
             snapshot.display()
         );
     }
+    for snapshot in &brought.named {
+        eprintln!(
+            "{}: search vectors, themes and paragraph recorded by their model's files",
+            snapshot.display()
+        );
+    }
     for (snapshot, failed) in &brought.failed {
         eprintln!(
-            "{}: reading left in an earlier format: {failed}",
+            "{}: left in an earlier format: {failed}",
             snapshot.display()
         );
     }

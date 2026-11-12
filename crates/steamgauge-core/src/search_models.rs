@@ -38,7 +38,7 @@ static PROMPTS: std::sync::LazyLock<Prompts> = std::sync::LazyLock::new(|| {
 /// One exported model: where it is published and cached, and its two files.
 #[derive(Debug, Clone, Copy)]
 pub struct Model {
-    /// What the vectors a game is prepared with are recorded as, and the cache directory.
+    /// The cache directory, and what this machine's pace with the model is recorded under.
     pub name: &'static str,
     /// Empty until published.
     pub repository: &'static str,
@@ -134,6 +134,12 @@ impl Model {
     #[must_use]
     pub fn dir(self, cache_dir: &Path) -> PathBuf {
         cache_dir.join(self.name)
+    }
+
+    /// What a game's vectors and themes are recorded as made by.
+    #[must_use]
+    pub fn pins(self) -> String {
+        model::pins(&[self.tokenizer, self.graph])
     }
 
     /// What a first search would fetch of this model. Only the files not here count.
@@ -426,6 +432,19 @@ impl SearchReranker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_model_is_recorded_by_its_tokenizer_and_graph_pins_and_no_two_alike() {
+        assert_eq!(
+            ENCODER.pins(),
+            format!("{}+{}", ENCODER.tokenizer.sha256, ENCODER.graph.sha256)
+        );
+        assert_eq!(
+            RERANKER.pins(),
+            format!("{}+{}", RERANKER.tokenizer.sha256, RERANKER.graph.sha256)
+        );
+        assert_ne!(ENCODER.pins(), RERANKER.pins());
+    }
 
     #[test]
     fn the_prompts_carry_every_place_they_are_filled_in() {

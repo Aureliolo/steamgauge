@@ -78,6 +78,7 @@ pub enum Status {
 /// What the directory's parts were prepared from.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct Sidecar {
+    /// Every pin of the encoder that made the parts.
     encoder: String,
     /// Whether a preparation walked every claim of the reading below.
     complete: bool,
@@ -97,7 +98,16 @@ fn sidecar(snapshot: &Path) -> Option<Sidecar> {
     serde_json::from_slice(&std::fs::read(snapshot.join(DIR).join(SIDECAR)).ok()?).ok()
 }
 
+/// The parts this encoder made. Parts recorded under another are not this reading's vectors.
 fn parts(snapshot: &Path) -> Vec<PathBuf> {
+    if sidecar(snapshot).is_some_and(|side| side.encoder == ENCODER.pins()) {
+        every_part(snapshot)
+    } else {
+        Vec::new()
+    }
+}
+
+fn every_part(snapshot: &Path) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(snapshot.join(DIR))
         .into_iter()
         .flatten()
@@ -112,7 +122,7 @@ fn parts(snapshot: &Path) -> Vec<PathBuf> {
 /// How far the vectors of the reading at `snapshot` have got.
 #[must_use]
 pub fn status(snapshot: &Path) -> Status {
-    let side = sidecar(snapshot).filter(|side| side.encoder == ENCODER.name);
+    let side = sidecar(snapshot).filter(|side| side.encoder == ENCODER.pins());
     match side {
         Some(side) if side.complete && side.readings == readings_written(snapshot) => Status::Ready,
         Some(side) if side.complete => Status::Stale,
@@ -351,12 +361,13 @@ pub fn prepare(
     let mut side = sidecar(snapshot).unwrap_or_default();
     // Vectors from another encoder live in another space, and a search asked in this one would
     // find nothing near them that is near in meaning.
-    if side.encoder != ENCODER.name {
-        for part in parts(snapshot) {
+    let made_by = ENCODER.pins();
+    if side.encoder != made_by {
+        for part in every_part(snapshot) {
             std::fs::remove_file(part)?;
         }
     }
-    ENCODER.name.clone_into(&mut side.encoder);
+    side.encoder = made_by;
     side.complete = false;
     write_sidecar(&dir, &side)?;
 
@@ -899,6 +910,39 @@ mod tests {
     }
 
     #[test]
+    fn vectors_recorded_under_another_encoder_are_not_this_readings() {
+        let dir = crate::tempdir::Dir::new();
+        game(dir.path());
+        prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        assert_eq!(status(dir.path()), Status::Ready);
+        assert_eq!(held(dir.path()).0, 5);
+
+        let by_name = Sidecar {
+            encoder: ENCODER.name.to_owned(),
+            complete: true,
+            readings: readings_written(dir.path()),
+        };
+        write_sidecar(&dir.path().join(DIR), &by_name).unwrap();
+        assert_eq!(status(dir.path()), Status::None);
+        assert_eq!(held(dir.path()), (0, 0));
+        let mut query = vec![0.0_f32; DIMENSIONS];
+        query[0] = 1.0;
+        assert_eq!(
+            nearest(dir.path(), &query, 10, |_, _| false).unwrap().len(),
+            0
+        );
+
+        let again = prepare(dir.path(), embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        assert_eq!(again.embedded, 5);
+        assert_eq!(held(dir.path()).0, 5);
+        assert_eq!(status(dir.path()), Status::Ready);
+
+        std::fs::remove_file(dir.path().join(DIR).join(SIDECAR)).unwrap();
+        assert_eq!(status(dir.path()), Status::None, "parts with no record");
+        assert_eq!(held(dir.path()), (0, 0));
+    }
+
+    #[test]
     fn a_stopped_preparation_is_carried_on_and_nothing_is_embedded_twice() {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());
@@ -986,7 +1030,7 @@ mod tests {
         assert_eq!(status(dir.path()), Status::Stale);
 
         let unfinished = Sidecar {
-            encoder: ENCODER.name.to_owned(),
+            encoder: ENCODER.pins(),
             complete: false,
             readings: readings_written(dir.path()),
         };
@@ -1052,6 +1096,14 @@ mod tests {
         let dir = crate::tempdir::Dir::new();
         let parts_dir = dir.path().join(DIR);
         std::fs::create_dir_all(&parts_dir).unwrap();
+        write_sidecar(
+            &parts_dir,
+            &Sidecar {
+                encoder: ENCODER.pins(),
+                ..Sidecar::default()
+            },
+        )
+        .unwrap();
         let vector = embed(&["deck".to_owned()]).unwrap().remove(0);
         let mut part = Part::new();
         for text in ["one", "two"] {

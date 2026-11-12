@@ -82,7 +82,7 @@ const THREADS: usize = 4;
 /// Every subject's themes on each side, for one reading.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Themes {
-    /// The encoder whose vectors these were grouped by.
+    /// Every pin of the encoder whose vectors these were grouped by.
     pub encoder: String,
     /// When the readings file grouped was last written, in seconds since the epoch.
     pub readings: Option<u64>,
@@ -145,7 +145,7 @@ impl Themes {
     pub fn load(snapshot: &Path) -> Option<Self> {
         let themes: Self =
             serde_json::from_slice(&std::fs::read(snapshot.join(FILE)).ok()?).ok()?;
-        (themes.encoder == ENCODER.name && themes.readings == meaning::readings_written(snapshot))
+        (themes.encoder == ENCODER.pins() && themes.readings == meaning::readings_written(snapshot))
             .then_some(themes)
     }
 
@@ -400,7 +400,7 @@ pub fn find(snapshot: &Path, closeness: Closeness) -> Result<Themes> {
     let mut themes = said.kept(&found);
     Said::link(&mut themes, &found, closeness.shared);
     Ok(Themes {
-        encoder: ENCODER.name.to_owned(),
+        encoder: ENCODER.pins(),
         readings: meaning::readings_written(snapshot),
         subjects: said.subjects(themes),
     })
@@ -1066,7 +1066,7 @@ mod tests {
             theme: 1,
         };
         let found = Themes {
-            encoder: ENCODER.name.to_owned(),
+            encoder: ENCODER.pins(),
             readings: None,
             subjects: vec![
                 side(
@@ -1120,7 +1120,7 @@ mod tests {
         let snapshot = dir.path();
         std::fs::write(snapshot.join("readings.parquet"), b"stand-in").unwrap();
         let found = Themes {
-            encoder: ENCODER.name.to_owned(),
+            encoder: ENCODER.pins(),
             readings: meaning::readings_written(snapshot),
             subjects: vec![side(
                 "gameplay",
@@ -1144,6 +1144,17 @@ mod tests {
         };
         other.save(snapshot).unwrap();
         assert_eq!(Themes::load(snapshot), None, "another encoder's themes");
+
+        let by_name = Themes {
+            encoder: ENCODER.name.to_owned(),
+            ..found.clone()
+        };
+        by_name.save(snapshot).unwrap();
+        assert_eq!(
+            Themes::load(snapshot),
+            None,
+            "themes recorded by the encoder's name alone"
+        );
 
         let earlier = Themes {
             readings: found.readings.map(|at| at - 1),
@@ -1295,7 +1306,7 @@ mod tests {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());
         let found = find(dir.path(), Closeness::USED).unwrap();
-        assert_eq!(found.encoder, ENCODER.name);
+        assert_eq!(found.encoder, ENCODER.pins());
         assert_eq!(found.readings, meaning::readings_written(dir.path()));
 
         let named: Vec<(&str, &str, u64)> = found

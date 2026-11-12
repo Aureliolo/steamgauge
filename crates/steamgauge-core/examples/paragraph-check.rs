@@ -24,6 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("usage: paragraph-check <library> <app id>...".into());
     };
     let root = std::path::Path::new(root);
+    // What an earlier release wrote is brought first, so the themes it found are read.
+    steamgauge_core::current_format::bring_library(root)?;
     let started = std::time::Instant::now();
     let mut loaded = Writer::load(&default_cache_dir())?;
     eprintln!("writer loaded in {:.1} s", started.elapsed().as_secs_f64());

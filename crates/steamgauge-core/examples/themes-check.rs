@@ -28,6 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         merged: given(1, used.merged)?,
         shared: given(2, used.shared)?,
     };
+    // What an earlier release wrote is brought first, so a game it prepared is not prepared again.
+    steamgauge_core::current_format::bring_library(std::path::Path::new(root))?;
     let snapshot =
         steamgauge_core::embed::latest_snapshot(std::path::Path::new(root), app_id.parse()?)?;
 
