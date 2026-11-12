@@ -25,7 +25,7 @@ import {
   withTexts,
 } from './notices.mjs';
 import { check as checkRuntime, imports, isWindows, place } from './runtime-dlls.mjs';
-import { fuzzedBy, scopeOf } from './scope.mjs';
+import { fuzzedBy, macosBy, scopeOf } from './scope.mjs';
 import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from './version.mjs';
 
 const PRE_RELEASE_REFUSAL = /pre-release/u;
@@ -293,6 +293,43 @@ it('a change to a path the fuzz targets are built from and to one they are not r
 
 it('a change that lists no path is not known to leave the fuzz targets alone', () => {
   assert.equal(fuzzedBy([]), true);
+});
+
+it('a change to prose, training, labelled data or the browser checks alone cannot make macOS differ', () => {
+  assert.equal(
+    macosBy([
+      'README.md',
+      'docs/architecture.md',
+      'training/train.py',
+      'reference/reader-sizes.json',
+      'tools/app-check/stub.js',
+      'tools/gold-check/check.mjs',
+      'tools/report-check/check.mjs',
+      'tools/site-check/check.mjs',
+    ]),
+    false,
+  );
+});
+
+for (const path of [
+  'crates/steamgauge-app/ui/index.html',
+  'crates/steamgauge-core/README.md',
+  'Cargo.lock',
+  'rust-toolchain.toml',
+  '.github/workflows/ci.yml',
+  '.github/actions/scope/action.yml',
+  'tools/release/scope.mjs',
+  'tools/onnx-runtime.sh',
+  'Casks/steamgauge.rb',
+  'docs.md/x.rs',
+]) {
+  it(`a change to ${path} can make macOS differ`, () => {
+    assert.equal(macosBy(['docs/architecture.md', path]), true);
+  });
+}
+
+it('a change that lists no path is not known to leave macOS alone', () => {
+  assert.equal(macosBy([]), true);
 });
 
 // main as a line of commits, newest last, each with what it changed and the pull request it came
