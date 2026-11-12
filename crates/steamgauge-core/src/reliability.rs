@@ -13,7 +13,10 @@
 //! judgement about the claim; `ambiguous` is a judgement about the taxonomy, and the labelled
 //! sets so far disagree about it far more than they disagree about anything else.
 
-use std::collections::HashMap;
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, HashMap},
+};
 
 use serde::Serialize;
 
@@ -224,8 +227,8 @@ fn score(
     of: fn(&ClaimLabel) -> String,
 ) -> FieldAgreement {
     let mut agreed = 0_u64;
-    let mut mine: HashMap<String, u64> = HashMap::new();
-    let mut theirs: HashMap<String, u64> = HashMap::new();
+    let mut mine: BTreeMap<String, u64> = BTreeMap::new();
+    let mut theirs: BTreeMap<String, u64> = BTreeMap::new();
     let mut splits: HashMap<(String, String), u64> = HashMap::new();
 
     for (left, right) in both {
@@ -248,11 +251,21 @@ fn score(
         compared,
         agreed,
         kappa: kappa(agreed, compared, &mine, &theirs),
-        commonest_split: splits
-            .into_iter()
-            .max_by_key(|(_, count)| *count)
-            .map(|((a, b), count)| (a, b, count)),
+        commonest_split: commonest(splits),
     }
+}
+
+/// The split seen most often. Two seen equally often: the one that sorts first, so the same
+/// labels name the same split every time.
+fn commonest(splits: HashMap<(String, String), u64>) -> Option<(String, String, u64)> {
+    splits
+        .into_iter()
+        .max_by(|(left, left_count), (right, right_count)| {
+            left_count
+                .cmp(right_count)
+                .then_with(|| Reverse(left).cmp(&Reverse(right)))
+        })
+        .map(|((a, b), count)| (a, b, count))
 }
 
 /// Cohen's kappa: agreement beyond what these two labellers' own habits would give by chance.
@@ -265,8 +278,8 @@ fn score(
 fn kappa(
     agreed: u64,
     compared: u64,
-    mine: &HashMap<String, u64>,
-    theirs: &HashMap<String, u64>,
+    mine: &BTreeMap<String, u64>,
+    theirs: &BTreeMap<String, u64>,
 ) -> Option<f64> {
     if compared == 0 {
         return None;
@@ -375,6 +388,20 @@ mod tests {
         let scored = score("subject", &pairs(&rows), |label| label.subject.clone());
         let (a, b, count) = scored.commonest_split.expect("they disagreed");
         assert_eq!((a.as_str(), b.as_str(), count), ("gameplay", "story", 2));
+    }
+
+    #[test]
+    fn two_splits_seen_equally_often_name_the_one_that_sorts_first() {
+        // A fresh map per round draws a fresh hash seed, so a pick that follows hash order
+        // lands on the wrong split in some round.
+        for _ in 0..200 {
+            let splits: HashMap<(String, String), u64> = ["a", "b", "c", "d", "e", "f"]
+                .iter()
+                .map(|name| (((*name).to_owned(), "z".to_owned()), 2))
+                .collect();
+            let (a, b, count) = commonest(splits).expect("there are splits");
+            assert_eq!((a.as_str(), b.as_str(), count), ("a", "z", 2));
+        }
     }
 
     #[test]
