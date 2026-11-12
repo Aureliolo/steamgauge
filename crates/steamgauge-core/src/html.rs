@@ -13,6 +13,7 @@
 use std::fmt::Write as _;
 
 use crate::{
+    figure_text::thousands,
     read::SubjectCount,
     report::{AppReport, Example, Report, coverage},
     taxonomy::SHEET,
@@ -2536,18 +2537,6 @@ pub(crate) fn percent(rate: f64) -> String {
     format!("{:.1}%", rate * 100.0)
 }
 
-pub(crate) fn thousands(value: u64) -> String {
-    let digits = value.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (index, digit) in digits.chars().enumerate() {
-        if index > 0 && (digits.len() - index).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
-}
-
 fn hours(minutes: u32) -> String {
     if minutes < 60 {
         return format!("{minutes} min");
@@ -4318,14 +4307,6 @@ mod tests {
             !quiet.contains("surer about than English"),
             "an English corpus is told it leans on languages it does not have"
         );
-    }
-
-    #[test]
-    fn thousands_groups_from_the_right() {
-        assert_eq!(thousands(0), "0");
-        assert_eq!(thousands(999), "999");
-        assert_eq!(thousands(1_000), "1,000");
-        assert_eq!(thousands(1_161_047), "1,161,047");
     }
 
     #[test]

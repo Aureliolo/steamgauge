@@ -17,6 +17,8 @@ use steamgauge_core::{
 };
 use tauri::{AppHandle, Emitter as _, Manager as _};
 
+use steamgauge_core::figure_text::thousands;
+
 use super::{cockpit::Row, library_dir, now_unix, read_report, settings::Settings, text};
 
 /// The looks as they stood when the app opened.
@@ -216,7 +218,7 @@ fn words(game: &str, moved: &Move, read: u64) -> (String, String) {
             "{} of the {} reviews read since you last looked {doing} {subject}, against {} in the \
              year before.",
             percent(moved.shift.recent),
-            super::work::thousands(read),
+            thousands(read),
             percent(moved.shift.before),
         ),
     )

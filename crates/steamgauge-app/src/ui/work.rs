@@ -25,6 +25,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use steamgauge_core::figure_text::thousands;
 use tauri::{AppHandle, Emitter as _, Manager as _};
 use tokio::sync::Notify;
 
@@ -1769,19 +1770,6 @@ async fn export_data(
     )))
 }
 
-/// A count with thousands separated, as the window would print it.
-pub(super) fn thousands(count: u64) -> String {
-    let digits = count.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (at, digit) in digits.chars().enumerate() {
-        if at > 0 && (digits.len() - at).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
-}
-
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
@@ -2472,14 +2460,6 @@ mod tests {
         );
         let state = board.jobs.iter().find(|job| job.id == own).unwrap().state;
         assert_eq!(state, State::Queued);
-    }
-
-    #[test]
-    fn counts_read_with_their_thousands_apart() {
-        assert_eq!(thousands(0), "0");
-        assert_eq!(thousands(999), "999");
-        assert_eq!(thousands(1_000), "1,000");
-        assert_eq!(thousands(25_242_117), "25,242,117");
     }
 
     fn report(app_ids: Vec<u32>) -> Task {
