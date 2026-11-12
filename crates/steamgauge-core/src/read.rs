@@ -2225,6 +2225,50 @@ pub(crate) mod tests {
         );
     }
 
+    /// Past 16,384 reviews waiting on one claim, and past 16,384 distinct claims in one window,
+    /// a read drains what it holds mid-way and still counts every review once.
+    #[test]
+    fn a_read_longer_than_its_windows_counts_every_review_once() {
+        const EACH: u32 = 20_000;
+        let out = crate::tempdir::Dir::new();
+        let reviews: Vec<serde_json::Value> = (0..EACH)
+            .map(|id| steam_review(&id.to_string(), "Fine."))
+            .chain((EACH..2 * EACH).map(|id| steam_review(&id.to_string(), &format!("bug {id}."))))
+            .collect();
+        let snapshot = capture_these(out.path(), 1, &reviews);
+        let mut model = Table::new(false);
+        let mut counted = Vec::new();
+        let report = read_with(&mut model, 1, &options(out.path()), |progress| {
+            counted.push(progress.reviews_counted);
+        })
+        .unwrap();
+
+        let total = u64::from(2 * EACH);
+        assert_eq!((report.reviews, report.claims), (total, total));
+        assert_eq!(report.forward_passes, u64::from(EACH) + 1);
+        assert_eq!(model.asked, usize::try_from(EACH).unwrap() + 1);
+        // "Fine." alone at the cap on reviews waiting, then 64 full batches of 256 at the window,
+        // then the 3,616 claims left in 15.
+        assert_eq!(model.runs, 1 + 64 + 15);
+        assert_eq!(
+            counted,
+            [16_384, 32_768, total],
+            "counted at the cap on waiting reviews, at the full window and at the end"
+        );
+        let bugs = tallies(&report)
+            .into_iter()
+            .find(|(id, _)| *id == "bugs")
+            .map(|(_, tally)| tally[0]);
+        assert_eq!(bugs, Some(u64::from(EACH)));
+
+        let mut ids = std::collections::HashSet::new();
+        for_each_full_reading(&snapshot.join("readings.parquet"), |id, _, _, _, _, _| {
+            ids.insert(id.to_owned());
+        })
+        .unwrap();
+        assert_eq!(ids.len(), usize::try_from(total).unwrap());
+    }
+
     #[test]
     fn a_reading_carries_what_read_it_and_a_row_for_every_claim() {
         let out = crate::tempdir::Dir::new();
