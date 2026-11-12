@@ -310,8 +310,8 @@ impl CrawlState {
         Ok(())
     }
 
-    /// Drops every crawl of a game and its shards, for a game whose files are removed: a
-    /// record left behind would have the next download resume into a folder that is gone.
+    /// Drops every crawl of a game and its shards, for a game whose files are removed or gone:
+    /// a record left behind counts reviews no capture holds.
     ///
     /// # Errors
     ///

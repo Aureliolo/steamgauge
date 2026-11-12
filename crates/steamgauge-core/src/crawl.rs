@@ -120,6 +120,7 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
 /// Propagates transport, throttling, database and Parquet failures. An interrupted crawl
 /// leaves its completed shards on disk and resumes from them on the next run.
 /// A crawl whose record could not be written is resumed as well, and the next run writes it.
+/// A crawl whose completed shards are gone begins anew.
 /// [`crate::Error::Refused`] where another job holds the capture's lock when the crawl comes to
 /// write its record. The crawl is resumed by the next run, which writes it.
 /// [`crate::Error::Refused`] at once while another crawl of the game runs, in this program or
@@ -244,7 +245,9 @@ fn recorded_fields(dir: &std::path::Path) -> Result<serde_json::Map<String, Valu
     }
 }
 
-/// Continues an unfinished crawl where one exists, otherwise plans a new one.
+/// Continues an unfinished crawl where one exists and its capture still holds a shard of the
+/// reviews the state counts, otherwise plans a new one. Rows whose shards are gone are
+/// forgotten first.
 ///
 /// Resuming reuses the original snapshot timestamp so every shard of one corpus lands in
 /// the same directory, however many runs it took to finish. A new crawl first asks Steam for
@@ -259,7 +262,14 @@ async fn prepare(
     if options.resume
         && let Some(found) = state.resumable(app_id)?
     {
-        return Ok((found.id, found.snapshot_unix, true));
+        let capture = options
+            .out_dir
+            .join(format!("appid={app_id}"))
+            .join(format!("snapshot={}", found.snapshot_unix));
+        if state.completed_totals(found.id)?.0 == 0 || crate::embed::holds_a_shard(&capture) {
+            return Ok((found.id, found.snapshot_unix, true));
+        }
+        state.forget(app_id)?;
     }
     let snapshot = now_unix();
     let first = client
@@ -1479,6 +1489,47 @@ mod tests {
         assert_eq!(report.unique, 2);
         assert!(report.complete);
         assert_eq!(newest_edit_kept(out.path()), Some(now - 100));
+    }
+
+    #[tokio::test]
+    async fn a_crawl_whose_capture_lost_its_shards_begins_anew() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        for entry in std::fs::read_dir(&short.dir).unwrap() {
+            std::fs::remove_file(entry.unwrap().path()).unwrap();
+        }
+
+        let report = resumed_crawl(out.path()).await.unwrap();
+        assert!(!report.resumed && report.complete);
+        assert_eq!(report.unique, 70);
+        assert_eq!(
+            crate::embed::latest_snapshot(out.path(), APP).unwrap(),
+            report.dir
+        );
+        let state = CrawlState::open(&out.path().join("state.sqlite")).unwrap();
+        assert!(state.resumable(APP).unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn a_crawl_stopped_before_any_review_is_resumed() {
+        let out = crate::tempdir::Dir::new();
+        let state = CrawlState::open(&out.path().join("state.sqlite")).unwrap();
+        let id = state.begin_crawl(APP, 1_700_000_000, "", 70).unwrap();
+        state
+            .record_shards(
+                id,
+                &[Shard {
+                    start_date: CORPUS_EPOCH,
+                    end_date: now_unix(),
+                    expected: 70,
+                }],
+            )
+            .unwrap();
+        drop(state);
+
+        let report = resumed_crawl(out.path()).await.unwrap();
+        assert!(report.resumed);
+        assert_eq!(snapshot_of(&report.dir), 1_700_000_000);
     }
 
     #[tokio::test]
