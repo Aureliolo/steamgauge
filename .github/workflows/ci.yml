@@ -27,6 +27,9 @@ env:
 # requires; any other is skipped, which the ruleset counts as passed. Should the scope job fail,
 # everything runs.
 #
+# A macOS job whose steps are all skipped, as where the change holds only what macOS reads as
+# Linux and Windows do, runs on Linux, so it holds no macOS runner from a change that needs one.
+#
 # Build caches are written by the run on main alone. A pull request restores them, and one that
 # saved its own would push main's out of the repository's cache limit.
 jobs:
@@ -38,6 +41,7 @@ jobs:
       contents: read # Fetches the two commits a pull request compares.
     outputs:
       code: ${{ steps.scope.outputs.code }}
+      macos: ${{ steps.scope.outputs.macos }}
     steps:
       # The pull request's merge commit and the base under it, which is all the classifier reads.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -168,24 +172,26 @@ jobs:
             feature: coreml
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.platform == 'macos' && needs.scope.outputs.macos == 'false' && 'ubuntu-24.04' || matrix.runner }}
     timeout-minutes: 45
     permissions:
       contents: read # Reads the source it lints.
+    env:
+      CHECKS: ${{ needs.scope.outputs.code != 'false' && (matrix.platform != 'macos' || needs.scope.outputs.macos != 'false') }}
     steps:
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: $/.github/actions/onnx-runtime
         with:
           features: ${{ matrix.feature }}
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         shell: bash
         env:
           FEATURE: ${{ matrix.feature }}
@@ -208,28 +214,30 @@ jobs:
             runner: macos-26
     needs: scope
     if: ${{ !cancelled() }}
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.platform == 'macos' && needs.scope.outputs.macos == 'false' && 'ubuntu-24.04' || matrix.runner }}
     timeout-minutes: 60
     permissions:
       contents: read # Reads the source it tests.
+    env:
+      CHECKS: ${{ needs.scope.outputs.code != 'false' && (matrix.platform != 'macos' || needs.scope.outputs.macos != 'false') }}
     steps:
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - if: runner.os == 'Linux' && needs.scope.outputs.code != 'false'
+      - if: runner.os == 'Linux' && env.CHECKS == 'true'
         uses: $/.github/actions/ubuntu-packages
         with:
           packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           # Named, so that docs.yml restores the debug build of the workspace this job saves.
           shared-key: workspace-debug
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         uses: $/.github/actions/onnx-runtime
-      - if: needs.scope.outputs.code != 'false'
+      - if: env.CHECKS == 'true'
         run: cargo test --locked --workspace
 
   # The training scripts decide every figure the reader is quoted with, and their tests need

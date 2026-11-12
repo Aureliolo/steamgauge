@@ -8,11 +8,13 @@
 // the workspace version raised and nothing else, byte for byte.
 //
 // Whether a change reaches what the fuzz targets are built from is a second question, asked with
-// a third argument. A classifier that predates it ignores the argument and answers the first
-// question, which is how the scope action tells that the base cannot answer it.
+// a third argument. Whether it can make macOS differ from Linux and Windows is a third. A
+// classifier that predates a question ignores the argument and answers the first question, which
+// is how the scope action tells that the base cannot answer it.
 //
 //   node tools/release/scope.mjs <base> <head>          prints code, version or packaging
 //   node tools/release/scope.mjs <base> <head> fuzzed   prints true or false
+//   node tools/release/scope.mjs <base> <head> macos    prints true or false
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 
@@ -41,6 +43,12 @@ const FUZZ_FILES = new Set([
   'rust-toolchain.toml',
 ]);
 
+// What no build, package or test reads differently on macOS: prose, the training scripts, the
+// labelled data, and the browser checks, which run on Linux alone. A change to these alone is
+// checked on Linux and Windows, where it would fail the same way.
+const SAME_ON_MACOS =
+  /^(?:docs\/|training\/|reference\/|tools\/(?:app-check|gold-check|report-check|site-check)\/|[^/]+\.md$)/u;
+
 // `before` and `after` read a file's text at each commit, or throw where it is absent.
 function scopeOf(changed, before, after) {
   if (changed.length === 0) {
@@ -60,6 +68,11 @@ function fuzzedBy(changed) {
   return (
     changed.length === 0 || changed.some((path) => FUZZ_FOLDERS.test(path) || FUZZ_FILES.has(path))
   );
+}
+
+// A change that lists no path is not known to leave macOS alone.
+function macosBy(changed) {
+  return changed.length === 0 || !changed.every((path) => SAME_ON_MACOS.test(path));
 }
 
 function onlyTheVersion(before, after) {
@@ -96,7 +109,12 @@ if (isMain(import.meta.url)) {
     .split('\n')
     .filter(Boolean);
   const at = (commit) => (path) => git('show', `${commit}:${path}`);
-  console.log(question === 'fuzzed' ? fuzzedBy(changed) : scopeOf(changed, at(base), at(head)));
+  const answers = { fuzzed: fuzzedBy, macos: macosBy };
+  console.log(
+    Object.hasOwn(answers, question)
+      ? answers[question](changed)
+      : scopeOf(changed, at(base), at(head)),
+  );
 }
 
-export { fuzzedBy, scopeOf };
+export { fuzzedBy, macosBy, scopeOf };
