@@ -6,7 +6,9 @@ section of [Architecture](docs/architecture.md) that names what you are changing
 ## Working on it
 
 `main` is protected. Everything lands through a pull request that is current with `main`, and
-history is linear, so merges are squashed or rebased.
+history is linear, so merges are squashed or rebased. The macOS checks run only on a pull request
+that changes more than the docs, `training/`, `reference/` and the browser checks
+(`macos` in `tools/release/scope.mjs`).
 
 Run the gates CI runs before pushing:
 
