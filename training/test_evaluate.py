@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from confidence import aurc
-from train import area_under_risk_coverage
+from train import area_under_risk_coverage, macro_f1
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -48,6 +48,21 @@ def test_a_block_of_tied_claims_weighs_the_coverage_it_adds(
     # Area: 1/4 * 0 + 3/4 * 1/4 = 0.1875, whatever order the three tied claims come in.
     confidence = np.array([0.9, 0.5, 0.5, 0.5])
     assert area(confidence, np.array([1.0, *tied])) == pytest.approx(0.1875)
+
+
+def test_macro_f1_weighs_each_subject_present_alike() -> None:
+    # a: 2 of 3 said right, 2 of 3 found. b: 1 of 2 and 1 of 2. c: never found. d: never true,
+    # so it is left out rather than counted as a zero.
+    truth = np.array([0, 0, 0, 1, 1, 2])
+    predicted = np.array([0, 0, 1, 1, 2, 0])
+    macro, per_class = macro_f1(truth, predicted, ["a", "b", "c", "d"])
+    assert macro == pytest.approx((2 / 3 + 1 / 2 + 0) / 3)
+    assert list(per_class) == ["a", "b", "c"]
+    assert per_class["a"] == pytest.approx(
+        {"precision": 2 / 3, "recall": 2 / 3, "f1": 2 / 3, "support": 3}
+    )
+    assert per_class["c"]["f1"] == 0.0
+    assert macro_f1(np.array([], dtype=int), np.array([], dtype=int), ["a"]) == (0.0, {})
 
 
 def test_the_two_area_functions_agree_with_ties() -> None:

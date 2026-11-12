@@ -32,7 +32,7 @@ from transformers import AutoModel, AutoTokenizer
 
 import backbones
 import claimdata
-from train import area_under_risk_coverage, risk_coverage
+from train import area_under_risk_coverage, macro_f1, risk_coverage
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -53,10 +53,10 @@ CENTROID_SHARPNESS = 20.0
 
 
 def scored(
-    name: str,
     confidence: npt.ArrayLike,
     predicted: npt.ArrayLike,
     truth: npt.ArrayLike,
+    subjects: Sequence[str],
     min_accuracy: float,
 ) -> dict[str, Any]:
     """The same figures the trained model reports, from any predictor's confidences."""
@@ -64,9 +64,8 @@ def scored(
     correct = (np.asarray(predicted) == truth).astype(float)
     curve, chosen = risk_coverage(np.asarray(confidence), correct, min_accuracy)
     return {
-        "name": name,
         "accuracy": float(correct.mean()),
-        "macro_f1": macro_f1(predicted, truth),
+        "macro_f1": macro_f1(truth, np.asarray(predicted), subjects)[0],
         "aurc": area_under_risk_coverage(np.asarray(confidence), correct),
         "threshold": chosen["threshold"],
         "threshold_coverage": chosen["coverage"],
@@ -74,23 +73,6 @@ def scored(
         "threshold_met": chosen["met"],
         "risk_coverage": curve,
     }
-
-
-def macro_f1(predicted: npt.ArrayLike, truth: npt.ArrayLike) -> float:
-    """Unweighted mean F1, so a subject with forty claims counts as much as one with four thousand.
-
-    The starved rows are the ones worth knowing about.
-    """
-    predicted, truth = np.asarray(predicted), np.asarray(truth)
-    scores: list[float] = []
-    for subject in np.unique(truth):
-        found = predicted == subject
-        wanted = truth == subject
-        hit = float((found & wanted).sum())
-        precision = hit / max(found.sum(), 1)
-        recall = hit / max(wanted.sum(), 1)
-        scores.append(0.0 if hit == 0 else 2 * precision * recall / (precision + recall))
-    return float(np.mean(scores)) if scores else 0.0
 
 
 def commonest(
@@ -234,7 +216,9 @@ def main() -> None:
     )
     for name, run in runs:
         confidence, predicted = run(train, held, subjects)
-        results.append(scored(name, confidence, predicted, truth, args.min_accuracy))
+        results.append(
+            {"name": name, **scored(confidence, predicted, truth, subjects, args.min_accuracy)}
+        )
         last = results[-1]
         answered = (
             f"{last['threshold_coverage']:.0%} at {last['threshold_accuracy']:.3f}"

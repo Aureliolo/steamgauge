@@ -28,7 +28,7 @@ from transformers import AutoTokenizer
 import backbones
 import claimdata
 import sizes
-from train import ClaimReader, Claims, Reading, TrunkLoad
+from train import ClaimReader, Claims, Reading, TrunkLoad, macro_f1
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
@@ -917,7 +917,7 @@ def abstention_lines(
         "claims": len(truth),
         "coverage": float(answered.mean()),
         "accuracy": float(correct[answered].mean()) if answered.any() else 0.0,
-        "macro_f1": macro_f1(predicted[answered], truth[answered], len(theirs)),
+        "macro_f1": macro_f1(truth[answered], predicted[answered], theirs)[0],
         # Not the held-out games: these are the folds, each scoring games its own training never
         # saw. Whoever reads the figure should know which question it answers.
         "measured_on": "out-of-fold",
@@ -939,28 +939,6 @@ def languages_of(paths: Iterable[Path], data: str) -> npt.NDArray[np.str_]:
         labelled.get((str(rid), int(at))) for rid, at in zip(review_ids, claim_index, strict=True)
     ]
     return np.array([one.language if one else "" for one in beside])
-
-
-def macro_f1(
-    predicted: npt.NDArray[np.integer[Any]], truth: npt.NDArray[np.integer[Any]], classes: int
-) -> float:
-    """Return the unweighted mean F1 over the subjects that appear.
-
-    A rare subject counts as much as a common one.
-    """
-    scores: list[float] = []
-    for one in range(classes):
-        hit = ((predicted == one) & (truth == one)).sum()
-        said = (predicted == one).sum()
-        was = (truth == one).sum()
-        if not was:
-            continue
-        precision = hit / said if said else 0.0
-        recall = hit / was
-        scores.append(
-            0.0 if not (precision + recall) else 2 * precision * recall / (precision + recall)
-        )
-    return float(np.mean(scores)) if scores else 0.0
 
 
 def _parse_args() -> argparse.Namespace:
