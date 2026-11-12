@@ -228,7 +228,31 @@ struct Board {
     /// Jobs of the app's own told to stop for the person's work, which wait again rather than
     /// ending.
     yielding: HashSet<u64>,
+    /// Games whose files a removal is taking away. No job starts on one.
+    held: Vec<u32>,
     sent: Option<Instant>,
+}
+
+/// A removal of these games' files under way. It holds them until dropped.
+pub(super) struct Removing<'a> {
+    work: &'a Work,
+    games: Vec<u32>,
+}
+
+impl Removing<'_> {
+    pub(super) fn games(&self) -> &[u32] {
+        &self.games
+    }
+}
+
+impl Drop for Removing<'_> {
+    fn drop(&mut self) {
+        self.work
+            .lock()
+            .held
+            .retain(|game| !self.games.contains(game));
+        self.work.ring();
+    }
 }
 
 /// What a job of the app's own says while it waits.
@@ -475,15 +499,44 @@ impl Work {
         self.lock().jobs.clone()
     }
 
-    /// Why a game's files may not be touched now, if they may not: a job that uses it waits or
-    /// runs.
-    pub(super) fn busy(&self, app_id: u32) -> Option<String> {
-        self.lock()
-            .jobs
-            .iter()
-            .filter(|job| matches!(job.state, State::Queued | State::Running))
-            .find(|job| job.task.games().contains(&app_id))
-            .map(|job| format!("This game is busy: {}.", job.step.to_lowercase()))
+    /// Holds these games for a removal of their files and says which may not be touched now, and
+    /// why. Asking and holding are one step, so no job starts between them.
+    pub(super) fn hold(&self, games: &[u32]) -> (Removing<'_>, Vec<(u32, String)>) {
+        let mut board = self.lock();
+        let mut held = Vec::new();
+        let mut left = Vec::new();
+        for &game in games {
+            if held.contains(&game) {
+                continue;
+            }
+            if let Some(job) = board
+                .jobs
+                .iter()
+                .filter(|job| matches!(job.state, State::Queued | State::Running))
+                .find(|job| job.task.games().contains(&game))
+            {
+                left.push((
+                    game,
+                    format!("This game is busy: {}.", job.step.to_lowercase()),
+                ));
+            } else if board.held.contains(&game) {
+                left.push((
+                    game,
+                    "This game is busy: its files are being removed.".to_owned(),
+                ));
+            } else {
+                held.push(game);
+            }
+        }
+        board.held.extend(&held);
+        drop(board);
+        (
+            Removing {
+                work: self,
+                games: held,
+            },
+            left,
+        )
     }
 
     /// Sends the board to the window, at most every [`EVERY`] unless something changed state.
@@ -509,6 +562,7 @@ impl Work {
             .iter()
             .filter(|job| job.state == State::Running)
             .flat_map(|job| job.task.games().iter().copied())
+            .chain(board.held.iter().copied())
             .collect();
         let theirs = board
             .jobs
@@ -2585,35 +2639,122 @@ mod tests {
         assert_eq!(taken(&work, Lane::Machine), Some(held));
     }
 
+    /// The games a hold of `games` leaves, which it lets go of at once.
+    fn left_by(work: &Work, games: &[u32]) -> Vec<u32> {
+        work.hold(games)
+            .1
+            .into_iter()
+            .map(|(game, _)| game)
+            .collect()
+    }
+
+    const REMOVED: &str = "This game is busy: its files are being removed.";
+
     #[test]
-    fn a_game_is_busy_while_a_job_that_uses_it_waits_or_runs() {
+    fn a_removal_leaves_each_game_a_job_waits_or_runs_on() {
         for task in kinds_on_a_game() {
             for ended in [State::Done, State::Failed, State::Stopped] {
                 let work = Work::default();
                 let id = put(&work, task.clone(), false);
+                let (first, left) = work.hold(&[9, 7, 6]);
                 assert_eq!(
-                    work.busy(7).as_deref(),
-                    Some("This game is busy: waiting."),
+                    left,
+                    vec![(7, "This game is busy: waiting.".to_owned())],
                     "{task:?}"
                 );
+                let (second, left) = work.hold(&[9, 6]);
+                assert_eq!(
+                    left,
+                    vec![(9, REMOVED.to_owned()), (6, REMOVED.to_owned())],
+                    "{task:?}"
+                );
+                drop(second);
+                drop(first);
                 assert_eq!(taken(&work, task.lane()), Some(id));
                 assert_eq!(
-                    work.busy(7).as_deref(),
-                    Some("This game is busy: starting."),
+                    work.hold(&[9, 7, 6]).1,
+                    vec![(7, "This game is busy: starting.".to_owned())],
                     "{task:?}"
                 );
                 set_state(&work, id, ended);
-                assert_eq!(work.busy(7), None, "{task:?} {ended:?}");
+                assert_eq!(
+                    left_by(&work, &[9, 7, 6]),
+                    Vec::<u32>::new(),
+                    "{task:?} {ended:?}"
+                );
             }
         }
         let work = Work::default();
         put(&work, report(vec![8, 7]), false);
-        assert_eq!(work.busy(8).as_deref(), Some("This game is busy: waiting."));
+        assert_eq!(
+            work.hold(&[8]).1,
+            vec![(8, "This game is busy: waiting.".to_owned())]
+        );
 
         let work = Work::default();
         for task in kinds_of_no_game() {
             put(&work, task, false);
         }
-        assert_eq!((work.busy(7), work.busy(8)), (None, None));
+        assert_eq!(left_by(&work, &[7, 8]), Vec::<u32>::new());
+        assert_eq!(left_by(&work, &[]), Vec::<u32>::new());
+    }
+
+    #[tokio::test]
+    async fn no_job_starts_on_a_game_while_its_files_are_removed() {
+        let work = Work::default();
+        let (removal, left) = work.hold(&[7, 8]);
+        assert_eq!(left, Vec::new());
+        put(&work, read(8), false);
+        for task in kinds_on_a_game() {
+            put(&work, task, false);
+        }
+        let nine = put(&work, read(9), false);
+        let started: Vec<u64> = LANES
+            .into_iter()
+            .filter_map(|lane| taken(&work, lane))
+            .collect();
+        assert_eq!(started, vec![nine]);
+        drop(removal);
+        for lane in LANES {
+            assert!(rung(&work, lane).await, "{lane:?} was not rung");
+        }
+        let (_, task, _) = work.take(Lane::Network).unwrap();
+        assert_eq!(task, Task::Download { app_id: 7 });
+    }
+
+    #[test]
+    fn two_removals_never_hold_one_game_and_each_lets_go_of_all_its_own() {
+        let sets: [&[u32]; 6] = [&[7], &[8], &[7, 8], &[8, 7], &[9, 8], &[]];
+        for a in sets {
+            for b in sets {
+                let work = Work::default();
+                let held_now = |work: &Work| {
+                    [7, 8, 9]
+                        .into_iter()
+                        .filter(|&game| !left_by(work, &[game]).is_empty())
+                        .collect::<Vec<u32>>()
+                };
+                let first = work.hold(a).0;
+                let (second, left) = work.hold(b);
+                let shared: Vec<u32> = b.iter().copied().filter(|game| a.contains(game)).collect();
+                assert_eq!(
+                    left.iter().map(|(game, _)| *game).collect::<Vec<_>>(),
+                    shared,
+                    "{a:?} then {b:?}"
+                );
+                assert!(left.iter().all(|(_, why)| why == REMOVED));
+                let mut both: Vec<u32> = a.iter().chain(b).copied().collect();
+                both.sort_unstable();
+                both.dedup();
+                assert_eq!(held_now(&work), both, "{a:?} then {b:?}");
+                drop(first);
+                let mut rest: Vec<u32> =
+                    b.iter().copied().filter(|game| !a.contains(game)).collect();
+                rest.sort_unstable();
+                assert_eq!(held_now(&work), rest, "{a:?} then {b:?}");
+                drop(second);
+                assert_eq!(held_now(&work), Vec::<u32>::new(), "{a:?} then {b:?}");
+            }
+        }
     }
 }

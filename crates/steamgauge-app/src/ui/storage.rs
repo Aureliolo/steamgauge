@@ -521,11 +521,20 @@ fn remove_from_each(library: &Path, games: &[u32], what: Removal) -> Vec<Spared>
 }
 
 /// A refused removal from one named game is an error. Across every game, the games left are the
-/// answer.
-fn spared_or_refused(named: Option<u32>, spared: Vec<Spared>) -> Result<Vec<Spared>, String> {
-    match (named, spared.first()) {
+/// answer, those the board left first.
+fn spared_or_refused(
+    named: Option<u32>,
+    busy: Vec<(u32, String)>,
+    spared: Vec<Spared>,
+) -> Result<Vec<Spared>, String> {
+    let left: Vec<Spared> = busy
+        .into_iter()
+        .map(|(app_id, why)| Spared { app_id, why })
+        .chain(spared)
+        .collect();
+    match (named, left.first()) {
         (Some(_), Some(first)) => Err(first.why.clone()),
-        _ => Ok(spared),
+        _ => Ok(left),
     }
 }
 
@@ -545,17 +554,14 @@ pub(super) async fn free_room(
             .map(|game| game.app_id)
             .collect(),
     };
-    for &app_id in &targets {
-        if let Some(why) = work.busy(app_id) {
-            return Err(why);
-        }
-    }
-    let removing = targets.clone();
+    let (held, busy) = work.hold(&targets);
+    let removing = held.games().to_vec();
     let spared =
         tauri::async_runtime::spawn_blocking(move || remove_from_each(&library, &removing, what))
             .await
             .map_err(text)?;
-    let spared = spared_or_refused(app_id, spared)?;
+    drop(held);
+    let spared = spared_or_refused(app_id, busy, spared)?;
     Ok(Storage {
         spared,
         ..storage(app).await
@@ -956,10 +962,33 @@ mod tests {
                 why: "x".to_owned(),
             }]
         };
-        assert_eq!(spared_or_refused(Some(8), one()), Err("x".to_owned()));
-        assert_eq!(spared_or_refused(None, one()), Ok(one()));
-        assert_eq!(spared_or_refused(Some(8), Vec::new()), Ok(Vec::new()));
-        assert_eq!(spared_or_refused(None, Vec::new()), Ok(Vec::new()));
+        let busy = || vec![(7, "This game is busy: waiting.".to_owned())];
+        assert_eq!(
+            spared_or_refused(Some(8), Vec::new(), one()),
+            Err("x".to_owned())
+        );
+        assert_eq!(spared_or_refused(None, Vec::new(), one()), Ok(one()));
+        assert_eq!(
+            spared_or_refused(Some(8), Vec::new(), Vec::new()),
+            Ok(Vec::new())
+        );
+        assert_eq!(
+            spared_or_refused(None, Vec::new(), Vec::new()),
+            Ok(Vec::new())
+        );
+        assert_eq!(
+            spared_or_refused(Some(7), busy(), Vec::new()),
+            Err("This game is busy: waiting.".to_owned())
+        );
+        let listed = spared_or_refused(None, busy(), one()).unwrap();
+        assert_eq!(
+            listed
+                .iter()
+                .map(|spared| spared.app_id)
+                .collect::<Vec<_>>(),
+            [7, 8]
+        );
+        assert_eq!(listed[0].why, "This game is busy: waiting.");
     }
 
     fn job(task: Task, state: State) -> Job {
