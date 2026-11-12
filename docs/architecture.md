@@ -1,6 +1,6 @@
 # Architecture
 
-How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
+How the parts of SteamGauge fit, and the rules they keep, for anyone changing it.
 
 ## The parts
 
