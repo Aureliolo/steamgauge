@@ -65,4 +65,27 @@ exclude_re = [
   # on disk added up from the schema's widths; a written file cannot tell it from one eight
   # bytes less, and only a test restating the sum could.
   'src[/\\]meaning\.rs:\d+:\d+: replace \+ with [*-]$',
+  # The app's functions that take the window's handle or its state, one line per file. No test
+  # can build either, so their mutants run untested. What such a function decides is kept in a
+  # function a test can call, as `Board::end` holds the end of a job for `Work::finish`, and that
+  # stays mutated. A new function taking the handle joins its file's line here.
+  'src[/\\]ui[/\\]cockpit\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(check_when_due|compare|export_report|games|group_reading|groups|keep_up_to_date|machine|overview|overview_of|queue_reads|queue_updates|Releases::load|Releases::save|releases_file|rows|save_groups)( ->| with|$)',
+  'src[/\\]ui[/\\]current_format\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(bring|library_dir|place_library)( ->| with|$)',
+  'src[/\\]ui[/\\]data_export\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(export_data)( ->| with|$)',
+  'src[/\\]ui[/\\]game_updates\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(before_after|game_updates)( ->| with|$)',
+  'src[/\\]ui[/\\]mcp\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(bring_forward|listen|new|serve|start)( ->| with|$)',
+  'src[/\\]ui[/\\]mcp_http\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(follow|local_data|new_token|reach|serve)( ->| with|$)',
+  'src[/\\]ui[/\\]mod\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(art|art_bytes|choose_meaning|choose_writer|claims_behind|induced|library|look_up|meaning_offer|read_offer|reading|search_by_meaning|search_game|writer_offer)( ->| with|$)',
+  'src[/\\]ui[/\\]newer\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(about|ask_in_background|check_for_updates|check_on_opening|check_when_due|dir|newer_version|open_notices|remember_opening|saw_what_changed|verified|whats_new)( ->| with|$)',
+  'src[/\\]ui[/\\]settings\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(connect_client|disconnect_client|file|load|new_http_token|reader_options|save|save_settings|settings)( ->| with|$)',
+  'src[/\\]ui[/\\]since\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(after_background_read|baseline|lately|looked|notify|open_game|remember|since_last_look)( ->| with|$)',
+  'src[/\\]ui[/\\]storage\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(free_room|measure|remove_model|storage)( ->| with|$)',
+  'src[/\\]ui[/\\]update\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(folders|set|show_update_file|tidy|update|update_now|update_state)( ->| with|$)',
+  'src[/\\]ui[/\\]who\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(who_wrote)( ->| with|$)',
+  'src[/\\]ui[/\\]work\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(bar|check|clear|clear_finished|download|export|export_data|fetch_for_prepare|fetch_model|fetch_reader|finish|know_the_game|let_go_of_search_models|name_from_store|name_of|Work::note|open_report|prepare|progress|queue|queue_as|queue_background|read|recount|run|send|start|steam|stop_job|tell|update|work|write_paragraph)( ->| with|$)',
+  # One body per platform, chosen when the program is built. The run compiles Linux's, so the
+  # others are never built and a mutant of one passes untouched. A name cannot tell the bodies
+  # apart, so Linux's is left out with them.
+  'src[/\\]update\.rs:\d+:\d+: replace on_this_system -> ',
+  'src[/\\]ui[/\\]mcp\.rs:\d+:\d+: replace bind -> ',
 ]

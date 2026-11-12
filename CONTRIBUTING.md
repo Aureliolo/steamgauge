@@ -120,14 +120,16 @@ cargo +nightly fuzz list                                    # the other targets
 
 - **`coverage.yml`** fails when the core's tests run fewer of its lines than the floor it names,
   and the floor only rises.
-- **`mutants.yml`** fails on a mutant the tests pass in the core's changed lines. Write the test
-  that kills it, or add it to `.cargo/mutants.toml` with the reason.
+- **`mutants.yml`** fails on a mutant the tests pass in the changed lines of the core or the app.
+  Write the test that kills it, or add it to `.cargo/mutants.toml` with the reason.
+- **A function that takes the window's handle** cannot be tested, so it is listed in
+  `.cargo/mutants.toml`. Keep what it decides in a function a test can call.
 
 ```sh
 cargo install cargo-llvm-cov cargo-mutants
 cargo llvm-cov -p steamgauge-core --summary-only
 git diff origin/main... > change.diff
-cargo mutants -p steamgauge-core --in-diff change.diff --jobserver-tasks 4
+cargo mutants -p steamgauge-core -p steamgauge-app --in-diff change.diff --jobserver-tasks 4
 ```
 
 ## Rules for code
