@@ -100,10 +100,14 @@ impl Releases {
         let Some(path) = releases_file(app) else {
             return Ok(());
         };
+        self.save_to(&path)
+    }
+
+    fn save_to(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        steamgauge_core::whole_file::write(&path, &serde_json::to_vec_pretty(self)?)
+        steamgauge_core::whole_file::write(path, &serde_json::to_vec_pretty(self)?)
     }
 
     /// The release newer than `pinned` that `repository` carries, if there is one.
@@ -299,14 +303,17 @@ pub(super) fn groups(app: AppHandle) -> Groups {
     reason = "tauri hands a command its arguments by value"
 )]
 pub(super) fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, String> {
-    let dir = library_dir(&app);
-    std::fs::create_dir_all(&dir).map_err(text)?;
+    write_groups(&library_dir(&app), groups).map_err(text)
+}
+
+/// Keeps `groups` tidied in the library at `dir`, and gives back what was kept.
+fn write_groups(dir: &Path, groups: Groups) -> std::io::Result<Groups> {
+    std::fs::create_dir_all(dir)?;
     let groups = groups.tidied();
     steamgauge_core::whole_file::write(
         &dir.join(GROUPS_FILE),
-        &serde_json::to_vec_pretty(&groups).map_err(text)?,
-    )
-    .map_err(text)?;
+        &serde_json::to_vec_pretty(&groups)?,
+    )?;
     Ok(groups)
 }
 
@@ -836,6 +843,80 @@ mod tests {
     fn a_model_is_on_this_computer_only_when_nothing_is_left_to_fetch() {
         assert!(nothing_to_fetch(0));
         assert!(!nothing_to_fetch(1));
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("steamgauge-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn releases_are_kept_in_a_folder_made_for_them_and_read_back() {
+        let dir = scratch("releases");
+        let file = dir.join("config").join("releases.json");
+        let releases = Releases {
+            checked: 7,
+            newest: HashMap::from([("owner/model".to_owned(), "v2".to_owned())]),
+        };
+        releases.save_to(&file).unwrap();
+        let kept: Releases = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!((kept.checked, kept.newest), (7, releases.newest));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn groups_are_kept_tidied_and_given_back_as_kept() {
+        let dir = scratch("groups-kept");
+        let kept = write_groups(
+            &dir,
+            Groups {
+                groups: vec![
+                    Group {
+                        name: " Tried ".to_owned(),
+                        app_ids: vec![9, 3, 9],
+                    },
+                    Group {
+                        name: "tried".to_owned(),
+                        app_ids: vec![1],
+                    },
+                ],
+            },
+        )
+        .unwrap();
+        let tidied = Groups {
+            groups: vec![Group {
+                name: "Tried".to_owned(),
+                app_ids: vec![3, 9],
+            }],
+        };
+        assert_eq!(kept, tidied);
+        assert_eq!(Groups::load(&dir), tidied);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_removed_game_leaves_every_group() {
+        let dir = scratch("groups-dropped");
+        let group = |name: &str, app_ids: Vec<u32>| Group {
+            name: name.to_owned(),
+            app_ids,
+        };
+        write_groups(
+            &dir,
+            Groups {
+                groups: vec![group("Tried", vec![3, 9]), group("Liked", vec![9])],
+            },
+        )
+        .unwrap();
+        drop_from_groups(&dir, 9).unwrap();
+        assert_eq!(
+            Groups::load(&dir),
+            Groups {
+                groups: vec![group("Tried", vec![3]), group("Liked", vec![])],
+            }
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
