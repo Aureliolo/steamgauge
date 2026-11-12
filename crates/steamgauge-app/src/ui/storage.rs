@@ -381,22 +381,6 @@ const fn active(job: &Job) -> bool {
     matches!(job.state, State::Queued | State::Running)
 }
 
-/// Why a game's files may not be touched now, if they may not.
-fn busy_game(work: &Work, app_id: u32) -> Option<String> {
-    work.jobs()
-        .into_iter()
-        .filter(active)
-        .find_map(|job| match &job.task {
-            Task::Export { app_ids, .. } if app_ids.contains(&app_id) => {
-                Some("A report of this game is being written.".to_owned())
-            }
-            task if task.app_id() == Some(app_id) => {
-                Some(format!("This game is busy: {}.", job.step.to_lowercase()))
-            }
-            _ => None,
-        })
-}
-
 /// Why a model may not be removed now, if it may not.
 fn model_busy(jobs: &[Job], key: &str) -> Option<String> {
     let mut active_jobs = jobs.iter().filter(|job| active(job));
@@ -497,7 +481,7 @@ pub(super) async fn free_room(
             .collect(),
     };
     for &app_id in &targets {
-        if let Some(why) = busy_game(&work, app_id) {
+        if let Some(why) = work.busy(app_id) {
             return Err(why);
         }
     }

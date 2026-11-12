@@ -129,7 +129,9 @@ in thirty.
 - It opens on a **cockpit** of what moved since the last look, which `last-seen.json` in the
   library keeps.
 - **Jobs run on three lanes**: downloads and updates, reads and preparations, and files. Each lane
-  runs one job at a time, and no job starts on a game another job is using or waiting for.
+  runs one job at a time, and no job starts on a game another job is using or waiting for. A
+  report uses every game in its list. A Steam check or a model fetch uses no game, so no game holds
+  it back.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
   A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
   the same turn and leaves `fetch.lock`.

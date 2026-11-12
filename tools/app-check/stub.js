@@ -984,13 +984,15 @@ const STUB_DELTA_SEARCH = /delta/iu;
 
   const queued = (task) => {
     nextJob += 1;
+    const used = task.kind === 'export' ? task.app_ids : [task.app_id];
+    const oneGame = used.length === 1 ? used[0] : null;
     const job = {
       background: false,
       done: 0,
       ended: null,
       id: nextJob,
       left: null,
-      name: games.find((one) => one.app_id === task.app_id)?.name ?? 'Your library',
+      name: games.find((one) => one.app_id === oneGame)?.name ?? 'Your library',
       note: null,
       queued: now,
       rate: null,
