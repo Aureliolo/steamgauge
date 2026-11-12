@@ -642,6 +642,8 @@ const PROBE = `(async function () {
     /^Not removed from Alpha\\. .+\\nNot removed from Beta\\. .+$/.test(spareNote.textContent) &&
     spareNote.classList.contains('bad') && !/removed from every game/.test(spareNote.textContent) &&
     getComputedStyle(spareNote).whiteSpace === 'pre-line');
+  check('the storage note is not above the parts its buttons remove',
+    (spareNote.compareDocumentPosition($('#parts')) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
   check('a game left keeps its earlier downloads listed', earlierRow() !== null);
   earlierRow().querySelector('button').click();
   await pause(250);
