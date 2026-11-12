@@ -85,9 +85,7 @@ impl Announcements {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, game_dir: &Path) -> Result<()> {
-        let partial = game_dir.join(format!("{FILE}.partial"));
-        std::fs::write(&partial, serde_json::to_vec(self)?)?;
-        std::fs::rename(&partial, game_dir.join(FILE))?;
+        crate::whole_file::write(&game_dir.join(FILE), &serde_json::to_vec(self)?)?;
         Ok(())
     }
 
@@ -623,7 +621,7 @@ mod tests {
         };
         announcements.save(&game).unwrap();
         assert_eq!(kept(dir.path(), 7), Some(announcements));
-        assert!(!game.join(format!("{FILE}.partial")).exists());
+        assert!(!crate::whole_file::beside(&game.join(FILE)).exists());
         std::fs::write(game.join(FILE), b"{").unwrap();
         assert_eq!(kept(dir.path(), 7), None, "a torn file is nothing kept");
     }

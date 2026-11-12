@@ -13,7 +13,7 @@
 //! shares. At three standard errors a library of ten games each gathering a few hundred reviews
 //! would show about one change chance made on every look. At four, about one look in thirty.
 
-use std::{collections::BTreeMap, io::Write as _, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -331,14 +331,7 @@ impl LastSeen {
     ///
     /// Fails if the file cannot be written or moved into place.
     pub fn save(&self, dir: &Path) -> Result<()> {
-        let path = dir.join(FILE);
-        let partial = dir.join(format!("{FILE}.partial"));
-        {
-            let mut file = std::fs::File::create(&partial)?;
-            file.write_all(&serde_json::to_vec_pretty(self)?)?;
-            file.sync_all()?;
-        };
-        std::fs::rename(&partial, &path)?;
+        crate::whole_file::write(&dir.join(FILE), &serde_json::to_vec_pretty(self)?)?;
         Ok(())
     }
 
@@ -739,7 +732,7 @@ mod tests {
         });
         looks.save(dir.path()).unwrap();
         assert_eq!(LastSeen::load(dir.path()), looks);
-        assert!(!dir.path().join(format!("{FILE}.partial")).exists());
+        assert!(!crate::whole_file::beside(&dir.path().join(FILE)).exists());
     }
 
     #[test]
@@ -750,7 +743,7 @@ mod tests {
         looks.save(dir.path()).unwrap();
         // What a crash part way through the next write leaves beside the record.
         std::fs::write(
-            dir.path().join(format!("{FILE}.partial")),
+            crate::whole_file::beside(&dir.path().join(FILE)),
             b"{\"pages\": {\"7\"",
         )
         .unwrap();

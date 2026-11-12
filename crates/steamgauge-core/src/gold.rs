@@ -679,7 +679,7 @@ pub fn keep_acceptable(set: &Path, who: &str, judged: &[Acceptable]) -> Result<u
     });
     let dir = answers_of(set, who);
     std::fs::create_dir_all(&dir)?;
-    std::fs::write(dir.join(ACCEPTABLE), serde_json::to_vec_pretty(&kept)?)?;
+    crate::whole_file::write(&dir.join(ACCEPTABLE), &serde_json::to_vec_pretty(&kept)?)?;
     Ok(kept.len())
 }
 

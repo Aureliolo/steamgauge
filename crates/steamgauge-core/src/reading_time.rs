@@ -52,7 +52,7 @@ impl ReadingTimes {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, dir: &Path) -> Result<()> {
-        std::fs::write(dir.join(FILE), serde_json::to_vec_pretty(self)?)?;
+        crate::whole_file::write(&dir.join(FILE), &serde_json::to_vec_pretty(self)?)?;
         Ok(())
     }
 
@@ -175,6 +175,20 @@ mod tests {
         times.note(size("small"), None, f64::NAN, 10_000);
 
         assert_eq!(times, ReadingTimes::default());
+    }
+
+    #[test]
+    fn reading_times_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = crate::tempdir::Dir::new();
+        let mut times = ReadingTimes::default();
+        times.note(size("standard"), Some("english"), 90.0, 3_000);
+        times.save(dir.path()).unwrap();
+        let before = std::fs::read(dir.path().join(FILE)).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&dir.path().join(FILE))).unwrap();
+        times.note(size("small"), None, 60.0, 1_000);
+
+        assert!(times.save(dir.path()).is_err());
+        assert_eq!(std::fs::read(dir.path().join(FILE)).unwrap(), before);
     }
 
     #[test]

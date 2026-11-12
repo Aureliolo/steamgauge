@@ -208,7 +208,8 @@ async fn art_bytes(app: &AppHandle, app_id: u32) -> Result<Vec<u8>, String> {
     }
     let picture = store()?.header_art(app_id).await;
     std::fs::create_dir_all(&folder).map_err(text)?;
-    std::fs::write(&kept, picture.as_deref().unwrap_or_default()).map_err(text)?;
+    steamgauge_core::whole_file::write(&kept, picture.as_deref().unwrap_or_default())
+        .map_err(text)?;
     picture.ok_or_else(|| format!("the store has no picture of app {app_id}"))
 }
 

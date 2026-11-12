@@ -39,7 +39,7 @@ impl Facts {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, dir: &Path) -> Result<()> {
-        std::fs::write(dir.join(FILE), serde_json::to_vec_pretty(self)?)?;
+        crate::whole_file::write(&dir.join(FILE), &serde_json::to_vec_pretty(self)?)?;
         Ok(())
     }
 
@@ -113,6 +113,23 @@ mod tests {
         std::fs::create_dir_all(&handout).unwrap();
         Facts { headset_only: true }.save(game).unwrap();
         assert_eq!(Facts::around(&handout), Some(Facts { headset_only: true }));
+    }
+
+    #[test]
+    fn facts_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = crate::tempdir::Dir::new();
+        Facts { headset_only: true }.save(dir.path()).unwrap();
+        let before = std::fs::read(dir.path().join(FILE)).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&dir.path().join(FILE))).unwrap();
+
+        assert!(
+            Facts {
+                headset_only: false
+            }
+            .save(dir.path())
+            .is_err()
+        );
+        assert_eq!(std::fs::read(dir.path().join(FILE)).unwrap(), before);
     }
 
     #[test]

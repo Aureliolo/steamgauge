@@ -298,7 +298,7 @@ pub fn embed_corpus(
     // Written aside and renamed at the end. An empty embeddings.parquet left by an interrupted
     // run would read as a finished artefact and fail confusingly everywhere downstream. A
     // partial file under its own name cannot be mistaken for one.
-    let partial = snapshot.join(format!("{}.partial", vectors_file(unit)));
+    let partial = crate::whole_file::beside(&path);
     let schema = embedding_schema(embedder.dimensions());
     // A row group is buffered whole before it reaches the disk, and the default holds a
     // million rows, which for any corpus smaller than that is the entire file in memory. It
@@ -308,59 +308,68 @@ pub fn embed_corpus(
         .set_compression(Compression::ZSTD(ZstdLevel::default()))
         .set_max_row_group_row_count(Some(vectors_per_row_group(embedder.dimensions())))
         .build();
-    let mut writer = ArrowWriter::try_new(
-        std::fs::File::create(&partial)?,
-        Arc::clone(&schema),
-        Some(props),
-    )?;
+    // A stream or a rename that fails takes its file with it, since no later run writes to a
+    // name that holds another program's process id.
+    let streamed = (|| -> Result<()> {
+        let mut writer = ArrowWriter::try_new(
+            std::fs::File::create(&partial)?,
+            Arc::clone(&schema),
+            Some(props),
+        )?;
 
-    let mut window: Vec<(String, u32)> = Vec::with_capacity(LENGTH_WINDOW);
-    let mut written: u64 = 0;
+        let mut window: Vec<(String, u32)> = Vec::with_capacity(LENGTH_WINDOW);
+        let mut written: u64 = 0;
 
-    for_each_text(&snapshot, unit, |text| {
-        // Removing rather than looking up means the second and later copies of a repeated
-        // review find nothing and are skipped, and the map shrinks as the corpus is walked.
-        let Some(seen) = counts.remove(&sha256_bytes(text)) else {
-            return Ok(());
-        };
-        window.push((text.to_owned(), seen));
-        if window.len() >= LENGTH_WINDOW {
-            written = written.saturating_add(drain_window(
-                embedder,
-                app_id,
-                batch_size,
-                &schema,
-                &mut writer,
-                &mut window,
-            )?);
-            on_progress(EmbedProgress {
-                embedded: written,
-                unique_texts,
-            });
-        }
+        for_each_text(&snapshot, unit, |text| {
+            // Removing rather than looking up means the second and later copies of a repeated
+            // review find nothing and are skipped, and the map shrinks as the corpus is walked.
+            let Some(seen) = counts.remove(&sha256_bytes(text)) else {
+                return Ok(());
+            };
+            window.push((text.to_owned(), seen));
+            if window.len() >= LENGTH_WINDOW {
+                written = written.saturating_add(drain_window(
+                    embedder,
+                    app_id,
+                    batch_size,
+                    &schema,
+                    &mut writer,
+                    &mut window,
+                )?);
+                on_progress(EmbedProgress {
+                    embedded: written,
+                    unique_texts,
+                });
+            }
+            Ok(())
+        })?;
+        written = written.saturating_add(drain_window(
+            embedder,
+            app_id,
+            batch_size,
+            &schema,
+            &mut writer,
+            &mut window,
+        )?);
+        on_progress(EmbedProgress {
+            embedded: written,
+            unique_texts,
+        });
+        writer.close()?;
+        std::fs::rename(&partial, &path)?;
         Ok(())
-    })?;
-    written = written.saturating_add(drain_window(
-        embedder,
-        app_id,
-        batch_size,
-        &schema,
-        &mut writer,
-        &mut window,
-    )?);
-    on_progress(EmbedProgress {
-        embedded: written,
-        unique_texts,
-    });
-    writer.close()?;
-    std::fs::rename(&partial, &path)?;
+    })();
+    if let Err(failed) = streamed {
+        let _ = std::fs::remove_file(&partial);
+        return Err(failed);
+    }
 
     // Batch size belongs with the vectors, not in a shell history. The int8 model is not
     // batch-invariant, so two corpora embedded at different batch sizes are not strictly
     // comparable, and a reader has no other way to find out.
-    std::fs::write(
-        snapshot.join(vectors_sidecar(unit)),
-        serde_json::to_vec_pretty(&serde_json::json!({
+    crate::whole_file::write(
+        &snapshot.join(vectors_sidecar(unit)),
+        &serde_json::to_vec_pretty(&serde_json::json!({
             "model": embedder.encoder().id(),
             "precision": embedder.precision().as_str(),
             "dimensions": embedder.dimensions(),
@@ -1181,6 +1190,81 @@ mod tests {
         assert!(snapshot.join("claim-embeddings.json").exists());
         assert!(!snapshot.join("embeddings.parquet").exists());
         assert!(!snapshot.join("embeddings.json").exists());
+    }
+
+    /// The names in `snapshot` that end in `.partial`.
+    fn left_beside(snapshot: &Path) -> Vec<String> {
+        std::fs::read_dir(snapshot)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".partial"))
+            .collect()
+    }
+
+    fn embed_reviews(embedder: &mut Embedder, out: &Path) -> Result<EmbedReport> {
+        embed_corpus(embedder, out, APP, 8, crate::taxonomy::Unit::Review, |_| {})
+    }
+
+    #[test]
+    fn vectors_that_cannot_be_streamed_beside_are_not_made() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        let snapshot = capture(out.path(), &[("r1", "good game")]);
+        std::fs::create_dir(crate::whole_file::beside(
+            &snapshot.join("embeddings.parquet"),
+        ))
+        .unwrap();
+
+        embed_reviews(&mut embedder, out.path()).unwrap_err();
+        assert!(!snapshot.join("embeddings.parquet").exists());
+    }
+
+    #[test]
+    fn vectors_that_cannot_be_put_in_place_leave_nothing_beside() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        let snapshot = capture(out.path(), &[("r1", "good game")]);
+        std::fs::create_dir(snapshot.join("embeddings.parquet")).unwrap();
+
+        embed_reviews(&mut embedder, out.path()).unwrap_err();
+        let left = left_beside(&snapshot);
+        assert!(left.is_empty(), "{left:?}");
+    }
+
+    #[test]
+    fn vectors_whose_stream_fails_leave_nothing_beside() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        // A graph whose output is one vector per text, not one per token, which `embed` refuses.
+        let table: Vec<Vec<f32>> = (0..WORDS.len() + 2)
+            .map(|id| {
+                (0..Encoder::E5Small.dimensions())
+                    .map(|dim| if dim == id { 1.0 } else { 0.0 })
+                    .collect()
+            })
+            .collect();
+        crate::tiny_model::Graph::new()
+            .summed("last_hidden_state", &table)
+            .write(&model::model_path(
+                &cache,
+                Encoder::E5Small,
+                model::Precision::Float16,
+            ));
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        let snapshot = capture(out.path(), &[("r1", "good game")]);
+
+        embed_reviews(&mut embedder, out.path()).unwrap_err();
+        let left = left_beside(&snapshot);
+        assert!(left.is_empty(), "{left:?}");
+        assert!(!snapshot.join("embeddings.parquet").exists());
     }
 
     #[test]

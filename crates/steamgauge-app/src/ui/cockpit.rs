@@ -33,7 +33,10 @@ impl SteamTotals {
     }
 
     pub(super) fn save(&self, dir: &Path) -> std::io::Result<()> {
-        write_whole(&dir.join(TOTALS_FILE), &serde_json::to_vec_pretty(self)?)
+        steamgauge_core::whole_file::write(
+            &dir.join(TOTALS_FILE),
+            &serde_json::to_vec_pretty(self)?,
+        )
     }
 }
 
@@ -97,10 +100,14 @@ impl Releases {
         let Some(path) = releases_file(app) else {
             return Ok(());
         };
+        self.save_to(&path)
+    }
+
+    fn save_to(&self, path: &Path) -> std::io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        write_whole(&path, &serde_json::to_vec_pretty(self)?)
+        steamgauge_core::whole_file::write(path, &serde_json::to_vec_pretty(self)?)
     }
 
     /// The release newer than `pinned` that `repository` carries, if there is one.
@@ -169,14 +176,7 @@ pub(super) fn drop_from_groups(dir: &Path, app_id: u32) -> std::io::Result<()> {
         return Ok(());
     }
     let bytes = serde_json::to_vec_pretty(&groups.tidied()).map_err(std::io::Error::other)?;
-    write_whole(&dir.join(GROUPS_FILE), &bytes)
-}
-
-/// Written beside its place and moved over it, so a file is never half one version.
-fn write_whole(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let partial = path.with_extension("partial");
-    std::fs::write(&partial, bytes)?;
-    std::fs::rename(partial, path)
+    steamgauge_core::whole_file::write(&dir.join(GROUPS_FILE), &bytes)
 }
 
 /// What one game's reading says, as a row needs it.
@@ -303,14 +303,17 @@ pub(super) fn groups(app: AppHandle) -> Groups {
     reason = "tauri hands a command its arguments by value"
 )]
 pub(super) fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, String> {
-    let dir = library_dir(&app);
-    std::fs::create_dir_all(&dir).map_err(text)?;
+    write_groups(&library_dir(&app), groups).map_err(text)
+}
+
+/// Keeps `groups` tidied in the library at `dir`, and gives back what was kept.
+fn write_groups(dir: &Path, groups: Groups) -> std::io::Result<Groups> {
+    std::fs::create_dir_all(dir)?;
     let groups = groups.tidied();
-    write_whole(
+    steamgauge_core::whole_file::write(
         &dir.join(GROUPS_FILE),
-        &serde_json::to_vec_pretty(&groups).map_err(text)?,
-    )
-    .map_err(text)?;
+        &serde_json::to_vec_pretty(&groups)?,
+    )?;
     Ok(groups)
 }
 
@@ -840,6 +843,103 @@ mod tests {
     fn a_model_is_on_this_computer_only_when_nothing_is_left_to_fetch() {
         assert!(nothing_to_fetch(0));
         assert!(!nothing_to_fetch(1));
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("steamgauge-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn releases_are_kept_in_a_folder_made_for_them_and_read_back() {
+        let dir = scratch("releases");
+        let file = dir.join("config").join("releases.json");
+        let releases = Releases {
+            checked: 7,
+            newest: HashMap::from([("owner/model".to_owned(), "v2".to_owned())]),
+        };
+        releases.save_to(&file).unwrap();
+        let kept: Releases = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!((kept.checked, kept.newest), (7, releases.newest));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn groups_are_kept_tidied_and_given_back_as_kept() {
+        let dir = scratch("groups-kept");
+        let kept = write_groups(
+            &dir,
+            Groups {
+                groups: vec![
+                    Group {
+                        name: " Tried ".to_owned(),
+                        app_ids: vec![9, 3, 9],
+                    },
+                    Group {
+                        name: "tried".to_owned(),
+                        app_ids: vec![1],
+                    },
+                ],
+            },
+        )
+        .unwrap();
+        let tidied = Groups {
+            groups: vec![Group {
+                name: "Tried".to_owned(),
+                app_ids: vec![3, 9],
+            }],
+        };
+        assert_eq!(kept, tidied);
+        assert_eq!(Groups::load(&dir), tidied);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_removed_game_leaves_every_group() {
+        let dir = scratch("groups-dropped");
+        let group = |name: &str, app_ids: Vec<u32>| Group {
+            name: name.to_owned(),
+            app_ids,
+        };
+        write_groups(
+            &dir,
+            Groups {
+                groups: vec![group("Tried", vec![3, 9]), group("Liked", vec![9])],
+            },
+        )
+        .unwrap();
+        drop_from_groups(&dir, 9).unwrap();
+        assert_eq!(
+            Groups::load(&dir),
+            Groups {
+                groups: vec![group("Tried", vec![3]), group("Liked", vec![])],
+            }
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn totals_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-totals-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let before = SteamTotals {
+            checked: 5,
+            games: HashMap::from([(7, 100)]),
+        };
+        before.save(&dir).unwrap();
+        let file = dir.join(TOTALS_FILE);
+        let held = std::fs::read(&file).unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&file)).unwrap();
+        let after = SteamTotals {
+            checked: 9,
+            games: HashMap::new(),
+        };
+
+        assert!(after.save(&dir).is_err());
+        assert_eq!(std::fs::read(&file).unwrap(), held);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

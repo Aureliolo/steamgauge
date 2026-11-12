@@ -450,9 +450,7 @@ pub fn prepare(
 }
 
 fn write_sidecar(dir: &Path, side: &Sidecar) -> Result<()> {
-    let partial = dir.join(format!("{SIDECAR}.partial"));
-    std::fs::write(&partial, serde_json::to_vec_pretty(side)?)?;
-    std::fs::rename(partial, dir.join(SIDECAR))?;
+    crate::whole_file::write(&dir.join(SIDECAR), &serde_json::to_vec_pretty(side)?)?;
     Ok(())
 }
 
@@ -702,7 +700,7 @@ impl Times {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, dir: &Path) -> Result<()> {
-        std::fs::write(dir.join(TIMES_FILE), serde_json::to_vec_pretty(self)?)?;
+        crate::whole_file::write(&dir.join(TIMES_FILE), &serde_json::to_vec_pretty(self)?)?;
         Ok(())
     }
 
@@ -795,7 +793,7 @@ impl Choice {
     ///
     /// Fails if the file cannot be written.
     pub fn save(self, dir: &Path) -> Result<()> {
-        std::fs::write(dir.join(CHOICE_FILE), serde_json::to_vec_pretty(&self)?)?;
+        crate::whole_file::write(&dir.join(CHOICE_FILE), &serde_json::to_vec_pretty(&self)?)?;
         Ok(())
     }
 }
@@ -1169,6 +1167,31 @@ mod tests {
         assert_eq!(Choice::load(dir.path()), Choice { every_game: true });
         Choice { every_game: false }.save(dir.path()).unwrap();
         assert_eq!(Choice::load(dir.path()), Choice { every_game: false });
+    }
+
+    #[test]
+    fn a_search_choice_that_cannot_be_written_whole_leaves_the_one_before() {
+        let dir = crate::tempdir::Dir::new();
+        Choice { every_game: false }.save(dir.path()).unwrap();
+        let before = std::fs::read(dir.path().join(CHOICE_FILE)).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&dir.path().join(CHOICE_FILE))).unwrap();
+
+        assert!(Choice { every_game: true }.save(dir.path()).is_err());
+        assert_eq!(std::fs::read(dir.path().join(CHOICE_FILE)).unwrap(), before);
+    }
+
+    #[test]
+    fn search_times_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = crate::tempdir::Dir::new();
+        let mut times = Times::default();
+        times.note(true, 10.0, 100);
+        times.save(dir.path()).unwrap();
+        let before = std::fs::read(dir.path().join(TIMES_FILE)).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&dir.path().join(TIMES_FILE))).unwrap();
+        times.note(false, 20.0, 50);
+
+        assert!(times.save(dir.path()).is_err());
+        assert_eq!(std::fs::read(dir.path().join(TIMES_FILE)).unwrap(), before);
     }
 
     #[test]

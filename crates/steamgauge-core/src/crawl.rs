@@ -837,9 +837,7 @@ fn forget_unfinished_sweeps(dir: &std::path::Path) -> Result<()> {
 /// Writes a capture's crawl record beside itself and moves it over the old one, so a record is
 /// never half one version and half the next.
 fn write_facts(dir: &std::path::Path, facts: &Value) -> Result<()> {
-    let partial = dir.join("crawl.json.partial");
-    std::fs::write(&partial, serde_json::to_vec_pretty(facts)?)?;
-    std::fs::rename(partial, dir.join("crawl.json"))?;
+    crate::whole_file::write(&dir.join("crawl.json"), &serde_json::to_vec_pretty(facts)?)?;
     Ok(())
 }
 
@@ -2023,7 +2021,7 @@ mod tests {
             review("r3", w + 50, w + 50),
             review("r1", 500, w + 40),
         ]];
-        let blocker = dir.join("crawl.json.partial");
+        let blocker = crate::whole_file::beside(&dir.join("crawl.json"));
         std::fs::create_dir(&blocker).unwrap();
         let server = stand_in::Server::new(edits(page.clone(), 3));
         sweeping(&server, APP, out.path()).await.unwrap_err();
@@ -2149,7 +2147,7 @@ mod tests {
             review("r4", w + 60, w + 60),
             review("r3", swept, w + 60),
         ]];
-        let blocker = dir.join("crawl.json.partial");
+        let blocker = crate::whole_file::beside(&dir.join("crawl.json"));
         std::fs::create_dir(&blocker).unwrap();
         let server = stand_in::Server::new(edits(page.clone(), 4));
         sweeping(&server, APP, out.path()).await.unwrap_err();
@@ -2486,7 +2484,7 @@ mod tests {
             review("r3", w + 50, w + 50),
             review("r1", 500, w + 40),
         ]];
-        let blocker = dir.join("crawl.json.partial");
+        let blocker = crate::whole_file::beside(&dir.join("crawl.json"));
         std::fs::create_dir(&blocker).unwrap();
         let server = stand_in::Server::new(edits(page.clone(), 3));
         sweeping(&server, APP, out.path()).await.unwrap_err();
@@ -2587,7 +2585,7 @@ mod tests {
             &json!({"snapshot_unix": WATERMARK, "swept_unix": ahead, "rows_unique": 2, "name": "A Game"}),
         );
         let page = vec![vec![review("r3", ahead, ahead)]];
-        let blocker = dir.join("crawl.json.partial");
+        let blocker = crate::whole_file::beside(&dir.join("crawl.json"));
         std::fs::create_dir(&blocker).unwrap();
         let server = stand_in::Server::new(edits(page.clone(), 3));
         sweeping(&server, APP, out.path()).await.unwrap_err();
@@ -3224,7 +3222,7 @@ mod tests {
         let out = crate::tempdir::Dir::new();
         let short = short_crawl(out.path()).await;
         let before = std::fs::read(short.dir.join("crawl.json")).unwrap();
-        std::fs::create_dir(short.dir.join("crawl.json.partial")).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&short.dir.join("crawl.json"))).unwrap();
 
         resumed_crawl(out.path()).await.unwrap_err();
         assert_eq!(std::fs::read(short.dir.join("crawl.json")).unwrap(), before);
@@ -3234,7 +3232,7 @@ mod tests {
     async fn a_crawl_whose_record_was_not_written_is_resumed_and_writes_it() {
         let out = crate::tempdir::Dir::new();
         let short = short_crawl(out.path()).await;
-        let blocker = short.dir.join("crawl.json.partial");
+        let blocker = crate::whole_file::beside(&short.dir.join("crawl.json"));
         std::fs::create_dir(&blocker).unwrap();
         resumed_crawl(out.path()).await.unwrap_err();
         std::fs::remove_dir(&blocker).unwrap();
@@ -3312,7 +3310,11 @@ mod tests {
             out.path(),
             &json!({"snapshot_unix": WATERMARK, "swept_unix": WATERMARK + 9, "kept": 1}),
         );
-        std::fs::write(dir.join("crawl.json.partial"), b"{\"name\": \"Cut").unwrap();
+        std::fs::write(
+            crate::whole_file::beside(&dir.join("crawl.json")),
+            b"{\"name\": \"Cut",
+        )
+        .unwrap();
         let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
         name_where_missing(&client_of(&store), out.path(), APP)
             .await
@@ -3321,7 +3323,7 @@ mod tests {
         assert_eq!(record["name"], "A Game");
         assert_eq!(record["swept_unix"], WATERMARK + 9);
         assert_eq!(record["kept"], 1);
-        assert!(!dir.join("crawl.json.partial").exists());
+        assert!(!crate::whole_file::beside(&dir.join("crawl.json")).exists());
     }
 
     /// The lock on `file` that another program holds, taken on a handle of the test's own.

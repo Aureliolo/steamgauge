@@ -109,10 +109,7 @@ impl Asked {
 
 fn keep(value: &impl Serialize, dir: &Path, file: &str) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
-    let path = dir.join(file);
-    let partial = path.with_extension("partial");
-    std::fs::write(&partial, serde_json::to_vec_pretty(value)?)?;
-    std::fs::rename(partial, path)
+    crate::whole_file::write(&dir.join(file), &serde_json::to_vec_pretty(value)?)
 }
 
 const OPENED: &str = "opened-version.json";
@@ -279,6 +276,22 @@ mod tests {
         let kept = opened("0.2.12", Some("0.2.10"), false);
         kept.save(dir.path()).unwrap();
         assert_eq!(Opened::load(dir.path()), Some(kept));
+    }
+
+    #[test]
+    fn a_kept_version_that_cannot_be_written_whole_leaves_the_one_before() {
+        let dir = crate::tempdir::Dir::new();
+        let before = opened("0.2.10", None, false);
+        before.save(dir.path()).unwrap();
+        let file = dir.path().join(OPENED);
+        std::fs::create_dir(crate::whole_file::beside(&file)).unwrap();
+
+        assert!(
+            opened("0.2.12", Some("0.2.10"), false)
+                .save(dir.path())
+                .is_err()
+        );
+        assert_eq!(Opened::load(dir.path()), Some(before));
     }
 
     #[test]

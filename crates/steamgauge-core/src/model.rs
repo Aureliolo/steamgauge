@@ -486,7 +486,7 @@ pub(crate) async fn ensure_asset(
     let _turn = turn(dir).await?;
     let path = dir.join(asset.local);
     if asset.matches_in(dir)? {
-        std::fs::write(asset.note(dir), asset.sha256)?;
+        crate::whole_file::write(&asset.note(dir), asset.sha256.as_bytes())?;
         return Ok(());
     }
     if !source.is_pinned() {
@@ -507,7 +507,7 @@ pub(crate) async fn ensure_asset(
             actual,
         });
     }
-    std::fs::write(asset.note(dir), asset.sha256)?;
+    crate::whole_file::write(&asset.note(dir), asset.sha256.as_bytes())?;
     Ok(())
 }
 
@@ -1051,6 +1051,27 @@ mod tests {
 
         std::fs::write(dir.path().join("model.onnx"), b"short").unwrap();
         assert!(!pin.hashed_in(dir.path()));
+    }
+
+    #[tokio::test]
+    async fn a_note_that_cannot_be_written_whole_leaves_the_one_before() {
+        let note = |dir: &crate::tempdir::Dir| dir.path().join("model.onnx.sha256");
+        let (_server, source) = hub(GRAPH);
+        let pin = pinned_to(GRAPH);
+
+        let hashed = crate::tempdir::Dir::new();
+        std::fs::write(hashed.path().join("model.onnx"), GRAPH).unwrap();
+        std::fs::write(note(&hashed), "another hash").unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&note(&hashed))).unwrap();
+        assert!(fetch(source, pin, hashed.path()).await.0.is_err());
+        assert_eq!(std::fs::read(note(&hashed)).unwrap(), b"another hash");
+
+        let downloaded = crate::tempdir::Dir::new();
+        std::fs::write(note(&downloaded), "another hash").unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&note(&downloaded))).unwrap();
+        assert!(fetch(source, pin, downloaded.path()).await.0.is_err());
+        assert_eq!(std::fs::read(note(&downloaded)).unwrap(), b"another hash");
+        assert!(!pin.present_in(downloaded.path()));
     }
 
     #[tokio::test]
