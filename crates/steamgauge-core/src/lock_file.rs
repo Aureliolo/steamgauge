@@ -51,6 +51,20 @@ pub(crate) fn writing_in(path: &std::path::Path) -> crate::Result<Option<std::fs
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_game_folder_is_appid_and_digits_alone() {
+        for (name, id) in [
+            ("appid=7", Some("7")),
+            ("appid=1245620", Some("1245620")),
+            ("appid=", None),
+            ("appid=7x", None),
+            ("appid=x", None),
+            ("snapshot=7", None),
+        ] {
+            assert_eq!(game_id(std::ffi::OsStr::new(name)), id, "{name}");
+        }
+    }
+
     fn refusal(result: crate::Result<impl Sized>) -> String {
         match result {
             Err(crate::Error::Refused(said)) => said,
