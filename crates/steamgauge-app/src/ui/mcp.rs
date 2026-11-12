@@ -1118,9 +1118,7 @@ async fn listen(app: &AppHandle) -> io::Result<()> {
     std::fs::create_dir_all(&local)?;
     let (listener, written) = bind(&local)?;
     let file = rendezvous(&local);
-    let fresh = file.with_extension("new");
-    std::fs::write(&fresh, &written)?;
-    std::fs::rename(&fresh, &file)?;
+    steamgauge_core::whole_file::write(&file, written.as_bytes())?;
     loop {
         let stream = listener.accept().await?;
         tauri::async_runtime::spawn(serve(app.clone(), stream));

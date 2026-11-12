@@ -116,9 +116,7 @@ impl Adjudication {
         {
             std::fs::create_dir_all(parent)?;
         }
-        let beside = self.answers.with_extension("json.part");
-        std::fs::write(&beside, body)?;
-        std::fs::rename(&beside, &self.answers)?;
+        crate::whole_file::write(&self.answers, body)?;
         Ok(())
     }
 
@@ -227,7 +225,21 @@ mod tests {
         // adjudication with a fragment of one.
         assert!(page.keep(b"{not json").is_err());
         assert_eq!(super::answers_held(&target), 1);
-        assert!(!target.with_extension("json.part").exists());
+        assert!(!crate::whole_file::beside(&target).exists());
+    }
+
+    #[test]
+    fn answers_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = crate::tempdir::Dir::new();
+        let target = dir.path().join("gold-answers.json");
+        let page = Adjudication::new("<p>hello</p>".to_owned(), target.clone());
+        page.keep(br#"[{"subject":"verdict"}]"#)
+            .expect("valid answers are written");
+        let before = std::fs::read(&target).expect("answers are held");
+        std::fs::create_dir(crate::whole_file::beside(&target)).expect("a folder in the way");
+
+        assert!(page.keep(br#"[{"subject":"bugs"}]"#).is_err());
+        assert_eq!(std::fs::read(&target).expect("answers are held"), before);
     }
 
     #[test]

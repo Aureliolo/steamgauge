@@ -2733,9 +2733,7 @@ fn drop_answers(from: &Path, useless: &[AnswerKey]) -> Result<()> {
             !gone.contains(&(app_id, review_id.to_owned(), index))
         })
         .collect();
-    let beside = from.with_extension("json.part");
-    std::fs::write(&beside, serde_json::to_vec_pretty(&kept)?)?;
-    std::fs::rename(&beside, from)?;
+    steamgauge_core::whole_file::write(from, &serde_json::to_vec_pretty(&kept)?)?;
     Ok(())
 }
 
@@ -4295,6 +4293,22 @@ mod tests {
         assert_eq!(thousands(2909), "2,909");
         assert_eq!(thousands(986_295), "986,295");
         assert_eq!(thousands(1_700_000), "1,700,000");
+    }
+
+    #[test]
+    fn answers_that_cannot_be_rewritten_whole_are_left_as_they_were() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let from = dir.join("gold-answers.json");
+        let before =
+            r#"[{"app_id":7,"review_id":"r1","index":0},{"app_id":7,"review_id":"r2","index":0}]"#;
+        std::fs::write(&from, before).unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&from)).unwrap();
+
+        assert!(super::drop_answers(&from, &[(7, "r1".to_owned(), 0)]).is_err());
+        assert_eq!(std::fs::read_to_string(&from).unwrap(), before);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     mod gold {

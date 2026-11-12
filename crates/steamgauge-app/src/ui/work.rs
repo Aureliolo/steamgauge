@@ -1637,10 +1637,7 @@ fn saved(to: &std::path::Path, contents: &str) -> Result<(), String> {
         std::fs::create_dir_all(parent)
             .map_err(|error| format!("{} cannot be made: {error}", parent.display()))?;
     }
-    let partial = to.with_extension("partial");
-    std::fs::write(&partial, contents)
-        .map_err(|error| format!("{} cannot be written: {error}", partial.display()))?;
-    std::fs::rename(&partial, to)
+    steamgauge_core::whole_file::write(to, contents.as_bytes())
         .map_err(|error| format!("{} cannot be written: {error}", to.display()))
 }
 
@@ -1995,12 +1992,26 @@ mod tests {
         let to = scratch.join("comparables").join("data").join("report.html");
         saved(&to, "<p>whole</p>").unwrap();
         assert_eq!(std::fs::read_to_string(&to).unwrap(), "<p>whole</p>");
-        assert!(!to.with_extension("partial").exists());
+        assert!(!steamgauge_core::whole_file::beside(&to).exists());
 
         let a_file = scratch.join("a file");
         std::fs::write(&a_file, "").unwrap();
         let refused = saved(&a_file.join("report.html"), "").unwrap_err();
         assert!(refused.contains(&a_file.display().to_string()), "{refused}");
+        std::fs::remove_dir_all(&scratch).unwrap();
+    }
+
+    #[test]
+    fn a_report_that_cannot_be_written_whole_leaves_the_one_before() {
+        let scratch = std::env::temp_dir().join(format!("steamgauge-kept-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        std::fs::create_dir_all(&scratch).unwrap();
+        let to = scratch.join("report.html");
+        saved(&to, "<p>before</p>").unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&to)).unwrap();
+
+        assert!(saved(&to, "<p>after</p>").is_err());
+        assert_eq!(std::fs::read_to_string(&to).unwrap(), "<p>before</p>");
         std::fs::remove_dir_all(&scratch).unwrap();
     }
 

@@ -33,7 +33,10 @@ impl SteamTotals {
     }
 
     pub(super) fn save(&self, dir: &Path) -> std::io::Result<()> {
-        write_whole(&dir.join(TOTALS_FILE), &serde_json::to_vec_pretty(self)?)
+        steamgauge_core::whole_file::write(
+            &dir.join(TOTALS_FILE),
+            &serde_json::to_vec_pretty(self)?,
+        )
     }
 }
 
@@ -100,7 +103,7 @@ impl Releases {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        write_whole(&path, &serde_json::to_vec_pretty(self)?)
+        steamgauge_core::whole_file::write(&path, &serde_json::to_vec_pretty(self)?)
     }
 
     /// The release newer than `pinned` that `repository` carries, if there is one.
@@ -169,14 +172,7 @@ pub(super) fn drop_from_groups(dir: &Path, app_id: u32) -> std::io::Result<()> {
         return Ok(());
     }
     let bytes = serde_json::to_vec_pretty(&groups.tidied()).map_err(std::io::Error::other)?;
-    write_whole(&dir.join(GROUPS_FILE), &bytes)
-}
-
-/// Written beside its place and moved over it, so a file is never half one version.
-fn write_whole(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let partial = path.with_extension("partial");
-    std::fs::write(&partial, bytes)?;
-    std::fs::rename(partial, path)
+    steamgauge_core::whole_file::write(&dir.join(GROUPS_FILE), &bytes)
 }
 
 /// What one game's reading says, as a row needs it.
@@ -306,7 +302,7 @@ pub(super) fn save_groups(app: AppHandle, groups: Groups) -> Result<Groups, Stri
     let dir = library_dir(&app);
     std::fs::create_dir_all(&dir).map_err(text)?;
     let groups = groups.tidied();
-    write_whole(
+    steamgauge_core::whole_file::write(
         &dir.join(GROUPS_FILE),
         &serde_json::to_vec_pretty(&groups).map_err(text)?,
     )
@@ -840,6 +836,29 @@ mod tests {
     fn a_model_is_on_this_computer_only_when_nothing_is_left_to_fetch() {
         assert!(nothing_to_fetch(0));
         assert!(!nothing_to_fetch(1));
+    }
+
+    #[test]
+    fn totals_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-totals-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let before = SteamTotals {
+            checked: 5,
+            games: HashMap::from([(7, 100)]),
+        };
+        before.save(&dir).unwrap();
+        let file = dir.join(TOTALS_FILE);
+        let held = std::fs::read(&file).unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&file)).unwrap();
+        let after = SteamTotals {
+            checked: 9,
+            games: HashMap::new(),
+        };
+
+        assert!(after.save(&dir).is_err());
+        assert_eq!(std::fs::read(&file).unwrap(), held);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

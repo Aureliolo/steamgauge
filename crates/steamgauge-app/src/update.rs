@@ -77,9 +77,7 @@ impl Verified {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let partial = path.with_extension("partial");
-        std::fs::write(&partial, serde_json::to_vec_pretty(self)?)?;
-        std::fs::rename(partial, path)
+        steamgauge_core::whole_file::write(path, &serde_json::to_vec_pretty(self)?)
     }
 }
 
@@ -395,6 +393,29 @@ mod tests {
         };
         kept.save(&path).unwrap();
         assert_eq!(Verified::load(&path), Some(kept));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_verified_release_that_cannot_be_written_whole_leaves_the_one_before() {
+        let dir =
+            std::env::temp_dir().join(format!("steamgauge-verified-kept-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("verified-install.json");
+        let before = Verified {
+            version: "0.2.14".to_owned(),
+            file: "steamgauge-0.2.14-windows-x64-setup.exe".to_owned(),
+            sha256: "ab".repeat(32),
+        };
+        before.save(&path).unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&path)).unwrap();
+        let after = Verified {
+            version: "0.2.15".to_owned(),
+            ..before.clone()
+        };
+
+        assert!(after.save(&path).is_err());
+        assert_eq!(Verified::load(&path), Some(before));
         let _ = std::fs::remove_dir_all(dir);
     }
 }

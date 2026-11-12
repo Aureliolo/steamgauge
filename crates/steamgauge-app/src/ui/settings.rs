@@ -146,13 +146,11 @@ impl Settings {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        let partial = path.with_extension("partial");
-        std::fs::write(
-            &partial,
-            serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?,
+        steamgauge_core::whole_file::write(
+            path,
+            &serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?,
         )
-        .map_err(|e| e.to_string())?;
-        std::fs::rename(partial, path).map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())
     }
 }
 
@@ -406,6 +404,24 @@ mod tests {
             SHARES.contains(&checked(f64::NAN)),
             "a share that is not a number still lands on one offered"
         );
+    }
+
+    #[test]
+    fn settings_that_cannot_be_written_whole_leave_the_ones_before() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-settings-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("settings.json");
+        Settings::default().write_to(&path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        std::fs::create_dir(steamgauge_core::whole_file::beside(&path)).unwrap();
+        let changed = Settings {
+            check_every_hours: 12,
+            ..Settings::default()
+        };
+
+        assert!(changed.write_to(&path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
