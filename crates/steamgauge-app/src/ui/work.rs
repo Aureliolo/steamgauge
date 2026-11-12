@@ -215,7 +215,6 @@ struct Board {
     next: u64,
     meters: HashMap<u64, Meter>,
     stops: HashMap<u64, Arc<AtomicBool>>,
-    aborts: HashMap<u64, tokio::task::AbortHandle>,
     /// Jobs of the app's own told to stop for the person's work, which wait again rather than
     /// ending.
     yielding: HashSet<u64>,
@@ -287,9 +286,13 @@ impl Job {
 }
 
 /// Whether a job is dropped where it stands when stopped: a crawl records each window only once
-/// it is whole and resumes from those, and a check writes nothing until it ends.
+/// it is whole and resumes from those, a check writes nothing until it ends, and a model file
+/// takes its name only once it is whole.
 const fn droppable(task: &Task) -> bool {
-    matches!(task, Task::Download { .. } | Task::Check)
+    matches!(
+        task,
+        Task::Download { .. } | Task::Check | Task::FetchModel { .. }
+    )
 }
 
 /// The board and a bell for each lane.
@@ -402,19 +405,16 @@ impl Work {
     /// is done.
     fn make_way(&self) {
         let mut board = self.lock();
-        let running: Vec<(u64, bool)> = board
+        let running: Vec<u64> = board
             .jobs
             .iter()
             .filter(|job| job.background && job.state == State::Running)
-            .map(|job| (job.id, droppable(&job.task)))
+            .map(|job| job.id)
             .collect();
-        for (id, droppable) in running {
+        for id in running {
             board.yielding.insert(id);
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
-            }
-            if droppable && let Some(abort) = board.aborts.get(&id) {
-                abort.abort();
             }
         }
     }
@@ -422,8 +422,8 @@ impl Work {
     /// Stops a job: a waiting one never starts, and a running one is told to stop where it
     /// can. It keeps what it finished.
     ///
-    /// A download and a check are dropped where they stand: a crawl records each window only
-    /// once it is whole and resumes from those, and a check writes nothing until it ends.
+    /// A download, a check and a model fetch are dropped where they stand, and a read or a
+    /// preparation while it fetches its models. `droppable` gives the reasons.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
     /// letting go of its game only then, not before another job could start on the same files.
     /// A waiting job taken off lets go of its game at once, so every lane is rung.
@@ -432,13 +432,6 @@ impl Work {
             let mut board = self.lock();
             if let Some(stop) = board.stops.get(&id) {
                 stop.store(true, Ordering::Relaxed);
-            }
-            let droppable = board
-                .jobs
-                .iter()
-                .any(|job| job.id == id && droppable(&job.task));
-            if droppable && let Some(abort) = board.aborts.get(&id) {
-                abort.abort();
             }
             if let Some(job) = board.jobs.iter_mut().find(|job| job.id == id)
                 && job.state == State::Queued
@@ -569,7 +562,6 @@ impl Work {
         let (game, background) = {
             let mut board = self.lock();
             board.meters.remove(&id);
-            board.aborts.remove(&id);
             let stopped = board
                 .stops
                 .remove(&id)
@@ -657,7 +649,7 @@ const fn stopped_note(task: &Task) -> &'static str {
         Task::Export { .. } => "Stopped before the report was saved.",
         Task::ExportData { .. } => "Stopped. Nothing was saved.",
         Task::FetchModel { .. } => {
-            "Stopped. Its files already fetched are kept; the rest comes when it is first needed."
+            "Stopped. Its files already fetched are kept, and the rest comes when it is first needed."
         }
     }
 }
@@ -711,33 +703,58 @@ pub(super) fn start(app: &AppHandle) {
     }
 }
 
-/// Runs a job in a task of its own, so stopping a download can drop it where it stands: a
-/// download resumes from what it kept, and an update starts again from its watermark.
+/// Runs a job in a task of its own. A droppable job is dropped where it stands once it is told
+/// to stop.
 async fn run(app: &AppHandle, id: u64, task: Task, stop: Arc<AtomicBool>) -> Result<Ended, String> {
-    let job = {
-        let app = app.clone();
-        tokio::spawn(async move {
-            match task {
-                Task::Download { app_id } => download(&app, id, app_id).await,
-                Task::Update { app_id } => update(&app, id, app_id, stop).await,
-                Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
-                Task::Recount { app_id } => recount(&app, id, app_id, stop).await,
-                Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
-                Task::Check => check(&app, id).await,
-                Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
-                Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
-                Task::FetchModel { model } => fetch_model(&app, id, &model).await,
-            }
-        })
-    };
-    app.state::<Work>()
-        .lock()
-        .aborts
-        .insert(id, job.abort_handle());
+    let dropped_by = droppable(&task).then(|| Arc::clone(&stop));
+    let app = app.clone();
+    in_own_task(dropped_by, async move {
+        match task {
+            Task::Download { app_id } => download(&app, id, app_id).await,
+            Task::Update { app_id } => update(&app, id, app_id, stop).await,
+            Task::Read { app_id, language } => read(&app, id, app_id, language, stop).await,
+            Task::Recount { app_id } => recount(&app, id, app_id, stop).await,
+            Task::Prepare { app_id } => prepare(&app, id, app_id, stop).await,
+            Task::Check => check(&app, id).await,
+            Task::Export { app_ids, to } => export(&app, id, (app_ids, to), stop).await,
+            Task::ExportData { app_id, to } => export_data(&app, id, app_id, to, stop).await,
+            Task::FetchModel { model } => fetch_model(&app, id, &model).await,
+        }
+    })
+    .await
+}
+
+/// Runs a job's work in a task of its own, so work that panics ends as failed and its lane goes
+/// on. Given a stop flag, the work is dropped inside that task once the flag is set, and nothing
+/// of it runs on.
+async fn in_own_task<T: Send + 'static>(
+    stop: Option<Arc<AtomicBool>>,
+    work: impl Future<Output = Result<T, String>> + Send + 'static,
+) -> Result<T, String> {
+    let job = tokio::spawn(async move {
+        match stop {
+            Some(stop) => unless_stopped(&stop, work).await,
+            None => work.await,
+        }
+    });
     match job.await {
         Ok(ended) => ended,
-        Err(joined) if joined.is_cancelled() => Err("stopped".to_owned()),
         Err(joined) => Err(format!("the job failed: {joined}")),
+    }
+}
+
+/// Runs work that may be dropped where it stands, and drops it once its job is told to stop.
+async fn unless_stopped<T>(
+    stop: &AtomicBool,
+    work: impl Future<Output = Result<T, String>>,
+) -> Result<T, String> {
+    tokio::select! {
+        ended = work => ended,
+        () = async {
+            while !stop.load(Ordering::Relaxed) {
+                tokio::time::sleep(EVERY).await;
+            }
+        } => Err("stopped".to_owned()),
     }
 }
 
@@ -1034,15 +1051,115 @@ fn bar(
     let telling = app.clone();
     let mut across = Across::new();
     let (fetching, checking) = (format!("Fetching {what}"), format!("Checking {what}"));
-    tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total));
+    let total = a_total(total);
+    match total {
+        Some(total) => tell(app, id, &fetching, Unit::Bytes, 0.0, Some(total)),
+        None => tell(app, id, &checking, Unit::Bytes, 0.0, None),
+    }
     move |progress| {
-        let done = float(across.add(progress.file, progress.downloaded));
-        let saying = if done >= total { &checking } else { &fetching };
-        tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+        let (saying, done, of) = told(total, &mut across, progress, [&fetching, &checking]);
+        tell(&telling, id, saying, Unit::Bytes, done, of);
     }
 }
 
-/// Fetches one model where it is not on this computer yet. One already here is left as it is.
+/// The total a bar counts towards. A total of nothing is none, so the bar tells no figure.
+fn a_total(total: f64) -> Option<f64> {
+    (total > 0.0).then_some(total)
+}
+
+/// Whether preparing a game fetches the search models, given whether a fetch has hashed each.
+const fn search_models_wanted(encoder_hashed: bool, reranker_hashed: bool) -> bool {
+    !(encoder_hashed && reranker_hashed)
+}
+
+/// Whether preparing a game fetches the writer.
+const fn writer_wanted(writing: bool, hashed: bool) -> bool {
+    writing && !hashed
+}
+
+/// The bytes the two search models would fetch, as a bar's total.
+fn search_total(encoder_left: u64, reranker_left: u64) -> Option<f64> {
+    a_total(float(encoder_left + reranker_left))
+}
+
+/// A report with the file named as the whole fetch counts it.
+const fn named<'a>(
+    file: &'a str,
+    progress: steamgauge_core::model::DownloadProgress<'_>,
+) -> steamgauge_core::model::DownloadProgress<'a> {
+    steamgauge_core::model::DownloadProgress {
+        file,
+        downloaded: progress.downloaded,
+        total: progress.total,
+    }
+}
+
+/// What a bar says of one report from a fetch. With a total across the files, it counts every
+/// file towards it. With none, bytes that arrive all the same are counted against that file's
+/// own length.
+fn told<'a>(
+    total: Option<f64>,
+    across: &mut Across,
+    progress: steamgauge_core::model::DownloadProgress<'_>,
+    [fetching, checking]: [&'a str; 2],
+) -> (&'a str, f64, Option<f64>) {
+    let Some(total) = total else {
+        return (
+            fetching,
+            float(progress.downloaded),
+            progress.total.map(float),
+        );
+    };
+    let done = float(across.add(progress.file, progress.downloaded));
+    (
+        if done >= total { checking } else { fetching },
+        done,
+        Some(total),
+    )
+}
+
+/// Drops the kept encoder and reranker after a fetch replaced a search model's files. Off the
+/// async threads, since it waits for a search in flight.
+async fn let_go_of_search_models(app: &AppHandle) -> Result<(), String> {
+    let models = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        models.state::<super::Models>().let_go_of_search();
+    })
+    .await
+    .map_err(text)
+}
+
+/// What follows a search model's fetch. When bytes came the kept models are let go, whether the
+/// fetch ended well or not, and the fetch's own error is the one passed on.
+async fn after_a_search_fetch(
+    fetched: Result<(), String>,
+    bytes_came: bool,
+    let_go: impl Future<Output = Result<(), String>>,
+) -> Result<(), String> {
+    if !bytes_came {
+        return fetched;
+    }
+    let let_go = let_go.await;
+    fetched.and(let_go)
+}
+
+/// A flag a fetch's progress closure sets when it is told of bytes.
+#[derive(Clone, Default)]
+struct BytesCame(Arc<AtomicBool>);
+
+impl BytesCame {
+    fn set(&self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether bytes came since the last call.
+    fn take(&self) -> bool {
+        self.0.swap(false, Ordering::Relaxed)
+    }
+}
+
+/// Fetches one model where it is not on this computer yet. One already here is left as it is. A
+/// search model it had to download is loaded afresh at its next use.
 async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, String> {
     let model = Fetchable::named(name)?;
     let cache = steamgauge_core::model::default_cache_dir();
@@ -1052,10 +1169,16 @@ async fn fetch_model(app: &AppHandle, id: u64, name: &str) -> Result<Ended, Stri
         Fetchable::Reader(size) => fetch_reader(app, id, size).await?,
         Fetchable::Search(search) => {
             let total = float(search.bytes_left(&cache));
-            search
-                .ensure(&cache, bar(app, id, total, &what))
+            let came = BytesCame::default();
+            let (seen, mut telling) = (came.clone(), bar(app, id, total, &what));
+            let fetched = search
+                .ensure(&cache, move |progress| {
+                    seen.set();
+                    telling(progress);
+                })
                 .await
-                .map_err(text)?;
+                .map_err(text);
+            after_a_search_fetch(fetched, came.take(), let_go_of_search_models(app)).await?;
         }
         Fetchable::Writer => {
             let writer = steamgauge_core::writer::WRITER;
@@ -1117,7 +1240,7 @@ async fn read(
     );
     let size = reader_here(&settings);
     let model_dir = size.home();
-    fetch_reader(app, id, size).await?;
+    unless_stopped(&stop, fetch_reader(app, id, size)).await?;
     know_the_game(app, id, app_id, &out_dir).await?;
     let options = steamgauge_core::read::ReadOptions {
         out_dir: out_dir.clone(),
@@ -1256,7 +1379,7 @@ async fn prepare(
 
     let dir = library_dir(app);
     let writing = steamgauge_core::writer::Choice::load(&dir).write;
-    fetch_for_prepare(app, id, writing).await?;
+    unless_stopped(&stop, fetch_for_prepare(app, id, writing)).await?;
 
     let share = Settings::load(app).gpu_share;
     let models = app.state::<super::Models>();
@@ -1340,8 +1463,8 @@ async fn prepare(
     .map_err(text)?
 }
 
-/// Every model preparing a game needs that is not here yet, fetched and checked against its pins:
-/// the search models always, and the writer once somebody has asked for paragraphs.
+/// Every model preparing a game needs that no fetch has hashed yet, fetched and hashed against
+/// its pins: the search models always, and the writer once somebody has asked for paragraphs.
 async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<(), String> {
     use steamgauge_core::{
         search_models::{ENCODER, RERANKER},
@@ -1349,32 +1472,48 @@ async fn fetch_for_prepare(app: &AppHandle, id: u64, writing: bool) -> Result<()
     };
 
     let cache = steamgauge_core::model::default_cache_dir();
-    let left = ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache);
-    if left > 0 {
-        let total = float(left);
+    if search_models_wanted(ENCODER.fetched(&cache), RERANKER.fetched(&cache)) {
+        let total = search_total(ENCODER.bytes_left(&cache), RERANKER.bytes_left(&cache));
+        if total.is_none() {
+            tell(
+                app,
+                id,
+                "Checking the search models",
+                Unit::Bytes,
+                0.0,
+                None,
+            );
+        }
         let mut across = Across::new();
+        let came = BytesCame::default();
         for model in [ENCODER, RERANKER] {
             let telling = app.clone();
             let across = &mut across;
-            model
+            let seen = came.clone();
+            let fetched = model
                 .ensure(&cache, move |progress| {
+                    seen.set();
                     let file = format!("{}/{}", model.name, progress.file);
-                    let done = float(across.add(&file, progress.downloaded));
-                    let saying = if done >= total {
-                        "Checking the search models"
-                    } else {
-                        "Fetching the search models"
-                    };
-                    tell(&telling, id, saying, Unit::Bytes, done, Some(total));
+                    let progress = named(&file, progress);
+                    let (saying, done, of) = told(
+                        total,
+                        across,
+                        progress,
+                        ["Fetching the search models", "Checking the search models"],
+                    );
+                    tell(&telling, id, saying, Unit::Bytes, done, of);
                 })
                 .await
-                .map_err(text)?;
+                .map_err(text);
+            after_a_search_fetch(fetched, came.take(), let_go_of_search_models(app)).await?;
         }
     }
-    let left = WRITER.bytes_left(&cache);
-    if writing && left > 0 {
+    if writer_wanted(writing, WRITER.fetched(&cache)) {
         WRITER
-            .ensure(&cache, bar(app, id, float(left), "the writer"))
+            .ensure(
+                &cache,
+                bar(app, id, float(WRITER.bytes_left(&cache)), "the writer"),
+            )
             .await
             .map_err(text)?;
     }
@@ -1622,6 +1761,46 @@ pub(super) fn open_report(
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn a_search_fetch_lets_go_once_when_bytes_came_and_never_when_none_did() {
+        let lets_go = |fetched: Result<(), String>, bytes_came| async move {
+            let calls = std::sync::atomic::AtomicU32::new(0);
+            let result = after_a_search_fetch(fetched, bytes_came, async {
+                calls.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            })
+            .await;
+            (result, calls.load(Ordering::Relaxed))
+        };
+
+        let (result, calls) = lets_go(Err("the second file failed".to_owned()), true).await;
+        assert_eq!(result.unwrap_err(), "the second file failed");
+        assert_eq!(calls, 1, "bytes then an error");
+
+        let (result, calls) = lets_go(Err("no route".to_owned()), false).await;
+        assert_eq!(result.unwrap_err(), "no route");
+        assert_eq!(calls, 0, "no bytes");
+
+        let (result, calls) = lets_go(Ok(()), false).await;
+        result.unwrap();
+        assert_eq!(calls, 0, "no bytes and no error");
+
+        let (result, calls) = lets_go(Ok(()), true).await;
+        result.unwrap();
+        assert_eq!(calls, 1, "bytes then success");
+    }
+
+    #[test]
+    fn bytes_that_came_are_told_once_per_file() {
+        let came = BytesCame::default();
+        assert!(!came.take(), "nothing came yet");
+        let closure = came.clone();
+        closure.set();
+        assert!(came.take(), "a clone's progress closure told of bytes");
+        assert!(!came.take(), "told once, so the next file starts afresh");
+        assert!(!closure.take(), "the clone shares the one flag");
+    }
+
     #[test]
     fn a_model_is_fetched_by_the_name_storage_lists_it_under_and_no_other() {
         let titled = |name: &str| Fetchable::named(name).map(Fetchable::title);
@@ -1631,6 +1810,82 @@ mod tests {
         assert_eq!(titled("search-reranker").unwrap(), "The search reranker");
         assert_eq!(titled("writer").unwrap(), "The writer");
         assert_eq!(titled("huge").unwrap_err(), "No model is called huge.");
+    }
+
+    #[test]
+    fn bytes_that_come_with_no_total_are_told_against_their_own_file() {
+        let progress = |file, downloaded, total| steamgauge_core::model::DownloadProgress {
+            file,
+            downloaded,
+            total,
+        };
+        let words = ["Fetching", "Checking"];
+        let mut across = Across::new();
+        assert_eq!(
+            told(None, &mut across, progress("a", 40, Some(100)), words),
+            ("Fetching", 40.0, Some(100.0))
+        );
+        assert_eq!(
+            told(None, &mut across, progress("b", 7, None), words),
+            ("Fetching", 7.0, None)
+        );
+        assert_eq!(
+            told(
+                Some(150.0),
+                &mut across,
+                progress("a", 100, Some(100)),
+                words
+            ),
+            ("Fetching", 100.0, Some(150.0))
+        );
+        assert_eq!(
+            told(Some(150.0), &mut across, progress("b", 50, Some(50)), words),
+            ("Checking", 150.0, Some(150.0))
+        );
+    }
+
+    #[test]
+    fn a_preparation_fetches_what_no_fetch_has_hashed() {
+        assert!(!search_models_wanted(true, true));
+        assert!(search_models_wanted(true, false));
+        assert!(search_models_wanted(false, true));
+        assert!(search_models_wanted(false, false));
+    }
+
+    #[test]
+    fn a_preparation_fetches_the_writer_only_when_asked_for_paragraphs() {
+        assert!(writer_wanted(true, false));
+        assert!(!writer_wanted(true, true));
+        assert!(!writer_wanted(false, false));
+        assert!(!writer_wanted(false, true));
+    }
+
+    #[test]
+    fn a_total_of_nothing_is_told_as_none() {
+        assert_eq!(a_total(0.0), None);
+        assert_eq!(a_total(5.0), Some(5.0));
+    }
+
+    #[test]
+    fn the_search_models_total_is_what_both_would_fetch() {
+        assert_eq!(search_total(0, 0), None);
+        assert_eq!(search_total(7, 3), Some(10.0));
+        assert_eq!(search_total(0, 4), Some(4.0));
+        assert_eq!(search_total(4, 0), Some(4.0));
+    }
+
+    #[test]
+    fn a_report_is_counted_under_the_name_it_is_given() {
+        let progress = steamgauge_core::model::DownloadProgress {
+            file: "model.onnx",
+            downloaded: 3,
+            total: Some(9),
+        };
+        let named = named("search-encoder/model.onnx", progress);
+        assert_eq!(
+            (named.file, named.downloaded, named.total),
+            ("search-encoder/model.onnx", 3, Some(9))
+        );
     }
 
     #[test]
@@ -1880,11 +2135,99 @@ mod tests {
     }
 
     #[test]
-    fn only_a_download_and_a_check_are_dropped_where_they_stand() {
+    fn a_download_a_check_and_a_model_fetch_are_dropped_where_they_stand() {
         assert!(droppable(&Task::Download { app_id: 1 }));
         assert!(droppable(&Task::Check));
+        assert!(droppable(&Task::FetchModel {
+            model: "writer".to_owned()
+        }));
         assert!(!droppable(&Task::Update { app_id: 1 }));
         assert!(!droppable(&read(1)));
+        assert!(!droppable(&Task::Prepare { app_id: 1 }));
+    }
+
+    #[test]
+    fn a_stopped_model_fetch_says_its_fetched_files_are_kept() {
+        let note = stopped_note(&Task::FetchModel {
+            model: "writer".to_owned(),
+        });
+        assert_eq!(
+            note,
+            "Stopped. Its files already fetched are kept, and the rest comes when it is first needed."
+        );
+        assert_eq!(stopped_note(&Task::Check), "Stopped.");
+    }
+
+    /// Sets a marker when dropped, as work holding a half-written file would let it go.
+    struct Marks(Arc<AtomicBool>);
+
+    impl Drop for Marks {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_job_told_to_stop_is_dropped_inside_its_own_task() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let held = Marks(Arc::clone(&dropped));
+        let work = async move {
+            let _held = held;
+            std::future::pending::<Result<(), String>>().await
+        };
+        let setter = {
+            let flag = Arc::clone(&flag);
+            async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                flag.store(true, Ordering::Relaxed);
+            }
+        };
+        let (ended, ()) = tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::join!(in_own_task(Some(flag), work), setter)
+        })
+        .await
+        .expect("the work was never told to stop");
+        assert_eq!(ended, Err("stopped".to_owned()));
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn a_job_told_to_stop_before_its_work_starts_ends_stopped_with_nothing_kept() {
+        let dropped = Arc::new(AtomicBool::new(false));
+        let held = Marks(Arc::clone(&dropped));
+        let flag = AtomicBool::new(true);
+        let ended = tokio::time::timeout(
+            Duration::from_secs(2),
+            unless_stopped(&flag, async move {
+                let _held = held;
+                std::future::pending::<Result<(), String>>().await
+            }),
+        )
+        .await
+        .expect("the work outlived its stop");
+        assert_eq!(ended, Err("stopped".to_owned()));
+        assert!(dropped.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn a_job_that_panics_ends_as_failed() {
+        let ended = in_own_task(None, async {
+            assert!(Duration::ZERO > Duration::from_secs(1), "work that panics");
+            Ok::<(), String>(())
+        })
+        .await;
+        assert!(ended.unwrap_err().starts_with("the job failed"));
+    }
+
+    #[tokio::test]
+    async fn work_that_ends_is_handed_back_as_it_ended() {
+        let flag = AtomicBool::new(false);
+        assert_eq!(unless_stopped(&flag, async { Ok(3) }).await, Ok(3));
+        assert_eq!(
+            unless_stopped(&flag, async { Err::<u8, _>("no room".to_owned()) }).await,
+            Err("no room".to_owned())
+        );
     }
 
     /// Whether the lane's bell has been rung since it was last taken, which takes the ring.

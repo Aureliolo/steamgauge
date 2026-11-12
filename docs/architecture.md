@@ -131,12 +131,18 @@ in thirty.
 - A model's folder is fetched into by one fetch at a time, in the window or on the command line.
   A second fetch waits on the folder's `fetch.lock`, then uses that copy. Removing a model takes
   the same turn and leaves `fetch.lock`.
+- A fetch notes the hash it found beside each model file, as `model.onnx.sha256`. A file whose
+  note names another hash is of another release and is fetched when first needed. A preparation
+  fetches until every file's note names its pin.
 - The reader in the app's model folder follows the build's pins, in the folder named for its
   size. A copy with a file missing, or of another release, is fetched when first needed. A
   reader anywhere else is never fetched over.
+- Stop drops a download, a Steam check and a model fetch where they stand. A fetch that does not
+  finish leaves no half file, and the files it finished are kept.
 - A job is named as the store names its game, never by its number.
 - The reader, the search encoder and the reranker are let go after two minutes unused. The card
-  holds the reader or the encoder, never both.
+  holds the reader or the encoder, never both. A fetch that downloads a search model lets go of
+  the encoder and the reranker, so the next use loads the new files.
 - The app's own jobs (updates, Steam checks) pause while a job the person started runs.
 - Updates run only while the app is open, minimised included, from a loop in the core. Steam is
   asked every hour, six hours, day or week, as Settings chooses.

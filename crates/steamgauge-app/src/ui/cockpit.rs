@@ -380,6 +380,11 @@ pub(super) struct Machine {
     pub releases_checked: i64,
 }
 
+/// A model is on this computer when a fetch would bring nothing.
+const fn nothing_to_fetch(left: u64) -> bool {
+    left == 0
+}
+
 fn machine(app: &AppHandle) -> Machine {
     use steamgauge_core::{
         reader::{SIZES, on_the_processor},
@@ -418,7 +423,7 @@ fn machine(app: &AppHandle) -> Machine {
             name: format!("SteamGauge {}", model.name.replace('-', " ")),
             key: model.name,
             role: role.to_owned(),
-            here: model.fetched(&cache),
+            here: nothing_to_fetch(model.bytes_left(&cache)),
             bytes_left: model.bytes_left(&cache),
             release: release(model.release),
             newer: releases.newer(model.repository, model.release),
@@ -430,7 +435,7 @@ fn machine(app: &AppHandle) -> Machine {
         name: "SteamGauge writer".to_owned(),
         key: writer.name,
         role: "writes what stands out about a game".to_owned(),
-        here: writer.fetched(&cache),
+        here: nothing_to_fetch(writer.bytes_left(&cache)),
         bytes_left: writer.bytes_left(&cache),
         release: release(writer.release),
         newer: releases.newer(writer.repository, writer.release),
@@ -830,6 +835,12 @@ pub(super) fn file_safe(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_model_is_on_this_computer_only_when_nothing_is_left_to_fetch() {
+        assert!(nothing_to_fetch(0));
+        assert!(!nothing_to_fetch(1));
+    }
 
     #[test]
     fn groups_keep_one_of_each_name_and_each_game_once() {

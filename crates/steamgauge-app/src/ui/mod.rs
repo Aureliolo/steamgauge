@@ -982,9 +982,15 @@ impl Models {
         self.reader.let_go_if_idle();
     }
 
-    fn let_go(&self) {
+    /// Drops the encoder and the reranker now, so their next use loads what a fetch just put on
+    /// disk. It waits for whoever is using one.
+    fn let_go_of_search(&self) {
         self.encoder.let_go();
         self.reranker.let_go();
+    }
+
+    fn let_go(&self) {
+        self.let_go_of_search();
         self.reader.let_go();
     }
 }
