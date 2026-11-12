@@ -43,8 +43,6 @@ if TYPE_CHECKING:
 
     from transformers import PreTrainedTokenizerBase
 
-    from claimdata import Claim
-
 type Item = dict[str, torch.Tensor]
 type FloatArray = npt.NDArray[np.floating[Any]]
 type IntArray = npt.NDArray[np.integer[Any]]
@@ -246,7 +244,7 @@ class Claims(Dataset[Item]):
 
     def __init__(
         self,
-        claims: Sequence[Claim],
+        claims: Sequence[claimdata.Claim],
         tokenizer: TextTokenizer,
         subjects: Sequence[str],
         reading: Reading,
@@ -277,14 +275,14 @@ class Claims(Dataset[Item]):
         """Return how many claims there are."""
         return len(self.claims)
 
-    def window(self, claim: Claim) -> str:
+    def window(self, claim: claimdata.Claim) -> str:
         """Return the window the model reads, headed by the headset fact where trained on one."""
         cut = self.cut(claim)
         if self.reading.headset_marker and claim.headset_only:
             return f"{HEADSET} {cut}"
         return cut
 
-    def cut(self, claim: Claim) -> str:
+    def cut(self, claim: claimdata.Claim) -> str:
         """Return the part of the review the budget can afford, centred on the claim.
 
         Truncating a pair from the end spends the whole budget on the opening of the review,
@@ -363,7 +361,7 @@ class Claims(Dataset[Item]):
             **dict(zip(("aspect", "aspect_known"), self.aspect_target(claim), strict=True)),
         }
 
-    def aspect_target(self, claim: Claim) -> tuple[torch.Tensor, torch.Tensor]:
+    def aspect_target(self, claim: claimdata.Claim) -> tuple[torch.Tensor, torch.Tensor]:
         """Return, for every subject, what the claim does about it, and whether that is known.
 
         The answer per subject is absent, or the polarity the claim takes on it. A label from a
@@ -396,7 +394,7 @@ class Claims(Dataset[Item]):
         distribution[index[second]] += second_weight
         return distribution
 
-    def weight_of(self, claim: Claim) -> float:
+    def weight_of(self, claim: claimdata.Claim) -> float:
         """Return what this claim is worth in the loss.
 
         Three things the labeller said about their own answer, rather than one. A claim they
@@ -426,7 +424,7 @@ class Pool(Claims):
 
     def __init__(
         self,
-        claims: Sequence[Claim],
+        claims: Sequence[claimdata.Claim],
         tokenizer: TextTokenizer,
         subjects: Sequence[str],
         reading: Reading,
@@ -458,7 +456,7 @@ class Pool(Claims):
 
 
 def load_targets(
-    path: str | Path, pool: Sequence[Claim], subjects: Sequence[str]
+    path: str | Path, pool: Sequence[claimdata.Claim], subjects: Sequence[str]
 ) -> tuple[FloatArray, FloatArray]:
     """Return a teacher's answers on the pool, checked row for row against the pool they answer.
 
@@ -1150,7 +1148,7 @@ class Nothing(TypedDict):
 def scored_twice(
     predicted: IntArray,
     truth: IntArray,
-    claims: Sequence[Claim],
+    claims: Sequence[claimdata.Claim],
     index_of: Mapping[str, int],
 ) -> ReadTwice | Nothing:
     """Score the model against the second labeller, where there is one.
@@ -1204,7 +1202,7 @@ class AspectScores(TypedDict):
 
 
 def aspect_scores(
-    logits: torch.Tensor, claims: Sequence[Claim], subjects: Sequence[str]
+    logits: torch.Tensor, claims: Sequence[claimdata.Claim], subjects: Sequence[str]
 ) -> AspectScores | Nothing:
     """Score how well the aspect head says which subjects each claim covers.
 
@@ -1311,7 +1309,7 @@ class Split:
     """One split's batches and its claims, in the same order."""
 
     loader: Iterable[Item]
-    claims: Sequence[Claim]
+    claims: Sequence[claimdata.Claim]
 
 
 @torch.no_grad()
@@ -1423,12 +1421,12 @@ def git_sha() -> str:
 class Labelled:
     """The claims one run learns from and is scored on, split by game."""
 
-    claims: list[Claim]
+    claims: list[claimdata.Claim]
     headset_marker: bool
     newer: list[Path]
-    train: list[Claim]
-    validation: list[Claim]
-    test: list[Claim]
+    train: list[claimdata.Claim]
+    validation: list[claimdata.Claim]
+    test: list[claimdata.Claim]
     subjects: list[str]
 
 
