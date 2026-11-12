@@ -45,7 +45,7 @@ use crate::{
 };
 
 /// Where a reading's vectors are kept, beside it in the snapshot.
-const DIR: &str = "meaning";
+pub const DIR: &str = "meaning";
 const SIDECAR: &str = "meaning.json";
 
 /// A part is written at least this often, so stopping a preparation on a processor, where a
