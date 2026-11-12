@@ -802,7 +802,7 @@ fn crawled_and_found_nothing(app_dir: &Path) -> bool {
 /// The file has to be non-empty, not merely present. A crawl creates each shard's file
 /// before it fetches the first page, so an interrupted one leaves a directory of zero-byte
 /// shards, and a check on the name alone would take that for a corpus.
-fn holds_a_shard(snapshot: &Path) -> bool {
+pub(crate) fn holds_a_shard(snapshot: &Path) -> bool {
     std::fs::read_dir(snapshot).is_ok_and(|entries| {
         entries.filter_map(std::result::Result::ok).any(|entry| {
             let named_like_a_shard = entry
