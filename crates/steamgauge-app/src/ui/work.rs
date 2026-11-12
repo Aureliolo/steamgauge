@@ -328,13 +328,17 @@ fn store_names() -> std::sync::MutexGuard<'static, HashMap<u32, Option<String>>>
 /// What a job is about, in words: the game's name on disk or as the store gave it. None for a
 /// game whose name nobody has yet, which the store is then asked for.
 fn name_of(app: &AppHandle, task: &Task) -> Option<String> {
+    name_in(&library_dir(app), task)
+}
+
+fn name_in(library: &std::path::Path, task: &Task) -> Option<String> {
     if let Task::FetchModel { model } = task {
         return Some(Fetchable::named(model).map_or_else(|_| model.clone(), Fetchable::title));
     }
     let Some(app_id) = task.one_game() else {
         return Some("Your library".to_owned());
     };
-    steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
+    steamgauge_core::report::crawl_facts(library, app_id)
         .ok()
         .map(|facts| facts.name)
         .filter(|name| !name.is_empty())
@@ -2551,6 +2555,22 @@ mod tests {
         work.lock().name(7, "Alpha");
         let names: Vec<String> = ids.iter().map(|&id| job(&work, id).name).collect();
         assert_eq!(names, ["Alpha", "", ""]);
+    }
+
+    #[test]
+    fn a_job_of_several_games_is_named_for_the_library_and_one_of_an_unknown_game_for_nothing() {
+        let library = std::env::temp_dir().join(format!("steamgauge-names-{}", std::process::id()));
+        let model = Task::FetchModel {
+            model: "no-such-model".to_owned(),
+        };
+        assert_eq!(name_in(&library, &model).as_deref(), Some("no-such-model"));
+        for games in [vec![7, 8], vec![7, 7], Vec::new()] {
+            assert_eq!(
+                name_in(&library, &report(games)).as_deref(),
+                Some("Your library")
+            );
+        }
+        assert_eq!(name_in(&library, &read(4_000_000_007)), None);
     }
 
     #[test]
