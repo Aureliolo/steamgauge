@@ -3769,6 +3769,10 @@ label.option:has(input:focus-visible) {
   display: none;
 }
 
+#storage-note {
+  white-space: pre-line;
+}
+
 /* The reader: what this computer is and why it is recommended one size, then each size as a card
    to choose, a size this card cannot hold shown but not offered. */
 
