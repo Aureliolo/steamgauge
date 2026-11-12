@@ -20,6 +20,7 @@ pub mod group;
 pub mod html;
 mod http;
 pub mod induced;
+mod lock_file;
 pub mod meaning;
 pub mod measure;
 pub mod model;

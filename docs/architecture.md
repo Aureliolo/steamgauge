@@ -35,7 +35,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   Valve's count. Before it plans, a crawl asks Steam for its newest edit and keeps that stamp in
   `state.sqlite`. It keeps the reviews written up to that edit and records `walk_from_unix` one
   second past it, so the first sweep brings in what came after. A capture is Parquet shards
-  written once and never changed.
+  written once and never changed. A crawl holds a lock on `crawl.lock` in the game's folder while
+  it runs. A second crawl of the game is refused meanwhile, whichever program starts it.
 - A **sweep** walks in last-edit order back to the previous watermark into `sweep-*.parquet`.
   The newest copy of an edited review among the whole sweep files counts, and a sweep's record
   counts the reviews only those files hold from them. A sweep counts a review as new where

@@ -378,15 +378,6 @@ impl Source {
 /// the window and a command in a terminal take turns. It is never removed.
 const FETCH_LOCK: &str = "fetch.lock";
 
-/// Opens the folder's lock file for writing, made where missing and never truncated.
-fn lock_file(dir: &Path) -> std::io::Result<std::fs::File> {
-    std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(false)
-        .open(dir.join(FETCH_LOCK))
-}
-
 /// Removes what was fetched into `dir`, unless a fetch holds the folder, and says whether it
 /// did. `fetch.lock` stays, since a fetch that opened it earlier would otherwise hold a file no
 /// later fetch sees.
@@ -398,7 +389,7 @@ pub fn remove_fetched(dir: &Path) -> Result<bool> {
     if !dir.is_dir() {
         return Ok(true);
     }
-    let lock = lock_file(dir)?;
+    let lock = crate::lock_file::open(&dir.join(FETCH_LOCK))?;
     match lock.try_lock() {
         Ok(()) => {}
         Err(std::fs::TryLockError::WouldBlock) => return Ok(false),
@@ -425,7 +416,7 @@ pub fn remove_fetched(dir: &Path) -> Result<bool> {
 /// never truncated or removed: a fetch that opened it before a removal would lock a file no
 /// later fetch can see.
 async fn turn(dir: &Path) -> Result<std::fs::File> {
-    let file = lock_file(dir)?;
+    let file = crate::lock_file::open(&dir.join(FETCH_LOCK))?;
     loop {
         match file.try_lock() {
             Ok(()) => return Ok(file),
@@ -1180,7 +1171,7 @@ mod tests {
         let dir = crate::tempdir::Dir::new();
         std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
         std::fs::write(dir.path().join("model.partial"), b"half").unwrap();
-        let held = lock_file(dir.path()).unwrap();
+        let held = crate::lock_file::open(&dir.path().join(FETCH_LOCK)).unwrap();
         held.lock().unwrap();
 
         assert!(!remove_fetched(dir.path()).unwrap());
@@ -1248,9 +1239,9 @@ mod tests {
     fn a_fetch_that_opened_the_lock_before_a_removal_still_takes_its_turn() {
         let dir = crate::tempdir::Dir::new();
         std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
-        let early = lock_file(dir.path()).unwrap();
+        let early = crate::lock_file::open(&dir.path().join(FETCH_LOCK)).unwrap();
         assert!(remove_fetched(dir.path()).unwrap());
-        let later = lock_file(dir.path()).unwrap();
+        let later = crate::lock_file::open(&dir.path().join(FETCH_LOCK)).unwrap();
         later.try_lock().unwrap();
         assert!(matches!(
             early.try_lock(),

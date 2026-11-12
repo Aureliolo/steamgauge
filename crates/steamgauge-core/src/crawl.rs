@@ -122,6 +122,8 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
 /// A crawl whose record could not be written is resumed as well, and the next run writes it.
 /// [`crate::Error::Refused`] where another job holds the capture's lock when the crawl comes to
 /// write its record. The crawl is resumed by the next run, which writes it.
+/// [`crate::Error::Refused`] at once while another crawl of the game runs, in this program or
+/// another. It asks Steam nothing.
 pub async fn crawl(
     client: &SteamClient,
     app_id: u32,
@@ -129,6 +131,9 @@ pub async fn crawl(
     mut on_progress: impl FnMut(Progress),
 ) -> Result<CrawlReport> {
     let started = Instant::now();
+    let game = options.out_dir.join(format!("appid={app_id}"));
+    std::fs::create_dir_all(&game)?;
+    let crawl_lock = take_lock(&game.join(CRAWL_LOCK), app_id)?;
     let state = Arc::new(CrawlState::open(&options.out_dir.join("state.sqlite"))?);
 
     let summary = client.summary(app_id).await?;
@@ -137,10 +142,7 @@ pub async fn crawl(
     let (crawl_id, snapshot, resumed) =
         prepare(client, app_id, options, &state, valve_total).await?;
 
-    let dir = options
-        .out_dir
-        .join(format!("appid={app_id}"))
-        .join(format!("snapshot={snapshot}"));
+    let dir = game.join(format!("snapshot={snapshot}"));
     std::fs::create_dir_all(&dir)?;
     let newest_edit = state.newest_edit(crawl_id)?;
 
@@ -177,7 +179,7 @@ pub async fn crawl(
     // Asked before the lock, since a sweep begun while the store answers would be refused.
     let asked_name = client.name(app_id).await;
     // Held in a binding until the record is written: `_` would let go at once.
-    let record_lock = sweep_lock(&dir, app_id)?;
+    let record_lock = take_lock(&dir.join(SWEEP_LOCK), app_id)?;
     let recorded = recorded_fields(&dir)?;
     let unique = match recorded.get("swept_unix").and_then(Value::as_i64) {
         Some(swept) => windows.saturating_add(crate::capture::only_swept(
@@ -225,6 +227,7 @@ pub async fn crawl(
         state.finish_crawl(crawl_id)?;
     }
     drop(record_lock);
+    drop(crawl_lock);
     Ok(report)
 }
 
@@ -681,7 +684,7 @@ pub async fn sweep(
     let begun = Instant::now();
     let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
     // Held in a binding until the record is written: `_` would let go at once.
-    let lock = sweep_lock(&dir, app_id)?;
+    let lock = take_lock(&dir.join(SWEEP_LOCK), app_id)?;
     let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
     let watermark = facts
         .get("walk_from_unix")
@@ -793,20 +796,19 @@ pub async fn sweep(
 
 /// The file a sweep, a crawl's record step and a name lookup lock. It stays in the capture,
 /// since removing it would let a program that has it open lock a file no other program can find.
+/// A sweep holds it until its record is written. A crawl and a name lookup hold it from their
+/// read of the record to their write.
 const SWEEP_LOCK: &str = "sweep.lock";
 
-/// Takes the lock on a capture, or refuses where it is held. A sweep holds it until its record is
-/// written. A crawl and a name lookup hold it from their read of the record to their write. The
-/// system lets go when the file is dropped or the program ends.
-///
-/// The file is opened to write, never to append, because Windows refuses to lock a handle
-/// opened to append.
-fn sweep_lock(dir: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
-    let file = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(dir.join(SWEEP_LOCK))?;
+/// The file a crawl locks in its game's folder from its start until it returns, so a second crawl
+/// of the game is refused before it touches the state or the capture. It stays, as `SWEEP_LOCK`
+/// does.
+const CRAWL_LOCK: &str = "crawl.lock";
+
+/// Takes the lock on `file`, or refuses where another handle holds it, in this program or another.
+/// The system lets go when the file is dropped or the program ends.
+fn take_lock(file: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
+    let file = crate::lock_file::open(file)?;
     match file.try_lock() {
         Ok(()) => Ok(file),
         Err(std::fs::TryLockError::WouldBlock) => Err(crate::Error::Refused(format!(
@@ -864,7 +866,7 @@ pub async fn name_where_missing(
     };
     // The store is asked first, so no request runs under the lock. A sweep may have landed
     // meanwhile, and the record is read again to keep what it wrote.
-    let _lock = sweep_lock(&dir, app_id)?;
+    let _lock = take_lock(&dir.join(SWEEP_LOCK), app_id)?;
     let mut facts: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
     if has_name(&facts) {
         return Ok(None);
@@ -2714,7 +2716,7 @@ mod tests {
         let Some(dir) = std::env::var_os("HOLD_SWEEP_LOCK") else {
             return;
         };
-        let _lock = sweep_lock(std::path::Path::new(&dir), APP).unwrap();
+        let _lock = take_lock(&std::path::Path::new(&dir).join(SWEEP_LOCK), APP).unwrap();
         println!("held");
         std::thread::sleep(Duration::from_secs(120));
     }
@@ -3322,13 +3324,13 @@ mod tests {
         assert!(!dir.join("crawl.json.partial").exists());
     }
 
-    /// The lock a capture's other program holds, taken on a handle of the test's own.
-    fn lock_held_by_another_program(dir: &std::path::Path) -> std::fs::File {
+    /// The lock on `file` that another program holds, taken on a handle of the test's own.
+    fn lock_held_by_another_program(file: &std::path::Path) -> std::fs::File {
         let other = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(false)
-            .open(dir.join(SWEEP_LOCK))
+            .open(file)
             .unwrap();
         other.try_lock().unwrap();
         other
@@ -3371,7 +3373,7 @@ mod tests {
         let out = crate::tempdir::Dir::new();
         let short = short_crawl(out.path()).await;
         let before = std::fs::read(short.dir.join("crawl.json")).unwrap();
-        let other = lock_held_by_another_program(&short.dir);
+        let other = lock_held_by_another_program(&short.dir.join(SWEEP_LOCK));
 
         let refused = resumed_crawl(out.path()).await;
         assert!(
@@ -3393,7 +3395,7 @@ mod tests {
         let short = short_crawl(out.path()).await;
         let record = short.dir.join("crawl.json");
         let bytes = std::fs::read(&record).unwrap();
-        let other = lock_held_by_another_program(&short.dir);
+        let other = lock_held_by_another_program(&short.dir.join(SWEEP_LOCK));
         std::fs::remove_file(&record).unwrap();
         std::fs::create_dir(&record).unwrap();
 
@@ -3408,6 +3410,86 @@ mod tests {
         drop(other);
         let again = resumed_crawl(out.path()).await.unwrap();
         assert!(again.resumed && again.complete);
+    }
+
+    #[tokio::test]
+    async fn a_second_crawl_of_a_game_is_refused_while_the_first_runs() {
+        let out = crate::tempdir::Dir::new();
+        let server = stand_in::Server::new(valve(corpus(), None, 0));
+        let (first, second) = (client_of(&server), client_of(&server));
+        let settings = options(out.path());
+        let (a, b) = tokio::join!(
+            crawl(&first, APP, &settings, |_| {}),
+            crawl(&second, APP, &settings, |_| {})
+        );
+        let (done, refused) = match (a, b) {
+            (Ok(done), Err(refused)) | (Err(refused), Ok(done)) => (done, refused),
+            (a, b) => panic!("{a:?} {b:?}"),
+        };
+        assert!(done.complete);
+        assert_eq!(facts(&done.dir)["rows_unique"], 70);
+        assert!(
+            matches!(&refused, crate::Error::Refused(text) if text.contains("app 7")),
+            "{refused:?}"
+        );
+        let state = rusqlite::Connection::open(out.path().join("state.sqlite")).unwrap();
+        let crawls: i64 = state
+            .query_row("SELECT COUNT(*) FROM crawl", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(crawls, 1);
+    }
+
+    #[tokio::test]
+    async fn a_crawl_is_refused_while_another_program_crawls_the_game() {
+        let out = crate::tempdir::Dir::new();
+        let short = short_crawl(out.path()).await;
+        let state_file = out.path().join("state.sqlite");
+        let crawl_id = {
+            let state = CrawlState::open(&state_file).unwrap();
+            let id = state.resumable(APP).unwrap().unwrap().id;
+            let idx = state.pending_shards(id).unwrap()[0].idx;
+            state.mark_running(id, idx).unwrap();
+            id
+        };
+        let other = lock_held_by_another_program(&short.dir.parent().unwrap().join(CRAWL_LOCK));
+
+        let server = stand_in::Server::new(valve(corpus(), None, 0));
+        let refused = crawl(&client_of(&server), APP, &options(out.path()), |_| {}).await;
+        assert!(
+            matches!(refused, Err(crate::Error::Refused(_))),
+            "{refused:?}"
+        );
+        assert!(server.asked().is_empty());
+        let running: i64 = rusqlite::Connection::open(&state_file)
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM shard WHERE crawl_id = ?1 AND status = 'running'",
+                [crawl_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(running, 1);
+
+        drop(other);
+        let again = resumed_crawl(out.path()).await.unwrap();
+        assert!(again.resumed && again.complete);
+        assert_eq!(facts(&again.dir)["rows_unique"], 70);
+        assert!(again.dir.parent().unwrap().join(CRAWL_LOCK).exists());
+    }
+
+    #[tokio::test]
+    async fn a_name_lookup_runs_while_another_program_crawls_the_game() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(out.path(), &json!({"snapshot_unix": WATERMARK}));
+        let other = lock_held_by_another_program(&dir.parent().unwrap().join(CRAWL_LOCK));
+        let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
+
+        let named = name_where_missing(&client_of(&store), out.path(), APP)
+            .await
+            .unwrap();
+        assert_eq!(named.as_deref(), Some("A Game"));
+        assert_eq!(facts(&dir)["name"], "A Game");
+        drop(other);
     }
 
     #[tokio::test]
@@ -3447,7 +3529,7 @@ mod tests {
         let dir = captured(out.path(), &json!({"snapshot_unix": WATERMARK}));
         let store = stand_in::Server::new(|_| name_of_the_game("A Game"));
         let before = std::fs::read(dir.join("crawl.json")).unwrap();
-        let other = lock_held_by_another_program(&dir);
+        let other = lock_held_by_another_program(&dir.join(SWEEP_LOCK));
 
         let refused = name_where_missing(&client_of(&store), out.path(), APP).await;
         assert!(
