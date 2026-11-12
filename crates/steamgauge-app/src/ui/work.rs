@@ -1,4 +1,4 @@
-//! Everything the app does that takes longer than a click, as jobs on two lanes.
+//! Everything the app does that takes longer than a click, as jobs on three lanes.
 //!
 //! Downloads talk to Steam and wait on its pace. Reads and preparations hold the graphics card.
 //! Each lane runs one job at a time, so a crawl that takes an hour never holds up a read and two
@@ -86,15 +86,25 @@ impl Task {
         }
     }
 
-    pub(super) const fn app_id(&self) -> Option<u32> {
+    /// Every game the task reads or writes, a repeated one left in.
+    pub(super) const fn games(&self) -> &[u32] {
         match self {
             Self::Download { app_id }
             | Self::Update { app_id }
             | Self::Read { app_id, .. }
             | Self::Recount { app_id }
             | Self::Prepare { app_id }
-            | Self::ExportData { app_id, .. } => Some(*app_id),
-            Self::Check | Self::Export { .. } | Self::FetchModel { .. } => None,
+            | Self::ExportData { app_id, .. } => std::slice::from_ref(app_id),
+            Self::Export { app_ids, .. } => app_ids.as_slice(),
+            Self::Check | Self::FetchModel { .. } => &[],
+        }
+    }
+
+    /// The game of a task that uses exactly one, which is what names it.
+    pub(super) const fn one_game(&self) -> Option<u32> {
+        match self.games() {
+            [one] => Some(*one),
+            _ => None,
         }
     }
 }
@@ -265,7 +275,7 @@ impl Board {
     /// Gives a game's name to each of its jobs that had none.
     fn name(&mut self, app_id: u32, name: &str) {
         for job in &mut self.jobs {
-            if job.name.is_empty() && job.task.app_id() == Some(app_id) {
+            if job.name.is_empty() && job.task.one_game() == Some(app_id) {
                 name.clone_into(&mut job.name);
             }
         }
@@ -321,7 +331,7 @@ fn name_of(app: &AppHandle, task: &Task) -> Option<String> {
     if let Task::FetchModel { model } = task {
         return Some(Fetchable::named(model).map_or_else(|_| model.clone(), Fetchable::title));
     }
-    let Some(app_id) = task.app_id() else {
+    let Some(app_id) = task.one_game() else {
         return Some("Your library".to_owned());
     };
     steamgauge_core::report::crawl_facts(&library_dir(app), app_id)
@@ -386,7 +396,7 @@ impl Work {
     fn queue_as(&self, app: &AppHandle, task: Task, name: Option<String>, background: bool) -> u64 {
         let lane = task.lane();
         let name = name.or_else(|| name_of(app, &task));
-        let unnamed = name.is_none().then(|| task.app_id()).flatten();
+        let unnamed = name.is_none().then(|| task.one_game()).flatten();
         let id = self
             .lock()
             .put(task, name.unwrap_or_default(), background, now_unix());
@@ -425,8 +435,8 @@ impl Work {
     /// A download, a check and a model fetch are dropped where they stand, and a read or a
     /// preparation while it fetches its models. `droppable` gives the reasons.
     /// Everything else is only told, and stops at a point where what it leaves is consistent,
-    /// letting go of its game only then, not before another job could start on the same files.
-    /// A waiting job taken off lets go of its game at once, so every lane is rung.
+    /// letting go of its games only then, not before another job could start on the same files.
+    /// A waiting job taken off lets go of its games at once, so every lane is rung.
     pub(super) fn stop(&self, id: u64) {
         let taken_off = {
             let mut board = self.lock();
@@ -461,6 +471,17 @@ impl Work {
         self.lock().jobs.clone()
     }
 
+    /// Why a game's files may not be touched now, if they may not: a job that uses it waits or
+    /// runs.
+    pub(super) fn busy(&self, app_id: u32) -> Option<String> {
+        self.lock()
+            .jobs
+            .iter()
+            .filter(|job| matches!(job.state, State::Queued | State::Running))
+            .find(|job| job.task.games().contains(&app_id))
+            .map(|job| format!("This game is busy: {}.", job.step.to_lowercase()))
+    }
+
     /// Sends the board to the window, at most every [`EVERY`] unless something changed state.
     fn send(&self, app: &AppHandle, now: bool) {
         let jobs = {
@@ -474,17 +495,16 @@ impl Work {
         let _ = app.emit("work", jobs);
     }
 
-    /// The first waiting job of this lane whose game no running job is working on and no job
-    /// queued before it is waiting to work on, marked running: a read queued with its game's
-    /// download waits for it, though the two run in different lanes. The person's work waits
-    /// only for their own.
+    /// The first waiting job of this lane with no game in use and none a job queued before it
+    /// waits to use, marked running. A read queued with its game's download waits for it. A job
+    /// of no game waits for none. The person's work waits only for their own.
     fn take(&self, lane: Lane) -> Option<(u64, Task, Arc<AtomicBool>)> {
         let mut board = self.lock();
         let busy: Vec<u32> = board
             .jobs
             .iter()
             .filter(|job| job.state == State::Running)
-            .filter_map(|job| job.task.app_id())
+            .flat_map(|job| job.task.games().iter().copied())
             .collect();
         let theirs = board
             .jobs
@@ -496,11 +516,11 @@ impl Work {
             job.state == State::Queued
                 && job.task.lane() == lane
                 && !(job.background && theirs)
-                && job.task.app_id().is_none_or(|app_id| {
-                    !busy.contains(&app_id)
+                && job.task.games().iter().all(|game| {
+                    !busy.contains(game)
                         && !jobs[..at].iter().any(|before| {
                             before.state == State::Queued
-                                && before.task.app_id() == Some(app_id)
+                                && before.task.games().contains(game)
                                 && (job.background || !before.background)
                         })
                 })
@@ -604,14 +624,14 @@ impl Work {
                 .jobs
                 .iter()
                 .find(|job| job.id == id)
-                .map_or((None, false), |job| (job.task.app_id(), job.background))
+                .map_or((None, false), |job| (job.task.one_game(), job.background))
         };
         self.send(app, true);
-        // Which game changed on disk, so a page showing another one is left as it is.
+        // The one game the job used, so a page showing another one is left as it is.
         if ended.is_ok() {
             let _ = app.emit("library", game);
         }
-        // A finished job frees its game for the other lanes.
+        // A finished job frees its games for the other lanes.
         self.ring();
         background
     }
@@ -1891,7 +1911,7 @@ mod tests {
             model: "writer".to_owned(),
         };
         assert_eq!(task.lane(), Lane::Network);
-        assert_eq!(task.app_id(), None);
+        assert_eq!(task.games(), Vec::<u32>::new());
         assert_eq!(
             serde_json::to_value(&task).unwrap(),
             serde_json::json!({"kind": "fetch_model", "model": "writer"})
@@ -2283,5 +2303,297 @@ mod tests {
         assert_eq!(thousands(999), "999");
         assert_eq!(thousands(1_000), "1,000");
         assert_eq!(thousands(25_242_117), "25,242,117");
+    }
+
+    fn report(app_ids: Vec<u32>) -> Task {
+        Task::Export {
+            app_ids,
+            to: std::path::PathBuf::from("report.html"),
+        }
+    }
+
+    /// One task of each kind that uses game 7, a report of 8 and 7 among them.
+    fn kinds_on_a_game() -> Vec<Task> {
+        vec![
+            Task::Download { app_id: 7 },
+            Task::Update { app_id: 7 },
+            read(7),
+            Task::Recount { app_id: 7 },
+            Task::Prepare { app_id: 7 },
+            Task::ExportData {
+                app_id: 7,
+                to: std::path::PathBuf::from("data"),
+            },
+            report(vec![8, 7]),
+        ]
+    }
+
+    fn kinds_of_no_game() -> Vec<Task> {
+        vec![
+            Task::Check,
+            Task::FetchModel {
+                model: "writer".to_owned(),
+            },
+            report(Vec::new()),
+        ]
+    }
+
+    /// Sets a job's state by hand, as a board in the middle of its work has it.
+    fn set_state(work: &Work, id: u64, state: State) {
+        work.lock()
+            .jobs
+            .iter_mut()
+            .find(|job| job.id == id)
+            .unwrap()
+            .state = state;
+    }
+
+    fn taken(work: &Work, lane: Lane) -> Option<u64> {
+        work.take(lane).map(|(id, _, _)| id)
+    }
+
+    #[test]
+    fn a_report_and_an_update_of_a_game_in_it_never_run_at_once() {
+        let updating = Work::default();
+        put(&updating, Task::Update { app_id: 7 }, false);
+        updating.take(Lane::Network).unwrap();
+        put(&updating, report(vec![7, 8]), false);
+        let report_during_update = taken(&updating, Lane::Files);
+
+        let reporting = Work::default();
+        put(&reporting, report(vec![7, 8]), false);
+        reporting.take(Lane::Files).unwrap();
+        put(&reporting, Task::Update { app_id: 7 }, false);
+        let update_during_report = taken(&reporting, Lane::Network);
+
+        assert_eq!(
+            (report_during_update, update_during_report),
+            (None, None),
+            "a report reads every game in its list, so neither starts while the other runs"
+        );
+    }
+
+    #[test]
+    fn two_jobs_on_one_game_run_one_after_the_other_whatever_their_kinds() {
+        let kinds = kinds_on_a_game();
+        for (at, first) in kinds.iter().enumerate() {
+            for (other, second) in kinds.iter().enumerate() {
+                if at == other {
+                    continue;
+                }
+                let board = |first_state: Option<State>| {
+                    let work = Work::default();
+                    let started = put(&work, first.clone(), false);
+                    assert_eq!(taken(&work, first.lane()), Some(started));
+                    if let Some(state) = first_state {
+                        set_state(&work, started, state);
+                    }
+                    let id = put(&work, second.clone(), false);
+                    (taken(&work, second.lane()), id)
+                };
+                assert_eq!(board(None).0, None, "{first:?} running, {second:?} put");
+                for ended in [State::Done, State::Failed, State::Stopped] {
+                    let (got, id) = board(Some(ended));
+                    assert_eq!(got, Some(id), "{first:?} {ended:?}, {second:?} put");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_job_waits_for_every_waiting_job_queued_before_it_on_its_games() {
+        let work = Work::default();
+        put(&work, Task::Download { app_id: 9 }, false);
+        put(&work, Task::Download { app_id: 7 }, false);
+        put(&work, read(7), false);
+        assert_eq!(taken(&work, Lane::Machine), None);
+    }
+
+    /// Whether two tasks have a game in common.
+    fn share_a_game(a: &Task, b: &Task) -> bool {
+        a.games().iter().any(|game| b.games().contains(game))
+    }
+
+    #[test]
+    fn every_order_of_three_jobs_keeps_each_game_to_one_job_in_the_order_queued() {
+        let mut all = kinds_on_a_game();
+        all.extend(kinds_of_no_game());
+        let mut orders = 0;
+        for a in 0..all.len() {
+            for b in (0..all.len()).filter(|&b| b != a) {
+                for c in (0..all.len()).filter(|&c| c != a && c != b) {
+                    orders += 1;
+                    let tasks = [all[a].clone(), all[b].clone(), all[c].clone()];
+                    walk(&tasks);
+                }
+            }
+        }
+        assert_eq!(orders, 720);
+    }
+
+    /// A board of these tasks put in order, each job in the state given.
+    fn board_at(tasks: &[Task; 3], states: &[State]) -> (Work, Vec<u64>) {
+        let work = Work::default();
+        let ids: Vec<u64> = tasks
+            .iter()
+            .zip(states)
+            .map(|(task, &state)| {
+                let id = put(&work, task.clone(), false);
+                set_state(&work, id, state);
+                id
+            })
+            .collect();
+        (work, ids)
+    }
+
+    fn states_of(work: &Work, ids: &[u64]) -> Vec<State> {
+        ids.iter().map(|&id| job(work, id).state).collect()
+    }
+
+    /// Tries every move from every position three jobs can reach, each position on a fresh board.
+    fn walk(tasks: &[Task; 3]) {
+        let mut seen = Vec::new();
+        let mut ahead = vec![vec![State::Queued; 3]];
+        while let Some(states) = ahead.pop() {
+            if seen.contains(&states) {
+                continue;
+            }
+            seen.push(states.clone());
+            let mut moves = Vec::new();
+            for lane in LANES {
+                let lane_busy = tasks
+                    .iter()
+                    .zip(&states)
+                    .any(|(task, &state)| task.lane() == lane && state == State::Running);
+                if lane_busy {
+                    continue;
+                }
+                let (work, ids) = board_at(tasks, &states);
+                let Some(started) = taken(&work, lane) else {
+                    continue;
+                };
+                let at = ids.iter().position(|&id| id == started).unwrap();
+                for (other, &state) in states.iter().enumerate().filter(|&(other, _)| other != at) {
+                    let clash = share_a_game(&tasks[at], &tasks[other]);
+                    assert!(
+                        !(clash
+                            && (state == State::Running || (other < at && state == State::Queued))),
+                        "{:?} started beside {:?} ({state:?}) from {states:?}",
+                        tasks[at],
+                        tasks[other]
+                    );
+                }
+                moves.push(states_of(&work, &ids));
+            }
+            for at in (0..3).filter(|&at| states[at] == State::Running) {
+                let (work, ids) = board_at(tasks, &states);
+                set_state(&work, ids[at], State::Done);
+                moves.push(states_of(&work, &ids));
+            }
+            if moves.is_empty() {
+                assert_eq!(states, vec![State::Done; 3], "stuck for {tasks:?}");
+            }
+            ahead.extend(moves);
+        }
+    }
+
+    #[test]
+    fn a_job_of_no_game_waits_for_no_game_and_holds_none() {
+        let work = Work::default();
+        for task in kinds_on_a_game() {
+            let id = put(&work, task, false);
+            set_state(&work, id, State::Running);
+        }
+        for task in kinds_of_no_game() {
+            put(&work, task, false);
+        }
+        let started = [
+            taken(&work, Lane::Network),
+            taken(&work, Lane::Network),
+            taken(&work, Lane::Files),
+        ];
+        assert!(started.iter().all(Option::is_some), "{started:?}");
+
+        for kind in kinds_on_a_game() {
+            let work = Work::default();
+            for task in kinds_of_no_game() {
+                let id = put(&work, task, false);
+                set_state(&work, id, State::Running);
+            }
+            let id = put(&work, kind.clone(), false);
+            assert_eq!(taken(&work, kind.lane()), Some(id), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn a_report_listing_a_game_twice_starts_and_holds_it() {
+        let work = Work::default();
+        let both = put(&work, report(vec![7, 7]), false);
+        assert_eq!(taken(&work, Lane::Files), Some(both));
+        put(&work, Task::Update { app_id: 7 }, false);
+        assert_eq!(taken(&work, Lane::Network), None);
+    }
+
+    #[test]
+    fn a_task_names_a_game_only_where_it_uses_exactly_one() {
+        assert_eq!(read(7).one_game(), Some(7));
+        assert_eq!(report(vec![7]).one_game(), Some(7));
+        assert_eq!(report(vec![7, 8]).one_game(), None);
+        assert_eq!(report(vec![7, 7]).one_game(), None);
+        assert_eq!(report(Vec::new()).one_game(), None);
+        assert_eq!(Task::Check.one_game(), None);
+
+        let work = Work::default();
+        let ids: Vec<u64> = [vec![7], vec![7, 8], vec![7, 7]]
+            .into_iter()
+            .map(|games| put(&work, report(games), false))
+            .collect();
+        work.lock().name(7, "Alpha");
+        let names: Vec<String> = ids.iter().map(|&id| job(&work, id).name).collect();
+        assert_eq!(names, ["Alpha", "", ""]);
+    }
+
+    #[test]
+    fn a_waiting_report_taken_off_the_board_lets_go_of_every_game_in_it() {
+        let work = Work::default();
+        put(&work, Task::Update { app_id: 7 }, false);
+        assert!(work.take(Lane::Network).is_some());
+        let both = put(&work, report(vec![7, 8]), false);
+        let held = put(&work, read(8), false);
+        assert_eq!(taken(&work, Lane::Machine), None);
+        work.stop(both);
+        assert_eq!(taken(&work, Lane::Machine), Some(held));
+    }
+
+    #[test]
+    fn a_game_is_busy_while_a_job_that_uses_it_waits_or_runs() {
+        for task in kinds_on_a_game() {
+            for ended in [State::Done, State::Failed, State::Stopped] {
+                let work = Work::default();
+                let id = put(&work, task.clone(), false);
+                assert_eq!(
+                    work.busy(7).as_deref(),
+                    Some("This game is busy: waiting."),
+                    "{task:?}"
+                );
+                assert_eq!(taken(&work, task.lane()), Some(id));
+                assert_eq!(
+                    work.busy(7).as_deref(),
+                    Some("This game is busy: starting."),
+                    "{task:?}"
+                );
+                set_state(&work, id, ended);
+                assert_eq!(work.busy(7), None, "{task:?} {ended:?}");
+            }
+        }
+        let work = Work::default();
+        put(&work, report(vec![8, 7]), false);
+        assert_eq!(work.busy(8).as_deref(), Some("This game is busy: waiting."));
+
+        let work = Work::default();
+        for task in kinds_of_no_game() {
+            put(&work, task, false);
+        }
+        assert_eq!((work.busy(7), work.busy(8)), (None, None));
     }
 }

@@ -230,7 +230,7 @@ fn work_as_asked(board: Vec<work::Job>, asked: &WorkAsked) -> serde_json::Value 
         .filter(|job| {
             asked
                 .app_id
-                .is_none_or(|app_id| job.task.app_id() == Some(app_id))
+                .is_none_or(|app_id| job.task.games().contains(&app_id))
         })
         .collect();
     let given = if asked.app_id.is_some() {
@@ -1191,11 +1191,10 @@ mod tests {
         assert!(one.get("who").is_some() && one.get("months").is_none());
     }
 
-    #[test]
-    fn the_board_gives_every_running_job_and_ten_of_each_other_state_unless_asked() {
-        let job = |id: u64, app_id: u32, state: work::State, ended: Option<i64>| work::Job {
+    fn board_job(id: u64, task: work::Task, state: work::State, ended: Option<i64>) -> work::Job {
+        work::Job {
             id,
-            task: work::Task::Download { app_id },
+            task,
             name: String::new(),
             state,
             step: String::new(),
@@ -1209,6 +1208,47 @@ mod tests {
             started: None,
             ended,
             background: false,
+        }
+    }
+
+    #[test]
+    fn the_board_asked_about_a_game_gives_a_report_that_lists_it() {
+        let report = board_job(
+            1,
+            work::Task::Export {
+                app_ids: vec![3, 4],
+                to: std::path::PathBuf::from("report.html"),
+            },
+            work::State::Queued,
+            None,
+        );
+        let download = board_job(
+            2,
+            work::Task::Download { app_id: 4 },
+            work::State::Queued,
+            None,
+        );
+        let ids_for = |app_id| -> Vec<u64> {
+            let asked = WorkAsked {
+                app_id: Some(app_id),
+                jobs: None,
+            };
+            work_as_asked(vec![report.clone(), download.clone()], &asked)["jobs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|job| job["id"].as_u64().unwrap())
+                .collect()
+        };
+        assert_eq!(ids_for(3), [1]);
+        assert_eq!(ids_for(4), [1, 2]);
+        assert_eq!(ids_for(5), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn the_board_gives_every_running_job_and_ten_of_each_other_state_unless_asked() {
+        let job = |id: u64, app_id: u32, state: work::State, ended: Option<i64>| {
+            board_job(id, work::Task::Download { app_id }, state, ended)
         };
         let mut board: Vec<work::Job> = (0..12)
             .map(|id| job(id, 1, work::State::Running, None))
