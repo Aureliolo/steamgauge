@@ -671,8 +671,8 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(spared[0].why, "removing [7, 8], held [7, 8]");
-        assert!(busy.is_empty());
-        assert!(work.hold(&[7, 8]).1.is_empty());
+        assert_eq!(busy, Vec::new());
+        assert_eq!(work.hold(&[7, 8]).1, Vec::new());
     }
 
     #[test]
