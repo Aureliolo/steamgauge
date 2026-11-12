@@ -358,9 +358,9 @@ pub fn embed_corpus(
     // Batch size belongs with the vectors, not in a shell history. The int8 model is not
     // batch-invariant, so two corpora embedded at different batch sizes are not strictly
     // comparable, and a reader has no other way to find out.
-    std::fs::write(
-        snapshot.join(vectors_sidecar(unit)),
-        serde_json::to_vec_pretty(&serde_json::json!({
+    crate::whole_file::write(
+        &snapshot.join(vectors_sidecar(unit)),
+        &serde_json::to_vec_pretty(&serde_json::json!({
             "model": embedder.encoder().id(),
             "precision": embedder.precision().as_str(),
             "dimensions": embedder.dimensions(),

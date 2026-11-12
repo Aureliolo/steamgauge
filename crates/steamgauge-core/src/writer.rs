@@ -591,7 +591,7 @@ impl Choice {
     ///
     /// Fails if the file cannot be written.
     pub fn save(self, dir: &Path) -> Result<()> {
-        std::fs::write(dir.join(CHOICE_FILE), serde_json::to_vec_pretty(&self)?)?;
+        crate::whole_file::write(&dir.join(CHOICE_FILE), &serde_json::to_vec_pretty(&self)?)?;
         Ok(())
     }
 }
@@ -650,9 +650,7 @@ impl Paragraph {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, snapshot: &Path) -> Result<()> {
-        let partial = snapshot.join(format!("{FILE}.partial"));
-        std::fs::write(&partial, serde_json::to_vec(self)?)?;
-        std::fs::rename(partial, snapshot.join(FILE))?;
+        crate::whole_file::write(&snapshot.join(FILE), &serde_json::to_vec(self)?)?;
         Ok(())
     }
 }
@@ -846,6 +844,17 @@ mod tests {
         assert!(!Choice::load(dir.path()).write);
         Choice { write: true }.save(dir.path()).unwrap();
         assert!(Choice::load(dir.path()).write);
+    }
+
+    #[test]
+    fn a_writer_choice_that_cannot_be_written_whole_leaves_the_one_before() {
+        let dir = crate::tempdir::Dir::new();
+        Choice { write: true }.save(dir.path()).unwrap();
+        let before = std::fs::read(dir.path().join(CHOICE_FILE)).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&dir.path().join(CHOICE_FILE))).unwrap();
+
+        assert!(Choice { write: false }.save(dir.path()).is_err());
+        assert_eq!(std::fs::read(dir.path().join(CHOICE_FILE)).unwrap(), before);
     }
 
     #[test]

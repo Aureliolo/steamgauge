@@ -239,7 +239,10 @@ pub fn write_set_handing_out<S: std::hash::BuildHasher>(
         )?;
     }
     std::fs::create_dir_all(dir)?;
-    std::fs::write(dir.join("sample.json"), serde_json::to_vec_pretty(&drawn)?)?;
+    crate::whole_file::write(
+        &dir.join("sample.json"),
+        &serde_json::to_vec_pretty(&drawn)?,
+    )?;
     let to_hand_out: Vec<&DrawnReview> = drawn
         .iter()
         .filter(|review| !answered.contains(&review.id))
@@ -284,9 +287,9 @@ pub fn write_set_handing_out<S: std::hash::BuildHasher>(
                         .collect(),
                 })
                 .collect();
-            std::fs::write(
-                batches.join(format!("batch-{index:03}.json")),
-                serde_json::to_vec_pretty(&items)?,
+            crate::whole_file::write(
+                &batches.join(format!("batch-{index:03}.json")),
+                &serde_json::to_vec_pretty(&items)?,
             )?;
             written += 1;
         }
@@ -1063,9 +1066,7 @@ pub fn keep_reviews(game: &Path, reviews: impl IntoIterator<Item = KeptReview>) 
         body.push(b'\n');
     }
     std::fs::create_dir_all(game)?;
-    let partial = game.join(format!("{REVIEWS}.partial"));
-    std::fs::write(&partial, body)?;
-    std::fs::rename(&partial, game.join(REVIEWS))?;
+    crate::whole_file::write(&game.join(REVIEWS), &body)?;
     Ok(new)
 }
 
@@ -1404,7 +1405,10 @@ pub fn ingest_revisit(dir: &Path, from: &Path, by: &str) -> Result<ClaimIngest> 
         }
     }
 
-    std::fs::write(dir.join("labels.json"), serde_json::to_vec_pretty(&labels)?)?;
+    crate::whole_file::write(
+        &dir.join("labels.json"),
+        &serde_json::to_vec_pretty(&labels)?,
+    )?;
     report.moved = changed;
     Ok(report)
 }
@@ -1545,7 +1549,10 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         )));
     }
 
-    std::fs::write(dir.join("labels.json"), serde_json::to_vec_pretty(&labels)?)?;
+    crate::whole_file::write(
+        &dir.join("labels.json"),
+        &serde_json::to_vec_pretty(&labels)?,
+    )?;
     Ok((labels, report))
 }
 

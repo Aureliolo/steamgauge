@@ -125,9 +125,7 @@ fn name_files(snapshot: &Path) -> Result<bool> {
             continue;
         };
         *named = Value::from(files);
-        let mut partial = file.clone().into_os_string();
-        partial.push(".partial");
-        let partial = PathBuf::from(partial);
+        let partial = crate::whole_file::beside(&file);
         std::fs::write(&partial, serde_json::to_vec(&record)?)?;
         replace_keeping_time(&partial, &file)?;
         changed = true;
@@ -173,7 +171,7 @@ fn bring_reading(snapshot: &Path, brought: &mut Brought) -> Result<()> {
         false
     };
     if dated || renamed {
-        let partial = snapshot.join("reading.json.partial");
+        let partial = crate::whole_file::beside(&path);
         std::fs::write(&partial, serde_json::to_vec_pretty(&reading)?)?;
         replace_keeping_time(&partial, &path)?;
         if dated {
@@ -482,7 +480,7 @@ mod tests {
             std::fs::metadata(&reading).unwrap().modified().unwrap(),
             UNIX_EPOCH + Duration::from_secs(1_700_000_000)
         );
-        assert!(!snapshot.join("reading.json.partial").exists());
+        assert!(!crate::whole_file::beside(&reading).exists());
         let stored: Value = serde_json::from_slice(&std::fs::read(&reading).unwrap()).unwrap();
         assert!(stored.get("held_out").is_some() && stored.get("frozen").is_none());
     }
@@ -593,7 +591,7 @@ mod tests {
                 crate::read::ReadReport::load(snapshot).unwrap().read_unix,
                 1_700_000_000
             );
-            assert!(!snapshot.join("reading.json.partial").exists());
+            assert!(!crate::whole_file::beside(&snapshot.join("reading.json")).exists());
         }
 
         assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
@@ -625,7 +623,7 @@ mod tests {
         edit_reading(&snapshot, |fields| {
             fields.remove("read_unix");
         });
-        std::fs::create_dir(snapshot.join("reading.json.partial")).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&snapshot.join("reading.json"))).unwrap();
         let before = std::fs::read(snapshot.join("reading.json")).unwrap();
 
         let brought = bring_library(out.path()).unwrap();
@@ -773,6 +771,22 @@ mod tests {
     }
 
     #[test]
+    fn a_record_by_name_that_cannot_be_written_whole_is_left_as_it_was() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        by_name(&snapshot);
+        let record = snapshot.join("meaning").join("meaning.json");
+        let before = std::fs::read(&record).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&record)).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.named, Vec::<PathBuf>::new());
+        assert_eq!(brought.failed.len(), 1, "{brought:?}");
+        assert_eq!(brought.failed[0].0, snapshot);
+        assert_eq!(std::fs::read(&record).unwrap(), before);
+    }
+
+    #[test]
     fn records_by_name_are_brought_whatever_became_of_their_reading() {
         let out = crate::tempdir::Dir::new();
         let reviews = [review("1", "Bugs everywhere.")];
@@ -887,9 +901,7 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let content = serde_json::json!({ field: by }).to_string();
         std::fs::write(&path, &content).unwrap();
-        let mut partial = path.clone().into_os_string();
-        partial.push(".partial");
-        std::fs::create_dir(&partial).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&path)).unwrap();
 
         let brought = bring_library(out.path()).unwrap();
         assert_eq!(brought.named, Vec::<PathBuf>::new());

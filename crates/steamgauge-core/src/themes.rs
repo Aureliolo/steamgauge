@@ -194,9 +194,7 @@ impl Themes {
     ///
     /// Fails if the file cannot be written.
     pub fn save(&self, snapshot: &Path) -> Result<()> {
-        let partial = snapshot.join(format!("{FILE}.partial"));
-        std::fs::write(&partial, serde_json::to_vec(self)?)?;
-        std::fs::rename(partial, snapshot.join(FILE))?;
+        crate::whole_file::write(&snapshot.join(FILE), &serde_json::to_vec(self)?)?;
         Ok(())
     }
 }

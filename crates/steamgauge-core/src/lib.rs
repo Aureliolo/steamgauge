@@ -54,6 +54,7 @@ pub mod time;
 mod tiny_model;
 pub mod updates;
 pub mod who;
+pub mod whole_file;
 pub mod writer;
 
 pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};

@@ -1445,7 +1445,7 @@ fn run_ingest_induced(
         induced_by: returned.induced_by,
         subjects: kept,
     };
-    std::fs::write(&path, serde_json::to_vec_pretty(&survived)?)?;
+    steamgauge_core::whole_file::write(&path, &serde_json::to_vec_pretty(&survived)?)?;
     println!("written to   {}", path.display());
     Ok(())
 }
@@ -2881,7 +2881,10 @@ fn file_gold(
     // that changed and nothing else.
     given.sort_by(|a, b| (&a.review_id, a.index).cmp(&(&b.review_id, b.index)));
     std::fs::create_dir_all(&out)?;
-    std::fs::write(out.join("labels.json"), serde_json::to_vec_pretty(&given)?)?;
+    steamgauge_core::whole_file::write(
+        &out.join("labels.json"),
+        &serde_json::to_vec_pretty(&given)?,
+    )?;
     Ok(given.len())
 }
 
@@ -3140,7 +3143,7 @@ fn run_distinct(
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(&path, serde_json::to_vec_pretty(&drawn)?)?;
+    steamgauge_core::whole_file::write(&path, &serde_json::to_vec_pretty(&drawn)?)?;
 
     let mut languages: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for review in &drawn {

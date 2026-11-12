@@ -479,7 +479,7 @@ impl ReadReport {
     ///
     /// Fails if the snapshot cannot be written to.
     pub fn save(&self, path: &Path) -> Result<()> {
-        std::fs::write(path, serde_json::to_vec_pretty(self)?)?;
+        crate::whole_file::write(path, &serde_json::to_vec_pretty(self)?)?;
         Ok(())
     }
 }
@@ -2353,6 +2353,22 @@ pub(crate) mod tests {
         let again = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
         let clock = crate::report::now_unix();
         assert!((again.read_unix - clock).abs() <= 5, "{}", again.read_unix);
+    }
+
+    #[test]
+    fn a_reading_that_cannot_be_written_whole_leaves_the_one_before() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        let path = snapshot.join("reading.json");
+        let mut model = Table::new(false);
+        let mut report = read_with(&mut model, 1, &options(out.path()), |_| {}).unwrap();
+        report.save(&path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(&path)).unwrap();
+        report.read_with = "another-run".to_owned();
+
+        assert!(report.save(&path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
     }
 
     #[test]
