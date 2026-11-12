@@ -48,6 +48,11 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   newest edit on the first page Steam served it. It writes no copy a recorded sweep already holds.
   A sweep asks Steam its totals before it walks, so a sweep refused them writes no file.
 - Every file is written beside its place and renamed when whole.
+  A job that writes in a game's folder holds a shared lock on its `writing.lock` meanwhile, and
+  removes its own unfinished or replaced files under that hold.
+  A removal the person asks for, of a game or a part of it, takes that lock alone, is refused
+  while a job holds it and leaves every lock file. Across every game, a refused game is left and
+  named.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
   A crawl and a name lookup read and write it under the sweep's lock, and are refused while
   another job holds it.

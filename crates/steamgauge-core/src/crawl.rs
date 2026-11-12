@@ -125,6 +125,7 @@ fn coverage_of(unique: u64, valve_total: u64) -> Option<f64> {
 /// write its record. The crawl is resumed by the next run, which writes it.
 /// [`crate::Error::Refused`] at once while another crawl of the game runs, in this program or
 /// another. It asks Steam nothing.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub async fn crawl(
     client: &SteamClient,
     app_id: u32,
@@ -135,6 +136,7 @@ pub async fn crawl(
     let game = options.out_dir.join(format!("appid={app_id}"));
     std::fs::create_dir_all(&game)?;
     let crawl_lock = take_lock(&game.join(CRAWL_LOCK), app_id)?;
+    let _writing = crate::lock_file::writing_in(&game)?;
     let state = Arc::new(CrawlState::open(&options.out_dir.join("state.sqlite"))?);
 
     let summary = client.summary(app_id).await?;
@@ -684,6 +686,7 @@ const SWEEP_SLACK: i64 = 24 * 60 * 60;
 /// Fails if the capture is missing, the network does, or the files cannot be written.
 /// [`crate::Error::Refused`] while another job holds the capture's lock, in this program or
 /// another.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub async fn sweep(
     client: &SteamClient,
     app_id: u32,
@@ -691,6 +694,7 @@ pub async fn sweep(
     stop: &std::sync::atomic::AtomicBool,
     mut on_progress: impl FnMut(SweepProgress),
 ) -> Result<SweepReport> {
+    let _writing = crate::lock_file::writing_in(&out_dir.join(format!("appid={app_id}")))?;
     let begun = Instant::now();
     let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
     // Held in a binding until the record is written: `_` would let go at once.
@@ -815,6 +819,18 @@ const SWEEP_LOCK: &str = "sweep.lock";
 /// does.
 const CRAWL_LOCK: &str = "crawl.lock";
 
+/// Takes a game's folder for a removal of its files. Refused while any job writes there, in this
+/// program or another.
+///
+/// # Errors
+///
+/// [`crate::Error::Refused`] while a job writes in the game.
+pub fn lock_for_removal(out_dir: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
+    let game = out_dir.join(format!("appid={app_id}"));
+    std::fs::create_dir_all(&game)?;
+    take_lock(&game.join(crate::lock_file::WRITING_LOCK), app_id)
+}
+
 /// Takes the lock on `file`, or refuses where another handle holds it, in this program or another.
 /// The system lets go when the file is dropped or the program ends.
 fn take_lock(file: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
@@ -859,11 +875,13 @@ fn write_facts(dir: &std::path::Path, facts: &Value) -> Result<()> {
 /// Fails if there is no capture or its crawl record cannot be read or written.
 /// [`crate::Error::Refused`] where another job holds the capture's lock once the store has
 /// answered.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub async fn name_where_missing(
     client: &SteamClient,
     out_dir: &std::path::Path,
     app_id: u32,
 ) -> Result<Option<String>> {
+    let _writing = crate::lock_file::writing_in(&out_dir.join(format!("appid={app_id}")))?;
     let dir = crate::embed::latest_snapshot(out_dir, app_id)?;
     let first: Value = serde_json::from_slice(&std::fs::read(dir.join("crawl.json"))?)?;
     if has_name(&first) {
@@ -2725,6 +2743,31 @@ mod tests {
         let landed = sweeping(&server, APP, out.path()).await.unwrap();
         assert_eq!((landed.rows, landed.new), (1, 1));
         assert!(dir.join(SWEEP_LOCK).exists());
+    }
+
+    #[tokio::test]
+    async fn a_crawl_a_sweep_and_a_name_lookup_are_refused_while_their_games_files_are_removed() {
+        let out = crate::tempdir::Dir::new();
+        let dir = captured(
+            out.path(),
+            &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
+        );
+        let server = stand_in::Server::new(edits(one_new_review(), 3));
+        let before = std::fs::read(dir.join("crawl.json")).unwrap();
+        let removal = lock_for_removal(out.path(), APP).unwrap();
+
+        let crawled = crawl(&client_of(&server), APP, &options(out.path()), |_| {}).await;
+        let swept = sweeping(&server, APP, out.path()).await;
+        let named = name_where_missing(&client_of(&server), out.path(), APP).await;
+        for refused in [crawled.map(|_| ()), swept.map(|_| ()), named.map(|_| ())] {
+            assert!(
+                matches!(&refused, Err(crate::Error::Refused(said)) if said.contains("being removed")),
+                "{refused:?}"
+            );
+        }
+        assert!(server.asked().is_empty());
+        assert_eq!(std::fs::read(dir.join("crawl.json")).unwrap(), before);
+        drop(removal);
     }
 
     #[tokio::test]

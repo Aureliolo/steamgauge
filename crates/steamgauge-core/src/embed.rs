@@ -281,6 +281,7 @@ impl EmbedReport {
 /// # Errors
 ///
 /// Fails if no capture exists, or if reading, embedding or writing fails.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub fn embed_corpus(
     embedder: &mut Embedder,
     out_dir: &Path,
@@ -289,6 +290,7 @@ pub fn embed_corpus(
     unit: crate::taxonomy::Unit,
     mut on_progress: impl FnMut(EmbedProgress),
 ) -> Result<EmbedReport> {
+    let _writing = crate::lock_file::writing_in(&out_dir.join(format!("appid={app_id}")))?;
     let started = Instant::now();
     let snapshot = latest_snapshot(out_dir, app_id)?;
     let (mut counts, reviews) = text_counts(&snapshot, unit)?;
@@ -1220,6 +1222,27 @@ mod tests {
 
         embed_reviews(&mut embedder, out.path()).unwrap_err();
         assert!(!snapshot.join("embeddings.parquet").exists());
+    }
+
+    #[test]
+    fn a_preparation_is_refused_while_its_games_files_are_removed() {
+        let out = crate::tempdir::Dir::new();
+        let cache = out.path().join("models");
+        tiny_encoder(&cache, Encoder::E5Small, model::Precision::Float16, false);
+        let mut embedder =
+            Embedder::load(&cache, Encoder::E5Small, model::Precision::Float16).unwrap();
+        let snapshot = capture(out.path(), &[("r1", "good game")]);
+        let removal = crate::crawl::lock_for_removal(out.path(), APP).unwrap();
+
+        let refused = embed_reviews(&mut embedder, out.path());
+        assert!(
+            matches!(&refused, Err(Error::Refused(said)) if said.contains("being removed")),
+            "{refused:?}"
+        );
+        assert!(!snapshot.join("embeddings.parquet").exists());
+        let left = left_beside(&snapshot);
+        assert!(left.is_empty(), "{left:?}");
+        drop(removal);
     }
 
     #[test]

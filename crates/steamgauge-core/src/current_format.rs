@@ -57,7 +57,8 @@ const WRITER_BY_GRAPH: (&str, &str) = (
 ///
 /// Fails if the library cannot be listed. A reading that cannot be brought does not stop the
 /// rest: one the current format cannot express is removed and listed in [`Brought::removed`],
-/// and one that cannot be read or written is listed in [`Brought::failed`].
+/// and one that cannot be read or written is listed in [`Brought::failed`], as is a game whose
+/// files are being removed.
 pub fn bring_library(library: &Path) -> Result<Brought> {
     let mut brought = Brought::default();
     let Ok(games) = std::fs::read_dir(library) else {
@@ -72,9 +73,16 @@ pub fn bring_library(library: &Path) -> Result<Brought> {
         {
             continue;
         }
+        // Held until the game is brought, so a removal waits for the whole of it.
+        let _writing = match crate::lock_file::writing_in(&game) {
+            Ok(held) => held,
+            Err(refused) => {
+                brought.failed.push((game, refused.to_string()));
+                continue;
+            }
+        };
         for snapshot in std::fs::read_dir(&game)? {
             let snapshot = snapshot?.path();
-            // Before the reading, which a record by name outlives however the reading goes.
             // Before the reading, which a record by name outlives however the reading goes.
             match name_files(&snapshot) {
                 Ok(true) => brought.named.push(snapshot.clone()),
@@ -291,6 +299,30 @@ mod tests {
         crate::read::for_each_reading(&snapshot.join("readings.parquet"), |_, _, _, _, _| {})
             .unwrap();
         assert_eq!(bring_library(out.path()).unwrap(), Brought::default());
+    }
+
+    #[test]
+    fn a_game_being_removed_is_left_unbrought() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = read_these(out.path(), 1, &[review("1", "Bugs everywhere.")]);
+        unkey_readings(&snapshot);
+        let before = std::fs::read(snapshot.join("readings.parquet")).unwrap();
+        let removal = crate::crawl::lock_for_removal(out.path(), 1).unwrap();
+
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.failed.len(), 1, "{brought:?}");
+        assert_eq!(brought.failed[0].0, snapshot.parent().unwrap());
+        assert!(brought.failed[0].1.contains("being removed"), "{brought:?}");
+        assert_eq!((brought.keyed.len(), brought.removed.len()), (0, 0));
+        assert_eq!(
+            std::fs::read(snapshot.join("readings.parquet")).unwrap(),
+            before
+        );
+        assert!(snapshot.join("reading.json").is_file());
+
+        drop(removal);
+        let brought = bring_library(out.path()).unwrap();
+        assert_eq!(brought.keyed, std::slice::from_ref(&snapshot));
     }
 
     #[test]
