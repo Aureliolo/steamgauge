@@ -157,7 +157,21 @@ function setUpStorage({ openGame }) {
     try {
       found = await invoke(command, args);
       draw();
-      set(el('storage-note'), done);
+      const spared = found.spared ?? [];
+      if (spared.length === 0) {
+        set(el('storage-note'), done);
+      } else {
+        el('storage-note').classList.add('bad');
+        set(
+          el('storage-note'),
+          spared
+            .map((one) => {
+              const name = found.games.find((game) => game.app_id === one.app_id)?.name;
+              return `Not removed from ${name ?? `app ${one.app_id}`}: ${one.why}`;
+            })
+            .join('\n'),
+        );
+      }
     } catch (failure) {
       el('storage-note').classList.add('bad');
       set(el('storage-note'), String(failure));

@@ -629,10 +629,24 @@ const PROBE = `(async function () {
     /Alpha/.test(document.querySelector('#game-rooms .room').textContent));
   check('storage does not list the models', document.querySelectorAll('#model-rooms .room').length === 4);
   check('the library\\'s place goes unsaid', /AppData/.test($('#storage-library').textContent));
-  var earlier = Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {
-    return /Earlier downloads/.test(row.textContent); });
-  earlier.querySelector('button').click();
+  var earlierRow = function () {
+    return Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {
+      return /Earlier downloads/.test(row.textContent); });
+  };
+  window.__stub.spare(1);
+  window.__stub.spare(2);
+  earlierRow().querySelector('button').click();
   await pause(250);
+  var spareNote = $('#storage-note');
+  check('a removal across every game does not name each game it left',
+    /^Not removed from Alpha: .+\\nNot removed from Beta: .+$/.test(spareNote.textContent) &&
+    spareNote.classList.contains('bad') && !/removed from every game/.test(spareNote.textContent) &&
+    getComputedStyle(spareNote).whiteSpace === 'pre-line');
+  check('a game left keeps its earlier downloads listed', earlierRow() !== null);
+  earlierRow().querySelector('button').click();
+  await pause(250);
+  check('a removal that leaves no game does not say it is done',
+    spareNote.textContent === 'Earlier downloads removed from every game.' && !spareNote.classList.contains('bad'));
   check('removing earlier downloads everywhere is not asked of the core',
     last('free_room') && last('free_room').args.appId === null && last('free_room').args.what === 'earlier');
   check('a part with nothing left in it is still listed', !/Earlier downloads/.test($('#parts').textContent));

@@ -604,8 +604,11 @@ const STUB_DELTA_SEARCH = /delta/iu;
       model_rooms: models.map((model) => ({ ...model })),
       models: 'C:\\Users\\someone\\AppData\\Local\\steamgauge\\models',
       parts,
+      spared: [],
     };
   };
+  // Games the next removal across every game leaves alone, as a game with an unfinished download is.
+  let sparing = [];
   let board = [];
   let nextJob = 100;
   // What saving a game's data is refused with, or null where it is not.
@@ -1124,8 +1127,10 @@ const STUB_DELTA_SEARCH = /delta/iu;
         { earlier: ['earlier'], partial: ['partial'], reads: ['reads'], search: ['search'] }[
           what
         ] ?? Object.keys(rooms[0].parts);
+      const left = appId === null ? sparing : [];
+      sparing = [];
       for (const room of rooms) {
-        if (appId !== null && room.app_id !== appId) {
+        if ((appId !== null && room.app_id !== appId) || left.includes(room.app_id)) {
           continue;
         }
         for (const part of parts) {
@@ -1135,7 +1140,13 @@ const STUB_DELTA_SEARCH = /delta/iu;
       if (what === 'game') {
         rooms = rooms.filter((room) => room.app_id !== appId);
       }
-      return storage();
+      return {
+        ...storage(),
+        spared: left.map((id) => ({
+          app_id: id,
+          why: 'a download of this game is unfinished; its earlier download is kept until it completes',
+        })),
+      };
     },
     // Alpha's developer posts updates. Beta was never asked about. Anything else posted none.
     game_updates: ({ appId }) => ({
@@ -1549,6 +1560,10 @@ const STUB_DELTA_SEARCH = /delta/iu;
     settleModels: () => {
       modelsSettled = true;
       send('library', 1);
+    },
+    // The next removal across every game leaves this game alone, once.
+    spare: (appId) => {
+      sparing.push(appId);
     },
     // Alpha's themes found again since its paragraph was written, announced as the job would.
     unwritten: () => {

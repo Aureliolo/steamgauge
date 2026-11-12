@@ -214,6 +214,15 @@ pub(super) struct Storage {
     pub parts: Parts,
     pub games: Vec<GameRoom>,
     pub model_rooms: Vec<ModelRoom>,
+    /// Games the removal that gave this answer left, each with why. Empty after any other call.
+    pub spared: Vec<Spared>,
+}
+
+/// A game a removal left alone, and why.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub(super) struct Spared {
+    pub app_id: u32,
+    pub why: String,
 }
 
 /// The models a computer can hold, each with the folder it lives in.
@@ -345,6 +354,7 @@ fn measure(app: &AppHandle) -> Storage {
             .into_iter()
             .map(|(room, _)| room)
             .collect(),
+        spared: Vec::new(),
     }
 }
 
@@ -359,6 +369,7 @@ pub(super) async fn storage(app: AppHandle) -> Storage {
             parts: Parts::default(),
             games: Vec::new(),
             model_rooms: Vec::new(),
+            spared: Vec::new(),
         })
 }
 
@@ -461,6 +472,30 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
     Ok(())
 }
 
+/// Removes a part from each game. A game that refuses is left and listed, and the rest are done.
+fn remove_from_each(library: &Path, games: &[u32], what: Removal) -> Vec<Spared> {
+    games
+        .iter()
+        .filter_map(|&app_id| {
+            remove_from_game(library, app_id, what)
+                .err()
+                .map(|failure| Spared {
+                    app_id,
+                    why: failure.to_string(),
+                })
+        })
+        .collect()
+}
+
+/// A refused removal from one named game is an error. Across every game, the games left are the
+/// answer.
+fn spared_or_refused(named: Option<u32>, spared: Vec<Spared>) -> Result<Vec<Spared>, String> {
+    match (named, spared.first()) {
+        (Some(_), Some(first)) => Err(first.why.clone()),
+        _ => Ok(spared),
+    }
+}
+
 #[tauri::command]
 pub(super) async fn free_room(
     app: AppHandle,
@@ -483,15 +518,15 @@ pub(super) async fn free_room(
         }
     }
     let removing = targets.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        removing
-            .into_iter()
-            .try_for_each(|app_id| remove_from_game(&library, app_id, what))
+    let spared =
+        tauri::async_runtime::spawn_blocking(move || remove_from_each(&library, &removing, what))
+            .await
+            .map_err(text)?;
+    let spared = spared_or_refused(app_id, spared)?;
+    Ok(Storage {
+        spared,
+        ..storage(app).await
     })
-    .await
-    .map_err(text)?
-    .map_err(text)?;
-    Ok(storage(app).await)
 }
 
 #[tauri::command]
@@ -556,8 +591,8 @@ fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), Strin
 #[cfg(test)]
 mod tests {
     use super::{
-        Part, Parts, Removal, game_parts, is_the_writer, model_busy, part_of, remove_from_game,
-        take_away,
+        Part, Parts, Removal, Spared, game_parts, is_the_writer, model_busy, part_of,
+        remove_from_each, remove_from_game, spared_or_refused, take_away,
     };
     use crate::ui::work::{Job, State, Task, Unit};
     use std::path::{Path, PathBuf};
@@ -685,6 +720,85 @@ mod tests {
         remove_from_game(&scratch.0, 7, Removal::Earlier).unwrap();
         assert!(!scratch.0.join("appid=7/snapshot=100").exists());
         assert_eq!(game_parts(&scratch.0, 7).reviews, 111);
+    }
+
+    /// Games 7, 8 and 9 with an earlier and a newer download each, and a crawl open on game 8.
+    fn three_games(library: &Path, unfinished: &[u32]) {
+        for app_id in [7, 8, 9] {
+            let game = library.join(format!("appid={app_id}"));
+            file(&game.join("snapshot=100/shard-0000.parquet"), 50);
+            file(&game.join("snapshot=200/shard-0000.parquet"), 100);
+        }
+        let state =
+            steamgauge_core::state::CrawlState::open(&library.join("state.sqlite")).unwrap();
+        for &app_id in unfinished {
+            state.begin_crawl(app_id, 200, "", 0).unwrap();
+        }
+    }
+
+    fn earlier_files(library: &Path, app_id: u32) -> usize {
+        let mut found = Vec::new();
+        super::files_under(
+            &library.join(format!("appid={app_id}/snapshot=100")),
+            &mut found,
+        );
+        found.len()
+    }
+
+    #[test]
+    fn one_spared_game_does_not_stop_the_rest() {
+        let scratch = Scratch::new("one-spared");
+        three_games(&scratch.0, &[8]);
+        let spared = remove_from_each(&scratch.0, &[7, 8, 9], Removal::Earlier);
+        assert_eq!(spared.len(), 1);
+        assert_eq!(spared[0].app_id, 8);
+        assert!(spared[0].why.contains("is unfinished"));
+        assert_eq!(earlier_files(&scratch.0, 7), 0);
+        assert_eq!(earlier_files(&scratch.0, 8), 1);
+        assert_eq!(earlier_files(&scratch.0, 9), 0);
+    }
+
+    #[test]
+    fn no_game_left_gives_an_empty_list() {
+        let scratch = Scratch::new("none-spared");
+        three_games(&scratch.0, &[]);
+        assert_eq!(
+            remove_from_each(&scratch.0, &[7, 8, 9], Removal::Earlier),
+            Vec::new()
+        );
+        assert_eq!(
+            [7, 8, 9].map(|app_id| earlier_files(&scratch.0, app_id)),
+            [0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn every_game_left_is_listed_in_order() {
+        let scratch = Scratch::new("all-spared");
+        three_games(&scratch.0, &[7, 8, 9]);
+        let spared = remove_from_each(&scratch.0, &[7, 8, 9], Removal::Earlier);
+        assert_eq!(
+            spared.iter().map(|one| one.app_id).collect::<Vec<_>>(),
+            [7, 8, 9]
+        );
+        assert_eq!(
+            [7, 8, 9].map(|app_id| earlier_files(&scratch.0, app_id)),
+            [1, 1, 1]
+        );
+    }
+
+    #[test]
+    fn a_named_game_refused_is_an_error_and_every_game_gives_the_list() {
+        let one = || {
+            vec![Spared {
+                app_id: 8,
+                why: "x".to_owned(),
+            }]
+        };
+        assert_eq!(spared_or_refused(Some(8), one()), Err("x".to_owned()));
+        assert_eq!(spared_or_refused(None, one()), Ok(one()));
+        assert_eq!(spared_or_refused(Some(8), Vec::new()), Ok(Vec::new()));
+        assert_eq!(spared_or_refused(None, Vec::new()), Ok(Vec::new()));
     }
 
     #[test]
