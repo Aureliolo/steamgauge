@@ -538,6 +538,23 @@ fn spared_or_refused(
     }
 }
 
+/// Runs `remove` on the games of `targets` the board can hold, off the window's thread, and lets
+/// go of them only once it has ended, so no job starts on a game whose files are going. Gives the
+/// games `remove` left and those the board found busy.
+async fn remove_while_held(
+    work: &Work,
+    targets: &[u32],
+    remove: impl FnOnce(&[u32]) -> Vec<Spared> + Send + 'static,
+) -> Result<(Vec<Spared>, Vec<(u32, String)>), String> {
+    let (held, busy) = work.hold(targets);
+    let removing = held.games().to_vec();
+    let spared = tauri::async_runtime::spawn_blocking(move || remove(&removing))
+        .await
+        .map_err(text)?;
+    drop(held);
+    Ok((spared, busy))
+}
+
 #[tauri::command]
 pub(super) async fn free_room(
     app: AppHandle,
@@ -554,13 +571,10 @@ pub(super) async fn free_room(
             .map(|game| game.app_id)
             .collect(),
     };
-    let (held, busy) = work.hold(&targets);
-    let removing = held.games().to_vec();
-    let spared =
-        tauri::async_runtime::spawn_blocking(move || remove_from_each(&library, &removing, what))
-            .await
-            .map_err(text)?;
-    drop(held);
+    let (spared, busy) = remove_while_held(&work, &targets, move |games| {
+        remove_from_each(&library, games, what)
+    })
+    .await?;
     let spared = spared_or_refused(app_id, busy, spared)?;
     Ok(Storage {
         spared,
@@ -631,11 +645,35 @@ fn take_away(home: &Path, library: &Path, writer_goes: bool) -> Result<(), Strin
 mod tests {
     use super::{
         Part, Parts, Removal, Spared, game_parts, is_the_writer, model_busy, part_of,
-        remove_from_each, remove_from_game, spared_or_refused, take_away,
+        remove_from_each, remove_from_game, remove_while_held, spared_or_refused, take_away,
     };
-    use crate::ui::work::{Job, State, Task, Unit};
+    use crate::ui::work::{Job, State, Task, Unit, Work};
     use std::path::{Path, PathBuf};
+    use std::sync::Arc;
     use steamgauge_core::writer;
+
+    #[tokio::test]
+    async fn a_removal_holds_its_games_until_it_has_ended() {
+        let work = Arc::new(Work::default());
+        let board = Arc::clone(&work);
+        let (spared, busy) = remove_while_held(&work, &[7, 8], move |games| {
+            let held: Vec<u32> = board
+                .hold(&[7, 8, 9])
+                .1
+                .into_iter()
+                .map(|(game, _)| game)
+                .collect();
+            vec![Spared {
+                app_id: 0,
+                why: format!("removing {games:?}, held {held:?}"),
+            }]
+        })
+        .await
+        .unwrap();
+        assert_eq!(spared[0].why, "removing [7, 8], held [7, 8]");
+        assert!(busy.is_empty());
+        assert!(work.hold(&[7, 8]).1.is_empty());
+    }
 
     #[test]
     fn only_the_writers_removal_turns_writing_off() {
