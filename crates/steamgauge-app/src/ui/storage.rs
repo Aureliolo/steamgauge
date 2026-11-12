@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use steamgauge_core::{embed, reader, search_models, state::CrawlState, writer};
+use steamgauge_core::{embed, meaning, reader, search_models, state::CrawlState, writer};
 use tauri::{AppHandle, Manager as _};
 
 use super::{
@@ -85,17 +85,22 @@ enum Part {
     Other,
 }
 
-/// What a file in a game's newest download is, by the name the core writes it under.
+/// What a file in a game's newest download is, by its path within the download's folder: the
+/// name the core writes it under, and the search's own folder.
 ///
 /// `claims.parquet` is named although nothing writes it now: a download made by an earlier
 /// build can hold it, and it goes with the game's readings.
-fn part_of(name: &str) -> Part {
-    let left_over = Path::new(name).extension().is_some_and(|extension| {
+fn part_of(within: &Path) -> Part {
+    let name = within
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let left_over = within.extension().is_some_and(|extension| {
         extension.eq_ignore_ascii_case("partial") || extension.eq_ignore_ascii_case("part")
     });
     if left_over || name.contains(".partial.") || name.contains(".recount.") {
         Part::Partial
-    } else if name.contains("embeddings") {
+    } else if name.contains("embeddings") || within.starts_with(meaning::DIR) {
         Part::Search
     } else if name.starts_with("readings") || name == "reading.json" || name == "claims.parquet" {
         Part::Reads
@@ -159,11 +164,7 @@ fn game_parts(library: &Path, app_id: u32) -> Parts {
             let mut files = Vec::new();
             files_under(&path, &mut files);
             for (file, bytes) in files {
-                let name = file
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_default();
-                parts.add(part_of(name), bytes);
+                parts.add(part_of(file.strip_prefix(&path).unwrap_or(&file)), bytes);
             }
         } else {
             parts.add(Part::Earlier, bytes_under(&path));
@@ -451,11 +452,7 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
             let mut files = Vec::new();
             files_under(&newest, &mut files);
             for (file, _) in files {
-                let name = file
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_default();
-                if part_of(name) == wanted {
+                if part_of(file.strip_prefix(&newest).unwrap_or(&file)) == wanted {
                     std::fs::remove_file(file)?;
                 }
             }
@@ -606,6 +603,8 @@ mod tests {
         file(&game.join("snapshot=200/reading.json"), 2);
         file(&game.join("snapshot=200/embeddings.parquet"), 400);
         file(&game.join("snapshot=200/embeddings.json"), 3);
+        file(&game.join("snapshot=200/meaning/part-00000.parquet"), 60);
+        file(&game.join("snapshot=200/meaning/meaning.json"), 4);
         file(&game.join("snapshot=200/readings.partial.parquet"), 20);
         file(&game.join("snapshot=200/sweep-2.parquet.partial"), 5);
     }
@@ -621,13 +620,17 @@ mod tests {
             ("claims.parquet", Part::Reads),
             ("embeddings.parquet", Part::Search),
             ("claim-embeddings.json", Part::Search),
+            ("meaning/part-00000.parquet", Part::Search),
+            ("meaning/meaning.json", Part::Search),
             ("readings.partial.parquet", Part::Partial),
             ("readings.recount.parquet", Part::Partial),
             ("sweep-1.parquet.partial", Part::Partial),
+            ("meaning/part-00001.parquet.partial", Part::Partial),
             ("model.onnx.part", Part::Partial),
+            ("part-00000.parquet", Part::Other),
             ("groups.json", Part::Other),
         ] {
-            assert_eq!(part_of(name), part, "{name}");
+            assert_eq!(part_of(Path::new(name)), part, "{name}");
         }
     }
 
@@ -640,7 +643,7 @@ mod tests {
             Parts {
                 reviews: 111,
                 reads: 302,
-                search: 403,
+                search: 467,
                 earlier: 50,
                 partial: 25,
                 other: 0
@@ -654,7 +657,25 @@ mod tests {
         game(&scratch.0);
         remove_from_game(&scratch.0, 7, Removal::Reads).unwrap();
         let left = game_parts(&scratch.0, 7);
-        assert_eq!((left.reads, left.reviews, left.search), (0, 111, 403));
+        assert_eq!((left.reads, left.reviews, left.search), (0, 111, 467));
+    }
+
+    #[test]
+    fn removing_the_search_takes_its_preparation_and_leaves_the_rest() {
+        let scratch = Scratch::new("search");
+        game(&scratch.0);
+        remove_from_game(&scratch.0, 7, Removal::Search).unwrap();
+        let left = game_parts(&scratch.0, 7);
+        assert_eq!(
+            (left.search, left.reads, left.reviews, left.partial),
+            (0, 302, 111, 25)
+        );
+        assert!(
+            !scratch
+                .0
+                .join("appid=7/snapshot=200/meaning/part-00000.parquet")
+                .exists()
+        );
     }
 
     #[test]
