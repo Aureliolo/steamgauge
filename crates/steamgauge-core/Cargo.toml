@@ -50,6 +50,9 @@ tar = { version = "=0.4.46", default-features = false, optional = true }
 [target."cfg(windows)".dependencies]
 winreg = "=0.56.0"
 
+[dev-dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+
 # GPU backends are opt-in at build time so the default binary needs no vendor runtime to
 # start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
 # tens of megabytes rather than the ~750 MB a bundled CUDA runtime would cost.

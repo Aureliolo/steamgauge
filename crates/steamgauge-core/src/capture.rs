@@ -1688,4 +1688,132 @@ mod tests {
         assert!(!newest.counts("1", 100, 0));
         assert!(newest.counts("never swept", 0, 0));
     }
+
+    mod properties {
+        use super::*;
+        use proptest::collection::{btree_map, vec};
+        use proptest::prelude::*;
+        use std::collections::BTreeMap;
+
+        /// A file's copies: review id to its last edit. A sweep writes an id at most once, and
+        /// so does the crawl.
+        fn copies() -> impl Strategy<Value = BTreeMap<u8, i64>> {
+            btree_map(0_u8..6, 0_i64..4, 0..6)
+        }
+
+        /// When the sweep at `index` among a capture's sweeps started.
+        fn started(index: usize) -> i64 {
+            100 * (i64::try_from(index).unwrap() + 1)
+        }
+
+        fn text(id: u8, file: i64) -> String {
+            format!("{id} as file {file} held it")
+        }
+
+        /// What every reader should give as of the end of the first `swept` sweeps: each swept
+        /// review's greatest copy by last edit and then by sweep, and the crawl's copy of the rest.
+        fn expected(
+            crawl: &BTreeMap<u8, i64>,
+            sweeps: &[BTreeMap<u8, i64>],
+        ) -> Vec<(String, String)> {
+            let mut greatest: BTreeMap<u8, (i64, i64)> = BTreeMap::new();
+            for (index, sweep) in sweeps.iter().enumerate() {
+                for (&id, &updated) in sweep {
+                    let copy = (updated, started(index));
+                    let held = greatest.entry(id).or_insert(copy);
+                    *held = (*held).max(copy);
+                }
+            }
+            let mut texts: BTreeMap<u8, String> =
+                crawl.keys().map(|&id| (id, text(id, 0))).collect();
+            for (id, (_, file)) in greatest {
+                texts.insert(id, text(id, file));
+            }
+            texts
+                .into_iter()
+                .map(|(id, words)| (id.to_string(), words))
+                .collect()
+        }
+
+        fn written(path: &Path, copies: &BTreeMap<u8, i64>, file: i64) {
+            let reviews: Vec<Value> = copies
+                .iter()
+                .map(|(&id, &updated)| review(&id.to_string(), &text(id, file), 0, updated))
+                .collect();
+            write(path, &reviews);
+        }
+
+        proptest! {
+            #[test]
+            fn the_copy_kept_is_the_greatest_whatever_order_the_copies_come_in(
+                (given, shuffled) in vec((0_u8..4, 0_i64..4, 1_i64..4), 0..12)
+                    .prop_flat_map(|copies| (Just(copies.clone()), Just(copies).prop_shuffle()))
+            ) {
+                let mut newest = Newest::default();
+                for (id, updated, sweep) in &shuffled {
+                    newest.record(&id.to_string(), *updated, *sweep);
+                }
+                let mut greatest: HashMap<String, (i64, i64)> = HashMap::new();
+                for &(id, updated, sweep) in &given {
+                    let held = greatest.entry(id.to_string()).or_insert((updated, sweep));
+                    *held = (*held).max((updated, sweep));
+                }
+                prop_assert_eq!(&newest.copies, &greatest);
+                for (id, _, _) in &given {
+                    let id = id.to_string();
+                    let mut distinct: Vec<(i64, i64)> = given
+                        .iter()
+                        .filter(|copy| copy.0.to_string() == id)
+                        .map(|copy| (copy.1, copy.2))
+                        .collect();
+                    distinct.sort_unstable();
+                    distinct.dedup();
+                    let counted = distinct
+                        .iter()
+                        .filter(|&&(updated, sweep)| newest.counts(&id, updated, sweep))
+                        .count();
+                    prop_assert_eq!(counted, 1, "exactly one copy of {} counts", id);
+                }
+            }
+        }
+
+        proptest! {
+            // Each case writes up to five files and every mutant reruns the suite, so this
+            // property draws fewer cases than the one above.
+            #![proptest_config(ProptestConfig::with_cases(32))]
+
+            #[test]
+            fn every_reader_gives_each_reviews_greatest_copy_at_every_moment(
+                crawl in copies(),
+                sweeps in vec(copies(), 0..4),
+            ) {
+                let scratch = crate::tempdir::Dir::new();
+                let dir = scratch.path();
+                written(&dir.join("shard-0000.parquet"), &crawl, 0);
+                for (index, sweep) in sweeps.iter().enumerate() {
+                    written(&dir.join(sweep_file(started(index))), sweep, started(index));
+                }
+
+                let mut rows: Vec<(String, String)> = Vec::new();
+                for_each_row(dir, |row, words| {
+                    rows.push((row.recommendationid, words.to_owned()));
+                    Ok(())
+                })
+                .unwrap();
+                rows.sort();
+                prop_assert_eq!(&rows, &expected(&crawl, &sweeps));
+
+                for swept in 0..=sweeps.len() {
+                    let as_of = if swept == 0 { 0 } else { started(swept - 1) };
+                    let mut texts: Vec<(String, String)> = Vec::new();
+                    for_each_text_as_of(dir, as_of, |id, words| {
+                        texts.push((id.to_owned(), words.to_owned()));
+                    })
+                    .unwrap();
+                    texts.sort();
+                    prop_assert_eq!(&texts, &expected(&crawl, &sweeps[..swept]), "as of {}", as_of);
+                }
+            }
+        }
+    }
 }
