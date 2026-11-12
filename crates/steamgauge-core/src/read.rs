@@ -511,6 +511,7 @@ fn reading_schema() -> Arc<Schema> {
 /// # Errors
 ///
 /// Fails if the capture is missing, or if reading, running the model or writing fails.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub fn read_corpus(
     model: &mut ClaimReader,
     app_id: u32,
@@ -551,6 +552,7 @@ fn read_with(
     options: &ReadOptions,
     mut on_progress: impl FnMut(ReadProgress),
 ) -> Result<ReadReport> {
+    let _writing = crate::lock_file::writing_in(&options.out_dir.join(format!("appid={app_id}")))?;
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(&options.out_dir, app_id)?;
     let captured = finished_download(&options.out_dir, app_id)?;
@@ -641,6 +643,7 @@ fn read_with(
 /// answered under other lines than the reader named, or if this build takes a review apart
 /// differently from the build that read it, so the answers no longer name its claims.
 /// Stops, leaving the reading as it was, once `stop` is set.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub fn recount_corpus(
     out_dir: &Path,
     app_id: u32,
@@ -649,6 +652,7 @@ pub fn recount_corpus(
     stop: &AtomicBool,
     mut on_progress: impl FnMut(ReadProgress),
 ) -> Result<ReadReport> {
+    let _writing = crate::lock_file::writing_in(&out_dir.join(format!("appid={app_id}")))?;
     let started = Instant::now();
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let earlier: ReadReport = serde_json::from_slice(
@@ -2428,6 +2432,32 @@ pub(crate) mod tests {
 
         assert!(report.save(&path).is_err());
         assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+
+    #[test]
+    fn a_read_and_a_recount_are_refused_while_their_games_files_are_removed() {
+        let out = crate::tempdir::Dir::new();
+        corpus(out.path());
+        let removal = crate::crawl::lock_for_removal(out.path(), 1).unwrap();
+        let mut model = Table::new(false);
+        let read = read_with(&mut model, 1, &options(out.path()), |_| {});
+        assert!(
+            matches!(&read, Err(Error::Refused(said)) if said.contains("being removed")),
+            "{read:?}"
+        );
+        let recount = recount_corpus(
+            out.path(),
+            1,
+            2,
+            &model.provenance,
+            &AtomicBool::new(false),
+            |_| {},
+        );
+        assert!(
+            matches!(&recount, Err(Error::Refused(said)) if said.contains("being removed")),
+            "{recount:?}"
+        );
+        drop(removal);
     }
 
     #[test]

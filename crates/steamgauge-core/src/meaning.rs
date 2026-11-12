@@ -347,12 +347,14 @@ pub struct Prepared {
 ///
 /// Fails if the reading, the capture or the parts cannot be read or written, or if `embed`
 /// fails.
+/// [`crate::Error::Refused`] at once while the game's files are being removed.
 pub fn prepare(
     snapshot: &Path,
     mut embed: impl FnMut(&[String]) -> Result<Vec<Vec<f32>>>,
     (stop, share): (&AtomicBool, f64),
     mut on_progress: impl FnMut(u64),
 ) -> Result<Prepared> {
+    let _writing = crate::lock_file::writing_in(snapshot)?;
     let dir = snapshot.join(DIR);
     std::fs::create_dir_all(&dir)?;
     // A reading replaced since the parts were written is carried on from rather than thrown
@@ -852,6 +854,26 @@ mod tests {
 
     fn game(dir: &Path) {
         crate::search::tests::snapshot(dir);
+    }
+
+    #[test]
+    fn a_search_preparation_is_refused_while_its_games_files_are_removed() {
+        let dir = crate::tempdir::Dir::new();
+        let snapshot = dir.path().join("appid=7").join("snapshot=5");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        game(&snapshot);
+        let removal = crate::crawl::lock_for_removal(dir.path(), 7).unwrap();
+
+        let refused = prepare(&snapshot, embed, (&AtomicBool::new(false), 1.0), |_| {});
+        assert!(
+            matches!(&refused, Err(Error::Refused(said)) if said.contains("being removed")),
+            "{refused:?}"
+        );
+        assert_eq!(status(&snapshot), Status::None);
+        assert!(!snapshot.join(DIR).exists());
+        drop(removal);
+        let prepared = prepare(&snapshot, embed, (&AtomicBool::new(false), 1.0), |_| {}).unwrap();
+        assert!(prepared.finished);
     }
 
     #[test]

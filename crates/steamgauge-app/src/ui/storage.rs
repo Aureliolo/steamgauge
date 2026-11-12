@@ -413,15 +413,43 @@ fn model_busy(jobs: &[Job], key: &str) -> Option<String> {
         })
 }
 
+/// Whether a file is one that programs lock. They stay, since removing one would let a program
+/// that has it open lock a file no other program finds.
+fn is_lock(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|extension| extension == "lock")
+}
+
+/// Removes every file under a folder but the lock files. Folders stay.
+fn remove_files_under(dir: &Path) -> std::io::Result<()> {
+    let mut files = Vec::new();
+    files_under(dir, &mut files);
+    for (file, _) in files {
+        if !is_lock(&file) {
+            std::fs::remove_file(file)?;
+        }
+    }
+    Ok(())
+}
+
+/// A refusal to take a game's folder, worded for the storage page.
+fn refusal(refused: steamgauge_core::Error) -> std::io::Error {
+    match refused {
+        steamgauge_core::Error::Refused(_) => {
+            std::io::Error::other("Another job is writing in this game.")
+        }
+        other => std::io::Error::other(other),
+    }
+}
+
 /// Removes the chosen part of one game, or of every game when none is named.
 fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Result<()> {
+    let _alone = steamgauge_core::crawl::lock_for_removal(library, app_id).map_err(refusal)?;
     let dir = game_dir(library, app_id);
     let newest = embed::latest_snapshot(library, app_id).ok();
     match what {
         Removal::Game => {
-            if dir.exists() {
-                std::fs::remove_dir_all(&dir)?;
-            }
+            remove_files_under(&dir)?;
             if let Ok(state) = CrawlState::open(&library.join("state.sqlite")) {
                 state.forget(app_id).map_err(std::io::Error::other)?;
             }
@@ -447,7 +475,7 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
                     .and_then(|name| name.to_str())
                     .is_some_and(|name| name.starts_with("snapshot="));
                 if is_snapshot && newest.as_deref() != Some(path.as_path()) {
-                    std::fs::remove_dir_all(path)?;
+                    remove_files_under(&path)?;
                 }
             }
         }
@@ -713,13 +741,138 @@ mod tests {
         );
     }
 
+    /// Every file under a folder, named from it, sorted.
+    fn files_of(dir: &Path) -> Vec<String> {
+        let mut found = Vec::new();
+        super::files_under(dir, &mut found);
+        let mut names: Vec<String> = found
+            .into_iter()
+            .map(|(path, _)| {
+                path.strip_prefix(dir)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Whether `groups.json` in the library names the game.
+    fn grouped(library: &Path, app_id: u32) -> bool {
+        let groups: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(library.join("groups.json")).unwrap()).unwrap();
+        groups["groups"].as_array().unwrap().iter().any(|group| {
+            group["app_ids"]
+                .as_array()
+                .unwrap()
+                .contains(&app_id.into())
+        })
+    }
+
+    fn name_game_in_groups(library: &Path, app_id: u32) {
+        let groups = serde_json::json!({"groups": [{"name": "Kept", "app_ids": [app_id]}]});
+        file(&library.join("groups.json"), 0);
+        std::fs::write(library.join("groups.json"), groups.to_string()).unwrap();
+    }
+
     #[test]
     fn removing_earlier_downloads_keeps_the_newest() {
         let scratch = Scratch::new("earlier");
         game(&scratch.0);
         remove_from_game(&scratch.0, 7, Removal::Earlier).unwrap();
-        assert!(!scratch.0.join("appid=7/snapshot=100").exists());
-        assert_eq!(game_parts(&scratch.0, 7).reviews, 111);
+        assert_eq!(earlier_files(&scratch.0, 7), 0);
+        let left = game_parts(&scratch.0, 7);
+        assert_eq!((left.reviews, left.earlier), (111, 0));
+
+        let eight = scratch.0.join("appid=8");
+        file(&eight.join("snapshot=5/crawl.json"), 1);
+        file(&eight.join("snapshot=5/sweep.lock"), 0);
+        file(&eight.join("snapshot=6/crawl.json"), 1);
+        remove_from_game(&scratch.0, 8, Removal::Earlier).unwrap();
+        assert_eq!(files_of(&eight), ["snapshot=5/sweep.lock", "writing.lock"]);
+    }
+
+    #[test]
+    fn removing_a_game_leaves_only_its_lock_files() {
+        let scratch = Scratch::new("game");
+        game(&scratch.0);
+        let seven = scratch.0.join("appid=7");
+        file(&seven.join("crawl.lock"), 0);
+        file(&seven.join("snapshot=200/sweep.lock"), 0);
+        remove_from_game(&scratch.0, 7, Removal::Game).unwrap();
+        assert_eq!(
+            files_of(&seven),
+            ["crawl.lock", "snapshot=200/sweep.lock", "writing.lock"]
+        );
+    }
+
+    #[test]
+    fn nothing_is_removed_from_a_game_another_job_writes_in() {
+        let scratch = Scratch::new("writing");
+        game(&scratch.0);
+        let state =
+            steamgauge_core::state::CrawlState::open(&scratch.0.join("state.sqlite")).unwrap();
+        state.begin_crawl(7, 200, "", 0).unwrap();
+        name_game_in_groups(&scratch.0, 7);
+        let seven = scratch.0.join("appid=7");
+        let other = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(seven.join("writing.lock"))
+            .unwrap();
+        other.try_lock_shared().unwrap();
+        let before = files_of(&seven);
+        let parts = game_parts(&scratch.0, 7);
+
+        for what in [
+            Removal::Game,
+            Removal::Earlier,
+            Removal::Reads,
+            Removal::Search,
+            Removal::Partial,
+        ] {
+            let refused = remove_from_game(&scratch.0, 7, what).unwrap_err();
+            assert!(
+                refused.to_string().contains("Another job is writing"),
+                "{what:?}: {refused}"
+            );
+        }
+        assert_eq!(files_of(&seven), before);
+        assert_eq!(game_parts(&scratch.0, 7), parts);
+        assert!(state.resumable(7).unwrap().is_some());
+        assert!(grouped(&scratch.0, 7));
+
+        drop(other);
+        remove_from_game(&scratch.0, 7, Removal::Partial).unwrap();
+        assert_eq!(game_parts(&scratch.0, 7).partial, 0);
+    }
+
+    #[test]
+    fn a_state_that_cannot_be_opened_stops_no_removal() {
+        let scratch = Scratch::new("no-state");
+        game(&scratch.0);
+        std::fs::create_dir_all(scratch.0.join("state.sqlite")).unwrap();
+        name_game_in_groups(&scratch.0, 7);
+        remove_from_game(&scratch.0, 7, Removal::Earlier).unwrap();
+        assert_eq!(earlier_files(&scratch.0, 7), 0);
+        remove_from_game(&scratch.0, 7, Removal::Game).unwrap();
+        assert_eq!(files_of(&scratch.0.join("appid=7")), ["writing.lock"]);
+        assert!(!grouped(&scratch.0, 7));
+    }
+
+    #[test]
+    fn a_game_with_no_folder_is_still_forgotten() {
+        let scratch = Scratch::new("no-folder");
+        let state =
+            steamgauge_core::state::CrawlState::open(&scratch.0.join("state.sqlite")).unwrap();
+        state.begin_crawl(7, 200, "", 0).unwrap();
+        name_game_in_groups(&scratch.0, 7);
+        remove_from_game(&scratch.0, 7, Removal::Game).unwrap();
+        assert!(state.resumable(7).unwrap().is_none());
+        assert!(!grouped(&scratch.0, 7));
+        assert_eq!(files_of(&scratch.0.join("appid=7")), ["writing.lock"]);
     }
 
     /// Games 7, 8 and 9 with an earlier and a newer download each, and a crawl open on game 8.
@@ -799,14 +952,6 @@ mod tests {
         assert_eq!(spared_or_refused(None, one()), Ok(one()));
         assert_eq!(spared_or_refused(Some(8), Vec::new()), Ok(Vec::new()));
         assert_eq!(spared_or_refused(None, Vec::new()), Ok(Vec::new()));
-    }
-
-    #[test]
-    fn removing_a_game_leaves_nothing_of_it() {
-        let scratch = Scratch::new("game");
-        game(&scratch.0);
-        remove_from_game(&scratch.0, 7, Removal::Game).unwrap();
-        assert!(!scratch.0.join("appid=7").exists());
     }
 
     fn job(task: Task, state: State) -> Job {

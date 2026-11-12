@@ -3959,6 +3959,13 @@ fn captured_games(out: &Path) -> Vec<u32> {
                 .parse()
                 .ok()
         })
+        .filter(|&app_id| {
+            // A removed game's folder stays, holding lock files alone.
+            !matches!(
+                steamgauge_core::embed::latest_snapshot(out, app_id),
+                Err(steamgauge_core::Error::NoCapture { .. })
+            )
+        })
         .collect()
 }
 
@@ -4284,6 +4291,19 @@ mod tests {
             steamgauge_core::Encoder::from(Model::default()),
             model.into()
         );
+    }
+
+    #[test]
+    fn a_removed_games_folder_is_no_captured_game() {
+        let dir = std::env::temp_dir().join(format!("steamgauge-captured-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("appid=7/snapshot=5")).unwrap();
+        std::fs::write(dir.join("appid=7/snapshot=5/shard-0000.parquet"), b"x").unwrap();
+        std::fs::create_dir_all(dir.join("appid=8")).unwrap();
+        std::fs::write(dir.join("appid=8/writing.lock"), b"").unwrap();
+
+        assert_eq!(super::captured_games(&dir), [7]);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

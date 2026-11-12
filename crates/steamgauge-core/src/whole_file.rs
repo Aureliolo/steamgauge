@@ -28,7 +28,9 @@ pub fn beside(path: &Path) -> PathBuf {
 /// # Errors
 ///
 /// Fails where the file beside `path` cannot be written or renamed. `path` is then as it was.
+/// Fails while the files of the game `path` lies in are being removed.
 pub fn write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let _writing = crate::lock_file::writing_in(path).map_err(std::io::Error::other)?;
     let _one_at_a_time = WRITING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -115,6 +117,23 @@ mod tests {
         std::fs::create_dir(beside(&path)).unwrap();
         assert!(write(&path, b"new").is_err());
         assert_eq!(std::fs::read(&path).unwrap(), b"old");
+    }
+
+    #[test]
+    fn a_record_in_a_game_is_not_written_while_its_files_are_removed() {
+        let dir = crate::tempdir::Dir::new();
+        let snapshot = dir.path().join("appid=7").join("snapshot=5");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        let path = snapshot.join("crawl.json");
+        std::fs::write(&path, b"old").unwrap();
+        let removal = crate::crawl::lock_for_removal(dir.path(), 7).unwrap();
+        let error = write(&path, b"new").unwrap_err();
+        assert!(error.to_string().contains("being removed"), "{error}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"old");
+        assert_eq!(names(&snapshot), ["crawl.json"]);
+        drop(removal);
+        write(&path, b"new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"new");
     }
 
     #[test]
