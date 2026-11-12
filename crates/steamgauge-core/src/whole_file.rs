@@ -66,11 +66,16 @@ fn remove_left_beside(path: &Path) {
         let old = entry
             .metadata()
             .and_then(|meta| meta.modified())
-            .is_ok_and(|modified| now.duration_since(modified).is_ok_and(|age| age > LEFT_FOR));
+            .is_ok_and(|modified| now.duration_since(modified).is_ok_and(left_long_enough));
         if old {
             let _ = std::fs::remove_file(entry.path());
         }
     }
+}
+
+/// Whether a file beside a record, unwritten for `age`, was left by a stopped program.
+fn left_long_enough(age: Duration) -> bool {
+    age > LEFT_FOR
 }
 
 /// The folder `path` sits in. A bare name's parent is empty, which no folder listing takes.
@@ -165,6 +170,12 @@ mod tests {
                 "record.json.partial"
             ]
         );
+    }
+
+    #[test]
+    fn a_file_beside_is_taken_as_left_only_past_the_hour() {
+        assert!(!left_long_enough(LEFT_FOR));
+        assert!(left_long_enough(LEFT_FOR + Duration::from_nanos(1)));
     }
 
     #[test]
