@@ -437,7 +437,7 @@ fn remove_from_game(library: &Path, app_id: u32, what: Removal) -> std::io::Resu
                 .is_some();
             if unfinished {
                 return Err(std::io::Error::other(
-                    "a download of this game is unfinished; its earlier download is kept until it completes",
+                    "Its newest download is unfinished, so the earlier one is kept until that download completes.",
                 ));
             }
             for entry in std::fs::read_dir(&dir)?.flatten() {

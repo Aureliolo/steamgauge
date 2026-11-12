@@ -1144,7 +1144,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
         ...storage(),
         spared: left.map((id) => ({
           app_id: id,
-          why: 'a download of this game is unfinished; its earlier download is kept until it completes',
+          why: 'Its newest download is unfinished, so the earlier one is kept until that download completes.',
         })),
       };
     },

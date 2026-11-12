@@ -639,7 +639,7 @@ const PROBE = `(async function () {
   await pause(250);
   var spareNote = $('#storage-note');
   check('a removal across every game does not name each game it left',
-    /^Not removed from Alpha: .+\\nNot removed from Beta: .+$/.test(spareNote.textContent) &&
+    /^Not removed from Alpha\\. .+\\nNot removed from Beta\\. .+$/.test(spareNote.textContent) &&
     spareNote.classList.contains('bad') && !/removed from every game/.test(spareNote.textContent) &&
     getComputedStyle(spareNote).whiteSpace === 'pre-line');
   check('a game left keeps its earlier downloads listed', earlierRow() !== null);
@@ -1434,6 +1434,13 @@ try {
         await evaluate(`document.querySelector('[data-go="${name}"]').click()`);
         await shoot(`${name}-${scheme}`);
       }
+      // The storage page after a removal across every game that left two of them.
+      await evaluate(
+        'document.querySelector(\'[data-go="storage"]\').click();window.__stub.spare(1);window.__stub.spare(2);' +
+          "Array.prototype.find.call(document.querySelectorAll('#parts .part-row'),function(row){" +
+          "return /Earlier downloads/.test(row.textContent);}).querySelector('button').click()",
+      );
+      await shoot(`storage-games-left-${scheme}`);
       // A comparison with games in it, as choosing two in the library opens it.
       await evaluate('document.querySelector(\'[data-go="library"]\').click()');
       await sleep(300);

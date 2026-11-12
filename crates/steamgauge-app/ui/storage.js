@@ -167,7 +167,7 @@ function setUpStorage({ openGame }) {
           spared
             .map((one) => {
               const name = found.games.find((game) => game.app_id === one.app_id)?.name;
-              return `Not removed from ${name ?? `app ${one.app_id}`}: ${one.why}`;
+              return `Not removed from ${name ?? `app ${one.app_id}`}. ${one.why}`;
             })
             .join('\n'),
         );
