@@ -1117,6 +1117,19 @@ struct NearClaim {
     evidence: Evidence,
 }
 
+/// Refuses a search while any byte of the pinned search models is still to fetch. The vectors
+/// were made by the pinned encoder, and a query embedded by another release lands elsewhere.
+fn search_models_are_here(bytes_left: u64) -> Result<(), String> {
+    if bytes_left > 0 {
+        return Err(
+            "The search models are not all on this computer, or are of another \
+                    release. Preparing a game fetches them."
+                .to_owned(),
+        );
+    }
+    Ok(())
+}
+
 /// The claims nearest in meaning to what was searched, leaving out those its words found, in the
 /// order the reranker puts them.
 #[tauri::command]
@@ -1142,13 +1155,7 @@ async fn search_by_meaning(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let cache = steamgauge_core::model::default_cache_dir();
-        if ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache) > 0 {
-            return Err(
-                "The search models are not all on this computer, or are of another \
-                        release. Preparing a game fetches them."
-                    .to_owned(),
-            );
-        }
+        search_models_are_here(ENCODER.bytes_left(&cache) + RERANKER.bytes_left(&cache))?;
         let mut reranking = reranker.lock()?;
         let reranker = reranking.get(&cache, SearchReranker::load)?;
         let wanted = {
@@ -1483,4 +1490,19 @@ pub(crate) fn run() -> anyhow::Result<()> {
         ])
         .run(tauri::generate_context!())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::search_models_are_here;
+
+    #[test]
+    fn a_search_waits_for_every_byte_of_its_pinned_models() {
+        assert_eq!(search_models_are_here(0), Ok(()));
+        let refused = search_models_are_here(1).unwrap_err();
+        assert!(
+            refused.contains("Preparing a game fetches them"),
+            "{refused}"
+        );
+    }
 }
