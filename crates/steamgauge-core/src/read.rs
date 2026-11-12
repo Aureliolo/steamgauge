@@ -574,7 +574,7 @@ fn read_with(
     };
     // Written beside the reading it replaces and moved over it only once complete, so a read
     // that is stopped, fails or dies with the machine leaves the last one standing.
-    let partial = snapshot.join("readings.partial.parquet");
+    let partial = crate::whole_file::beside(&snapshot.join("readings.parquet"));
     let kept = if options.afresh {
         None
     } else {
@@ -590,7 +590,10 @@ fn read_with(
         &mut on_progress,
     ) {
         Ok(read) => {
-            std::fs::rename(&partial, snapshot.join("readings.parquet"))?;
+            if let Err(failed) = std::fs::rename(&partial, snapshot.join("readings.parquet")) {
+                let _ = std::fs::remove_file(&partial);
+                return Err(failed.into());
+            }
             read
         }
         Err(error) => {
@@ -832,7 +835,7 @@ pub(crate) fn key_readings(snapshot: &Path) -> Result<bool> {
     })?;
 
     let schema = reading_schema();
-    let partial = snapshot.join("readings.partial.parquet");
+    let partial = crate::whole_file::beside(&path);
     let written = (|| -> Result<()> {
         let mut writer = ArrowWriter::try_new(
             std::fs::File::create(&partial)?,
@@ -2269,7 +2272,63 @@ pub(crate) mod tests {
             Some("controls:complaint".to_owned())
         )));
         assert!(rows.contains(&("2".to_owned(), (23, 35), None, "neutral".to_owned(), None)));
-        assert!(!snapshot.join("readings.partial.parquet").exists());
+        assert!(!crate::whole_file::beside(&snapshot.join("readings.parquet")).exists());
+    }
+
+    #[test]
+    fn a_reading_that_cannot_be_streamed_beside_leaves_the_one_before() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap();
+        let before = std::fs::read(snapshot.join("readings.parquet")).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(
+            &snapshot.join("readings.parquet"),
+        ))
+        .unwrap();
+
+        let options = ReadOptions {
+            afresh: true,
+            ..options(out.path())
+        };
+        read_with(&mut Table::new(false), 1, &options, |_| {}).unwrap_err();
+        assert_eq!(
+            std::fs::read(snapshot.join("readings.parquet")).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn a_reading_that_cannot_be_put_in_place_leaves_nothing_beside() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = corpus(out.path());
+        std::fs::create_dir(snapshot.join("readings.parquet")).unwrap();
+
+        read_with(&mut Table::new(false), 1, &options(out.path()), |_| {}).unwrap_err();
+        let left: Vec<_> = std::fs::read_dir(&snapshot)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".partial"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+    }
+
+    #[test]
+    fn readings_that_cannot_be_keyed_beside_stay_unkeyed() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = capture_these(out.path(), 1, &[steam_review("1", "Bugs everywhere.")]);
+        read_and_save(out.path(), false, &options(out.path()));
+        unkey_readings(&snapshot);
+        let before = std::fs::read(snapshot.join("readings.parquet")).unwrap();
+        std::fs::create_dir(crate::whole_file::beside(
+            &snapshot.join("readings.parquet"),
+        ))
+        .unwrap();
+
+        key_readings(&snapshot).unwrap_err();
+        assert_eq!(
+            std::fs::read(snapshot.join("readings.parquet")).unwrap(),
+            before
+        );
     }
 
     #[test]
@@ -2796,7 +2855,7 @@ pub(crate) mod tests {
             std::fs::read(snapshot.join("readings.parquet")).unwrap(),
             before
         );
-        assert!(!snapshot.join("readings.partial.parquet").exists());
+        assert!(!crate::whole_file::beside(&snapshot.join("readings.parquet")).exists());
     }
 
     #[test]
