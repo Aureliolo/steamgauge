@@ -51,11 +51,7 @@ fn remove_left_beside(path: &Path) {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return;
     };
-    let folder = match path.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent,
-        _ => Path::new("."),
-    };
-    let Ok(entries) = std::fs::read_dir(folder) else {
+    let Ok(entries) = std::fs::read_dir(folder_of(path)) else {
         return;
     };
     let now = SystemTime::now();
@@ -74,6 +70,14 @@ fn remove_left_beside(path: &Path) {
         if old {
             let _ = std::fs::remove_file(entry.path());
         }
+    }
+}
+
+/// The folder `path` sits in. A bare name's parent is empty, which no folder listing takes.
+fn folder_of(path: &Path) -> &Path {
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
     }
 }
 
@@ -146,6 +150,8 @@ mod tests {
         age("record.json.1.partial", 2);
         age("record.json.partial", 2);
         age("other.json.3.partial", 2);
+        age("record.json..partial", 2);
+        age("record.json.copy.partial", 2);
         age("record.json.2.partial", 0);
         write(&path, b"new").unwrap();
         assert_eq!(
@@ -153,9 +159,20 @@ mod tests {
             [
                 "other.json.3.partial",
                 "record.json",
+                "record.json..partial",
                 "record.json.2.partial",
+                "record.json.copy.partial",
                 "record.json.partial"
             ]
+        );
+    }
+
+    #[test]
+    fn a_bare_name_is_in_the_working_folder() {
+        assert_eq!(folder_of(Path::new("record.json")), Path::new("."));
+        assert_eq!(
+            folder_of(Path::new("library/record.json")),
+            Path::new("library")
         );
     }
 
