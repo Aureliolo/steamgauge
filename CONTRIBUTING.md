@@ -130,6 +130,15 @@ git diff origin/main... > change.diff
 cargo mutants -p steamgauge-core --in-diff change.diff --jobserver-tasks 4
 ```
 
+## Rules for code
+
+- **Ties** in a pick of the largest or smallest from a map or set are broken by a named key, so
+  a result never follows hash order.
+- **Refusals** come before the first write, so a pass checks every input that can refuse it and
+  a refusal leaves nothing half done.
+- **Macros** get a value computed in a `let` first, since mutation testing cannot reach inside
+  a macro call.
+
 ## What is held to a higher bar
 
 Anything affecting a reported number needs more than passing tests:
