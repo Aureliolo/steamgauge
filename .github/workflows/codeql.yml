@@ -49,6 +49,16 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-and-quality
+          # Ruff's F401 and B018 already hold unused imports and statements without effect, and
+          # read them right. CodeQL counts the `...` body that pyright requires of a protocol
+          # method as a statement without effect, and an import used only in a quoted cast as
+          # unused.
+          config: |
+            query-filters:
+              - exclude:
+                  id: py/ineffectual-statement
+              - exclude:
+                  id: py/unused-import
 
       - name: Analyse
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
