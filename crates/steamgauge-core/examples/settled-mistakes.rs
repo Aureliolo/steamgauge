@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use steamgauge_core::claimset::ClaimLabel;
+use steamgauge_core::claimset::{ClaimLabel, CutSpans};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut apps = Vec::new();
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let said = subjects_read(&snapshot)?;
         let ids: std::collections::HashSet<String> =
             first.iter().map(|label| label.review_id.clone()).collect();
-        let texts = steamgauge_core::capture::texts_for(&snapshot, &ids)?;
+        let (capture, kept) = cuts(&reference, app_id, &ids)?;
 
         for label in &first {
             let Some(other) = theirs.get(&(label.review_id.as_str(), label.index)) else {
@@ -60,8 +60,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if other.subject != label.subject {
                 continue;
             }
-            let Some(read_as) = said.get(&(label.review_id.clone(), (label.start, label.end)))
+            let Some(at) = steamgauge_core::claimset::claim_in_capture(&kept, &capture, label)
             else {
+                continue;
+            };
+            let Some(read_as) = said.get(&(label.review_id.clone(), at)) else {
                 continue;
             };
             settled += 1;
@@ -75,9 +78,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 by_flag[flagged].1 += 1;
                 continue;
             }
-            let text = texts
+            let text = capture
                 .get(label.review_id.as_str())
-                .and_then(|text| text.get(label.start as usize..label.end as usize))
+                .and_then(|held| held.text.get(at.0 as usize..at.1 as usize))
                 .unwrap_or_default();
             mistakes
                 .entry((label.subject.clone(), read_as.clone()))
@@ -120,6 +123,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rate(&name, counts);
     }
     Ok(())
+}
+
+/// What this build cuts from the capture and from the text kept for the labels, the second
+/// empty where the game keeps none.
+fn cuts(
+    reference: &std::path::Path,
+    app_id: u32,
+    ids: &std::collections::HashSet<String>,
+) -> Result<(CutSpans, CutSpans), Box<dyn std::error::Error>> {
+    let capture =
+        steamgauge_core::claimset::spans_cut_now(std::path::Path::new("data"), app_id, ids)?;
+    let kept = match steamgauge_core::claimset::spans_cut_in(reference, ids) {
+        Ok(kept) => kept,
+        Err(steamgauge_core::Error::NoKeptText { .. }) => CutSpans::new(),
+        Err(other) => return Err(other.into()),
+    };
+    Ok((capture, kept))
 }
 
 fn labels(path: &std::path::Path) -> Result<Vec<ClaimLabel>, Box<dyn std::error::Error>> {

@@ -385,7 +385,17 @@ fn as_written<'a>(
     label: &ClaimLabel,
 ) -> Option<(String, String, String)> {
     let span = crate::claimset::cut_at(cut, label)?;
-    let (id, review) = cut.get_key_value(label.review_id.as_str())?;
+    shown_at(cut, shown, &label.review_id, span)
+}
+
+/// The claim cut at `span` of a review, with what stands before and after it.
+fn shown_at<'a>(
+    cut: &'a crate::claimset::CutSpans,
+    shown: &mut std::collections::HashMap<&'a str, Rejoined>,
+    review_id: &str,
+    span: crate::claims::Span,
+) -> Option<(String, String, String)> {
+    let (id, review) = cut.get_key_value(review_id)?;
     let rejoined = shown
         .entry(id.as_str())
         .or_insert_with(|| Rejoined::of(&review.text));
@@ -734,9 +744,18 @@ pub fn offered(reference: &Path, library: &Path, who: &str) -> Result<(Vec<Quest
         let wanted: std::collections::HashSet<String> =
             wanted.into_iter().map(str::to_owned).collect();
         let cut = crate::claimset::spans_cut_now(library, app_id, &wanted)?;
+        let kept = match crate::claimset::spans_cut_in(&dir, &wanted) {
+            Ok(kept) => kept,
+            Err(Error::NoKeptText { .. }) => crate::claimset::CutSpans::new(),
+            Err(other) => return Err(other),
+        };
         let mut shown = std::collections::HashMap::new();
         for label in &gold {
-            let Some(said) = read.get(&(label.review_id.clone(), label.start, label.end)) else {
+            let Some(span) = crate::claimset::claim_in_capture(&kept, &cut, label) else {
+                found.recut += 1;
+                continue;
+            };
+            let Some(said) = read.get(&(label.review_id.clone(), span.0, span.1)) else {
                 continue;
             };
             if *said == label.subject {
@@ -746,7 +765,8 @@ pub fn offered(reference: &Path, library: &Path, who: &str) -> Result<(Vec<Quest
             if judged.contains(&(label.review_id.clone(), label.index, said.clone())) {
                 continue;
             }
-            let Some((claim, before, after)) = as_written(&cut, &mut shown, label) else {
+            let Some((claim, before, after)) = shown_at(&cut, &mut shown, &label.review_id, span)
+            else {
                 found.recut += 1;
                 continue;
             };
@@ -2077,5 +2097,78 @@ mod tests {
             found.recut, 1,
             "the answer on the whole review, which this build cuts in two, is counted, not asked"
         );
+    }
+
+    #[test]
+    fn a_person_is_asked_about_the_claim_their_answer_names_in_an_edited_capture() {
+        let root = crate::tempdir::Dir::new();
+        let library = root.path().join("data");
+        let snapshot = library.join("appid=7").join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        read_library(&snapshot);
+
+        // Review 1 was kept with "Sorry about the typos. " in front, which the capture no longer
+        // holds, so the answers count 23 bytes further on than the capture does.
+        let set = root.path().join("reference").join("7");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        kept(
+            &set,
+            &[
+                (
+                    "1",
+                    "Sorry about the typos. Runs badly on Steam Deck. Great story.",
+                ),
+                ("2", "Perfect on my Steam Deck!"),
+            ],
+        );
+        let gold = |review: &str, index: u16, start: u32, end: u32, subject: &str| ClaimLabel {
+            review_id: review.to_owned(),
+            index,
+            app_id: 7,
+            language: "english".to_owned(),
+            subset: "random".to_owned(),
+            start,
+            end,
+            taxonomy: crate::taxonomy::sheet(),
+            produced_by: "a person".to_owned(),
+            subject: subject.to_owned(),
+            polarity: "complaint".to_owned(),
+            ironic: false,
+            confidence: "high".to_owned(),
+            ambiguous: false,
+            split_wrong: false,
+            also: None,
+        };
+        let labels = vec![
+            gold("1", 0, 23, 48, "compatibility"),
+            gold("1", 1, 49, 61, "story"),
+        ];
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::to_vec(&labels).unwrap(),
+        )
+        .unwrap();
+
+        let ids = std::collections::HashSet::from(["1".to_owned()]);
+        let capture = crate::claimset::spans_cut_now(&library, 7, &ids).unwrap();
+        for one in &labels {
+            assert_eq!(
+                crate::claimset::cut_at(&capture, one),
+                None,
+                "the bytes of the kept text hold no claim of the capture"
+            );
+        }
+
+        let (questions, found) = offered(&root.path().join("reference"), &library, "one").unwrap();
+        assert_eq!(questions.len(), 1, "{questions:?}");
+        let asked = &questions[0];
+        assert_eq!((asked.review_id.as_str(), asked.index), ("1", 0));
+        assert_eq!(asked.offered.as_deref(), Some("performance"));
+        assert_eq!(asked.claim, "Runs badly on Steam Deck.");
+        assert_eq!(
+            (asked.before.as_str(), asked.after.as_str()),
+            ("", " Great story.")
+        );
+        assert_eq!((found.agreed, found.recut), (1, 0));
     }
 }

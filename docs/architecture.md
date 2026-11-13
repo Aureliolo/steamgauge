@@ -17,7 +17,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 
 - **Rules split a review into claims**, in `claims.rs`. No model splits.
 - **A claim is the bytes it covers.** A label, a reading row, a draw and a person's answer each
-  carry the span (`claims::Span`) and nothing else.
+  carry the span (`claims::Span`) and nothing else. A label's span counts bytes in the kept text.
+  Against a download that reads differently, a label is on the one claim holding its kept words.
 - **No version stamp.** Whether this build still cuts a claim at a span is answered by splitting
   the review again.
 - `claims::words_at` is the one way a stored span becomes text, and `claims::is_not_a_claim` the

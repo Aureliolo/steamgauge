@@ -3468,8 +3468,8 @@ fn run_measure_claims(
         );
         if found.unjoined > 0 {
             println!(
-                "  {} labelled claims name a span this build's splitter no longer cuts, so no \
-                 reading corresponds to them",
+                "  {} labelled claims have no claim holding their words in this download (cut \
+                 differently by this build, edited or removed), so no reading corresponds to them",
                 thousands(found.unjoined)
             );
         }

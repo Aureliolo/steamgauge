@@ -42,8 +42,20 @@ const TICKED: [char; 6] = [
 
 /// What Steam leaves where its filter objected to a word. Whatever the reviewer wrote is gone,
 /// so a claim made only of these is one whose content the platform deleted, not one that is
-/// merely terse.
+/// merely terse. The web API returns the word itself, so one of these stands for any one
+/// character ([`same_words`]).
 const CENSORED: char = '\u{2665}';
+
+/// Whether `marked` reads as `plain` does: both hold as many characters, and each character of
+/// `marked` is that of `plain` or a censor mark.
+pub(crate) fn same_words(marked: &str, plain: &str) -> bool {
+    let mut plain = plain.chars();
+    marked.chars().all(|ch| {
+        plain
+            .next()
+            .is_some_and(|other| ch == other || ch == CENSORED)
+    }) && plain.next().is_none()
+}
 
 /// How many boxes make a template rather than a turn of phrase. Two could be somebody typing
 /// a checkmark to agree with themselves. Three is a form.
@@ -2452,5 +2464,30 @@ mod tests {
     #[test]
     fn a_review_of_only_a_face_has_no_claims() {
         assert_eq!(claims_of("(\u{256F}\u{00B0}\u{25A1}\u{00B0})"), []);
+    }
+
+    #[test]
+    fn a_censor_mark_stands_for_one_character_of_the_word_behind_it() {
+        assert!(same_words(
+            "It is \u{2665}\u{2665}\u{2665}\u{2665}.",
+            "It is damn."
+        ));
+        assert!(same_words("It is damn.", "It is damn."));
+        assert!(
+            !same_words("It is \u{2665}\u{2665}.", "It is damn."),
+            "too few marks"
+        );
+        assert!(!same_words(
+            "It is \u{2665}\u{2665}\u{2665}\u{2665}.",
+            "It is dam."
+        ));
+        assert!(
+            !same_words("It is damn.", "It is darn."),
+            "a plain character differs"
+        );
+        assert!(
+            !same_words("It is damn", "It is damn."),
+            "the plain text is longer"
+        );
     }
 }
