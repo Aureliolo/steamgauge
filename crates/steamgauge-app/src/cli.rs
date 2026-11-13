@@ -4320,7 +4320,7 @@ fn print_report(report: &CrawlReport) {
     }
     println!("  shards       {}", thousands(report.shards as u64));
     println!("  pages        {}", thousands(u64::from(report.pages)));
-    println!("  unique      {}", thousands(report.unique));
+    println!("  unique       {}", thousands(report.unique));
     println!(
         "  duplicates   {} (this run)",
         thousands(report.duplicates_this_run)

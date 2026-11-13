@@ -84,7 +84,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let found = hits.get(phrase.as_str()).copied().unwrap_or(0);
         let people = reviewers.get(phrase.as_str()).map_or(0, HashSet::len);
         println!(
-            "\n{phrase:?}: {found} claims ({:.2}%), {} reviewers ({:.2}%)",
+            "\n{phrase:?}: {} claims ({:.2}%), {} reviewers ({:.2}%)",
+            thousands(found as u64),
             share(found, claims),
             thousands(people as u64),
             share(people, reviews)
