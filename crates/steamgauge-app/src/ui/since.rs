@@ -11,13 +11,12 @@ use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 use steamgauge_core::{
+    figure_text::thousands,
     moves::{Move, Side},
     read::ReadReport,
     since::{self, LastSeen, Look, Seen, Since, Standing},
 };
 use tauri::{AppHandle, Emitter as _, Manager as _};
-
-use steamgauge_core::figure_text::thousands;
 
 use super::{cockpit::Row, library_dir, now_unix, read_report, settings::Settings, text};
 
