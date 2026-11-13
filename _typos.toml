@@ -50,6 +50,8 @@ extend-ignore-re = [
   'ClientLifecycleMode::Initialize\b',
   '-PassThru\b',
   "ScriptAnalyzer",
+  # clap's own error for a command the parser does not know, which a test reads as printed
+  '"unrecognized subcommand"',
   "(?m)^UpgradeBehavior: ",
   '\binclude-flate\b',
   '(?i)\bbeat[ _]saber\b',

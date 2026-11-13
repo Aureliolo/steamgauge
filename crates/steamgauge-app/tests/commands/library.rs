@@ -229,7 +229,5 @@ fn a_command_no_build_has_is_refused() {
     let done = ran(dir.path(), &["no-such-command"]);
     assert_eq!(done.code, 2, "{}", done.err);
     assert_eq!(done.out, "");
-    // The parser's own word is American, which the spell check would refuse written out.
-    let wording = format!("unrecogni{}ed subcommand", 'z');
-    assert!(done.err.contains(&wording), "{}", done.err);
+    assert!(done.err.contains("unrecognized subcommand"), "{}", done.err);
 }
