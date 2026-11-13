@@ -122,3 +122,134 @@ pub(crate) fn read_library(folder: &Path) -> PathBuf {
     }
     library
 }
+
+/// What the first labeller and the second said of each labelled review, as (game, id, subject,
+/// polarity, the second's subject). Game 5's `505` is left unlabelled on purpose, so a draw that
+/// leaves out what is labelled has one review to keep. The second labeller disagrees on `504`
+/// and `2702`, so each game has one claim that splits.
+const LABELS: [(u32, &str, &str, &str, &str); 6] = [
+    (TRAINED, "501", "bugs", "complaint", "bugs"),
+    (TRAINED, "502", "graphics", "praise", "graphics"),
+    (TRAINED, "503", "bugs", "complaint", "bugs"),
+    (TRAINED, "504", "verdict", "neutral", "offtopic"),
+    (HELD_OUT, "2701", "bugs", "complaint", "bugs"),
+    (HELD_OUT, "2702", "graphics", "praise", "audio"),
+];
+
+/// The text a review of `REVIEWS` holds.
+fn text_of(id: &str) -> &'static str {
+    REVIEWS
+        .iter()
+        .find(|(_, own, ..)| *own == id)
+        .map(|(_, _, text, _)| *text)
+        .unwrap()
+}
+
+/// One label on the only claim of a review, naming the bytes that claim covers.
+fn label(
+    app_id: u32,
+    review: &steamgauge_core::claimset::DrawnReview,
+    by: &str,
+    subject: &str,
+    polarity: &str,
+) -> steamgauge_core::claimset::ClaimLabel {
+    let claim = &review.claims[0];
+    steamgauge_core::claimset::ClaimLabel {
+        review_id: review.id.clone(),
+        index: claim.index,
+        app_id,
+        language: review.language.clone(),
+        subset: review.subset.clone(),
+        start: claim.start,
+        end: claim.end,
+        taxonomy: steamgauge_core::taxonomy::sheet(),
+        produced_by: by.to_owned(),
+        subject: subject.to_owned(),
+        polarity: polarity.to_owned(),
+        ironic: false,
+        confidence: "high".to_owned(),
+        ambiguous: false,
+        split_wrong: false,
+        also: None,
+    }
+}
+
+/// `read_library` and, in `<folder>/reference`, each game's labelled set: the drawn sample, the
+/// kept review texts, the first labeller's `labels.json` and the second's under `second`.
+/// Returns the library and the reference folder.
+pub(crate) fn labelled(folder: &Path) -> (PathBuf, PathBuf) {
+    let library = read_library(folder);
+    let reference = folder.join("reference");
+    for app_id in [TRAINED, HELD_OUT] {
+        let game = reference.join(app_id.to_string());
+        let rows: Vec<_> = LABELS.iter().filter(|row| row.0 == app_id).collect();
+        let drawn: Vec<steamgauge_core::claimset::DrawnReview> = rows
+            .iter()
+            .map(|(_, id, ..)| {
+                let text = text_of(id);
+                steamgauge_core::claimset::DrawnReview {
+                    id: (*id).to_owned(),
+                    app_id,
+                    language: "english".to_owned(),
+                    subset: "random".to_owned(),
+                    claims: steamgauge_core::claims::claims_of(text)
+                        .into_iter()
+                        .enumerate()
+                        .map(
+                            |(index, (at, claim))| steamgauge_core::claimset::DrawnClaim {
+                                index: u16::try_from(index).unwrap(),
+                                start: u32::try_from(at.start).unwrap(),
+                                end: u32::try_from(at.end).unwrap(),
+                                text: claim.into_owned(),
+                            },
+                        )
+                        .collect(),
+                    asked: None,
+                    text: text.to_owned(),
+                }
+            })
+            .collect();
+        steamgauge_core::claimset::keep_reviews(
+            &game,
+            drawn
+                .iter()
+                .map(|review| steamgauge_core::claimset::KeptReview {
+                    review_id: review.id.clone(),
+                    language: review.language.clone(),
+                    text: review.text.clone(),
+                }),
+        )
+        .unwrap();
+        std::fs::write(
+            game.join("sample.json"),
+            serde_json::to_vec(&drawn).unwrap(),
+        )
+        .unwrap();
+        let first: Vec<_> = rows
+            .iter()
+            .zip(&drawn)
+            .map(|((_, _, subject, polarity, _), review)| {
+                label(app_id, review, "a-model", subject, polarity)
+            })
+            .collect();
+        let second: Vec<_> = rows
+            .iter()
+            .zip(&drawn)
+            .map(|((_, _, _, polarity, subject), review)| {
+                label(app_id, review, "another-model", subject, polarity)
+            })
+            .collect();
+        std::fs::write(
+            game.join("labels.json"),
+            serde_json::to_vec(&first).unwrap(),
+        )
+        .unwrap();
+        std::fs::create_dir_all(game.join("second")).unwrap();
+        std::fs::write(
+            game.join("second").join("labels.json"),
+            serde_json::to_vec(&second).unwrap(),
+        )
+        .unwrap();
+    }
+    (library, reference)
+}
