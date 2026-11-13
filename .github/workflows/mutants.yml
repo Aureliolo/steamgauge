@@ -1,24 +1,24 @@
 name: mutants
 
 # Coverage says a line ran; this says a test would notice if it were wrong. cargo-mutants changes
-# steamgauge-core one small way at a time (a condition flipped, a return value replaced, an
-# operator swapped) and reports every change the tests still pass. .cargo/mutants.toml holds the
-# settings both runs share and the mutants no test can tell apart, each with why.
+# steamgauge-core and steamgauge-app one small way at a time (a condition flipped, a return value
+# replaced, an operator swapped) and reports every change the tests still pass.
+# .cargo/mutants.toml holds the settings both runs share and the mutants no test can tell apart,
+# each with why.
 #
 # A pull request is held to it on the lines it changes, and a mutant that survives there fails the
-# check: the change is in front of its author, and so is the test it needs. Every Tuesday the
-# whole crate is run, which is where anything no diff touched turns up, and what survives there
+# check: the change is in front of its author, and so is the test it needs. Every Tuesday both
+# crates are run whole, which is where anything no diff touched turns up, and what survives there
 # is kept in one issue rather than failing the run: a check red for the weeks the tests take to
 # write is one nobody opens, which hides the week it fails for a reason.
 #
-# The core only, as the coverage job measures it, and on Linux only. The app crate is clap and
-# Tauri over the core and is driven by tools/app-check, not by Rust tests. The only code the core
-# compiles per platform is what card.rs asks the machine about its graphics card, which no test
-# can know the answer to and which is excluded on every platform alike.
+# On Linux only. A function that takes the window's handle, which no test can build, and a body
+# compiled for another platform are excluded in .cargo/mutants.toml. The app's scheduler, storage
+# and commands keep their logic in functions a test can call, and those stay mutated.
 #
 # No paths filter, for the reason workflows.yml gives: a check that never reports holds a pull
-# request forever once it is required. A pull request that changes nothing in the core finds no
-# mutants and passes in the minutes the build takes.
+# request forever once it is required. A pull request that changes no Rust finds no mutants and
+# passes in the minutes the build takes.
 on:
   # Every pull request, whatever it targets, so that one stacked on another is held to its own
   # lines too: the diff is taken from the base it targets.
@@ -77,8 +77,12 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install
 
+      # The app links against WebKitGTK on Linux, as ci.yml's lint job says.
+      - uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       # The weekly shards on main save this cache and a pull request restores it: both build the
-      # core's tests with the same command.
+      # crates' tests with the same command.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: mutants
@@ -104,7 +108,7 @@ jobs:
       # cargo-mutants builds in a copy of the tree, and handed this target directory it starts
       # from the dependencies already built here, or restored by the cache, rather than from none.
       - name: Build the tests
-        run: cargo test --locked --tests -p steamgauge-core --no-run
+        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --no-run
 
       # The checkout is the merge of the pull request into its base, so the three-dot diff from
       # the base is exactly what the pull request changes.
@@ -123,7 +127,7 @@ jobs:
           set -euo pipefail
           git diff "${BASE_SHA}...HEAD" > "${RUNNER_TEMP}/change.diff"
           status=0
-          cargo mutants -p steamgauge-core --in-diff "${RUNNER_TEMP}/change.diff" \
+          cargo mutants -p steamgauge-core -p steamgauge-app --in-diff "${RUNNER_TEMP}/change.diff" \
             --copy-target=true --no-shuffle --jobs 2 || status=$?
           if [[ "${status}" -ne 0 && "${status}" -ne 2 && "${status}" -ne 3 ]]; then
             exit "${status}"
@@ -145,10 +149,10 @@ jobs:
           path: mutants.out/
           if-no-files-found: ignore
 
-  # About 4,800 mutants at some twenty seconds each, two at a time on four cores, is about
-  # thirteen hours on one runner, so the crate is dealt out over sixteen, round robin so that a
-  # slow file is spread across all of them: a shard is some 300 mutants, under an hour. A shard
-  # nearing its two hours is the sign to deal the crate over more.
+  # About 6,100 mutants of the two crates at some twenty seconds each, two at a time on four
+  # cores, is about seventeen hours on one runner, so they are dealt out over twenty, round robin
+  # so that a slow file is spread across all of them: a shard is some 300 mutants, under an hour.
+  # A shard nearing its two hours is the sign to deal them over more.
   shard:
     # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
     # without one.
@@ -157,7 +161,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -172,8 +176,11 @@ jobs:
       - name: Install Rust
         run: rustup toolchain install
 
+      - uses: $/.github/actions/ubuntu-packages
+        with:
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
       # The weekly shards on main save this cache and a pull request restores it: both build the
-      # core's tests with the same command.
+      # crates' tests with the same command.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: mutants
@@ -196,7 +203,7 @@ jobs:
           "${RUNNER_TEMP}/cargo-mutants" mutants --version
 
       - name: Build the tests
-        run: cargo test --locked --tests -p steamgauge-core --no-run
+        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --no-run
 
       # Survivors and timeouts are what the report job gathers; anything else, a baseline that
       # fails or a tree that does not build, fails the shard. Incremental, as for a pull request.
@@ -207,7 +214,7 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          cargo mutants -p steamgauge-core --shard "${SHARD}/16" --sharding round-robin \
+          cargo mutants -p steamgauge-core -p steamgauge-app --shard "${SHARD}/20" --sharding round-robin \
             --copy-target=true --no-shuffle --jobs 2 || status=$?
           if [[ "${status}" -ne 0 && "${status}" -ne 2 && "${status}" -ne 3 ]]; then
             exit "${status}"
@@ -285,7 +292,7 @@ jobs:
           left_out=$((missed - $(wc -l < "${listed}")))
           body="${RUNNER_TEMP}/body.md"
           {
-            echo "${missed} of the ${tested} mutants of steamgauge-core the weekly run tested survive the tests (${RUN_URL})."
+            echo "${missed} of the ${tested} mutants of steamgauge-core and steamgauge-app the weekly run tested survive the tests (${RUN_URL})."
             echo
             echo "Each needs a test that fails on it, or, if no test could tell it from the original, an entry in \`.cargo/mutants.toml\` saying why. The run rewrites this list every week and closes the issue when it is empty. Each shard's \`mutants.out\` is kept with the run as an artefact, with the change every mutant made under \`diff/\`."
             echo
