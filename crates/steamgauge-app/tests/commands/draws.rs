@@ -147,11 +147,13 @@ fn declined_draws_what_the_reader_would_not_answer() {
         all_as(&["504", "505"], "declined")
     );
 
+    // Game 5 beside the held-out game: a refusal that came after the draw would write 5's set.
     let refused = dir.path().join("refused");
     let done = ran(
         dir.path(),
         &[
             "declined",
+            "5",
             "27",
             "--out",
             text(&library),
@@ -159,13 +161,18 @@ fn declined_draws_what_the_reader_would_not_answer() {
             text(&refused),
         ],
     );
+    assert_held_back(&done, &refused);
+}
+
+/// A run naming the held-out game beside game 5 is refused before it writes anything.
+fn assert_held_back(done: &crate::Ran, written: &Path) {
     assert_ne!(done.code, 0, "{}", done.out);
     assert!(
         done.err.contains("27 is held back from training"),
         "{}",
         done.err
     );
-    assert!(!refused.join("27").exists());
+    assert!(!written.exists(), "{}", written.display());
 }
 
 #[test]
@@ -213,6 +220,47 @@ fn rare_claims_draws_by_the_words_of_the_subject_named() {
         "{}",
         done.err
     );
+
+    // No tiny review uses a word of mods, so asking for mods alone draws nothing, though
+    // `officially licensed cars` would match licensing.
+    let other = dir.path().join("other");
+    let done = ran(
+        dir.path(),
+        &[
+            "rare-claims",
+            "5",
+            "--out",
+            text(&library),
+            "--reference",
+            text(&other),
+            "--only",
+            "mods",
+        ],
+    );
+    assert_ne!(done.code, 0, "{}", done.out);
+    assert!(
+        done.err.contains("no keyword matched a claim"),
+        "{}",
+        done.err
+    );
+    assert!(!other.join("5").join("keyword").exists());
+
+    let held = dir.path().join("held");
+    let done = ran(
+        dir.path(),
+        &[
+            "rare-claims",
+            "5",
+            "27",
+            "--out",
+            text(&library),
+            "--reference",
+            text(&held),
+            "--only",
+            "licensing",
+        ],
+    );
+    assert_held_back(&done, &held);
 }
 
 #[test]
@@ -247,6 +295,23 @@ fn second_opinion_writes_the_set_again_without_its_labels() {
     );
     assert!(!third.join("labels.json").exists());
     assert_eq!(std::fs::read(&second_labels).unwrap(), before);
+
+    let done = ran(
+        dir.path(),
+        &[
+            "second-opinion",
+            "5",
+            "--reference",
+            text(&reference),
+            "--share",
+            "0.5",
+            "--into",
+            "half",
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    let half = drawn(&reference.join("5").join("half").join("sample.json"));
+    assert_eq!(half.len(), 2, "half of the four labelled reviews: {half:?}");
 }
 
 #[test]
@@ -394,4 +459,21 @@ fn export_pool_leaves_out_what_is_labelled() {
     let rows = std::fs::read_to_string(&pool).unwrap();
     assert_eq!(rows.lines().count(), 1, "{rows}");
     assert!(rows.contains("officially licensed cars"), "{rows}");
+
+    let held = dir.path().join("held.jsonl");
+    let done = ran(
+        dir.path(),
+        &[
+            "export-pool",
+            "5",
+            "27",
+            "--out",
+            text(&library),
+            "--reference",
+            text(&reference),
+            "--to",
+            text(&held),
+        ],
+    );
+    assert_held_back(&done, &held);
 }
