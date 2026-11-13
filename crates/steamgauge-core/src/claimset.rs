@@ -1378,10 +1378,22 @@ pub(crate) fn handouts(
             return Ok(());
         };
         let text = text_to_cut(&kept, id, captured);
-        // A pick names bytes of the capture's copy, so it is moved onto the copy that is cut.
-        // One that starts or ends inside a character, or past the text, names no claim.
+        // A pick names a claim of the capture's copy as it is cut now. One that names no claim
+        // there (the review was edited since, or the row is stale) is dropped. The rest are
+        // moved onto the copy that is cut.
+        let cut: Vec<crate::claims::Span> = depth
+            .spans_of(captured)
+            .into_iter()
+            .map(|span| {
+                (
+                    u32::try_from(span.start).unwrap_or(u32::MAX),
+                    u32::try_from(span.end).unwrap_or(u32::MAX),
+                )
+            })
+            .collect();
         let wanted: Vec<crate::claims::Span> = picked
             .iter()
+            .filter(|at| cut.contains(at))
             .filter_map(|&at| moved_onto(captured, text, at))
             .collect();
         let spans = depth.spans_of(text);
@@ -1399,12 +1411,20 @@ pub(crate) fn handouts(
             .collect();
         // The handout numbers the claims of this review as it is cut now, and a pick names the
         // bytes it wants rather than a place in that numbering, so the two are matched here.
-        // Censor marks can cut the kept copy into other claims than the capture: one picked
-        // claim in two, or two merged into one. So a pick asks the claims that lie inside it,
-        // and where none does, the claims it shares a byte with.
+        // A pick asks the claim with exactly its bytes. A template review cuts nested claims,
+        // each holding the ones before it, so only that claim is asked. Censor marks can cut
+        // the kept copy into other claims than the capture: one picked claim in two, or two
+        // merged into one. Where no claim matches exactly, a pick asks the claims that lie
+        // inside it, and where none does, the claims it shares a byte with.
         let mut asked: Vec<u16> = wanted
             .iter()
             .flat_map(|&(start, end)| {
+                if let Some(same) = claims
+                    .iter()
+                    .find(|claim| claim.start == start && claim.end == end)
+                {
+                    return vec![same.index];
+                }
                 let inside: Vec<u16> = claims
                     .iter()
                     .filter(|claim| start <= claim.start && claim.end <= end)
@@ -3752,6 +3772,26 @@ mod tests {
         );
         assert_eq!(handed.len(), 1);
         assert_eq!(handed[0].id, "1");
+    }
+
+    #[test]
+    fn a_pick_on_a_template_asks_only_its_own_claim() {
+        // Each claim of a template runs from the heading to its own ticked box, so the second
+        // holds the first.
+        let template = "Graphics:\n\u{2610} Bad\n\u{2611} Good\n\u{2611} Great\n";
+        let cut = crate::claims::spans(template);
+        assert_eq!(cut.len(), 2, "{cut:?}");
+        assert!(
+            cut[0].start >= cut[1].start && cut[0].end <= cut[1].end,
+            "{cut:?}"
+        );
+        let pick = (
+            u32::try_from(cut[1].start).unwrap(),
+            u32::try_from(cut[1].end).unwrap(),
+        );
+        let handed = handed(&[("2", &[pick])], &[("2", template)]);
+        assert_eq!(handed.len(), 1);
+        assert_eq!(handed[0].asked, Some(vec![1]));
     }
 
     #[test]
