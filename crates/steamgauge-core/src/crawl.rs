@@ -1063,6 +1063,7 @@ fn now_unix() -> i64 {
 mod tests {
     use super::*;
     use crate::stand_in;
+    use steamgauge_stand_ins::steam::{self, counting, offset, summary_of};
 
     fn report(unique: u64, total: u64) -> CrawlReport {
         CrawlReport {
@@ -1164,102 +1165,21 @@ mod tests {
         })
     }
 
-    fn summary_of(total: usize) -> stand_in::Answer {
-        stand_in::Answer::json(&json!({"response": {
-            "query_summary": {
-                "num_reviews": 0,
-                "total_reviews": total,
-                "total_positive": total,
-                "total_negative": 0,
-                "review_score_desc": "Very Positive",
-            },
-            "cursor": "*",
-        }}))
-    }
-
-    /// Whether the client is asking only for Valve's totals, which it does with a page of one.
-    fn counting(asked: &stand_in::Asked) -> bool {
-        asked.input()["num_per_page"] == 1
-    }
-
     fn name_of_the_game(name: &str) -> stand_in::Answer {
-        stand_in::Answer::json(&json!({
-            APP.to_string(): {"success": true, "data": {"name": name}}
-        }))
-    }
-
-    /// Where a cursor the stand-in handed out starts: `*` at the beginning, `at{n}` after `n`.
-    fn offset(asked: &stand_in::Asked) -> usize {
-        asked.input()["cursor"]
-            .as_str()
-            .and_then(|cursor| cursor.strip_prefix("at"))
-            .and_then(|at| at.parse().ok())
-            .unwrap_or(0)
+        steam::name_of_the_game(APP, name)
     }
 
     fn page_of(served: &[Value], from: usize) -> stand_in::Answer {
-        let to = (from + PAGE).min(served.len());
-        let next = if from < served.len() { to } else { from };
-        let reviews = served.get(from..to).unwrap_or(&[]);
-        stand_in::Answer::json(&json!({"response": {
-            "query_summary": {"num_reviews": reviews.len()},
-            "reviews": reviews,
-            "cursor": format!("at{next}"),
-        }}))
+        steam::page_of(served, from, PAGE)
     }
 
-    /// Valve as far as a crawl can tell: `reviews` newest first, a page at a time, counted and
-    /// served by window, with the name of the game beside them. The first `stalls` walks of the
-    /// window starting at `stalled` end after their first page, as Steam's do now and then. It
-    /// also serves the first page in last-edit order, which a crawl asks before it plans.
+    /// Valve as far as a crawl can tell, paging by [`PAGE`] for [`APP`].
     fn valve(
         reviews: Vec<Value>,
         stalled: Option<i64>,
         stalls: usize,
     ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
-        let walks = std::sync::Mutex::new(0_usize);
-        move |asked| {
-            if asked.path() == "/api/appdetails" {
-                return name_of_the_game("A Game");
-            }
-            let input = asked.input();
-            let (start, end) = (
-                input["date_range_start"].as_i64().unwrap_or(i64::MIN),
-                input["date_range_end"].as_i64().unwrap_or(i64::MAX),
-            );
-            let mut served: Vec<Value> = reviews
-                .iter()
-                .filter(|review| {
-                    (start..=end).contains(&review["timestamp_created"].as_i64().unwrap())
-                })
-                .cloned()
-                .collect();
-            let by_edit = input["filter"] == 2;
-            let order = if by_edit {
-                "timestamp_updated"
-            } else {
-                "timestamp_created"
-            };
-            served.sort_by_key(|review| std::cmp::Reverse(review[order].as_i64()));
-            if counting(asked) {
-                let distinct: HashSet<&str> = served
-                    .iter()
-                    .filter_map(|review| review["recommendationid"].as_str())
-                    .collect();
-                return summary_of(distinct.len());
-            }
-            let from = offset(asked);
-            if stalled == Some(start) && !by_edit {
-                let mut walks = walks.lock().unwrap();
-                if from == 0 {
-                    *walks += 1;
-                }
-                if *walks <= stalls && from > 0 {
-                    return page_of(&served, served.len());
-                }
-            }
-            page_of(&served, from)
-        }
+        steam::valve(APP, PAGE, reviews, stalled, stalls)
     }
 
     /// Forty reviews in 2014 and thirty in 2024, so that a target of forty plans the two years
@@ -1990,27 +1910,7 @@ mod tests {
         pages: Vec<Vec<Value>>,
         total: usize,
     ) -> impl Fn(&stand_in::Asked) -> stand_in::Answer + Send + Sync + 'static {
-        move |asked| {
-            if asked.path() == "/api/appdetails" {
-                return name_of_the_game("A Game");
-            }
-            if counting(asked) {
-                return summary_of(total);
-            }
-            assert_eq!(asked.input()["filter"], 2, "the sweep walks by last edit");
-            assert!(
-                asked.input()["date_range_end"].as_i64() > Some(WATERMARK),
-                "the sweep asks up to its own start, which no other caller has asked"
-            );
-            let at = offset(asked);
-            let next = if at < pages.len() { at + 1 } else { at };
-            let reviews = pages.get(at).cloned().unwrap_or_default();
-            stand_in::Answer::json(&json!({"response": {
-                "query_summary": {"num_reviews": reviews.len()},
-                "reviews": reviews,
-                "cursor": format!("at{next}"),
-            }}))
-        }
+        steam::edits(APP, WATERMARK, pages, total)
     }
 
     #[tokio::test]
