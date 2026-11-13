@@ -38,6 +38,8 @@ fn subject<'a>(reading: &'a Value, id: &str) -> &'a Value {
 
 #[test]
 fn brief_writes_the_three_sheets_and_names_each() {
+    use steamgauge_core::taxonomy::{Unit, induction_brief, labelling_brief};
+
     let dir = Dir::new();
     let to = dir.path().join("sheets");
     let done = ran(dir.path(), &["brief", "--to", text(&to)]);
@@ -51,11 +53,17 @@ fn brief_writes_the_three_sheets_and_names_each() {
         assert!(has_line(&done.out, &line), "{line}\n{}", done.out);
     }
     assert_eq!(done.out.lines().count(), 3, "{}", done.out);
-    let claim = std::fs::read_to_string(to.join("claim-brief.txt")).unwrap();
-    assert_eq!(
-        claim,
-        steamgauge_core::taxonomy::labelling_brief(steamgauge_core::taxonomy::Unit::Claim)
-    );
+    for (name, sheet) in [
+        ("labelling-brief.txt", labelling_brief(Unit::Review)),
+        ("claim-brief.txt", labelling_brief(Unit::Claim)),
+        ("induction-brief.txt", induction_brief()),
+    ] {
+        assert_eq!(
+            std::fs::read_to_string(to.join(name)).unwrap(),
+            sheet,
+            "{name}"
+        );
+    }
 }
 
 #[test]
@@ -108,6 +116,15 @@ fn recount_needs_the_record_and_no_graph() {
     let library = read_library(dir.path());
     let model = reader(dir.path());
     std::fs::remove_file(model.join("model.onnx")).unwrap();
+    // A recount starts from the reading it replaces, so its figures are emptied first and only
+    // a recount that writes its own brings them back.
+    let mut emptied = reading(&library, 5);
+    emptied["subjects"] = Value::Array(Vec::new());
+    std::fs::write(
+        snapshot(&library, 5).join("reading.json"),
+        serde_json::to_vec(&emptied).unwrap(),
+    )
+    .unwrap();
     let done = ran(
         dir.path(),
         &[
