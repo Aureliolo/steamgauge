@@ -353,13 +353,13 @@ def main() -> None:
     )
     text = prompt_text()
     prompt = tokenizer.encode(text, add_special_tokens=False).ids
-    print(f"prompt: {len(prompt)} tokens")
+    print(f"prompt: {len(prompt):,} tokens")
 
     wanted = full_answer(source, prompt)
     print(f"the model writes:\n{tokenizer.decode(wanted)}\n")
     graph = Graph(out, "CPUExecutionProvider")
     agreement = graph.agreement(prompt, wanted)
-    print(f"the export picks the model's next token at {agreement:.1%} of {len(wanted)} places")
+    print(f"the export picks the model's next token at {agreement:.1%} of {len(wanted):,} places")
     started = time.perf_counter()
     answer = graph.greedy(prompt)
     seconds = time.perf_counter() - started

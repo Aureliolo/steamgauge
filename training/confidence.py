@@ -366,7 +366,9 @@ def _load_study(
     """The logits, truth, games and subject names the study scores, from folds or the reader."""
     if args.oof:
         logits, truth, app_ids, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
-        print(f"{len(truth):,} out-of-fold claims over {len(set(app_ids))} games, from {args.oof}")
+        print(
+            f"{len(truth):,} out-of-fold claims over {len(set(app_ids)):,} games, from {args.oof}"
+        )
     else:
         model_dir = Path(args.model)
         provenance = json.loads((model_dir / "reader.json").read_text(encoding="utf-8"))
@@ -378,7 +380,7 @@ def _load_study(
         logits = logits_of(model_dir, validation, provenance)
         truth = np.array([subjects.index(claim.subject) for claim in validation])
         print(
-            f"{len(validation):,} validation claims over {len(set(app_ids))} games, "
+            f"{len(validation):,} validation claims over {len(set(app_ids)):,} games, "
             f"model {model_dir}"
         )
     return logits, truth, app_ids, subjects
@@ -399,7 +401,7 @@ def _print_by_subject(
     print(f"{'subject':<18} {'predicted':>9}   {'one line':>16}   {'a line per subject':>18}")
     for name in sorted(one, key=lambda name: -one[name]["predictions"]):
         print(
-            f"{name:<18} {one[name]['predictions']:>9}   "
+            f"{name:<18} {one[name]['predictions']:>9,}   "
             f"{share(one[name]):>16}   {share(per[name]):>18}"
         )
     return one, per

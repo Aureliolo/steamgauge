@@ -417,8 +417,8 @@ def _run_handout(args: argparse.Namespace) -> None:
     _, _, held_out = claimdata.split_by_game(claims, seed=args.split_seed)
     picked = drawn(held_out, args.per_subject, args.seed)
     count, batches = write_handout(picked, Path(args.out), Path(args.sheet))
-    print(f"{count:,} claims over {batches} batches -> {args.out}")
-    print(f"drawn from {len({c.app_id for c in picked})} held-out games, labels held back")
+    print(f"{count:,} claims over {batches:,} batches -> {args.out}")
+    print(f"drawn from {len({c.app_id for c in picked}):,} held-out games, labels held back")
 
 
 def _write_held_out_key(args: argparse.Namespace) -> Path:

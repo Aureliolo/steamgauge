@@ -76,7 +76,7 @@ def answers_of(
         polarities.append(torch.softmax(polarity.float(), dim=-1).cpu())
         if done % PROGRESS_EVERY == 0:
             rate = done * batch_size / (time.time() - started)
-            print(f"  {run.name}: {done * batch_size} claims, {rate:.0f}/s", flush=True)
+            print(f"  {run.name}: {done * batch_size:,} claims, {rate:,.0f}/s", flush=True)
     return record, torch.cat(subjects).numpy(), torch.cat(polarities).numpy()
 
 
@@ -93,7 +93,7 @@ def main() -> None:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pool = claimdata.load_pool(args.pool)
-    print(f"{len(pool)} claims in the pool, read by {len(args.runs)} teachers on {device}")
+    print(f"{len(pool):,} claims in the pool, read by {len(args.runs):,} teachers on {device}")
 
     subjects: list[str] = []
     answered: list[npt.NDArray[np.float32]] = []

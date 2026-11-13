@@ -104,7 +104,7 @@ def main() -> None:
     manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     texts = reviews_in(Path(args.pool))
-    print(f"{len(texts)} reviews from {args.pool}")
+    print(f"{len(texts):,} reviews from {args.pool}")
 
     tokenizer = backbones.load(AutoTokenizer, args.backbone)
     # The encoder's checkpoint carries no language-model head, so the head starts from noise
@@ -146,8 +146,8 @@ def main() -> None:
                 left = (steps - taken) / rate if rate else 0
                 recent = running / 100
                 print(
-                    f"  epoch {epoch + 1} step {taken}/{steps} loss {recent:.3f} "
-                    f"({left / 60:.0f} min left)",
+                    f"  epoch {epoch + 1:,} step {taken:,}/{steps:,} loss {recent:.3f} "
+                    f"({left / 60:,.0f} min left)",
                     flush=True,
                 )
                 running = 0.0

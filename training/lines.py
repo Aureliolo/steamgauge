@@ -192,7 +192,8 @@ def main() -> None:
 
     known = languages != ""
     if not known.all():
-        print(f"{int((~known).sum())} claims carry no language in the label set and are left out")
+        left = int((~known).sum())
+        print(f"{left:,} claims carry no language in the label set and are left out")
     logits, truth, app_ids = logits[known], truth[known], app_ids[known]
     predicted, score, correct = predicted[known], score[known], correct[known]
     languages = languages[known]
@@ -202,8 +203,8 @@ def main() -> None:
     order = sorted(names, key=lambda one: -int((languages == one).sum()))
 
     print(
-        f"{len(truth):,} out-of-fold claims over {len(set(app_ids.tolist()))} games, "
-        f"{len(names)} languages, promise {100 * args.min_accuracy:.0f}%"
+        f"{len(truth):,} out-of-fold claims over {len(set(app_ids.tolist())):,} games, "
+        f"{len(names):,} languages, promise {100 * args.min_accuracy:.0f}%"
     )
 
     evidence = Evidence(score, correct, app_ids)

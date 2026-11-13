@@ -113,8 +113,12 @@ def backbone_name(value: object) -> str:
     return parts[-2] if parts[-1] == "backbone" and len(parts) > 1 else parts[-1]
 
 
-def shown(key: str, value: object) -> str:
-    """A setting as the sentence fragment the tables use."""
+def shown(key: str, value: object, *, commas: bool = False) -> str:
+    """A setting as the sentence fragment the tables use.
+
+    With `commas` a whole number gets its thousands separated, for a person reading a terminal.
+    `index` leaves it off, since the run table it writes keeps the number as the run records it.
+    """
     if value is None:
         # Off by default rather than unrecorded: a run without a pool or a fold had none.
         if SETTINGS.get(key, 0) is None:
@@ -126,13 +130,15 @@ def shown(key: str, value: object) -> str:
         value = Path(str(value)).name
     if key == "learning_rate":
         value = f"{value:.0e}".replace("e-0", "e-")
+    if commas and isinstance(value, int) and not isinstance(value, bool):
+        return f"{key.replace('_', ' ')} {value:,}"
     return f"{key.replace('_', ' ')} {value}"
 
 
 def differences(run: Run, against: Run) -> str:
     """What `run` changed from `against`, or "the baseline" when nothing."""
     changed = [
-        shown(key, setting(run, key))
+        shown(key, setting(run, key), commas=True)
         for key in SETTINGS
         if setting(run, key) != setting(against, key)
     ]
@@ -222,7 +228,7 @@ def table(found: list[Run], against: Run | None) -> None:
         line += (
             f"{row['coverage']:6.1%} +-{row['coverage_error']:4.1%}{'=' if same else ' '} "
             f"{row['accuracy']:6.1%} +-{row['accuracy_error']:4.1%}  "
-            f"{row['macro_f1']:8.3f} {row['aurc']:6.3f} {row['ece']:6.3f} {row['minutes']:5.0f}"
+            f"{row['macro_f1']:8.3f} {row['aurc']:6.3f} {row['ece']:6.3f} {row['minutes']:5,.0f}"
         )
         print(line)
     print()
@@ -309,7 +315,7 @@ def index(found: list[Run], shipped: dict[str, str], to: Path) -> None:
             lines.append(head + f"{coverage:.1%} | {accuracy:.1%} | {macro:.3f} |")
     lines.append("")
     to.write_text("\n".join(lines), encoding="utf-8")
-    print(f"{len(rows)} runs written to {to}")
+    print(f"{len(rows):,} runs written to {to}")
 
 
 def spread(found: list[Run], against: Run | None) -> None:
@@ -380,7 +386,7 @@ def subjects(run: Run, against: Run | None, *, held_out: bool) -> None:
     width = max(len(subject) for subject in mine)
     print(f"{'subject':<{width}}  labels       F1" + ("   against" if theirs else ""))
     for subject, scores in sorted(mine.items(), key=lambda pair: -pair[1]["f1"]):
-        line = f"{subject:<{width}}  {scores['support']:6d} {scores['f1']:8.3f}"
+        line = f"{subject:<{width}}  {scores['support']:6,d} {scores['f1']:8.3f}"
         if subject in theirs:
             line += f"  {scores['f1'] - theirs[subject]['f1']:+8.3f}"
         print(line)
@@ -398,12 +404,12 @@ def _comparable(arguments: argparse.Namespace, found: list[Run]) -> list[Run]:
             msg = f"no runs on labels {fingerprint}"
             raise SystemExit(msg)
         print(
-            f"{len(found)} runs on labels {fingerprint}: "
-            f"{found[0]['claims']['train']} training claims, "
-            f"{found[0]['claims']['validation']} validation claims"
+            f"{len(found):,} runs on labels {fingerprint}: "
+            f"{found[0]['claims']['train']:,} training claims, "
+            f"{found[0]['claims']['validation']:,} validation claims"
         )
         if skipped:
-            print(f"{len(skipped)} runs on other labels are not comparable and are left out")
+            print(f"{len(skipped):,} runs on other labels are not comparable and are left out")
         print()
 
     # The pilots were trained before the reader could abstain, so they have no coverage at a
@@ -412,7 +418,7 @@ def _comparable(arguments: argparse.Namespace, found: list[Run]) -> list[Run]:
     if unranked:
         found = [run for run in found if "threshold_coverage" in run["validation"]]
         names = ", ".join(sorted(run["id"] for run in unranked))
-        print(f"{len(unranked)} runs from before abstention have no coverage to rank: {names}\n")
+        print(f"{len(unranked):,} runs from before abstention have no coverage to rank: {names}\n")
     return found
 
 

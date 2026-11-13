@@ -380,14 +380,14 @@ def summarise(claims: list[Claim]) -> str:
     for claim in claims:
         languages[claim.language] = languages.get(claim.language, 0) + 1
     top = ", ".join(
-        f"{name} {count}" for name, count in sorted(languages.items(), key=lambda p: -p[1])[:6]
+        f"{name} {count:,}" for name, count in sorted(languages.items(), key=lambda p: -p[1])[:6]
     )
     contested = sum(1 for claim in claims if claim.ambiguous)
     miscut = sum(1 for claim in claims if claim.split_wrong)
     return (
-        f"{len(claims)} claims from {len({c.app_id for c in claims})} games\n"
+        f"{len(claims):,} claims from {len({c.app_id for c in claims}):,} games\n"
         f"  languages: {top}\n"
-        f"  contested: {contested} ({contested / len(claims):.1%})\n"
-        f"  mis-split: {miscut} ({miscut / len(claims):.1%})\n"
-        f"  subjects:  {len(subjects_in(claims))}"
+        f"  contested: {contested:,} ({contested / len(claims):.1%})\n"
+        f"  mis-split: {miscut:,} ({miscut / len(claims):.1%})\n"
+        f"  subjects:  {len(subjects_in(claims)):,}"
     )
