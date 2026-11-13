@@ -1356,6 +1356,35 @@ fn moved_onto(from: &str, onto: &str, at: crate::claims::Span) -> Option<crate::
     ))
 }
 
+/// The claims a pick asks about, by index.
+///
+/// A pick asks the claim with exactly its bytes. A template review cuts nested claims, each
+/// holding the ones before it, so only that claim is asked. Censor marks can cut the kept copy
+/// into other claims than the capture: one picked claim in two, or two merged into one. Where
+/// no claim matches exactly, a pick asks the claims that lie inside it, and where none does,
+/// the claims it shares a byte with. A claim that only touches the pick's edge shares none.
+fn asked_by(claims: &[DrawnClaim], (start, end): crate::claims::Span) -> Vec<u16> {
+    if let Some(same) = claims
+        .iter()
+        .find(|claim| claim.start == start && claim.end == end)
+    {
+        return vec![same.index];
+    }
+    let inside: Vec<u16> = claims
+        .iter()
+        .filter(|claim| start <= claim.start && claim.end <= end)
+        .map(|claim| claim.index)
+        .collect();
+    if !inside.is_empty() {
+        return inside;
+    }
+    claims
+        .iter()
+        .filter(|claim| start < claim.end && claim.start < end)
+        .map(|claim| claim.index)
+        .collect()
+}
+
 /// Builds the handout for a set of chosen claims: whole reviews, with the claims asked about
 /// named by index.
 ///
@@ -1411,35 +1440,9 @@ pub(crate) fn handouts(
             .collect();
         // The handout numbers the claims of this review as it is cut now, and a pick names the
         // bytes it wants rather than a place in that numbering, so the two are matched here.
-        // A pick asks the claim with exactly its bytes. A template review cuts nested claims,
-        // each holding the ones before it, so only that claim is asked. Censor marks can cut
-        // the kept copy into other claims than the capture: one picked claim in two, or two
-        // merged into one. Where no claim matches exactly, a pick asks the claims that lie
-        // inside it, and where none does, the claims it shares a byte with.
         let mut asked: Vec<u16> = wanted
             .iter()
-            .flat_map(|&(start, end)| {
-                if let Some(same) = claims
-                    .iter()
-                    .find(|claim| claim.start == start && claim.end == end)
-                {
-                    return vec![same.index];
-                }
-                let inside: Vec<u16> = claims
-                    .iter()
-                    .filter(|claim| start <= claim.start && claim.end <= end)
-                    .map(|claim| claim.index)
-                    .collect();
-                if inside.is_empty() {
-                    claims
-                        .iter()
-                        .filter(|claim| start < claim.end && claim.start < end)
-                        .map(|claim| claim.index)
-                        .collect()
-                } else {
-                    inside
-                }
-            })
+            .flat_map(|&pick| asked_by(&claims, pick))
             .collect();
         asked.sort_unstable();
         asked.dedup();
@@ -3792,6 +3795,41 @@ mod tests {
         let handed = handed(&[("2", &[pick])], &[("2", template)]);
         assert_eq!(handed.len(), 1);
         assert_eq!(handed[0].asked, Some(vec![1]));
+    }
+
+    #[test]
+    fn a_claim_that_only_touches_a_pick_is_not_asked() {
+        let claims: Vec<DrawnClaim> = [(0, 10), (10, 20), (20, 30)]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (start, end))| DrawnClaim {
+                index: u16::try_from(index).unwrap(),
+                start,
+                end,
+                text: String::new(),
+            })
+            .collect();
+        assert_eq!(asked_by(&claims, (10, 20)), [1], "the claim with its bytes");
+        assert_eq!(
+            asked_by(&claims, (0, 30)),
+            [0, 1, 2],
+            "the claims inside it"
+        );
+        assert_eq!(
+            asked_by(&claims, (12, 20)),
+            [1],
+            "not the claim starting at its end"
+        );
+        assert_eq!(
+            asked_by(&claims, (10, 18)),
+            [1],
+            "not the claim ending at its start"
+        );
+        assert_eq!(
+            asked_by(&claims, (8, 12)),
+            [0, 1],
+            "the claims it shares a byte with"
+        );
     }
 
     #[test]
