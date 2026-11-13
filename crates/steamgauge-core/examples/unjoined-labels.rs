@@ -30,44 +30,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reference = steamgauge_core::claimset::default_reference_dir(app_id);
     let labels: Vec<ClaimLabel> =
         serde_json::from_slice(&std::fs::read(reference.join("labels.json"))?)?;
-    let snapshot = steamgauge_core::embed::latest_snapshot(std::path::Path::new("data"), app_id)?;
     let ids: HashSet<String> = labels.iter().map(|label| label.review_id.clone()).collect();
-    let texts = steamgauge_core::capture::texts_for(&snapshot, &ids)?;
-
-    let mut cut: HashMap<&str, Vec<std::ops::Range<usize>>> = HashMap::new();
-    #[expect(clippy::iter_over_hash_type, reason = "only fills a map keyed by id")]
-    for (id, text) in &texts {
-        cut.insert(id, steamgauge_core::claims::spans(text));
-    }
+    let capture =
+        steamgauge_core::claimset::spans_cut_now(std::path::Path::new("data"), app_id, &ids)?;
+    let kept = match steamgauge_core::claimset::spans_cut_in(&reference, &ids) {
+        Ok(kept) => kept,
+        Err(steamgauge_core::Error::NoKeptText { .. }) => HashMap::new(),
+        Err(other) => return Err(other.into()),
+    };
 
     let mut joined = 0_usize;
     let mut inside = Vec::new();
     let mut split = Vec::new();
     let mut lost = Vec::new();
     for label in &labels {
-        let Some(text) = texts.get(&label.review_id) else {
+        let Some(now) = capture.get(&label.review_id) else {
             lost.push((label, "review not in the capture".to_owned()));
             continue;
         };
+        if steamgauge_core::claimset::claim_in_capture(&kept, &capture, label).is_some() {
+            joined += 1;
+            continue;
+        }
+        if kept
+            .get(&label.review_id)
+            .is_some_and(|was| was.text != now.text)
+        {
+            lost.push((
+                label,
+                "the review reads differently in the capture".to_owned(),
+            ));
+            continue;
+        }
+        let text = &now.text;
         let Some((start, end)) = steamgauge_core::claims::words_at(text, label.start, label.end)
         else {
             lost.push((label, "span is not on character boundaries".to_owned()));
             continue;
         };
-        let words = start as usize..end as usize;
-        let now = &cut[label.review_id.as_str()];
-        if now.contains(&words) {
-            joined += 1;
-            continue;
-        }
-        let overlapping: Vec<&std::ops::Range<usize>> = now
+        let words = start..end;
+        let mut overlapping: Vec<&(u32, u32)> = now
+            .spans
             .iter()
-            .filter(|span| span.start < words.end && words.start < span.end)
+            .filter(|(from, to)| *from < words.end && words.start < *to)
             .collect();
-        let was = text[words.clone()].replace(['\n', '\r'], " ");
+        overlapping.sort_unstable();
+        let was = text[words.start as usize..words.end as usize].replace(['\n', '\r'], " ");
         let are: Vec<String> = overlapping
             .iter()
-            .map(|span| text[(*span).clone()].replace(['\n', '\r'], " "))
+            .map(|&&(from, to)| text[from as usize..to as usize].replace(['\n', '\r'], " "))
             .collect();
         match overlapping.len() {
             0 => lost.push((label, format!("nothing cut there: {was:?}"))),

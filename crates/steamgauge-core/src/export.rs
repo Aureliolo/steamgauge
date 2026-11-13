@@ -1000,7 +1000,8 @@ fn trust(measurement: &Measurement, held_out: Option<HeldOut>) -> String {
                     let _ = write!(
                         said,
                         " A further {} labelled claims are left out because this build takes \
-                         their reviews apart differently from the build they were labelled under.",
+                         their reviews apart differently from the build they were labelled under, \
+                         or the reviews have changed since.",
                         thousands(found.unjoined)
                     );
                 }

@@ -132,10 +132,9 @@ pub struct ClaimAgreement {
     pub app_id: u32,
     /// Labelled claims found in the readings at all.
     pub matched: u64,
-    /// Labelled claims the splitter in this build no longer produces as one claim, so no
-    /// reading corresponds to them. A label names a span of a review. A splitter that cuts
-    /// that review differently leaves the label pointing at nothing, and it is counted here
-    /// rather than at whatever now sits at its old index.
+    /// Labelled claims with no claim in the capture: this build's splitter no longer cuts them,
+    /// or the review was edited or removed. Each is counted here, never scored against what
+    /// sits at its old place.
     pub unjoined: u64,
     /// Of those, the ones the model would put a subject on.
     pub answered: u64,
@@ -360,24 +359,32 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
 /// A label was made against a claim as some splitter cut it, and the readings against
 /// claims as this build's splitter cuts them. The two agree on an index only while the
 /// splitter is the same, and the splitter is meant to improve. What does not change is the
-/// text: a label names a span of its review, so the claim it belongs to is whichever claim
-/// of the current split covers exactly that span, wherever it now sits. A label whose span
-/// no claim covers any more is left out, and counted. The readings themselves have no such
+/// text: a label names a span of its kept text, so the claim it belongs to is whichever claim
+/// of the current split covers exactly that span, wherever it now sits. Where the capture
+/// reads differently, the label belongs to the one claim holding its kept words. A label whose
+/// span no claim covers any more is left out, and counted. The readings themselves have no such
 /// anchor, so readings cut by an older splitter are refused rather than joined by an index
 /// that no longer names the same sentence.
 fn join_by_span<'a>(
-    snapshot: &Path,
+    out_dir: &Path,
+    app_id: u32,
+    reference: &Path,
     labels: &'a [ClaimLabel],
 ) -> Result<HashMap<(&'a str, u16), crate::claims::Span>> {
     let ids: std::collections::HashSet<String> =
         labels.iter().map(|label| label.review_id.clone()).collect();
-    let texts = crate::capture::texts_for(snapshot, &ids)?;
+    let capture = crate::claimset::spans_cut_now(out_dir, app_id, &ids)?;
+    let kept =
+        match crate::claimset::spans_cut_in(&crate::claimset::game_of(reference, app_id), &ids) {
+            Ok(kept) => kept,
+            Err(crate::Error::NoKeptText { .. }) => crate::claimset::CutSpans::new(),
+            Err(other) => return Err(other),
+        };
 
     Ok(labels
         .iter()
         .filter_map(|label| {
-            let text = texts.get(label.review_id.as_str())?;
-            let words = crate::claims::words_at(text, label.start, label.end)?;
+            let words = crate::claimset::claim_in_capture(&kept, &capture, label)?;
             Some(((label.review_id.as_str(), label.index), words))
         })
         .collect())
@@ -455,7 +462,7 @@ pub fn agreement(out_dir: &Path, app_id: u32, reference: &Path) -> Result<ClaimA
     )?;
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let joined = join_by_span(&snapshot, &labels)?;
+    let joined = join_by_span(out_dir, app_id, reference, &labels)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = labels
         .iter()
         .filter_map(|label| {
@@ -739,7 +746,7 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
     }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let joined = join_by_span(&snapshot, &first)?;
+    let joined = join_by_span(out_dir, app_id, reference, &first)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
         .filter(|label| theirs.contains_key(&(label.review_id.as_str(), label.index)))
@@ -1401,6 +1408,43 @@ mod tests {
             Some(("Bugs and crashes", 1))
         );
         assert_eq!(row("bugs").mistaken_for, None);
+    }
+
+    #[test]
+    fn a_label_is_scored_against_the_reading_of_its_words_in_an_edited_capture() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        // Review 1 was kept with "Dropped later. " in front, which the capture no longer holds,
+        // so every byte the labels count is 15 further on than in the capture.
+        crate::claimset::keep_reviews(
+            &reference,
+            [crate::claimset::KeptReview {
+                review_id: "1".to_owned(),
+                language: "english".to_owned(),
+                text: "Dropped later. Bugs everywhere. The music is lovely.".to_owned(),
+            }],
+        )
+        .unwrap();
+        let labels = [
+            label("1", 0, (15, 31), "bugs", "complaint", false),
+            label("1", 1, (32, 52), "audio", "complaint", true),
+        ];
+        write_labels(&reference, &labels);
+
+        let ids = std::collections::HashSet::from(["1".to_owned()]);
+        let capture = crate::claimset::spans_cut_now(out.path(), 1, &ids).unwrap();
+        for one in &labels {
+            assert_eq!(
+                crate::claimset::cut_at(&capture, one),
+                None,
+                "the bytes of the kept text hold no claim of the capture"
+            );
+        }
+
+        let found = agreement(out.path(), 1, &reference).unwrap();
+        assert_eq!((found.matched, found.unjoined), (2, 0));
+        assert_eq!((found.answered, found.agreed), (2, 2));
     }
 
     #[test]

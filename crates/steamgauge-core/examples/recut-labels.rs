@@ -4,7 +4,8 @@
 //! Where this build no longer cuts a claim at a label's span, the adjudication page already
 //! refuses to ask about it. Training does not: the export joins a label to the text stored in
 //! the draw, which is what the splitter said then, so the model is taught spans it will never
-//! be handed at read time.
+//! be handed at read time. The labels are read in the text kept for them, the text their bytes
+//! count in.
 //!
 //! Whether that matters depends on which way the drift went, and the two ways are not
 //! symmetric. Where this build now cuts coarser, the old label is a true label of a sentence
@@ -17,7 +18,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
-use steamgauge_core::claimset::{ClaimLabel, TEACHING_SETS, spans_cut_now};
+use steamgauge_core::claimset::{ClaimLabel, TEACHING_SETS, spans_cut_in};
 
 #[derive(Default)]
 struct Tally {
@@ -31,20 +32,20 @@ struct Tally {
 
 fn main() -> steamgauge_core::Result<()> {
     let reference = Path::new("reference/claims");
-    let captures = Path::new("data");
     let mut by_subset: BTreeMap<String, Tally> = BTreeMap::new();
     let mut games = 0;
-    let mut uncaptured = 0;
+    let mut unkept = 0;
 
     for entry in std::fs::read_dir(reference)? {
         let dir = entry?.path();
-        let Some(app_id) = dir
+        if dir
             .file_name()
             .and_then(|name| name.to_str())
             .and_then(|name| name.parse::<u32>().ok())
-        else {
+            .is_none()
+        {
             continue;
-        };
+        }
         let sets: Vec<std::path::PathBuf> = std::iter::once(dir.clone())
             .chain(TEACHING_SETS.iter().map(|name| dir.join(name)))
             .filter(|set| set.join("labels.json").exists())
@@ -59,8 +60,8 @@ fn main() -> steamgauge_core::Result<()> {
             )?)?);
         }
         let wanted: HashSet<String> = labels.iter().map(|label| label.review_id.clone()).collect();
-        let Ok(cut) = spans_cut_now(captures, app_id, &wanted) else {
-            uncaptured += 1;
+        let Ok(cut) = spans_cut_in(&dir, &wanted) else {
+            unkept += 1;
             continue;
         };
         games += 1;
@@ -90,7 +91,7 @@ fn main() -> steamgauge_core::Result<()> {
         }
     }
 
-    println!("{games} games with a capture, {uncaptured} without\n");
+    println!("{games} games with kept text, {unkept} without\n");
     println!(
         "{:<14}{:>8}{:>8}{:>8}{:>8}{:>9}{:>7}",
         "subset", "labels", "still", "inside", "covers", "straddles", "gone"

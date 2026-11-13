@@ -504,10 +504,11 @@ function trustLine(found) {
     `${share.format(measured.agreement)} of the ${whole.format(measured.answered)} claims it ` +
     `answered (${share.format(measured.low)} to ${share.format(measured.high)}).` +
     /* A label names a span of a review, and a splitter that has since learned to cut
-       that review differently leaves the label naming nothing. */
+       that review differently leaves the label naming nothing, and so does a review edited
+       or removed since. */
     (measured.unjoined > 0
       ? ` ${whole.format(measured.unjoined)} more labelled claims are left out, because ` +
-        'this build splits their reviews differently.'
+        'this build splits their reviews differently or the reviews have changed.'
       : '')
   );
 }

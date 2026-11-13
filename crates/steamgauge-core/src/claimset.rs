@@ -998,7 +998,7 @@ pub struct KeptReview {
 
 /// The game directory a set sits in: the nearest one named by the game's id, which is the set
 /// itself for a random draw and its parent or grandparent for a teaching set or a reading of one.
-fn game_of(dir: &Path, app_id: u32) -> std::path::PathBuf {
+pub(crate) fn game_of(dir: &Path, app_id: u32) -> std::path::PathBuf {
     let name = app_id.to_string();
     dir.ancestors()
         .find(|at| at.file_name().is_some_and(|own| own == name.as_str()))
@@ -1098,8 +1098,8 @@ pub(crate) type Found = Vec<(String, crate::claims::Span)>;
 /// What this build's splitter cuts from the named reviews of one game's capture, as a library
 /// holds them.
 ///
-/// For joining a reference label to a reading of the same capture. A label is asked
-/// about against its kept text, [`spans_cut_in`].
+/// For joining a reference label to a reading of the same capture, through
+/// [`claim_in_capture`]. A label is asked about against its kept text, [`spans_cut_in`].
 ///
 /// Only the reviews named are split. The capture is walked whole, which is cheap. Splitting a
 /// game of three million claims to check a few hundred labels is not.
@@ -1135,6 +1135,37 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
     let review = cut.get(label.review_id.as_str())?;
     let words = crate::claims::words_at(&review.text, label.start, label.end)?;
     review.spans.contains(&words).then_some(words)
+}
+
+/// The one claim of a capture that a label names, by the words its labeller was handed.
+///
+/// A label counts bytes in the kept text. Where the game keeps none for the review, or keeps
+/// the capture's text byte for byte, the label is read at its own bytes. Otherwise the capture
+/// reads differently, and the label belongs to the claim whose words are the kept words at its
+/// span, a censor mark standing for any one character. No such claim, or two, gives nothing,
+/// since a pick between two would score one of them under a label written about the other.
+#[must_use]
+pub fn claim_in_capture(
+    kept: &CutSpans,
+    capture: &CutSpans,
+    label: &ClaimLabel,
+) -> Option<crate::claims::Span> {
+    let now = capture.get(label.review_id.as_str())?;
+    let Some(was) = kept
+        .get(label.review_id.as_str())
+        .filter(|was| was.text != now.text)
+    else {
+        return cut_at(capture, label);
+    };
+    let (start, end) = crate::claims::words_at(&was.text, label.start, label.end)?;
+    let words = was.text.get(start as usize..end as usize)?;
+    let mut holding = now.spans.iter().filter(|&&(from, to)| {
+        now.text
+            .get(from as usize..to as usize)
+            .is_some_and(|claim| crate::claims::same_words(words, claim))
+    });
+    let found = *holding.next()?;
+    holding.next().is_none().then_some(found)
 }
 
 /// Draws claims whose words suggest the subjects the labelled set has fewest labels for.
@@ -3405,5 +3436,98 @@ mod tests {
         let cut = spans_cut_now(out.path(), 1, &asked).unwrap();
         assert_eq!(cut.keys().collect::<Vec<_>>(), ["2"]);
         assert_eq!(cut["2"].text, "Perfect on my Steam Deck!");
+    }
+
+    /// The text of review `1` cut as this build cuts it.
+    fn cut_of(text: &str) -> CutSpans {
+        CutSpans::from([("1".to_owned(), Cut::of(text))])
+    }
+
+    /// A label of review `1` on the bytes `start` to `end`.
+    fn on(start: u32, end: u32) -> ClaimLabel {
+        ClaimLabel {
+            start,
+            end,
+            ..a_label(1, "1", 0, "random", "story")
+        }
+    }
+
+    const FUN_AND_LOUD: &str = "The story is great fun. The music is far too loud.";
+
+    #[test]
+    fn a_label_is_found_where_an_edit_moved_its_words() {
+        let kept = cut_of(FUN_AND_LOUD);
+        let capture = cut_of(&format!("I love it. {FUN_AND_LOUD}"));
+        assert_eq!(
+            claim_in_capture(&kept, &capture, &on(24, 50)),
+            Some((35, 61))
+        );
+        assert_eq!(
+            claim_in_capture(&kept, &capture, &on(0, 23)),
+            None,
+            "this build cuts the first sentence together with the one added before it"
+        );
+    }
+
+    #[test]
+    fn a_label_on_censored_words_is_found_on_the_plain_ones() {
+        let kept = cut_of(
+            "The story is \u{2665}\u{2665}\u{2665}\u{2665} boring. The music is far too loud.",
+        );
+        let capture = cut_of("The story is damn boring. The music is far too loud.");
+        assert_eq!(claim_in_capture(&kept, &capture, &on(0, 33)), Some((0, 25)));
+        assert_eq!(
+            claim_in_capture(&kept, &capture, &on(34, 60)),
+            Some((26, 52))
+        );
+    }
+
+    #[test]
+    fn a_label_whose_review_left_the_capture_is_on_no_claim() {
+        let kept = cut_of(FUN_AND_LOUD);
+        let capture = CutSpans::from([("2".to_owned(), Cut::of(FUN_AND_LOUD))]);
+        assert_eq!(claim_in_capture(&kept, &capture, &on(24, 50)), None);
+    }
+
+    #[test]
+    fn a_label_whose_words_were_edited_away_is_on_no_claim() {
+        let kept = cut_of(FUN_AND_LOUD);
+        let capture = cut_of("The story is great fun. The music is far too calm.");
+        assert_eq!(claim_in_capture(&kept, &capture, &on(24, 50)), None);
+    }
+
+    #[test]
+    fn a_label_whose_words_two_claims_hold_is_on_neither() {
+        let kept =
+            cut_of("The combat feels good. The music is far too loud. The combat feels good.");
+        let capture = cut_of(
+            "The story is great fun. The combat feels good. The music is far too loud. The combat feels good.",
+        );
+        assert_eq!(claim_in_capture(&kept, &capture, &on(0, 22)), None);
+        assert_eq!(
+            claim_in_capture(&kept, &capture, &on(23, 49)),
+            Some((47, 73))
+        );
+    }
+
+    #[test]
+    fn a_label_is_read_at_its_own_bytes_where_the_capture_is_the_kept_text_or_none_is_kept() {
+        let capture = cut_of(FUN_AND_LOUD);
+        for kept in [CutSpans::new(), cut_of(FUN_AND_LOUD)] {
+            assert_eq!(
+                claim_in_capture(&kept, &capture, &on(24, 50)),
+                Some((24, 50))
+            );
+        }
+    }
+
+    #[test]
+    fn a_label_on_words_two_claims_hold_is_read_at_its_bytes_where_the_text_is_the_same() {
+        let text = "The combat feels good. The music is far too loud. The combat feels good.";
+        let capture = cut_of(text);
+        assert_eq!(
+            claim_in_capture(&cut_of(text), &capture, &on(0, 22)),
+            Some((0, 22))
+        );
     }
 }

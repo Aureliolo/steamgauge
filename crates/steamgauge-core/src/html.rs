@@ -2329,13 +2329,14 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
     }
     // A label names a span of a review, and a splitter that has since learned to cut that
     // review differently leaves the label naming nothing. Those are left out and said, so
-    // the labelled count above is a count of what could be compared.
+    // the labelled count above is a count of what could be compared. A review edited or removed
+    // since leaves it naming nothing too.
     if agreement.unjoined > 0 {
         let _ = writeln!(
             out,
             "<p class=\"note\">A further {} labelled claims were left out because this \
              build takes their reviews apart differently from the build they were labelled \
-             under, so no reading corresponds to them.</p>",
+             under, or the reviews have changed since, so no reading corresponds to them.</p>",
             thousands(agreement.unjoined)
         );
     }

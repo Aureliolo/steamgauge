@@ -322,8 +322,8 @@ struct Measured {
     agreement: Option<f64>,
     low: Option<f64>,
     high: Option<f64>,
-    /// Labelled claims this build cuts differently from the build they were labelled under,
-    /// so the figure beside them is over fewer claims than the set holds.
+    /// Labelled claims with no claim in the download: cut differently by this build, or their
+    /// review edited or removed. The figure beside them is over fewer claims than the set holds.
     unjoined: u64,
 }
 
