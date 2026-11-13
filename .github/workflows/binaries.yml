@@ -2,7 +2,8 @@ name: binaries
 
 # Microsoft's BinSkim over the program as it ships, on the two systems it reads: the Windows PE
 # and the Linux ELF. Each finding is a mitigation the compiler or linker left out, so the job
-# refuses any it has not been told to accept, and the results go to code scanning.
+# refuses any it has not been told to accept, and the results go to code scanning. The same build
+# is searched for the stand-in's name, which only a debug build may read.
 on:
   push:
     branches:
@@ -119,6 +120,23 @@ jobs:
           rustup target add "${TARGET}"
           bash tools/onnx-runtime.sh \
             cargo build --locked --release --target "${TARGET}" -p steamgauge-app --bin steamgauge --features "${FEATURES}"
+
+      # The command tests start a debug program that asks the stand-in its origin from the
+      # environment. A shipped program must not, so its name must be absent. The search first
+      # finds a name the program does hold, to show it reads the file.
+      - name: Refuse a program that reads the stand-in
+        if: needs.scope.outputs.code != 'false'
+        env:
+          TARGET: ${{ matrix.target }}
+          PROGRAM: ${{ matrix.program }}
+        run: |
+          set -euo pipefail
+          program="target/${TARGET}/release/${PROGRAM}"
+          grep -a -q -F STEAMGAUGE_DATA "${program}"
+          if grep -a -q -F STEAMGAUGE_STAND_IN "${program}"; then
+            echo "${program} holds STEAMGAUGE_STAND_IN, a name only a debug build may read." >&2
+            exit 1
+          fi
 
       # The NuGet package, refused unless it has the digest written above.
       - name: Install BinSkim
