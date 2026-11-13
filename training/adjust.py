@@ -93,7 +93,7 @@ def main() -> None:
 
     logits, truth, app_ids, subjects = pooled_folds(Path(args.oof).glob("*.npz"))
     games = sorted(set(app_ids.tolist()))
-    print(f"{len(truth):,} out-of-fold claims over {len(games)} games\n")
+    print(f"{len(truth):,} out-of-fold claims over {len(games):,} games\n")
 
     found: dict[str, TauResult] = {}
     print(f"{'tau':>5} {'macro F1':>9} {'accuracy':>9} {'AUGRC':>7}   answers at the promise")
@@ -145,7 +145,7 @@ def main() -> None:
     for name in starved:
         row = [f"{found[str(tau)]['per_subject'][name]['f1']:>7.3f}" for tau in TAUS]
         support = found["0.0"]["per_subject"][name]["support"]
-        print(f"{name:<16} {support:>7}   " + "  ".join(row))
+        print(f"{name:<16} {support:>7,}   " + "  ".join(row))
 
     if args.out:
         Path(args.out).write_text(json.dumps(found, indent=2), encoding="utf-8")

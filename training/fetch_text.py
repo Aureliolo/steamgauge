@@ -95,7 +95,7 @@ def steam_page(app: int, query: Row) -> Row:
         if wait is None:
             msg = f"Steam refused app {app} for half an hour; run again later"
             raise SystemExit(msg)
-        print(f"  Steam is refusing requests; waiting {wait:.0f} s")
+        print(f"  Steam is refusing requests; waiting {wait:,.0f} s")
         time.sleep(wait)
         waited += wait
 
@@ -191,7 +191,7 @@ def main() -> None:
     texts: dict[str, str] = {}
     for number, (app, reviews) in enumerate(sorted(wanted.items()), 1):
         texts.update(fetch(app, reviews))
-        print(f"{number}/{len(wanted)} app {app}: {len(texts):,} reviews fetched so far")
+        print(f"{number:,}/{len(wanted):,} app {app}: {len(texts):,} reviews fetched so far")
 
     out, left = joined(claims, facts, texts)
     with Path(args.to).open("w", encoding="utf-8") as written:

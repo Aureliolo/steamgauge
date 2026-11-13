@@ -114,6 +114,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   preparation of the capture is refused meanwhile, whichever program starts it.
 - `figure_text::thousands` in Rust and `whole` in the window write a count with a comma between
   thousands, and no other function does.
+- Training's tools print a whole number with a comma between thousands, by Python's `{:,}`. The
+  cards and the index of runs they write keep the number as it stands.
 
 What counts as a change:
 

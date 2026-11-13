@@ -119,14 +119,14 @@ def main() -> None:
     confidence = probabilities.max(axis=1)
 
     print(f"{where}\n")
-    print(f"{'subject':<16} {'true':>5} {'said':>5} {'prec':>6} {'rec':>6}   mistaken for")
+    print(f"{'subject':<16} {'true':>6} {'said':>6} {'prec':>6} {'rec':>6}   mistaken for")
     for index, name in enumerate(subjects):
         precision, recall, support, said = rates(truth, predicted, index)
         if not support and not said:
             continue
         became, _ = confusions(truth, predicted, index, subjects, most=3)
-        trail = ", ".join(f"{other} {count}" for other, count in became)
-        print(f"{name:<16} {support:>5} {said:>5} {precision:>6.2f} {recall:>6.2f}   {trail}")
+        trail = ", ".join(f"{other} {count:,}" for other, count in became)
+        print(f"{name:<16} {support:>6,} {said:>6,} {precision:>6.2f} {recall:>6.2f}   {trail}")
 
     if not args.subject:
         return
@@ -137,15 +137,17 @@ def main() -> None:
     index = subjects.index(args.subject)
     became, came_from = confusions(truth, predicted, index, subjects, most=8)
     precision, recall, support, said = rates(truth, predicted, index)
-    print(f"\n{args.subject}: {support} true, {said} predicted, precision {precision:.2f}")
-    print("  labelled it, read as:  " + ", ".join(f"{n} {c}" for n, c in became))
-    print("  read as it, labelled:  " + ", ".join(f"{n} {c}" for n, c in came_from))
+    print(f"\n{args.subject}: {support:,} true, {said:,} predicted, precision {precision:.2f}")
+    print("  labelled it, read as:  " + ", ".join(f"{n} {c:,}" for n, c in became))
+    print("  read as it, labelled:  " + ", ".join(f"{n} {c:,}" for n, c in came_from))
 
     # What the reader actually said it about, most confidently first, because the confident
     # mistakes are the ones a threshold cannot catch and are what a boundary problem looks
     # like from the inside.
     wrong = np.flatnonzero((predicted == index) & (truth != index))
-    print(f"\n  the {min(args.examples, len(wrong))} most confident of its {len(wrong)} mistakes")
+    print(
+        f"\n  the {min(args.examples, len(wrong)):,} most confident of its {len(wrong):,} mistakes"
+    )
     if not validation:
         # The fold files carry the logits and the claim's name, never its text: what a review
         # says is not written into this repository, and a diagnostic is not a reason to start.

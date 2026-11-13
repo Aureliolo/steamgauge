@@ -119,9 +119,9 @@ def main() -> None:
     predicted = probabilities.argmax(axis=1)
     correct = predicted == truth
 
-    print(f"{len(truth):,} out-of-fold claims over {len(subjects)} subjects")
+    print(f"{len(truth):,} out-of-fold claims over {len(subjects):,} subjects")
     if missing:
-        print(f"  {missing} carry no language in the label set and are left out")
+        print(f"  {missing:,} carry no language in the label set and are left out")
     print(
         f"  {int(settled.sum()):,} were labelled without hedging "
         f"({100 * settled.mean():.0f}%), which is the second column"
@@ -154,7 +154,7 @@ def main() -> None:
 
     enough = [row for row in rows if row[0] >= args.min_claims]
     print(
-        f"\n{len(enough)} of {len(rows)} languages have {args.min_claims} claims or more; "
+        f"\n{len(enough):,} of {len(rows):,} languages have {args.min_claims:,} claims or more; "
         f"the rest are listed for completeness and should not be quoted"
     )
     _print_gaps(enough)

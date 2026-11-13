@@ -499,7 +499,7 @@ def gather_weights(traced: Path, graph: Path) -> None:
                 while left:
                     chunk = source.read(min(left, COPY_CHUNK))
                     if not chunk:
-                        msg = f"{info.location} ends {left} bytes short"
+                        msg = f"{info.location} ends {left:,} bytes short"
                         raise SystemExit(msg)
                     out.write(chunk)
                     left -= len(chunk)
@@ -771,12 +771,12 @@ def crossed_the_line(
     decided = int((moved & (room > allowed)).sum())
     near = int((moved & (room <= allowed)).sum())
     print(
-        f"           {decided + near} of {int(agreed.sum())} claims change side, "
-        f"{near} of them sitting on the line"
+        f"           {decided + near:,} of {int(agreed.sum()):,} claims change side, "
+        f"{near:,} of them sitting on the line"
     )
     if decided:
         msg = (
-            f"{decided} claims are answered by one graph and declined by the other, each from "
+            f"{decided:,} claims are answered by one graph and declined by the other, each from "
             f"further than {allowed:.2e} off its line. The lines were drawn against the model "
             f"and are shipped against the graph. Not shipping this."
         )
@@ -785,7 +785,7 @@ def crossed_the_line(
     # twentieth of them falling means the graph is not answering where the model would.
     if near > int(agreed.sum()) // BULK_FRACTION:
         msg = (
-            f"{near} of {int(agreed.sum())} claims change side, every one within {allowed:.2e} "
+            f"{near:,} of {int(agreed.sum()):,} claims change side, every one within {allowed:.2e} "
             f"of its line, but a graph this unsteady about when to speak is not the model. Not "
             f"shipping this."
         )
@@ -1082,7 +1082,7 @@ def _check_parity(
     widths = {
         int(mask[at : at + CHECK_BATCH].sum(axis=1).max()) for at in range(0, len(ids), CHECK_BATCH)
     }
-    print(f"parity asked at {len(widths)} lengths, traced at {ids.shape[1]}")
+    print(f"parity asked at {len(widths):,} lengths, traced at {ids.shape[1]:,}")
     allowed = HALF_TOLERANCE * float(np.abs(wanted).max()) if fp16 else TOLERANCE
 
     # Whether the graph is the model is asked on the processor, whose kernels keep what the
@@ -1122,10 +1122,10 @@ def _check_flips(
     decided = int((changed & (margin > allowed)).sum())
     ties = int((changed & (margin <= allowed)).sum())
 
-    print(f"parity: over {claims} claims, {decided} answers changed, {ties} ties reordered")
+    print(f"parity: over {claims:,} claims, {decided:,} answers changed, {ties:,} ties reordered")
     if decided:
         msg = (
-            f"the exported graph answers differently from the model it came from: {decided} "
+            f"the exported graph answers differently from the model it came from: {decided:,} "
             f"answers changed on a margin wider than {allowed:.2e}. Not shipping this."
         )
         raise SystemExit(msg)
@@ -1134,7 +1134,7 @@ def _check_flips(
     # margins say.
     if ties > claims // BULK_FRACTION:
         msg = (
-            f"{ties} of {claims} claims came back with a different subject. Every one is "
+            f"{ties:,} of {claims:,} claims came back with a different subject. Every one is "
             f"within the drift, but a graph this unsteady is not the model. Not shipping this."
         )
         raise SystemExit(msg)
@@ -1150,7 +1150,7 @@ def _validated_threshold(record: Record, subjects: Sequence[str]) -> float:
     floor = COIN_FACTOR / len(subjects)
     if threshold < floor:
         msg = (
-            f"threshold {threshold:.3f} is below {floor:.3f}, which for {len(subjects)} "
+            f"threshold {threshold:.3f} is below {floor:.3f}, which for {len(subjects):,} "
             f"subjects is what a coin lands on. This model does not abstain. Not shipping it."
         )
         raise SystemExit(msg)
@@ -1190,7 +1190,7 @@ def _aspect_thresholds(args: argparse.Namespace, subjects: list[str]) -> list[fl
     # word: it names a subject it thinks more likely covered than not.
     aspects_at: list[float | None] = [0.5] * len(subjects) if drawn is None else drawn
     nameable = sum(line is not None for line in aspects_at)
-    print(f"aspects    {nameable} of {len(subjects)} subjects can be named beside another")
+    print(f"aspects    {nameable:,} of {len(subjects):,} subjects can be named beside another")
     return aspects_at
 
 
@@ -1230,12 +1230,12 @@ def _report_lines(subjects: list[str], rule: Abstention) -> None:
         return
     silent = [name for name, line in zip(subjects, lines, strict=True) if line is None]
     drawn = sum(1 for line in lines if line is not None)
-    print(f"lines      {drawn} of {len(subjects)} subjects have one")
+    print(f"lines      {drawn:,} of {len(subjects):,} subjects have one")
     if silent:
         print(f"           silent: {', '.join(silent)}")
     quiet = sorted(name for name, line in by_language.items() if line is None)
     spoke = sum(1 for line in by_language.values() if line is not None)
-    print(f"languages  {spoke} of {len(by_language)} have one")
+    print(f"languages  {spoke:,} of {len(by_language):,} have one")
     if quiet:
         print(f"           silent: {', '.join(quiet)}")
 

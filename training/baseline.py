@@ -201,7 +201,7 @@ def main() -> None:
         # Only the claims this export still cuts, as `frontier.py` scores a reader: a key row
         # naming a span the splitter no longer makes is a claim nothing can be handed.
         held = [by_claim[at] for at in keyed if at in by_claim]
-        print(f"{len(keyed) - len(held)} key claims this export no longer cuts, left out")
+        print(f"{len(keyed) - len(held):,} key claims this export no longer cuts, left out")
     subjects = claimdata.subjects_in(claims)
     truth = [subjects.index(claim.subject) for claim in held]
 

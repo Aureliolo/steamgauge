@@ -340,7 +340,7 @@ def main(args: argparse.Namespace) -> Record:
         folds=first["folds"] or DEFAULT_FOLDS,
     )
     parts = {"train": train, "validation": validation, "test": test}
-    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (held out)")
+    print(f"train {len(train):,}  validation {len(validation):,}  test {len(test):,} (held out)")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = _open_tokenizer(first)
@@ -363,7 +363,7 @@ def main(args: argparse.Namespace) -> Record:
 
     state = soup.state()
     metrics = scorer.read_with(state)
-    print(f"\nsoup of {soup.count}: {how_it_reads(metrics)}")
+    print(f"\nsoup of {soup.count:,}: {how_it_reads(metrics)}")
 
     # The held-out games, read once, by the soup that was already chosen. Reading them per
     # ingredient would turn the one set nothing is picked on into a set something was picked on.

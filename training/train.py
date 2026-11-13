@@ -1437,7 +1437,7 @@ def labelled(args: argparse.Namespace) -> Labelled:
     newer = claimdata.labels_newer_than(args.data, HERE.parent / "reference" / "claims")
     if newer:
         print(
-            f"WARNING: {len(newer)} label files are newer than {args.data}, the first being "
+            f"WARNING: {len(newer):,} label files are newer than {args.data}, the first being "
             f"{newer[0]}; this run learns an export that lacks them. "
             f"`steamgauge export-training` writes a current one.",
             flush=True,
@@ -1448,7 +1448,7 @@ def labelled(args: argparse.Namespace) -> Labelled:
         # measured on everything is being marked on a paper it never sat.
         in_language = [claim for claim in claims if claim.language in args.only_language]
         print(
-            f"{len(in_language)} of {len(claims)} claims are "
+            f"{len(in_language):,} of {len(claims):,} claims are "
             f"{' or '.join(args.only_language)}; the rest are dropped"
         )
         claims = in_language
@@ -1468,9 +1468,9 @@ def labelled(args: argparse.Namespace) -> Labelled:
             key=lambda app_id: claimdata.place(app_id, args.split_seed),
         )[: args.train_games]
         train = [claim for claim in train if claim.app_id in kept_games]
-        print(f"training on {len(kept_games)} of the training games, by hash order")
+        print(f"training on {len(kept_games):,} of the training games, by hash order")
 
-    print(f"train {len(train)}  validation {len(validation)}  test {len(test)} (held out)")
+    print(f"train {len(train):,}  validation {len(validation):,}  test {len(test):,} (held out)")
     return Labelled(
         claims=claims,
         headset_marker=headset_marker,
@@ -1656,7 +1656,7 @@ def taught_batches_of(
         msg = f"{args.pool} holds no claim from a game this run trains on"
         raise SystemExit(msg)
     print(
-        f"pool {len(pool_kept)} of {len(unlabelled)} unlabelled claims, "
+        f"pool {len(pool_kept):,} of {len(unlabelled):,} unlabelled claims, "
         "from games this run trains on"
     )
     pool = Pool(
@@ -1906,7 +1906,7 @@ def train_epoch(training: Training, epoch: int) -> None:
                 else ""
             )
             print(
-                f"  epoch {epoch + 1} step {taken}/{training.per_epoch} "
+                f"  epoch {epoch + 1:,} step {taken:,}/{training.per_epoch:,} "
                 f"loss {running.item() / (step + 1):.4f}{card_note}",
                 flush=True,
             )
@@ -1915,7 +1915,7 @@ def train_epoch(training: Training, epoch: int) -> None:
 def report_epoch(metrics: Metrics, epoch: int, min_accuracy: float) -> None:
     """Print what the validation games say of the reader after an epoch."""
     print(
-        f"epoch {epoch + 1}: accuracy {metrics['accuracy']:.3f}  "
+        f"epoch {epoch + 1:,}: accuracy {metrics['accuracy']:.3f}  "
         f"macro F1 {metrics['macro_f1']:.3f}  polarity {metrics['polarity_macro_f1']:.3f}  "
         f"calibration {metrics['calibration_error']:.3f}"
     )
@@ -1924,7 +1924,7 @@ def report_epoch(metrics: Metrics, epoch: int, min_accuracy: float) -> None:
         beyond = aspect_report["beyond_the_first"]
         print(
             f"  aspects: F1 {aspect_report['all']['f1']:.3f}, beyond the first subject "
-            f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']} covered"
+            f"F1 {beyond['f1'] or 0:.3f} on {beyond['covered']:,} covered"
         )
     answers = (
         "answers nothing at that accuracy"
@@ -1945,12 +1945,12 @@ def report_read_twice(twice: ReadTwice | Nothing) -> None:
     """Print how the reader does on the held-out claims two labellers read."""
     if "claims" in twice:
         print(
-            f"  on the {twice['claims']} held-out claims read twice: "
+            f"  on the {twice['claims']:,} held-out claims read twice: "
             f"{twice['against_first']:.3f} against the first labeller, "
             f"{twice['against_second']:.3f} against the second, "
             f"{twice['against_either']:.3f} against either, "
             f"{twice['where_both_agree']['accuracy'] or 0:.3f} on the "
-            f"{twice['where_both_agree']['claims']} they agree on"
+            f"{twice['where_both_agree']['claims']:,} they agree on"
         )
 
 
@@ -1991,7 +1991,7 @@ def held_out(setup: Setup, metrics: Metrics) -> Metrics | None:
         print(
             f"  WARNING: the threshold promised {args.min_accuracy:.2f} and delivers "
             f"{at_threshold['accuracy']:.3f} on games it has never seen. The promise was "
-            f"chosen on {len({claim.app_id for claim in data.validation})} validation games and "
+            f"chosen on {len({claim.app_id for claim in data.validation}):,} validation games and "
             f"does not transfer; quote the held-out figure, not the validation one."
         )
     return held
@@ -2176,11 +2176,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         # and accuracy is a quarter `verdict`. Only the validation games choose. The held-out ones
         # never see this.
         if best is not None and best.offer(metrics["macro_f1"], epoch + 1, model):
-            print(f"  best so far: epoch {epoch + 1}, kept", flush=True)
+            print(f"  best so far: epoch {epoch + 1:,}, kept", flush=True)
 
     if best is not None:
         best.restore(model)
-        print(f"kept epoch {best.epoch} of {args.epochs}: validation macro F1 {best.score:.3f}")
+        print(f"kept epoch {best.epoch:,} of {args.epochs:,}: validation macro F1 {best.score:.3f}")
 
     # The averaged weights are the run's weights from here on: what is scored below, what the
     # held-out games are read with, and what is saved.

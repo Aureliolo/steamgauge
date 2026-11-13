@@ -5,6 +5,8 @@ python -m pytest training/test_claimdata.py
 
 from __future__ import annotations
 
+import dataclasses
+
 import claimdata
 
 
@@ -95,3 +97,18 @@ def test_no_fold_is_left_with_nothing_to_hold_out() -> None:
         for fold in range(5):
             _, held, _ = claimdata.split_by_game(claims, seed=1, fold=fold, folds=5)
             assert held, f"{count} games left fold {fold} empty"
+
+
+def test_a_summary_writes_its_counts_with_commas() -> None:
+    claims = [
+        dataclasses.replace(
+            claim(game), subject=f"subject {game}", ambiguous=True, split_wrong=True
+        )
+        for game in range(1200)
+    ]
+    text = claimdata.summarise(claims)
+    assert text.startswith("1,200 claims from 1,200 games")
+    assert "english 1,200" in text
+    assert "contested: 1,200" in text
+    assert "mis-split: 1,200" in text
+    assert "subjects:  1,200" in text
