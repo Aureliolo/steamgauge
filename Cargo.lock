@@ -5506,6 +5506,7 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "steamgauge-core",
+ "steamgauge-stand-ins",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
