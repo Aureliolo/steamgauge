@@ -31,6 +31,8 @@ def test_the_threshold_is_the_one_answering_most_at_the_promised_accuracy() -> N
     assert at[0.31] == {"threshold": 0.31, "coverage": 0.75, "accuracy": pytest.approx(2 / 3)}
     assert at[0.95] == {"threshold": 0.95, "coverage": 0.25, "accuracy": 1.0}
     assert 0.96 not in at, "a step nothing clears is not on the curve"
+    sure, _ = risk_coverage(np.array([0.995, 0.5]), np.array([1.0, 0.0]), 0.75)
+    assert sure[-1] == {"threshold": 0.99, "coverage": 0.5, "accuracy": 1.0}, "the last step"
 
 
 def test_a_promise_no_threshold_keeps_is_recorded_as_not_met() -> None:
@@ -64,6 +66,10 @@ def test_calibration_error_weighs_each_bin_by_its_claims() -> None:
     # half the time, off by 0.4. Weighted: 1/3 * 0.1 + 2/3 * 0.4 = 0.3.
     error = expected_calibration_error(np.array([0.9, 0.9, 0.1]), np.array([1.0, 0.0, 0.0]), 2)
     assert error == pytest.approx(0.3)
+    # A bin holds its upper edge: 0.5 is in the first, off by 0.5, and 1.0 in the second, off
+    # by 1. Each is half the claims.
+    edges = expected_calibration_error(np.array([1.0, 0.5]), np.array([0.0, 1.0]), 2)
+    assert edges == pytest.approx(0.75)
 
 
 class GivenLogits:
@@ -81,11 +87,11 @@ class GivenLogits:
     def __call__(
         self, input_ids: torch.Tensor, attention_mask: torch.Tensor
     ) -> tuple[torch.Tensor, ...]:
-        """Return the next batch's subject logits."""
+        """Return the next batch's subject logits first, and other heads' after them."""
         del attention_mask
         logits = torch.tensor(next(self.batches))
         assert len(logits) == len(input_ids)
-        return (logits,)
+        return (logits, -logits)
 
 
 def test_confidence_is_the_top_probability_in_the_loaders_order() -> None:
