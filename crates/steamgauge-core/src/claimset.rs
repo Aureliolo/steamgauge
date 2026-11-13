@@ -1399,10 +1399,27 @@ pub(crate) fn handouts(
             .collect();
         // The handout numbers the claims of this review as it is cut now, and a pick names the
         // bytes it wants rather than a place in that numbering, so the two are matched here.
-        let mut asked: Vec<u16> = claims
+        // Censor marks can cut the kept copy into other claims than the capture: one picked
+        // claim in two, or two merged into one. So a pick asks the claims that lie inside it,
+        // and where none does, the claims it shares a byte with.
+        let mut asked: Vec<u16> = wanted
             .iter()
-            .filter(|claim| wanted.contains(&(claim.start, claim.end)))
-            .map(|claim| claim.index)
+            .flat_map(|&(start, end)| {
+                let inside: Vec<u16> = claims
+                    .iter()
+                    .filter(|claim| start <= claim.start && claim.end <= end)
+                    .map(|claim| claim.index)
+                    .collect();
+                if inside.is_empty() {
+                    claims
+                        .iter()
+                        .filter(|claim| start < claim.end && claim.start < end)
+                        .map(|claim| claim.index)
+                        .collect()
+                } else {
+                    inside
+                }
+            })
             .collect();
         asked.sort_unstable();
         asked.dedup();
@@ -3706,10 +3723,12 @@ mod tests {
 
     #[test]
     fn a_pick_is_moved_onto_the_kept_copy() {
-        let handed = handed(&[("1", &[(28, 54), (0, 35)])], &[("1", PLAIN)]);
+        let handed = handed(&[("1", &[(28, 54), (0, 27)])], &[("1", PLAIN)]);
         assert_eq!(handed.len(), 1);
         assert_eq!(spans(&handed[0]), [(0, 35), (36, 62)]);
-        assert_eq!(handed[0].asked, Some(vec![1]));
+        assert_eq!(handed[0].asked, Some(vec![0, 1]));
+        let second = handed_only(&[("1", &[(28, 54)])]);
+        assert_eq!(second[0].asked, Some(vec![1]));
     }
 
     #[test]
@@ -3733,5 +3752,49 @@ mod tests {
         );
         assert_eq!(handed.len(), 1);
         assert_eq!(handed[0].id, "1");
+    }
+
+    #[test]
+    fn a_pick_the_kept_copy_cuts_otherwise_asks_the_claims_holding_its_words() {
+        // The capture cuts the question and its answer as one claim. Under the marks, the
+        // splitter ends the first claim after them, so "yes." opens the next one.
+        let plain = "Is the vr mode good? Hell yes. The combat is great and deep.";
+        let marked = "Is the vr mode good? \u{2665}\u{2665}\u{2665}\u{2665} yes. \
+                      The combat is great and deep.";
+        let asked_for = |pick: (u32, u32)| {
+            let out = crate::tempdir::Dir::new();
+            let game = captured(out.path(), &[("1", plain)]);
+            kept(&game, &[("1", marked)]);
+            let picks: Picks = std::iter::once(("1".to_owned(), vec![pick])).collect();
+            let snapshot = crate::embed::latest_snapshot(out.path(), 1).unwrap();
+            let handed = handouts(
+                &snapshot,
+                1,
+                crate::read::Depth::Deep,
+                &picks,
+                "keyword",
+                &game,
+            )
+            .unwrap();
+            assert_eq!(handed.len(), 1, "the review is handed out, not left out");
+            assert_eq!(handed[0].text, marked);
+            handed[0]
+                .asked
+                .clone()
+                .unwrap()
+                .iter()
+                .map(|&at| handed[0].claims[usize::from(at)].text.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            asked_for((0, 30)),
+            ["Is the vr mode good? \u{2665}\u{2665}\u{2665}\u{2665}"],
+            "the claim inside the pick, and not the one that only shares its last word"
+        );
+        assert_eq!(
+            asked_for((31, 60)),
+            ["yes. The combat is great and deep."],
+            "no claim lies inside this pick, so the one holding its words is asked"
+        );
     }
 }
