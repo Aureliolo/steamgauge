@@ -698,6 +698,31 @@ fn without_markup(piece: &str) -> String {
     clean
 }
 
+/// Whether the bytes of `text` from `start` to `end` are the claim `handed`.
+///
+/// A form's claim is handed out as its heading and its answer, so the words are sought in order.
+/// A censor mark in them stands for any one character ([`same_words`]). Words of the claim's own
+/// length are compared as bytes. False where the span runs past the text or starts or ends inside
+/// a character.
+pub(crate) fn holds_words(text: &str, start: u32, end: u32, handed: &str) -> bool {
+    let (Ok(start), Ok(end)) = (usize::try_from(start), usize::try_from(end)) else {
+        return false;
+    };
+    // `is_char_boundary` is false past the end of the text, so a span running past it ends here.
+    if start > end || !text.is_char_boundary(start) || !text.is_char_boundary(end) {
+        return false;
+    }
+    let bytes = &text[start..end];
+    if bytes.len() == handed.len() {
+        return bytes == handed;
+    }
+    let clean = without_markup(bytes);
+    let mut written = clean.split_whitespace();
+    handed
+        .split_whitespace()
+        .all(|word| written.any(|own| same_words(word, own)))
+}
+
 /// Whether a terminator sits inside a web address, where "?" starts a query string and "."
 /// separates a hostname rather than ending anything.
 fn inside_a_link(text: &str, at: usize) -> bool {
@@ -2489,5 +2514,48 @@ mod tests {
             !same_words("It is damn", "It is damn."),
             "the plain text is longer"
         );
+    }
+
+    #[test]
+    fn words_handed_out_without_markup_are_sought_in_order() {
+        assert!(holds_words("[b]word[/b]. More.", 0, 12, "word."));
+        assert!(!holds_words("[b]word[/b]. More.", 0, 12, "More."));
+        assert!(
+            !holds_words("[b]word[/b]. More.", 0, 40, "word."),
+            "a span past the text holds nothing"
+        );
+        assert!(
+            !holds_words("[i]A[/i] b.", 0, 11, "b. A"),
+            "the words are in another order"
+        );
+        assert!(holds_words("[i]A[/i] b.", 0, 11, "A b."));
+        assert!(
+            !holds_words("[i]A[/i] b.", 11, 0, "A b."),
+            "a span that ends before it starts holds nothing"
+        );
+    }
+
+    #[test]
+    fn a_censor_mark_handed_out_stands_for_any_one_character() {
+        let marks = "\u{2665}".repeat(4);
+        assert!(holds_words(
+            "Damn [i]good[/i].",
+            0,
+            17,
+            &format!("{marks} good.")
+        ));
+        assert!(!holds_words(
+            "Damn [i]good[/i].",
+            0,
+            17,
+            &format!("{marks} fine.")
+        ));
+    }
+
+    #[test]
+    fn a_span_inside_a_character_holds_no_words() {
+        assert!(!holds_words("ünï good.", 1, 9, "nï good."));
+        assert!(!holds_words("ünï good.", 0, 4, "ün"));
+        assert!(holds_words("ünï good.", 0, 5, "ünï"));
     }
 }

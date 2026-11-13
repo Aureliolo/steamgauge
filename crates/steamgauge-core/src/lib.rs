@@ -12,6 +12,7 @@ pub mod claimset;
 pub mod crawl;
 pub mod current_format;
 pub mod diverse;
+pub mod drawn_text;
 pub mod embed;
 pub mod export;
 pub mod facts;
