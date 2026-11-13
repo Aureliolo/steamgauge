@@ -150,6 +150,20 @@ class Encoder(Protocol):
         ...
 
 
+class Scorer(Protocol):
+    """The part of a reader that scoring a loader calls."""
+
+    def eval(self) -> object:
+        """Put the model in evaluation mode."""
+        ...
+
+    def __call__(
+        self, input_ids: torch.Tensor, attention_mask: torch.Tensor, /
+    ) -> tuple[torch.Tensor, ...]:
+        """Return the subject logits first."""
+        ...
+
+
 class ShippedTokenizer:
     """Enough of the transformers tokenizer for `Claims` to run on the exported one.
 
@@ -1072,7 +1086,7 @@ def selective(
 
 
 @torch.no_grad()
-def logits_of(model: ClaimReader, loader: Iterable[Item], device: str) -> FloatArray:
+def logits_of(model: Scorer, loader: Iterable[Item], device: str) -> FloatArray:
     """Return every claim's subject logits, in the order the loader gives them."""
     model.eval()
     logits: list[torch.Tensor] = []
@@ -1094,7 +1108,7 @@ def aspect_logits_of(model: ClaimReader, loader: Iterable[Item], device: str) ->
 
 
 def confidence_of(
-    model: ClaimReader, loader: Iterable[Item], device: str
+    model: Scorer, loader: Iterable[Item], device: str
 ) -> tuple[FloatArray, IntArray]:
     """Return each claim's best subject and how sure the model is of it."""
     probabilities = torch.softmax(torch.as_tensor(logits_of(model, loader, device)), dim=1).numpy()
