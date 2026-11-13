@@ -46,9 +46,9 @@ def test_the_table_writes_its_counts_with_commas(
 
     performance = next(line for line in out.splitlines() if line.startswith("performance "))
     gameplay = next(line for line in out.splitlines() if line.startswith("gameplay "))
-    assert "1,300 1,200" in performance
+    assert " 1,300  1,200 " in performance
     assert "gameplay 1,200" in performance
-    assert "2,300 2,400" in gameplay
+    assert " 2,300  2,400 " in gameplay
     assert "performance 1,100" in gameplay
     assert "gameplay: 2,300 true, 2,400 predicted" in out
     assert "read as:  performance 1,100" in out

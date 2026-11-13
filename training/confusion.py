@@ -119,14 +119,14 @@ def main() -> None:
     confidence = probabilities.max(axis=1)
 
     print(f"{where}\n")
-    print(f"{'subject':<16} {'true':>5} {'said':>5} {'prec':>6} {'rec':>6}   mistaken for")
+    print(f"{'subject':<16} {'true':>6} {'said':>6} {'prec':>6} {'rec':>6}   mistaken for")
     for index, name in enumerate(subjects):
         precision, recall, support, said = rates(truth, predicted, index)
         if not support and not said:
             continue
         became, _ = confusions(truth, predicted, index, subjects, most=3)
         trail = ", ".join(f"{other} {count:,}" for other, count in became)
-        print(f"{name:<16} {support:>5,} {said:>5,} {precision:>6.2f} {recall:>6.2f}   {trail}")
+        print(f"{name:<16} {support:>6,} {said:>6,} {precision:>6.2f} {recall:>6.2f}   {trail}")
 
     if not args.subject:
         return
