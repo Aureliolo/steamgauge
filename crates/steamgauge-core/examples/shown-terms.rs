@@ -13,6 +13,8 @@
 
 use std::collections::BTreeMap;
 
+use steamgauge_core::figure_text::thousands;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let everything = std::env::args().any(|arg| arg == "--all");
     let data = std::path::Path::new("data");
@@ -72,13 +74,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("{lists} term lists over {games} counted games\n");
+    println!(
+        "{} term lists over {} counted games\n",
+        thousands(u64::from(lists)),
+        thousands(u64::from(games))
+    );
     report("one word in two forms", &two_forms, everything);
     report("a word that only turns what follows", &turning, everything);
 
     println!(
         "\n{} terms of one or two letters, which are worth reading rather than counting",
-        short.values().map(Vec::len).sum::<usize>()
+        thousands(short.values().map(Vec::len).sum::<usize>() as u64)
     );
     for (term, seen) in &short {
         let first = seen
@@ -87,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|(app_id, row)| format!("{app_id} {row}"))
             .collect::<Vec<_>>()
             .join(", ");
-        println!("  {term:<6} {:>3}  {first}", seen.len());
+        println!("  {term:<6} {:>3}  {first}", thousands(seen.len() as u64));
     }
     Ok(())
 }
@@ -101,12 +107,15 @@ fn spaced(term: &str) -> bool {
 }
 
 fn report(what: &str, found: &[String], everything: bool) {
-    println!("{what}: {}", found.len());
+    println!("{what}: {}", thousands(found.len() as u64));
     let shown = if everything { found.len() } else { 10 };
     for line in found.iter().take(shown) {
         println!("  {line}");
     }
     if found.len() > shown {
-        println!("  ... and {} more, with --all", found.len() - shown);
+        println!(
+            "  ... and {} more, with --all",
+            thousands((found.len() - shown) as u64)
+        );
     }
 }

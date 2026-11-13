@@ -16,6 +16,8 @@
 
 use std::collections::HashMap;
 
+use steamgauge_core::figure_text::thousands;
+
 /// Steam's replacement for a word its filter objected to. Whatever the reviewer wrote is gone,
 /// and a claim made only of these is a claim whose content the platform deleted.
 const CENSORED: char = '\u{2665}';
@@ -166,17 +168,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })?;
         #[expect(clippy::cast_precision_loss, reason = "counts, not measurements")]
         let share = empty_here as f64 / here.max(1) as f64 * 100.0;
-        println!("{app_id:>9}  {here:>9} claims, {empty_here} of them empty ({share:.3}%)");
+        println!(
+            "{app_id:>9}  {:>9} claims, {} of them empty ({share:.3}%)",
+            thousands(here as u64),
+            thousands(empty_here as u64)
+        );
         claims += here;
     }
 
-    println!("\n{claims} claims in all");
+    println!("\n{} claims in all", thousands(claims as u64));
     let mut causes: Vec<(&Empty, &(usize, Vec<String>))> = all.iter().collect();
     causes.sort_by_key(|(_, (n, _))| std::cmp::Reverse(*n));
     for (cause, (n, examples)) in causes {
         #[expect(clippy::cast_precision_loss, reason = "counts, not measurements")]
         let share = *n as f64 / claims.max(1) as f64 * 100.0;
-        println!("\n{n:>8} ({share:.3}%)  {}", cause.why());
+        println!(
+            "\n{:>8} ({share:.3}%)  {}",
+            thousands(*n as u64),
+            cause.why()
+        );
         for one in examples {
             println!("           {:?}", one.chars().take(64).collect::<String>());
         }
@@ -187,10 +197,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let duplicated: usize = common.iter().map(|(_, n)| **n - 1).sum();
     #[expect(clippy::cast_precision_loss, reason = "counts, not measurements")]
     let share = duplicated as f64 / claims.max(1) as f64 * 100.0;
-    println!("\n{duplicated} claims ({share:.1}%) repeat text another claim already carries");
+    println!(
+        "\n{} claims ({share:.1}%) repeat text another claim already carries",
+        thousands(duplicated as u64)
+    );
     for (text, n) in common.iter().take(12) {
         println!(
-            "    {n:>6}x  {:?}",
+            "    {:>6}x  {:?}",
+            thousands(**n as u64),
             text.chars().take(58).collect::<String>()
         );
     }

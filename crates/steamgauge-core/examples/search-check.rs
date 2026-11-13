@@ -5,7 +5,10 @@
 //!
 //!     cargo run --release -p steamgauge-core --example search-check -- data 920210 "steam deck"
 
-use steamgauge_core::search::{Phrase, Readings, search};
+use steamgauge_core::{
+    figure_text::thousands,
+    search::{Phrase, Readings, search},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
@@ -28,18 +31,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "{} reviews, {} claims: {} praise, {} complaint, {} neutral, in {:.1} s",
-        said.reviews,
-        said.claims,
-        said.praise,
-        said.complaint,
-        said.neutral,
+        thousands(said.reviews),
+        thousands(said.claims),
+        thousands(said.praise),
+        thousands(said.complaint),
+        thousands(said.neutral),
         took.as_secs_f64()
     );
     for (subject, claims) in &said.subjects {
-        println!("  {subject:<14} {claims}");
+        println!("  {subject:<14} {}", thousands(*claims));
     }
     for (form, claims) in &said.forms {
-        println!("  as \"{form}\" {claims}");
+        println!("  as \"{form}\" {}", thousands(*claims));
     }
     Ok(())
 }

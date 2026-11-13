@@ -14,6 +14,8 @@
 
 use std::collections::HashMap;
 
+use steamgauge_core::figure_text::thousands;
+
 /// What one reading said of one claim.
 type Said = (Option<String>, f32, String);
 
@@ -91,10 +93,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let only_left = was.len();
 
-    println!("\n{shared} claims in both");
-    if only_left > 0 || only_right > 0 {
-        println!("{only_left} only in the first, {only_right} only in the second");
-    }
+    println!("\n{} claims in both", count(shared));
+    say_unmatched(only_left, only_right);
     #[expect(
         clippy::cast_precision_loss,
         reason = "a library is tens of millions of claims, not quadrillions"
@@ -106,12 +106,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )]
     let share = |count: usize| 100.0 * count as f64 / whole;
     println!(
-        "{subject_moved} answers moved ({:.2}%), of which {spoke_up} were declined before and \
-         {fell_silent} are declined now",
-        share(subject_moved)
+        "{} answers moved ({:.2}%), of which {} were declined before and \
+         {} are declined now",
+        count(subject_moved),
+        share(subject_moved),
+        count(spoke_up),
+        count(fell_silent)
     );
     println!(
-        "{polarity_moved} polarities moved ({:.2}%)",
+        "{} polarities moved ({:.2}%)",
+        count(polarity_moved),
         share(polarity_moved)
     );
     println!(
@@ -119,4 +123,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         drift / whole
     );
     Ok(())
+}
+
+fn count(claims: usize) -> String {
+    thousands(claims as u64)
+}
+
+fn say_unmatched(only_first: usize, only_second: usize) {
+    if only_first > 0 || only_second > 0 {
+        println!(
+            "{} only in the first, {} only in the second",
+            count(only_first),
+            count(only_second)
+        );
+    }
 }

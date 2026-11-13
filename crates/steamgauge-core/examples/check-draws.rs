@@ -17,7 +17,7 @@
 
 use std::collections::HashMap;
 
-use steamgauge_core::read::Depth;
+use steamgauge_core::{figure_text::thousands, read::Depth};
 
 #[derive(serde::Deserialize)]
 struct Drawn {
@@ -131,16 +131,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(app) => app.to_string(),
                 None => subset.into_owned(),
             };
-            println!("{name}: {moved} of {held} claims are not what this build cuts there");
+            println!(
+                "{name}: {} of {} claims are not what this build cuts there",
+                thousands(moved as u64),
+                thousands(held as u64)
+            );
         }
     }
 
-    println!("\n{total} drawn claims checked, {stale} the splitter no longer cuts as drawn");
+    println!(
+        "\n{} drawn claims checked, {} the splitter no longer cuts as drawn",
+        thousands(total as u64),
+        thousands(stale as u64)
+    );
     if retidied > 0 {
-        println!("{retidied} are cut in the same place and tidied differently, which scores fine");
+        println!(
+            "{} are cut in the same place and tidied differently, which scores fine",
+            thousands(retidied as u64)
+        );
     }
     if unread > 0 {
-        println!("{unread} could not be checked: the text they index is not on this machine");
+        println!(
+            "{} could not be checked: the text they index is not on this machine",
+            thousands(unread as u64)
+        );
     }
     Ok(())
 }

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 
 use steamgauge_core::{
     embed::Embedder,
+    figure_text::thousands,
     model::{Encoder, Precision, default_cache_dir},
 };
 
@@ -75,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let took = started.elapsed().as_secs_f64();
     println!(
         "{} claims in {took:.1} s, {:.2} ms a claim",
-        claims.len(),
+        thousands(claims.len() as u64),
         took * 1000.0 / f64::from(u32::try_from(claims.len())?)
     );
 

@@ -141,7 +141,7 @@ fn filter(out: &mut String, report: &Report) {
     // wording the page was rendered with rather than a second phrasing of the same thing.
     let showing = format!(
         "all {} of them{}",
-        SHEET.len(),
+        thousands(SHEET.len() as u64),
         // Not "in every table": a report of several games also carries one comparing the
         // corpora themselves, which has no categories in it to narrow.
         if report.apps.len() > 1 {
@@ -201,7 +201,7 @@ fn overview(out: &mut String, report: &Report) {
          them all. The table scrolls sideways. Deeper shading is a higher rate, and the rates \
          are not comparable to any other set of reviews.</p>",
         thousands(total),
-        report.apps.len()
+        thousands(report.apps.len() as u64)
     );
 
     matrix(out, report);
@@ -264,7 +264,7 @@ fn unmeasured(measurement: &crate::report::Measurement) -> String {
         crate::report::Measurement::Unscored(_) => "labelled, not scored".to_owned(),
         crate::report::Measurement::Learned => "trained on its labels".to_owned(),
         crate::report::Measurement::Measured(report) => {
-            format!("declined all {} labelled claims", report.matched)
+            format!("declined all {} labelled claims", thousands(report.matched))
         }
     }
 }
@@ -415,15 +415,15 @@ fn most_overstated(out: &mut String, report: &Report) {
     };
     let _ = writeln!(
         out,
-        "<p class=\"headline\">Across these {games} games the most helpful reviews overstate \
+        "<p class=\"headline\">Across these {} games the most helpful reviews overstate \
          <strong>{}</strong> by <strong>{factor:.1}\u{d7}</strong>: {} of the {} most helpful \
          reviews raise it, against {} of all {}.</p>",
+        thousands(report.apps.len() as u64),
         escape(&category.label.to_lowercase()),
         thousands(category.top_mentions),
         thousands(category.top_reviews),
         percent(overall),
         thousands(category.reviews),
-        games = report.apps.len()
     );
 }
 
@@ -930,18 +930,21 @@ fn updates(out: &mut String, app: &AppReport) {
         "<p class=\"note\">The dashed lines on the chart are the {} updates this game's developer \
          posted on Steam by {}: posts Steam marks as patch notes, and posts whose titles name a \
          patch, a hotfix, an update or a version. Below, the biggest of them by the reviews that \
-         followed, each with the {WINDOW_DAYS} days before it against the {WINDOW_DAYS} days \
-         after. A change is at least three standard errors and two points, with {ENOUGH} \
+         followed, each with the {window} days before it against the {window} days \
+         after. A change is at least three standard errors and two points, with {} \
          reviews a side. The update may not be its cause.</p>",
         thousands(around.len() as u64),
-        crate::time::day(asked)
+        crate::time::day(asked),
+        thousands(ENOUGH),
+        window = thousands(WINDOW_DAYS.unsigned_abs())
     );
     let chosen = biggest(around, UPDATES_COMPARED);
     if chosen.is_empty() {
         let _ = writeln!(
             out,
-            "<p class=\"note\">None of them has {ENOUGH} reviews on each side, so none is \
-             compared.</p>"
+            "<p class=\"note\">None of them has {} reviews on each side, so none is \
+             compared.</p>",
+            thousands(ENOUGH)
         );
     }
     for one in chosen {
@@ -959,7 +962,7 @@ fn updates(out: &mut String, app: &AppReport) {
             match changes_of(one) {
                 0 => "nothing changed beyond chance".to_owned(),
                 1 => "1 change".to_owned(),
-                many => format!("{many} changes"),
+                many => format!("{} changes", thousands(many as u64)),
             }
         } else {
             "too few reviews either side to compare".to_owned()
@@ -1000,24 +1003,29 @@ fn update_findings(out: &mut String, one: &crate::before_after::Around) {
         crate::time::day(one.update.posted)
     );
     let after = if one.after_whole {
-        format!("the {WINDOW_DAYS} days after")
+        format!("the {} days after", thousands(WINDOW_DAYS.unsigned_abs()))
     } else {
         let days = (one.after.to - one.after.from) / 86_400;
-        format!("the {days} days after it that the capture holds")
+        format!(
+            "the {} days after it that the capture holds",
+            thousands(days.unsigned_abs())
+        )
     };
     let nearby = match one.nearby {
         0 => String::new(),
         1 => " One other update was posted within these weeks, and they hold its effect too."
             .to_owned(),
         many => format!(
-            " {many} other updates were posted within these weeks, and they hold their effects \
-             too."
+            " {} other updates were posted within these weeks, and they hold their effects \
+             too.",
+            thousands(many as u64)
         ),
     };
     let _ = writeln!(
         out,
-        "<p class=\"note\">{} reviews in the {WINDOW_DAYS} days before, {} in {after}.{nearby}</p>",
+        "<p class=\"note\">{} reviews in the {} days before, {} in {after}.{nearby}</p>",
         thousands(one.before.reviews),
+        thousands(WINDOW_DAYS.unsigned_abs()),
         thousands(one.after.reviews)
     );
     if changes_of(one) == 0 {
@@ -1305,13 +1313,14 @@ fn how_well_this_row_is_known(
             .map_or_else(String::new, |(label, count)| {
                 format!(
                     " Where it was read wrongly, it was most often read as \
-                     <strong>{}</strong> ({count} of the labelled claims).",
+                     <strong>{}</strong> ({} of the labelled claims).",
                     escape(
                         SHEET
                             .iter()
                             .find(|row| row.id == label)
                             .map_or(label, |row| row.label)
-                    )
+                    ),
+                    thousands(count)
                 )
             })
     );
@@ -1417,13 +1426,14 @@ fn sparkline(out: &mut String, app: &AppReport, id: &str) {
          y2=\"{SPARK_HEIGHT:.0}\" />\
          <polyline points=\"{}\" /></svg>\n\
          <figcaption>Mention rate by month, peaking at {}. Drawn from {} to {} on an axis \
-         running to {}: a month with fewer than {ENOUGH_FOR_A_RATE} reviews carries no \
+         running to {}: a month with fewer than {} reviews carries no \
          rate.</figcaption>\n</figure>",
         points.join(" "),
         percent(peak),
         name(opens),
         name(closes),
-        name(months.len() - 1)
+        name(months.len() - 1),
+        thousands(ENOUGH_FOR_A_RATE)
     );
 }
 
@@ -1552,14 +1562,21 @@ fn who_said_it(out: &mut String, app: &AppReport) {
 
     out.push_str("<h3>Who said it</h3>\n");
     let listed = crate::who::kinds(&app.reading);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "CLEAR is a small positive constant"
+    )]
+    let clear = thousands(CLEAR.round() as u64);
     let _ = writeln!(
         out,
         "<p class=\"note\">Steam records beside every review how long its writer had played, \
          whether mostly on a Steam Deck, whether the game was in early access, and whether they \
          got it free. Each kind of reviewer is set against everyone else, and a difference is \
-         listed only where it is {CLEAR:.0} times the gap chance alone typically makes and at \
-         least {:.0} points wide. A kind with fewer than {ENOUGH} reviews is not compared.</p>",
-        crate::moves::WORTH_SAYING * 100.0
+         listed only where it is {clear} times the gap chance alone typically makes and at \
+         least {:.0} points wide. A kind with fewer than {} reviews is not compared.</p>",
+        crate::moves::WORTH_SAYING * 100.0,
+        thousands(ENOUGH)
     );
 
     out.push_str("<div class=\"scroll fits\">\n<table class=\"who\">\n<thead><tr>");
@@ -1634,7 +1651,8 @@ fn who_said_it(out: &mut String, app: &AppReport) {
     if found.len() > DIFFERENCES_SHOWN {
         let _ = writeln!(
             out,
-            "<p class=\"note\">The {DIFFERENCES_SHOWN} widest beyond chance of {}.</p>",
+            "<p class=\"note\">The {} widest beyond chance of {}.</p>",
+            thousands(DIFFERENCES_SHOWN as u64),
             thousands(found.len() as u64)
         );
     }
@@ -1678,8 +1696,8 @@ fn induced(out: &mut String, app: &AppReport) {
             let _ = writeln!(
                 out,
                 "<details><summary>{} of the {} reviews it was found in</summary>",
-                found.reviews.len(),
-                subject.evidence.len()
+                thousands(found.reviews.len() as u64),
+                thousands(subject.evidence.len() as u64)
             );
             out.push_str("<ol class=\"reviews\">\n");
             for review in &found.reviews {
@@ -2060,7 +2078,8 @@ fn languages(out: &mut String, app: &AppReport) {
     if rest > 0 {
         let _ = writeln!(
             out,
-            "<p class=\"note\">and {rest} more languages, {} of the corpus between them.</p>",
+            "<p class=\"note\">and {} more languages, {} of the corpus between them.</p>",
+            thousands(rest as u64),
             percent(share_of(tail, total))
         );
     }
@@ -2247,7 +2266,7 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
         "<p class=\"warn\">{why} On {} games it never trained on, over {} labelled claims, the \
          reader answers {} of claims and agrees with the labels on {}. Language models wrote \
          those labels.</p>",
-        held_out.games,
+        thousands(u64::from(held_out.games)),
         thousands(u64::from(held_out.claims)),
         percent(held_out.coverage),
         percent(held_out.accuracy),
@@ -2366,21 +2385,22 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
             format!(
                 "Every one of the {} subjects with enough labels to judge is found in at \
                  least a quarter of the claims making it.",
-                judged.len()
+                thousands(judged.len() as u64)
             )
         } else if thin == 1 {
             format!(
                 "One of the {} subjects with enough labels to judge is found in fewer than \
                  a quarter of the claims making it, and its row is marked: read that rate \
                  as a floor.",
-                judged.len()
+                thousands(judged.len() as u64)
             )
         } else {
             format!(
-                "{thin} of the {} subjects with enough labels to judge are found in fewer \
+                "{} of the {} subjects with enough labels to judge are found in fewer \
                  than a quarter of the claims making them, and their rows are marked: read \
                  those rates as floors.",
-                judged.len()
+                thousands(thin as u64),
+                thousands(judged.len() as u64)
             )
         }
     );
@@ -2539,9 +2559,9 @@ pub(crate) fn percent(rate: f64) -> String {
 
 fn hours(minutes: u32) -> String {
     if minutes < 60 {
-        return format!("{minutes} min");
+        return format!("{} min", thousands(u64::from(minutes)));
     }
-    format!("{} h", minutes / 60)
+    format!("{} h", thousands(u64::from(minutes / 60)))
 }
 
 const STYLE: &str = include_str!("report.css");
@@ -3404,6 +3424,35 @@ mod tests {
             !without.contains("players talk about that others"),
             "a game with nothing induced gets no empty heading"
         );
+    }
+
+    #[test]
+    fn a_subject_found_in_over_a_thousand_reviews_says_so_with_a_comma() {
+        let mut report = sample_report("ordinary text");
+        let review = report.apps[0].examples[0].1[0].review.clone();
+        report.apps[0].induced = vec![crate::report::InducedEvidence {
+            subject: crate::induced::Induced {
+                id: "mud-physics".to_owned(),
+                label: "Mud physics".to_owned(),
+                description: "How trucks behave in mud.".to_owned(),
+                refines: None,
+                evidence: (0..1_200).map(|id| id.to_string()).collect(),
+            },
+            reviews: vec![review; 1_100],
+        }];
+        let page = render(&report);
+        assert!(
+            page.contains("1,100 of the 1,200 reviews it was found in"),
+            "the summary of the subject has no comma"
+        );
+    }
+
+    #[test]
+    fn a_game_that_declined_every_labelled_claim_says_how_many_with_a_comma() {
+        let why = unmeasured(&crate::report::Measurement::Measured(Box::new(measured(
+            1_200, 0,
+        ))));
+        assert!(why.contains("declined all 1,200 labelled claims"), "{why}");
     }
 
     #[test]

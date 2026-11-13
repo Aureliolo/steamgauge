@@ -15,7 +15,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use steamgauge_core::read::Depth;
+use steamgauge_core::{figure_text::thousands, read::Depth};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
@@ -68,7 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     println!(
-        "{reviews} reviews, {claims} claims{}",
+        "{} reviews, {} claims{}",
+        thousands(reviews as u64),
+        thousands(claims as u64),
         only.as_deref()
             .map(|one| format!(", language {one}"))
             .unwrap_or_default()
@@ -82,8 +84,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let found = hits.get(phrase.as_str()).copied().unwrap_or(0);
         let people = reviewers.get(phrase.as_str()).map_or(0, HashSet::len);
         println!(
-            "\n{phrase:?}: {found} claims ({:.2}%), {people} reviewers ({:.2}%)",
+            "\n{phrase:?}: {found} claims ({:.2}%), {} reviewers ({:.2}%)",
             share(found, claims),
+            thousands(people as u64),
             share(people, reviews)
         );
         for one in quoted.get(phrase.as_str()).into_iter().flatten() {

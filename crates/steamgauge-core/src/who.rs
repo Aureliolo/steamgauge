@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    figure_text::thousands,
     html::percent,
     moves::{WORTH_SAYING, standard_errors_apart},
     read::ReadReport,
@@ -653,8 +654,9 @@ pub fn compare(
     for (side, name) in [(counted, first.label), (&against, label)] {
         if side.reviews < ENOUGH {
             return Err(refused(format!(
-                "{name}: {} reviews, fewer than the {ENOUGH} a share needs to mean anything",
-                side.reviews
+                "{name}: {} reviews, fewer than the {} a share needs to mean anything",
+                thousands(side.reviews),
+                thousands(ENOUGH)
             )));
         }
     }

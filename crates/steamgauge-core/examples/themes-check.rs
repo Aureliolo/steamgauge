@@ -10,6 +10,7 @@
 use std::sync::atomic::AtomicBool;
 
 use steamgauge_core::{
+    figure_text::thousands,
     meaning::{self, Status},
     model::default_cache_dir,
     search_models::{ENCODER, SearchEncoder},
@@ -46,10 +47,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (&stop, 0.5),
             |_| {},
         )?;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a duration in seconds is a positive whole number"
+        )]
+        let seconds = thousands(started.elapsed().as_secs_f64().round() as u64);
         eprintln!(
-            "{} claims embedded in {:.0} s",
-            prepared.embedded,
-            started.elapsed().as_secs_f64()
+            "{} claims embedded in {seconds} s",
+            thousands(prepared.embedded)
         );
     }
 
@@ -59,7 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for subject in &found.subjects {
         println!(
             "\n{} / {} ({} reviews)",
-            subject.subject, subject.side, subject.reviews
+            subject.subject,
+            subject.side,
+            thousands(subject.reviews)
         );
         for theme in &subject.themes {
             let also = if theme.also_in.is_empty() {
@@ -75,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             println!(
                 "  {:>5} reviews  {}{also}\n                 “{}”",
-                theme.reviews,
+                thousands(theme.reviews),
                 theme.label.replace('\n', " "),
                 theme.quote.text.replace('\n', " ")
             );

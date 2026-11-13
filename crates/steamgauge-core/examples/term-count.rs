@@ -9,6 +9,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use steamgauge_core::figure_text::thousands;
+
 /// One filed claim: where it sits in its review, its subject and its polarity.
 type Filed = ((u32, u32), String, String);
 
@@ -76,9 +78,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
         rows.sort_by_key(|row| std::cmp::Reverse(row.2));
         let everywhere: u64 = rows.iter().map(|row| row.2).sum();
-        println!("{term}: {everywhere} reviews everywhere");
+        println!("{term}: {} reviews everywhere", thousands(everywhere));
         for (subject, side, count) in rows {
-            println!("  {subject:<16} {side:<10} {count}");
+            println!("  {subject:<16} {side:<10} {}", thousands(count));
         }
     }
     Ok(())

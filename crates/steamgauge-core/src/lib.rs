@@ -82,7 +82,7 @@ pub enum Error {
     #[error("steam served no review data for app {app_id}")]
     NoSuchCorpus { app_id: u32 },
 
-    #[error("steam rejected the crawl after {attempts} attempts: {status}")]
+    #[error("steam rejected the crawl after {} attempts: {status}", figure_text::thousands(u64::from(*.attempts)))]
     Throttled { attempts: u32, status: u16 },
 
     #[error("review payload missing {field}")]
@@ -114,7 +114,7 @@ pub enum Error {
 
     /// A server sending a pinned file at another length is sending another file, and one
     /// sending more than the pin says could fill the disk before any hash is taken.
-    #[error("model file {file} did not arrive at its pinned length of {expected} bytes")]
+    #[error("model file {file} did not arrive at its pinned length of {} bytes", figure_text::thousands(*.expected))]
     ModelLength { file: &'static str, expected: u64 },
 
     #[error("no capture found at {path}; run `steamgauge crawl` first")]

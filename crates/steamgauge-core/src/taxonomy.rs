@@ -931,7 +931,7 @@ pub fn induction_brief() -> String {
          of them think about: a subject one review raises is an anecdote, and a subject you \
          cannot point at three reviews for does not exist.\n\n\
          The fixed subjects, which you must not name again:\n\n",
-        SHEET.len()
+        crate::figure_text::thousands(SHEET.len() as u64)
     );
     for category in SHEET {
         let _ = writeln!(

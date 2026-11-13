@@ -9,7 +9,10 @@
 
 use std::collections::HashMap;
 
-use steamgauge_core::claimset::{ClaimLabel, CutSpans};
+use steamgauge_core::{
+    claimset::{ClaimLabel, CutSpans},
+    figure_text::thousands,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut apps = Vec::new();
@@ -98,12 +101,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         0.0
     };
-    println!("{settled} settled claims answered, {agreed} of them agreed with ({share:.1}%)\n");
+    println!(
+        "{} settled claims answered, {} of them agreed with ({share:.1}%)\n",
+        thousands(settled),
+        thousands(agreed)
+    );
     for ((labelled, read_as), claims) in ranked {
-        println!(
-            "{:>4}  labelled {labelled}, read as {read_as}",
-            claims.len()
-        );
+        let count = thousands(claims.len() as u64);
+        println!("{count:>4}  labelled {labelled}, read as {read_as}");
         if quote {
             for claim in claims.iter().take(6) {
                 println!("        {}", claim.chars().take(120).collect::<String>());
@@ -170,5 +175,9 @@ fn rate(name: &str, (total, right): (u64, u64)) {
         return;
     }
     let share = 100.0 * right as f64 / total as f64;
-    println!("  {name:<14} {right:>5} of {total:<5} {share:>5.1}%");
+    println!(
+        "  {name:<14} {:>5} of {:<5} {share:>5.1}%",
+        thousands(right),
+        thousands(total)
+    );
 }

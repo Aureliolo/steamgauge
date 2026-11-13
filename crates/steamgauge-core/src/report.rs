@@ -20,7 +20,9 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{Result, bounded::Smallest, capture::CapturedReview, taxonomy::SHEET};
+use crate::{
+    Result, bounded::Smallest, capture::CapturedReview, figure_text::thousands, taxonomy::SHEET,
+};
 
 /// Reviews shown per category before a reader is asked to go to the corpus itself.
 pub const DEFAULT_EXAMPLES: usize = 8;
@@ -755,7 +757,7 @@ pub(crate) fn agreement_for(app_id: u32, out_dir: &Path, reference: &Path) -> Me
     match crate::measure::agreement(out_dir, app_id, reference) {
         Ok(report) if report.matched == 0 => Measurement::Unscored(format!(
             "none of its {} labelled claims is a claim this build cuts",
-            labels.len()
+            thousands(labels.len() as u64)
         )),
         Ok(report) => Measurement::Measured(Box::new(report)),
         Err(why) => Measurement::Unscored(why.to_string()),

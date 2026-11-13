@@ -18,16 +18,34 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
-use steamgauge_core::claimset::{ClaimLabel, TEACHING_SETS, spans_cut_in};
+use steamgauge_core::{
+    claimset::{ClaimLabel, TEACHING_SETS, spans_cut_in},
+    figure_text::thousands,
+};
 
 #[derive(Default)]
 struct Tally {
-    labels: usize,
-    still: usize,
-    inside: usize,
-    covers: usize,
-    straddles: usize,
-    gone: usize,
+    labels: u64,
+    still: u64,
+    inside: u64,
+    covers: u64,
+    straddles: u64,
+    gone: u64,
+}
+
+impl Tally {
+    fn print_row(&self, name: &str) {
+        println!(
+            "{:<14}{:>8}{:>8}{:>8}{:>8}{:>9}{:>7}",
+            name,
+            thousands(self.labels),
+            thousands(self.still),
+            thousands(self.inside),
+            thousands(self.covers),
+            thousands(self.straddles),
+            thousands(self.gone)
+        );
+    }
 }
 
 fn main() -> steamgauge_core::Result<()> {
@@ -91,23 +109,18 @@ fn main() -> steamgauge_core::Result<()> {
         }
     }
 
-    println!("{games} games with kept text, {unkept} without\n");
+    println!(
+        "{} games with kept text, {} without\n",
+        thousands(games),
+        thousands(unkept)
+    );
     println!(
         "{:<14}{:>8}{:>8}{:>8}{:>8}{:>9}{:>7}",
         "subset", "labels", "still", "inside", "covers", "straddles", "gone"
     );
     let mut total = Tally::default();
     for (subset, tally) in &by_subset {
-        println!(
-            "{:<14}{:>8}{:>8}{:>8}{:>8}{:>9}{:>7}",
-            subset,
-            tally.labels,
-            tally.still,
-            tally.inside,
-            tally.covers,
-            tally.straddles,
-            tally.gone
-        );
+        tally.print_row(subset);
         total.labels += tally.labels;
         total.still += tally.still;
         total.inside += tally.inside;
@@ -115,10 +128,7 @@ fn main() -> steamgauge_core::Result<()> {
         total.straddles += tally.straddles;
         total.gone += tally.gone;
     }
-    println!(
-        "{:<14}{:>8}{:>8}{:>8}{:>8}{:>9}{:>7}",
-        "all", total.labels, total.still, total.inside, total.covers, total.straddles, total.gone
-    );
+    total.print_row("all");
     let moved = total.labels - total.still;
     #[expect(
         clippy::cast_precision_loss,
@@ -126,11 +136,17 @@ fn main() -> steamgauge_core::Result<()> {
     )]
     let share = 100.0 * moved as f64 / total.labels as f64;
     println!(
-        "\n{moved} of {} labels name a span this build cuts no claim at ({:.1}%). Of those, \
+        "\n{} of {} labels name a span this build cuts no claim at ({:.1}%). Of those, \
          {} sit inside one claim it now cuts, {} cover more than one whole claim, {} overlap \
          a claim without either containing it or sitting inside it, and {} have no claim \
          overlapping them at all.",
-        total.labels, share, total.inside, total.covers, total.straddles, total.gone
+        thousands(moved),
+        thousands(total.labels),
+        share,
+        thousands(total.inside),
+        thousands(total.covers),
+        thousands(total.straddles),
+        thousands(total.gone)
     );
     Ok(())
 }

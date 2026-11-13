@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use steamgauge_core::read::ReadReport;
+use steamgauge_core::{figure_text::thousands, read::ReadReport};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = std::env::args().nth(1).unwrap_or_else(|| "data".to_owned());
@@ -72,7 +72,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}: {}", reading.app_id, said.join("; "));
     }
 
-    println!("\n{checked} readings checked, {complained} with something to say");
+    println!(
+        "\n{} readings checked, {} with something to say",
+        thousands(checked as u64),
+        thousands(complained as u64)
+    );
     Ok(())
 }
 
@@ -114,23 +118,29 @@ fn reconcile(
 
     if counted != reading.claims {
         said.push(format!(
-            "{counted} rows against {} claims counted",
-            reading.claims
+            "{} rows against {} claims counted",
+            thousands(counted),
+            thousands(reading.claims)
         ));
     }
     if unclassified != reading.unclassified_claims {
         said.push(format!(
-            "{unclassified} rows with no subject against {} counted",
-            reading.unclassified_claims
+            "{} rows with no subject against {} counted",
+            thousands(unclassified),
+            thousands(reading.unclassified_claims)
         ));
     }
     let repeated = seen.values().filter(|count| **count > 1).count();
     if repeated > 0 {
-        said.push(format!("{repeated} reviews written in more than one place"));
+        said.push(format!(
+            "{} reviews written in more than one place",
+            thousands(repeated as u64)
+        ));
     }
     if out_of_order > 0 {
         said.push(format!(
-            "{out_of_order} claims written out of the order they were cut in"
+            "{} claims written out of the order they were cut in",
+            thousands(out_of_order)
         ));
     }
     // Counted from the capture rather than read out of the reading: an auditor that takes
@@ -140,14 +150,17 @@ fn reconcile(
     if walk.walked != reading.reviews {
         said.push(format!(
             "the capture holds {} reviews to read where the reading counted {}",
-            walk.walked, reading.reviews
+            thousands(walk.walked),
+            thousands(reading.reviews)
         ));
     }
     if runs + walk.claimless != reading.reviews {
         said.push(format!(
-            "{runs} reviews in the rows and {} the splitter finds no point in, against {} \
+            "{} reviews in the rows and {} the splitter finds no point in, against {} \
                  counted",
-            walk.claimless, reading.reviews
+            thousands(runs),
+            thousands(walk.claimless),
+            thousands(reading.reviews)
         ));
     }
     // The one that is not arithmetic. A review with rows in the reading that this build
@@ -157,14 +170,15 @@ fn reconcile(
         said.push(format!(
             "{} reviews hold rows in the reading and no claim in this build: the splitter \
                  has moved without its version moving, e.g. {:?}",
-            walk.both,
+            thousands(walk.both),
             walk.example.as_deref().unwrap_or("")
         ));
     }
     if reading.claimless_reviews > 0 && reading.claimless_reviews != walk.claimless {
         said.push(format!(
             "the reading says {} reviews hold no point where this build finds {}",
-            reading.claimless_reviews, walk.claimless
+            thousands(reading.claimless_reviews),
+            thousands(walk.claimless)
         ));
     }
 

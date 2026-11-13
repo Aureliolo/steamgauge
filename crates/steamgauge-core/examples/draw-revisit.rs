@@ -11,6 +11,8 @@
 //! The questions file is a JSON array of `{"words": [...], "subjects": [...], "apps": [...]}`,
 //! each field optional, words or subjects required.
 
+use steamgauge_core::figure_text::thousands;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(questions) = args.first() else {
@@ -32,16 +34,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
             format!("{}/{}", set.app_id, set.set).trim_end_matches('/'),
-            set.report.reviews,
-            set.report.claims,
-            set.report.batches
+            thousands(set.report.reviews as u64),
+            thousands(set.report.claims as u64),
+            thousands(set.report.batches as u64)
         );
         claims += set.report.claims;
     }
     println!(
-        "drawn {claims} claims in {} sets; cleared {}",
-        drawn.sets.len(),
-        drawn.cleared
+        "drawn {} claims in {} sets; cleared {}",
+        thousands(claims as u64),
+        thousands(drawn.sets.len() as u64),
+        thousands(drawn.cleared as u64)
     );
     Ok(())
 }

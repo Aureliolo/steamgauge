@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use steamgauge_core::{
+    figure_text::thousands,
     read::Depth,
     reader::{Asked, ClaimReader},
 };
@@ -87,8 +88,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     println!(
-        "{} claims from app {app_id}, batches of {batch}, on {}",
-        asked.len(),
+        "{} claims from app {app_id}, batches of {}, on {}",
+        thousands(asked.len() as u64),
+        thousands(batch as u64),
         reader.device()
     );
 
@@ -110,15 +112,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         reason = "a window of claims is thousands, not quadrillions"
     )]
     let rate = |taken: std::time::Duration| asked.len() as f64 / taken.as_secs_f64();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a rate is a positive count of claims a second"
+    )]
+    let per_second = |taken: std::time::Duration| thousands(rate(taken).round() as u64);
     println!(
-        "  windows   {:>6.2}s  {:>7.0} claims a second ({windows} cut)",
+        "  windows   {:>6.2}s  {:>7} claims a second ({} cut)",
         cutting.as_secs_f64(),
-        rate(cutting)
+        per_second(cutting),
+        thousands(windows as u64)
     );
     println!(
-        "  prepare   {:>6.2}s  {:>7.0} claims a second (windows, then token ids)",
+        "  prepare   {:>6.2}s  {:>7} claims a second (windows, then token ids)",
         preparing.as_secs_f64(),
-        rate(preparing)
+        per_second(preparing)
     );
     println!(
         "  of which tokenising {:>6.2}s",

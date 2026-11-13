@@ -15,7 +15,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use steamgauge_core::claimset::ClaimLabel;
+use steamgauge_core::{claimset::ClaimLabel, figure_text::thousands};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_id: u32 = std::env::args()
@@ -88,19 +88,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!(
-        "app {app_id}: {} labels, {joined} still cut as one claim, {} now inside a larger \
+        "app {app_id}: {} labels, {} still cut as one claim, {} now inside a larger \
          claim, {} now cut into several, {} lost",
-        labels.len(),
-        inside.len(),
-        split.len(),
-        lost.len()
+        thousands(labels.len() as u64),
+        thousands(joined as u64),
+        thousands(inside.len() as u64),
+        thousands(split.len() as u64),
+        thousands(lost.len() as u64)
     );
 
     for (title, group) in [
         ("inside a larger claim", &inside),
         ("cut into several", &split),
     ] {
-        println!("\n== {title}: {} ==", group.len());
+        println!("\n== {title}: {} ==", thousands(group.len() as u64));
         for (label, was, are) in group.iter().take(show) {
             println!(
                 "[{}/{} {}] was: {:?}",
@@ -112,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if !lost.is_empty() {
-        println!("\n== lost: {} ==", lost.len());
+        println!("\n== lost: {} ==", thousands(lost.len() as u64));
         for (label, why) in lost.iter().take(show) {
             println!(
                 "[{}/{} {}] {why}",

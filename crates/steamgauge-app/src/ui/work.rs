@@ -865,7 +865,7 @@ fn steam(app: &AppHandle, id: u64) -> Result<steamgauge_core::SteamClient, Strin
                     id,
                     format!(
                         "Steam is refusing requests ({status}); asking again in {} s.",
-                        wait.as_secs()
+                        thousands(wait.as_secs())
                     ),
                 );
             }),
