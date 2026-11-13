@@ -1324,21 +1324,7 @@ pub(crate) mod tests {
         );
     }
 
-    /// A reader's record as the export writes it, every field present, with `given` laid over
-    /// it: a reader of no subjects without lines, an aspect head or a held-out figure.
-    pub(crate) fn reader_record(given: &serde_json::Value) -> serde_json::Value {
-        let mut record = serde_json::json!({
-            "subjects": [], "threshold": 0.5, "thresholds": null, "language_thresholds": null,
-            "max_tokens": 128, "max_batch": null, "context": false, "mark": false,
-            "prefix": false, "headset_marker": false, "trained_from": "a backbone",
-            "data_fingerprint": "labels-1", "lines_fingerprint": "lines-1", "run_id": "run-1",
-            "name": "Test Reader", "usual_declined": null, "held_out": null,
-        });
-        for (key, value) in given.as_object().expect("fields") {
-            record[key] = value.clone();
-        }
-        record
-    }
+    pub(crate) use steamgauge_stand_ins::tiny_model::reader_record;
 
     /// [`reader_record`] read as a reader's provenance.
     pub(crate) fn provenance_from(given: &serde_json::Value) -> serde_json::Result<Provenance> {
@@ -2180,9 +2166,6 @@ pub(crate) mod tests {
         );
     }
 
-    /// The words the tiny reader knows, after `[PAD]` and `[UNK]`.
-    const READER_WORDS: [&str; 7] = ["query", ":", "passage", "crashes", "pretty", "love", "hate"];
-
     fn sheet_row(id: &str) -> usize {
         crate::taxonomy::SHEET
             .iter()
@@ -2199,30 +2182,7 @@ pub(crate) mod tests {
             .rev()
             .map(|category| category.id)
             .collect();
-        let class = |id: &str| subjects.iter().position(|subject| *subject == id).unwrap();
-        let vocabulary = READER_WORDS.len() + 2;
-        let mut subject = vec![vec![0.0; subjects.len()]; vocabulary];
-        subject[2 + 3][class("bugs")] = 5.0;
-        subject[2 + 4][class("graphics")] = 5.0;
-        let mut polarity = vec![vec![0.0; 3]; vocabulary];
-        polarity[2 + 5][0] = 5.0;
-        polarity[2 + 6][1] = 5.0;
-        crate::tiny_model::Graph::new()
-            .summed("subject_logits", &subject)
-            .summed("polarity_logits", &polarity)
-            .write(&dir.join("model.onnx"));
-        crate::tiny_model::write_json(
-            &dir.join("tokenizer.json"),
-            &crate::tiny_model::word_tokenizer(&READER_WORDS),
-        );
-        let mut record = reader_record(&serde_json::json!({
-            "subjects": subjects,
-            "max_tokens": 512,
-        }));
-        for (key, value) in settings.as_object().unwrap() {
-            record[key] = value.clone();
-        }
-        crate::tiny_model::write_json(&dir.join("reader.json"), &record);
+        crate::tiny_model::reader(dir, &subjects, settings);
     }
 
     fn alone(claim: &str) -> Asked<'_> {

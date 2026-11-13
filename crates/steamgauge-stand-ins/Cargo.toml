@@ -1,0 +1,17 @@
+[package]
+name = "steamgauge-stand-ins"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Stand-in servers, tiny models and scratch folders for SteamGauge's tests."
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+percent-encoding = "=2.3.2"
+serde_json = "=1.0.154"
+
+[lints]
+workspace = true

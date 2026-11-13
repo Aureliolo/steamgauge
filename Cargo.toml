@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/steamgauge-app", "crates/steamgauge-core", "crates/steamgauge-site"]
+members = [
+  "crates/steamgauge-app",
+  "crates/steamgauge-core",
+  "crates/steamgauge-site",
+  "crates/steamgauge-stand-ins",
+]
 
 [workspace.package]
 version = "0.4.1"
@@ -17,6 +22,7 @@ publish = false
 
 [workspace.dependencies]
 steamgauge-core = { path = "crates/steamgauge-core" }
+steamgauge-stand-ins = { path = "crates/steamgauge-stand-ins" }
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }

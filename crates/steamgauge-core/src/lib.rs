@@ -43,20 +43,17 @@ pub mod self_update;
 pub mod serve;
 pub mod shard;
 pub mod since;
-#[cfg(test)]
-mod stand_in;
 pub mod state;
 pub mod taxonomy;
-#[cfg(test)]
-mod tempdir;
 pub mod themes;
 pub mod time;
-#[cfg(test)]
-mod tiny_model;
 pub mod updates;
 pub mod who;
 pub mod whole_file;
 pub mod writer;
+
+#[cfg(test)]
+use steamgauge_stand_ins::{stand_in, tempdir, tiny_model};
 
 pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;
