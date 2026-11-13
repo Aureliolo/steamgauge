@@ -23,7 +23,8 @@ use serde::ser::{Serialize, SerializeMap as _, Serializer};
 
 use crate::{
     Error, Result,
-    html::{language_name, percent, thousands},
+    figure_text::thousands,
+    html::{language_name, percent},
     measure::ClaimAgreement,
     read::{Month, ReadReport},
     reader::{HeldOut, Polarity, Reading},

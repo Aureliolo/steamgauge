@@ -15,6 +15,7 @@ pub mod diverse;
 pub mod embed;
 pub mod export;
 pub mod facts;
+pub mod figure_text;
 pub mod gold;
 pub mod group;
 pub mod html;

@@ -112,6 +112,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   pinned hash. After a model release they are not read, and the game is prepared again.
 - A preparation holds a lock on `meaning/preparation.lock` in the capture while it runs. A second
   preparation of the capture is refused meanwhile, whichever program starts it.
+- `figure_text::thousands` in Rust and `whole` in the window write a count with a comma between
+  thousands, and no other function does.
 
 What counts as a change:
 

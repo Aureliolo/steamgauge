@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::{FromArgMatches as _, Parser, Subcommand, ValueEnum};
 use steamgauge_core::{
     CrawlOptions, CrawlReport, DEFAULT_BATCH_SIZE, DEFAULT_SHARD_TARGET, SteamClient, StopReason,
-    crawl,
+    crawl, figure_text::thousands,
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
@@ -4229,23 +4229,11 @@ fn elapsed(taken: Duration) -> String {
     }
 }
 
-fn thousands(n: u64) -> String {
-    let digits = n.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(c);
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use clap::Parser as _;
 
-    use super::{Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed, thousands};
+    use super::{Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed};
 
     /// A crawl of a million reviews runs for hours, and a figure in seconds is arithmetic
     /// the reader has to do before the number means anything.
@@ -4340,15 +4328,6 @@ mod tests {
                 .starts_with("no labelled sets under")
         );
         std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn thousands_groups_digits() {
-        assert_eq!(thousands(0), "0");
-        assert_eq!(thousands(999), "999");
-        assert_eq!(thousands(2909), "2,909");
-        assert_eq!(thousands(986_295), "986,295");
-        assert_eq!(thousands(1_700_000), "1,700,000");
     }
 
     #[test]

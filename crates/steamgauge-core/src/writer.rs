@@ -356,7 +356,7 @@ pub fn brief(game: &str, reviews: u64, themes: &Themes) -> Option<Brief> {
                 PROMPT
                     .point
                     .replace("{label}", &said.label)
-                    .replace("{reviews}", &crate::html::thousands(said.reviews))
+                    .replace("{reviews}", &crate::figure_text::thousands(said.reviews))
                     .replace("{subject}", label(one.subject).unwrap_or(one.subject))
                     .replace(
                         "{also}",
@@ -379,7 +379,7 @@ pub fn brief(game: &str, reviews: u64, themes: &Themes) -> Option<Brief> {
     let told = PROMPT
         .user
         .replace("{game}", game)
-        .replace("{reviews}", &crate::html::thousands(reviews))
+        .replace("{reviews}", &crate::figure_text::thousands(reviews))
         .replace("{praise}", &praise)
         .replace("{complaint}", &complaint);
     Some(Brief {
