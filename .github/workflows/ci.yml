@@ -668,16 +668,31 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read # Reads the scripts it lints.
+    env:
+      # renovate: datasource=nuget depName=PSScriptAnalyzer registryUrl=https://www.powershellgallery.com/api/v2
+      PSSCRIPTANALYZER_VERSION: 1.25.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The module as a run on main installed it, so the lint does not wait on the PowerShell
+      # Gallery, which a runner sometimes cannot reach at all.
+      - id: kept
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/powershell/Modules/PSScriptAnalyzer
+          key: psscriptanalyzer-${{ env.PSSCRIPTANALYZER_VERSION }}
       - name: Install PSScriptAnalyzer
+        if: steps.kept.outputs.cache-hit != 'true'
         shell: pwsh
-        env:
-          # renovate: datasource=nuget depName=PSScriptAnalyzer registryUrl=https://www.powershellgallery.com/api/v2
-          PSSCRIPTANALYZER_VERSION: 1.25.0
         run: Install-PSResource PSScriptAnalyzer -Version $env:PSSCRIPTANALYZER_VERSION -TrustRepository
+      # Only main writes, as with the other caches, so a pull request never spends the
+      # repository's 10 GB on a copy of what main already holds.
+      - if: github.ref == 'refs/heads/main' && steps.kept.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/powershell/Modules/PSScriptAnalyzer
+          key: psscriptanalyzer-${{ env.PSSCRIPTANALYZER_VERSION }}
       - name: Lint
         shell: pwsh
         run: |
