@@ -783,6 +783,38 @@ mod tests {
     ];
 
     #[test]
+    fn a_written_graph_runs_and_gives_back_its_tables() {
+        let dir = crate::tempdir::Dir::new();
+        let path = dir.path().join("model.onnx");
+        crate::tiny_model::Graph::new()
+            .per_token("hidden", &[vec![0.0, 0.0], vec![1.0, 2.0], vec![3.0, 4.0]])
+            .summed("total", &[vec![0.0], vec![1.0], vec![10.0]])
+            .summed_folded("folded", &[vec![0.0; 4], vec![1.0; 4], vec![2.0; 4]], 2, 2)
+            .write(&path);
+        let (mut session, device) = session_at(&path).unwrap();
+        assert_eq!(device, "cpu");
+        let ids = ndarray::Array2::from_shape_vec((1, 3), vec![1_i64, 2, 2]).unwrap();
+        let mask = ndarray::Array2::from_shape_vec((1, 3), vec![1_i64, 1, 1]).unwrap();
+        let outputs = session
+            .run(ort::inputs![
+                "input_ids" => ort::value::Tensor::from_array(ids).unwrap(),
+                "attention_mask" => ort::value::Tensor::from_array(mask).unwrap(),
+            ])
+            .unwrap();
+        let hidden = outputs["hidden"].try_extract_array::<f32>().unwrap();
+        assert_eq!(hidden.shape(), [1, 3, 2]);
+        assert_eq!(
+            hidden.iter().copied().collect::<Vec<_>>(),
+            [1.0, 2.0, 3.0, 4.0, 3.0, 4.0]
+        );
+        let total = outputs["total"].try_extract_array::<f32>().unwrap();
+        assert_eq!(total.iter().copied().collect::<Vec<_>>(), [21.0]);
+        let folded = outputs["folded"].try_extract_array::<f32>().unwrap();
+        assert_eq!(folded.shape(), [1, 2, 2]);
+        assert_eq!(folded.iter().copied().collect::<Vec<_>>(), [5.0; 4]);
+    }
+
+    #[test]
     fn pins_name_every_file_in_order() {
         let asset = |sha256| Asset {
             remote: "f",

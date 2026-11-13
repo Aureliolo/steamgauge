@@ -37,6 +37,9 @@ thiserror = "=2.0.21"
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
 tokio = { version = "=1.54.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
+[dev-dependencies]
+steamgauge-stand-ins.workspace = true
+
 # A macOS app bundle and a Linux archive are unpacked from the verified file and moved into
 # place with a rename, which on macOS exchanges the two bundles in one step.
 [target."cfg(unix)".dependencies]

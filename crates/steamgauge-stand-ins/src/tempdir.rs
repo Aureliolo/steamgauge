@@ -1,15 +1,27 @@
 //! Scratch directory for tests, removed on drop, so no test writes where another can see it.
 //!
-//! A dependency for this would be a dependency in the shipped binary's tree for the sake of
-//! twenty lines that only ever run under `cargo test`.
+//! Twenty lines of the standard library, so no test needs a crate for it.
 
 use std::path::{Path, PathBuf};
 
+/// A folder of its own under the system's temporary folder, removed when it is dropped.
 #[derive(Debug)]
-pub(crate) struct Dir(PathBuf);
+pub struct Dir(PathBuf);
+
+impl Default for Dir {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Dir {
-    pub(crate) fn new() -> Self {
+    /// A new, empty folder named for the process and thread.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the folder cannot be created.
+    #[must_use]
+    pub fn new() -> Self {
         // Named for the process and thread so two tests running at once cannot share one, and
         // cleared first so a previous run that was killed cannot leave a file behind that a
         // later run then reads as its own.
@@ -24,7 +36,9 @@ impl Dir {
         Self(path)
     }
 
-    pub(crate) fn path(&self) -> &Path {
+    /// The folder.
+    #[must_use]
+    pub fn path(&self) -> &Path {
         &self.0
     }
 }

@@ -1,6 +1,7 @@
-//! Models small enough to write out in a test: an ONNX graph of a few tables looked up by token,
-//! and a tokenizer of a few words, so the code that loads and runs a model is tested on CPU
-//! with no model downloaded.
+//! Models small enough to write out in a test: an ONNX graph of a few tables and a tokenizer of a
+//! few words.
+//!
+//! The code that loads and runs a model is tested on CPU with no model downloaded.
 //!
 //! The graph is written as the protobuf ONNX defines, field by field, which needs nothing beyond
 //! the standard library. Each output is a table looked up by token id and, where asked, summed
@@ -59,20 +60,24 @@ fn width_of(table: &[Vec<f32>]) -> i64 {
 
 /// One dimension of an input or an output.
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Dim {
+pub enum Dim {
+    /// A dimension that varies, under this name.
     Named(&'static str),
+    /// A dimension of this size.
     Sized(i64),
 }
 
-/// A graph taking `input_ids` and `attention_mask`, as every model this crate runs does.
+/// A graph taking `input_ids` and `attention_mask`, as every model the core runs does.
 #[derive(Debug, Default)]
-pub(crate) struct Graph {
+pub struct Graph {
     body: Vec<u8>,
     nodes: usize,
 }
 
 impl Graph {
-    pub(crate) fn new() -> Self {
+    /// A graph with its two inputs and nothing else.
+    #[must_use]
+    pub fn new() -> Self {
         let mut graph = Self::default();
         let tokens = [Dim::Named("batch"), Dim::Named("tokens")];
         graph.input("input_ids", &tokens);
@@ -81,14 +86,14 @@ impl Graph {
     }
 
     /// Another input of token-shaped integers, taken and never read.
-    pub(crate) fn input(&mut self, name: &str, dims: &[Dim]) -> &mut Self {
+    pub fn input(&mut self, name: &str, dims: &[Dim]) -> &mut Self {
         bytes(&mut self.body, 11, &value_info(name, INT64, dims));
         self
     }
 
     /// A float input `past`, given back unchanged as `present`, as a decoder's cache of keys and
     /// values is handed from one step to the next.
-    pub(crate) fn passed(&mut self, past: &str, present: &str, dims: &[Dim]) -> &mut Self {
+    pub fn passed(&mut self, past: &str, present: &str, dims: &[Dim]) -> &mut Self {
         bytes(&mut self.body, 11, &value_info(past, FLOAT, dims));
         self.node("Identity", &[past], present, &[]);
         bytes(&mut self.body, 12, &value_info(present, FLOAT, dims));
@@ -97,7 +102,7 @@ impl Graph {
 
     /// `output`, shaped `[1, width]`: one at the length of `attention_mask` and nought elsewhere,
     /// so the likeliest next token is how many tokens the caller says were read.
-    pub(crate) fn counted(&mut self, output: &str, width: i64) -> &mut Self {
+    pub fn counted(&mut self, output: &str, width: i64) -> &mut Self {
         let (shape, second, length, depth, values) = (
             format!("{output}_shape"),
             format!("{output}_second"),
@@ -161,7 +166,7 @@ impl Graph {
     }
 
     /// `output`, shaped `[batch, tokens, width]`: row `id` of `table` for each token.
-    pub(crate) fn per_token(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
+    pub fn per_token(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
         let name = format!("{output}_table");
         self.table(&name, table);
         self.node("Gather", &[&name, "input_ids"], output, &[]);
@@ -175,14 +180,14 @@ impl Graph {
     }
 
     /// `output`, shaped `[batch, width]`: the rows of `table` for each token, summed.
-    pub(crate) fn summed(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
+    pub fn summed(&mut self, output: &str, table: &[Vec<f32>]) -> &mut Self {
         let dims = [Dim::Named("batch"), Dim::Sized(width_of(table))];
         self.summed_into(output, table, &dims, None)
     }
 
     /// `output`, shaped `[batch, subjects, answers]`: the rows of `table`, each `subjects` times
     /// `answers` wide, summed over the tokens and folded.
-    pub(crate) fn summed_folded(
+    pub fn summed_folded(
         &mut self,
         output: &str,
         table: &[Vec<f32>],
@@ -234,7 +239,11 @@ impl Graph {
     }
 
     /// Written as a model of opset 17, which every runtime this crate links has.
-    pub(crate) fn write(&self, path: &Path) {
+    ///
+    /// # Panics
+    ///
+    /// Panics when the file cannot be written.
+    pub fn write(&self, path: &Path) {
         let mut graph = self.body.clone();
         bytes(&mut graph, 2, b"tiny");
         let mut opset = Vec::new();
@@ -254,7 +263,8 @@ impl Graph {
 
 /// A tokenizer of whole words, one id each in the order given, splitting on whitespace and
 /// punctuation. Any word not given is `[UNK]`. `[PAD]` is id 0 and `[UNK]` id 1.
-pub(crate) fn word_tokenizer(words: &[&str]) -> serde_json::Value {
+#[must_use]
+pub fn word_tokenizer(words: &[&str]) -> serde_json::Value {
     let mut vocab = serde_json::Map::new();
     for (id, word) in ["[PAD]", "[UNK]"].iter().chain(words).enumerate() {
         vocab.insert((*word).to_owned(), id.into());
@@ -273,7 +283,8 @@ pub(crate) fn word_tokenizer(words: &[&str]) -> serde_json::Value {
 
 /// A tokenizer of single letters, each letter given its own id, that drops any letter it was
 /// not given, as a tokenizer without an unknown token does.
-pub(crate) fn letter_tokenizer(letters: &str) -> serde_json::Value {
+#[must_use]
+pub fn letter_tokenizer(letters: &str) -> serde_json::Value {
     let mut vocab = serde_json::Map::new();
     for (id, letter) in letters.chars().enumerate() {
         vocab.insert(letter.to_string(), id.into());
@@ -290,46 +301,71 @@ pub(crate) fn letter_tokenizer(letters: &str) -> serde_json::Value {
     })
 }
 
-pub(crate) fn write_json(path: &Path, value: &serde_json::Value) {
+/// Writes `value` as JSON at `path`, making the folder first.
+///
+/// # Panics
+///
+/// Panics when the file cannot be written.
+pub fn write_json(path: &Path, value: &serde_json::Value) {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).unwrap();
     }
     std::fs::write(path, serde_json::to_vec(value).unwrap()).unwrap();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// The words the tiny reader knows, after `[PAD]` and `[UNK]`.
+pub const READER_WORDS: [&str; 7] = ["query", ":", "passage", "crashes", "pretty", "love", "hate"];
 
-    #[test]
-    fn a_written_graph_runs_and_gives_back_its_tables() {
-        let dir = crate::tempdir::Dir::new();
-        let path = dir.path().join("model.onnx");
-        Graph::new()
-            .per_token("hidden", &[vec![0.0, 0.0], vec![1.0, 2.0], vec![3.0, 4.0]])
-            .summed("total", &[vec![0.0], vec![1.0], vec![10.0]])
-            .summed_folded("folded", &[vec![0.0; 4], vec![1.0; 4], vec![2.0; 4]], 2, 2)
-            .write(&path);
-        let (mut session, device) = crate::model::session_at(&path).unwrap();
-        assert_eq!(device, "cpu");
-        let ids = ndarray::Array2::from_shape_vec((1, 3), vec![1_i64, 2, 2]).unwrap();
-        let mask = ndarray::Array2::from_shape_vec((1, 3), vec![1_i64, 1, 1]).unwrap();
-        let outputs = session
-            .run(ort::inputs![
-                "input_ids" => ort::value::Tensor::from_array(ids).unwrap(),
-                "attention_mask" => ort::value::Tensor::from_array(mask).unwrap(),
-            ])
-            .unwrap();
-        let hidden = outputs["hidden"].try_extract_array::<f32>().unwrap();
-        assert_eq!(hidden.shape(), [1, 3, 2]);
-        assert_eq!(
-            hidden.iter().copied().collect::<Vec<_>>(),
-            [1.0, 2.0, 3.0, 4.0, 3.0, 4.0]
-        );
-        let total = outputs["total"].try_extract_array::<f32>().unwrap();
-        assert_eq!(total.iter().copied().collect::<Vec<_>>(), [21.0]);
-        let folded = outputs["folded"].try_extract_array::<f32>().unwrap();
-        assert_eq!(folded.shape(), [1, 2, 2]);
-        assert_eq!(folded.iter().copied().collect::<Vec<_>>(), [5.0; 4]);
+/// A reader's record as the export writes it, every field present, with `given` laid over
+/// it: a reader of no subjects without lines, an aspect head or a held-out figure.
+///
+/// # Panics
+///
+/// Panics when `given` is not a JSON object.
+#[must_use]
+pub fn reader_record(given: &serde_json::Value) -> serde_json::Value {
+    let mut record = serde_json::json!({
+        "subjects": [], "threshold": 0.5, "thresholds": null, "language_thresholds": null,
+        "max_tokens": 128, "max_batch": null, "context": false, "mark": false,
+        "prefix": false, "headset_marker": false, "trained_from": "a backbone",
+        "data_fingerprint": "labels-1", "lines_fingerprint": "lines-1", "run_id": "run-1",
+        "name": "Test Reader", "usual_declined": null, "held_out": null,
+    });
+    for (key, value) in given.as_object().expect("fields") {
+        record[key] = value.clone();
     }
+    record
+}
+
+/// A tiny reader in `dir`, trained, as far as `reader.json` says, on `subjects` in the order given.
+///
+/// "crashes" argues for bugs and "pretty" for graphics, five each a time it appears, "love" for
+/// praise and "hate" for complaint. `settings` is laid over its record.
+///
+/// # Panics
+///
+/// Panics when `subjects` lacks `bugs` or `graphics`, when `settings` is not a JSON object or
+/// when a file cannot be written.
+pub fn reader(dir: &Path, subjects: &[&str], settings: &serde_json::Value) {
+    let class = |id: &str| subjects.iter().position(|subject| *subject == id).unwrap();
+    let vocabulary = READER_WORDS.len() + 2;
+    let mut subject = vec![vec![0.0; subjects.len()]; vocabulary];
+    subject[2 + 3][class("bugs")] = 5.0;
+    subject[2 + 4][class("graphics")] = 5.0;
+    let mut polarity = vec![vec![0.0; 3]; vocabulary];
+    polarity[2 + 5][0] = 5.0;
+    polarity[2 + 6][1] = 5.0;
+    Graph::new()
+        .summed("subject_logits", &subject)
+        .summed("polarity_logits", &polarity)
+        .write(&dir.join("model.onnx"));
+    write_json(&dir.join("tokenizer.json"), &word_tokenizer(&READER_WORDS));
+    let mut record = reader_record(&serde_json::json!({
+        "subjects": subjects,
+        "max_tokens": 512,
+    }));
+    for (key, value) in settings.as_object().unwrap() {
+        record[key] = value.clone();
+    }
+    write_json(&dir.join("reader.json"), &record);
 }
