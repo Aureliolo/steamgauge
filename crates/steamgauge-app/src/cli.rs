@@ -1680,7 +1680,15 @@ fn run_sample_claims(app_ids: &[u32], out: &Path, how: &Draw<'_>) -> Result<()> 
         if subset != "random" {
             dir = dir.join(subset);
         }
-        let drawn = steamgauge_core::claimset::draw(out, app_id, reviews, english, seed, subset)?;
+        let drawn = steamgauge_core::claimset::draw(
+            out,
+            app_id,
+            reviews,
+            english,
+            seed,
+            subset,
+            &to.join(app_id.to_string()),
+        )?;
         let report = steamgauge_core::claimset::write_set(&dir, &drawn, batch_size)?;
         for review in &drawn {
             *languages.entry(review.language.clone()).or_default() += 1;
@@ -4296,6 +4304,69 @@ mod tests {
 
         assert_eq!(super::captured_games(&dir), [7]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_teaching_draw_cuts_the_kept_copy_in_the_games_folder() {
+        let root = std::env::temp_dir().join(format!("steamgauge-teach-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let out = root.join("capture");
+        let to = root.join("sets");
+        let mut writer = steamgauge_core::capture::CaptureWriter::create(
+            &out.join("appid=1/snapshot=1700000000/shard-0000.parquet"),
+            1,
+        )
+        .unwrap();
+        let review = serde_json::json!({
+            "recommendationid": "1",
+            "review": "The story is damn good fun. The music is far too loud.",
+            "language": "english", "voted_up": true, "weighted_vote_score": "0.5",
+            "votes_up": 3, "timestamp_created": 1_700_000_000,
+            "author": {"steamid": "76561", "playtime_at_review": 3_000},
+        });
+        writer.write(&[&review]).unwrap();
+        writer.close().unwrap();
+        steamgauge_core::claimset::keep_reviews(
+            &to.join("1"),
+            [steamgauge_core::claimset::KeptReview {
+                review_id: "1".to_owned(),
+                language: "english".to_owned(),
+                text: "The story is \u{2665}\u{2665}\u{2665}\u{2665} good fun. The music is far too loud."
+                    .to_owned(),
+            }],
+        )
+        .unwrap();
+
+        super::run_sample_claims(
+            &[1],
+            &out,
+            &super::Draw {
+                reviews: 5,
+                batch_size: 40,
+                seed: 1,
+                english: 1.0,
+                to: &to,
+                subset: "keyword",
+            },
+        )
+        .unwrap();
+
+        let sample: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(to.join("1/keyword/sample.json")).unwrap())
+                .unwrap();
+        let at: Vec<(u64, u64)> = sample[0]["claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|claim| {
+                (
+                    claim["start"].as_u64().unwrap(),
+                    claim["end"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(at, [(0, 35), (36, 62)]);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

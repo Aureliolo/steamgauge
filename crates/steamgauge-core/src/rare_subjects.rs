@@ -807,7 +807,7 @@ pub fn draw_by_neighbour(
         .collect();
     let (picks, _) = crate::claimset::round_robin(&picks, wanted);
     Ok(Retrieved {
-        drawn: crate::claimset::handouts(&snapshot, app_id, depth, &picks, "retrieved")?,
+        drawn: crate::claimset::handouts(&snapshot, app_id, depth, &picks, "retrieved", dir)?,
         by_subject,
         claims_seen,
     })

@@ -44,8 +44,8 @@ pub struct DrawnReview {
     /// review must still show the review.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asked: Option<Vec<u16>>,
-    /// The review as the capture held it when it was drawn, which every offset above counts in.
-    /// Kept beside the game's sets rather than in the sample (see [`REVIEWS`]), so a review
+    /// The review as it was cut: the kept copy where the game keeps one, else the capture's.
+    /// Every offset above counts in it. Kept beside the game's sets rather than in the sample (see [`REVIEWS`]), so a review
     /// drawn into several sets is kept once. Empty for a review read back from a sample.
     #[serde(skip)]
     pub text: String,
@@ -96,7 +96,11 @@ impl DrawReport {
 ///
 /// # Errors
 ///
-/// Fails if there is no capture for the app.
+/// A review the game keeps is cut from its kept copy.
+///
+/// # Errors
+///
+/// Fails if there is no capture for the app, or the game's kept text cannot be read.
 pub fn draw(
     out_dir: &Path,
     app_id: u32,
@@ -104,8 +108,10 @@ pub fn draw(
     english_share: f64,
     seed: u64,
     subset: &str,
+    game: &Path,
 ) -> Result<Vec<DrawnReview>> {
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
+    let kept = kept_if_any(game)?;
     // Two draws rather than one, so the mix is decided rather than inherited. A corpus is
     // whatever languages its players write in, and drawing straight from it would train the
     // model mostly on whichever one that happens to be. The reports default to English and
@@ -125,7 +131,8 @@ pub fn draw(
     let mut rest: crate::bounded::Smallest<[u8; 32], DrawnReview> =
         crate::bounded::Smallest::new(wanted.saturating_sub(english_wanted));
 
-    crate::capture::for_each_body(&snapshot, |id, language, text| {
+    crate::capture::for_each_body(&snapshot, |id, language, captured| {
+        let text = text_to_cut(&kept, id, captured);
         let found = crate::claims::claims_of(text);
         if found.is_empty() {
             return Ok(());
@@ -949,7 +956,7 @@ pub fn draw_declined(
         picks.entry(id).or_default().push(at);
     }
 
-    handouts(&snapshot, app_id, reading.depth, &picks, "declined")
+    handouts(&snapshot, app_id, reading.depth, &picks, "declined", dir)
 }
 
 /// What this build cuts from one review: its text, and the spans of the claims cut from it.
@@ -1025,6 +1032,27 @@ pub fn kept_reviews(game: &Path) -> Result<std::collections::HashMap<String, Kep
         .collect()
 }
 
+/// What `kept_reviews` gives, and no review where the game keeps no text yet.
+fn kept_if_any(game: &Path) -> Result<std::collections::HashMap<String, KeptReview>> {
+    match kept_reviews(game) {
+        Err(crate::Error::NoKeptText { .. }) => Ok(std::collections::HashMap::new()),
+        other => other,
+    }
+}
+
+/// The text a draw cuts: the kept copy where it holds the drawn copy's words under censor
+/// marks, so a sample's bytes count in the kept text.
+fn text_to_cut<'a>(
+    kept: &'a std::collections::HashMap<String, KeptReview>,
+    id: &str,
+    drawn: &'a str,
+) -> &'a str {
+    kept.get(id)
+        .map(|review| review.text.as_str())
+        .filter(|was| crate::claims::same_words(was, drawn))
+        .unwrap_or(drawn)
+}
+
 /// Keeps the text of each review not kept yet, and says how many were new.
 ///
 /// A review already kept stays as it was kept: its labels count bytes in that copy.
@@ -1034,11 +1062,7 @@ pub fn kept_reviews(game: &Path) -> Result<std::collections::HashMap<String, Kep
 /// Refuses a review whose kept copy reads differently. Fails if the file cannot be read or
 /// written.
 pub fn keep_reviews(game: &Path, reviews: impl IntoIterator<Item = KeptReview>) -> Result<usize> {
-    let mut kept = match kept_reviews(game) {
-        Ok(kept) => kept,
-        Err(crate::Error::NoKeptText { .. }) => std::collections::HashMap::new(),
-        Err(other) => return Err(other),
-    };
+    let mut kept = kept_if_any(game)?;
     let mut new = 0;
     for review in reviews {
         match kept.get(&review.review_id) {
@@ -1255,7 +1279,7 @@ pub fn draw_by_keyword(
         .collect();
     let (picks, taken) = round_robin(&found, wanted);
     Ok(KeywordDraw {
-        drawn: handouts(&snapshot, app_id, depth, &picks, "keyword")?,
+        drawn: handouts(&snapshot, app_id, depth, &picks, "keyword", dir)?,
         by_subject: crate::rare_subjects::KEYWORDS
             .iter()
             .zip(taken)
@@ -1316,6 +1340,51 @@ pub(crate) fn round_robin(found: &[Found], wanted: usize) -> (Picks, Vec<usize>)
     (picks, taken)
 }
 
+/// The bytes of `onto` that stand where `at` stands in `from`, two copies of one review with
+/// one count of characters. None for a range that starts or ends inside a character or past
+/// the text.
+fn moved_onto(from: &str, onto: &str, at: crate::claims::Span) -> Option<crate::claims::Span> {
+    use tokenizers::normalizer::{bytes_to_char, char_to_bytes};
+    let chars = bytes_to_char(
+        from,
+        usize::try_from(at.0).ok()?..usize::try_from(at.1).ok()?,
+    )?;
+    let moved = char_to_bytes(onto, chars)?;
+    Some((
+        u32::try_from(moved.start).ok()?,
+        u32::try_from(moved.end).ok()?,
+    ))
+}
+
+/// The claims a pick asks about, by index.
+///
+/// A pick asks the claim with exactly its bytes. A template review cuts nested claims, each
+/// holding the ones before it, so only that claim is asked. Censor marks can cut the kept copy
+/// into other claims than the capture: one picked claim in two, or two merged into one. Where
+/// no claim matches exactly, a pick asks the claims that lie inside it, and where none does,
+/// the claims it shares a byte with. A claim that only touches the pick's edge shares none.
+fn asked_by(claims: &[DrawnClaim], (start, end): crate::claims::Span) -> Vec<u16> {
+    if let Some(same) = claims
+        .iter()
+        .find(|claim| claim.start == start && claim.end == end)
+    {
+        return vec![same.index];
+    }
+    let inside: Vec<u16> = claims
+        .iter()
+        .filter(|claim| start <= claim.start && claim.end <= end)
+        .map(|claim| claim.index)
+        .collect();
+    if !inside.is_empty() {
+        return inside;
+    }
+    claims
+        .iter()
+        .filter(|claim| start < claim.end && claim.start < end)
+        .map(|claim| claim.index)
+        .collect()
+}
+
 /// Builds the handout for a set of chosen claims: whole reviews, with the claims asked about
 /// named by index.
 ///
@@ -1329,12 +1398,33 @@ pub(crate) fn handouts(
     depth: crate::read::Depth,
     picks: &Picks,
     subset: &str,
+    game: &Path,
 ) -> Result<Vec<DrawnReview>> {
+    let kept = kept_if_any(game)?;
     let mut drawn = Vec::new();
-    crate::capture::for_each_body(snapshot, |id, language, text| {
-        let Some(wanted) = picks.get(id) else {
+    crate::capture::for_each_body(snapshot, |id, language, captured| {
+        let Some(picked) = picks.get(id) else {
             return Ok(());
         };
+        let text = text_to_cut(&kept, id, captured);
+        // A pick names a claim of the capture's copy as it is cut now. One that names no claim
+        // there (the review was edited since, or the row is stale) is dropped. The rest are
+        // moved onto the copy that is cut.
+        let cut: Vec<crate::claims::Span> = depth
+            .spans_of(captured)
+            .into_iter()
+            .map(|span| {
+                (
+                    u32::try_from(span.start).unwrap_or(u32::MAX),
+                    u32::try_from(span.end).unwrap_or(u32::MAX),
+                )
+            })
+            .collect();
+        let wanted: Vec<crate::claims::Span> = picked
+            .iter()
+            .filter(|at| cut.contains(at))
+            .filter_map(|&at| moved_onto(captured, text, at))
+            .collect();
         let spans = depth.spans_of(text);
         let claims: Vec<DrawnClaim> = depth
             .claims_of(text)
@@ -1350,10 +1440,9 @@ pub(crate) fn handouts(
             .collect();
         // The handout numbers the claims of this review as it is cut now, and a pick names the
         // bytes it wants rather than a place in that numbering, so the two are matched here.
-        let mut asked: Vec<u16> = claims
+        let mut asked: Vec<u16> = wanted
             .iter()
-            .filter(|claim| wanted.contains(&(claim.start, claim.end)))
-            .map(|claim| claim.index)
+            .flat_map(|&pick| asked_by(&claims, pick))
             .collect();
         asked.sort_unstable();
         asked.dedup();
@@ -1922,7 +2011,15 @@ pub fn export_pool(
     let labelled = reviews_in_sets(game_sets)?;
     let headset_only =
         crate::facts::of_game(out_dir, game_sets, app_id).map(|facts| facts.headset_only);
-    let drawn = draw(out_dir, app_id, wanted, english_share, seed, "pool")?;
+    let drawn = draw(
+        out_dir,
+        app_id,
+        wanted,
+        english_share,
+        seed,
+        "pool",
+        game_sets,
+    )?;
     let mut report = PoolReport::default();
     for review in drawn {
         if labelled.contains(&review.id) {
@@ -3090,7 +3187,16 @@ mod tests {
     fn a_draw_takes_its_share_of_english_and_the_rest_from_every_other_language() {
         let out = crate::tempdir::Dir::new();
         crate::read::tests::corpus(out.path());
-        let drawn = draw(out.path(), 1, 3, 2.0 / 3.0, 1, "random").unwrap();
+        let drawn = draw(
+            out.path(),
+            1,
+            3,
+            2.0 / 3.0,
+            1,
+            "random",
+            &out.path().join("reference").join("1"),
+        )
+        .unwrap();
         let english = drawn.iter().filter(|r| r.language == "english").count();
         assert_eq!((drawn.len(), english), (3, 2));
         assert!(drawn.iter().all(|review| review.subset == "random"));
@@ -3528,6 +3634,245 @@ mod tests {
         assert_eq!(
             claim_in_capture(&cut_of(text), &capture, &on(0, 22)),
             Some((0, 22))
+        );
+    }
+
+    const PLAIN: &str = "The story is damn good fun. The music is far too loud.";
+    const MARKED: &str =
+        "The story is \u{2665}\u{2665}\u{2665}\u{2665} good fun. The music is far too loud.";
+
+    /// A capture of the given reviews, as ids and texts, and the game's folder beside it.
+    fn captured(out: &Path, reviews: &[(&str, &str)]) -> std::path::PathBuf {
+        let rows: Vec<serde_json::Value> = reviews
+            .iter()
+            .map(|(id, text)| {
+                serde_json::json!({
+                    "recommendationid": id, "review": text, "language": "english",
+                    "voted_up": true, "weighted_vote_score": "0.5", "votes_up": 3,
+                    "timestamp_created": 1_700_000_000,
+                    "author": {"steamid": format!("7656{id}"), "playtime_at_review": 3_000},
+                })
+            })
+            .collect();
+        crate::read::tests::capture_these(out, 1, &rows);
+        out.join("reference").join("1")
+    }
+
+    fn spans(review: &DrawnReview) -> Vec<(u32, u32)> {
+        review.claims.iter().map(|c| (c.start, c.end)).collect()
+    }
+
+    #[test]
+    fn a_review_kept_under_censor_marks_is_cut_from_its_kept_copy() {
+        let out = crate::tempdir::Dir::new();
+        let game = captured(out.path(), &[("1", PLAIN)]);
+        kept(&game, &[("1", MARKED)]);
+        let drawn = draw(out.path(), 1, 5, 1.0, 1, "random", &game).unwrap();
+        assert_eq!(drawn[0].text, MARKED);
+        assert_eq!(spans(&drawn[0]), [(0, 35), (36, 62)]);
+        assert!(drawn[0].claims[0].text.contains('\u{2665}'));
+        write_set(&game, &drawn, 40).unwrap();
+        let sample: Vec<DrawnReview> =
+            serde_json::from_slice(&std::fs::read(game.join("sample.json")).unwrap()).unwrap();
+        assert_eq!(spans(&sample[0]), [(0, 35), (36, 62)]);
+    }
+
+    #[test]
+    fn a_review_with_no_kept_copy_is_cut_as_captured() {
+        let out = crate::tempdir::Dir::new();
+        let game = captured(out.path(), &[("1", PLAIN)]);
+        let drawn = draw(out.path(), 1, 5, 1.0, 1, "random", &game).unwrap();
+        assert_eq!(drawn[0].text, PLAIN);
+        assert_eq!(spans(&drawn[0]), [(0, 27), (28, 54)]);
+    }
+
+    #[test]
+    fn an_edited_review_is_cut_as_the_capture_holds_it_and_refused() {
+        for (at, text) in [
+            (
+                "other words",
+                "The story is damn poor fun. The music is far too loud.".to_owned(),
+            ),
+            ("added words", format!("{PLAIN} More.")),
+        ] {
+            let out = crate::tempdir::Dir::new();
+            let game = captured(out.path(), &[("1", &text)]);
+            kept(&game, &[("1", MARKED)]);
+            let drawn = draw(out.path(), 1, 5, 1.0, 1, "random", &game).unwrap();
+            assert_eq!(drawn[0].text, text, "{at}");
+            assert!(
+                matches!(
+                    write_set(&game, &drawn, 40),
+                    Err(crate::Error::EditedSinceDrawn { .. })
+                ),
+                "{at}"
+            );
+            assert!(!game.join("sample.json").exists(), "{at}");
+        }
+    }
+
+    #[test]
+    fn a_drawn_copy_with_censor_marks_is_not_a_plain_kept_one() {
+        let out = crate::tempdir::Dir::new();
+        let game = captured(out.path(), &[("1", MARKED)]);
+        kept(&game, &[("1", PLAIN)]);
+        let drawn = draw(out.path(), 1, 5, 1.0, 1, "random", &game).unwrap();
+        assert_eq!(drawn[0].text, MARKED);
+        assert!(matches!(
+            write_set(&game, &drawn, 40),
+            Err(crate::Error::EditedSinceDrawn { .. })
+        ));
+    }
+
+    fn handed(picks: &[(&str, &[(u32, u32)])], reviews: &[(&str, &str)]) -> Vec<DrawnReview> {
+        let out = crate::tempdir::Dir::new();
+        let game = captured(out.path(), reviews);
+        kept(&game, &[("1", MARKED)]);
+        let picks: Picks = picks
+            .iter()
+            .map(|(id, spans)| ((*id).to_owned(), spans.to_vec()))
+            .collect();
+        let snapshot = crate::embed::latest_snapshot(out.path(), 1).unwrap();
+        handouts(
+            &snapshot,
+            1,
+            crate::read::Depth::Deep,
+            &picks,
+            "keyword",
+            &game,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_pick_is_moved_onto_the_kept_copy() {
+        let handed = handed(&[("1", &[(28, 54), (0, 27)])], &[("1", PLAIN)]);
+        assert_eq!(handed.len(), 1);
+        assert_eq!(spans(&handed[0]), [(0, 35), (36, 62)]);
+        assert_eq!(handed[0].asked, Some(vec![0, 1]));
+        let second = handed_only(&[("1", &[(28, 54)])]);
+        assert_eq!(second[0].asked, Some(vec![1]));
+    }
+
+    #[test]
+    fn a_pick_past_the_end_of_the_capture_is_dropped() {
+        let handed = handed(&[("1", &[(28, 54), (28, 60)])], &[("1", PLAIN)]);
+        assert_eq!(handed.len(), 1);
+        assert_eq!(handed[0].asked, Some(vec![1]));
+        let none = handed_only(&[("1", &[(28, 60)])]);
+        assert!(none.is_empty());
+    }
+
+    fn handed_only(picks: &[(&str, &[(u32, u32)])]) -> Vec<DrawnReview> {
+        handed(picks, &[("1", PLAIN)])
+    }
+
+    #[test]
+    fn a_pick_inside_a_character_is_dropped() {
+        let handed = handed(
+            &[("1", &[(28, 54)]), ("2", &[(1, 9)])],
+            &[("1", PLAIN), ("2", "\u{fc}n\u{ef} good.")],
+        );
+        assert_eq!(handed.len(), 1);
+        assert_eq!(handed[0].id, "1");
+    }
+
+    #[test]
+    fn a_pick_on_a_template_asks_only_its_own_claim() {
+        // Each claim of a template runs from the heading to its own ticked box, so the second
+        // holds the first.
+        let template = "Graphics:\n\u{2610} Bad\n\u{2611} Good\n\u{2611} Great\n";
+        let cut = crate::claims::spans(template);
+        assert_eq!(cut.len(), 2, "{cut:?}");
+        assert!(
+            cut[0].start >= cut[1].start && cut[0].end <= cut[1].end,
+            "{cut:?}"
+        );
+        let pick = (
+            u32::try_from(cut[1].start).unwrap(),
+            u32::try_from(cut[1].end).unwrap(),
+        );
+        let handed = handed(&[("2", &[pick])], &[("2", template)]);
+        assert_eq!(handed.len(), 1);
+        assert_eq!(handed[0].asked, Some(vec![1]));
+    }
+
+    #[test]
+    fn a_claim_that_only_touches_a_pick_is_not_asked() {
+        let claims: Vec<DrawnClaim> = [(0, 10), (10, 20), (20, 30)]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (start, end))| DrawnClaim {
+                index: u16::try_from(index).unwrap(),
+                start,
+                end,
+                text: String::new(),
+            })
+            .collect();
+        assert_eq!(asked_by(&claims, (10, 20)), [1], "the claim with its bytes");
+        assert_eq!(
+            asked_by(&claims, (0, 30)),
+            [0, 1, 2],
+            "the claims inside it"
+        );
+        assert_eq!(
+            asked_by(&claims, (12, 20)),
+            [1],
+            "not the claim starting at its end"
+        );
+        assert_eq!(
+            asked_by(&claims, (10, 18)),
+            [1],
+            "not the claim ending at its start"
+        );
+        assert_eq!(
+            asked_by(&claims, (8, 12)),
+            [0, 1],
+            "the claims it shares a byte with"
+        );
+    }
+
+    #[test]
+    fn a_pick_the_kept_copy_cuts_otherwise_asks_the_claims_holding_its_words() {
+        // The capture cuts the question and its answer as one claim. Under the marks, the
+        // splitter ends the first claim after them, so "yes." opens the next one.
+        let plain = "Is the vr mode good? Hell yes. The combat is great and deep.";
+        let marked = "Is the vr mode good? \u{2665}\u{2665}\u{2665}\u{2665} yes. \
+                      The combat is great and deep.";
+        let asked_for = |pick: (u32, u32)| {
+            let out = crate::tempdir::Dir::new();
+            let game = captured(out.path(), &[("1", plain)]);
+            kept(&game, &[("1", marked)]);
+            let picks: Picks = std::iter::once(("1".to_owned(), vec![pick])).collect();
+            let snapshot = crate::embed::latest_snapshot(out.path(), 1).unwrap();
+            let handed = handouts(
+                &snapshot,
+                1,
+                crate::read::Depth::Deep,
+                &picks,
+                "keyword",
+                &game,
+            )
+            .unwrap();
+            assert_eq!(handed.len(), 1, "the review is handed out, not left out");
+            assert_eq!(handed[0].text, marked);
+            handed[0]
+                .asked
+                .clone()
+                .unwrap()
+                .iter()
+                .map(|&at| handed[0].claims[usize::from(at)].text.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            asked_for((0, 30)),
+            ["Is the vr mode good? \u{2665}\u{2665}\u{2665}\u{2665}"],
+            "the claim inside the pick, and not the one that only shares its last word"
+        );
+        assert_eq!(
+            asked_for((31, 60)),
+            ["yes. The combat is great and deep."],
+            "no claim lies inside this pick, so the one holding its words is asked"
         );
     }
 }

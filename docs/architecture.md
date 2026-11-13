@@ -24,7 +24,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - `claims::words_at` is the one way a stored span becomes text, and `claims::is_not_a_claim` the
   one test for an empty piece. Every draw, ingest and export uses both.
 - **Labelled text is kept** in each game's `reviews.jsonl`, since a review can be edited. A later
-  draw that meets an edited copy is refused.
+  draw that meets an edited copy is refused. A review kept under censor marks is cut from its
+  kept copy when it is drawn again.
 - **After a splitter change**, labels at spans the build no longer cuts are left out of
   measurement and training, and counted. The library is then read again.
 
