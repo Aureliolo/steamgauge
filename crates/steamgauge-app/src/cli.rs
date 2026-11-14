@@ -8,7 +8,8 @@ use anyhow::Result;
 use clap::{FromArgMatches as _, Parser, Subcommand, ValueEnum};
 use steamgauge_core::{
     CrawlOptions, CrawlReport, DEFAULT_BATCH_SIZE, DEFAULT_SHARD_TARGET, SteamClient, StopReason,
-    crawl, figure_text::thousands,
+    crawl,
+    figure_text::{percent, thousands},
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
@@ -1638,14 +1639,23 @@ async fn run_update() -> Result<()> {
     Ok(())
 }
 
-/// Everything one game contributes to a fit: the examples it trains on, the ones held back
-/// from it, and what an average review of it looks like.
-#[expect(clippy::cast_precision_loss, reason = "reference sets are hundreds")]
-fn share(part: u64, whole: u64) -> String {
+/// A share at one decimal, or a dash where there is none, for the commands that measure one
+/// reader against another. Two readers less than a point apart must read differently, which the
+/// whole points of [`percent`] would hide.
+fn measured_share(value: Option<f64>) -> String {
+    value.map_or_else(|| "-".to_owned(), |share| format!("{:.1}%", share * 100.0))
+}
+
+/// A part of a whole as a person reads it, or "n/a" where there is no whole.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "counts of reviews are far below 2^53"
+)]
+fn part_of(part: u64, whole: u64) -> String {
     if whole == 0 {
         return "n/a".to_owned();
     }
-    format!("{:.1}%", part as f64 / whole as f64 * 100.0)
+    percent(part as f64 / whole as f64)
 }
 
 /// What a draw is: how many reviews, of which languages, under which name.
@@ -2191,9 +2201,9 @@ fn print_asked(report: &steamgauge_core::read::ReadReport) {
         )]
         let repeated = 1.0 - (report.forward_passes + report.kept) as f64 / report.claims as f64;
         println!(
-            "asked        {} of them ({:.0}% of the corpus was written before)",
+            "asked        {} of them ({} of the corpus was written before)",
             thousands(report.forward_passes),
-            repeated * 100.0
+            percent(repeated)
         );
     }
     if report.kept > 0 {
@@ -2244,9 +2254,9 @@ fn read_one(
     print_asked(&report);
     if let Some(share) = report.unclassified_share() {
         println!(
-            "no subject   {} claims ({:.1}%), and {} reviews that name nothing at all",
+            "no subject   {} claims ({}), and {} reviews that name nothing at all",
             thousands(report.unclassified_claims),
-            share * 100.0,
+            percent(share),
             thousands(report.silent_reviews)
         );
     }
@@ -2293,7 +2303,7 @@ fn read_one(
             "{:<26} {:>9} {:>8} {:>8} {:>9} {:>8}",
             subject.label,
             thousands(subject.mention_reviews),
-            share(subject.mention_reviews, report.reviews),
+            part_of(subject.mention_reviews, report.reviews),
             thousands(subject.praised),
             thousands(subject.criticised),
             thousands(subject.mixed),
@@ -3063,9 +3073,9 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
     )]
     let share = agreed as f64 / written.max(1) as f64;
     println!(
-        "agreement  {} of them ({:.1}%) match the labeller already on record",
+        "agreement  {} of them ({}) match the labeller already on record",
         thousands(agreed as u64),
-        share * 100.0
+        measured_share(Some(share))
     );
     println!(
         "\nThat share is the first honest accuracy figure this project has: everything else is\n\
@@ -3321,8 +3331,6 @@ fn run_ceiling(app_ids: &[u32], out: &Path, reference: &Path) -> Result<()> {
     use steamgauge_core::measure::{Role, SPLIT_SEED, role};
 
     let wanted = read_twice(app_ids, reference, "second")?;
-    let pct =
-        |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
 
     // Pooled apart, because a figure over games the model trained on is not a measurement of
     // anything and averaging it in would hide the one figure that is.
@@ -3376,9 +3384,9 @@ fn run_ceiling(app_ids: &[u32], out: &Path, reference: &Path) -> Result<()> {
             app_id,
             was.as_str(),
             thousands(found.compared),
-            pct(found.between_labellers()),
-            pct(found.against_the_settled()),
-            pct(found.where_they_split()),
+            measured_share(found.between_labellers()),
+            measured_share(found.against_the_settled()),
+            measured_share(found.where_they_split()),
             thousands(found.labellers_split)
         );
         if let Some(slot) = pooled.iter_mut().find(|(which, _, _)| *which == was) {
@@ -3416,8 +3424,6 @@ fn print_ceiling_block(
     if found.compared == 0 {
         return;
     }
-    let pct =
-        |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
 
     println!(
         "\n{} games the model {}, {} claims read twice and answered",
@@ -3432,11 +3438,11 @@ fn print_ceiling_block(
     println!(
         "  the two labellers reached the same subject on {} of them, {}",
         thousands(found.labellers_agreed),
-        pct(found.between_labellers())
+        measured_share(found.between_labellers())
     );
     println!(
         "  on those, the model agrees {}{}",
-        pct(found.against_the_settled()),
+        measured_share(found.against_the_settled()),
         found.interval().map_or_else(String::new, |(low, high)| {
             format!(", somewhere in [{low:.3}, {high:.3}]")
         })
@@ -3444,7 +3450,7 @@ fn print_ceiling_block(
     println!(
         "  on the {} they split, it lands on one of their two answers {}",
         thousands(found.labellers_split),
-        pct(found.where_they_split())
+        measured_share(found.where_they_split())
     );
 }
 
@@ -3465,8 +3471,6 @@ fn run_compare_labels(
         wanted.retain(|app_id| base_of(&reference.join(app_id.to_string())).is_file());
     }
 
-    let pct =
-        |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
     let table = |found: &steamgauge_core::reliability::Reliability| {
         println!(
             "\n  {:<14} {:>9} {:>8}   commonest split",
@@ -3482,7 +3486,7 @@ fn run_compare_labels(
             let row = format!(
                 "  {:<14} {:>9} {:>8}   {split}",
                 field.field,
-                pct(field.rate()),
+                measured_share(field.rate()),
                 field
                     .kappa
                     .map_or_else(|| "-".to_owned(), |k| format!("{k:.2}"))
@@ -3525,18 +3529,18 @@ fn run_compare_labels(
     let contested = &pooled.contested;
     println!(
         "\n  contested: the first labeller flagged {}, the second {}",
-        pct(contested.first_share),
-        pct(contested.second_share)
+        measured_share(contested.first_share),
+        measured_share(contested.second_share)
     );
     println!(
         "  on the {} claims neither flagged, they agree on the subject {} of the time",
         thousands(contested.clear),
-        pct(contested.clear_rate())
+        measured_share(contested.clear_rate())
     );
     println!(
         "  on the {} claims either flagged, {}",
         thousands(contested.flagged),
-        pct(contested.flagged_rate())
+        measured_share(contested.flagged_rate())
     );
 
     println!(
@@ -3560,8 +3564,6 @@ fn run_measure_claims(
     reference: &Path,
     labels: Option<&str>,
 ) -> Result<()> {
-    let pct =
-        |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
     let mut every = Vec::new();
 
     for &app_id in app_ids {
@@ -3577,7 +3579,7 @@ fn run_measure_claims(
             thousands(found.matched),
             thousands(found.answered),
             thousands(found.declined),
-            pct(found.declined_share())
+            measured_share(found.declined_share())
         );
         if found.unjoined > 0 {
             println!(
@@ -3588,12 +3590,12 @@ fn run_measure_claims(
         }
         println!(
             "  {} agreement on what it answered, macro F1 {}",
-            pct(found.rate()),
+            measured_share(found.rate()),
             found
                 .macro_f1()
                 .map_or_else(|| "-".to_owned(), |v| format!("{v:.3}"))
         );
-        println!("  {} of polarity", pct(found.polarity_rate()));
+        println!("  {} of polarity", measured_share(found.polarity_rate()));
         #[expect(
             clippy::cast_precision_loss,
             reason = "reference sets are thousands of claims"
@@ -3602,9 +3604,9 @@ fn run_measure_claims(
             let share = |part: u64, whole: u64| (whole > 0).then(|| part as f64 / whole as f64);
             println!(
                 "  split by how the labeller called it: {} on {} clear-cut, {} on {} contested",
-                pct(share(found.clear_agreed, found.clear_answered)),
+                measured_share(share(found.clear_agreed, found.clear_answered)),
                 thousands(found.clear_answered),
-                pct(share(found.contested_agreed, found.contested_answered)),
+                measured_share(share(found.contested_agreed, found.contested_answered)),
                 thousands(found.contested_answered)
             );
         };
@@ -3629,8 +3631,8 @@ fn run_measure_claims(
                 "  {:<26} {:>8} {:>10} {:>8} {:>7}  {}",
                 subject.label,
                 thousands(subject.labelled),
-                pct(subject.precision()),
-                pct(subject.recall()),
+                measured_share(subject.precision()),
+                measured_share(subject.recall()),
                 subject
                     .f1()
                     .map_or_else(|| "-".to_owned(), |v| format!("{v:.2}")),
@@ -3658,8 +3660,6 @@ fn run_measure_claims(
 /// model the same question, and that has happened, silently, with every answer looking
 /// plausible.
 fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
-    let pct =
-        |value: Option<f64>| value.map_or_else(|| "-".to_owned(), |v| format!("{:.1}%", v * 100.0));
     let found = steamgauge_core::measure::pooled(every);
     #[expect(
         clippy::cast_precision_loss,
@@ -3671,8 +3671,8 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
         thousands(every.len() as u64),
         thousands(found.matched),
         thousands(found.answered),
-        pct(answered),
-        pct(found.rate()),
+        measured_share(answered),
+        measured_share(found.rate()),
         found
             .macro_f1()
             .map_or_else(|| "-".to_owned(), |v| format!("{v:.3}"))
@@ -3689,8 +3689,8 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
             thousands(beyond.labelled),
             thousands(beyond.read),
             thousands(beyond.agreed),
-            pct(beyond.precision()),
-            pct(beyond.recall())
+            measured_share(beyond.precision()),
+            measured_share(beyond.recall())
         );
     }
 }
@@ -4079,7 +4079,7 @@ async fn run_embed(
         "  deduped        {}",
         report
             .dedupe_rate()
-            .map_or_else(|| "n/a".to_owned(), |r| format!("{:.1}%", r * 100.0))
+            .map_or_else(|| "n/a".to_owned(), percent)
     );
     println!("  dimensions     {}", thousands(report.dim as u64));
     println!("  elapsed        {}", elapsed(report.elapsed));
@@ -4305,10 +4305,9 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
         "  held         {} of Valve's {}, {}",
         thousands(report.unique),
         thousands(report.valve_total),
-        report.coverage().map_or_else(
-            || "coverage not applicable".to_owned(),
-            steamgauge_core::report::coverage
-        )
+        report
+            .coverage()
+            .map_or_else(|| "coverage not applicable".to_owned(), percent)
     );
     if report.stop != StopReason::Exhausted {
         println!(
@@ -4366,10 +4365,9 @@ fn print_report(report: &CrawlReport) {
     );
     println!(
         "  coverage     {}",
-        report.coverage().map_or_else(
-            || "not applicable".to_owned(),
-            steamgauge_core::report::coverage
-        )
+        report
+            .coverage()
+            .map_or_else(|| "not applicable".to_owned(), percent)
     );
     println!("  elapsed      {}", elapsed(report.elapsed));
     println!("  capture      {}", report.dir.display());
@@ -4417,8 +4415,24 @@ mod tests {
     use clap::Parser as _;
 
     use super::{
-        Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed, stand_in_named,
+        Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed, measured_share,
+        part_of, stand_in_named,
     };
+
+    #[test]
+    fn a_measured_share_keeps_one_decimal() {
+        assert_eq!(measured_share(Some(0.8149)), "81.5%");
+        assert_eq!(measured_share(Some(0.31)), "31.0%");
+        assert_eq!(measured_share(None), "-");
+    }
+
+    #[test]
+    fn a_part_of_nothing_reads_n_a_and_any_other_part_reads_by_the_rule() {
+        assert_eq!(part_of(0, 0), "n/a");
+        assert_eq!(part_of(2, 5), "40%");
+        assert_eq!(part_of(1, 1_000), "0.1%");
+        assert_eq!(part_of(0, 5), "0%");
+    }
 
     /// An empty origin would send every request nowhere, so it names no stand-in.
     #[test]

@@ -99,6 +99,11 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 
 - The headline is the **mention rate**: the share of reviews raising a subject. Every other
   percentage names its denominator, and every rate carries a 95% interval.
+- A share a person reads is written by `percent` in `figure_text.rs`. From 10% to 90% it reads in
+  whole points. Nearer the ends it keeps a tenth, and it reads "<0.1%" or ">99.9%" short of 0 or
+  100%. An interval's ends take a tenth where whole points would make them read alike. Where
+  tenths do too, the interval is left out. The measuring commands write one decimal, and the
+  CSV and JSON exports and the assistants' tools give the raw value.
 - A game with 40 labels or more also gets a **corrected share**, adjusted for the reader's
   measured errors on those labels.
 - **Words that stand out** are compared with log-odds within each review language and pooled by

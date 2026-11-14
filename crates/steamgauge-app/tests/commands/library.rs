@@ -92,7 +92,7 @@ fn read_counts_the_library_with_the_reader_it_is_handed() {
         "claims       5".to_owned(),
         "asked        4 of them (20% of the corpus was written before)".to_owned(),
         format!("written to   {}", written.display()),
-        "no subject   2 claims (40.0%), and 2 reviews that name nothing at all".to_owned(),
+        "no subject   2 claims (40%), and 2 reviews that name nothing at all".to_owned(),
     ] {
         assert!(has_line(&done.out, &line), "{line}\n{}", done.out);
     }
@@ -107,7 +107,7 @@ fn read_counts_the_library_with_the_reader_it_is_handed() {
         .find(|line| line.starts_with(label))
         .unwrap_or_else(|| panic!("no row for {label}\n{}", done.out));
     let fields: Vec<&str> = row[label.len()..].split_whitespace().collect();
-    assert_eq!(fields, ["2", "40.0%", "0", "2", "0"], "{row}");
+    assert_eq!(fields, ["2", "40%", "0", "2", "0"], "{row}");
 }
 
 #[test]

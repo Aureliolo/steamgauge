@@ -299,7 +299,10 @@ pub(super) fn reader_name(size: &steamgauge_core::reader::Size) -> String {
 
 /// What sets a reader size apart from the others, as the window lists it beside the name.
 pub(super) fn reader_role(size: &steamgauge_core::reader::Size) -> String {
-    let agreement = format!("{:.0}% agreement at 80% coverage", size.agreement * 100.0);
+    let agreement = format!(
+        "{} agreement at 80% coverage",
+        steamgauge_core::figure_text::percent(size.agreement)
+    );
     if size.name == steamgauge_core::reader::SIZES[0].name {
         format!("faster, {agreement}")
     } else {
@@ -386,6 +389,15 @@ pub(super) fn reader_options(app: AppHandle) -> ReaderOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_reader_size_says_its_agreement_by_the_core_rule() {
+        let [small, standard] = steamgauge_core::reader::SIZES else {
+            panic!("the sizes are two");
+        };
+        assert_eq!(reader_role(small), "faster, 78% agreement at 80% coverage");
+        assert_eq!(reader_role(standard), "84% agreement at 80% coverage");
+    }
 
     #[test]
     fn a_share_written_by_hand_lands_on_the_nearest_one_offered() {

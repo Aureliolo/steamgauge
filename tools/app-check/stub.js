@@ -189,7 +189,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'complains',
       found: gap(0.31, 0.12, 17.2),
       sentence:
-        'Reviewers with 100 hours or more played complain about performance in 31.0% of their reviews, against 12.0% of everyone else.',
+        'Reviewers with 100 hours or more played complain about performance in 31% of their reviews, against 12% of everyone else.',
     }),
     finding({
       segment: 'under-2-hours',
@@ -198,7 +198,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'recommends',
       found: gap(0.62, 0.87, -14.2),
       sentence:
-        'Reviewers with under 2 hours played recommend the game in 62.0% of their reviews, against 87.0% of everyone else.',
+        'Reviewers with under 2 hours played recommend the game in 62% of their reviews, against 87% of everyone else.',
     }),
     finding({
       segment: 'under-2-hours',
@@ -207,7 +207,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'praises',
       found: gap(0.21, 0.09, 8.1),
       sentence:
-        'Reviewers with under 2 hours played praise story and writing in 21.0% of their reviews, against 9.0% of everyone else.',
+        'Reviewers with under 2 hours played praise story and writing in 21% of their reviews, against 9% of everyone else.',
     }),
     finding({
       segment: 'early-access',
@@ -216,7 +216,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'complains',
       found: gap(0.18, 0.07, 7.7),
       sentence:
-        'Reviewers writing during early access complain about bugs and crashes in 18.0% of their reviews, against 7.0% of reviewers writing after release.',
+        'Reviewers writing during early access complain about bugs and crashes in 18% of their reviews, against 7% of reviewers writing after release.',
     }),
     finding({
       segment: 'early-access',
@@ -225,7 +225,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'recommends',
       found: gap(0.81, 0.87, -6.4),
       sentence:
-        'Reviewers writing during early access recommend the game in 81.0% of their reviews, against 87.0% of reviewers writing after release.',
+        'Reviewers writing during early access recommend the game in 81% of their reviews, against 87% of reviewers writing after release.',
     }),
     finding({
       segment: '30-to-100-hours',
@@ -234,7 +234,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'complains',
       found: gap(0.09, 0.05, 5.2),
       sentence:
-        'Reviewers with 30 to 100 hours played complain about amount of content in 9.0% of their reviews, against 5.0% of everyone else.',
+        'Reviewers with 30 to 100 hours played complain about amount of content in 9% of their reviews, against 5% of everyone else.',
     }),
     finding({
       segment: '2-to-10-hours',
@@ -243,7 +243,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       said: 'praises',
       found: gap(0.06, 0.03, 4.4),
       sentence:
-        'Reviewers with 2 to 10 hours played praise tutorial and learning in 6.0% of their reviews, against 3.0% of everyone else.',
+        'Reviewers with 2 to 10 hours played praise tutorial and learning in 6% of their reviews, against 3% of everyone else.',
     }),
   ];
   // One subject's figures among one side's reviews, with a band where its share would likely fall.

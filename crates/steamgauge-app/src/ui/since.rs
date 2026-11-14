@@ -11,7 +11,7 @@ use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 use steamgauge_core::{
-    figure_text::thousands,
+    figure_text::{percent, thousands},
     moves::{Move, Side},
     read::ReadReport,
     since::{self, LastSeen, Look, Seen, Since, Standing},
@@ -194,10 +194,6 @@ fn mid_sentence(label: &str) -> String {
         .join(" ")
 }
 
-fn percent(share: f64) -> String {
-    format!("{:.0}%", share * 100.0)
-}
-
 /// What a notification says about one subject that moved in a game's new reviews.
 fn words(game: &str, moved: &Move, read: u64) -> (String, String) {
     let subject = mid_sentence(moved.label);
@@ -326,14 +322,18 @@ mod tests {
     fn a_notification_names_the_game_the_subject_and_which_way_it_went() {
         let (title, body) = words(
             "Alpha",
-            &moved(Side::Complaint, "Bugs and crashes", shift(0.05, 0.25, 11.5)),
+            &moved(
+                Side::Complaint,
+                "Bugs and crashes",
+                shift(0.031, 0.254, 11.5),
+            ),
             1_400,
         );
         assert_eq!(title, "Alpha: more complaints about bugs and crashes");
         assert_eq!(
             body,
             "25% of the 1,400 reviews read since you last looked complain about bugs and \
-             crashes, against 5% in the year before."
+             crashes, against 3.1% in the year before."
         );
         let (title, _) = words(
             "Alpha",
@@ -418,6 +418,5 @@ mod tests {
         assert_eq!(mid_sentence("Story and writing"), "story and writing");
         assert_eq!(mid_sentence("VR and headsets"), "VR and headsets");
         assert_eq!(mid_sentence("Overall verdict"), "the game as a whole");
-        assert_eq!(percent(0.254), "25%");
     }
 }
