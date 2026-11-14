@@ -1183,8 +1183,9 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
 /// name different claims, and a row or a question built from both is about neither. False
 /// where the review has no kept text. The words are compared as a labeller was handed them:
 /// markup skipped, and a censor mark standing for any one character. A claim drawn at other
-/// bytes than the label names must hold every word there, since a claim drawn again under a
-/// finer cut can be the first words of the label's.
+/// bytes than the label names is read against the label's words, without the bullet or mark an
+/// older cut kept at their ends ([`crate::claims::words_at`]), and must hold every one of them:
+/// a claim drawn again under a finer cut can be the first words of the label's.
 #[must_use]
 pub fn reads_at(
     cut: &CutSpans,
@@ -1193,12 +1194,12 @@ pub fn reads_at(
     drawn_at: crate::claims::Span,
 ) -> bool {
     cut.get(label.review_id.as_str()).is_some_and(|review| {
-        let holds = if drawn_at == (label.start, label.end) {
-            crate::claims::holds_words
-        } else {
-            crate::claims::holds_only_words
-        };
-        holds(&review.text, label.start, label.end, handed)
+        if drawn_at == (label.start, label.end) {
+            return crate::claims::holds_words(&review.text, label.start, label.end, handed);
+        }
+        crate::claims::words_at(&review.text, label.start, label.end).is_some_and(|(start, end)| {
+            crate::claims::holds_only_words(&review.text, start, end, handed)
+        })
     })
 }
 
@@ -3963,6 +3964,41 @@ mod tests {
         assert!(
             reads_at(&cut, &bugs, "Bugs everywhere and it crashes.", (0, 33)),
             "a claim drawn at other bytes that holds every word is the label's"
+        );
+    }
+
+    #[test]
+    fn a_label_whose_older_cut_kept_a_bullet_or_a_mark_reads_at_its_words() {
+        assert!(
+            reads_at(
+                &cut_of("\u{2022} Great combat"),
+                &on(0, 16),
+                "Great combat",
+                (4, 16)
+            ),
+            "a bullet in front of the words is no word"
+        );
+        assert!(
+            reads_at(
+                &cut_of("1. The interface is unusable"),
+                &on(0, 28),
+                "The interface is unusable",
+                (3, 28)
+            ),
+            "nor is a list number"
+        );
+        assert!(
+            reads_at(&cut_of("Fun to Play,"), &on(0, 12), "Fun to Play", (0, 11)),
+            "nor a comma after the last word"
+        );
+        assert!(
+            !reads_at(
+                &cut_of("\u{2022} Great combat"),
+                &on(0, 16),
+                "Great",
+                (4, 9)
+            ),
+            "the words still have to be all the label's"
         );
     }
 

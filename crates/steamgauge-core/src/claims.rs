@@ -701,13 +701,14 @@ fn without_markup(piece: &str) -> String {
 /// Whether the bytes of `text` from `start` to `end` are the claim `handed`.
 ///
 /// A form's claim is handed out as its heading and its answer, so the words are sought in order.
-/// A censor mark in them stands for any one character ([`same_words`]), and white space of any
-/// kind parts two words. False where the span is empty, runs past the text or starts or ends
-/// inside a character.
+/// A censor mark in them stands for any one character ([`same_words`]). Words of the claim's own
+/// length are compared character by character, any white space matching any other, so a censor
+/// mark over words of its own length is a difference `restore-drawn-text` writes back. False
+/// where the span is empty, runs past the text or starts or ends inside a character.
 pub(crate) fn holds_words(text: &str, start: u32, end: u32, handed: &str) -> bool {
     bytes_at(text, start, end).is_some_and(|bytes| {
-        if bytes == handed {
-            return true;
+        if bytes.len() == handed.len() {
+            return alike_but_white_space(bytes, handed);
         }
         let clean = without_markup(bytes);
         let mut written = clean.split_whitespace();
@@ -727,6 +728,16 @@ pub(crate) fn holds_only_words(text: &str, start: u32, end: u32, handed: &str) -
         && bytes_at(text, start, end).is_some_and(|bytes| {
             without_markup(bytes).split_whitespace().count() == handed.split_whitespace().count()
         })
+}
+
+/// Whether `one` and `other` are the same characters, white space of any kind matching any other.
+fn alike_but_white_space(one: &str, other: &str) -> bool {
+    let mut other = other.chars();
+    one.chars().all(|ch| {
+        other
+            .next()
+            .is_some_and(|theirs| ch == theirs || (ch.is_whitespace() && theirs.is_whitespace()))
+    }) && other.next().is_none()
 }
 
 /// The bytes of `text` from `start` to `end`, or `None` where the span is empty, runs past the
@@ -2585,6 +2596,19 @@ mod tests {
     fn a_line_break_where_a_space_was_handed_out_holds_the_same_words() {
         assert!(holds_words("Great\ngame.", 0, 11, "Great game."));
         assert!(!holds_words("Great\ngame.", 0, 11, "Great gave."));
+        assert!(
+            !holds_words("Fun n Great", 0, 11, "Fun\n\n\nGreat"),
+            "a word written into white space of the same length is a change"
+        );
+    }
+
+    #[test]
+    fn a_censor_mark_over_words_of_its_own_length_is_a_difference() {
+        let marks = "\u{2665}".repeat(4);
+        let words = "\u{6211}\u{662F}\u{50BB}\u{903C}";
+        assert_eq!(words.len(), marks.len());
+        assert!(!holds_words(words, 0, 12, &marks));
+        assert!(holds_words(&marks, 0, 12, &marks));
     }
 
     #[test]
