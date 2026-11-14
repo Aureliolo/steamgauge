@@ -73,10 +73,10 @@ fn runs_written(claims: &[DrawnClaim]) -> Option<Vec<(usize, String)>> {
 /// and the kept text everywhere else.
 ///
 /// Nothing is searched for. The kept text is read in step with the written bytes, so it gives as
-/// many bytes as the samples leave before and between them, and each run must be the
-/// [`same_words`] of the kept characters at its place. `None` where it is not, where the kept text
-/// ends before a run, where a stretch does not end on a character, or where a claim of any sample
-/// is not held at its span in the result.
+/// many bytes as the samples leave before and between them, and each run must hold the kept
+/// characters at its place, a censor mark standing for any one. `None` where it is not, where
+/// the kept text ends before a run, where a stretch does not end on a character, or where a
+/// claim of any sample is not held at its span in the result.
 #[must_use]
 pub fn rebuilt(kept: &str, claims: &[DrawnClaim]) -> Option<String> {
     let runs = runs_written(claims)?;
