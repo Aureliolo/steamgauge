@@ -97,6 +97,16 @@ KEY = ("app_id", "review_id", "index")
 # the index tells a published row apart and never joins two labels.
 CLAIM = ("app_id", "review_id", "start", "end")
 
+
+def claim_of(row: Row) -> tuple[Any, ...]:
+    """Return what names the claim `row` is about, stopping the publish when a field is missing."""
+    for name in CLAIM:
+        if name not in row:
+            msg = f"a row has no {name}; nothing can be joined back from it"
+            raise SystemExit(msg)
+    return tuple(row[name] for name in CLAIM)
+
+
 # Every field a published file may carry. A field outside these stops the publish rather than
 # going up: a text or author field arriving in a later version of a format would otherwise be
 # published before anyone noticed.
@@ -161,10 +171,8 @@ def agreement(rows: list[Row], again: list[Row]) -> dict[str, float]:
     """
     first: dict[tuple[Any, ...], Row] = {}
     for row in rows:
-        first.setdefault(tuple(row[name] for name in CLAIM), row)
-    both = [
-        (first[key], row) for row in again if (key := tuple(row[name] for name in CLAIM)) in first
-    ]
+        first.setdefault(claim_of(row), row)
+    both = [(first[key], row) for row in again if (key := claim_of(row)) in first]
     if not both:
         return {"claims": 0}
     subject = [(one["subject"], two["subject"]) for one, two in both]
@@ -522,7 +530,7 @@ def read_labels(reference: Path) -> tuple[list[Row], list[Row], list[Row], list[
         answered: set[tuple[Any, ...]] = set()
         for second in SECOND_LABELS:
             for row in load(game / second / "labels.json"):
-                if (key := tuple(row[name] for name in CLAIM)) not in answered:
+                if (key := claim_of(row)) not in answered:
                     answered.add(key)
                     again.append(row)
         app = int(game.name)

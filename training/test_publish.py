@@ -98,6 +98,28 @@ def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path: 
     assert [(row["index"], row["subject"]) for row in again] == [(0, "story"), (1, "price")]
 
 
+def test_a_claim_read_again_under_two_indexes_goes_up_once(tmp_path: Path) -> None:
+    game = tmp_path / "7"
+    for reading, index, subject in (("second", 0, "story"), ("opus", 1, "bugs")):
+        (game / reading).mkdir(parents=True)
+        (game / reading / "labels.json").write_text(
+            f'[{{"app_id": 7, "review_id": "r", "index": {index}, "start": 0, "end": 5,'
+            f' "subject": "{subject}"}}]',
+            encoding="utf-8",
+        )
+    _, again, _, _ = publish.read_labels(tmp_path)
+    assert [(row["index"], row["subject"]) for row in again] == [(0, "story")]
+
+
+def test_a_second_label_with_no_span_stops_the_publish_with_a_message(tmp_path: Path) -> None:
+    (tmp_path / "7" / "second").mkdir(parents=True)
+    (tmp_path / "7" / "second" / "labels.json").write_text(
+        '[{"app_id": 7, "review_id": "r", "index": 0, "subject": "story"}]', encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="a row has no start; nothing can be joined back"):
+        publish.read_labels(tmp_path)
+
+
 def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_path: Path) -> None:
     for person, subject in (("one", "story"), ("two", "bugs")):
         folder = tmp_path / "7" / "gold" / person

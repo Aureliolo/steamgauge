@@ -1174,6 +1174,16 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
     review.spans.contains(&words).then_some(words)
 }
 
+/// The bytes that name a label's claim.
+///
+/// That is the claim this build cuts the label at, or the stored bytes where it cuts none. Two
+/// labels are of one claim where these are equal, so spans stored with a different tag or
+/// bullet in front of the same words still meet.
+#[must_use]
+pub fn claim_span(cut: &CutSpans, label: &ClaimLabel) -> crate::claims::Span {
+    cut_at(cut, label).unwrap_or((label.start, label.end))
+}
+
 /// The one claim of a capture that a label names, by the words its labeller was handed.
 ///
 /// A label counts bytes in the kept text. Where the game keeps none for the review, or keeps
@@ -1717,6 +1727,7 @@ pub struct LabelledClaim {
 /// newer sheet's reading, and a claim only the older one covers is still answered.
 fn read_again(
     set: &Path,
+    cut: &CutSpans,
 ) -> Result<std::collections::HashMap<(String, crate::claims::Span), ClaimLabel>> {
     let mut again = std::collections::HashMap::new();
     for reading in SECOND_LABELS {
@@ -1724,8 +1735,10 @@ fn read_again(
             continue;
         };
         for label in serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)? {
-            let (review, span) = label.bytes_named();
-            again.entry((review.to_owned(), span)).or_insert(label);
+            let span = claim_span(cut, &label);
+            again
+                .entry((label.review_id.clone(), span))
+                .or_insert(label);
         }
     }
     Ok(again)
@@ -1762,7 +1775,18 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
         let drawn: Vec<DrawnReview> =
             serde_json::from_slice(&std::fs::read(set.join("sample.json"))?)?;
-        let mut again = read_again(&set)?;
+        // A set kept without its reviews' text is joined at the stored bytes.
+        let ids: std::collections::HashSet<String> =
+            drawn.iter().map(|review| review.id.clone()).collect();
+        let cut = match drawn.first() {
+            Some(first) => match spans_cut_in(&game_of(&set, first.app_id), &ids) {
+                Ok(cut) => cut,
+                Err(crate::Error::NoKeptText { .. }) => CutSpans::new(),
+                Err(other) => return Err(other),
+            },
+            None => CutSpans::new(),
+        };
+        let mut again = read_again(&set, &cut)?;
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
@@ -1783,8 +1807,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             let Some(&(claim, at)) = text.get(&(label.review_id.as_str(), label.index)) else {
                 continue;
             };
-            let (review, span) = label.bytes_named();
-            let second = again.remove(&(review.to_owned(), span));
+            let second = again.remove(&(label.review_id.clone(), claim_span(&cut, &label)));
             found.push(LabelledClaim {
                 text: claim.to_owned(),
                 review: around
@@ -1822,23 +1845,32 @@ pub struct ExportReport {
 /// two sets at once, 108 of them under two different subjects. Exported as two rows, the model
 /// sees one claim twice an epoch and, on those 108, is taught both answers in the same pass.
 ///
-/// Two draws both handed a claim out where their labels name the same bytes of the same review.
-/// The index says nothing here: each draw numbers a review's claims by its own handout.
+/// Two draws both handed a claim out where their labels name the same claim of the same review,
+/// the claim being the bytes this build cuts at ([`claim_span`]). The index says nothing here:
+/// each draw numbers a review's claims by its own handout, and two draws can store one claim
+/// with different leading bytes.
 ///
 /// The row from the random draw is the one kept, because that is the draw every figure is
 /// measured on and the other is a teaching copy of it. The teaching label is not thrown away:
 /// where the kept row has no second answer, it becomes one. Two labellers who read the same
 /// claim without seeing each other's answer are a second reading, whichever draw handed it to
 /// them, and the export already carries a column for exactly that.
-fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<LabelledClaim> {
+fn read_once(
+    found: Vec<LabelledClaim>,
+    report: &mut ExportReport,
+    cuts: &std::collections::HashMap<u32, CutSpans>,
+) -> Vec<LabelledClaim> {
     let teaching = |one: &LabelledClaim| TEACHING_SETS.contains(&one.label.subset.as_str());
     let mut place: std::collections::HashMap<(u32, String, crate::claims::Span), usize> =
         std::collections::HashMap::new();
     let mut kept: Vec<LabelledClaim> = Vec::with_capacity(found.len());
 
     for mut claim in found {
-        let (review, span) = claim.label.bytes_named();
-        let key = (claim.label.app_id, review.to_owned(), span);
+        let span = cuts.get(&claim.label.app_id).map_or_else(
+            || claim.label.bytes_named().1,
+            |cut| claim_span(cut, &claim.label),
+        );
+        let key = (claim.label.app_id, claim.label.review_id.clone(), span);
         let Some(&at) = place.get(&key) else {
             place.insert(key, kept.len());
             kept.push(claim);
@@ -1878,7 +1910,7 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
     use std::io::Write as _;
 
     let mut report = ExportReport::default();
-    let found = read_once(labelled_claims(reference_root)?, &mut report);
+    let found = labelled_claims(reference_root)?;
     let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
         std::collections::BTreeMap::new();
     for claim in &found {
@@ -1896,6 +1928,7 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
             ))
         })
         .collect::<Result<std::collections::HashMap<u32, CutSpans>>>()?;
+    let found = read_once(found, &mut report, &cuts);
 
     if let Some(parent) = to.parent() {
         std::fs::create_dir_all(parent)?;
@@ -2167,7 +2200,7 @@ mod tests {
             .unwrap();
         }
 
-        let again = read_again(&dir).unwrap();
+        let again = read_again(&dir, &CutSpans::new()).unwrap();
         // The newer reading answers the claim both hold, and the older one is not thrown away
         // for the claim it alone read.
         assert_eq!(again[&("a".to_owned(), (0, 0))].subject, "gameplay");
@@ -2279,6 +2312,7 @@ mod tests {
                 claim("random", "gameplay", None),
             ],
             &mut report,
+            &std::collections::HashMap::new(),
         );
         assert_eq!(report.twice, 1);
         assert_eq!(kept.len(), 1, "one claim, one row");
@@ -2298,6 +2332,7 @@ mod tests {
                 claim("multilingual", "audio", None),
             ],
             &mut report,
+            &std::collections::HashMap::new(),
         );
         assert_eq!(
             kept[0].again.as_ref().map(|a| a.subject.as_str()),
@@ -3578,6 +3613,100 @@ mod tests {
     }
 
     #[test]
+    fn two_draws_that_store_one_claim_with_other_leading_bytes_are_one_row() {
+        let train = (1..u32::MAX)
+            .find(|&app_id| {
+                crate::measure::role(app_id, crate::measure::SPLIT_SEED)
+                    == crate::measure::Role::Train
+            })
+            .unwrap();
+        let dir = crate::tempdir::Dir::new();
+        let root = dir.path().join("reference");
+        let game = root.join(train.to_string());
+        kept(
+            &game,
+            &[(
+                "r1",
+                "Good game. I like it.\nThe music is lovely.\nBugs everywhere.",
+            )],
+        );
+        let keyword = game.join("keyword");
+        std::fs::create_dir_all(&keyword).unwrap();
+        let write = |dir: &Path, drawn: DrawnReview, labels: &[ClaimLabel]| {
+            std::fs::write(
+                dir.join("sample.json"),
+                serde_json::to_vec(&[drawn]).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(dir.join("labels.json"), serde_json::to_vec(labels).unwrap()).unwrap();
+        };
+        write(
+            &game,
+            drawn_at("r1", "random", &[("The music is lovely.", 22, 42)]),
+            &[label_at(train, 0, "random", "graphics", (22, 42))],
+        );
+        // The teaching draw stored the same claim from the line break in front of it.
+        write(
+            &keyword,
+            drawn_at("r1", "keyword", &[("The music is lovely.", 21, 42)]),
+            &[label_at(train, 0, "keyword", "audio", (21, 42))],
+        );
+
+        let to = dir.path().join("train.jsonl");
+        let report = export_training(&root, &to).unwrap();
+        assert_eq!(
+            (report.written, report.twice, report.recut),
+            (1, 1, 0),
+            "{report:?}"
+        );
+        let row: serde_json::Value =
+            serde_json::from_str(std::fs::read_to_string(&to).unwrap().trim()).unwrap();
+        assert_eq!(
+            (row["subject"].as_str(), row["second_subject"].as_str()),
+            (Some("graphics"), Some("audio"))
+        );
+    }
+
+    #[test]
+    fn a_second_answer_stored_with_other_leading_bytes_is_found_for_the_same_claim() {
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path().join("1");
+        let second = game.join("second");
+        std::fs::create_dir_all(&second).unwrap();
+        kept(&game, &[("r1", "The music is lovely.\nBugs everywhere.")]);
+        std::fs::write(
+            game.join("sample.json"),
+            serde_json::to_vec(&[drawn_at(
+                "r1",
+                "random",
+                &[
+                    ("The music is lovely.", 0, 20),
+                    ("Bugs everywhere.", 21, 37),
+                ],
+            )])
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            game.join("labels.json"),
+            serde_json::to_vec(&[label_at(1, 1, "random", "bugs", (21, 37))]).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            second.join("labels.json"),
+            serde_json::to_vec(&[label_at(1, 1, "second", "price", (20, 37))]).unwrap(),
+        )
+        .unwrap();
+
+        let found = labelled_claims(dir.path()).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            found[0].again.as_ref().map(|again| again.subject.as_str()),
+            Some("price")
+        );
+    }
+
+    #[test]
     fn a_second_answer_is_found_by_the_bytes_its_label_names() {
         let dir = crate::tempdir::Dir::new();
         let game = dir.path().join("1");
@@ -3628,6 +3757,7 @@ mod tests {
             let kept = read_once(
                 vec![claim(subset, "gameplay"), claim(subset, "audio")],
                 &mut report,
+                &std::collections::HashMap::new(),
             );
             assert_eq!(kept[0].label.subject, "gameplay", "{subset}");
             assert_eq!(

@@ -739,28 +739,38 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
         .iter()
         .map(|reading| read_labels(reference.join(reading).join("labels.json")).unwrap_or_default())
         .collect();
-    for label in readings.iter().flatten() {
-        theirs.entry(label.bytes_named()).or_insert(label);
+    // Keyed by the claim this build reads each label at, so two readings that stored one claim
+    // with different leading bytes still meet.
+    for reading in &readings {
+        let at = join_by_span(out_dir, app_id, reference, reading)?;
+        for label in reading {
+            if let Some(&now) = at.get(&(label.review_id.as_str(), label.index)) {
+                theirs
+                    .entry((label.review_id.as_str(), now))
+                    .or_insert(label);
+            }
+        }
     }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(out_dir, app_id, reference, &first)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
-        .filter(|label| theirs.contains_key(&label.bytes_named()))
         .filter_map(|label| {
             let now = joined.get(&(label.review_id.as_str(), label.index))?;
-            Some((label.review_id.as_str(), *now))
+            theirs
+                .contains_key(&(label.review_id.as_str(), *now))
+                .then_some((label.review_id.as_str(), *now))
         })
         .collect();
     let read = readings_at(&snapshot, &wanted)?;
 
     let mut found = Ceiling::default();
     for label in &first {
-        let Some(other) = theirs.get(&label.bytes_named()) else {
+        let Some(&now) = joined.get(&(label.review_id.as_str(), label.index)) else {
             continue;
         };
-        let Some(&now) = joined.get(&(label.review_id.as_str(), label.index)) else {
+        let Some(other) = theirs.get(&(label.review_id.as_str(), now)) else {
             continue;
         };
         // Only what the model answered: a declined claim is not a wrong answer, and counting
