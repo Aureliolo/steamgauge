@@ -17,8 +17,8 @@ and not pinned is a model nobody can use, and a pin typed by hand is a hash some
 pins the commits the uploads made and the hashes of the exact bytes uploaded, into `reader.rs`
 and `search_models.rs`.
 
-    steamgauge export-review-facts --to reviews.jsonl
-    python publish.py --owner <user> --tag v1 --reviews reviews.jsonl [--dry-run]
+    steamgauge export-review-facts --to review-facts.jsonl
+    python publish.py --owner <user> --tag v1 --reviews review-facts.jsonl [--dry-run]
 
 Needs a Hugging Face token with write access, from `hf auth login` or HF_TOKEN.
 """
@@ -146,7 +146,11 @@ REVIEW_FIELDS = {
     "playtime_at_review_minutes",
     "text_sha256",
     "text_bytes",
+    "censored",
 }
+# What `export-review-facts` writes beside the published fields, for this script to act on. The
+# kept text decides which labels go up and at which bytes, and neither list goes up itself.
+UNPUBLISHED_FACTS = {"other_words", "tidied"}
 
 
 def kappa(pairs: list[tuple[str, str]]) -> float:
@@ -198,14 +202,24 @@ class Credits:
     names: dict[str, str] = field(default_factory=dict[str, str])
 
 
+@dataclass(frozen=True)
+class Counts:
+    """What the published rows add up to, and the labels that were left out."""
+
+    labels: int
+    games: int
+    reviews: int = 0
+    left_out: int = 0
+    left_out_reviews: int = 0
+
+
 def dataset_card(
-    labels: int,
-    games: int,
+    found: Counts,
     agreed: dict[str, float],
-    reviews: int = 0,
     labelled_by: Credits | None = None,
 ) -> str:
     """Return the dataset's card, with the agreement figures its own rows give."""
+    labels, games, reviews = found.labels, found.games, found.reviews
     people_by = labelled_by or Credits()
     gold = people_by.gold
     labellers = people_by.labellers
@@ -226,6 +240,20 @@ def dataset_card(
         else ["No claim has a second label."]
     )
     by = ", ".join(f"{name} ({count:,})" for name, count in labellers.items())
+    left_out = (
+        [
+            "",
+            (
+                f"{found.left_out:,} label{'' if found.left_out == 1 else 's'} on "
+                f"{found.left_out_reviews:,} review{'' if found.left_out_reviews == 1 else 's'} "
+                "are not published."
+            ),
+            "Either no copy of the review's text was kept, or the kept copy does not hold the",
+            "label's words.",
+        ]
+        if found.left_out
+        else []
+    )
     people = gold
     credited = [(f"{names[handle]} (`{handle}`", count) for handle, count in people.items()]
     answered = ", ".join(f"{name}, {count:,})" for name, count in credited)
@@ -271,7 +299,7 @@ def dataset_card(
             gold_file,
             "- `acceptable.jsonl`: for some gold claims, whether a subject other than the gold",
             "  one is also acceptable, judged by the person who gave it.",
-            "- `reviews.jsonl`: one row per labelled review.",
+            "- `review-facts.jsonl`: one row per published review.",
             "- `fetch_text.py`: adds the text to the claims. Python standard library only.",
             "",
             "## Fields",
@@ -315,12 +343,15 @@ def dataset_card(
             "",
             "`acceptable.jsonl`: `app_id`, `review_id`, `index`, `subject`, `acceptable`, `by`.",
             "",
-            "`reviews.jsonl`: `app_id`, `review_id`, `language`, `created` and `updated` (Unix",
-            "time), `voted_up`, `votes_up`, `votes_funny`, `weighted_vote_score`,",
+            "`review-facts.jsonl`: `app_id`, `review_id`, `language`, `created` and `updated`",
+            "(Unix time), `voted_up`, `votes_up`, `votes_funny`, `weighted_vote_score`,",
             "`comment_count`, `steam_purchase`, `received_for_free`,",
             "`written_during_early_access`, `refunded`, `primarily_steam_deck`,",
             "`playtime_at_review_minutes`, and the SHA-256 (`text_sha256`) and length in bytes",
             "(`text_bytes`) of the review text the labels were written against.",
+            "`censored` lists where Steam's store had put censor marks in that text, each run as",
+            "its first character and its length. The web API returns those words uncensored, so",
+            "`fetch_text.py` puts the marks back before it checks the fingerprint.",
             "",
             "## Text",
             "",
@@ -330,6 +361,11 @@ def dataset_card(
             "",
             "`--claims gold.jsonl` or `--claims second-labels.jsonl` does the same for another",
             "label file. Reviews deleted or edited on Steam since labelling are left out.",
+            "",
+            "Run the `fetch_text.py` of the tag the files come from. A tag with",
+            "`review-facts.jsonl` needs its own: an earlier `fetch_text.py` opens `reviews.jsonl`",
+            "and stops.",
+            *left_out,
             "",
             "## Labels",
             "",
@@ -547,6 +583,65 @@ def checked(rows: list[Row], fields: set[str], what: str) -> None:
     if unknown:
         msg = f"{what} carry {unknown}, which nothing says may be published"
         raise SystemExit(msg)
+
+
+type Labels = tuple[list[Row], list[Row], list[Row], list[Row]]
+
+
+def publishable(read: Labels, reviews: list[Row]) -> tuple[Labels, list[Row], list[Row]]:
+    """Return what can be published, the facts of its reviews, and the labels left out.
+
+    A label goes up only where its review has facts, and its bytes are not among the facts'
+    `other_words`, since the kept text does not hold the words its labeller read there. A
+    judgement goes with its gold answer. A review with no label left has its facts left out too.
+    A label whose bytes carry more than its words (the facts' `tidied`) goes up at the words, as
+    the training export reads it. Neither list is ever published.
+    """
+    rows, again, gold, acceptable = read
+    spans = {
+        fact["review_id"]: {tuple(span) for span in fact.get("other_words", ())} for fact in reviews
+    }
+    words = {
+        (fact["review_id"], *span[:2]): span[2:]
+        for fact in reviews
+        for span in map(tuple, fact.get("tidied", ()))
+    }
+
+    def left_out(label: Row) -> bool:
+        listed = spans.get(label["review_id"])
+        return listed is None or (label.get("start"), label.get("end")) in listed
+
+    def at_words(label: Row) -> Row:
+        found = words.get((label["review_id"], label.get("start"), label.get("end")))
+        return label if found is None else {**label, "start": found[0], "end": found[1]}
+
+    kept = [
+        [at_words(label) for label in group if not left_out(label)] for group in (rows, again, gold)
+    ]
+    lost = [label for group in (rows, again, gold) for label in group if left_out(label)]
+    answers_gone = {
+        (label.get("app_id"), label["review_id"], label.get("index"), label.get("produced_by"))
+        for label in gold
+        if left_out(label)
+    }
+    judged = [
+        judgement
+        for judgement in acceptable
+        if (
+            judgement.get("app_id"),
+            judgement["review_id"],
+            judgement.get("index"),
+            judgement.get("by"),
+        )
+        not in answers_gone
+    ]
+    published = {label["review_id"] for group in kept for label in group}
+    facts = [
+        {name: value for name, value in fact.items() if name not in UNPUBLISHED_FACTS}
+        for fact in reviews
+        if fact["review_id"] in published
+    ]
+    return (kept[0], kept[1], kept[2], judged), facts, lost
 
 
 def jsonl(found: list[Row]) -> str:
@@ -792,29 +887,15 @@ def main() -> None:
     _pin_sources(args, reader_files, commits, sources)
 
 
-def stage_dataset(
-    reference: str, reviews_file: str, staging: Path, people_file: str
-) -> list[tuple[str, Path]]:
-    """Write the dataset's files into `staging`, as (path in the repository, path here)."""
-    # The dataset is built from the reference sets, not from the training export. The export
-    # carries each claim's text because training needs it. The reference sets carry the claim's
-    # offsets within its review because that is all a label needs to be joined back. Only the
-    # second shape leaves this machine.
-    rows, again, gold, acceptable = read_labels(Path(reference))
-    if not rows:
-        msg = f"no labelled sets under {reference}"
-        raise SystemExit(msg)
-    reviews = [
-        json.loads(line)
-        for line in Path(reviews_file).read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+def _check_rows(read: Labels, reviews: list[Row]) -> None:
+    """Stop the publish on a field nothing allows or a row that cannot be joined back."""
+    rows, again, gold, acceptable = read
     for found, fields, what in (
         (rows, LABEL_FIELDS, "labels"),
         (again, LABEL_FIELDS, "second labels"),
         (gold, LABEL_FIELDS, "gold answers"),
         (acceptable, JUDGEMENT_FIELDS, "judgements"),
-        (reviews, REVIEW_FIELDS, "review facts"),
+        (reviews, REVIEW_FIELDS | UNPUBLISHED_FACTS, "review facts"),
     ):
         checked(found, fields, f"the {what}")
     # A label written before labels recorded their sheet holds either nothing or an empty
@@ -830,14 +911,36 @@ def stage_dataset(
     if any(not row.get("taxonomy") for row in gold):
         msg = "a gold answer has no taxonomy; the sheet it answered is not known"
         raise SystemExit(msg)
-    described = {row["review_id"] for row in reviews}
-    bare = {row["review_id"] for row in rows + again + gold} - described
-    if bare:
-        msg = (
-            f"{len(bare):,} labelled reviews have no facts in {reviews_file}; a label nobody can "
-            "check against its text is not one to publish. Run export-review-facts again."
-        )
+
+
+def stage_dataset(
+    reference: str, reviews_file: str, staging: Path, people_file: str
+) -> list[tuple[str, Path]]:
+    """Write the dataset's files into `staging`, as (path in the repository, path here)."""
+    # The dataset is built from the reference sets, not from the training export. The export
+    # carries each claim's text because training needs it. The reference sets carry the claim's
+    # offsets within its review because that is all a label needs to be joined back. Only the
+    # second shape leaves this machine.
+    read = read_labels(Path(reference))
+    rows, again, gold, acceptable = read
+    if not rows:
+        msg = f"no labelled sets under {reference}"
         raise SystemExit(msg)
+    reviews = [
+        json.loads(line)
+        for line in Path(reviews_file).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    _check_rows(read, reviews)
+    (rows, again, gold, acceptable), reviews, lost = publishable(read, reviews)
+    if not rows:
+        msg = f"every label is left out: no kept text in {reviews_file} holds one"
+        raise SystemExit(msg)
+    left_reviews = len({label["review_id"] for label in lost})
+    if lost:
+        print(
+            f"{len(lost):,} labels left out, on {left_reviews:,} reviews: no kept text holds them"
+        )
     names = json.loads(Path(people_file).read_text(encoding="utf-8"))
     # A person's answers go up under the name they asked to be credited by, so one with no
     # name written down is not published under a guess.
@@ -850,17 +953,21 @@ def stage_dataset(
         "second-labels.jsonl": again,
         "gold.jsonl": gold,
         "acceptable.jsonl": acceptable,
-        "reviews.jsonl": reviews,
+        "review-facts.jsonl": reviews,
     }
     for name, found in files.items():
         (staging / name).write_text(jsonl(found), encoding="utf-8")
     card = staging / f"{DATASET}.md"
     card.write_text(
         dataset_card(
-            len(rows),
-            len({row["app_id"] for row in rows}),
+            Counts(
+                labels=len(rows),
+                games=len({row["app_id"] for row in rows}),
+                reviews=len(reviews),
+                left_out=len(lost),
+                left_out_reviews=left_reviews,
+            ),
             agreement(rows, again),
-            reviews=len(reviews),
             labelled_by=Credits(
                 gold=dict(Counter(row["produced_by"] for row in gold).most_common()),
                 labellers=dict(Counter(row["produced_by"] for row in rows).most_common()),
