@@ -796,7 +796,7 @@ fn export_review_facts_leaves_out_a_review_with_no_kept_text_and_says_so() {
         .lines()
         .filter(|line| !line.contains("\"503\""))
         .collect();
-    std::fs::write(&kept, without.join("\n") + "\n").unwrap();
+    std::fs::write(&kept, format!("{}\n", without.join("\n"))).unwrap();
     let to = dir.path().join("facts.jsonl");
     let done = ran(
         dir.path(),
