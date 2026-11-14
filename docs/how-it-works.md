@@ -22,8 +22,8 @@ slideshow" is two. The reader then gives each claim:
 - how sure it is
 
 A claim the reader is not sure enough of stays unfiled, and the share left unfiled is shown
-beside every figure. How often the reader agrees with the labels where it answers, and on which
-games that is measured, is on the [Accuracy](accuracy.md#against-the-alternatives) page.
+beside every figure. On the ten games held out of training, the reader agrees with the labels on
+81.5% of the claims it answers ([Accuracy](accuracy.md#against-the-alternatives)).
 
 The 26 subjects are performance, bugs and crashes, gameplay and mechanics, genre and
 comparisons, overall verdict, says nothing about the game, story and writing, atmosphere and
