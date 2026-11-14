@@ -692,7 +692,11 @@ mod tests {
         let found = kept_facts(game, facts_of(&["1"])).unwrap();
 
         assert_eq!(found[0].other_words, [(5, 14), (12, 20)]);
-        assert_eq!(found[0].tidied, [], "labels drawn at their own bytes are not recut");
+        assert_eq!(
+            found[0].tidied,
+            [],
+            "labels drawn at their own bytes are not recut"
+        );
     }
 
     /// A game keeping `kept` for review `1`, whose sample drew `handed` at `drawn` and whose one
@@ -733,7 +737,8 @@ mod tests {
     #[test]
     fn a_label_with_a_comma_after_its_words_is_published_at_the_words() {
         let dir = crate::tempdir::Dir::new();
-        let found = a_game_with_one_label(dir.path(), "Fun to Play,", "Fun to Play", (0, 11), (0, 12));
+        let found =
+            a_game_with_one_label(dir.path(), "Fun to Play,", "Fun to Play", (0, 11), (0, 12));
         assert_eq!(found[0].other_words, []);
         let (_, _, start, end) = found[0].tidied[0];
         assert_eq!(
