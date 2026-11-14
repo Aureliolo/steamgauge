@@ -64,6 +64,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - Whether the store lists a game as VR-only is kept in `game.json`, and the labeller and reader
   are both told.
 - The library is under the local app data folder. `STEAMGAUGE_DATA` moves it.
+  A debug build sends its Steam and release-page requests to the origin `STEAMGAUGE_STAND_IN`
+  names, which the command tests use, and a release build holds no read of it.
 - **Every pass reads the current format only.** `current_format` converts what an earlier release
   kept, once, and removes what it cannot express rather than guess. A file it rewrites keeps the
   time it was written, which a game's vectors and themes are held to.

@@ -149,8 +149,8 @@ impl SteamClient {
     }
 
     /// Asks a stand-in at `origin` everything it would ask the store.
-    #[cfg(test)]
-    pub(crate) fn with_store(mut self, origin: &str) -> Self {
+    #[must_use]
+    pub fn with_store(mut self, origin: &str) -> Self {
         origin.clone_into(&mut self.store);
         self
     }
@@ -163,8 +163,8 @@ impl SteamClient {
     }
 
     /// Asks a stand-in at `origin` everything it would ask Steam's web API, the reviews included.
-    #[cfg(test)]
-    pub(crate) fn with_api(mut self, origin: &str) -> Self {
+    #[must_use]
+    pub fn with_api(mut self, origin: &str) -> Self {
         origin.clone_into(&mut self.api);
         self
     }

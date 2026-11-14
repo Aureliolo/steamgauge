@@ -1585,7 +1585,11 @@ async fn run_update() -> Result<()> {
     use crate::update::{self, Folders, Step, Then};
 
     let running = Version::parse(env!("CARGO_PKG_VERSION"))?;
-    let latest = newer_version::latest(newer_version::LATEST)
+    let page = stand_in().map_or_else(
+        || newer_version::LATEST.to_owned(),
+        |origin| format!("{origin}/latest"),
+    );
+    let latest = newer_version::latest(&page)
         .await?
         .as_deref()
         .and_then(newer_version::version);
@@ -4048,13 +4052,50 @@ async fn run_store_facts(app_ids: &[u32], out: &Path, reference: &Path) -> Resul
     Ok(())
 }
 
+/// The environment name of the origin a debug build sends its Steam and release-page requests to.
+#[cfg(debug_assertions)]
+const STAND_IN: &str = "STEAMGAUGE_STAND_IN";
+
+/// `named` unless it is empty, since a request to an empty origin goes nowhere.
+#[cfg(any(debug_assertions, test))]
+fn stand_in_named(named: Option<String>) -> Option<String> {
+    named.filter(|origin| !origin.is_empty())
+}
+
+/// The origin that stands in for Steam and GitHub, which the command tests name because a
+/// started program has no other way to be told. A release build holds no read of the variable,
+/// and the `Refuse a program that reads the stand-in` step of `binaries.yml` holds it to that.
+/// It is one function with two blocks, so that no second `stand_in` exists for a mutant to
+/// change in a build no test compiles.
+#[cfg_attr(
+    not(debug_assertions),
+    expect(
+        clippy::missing_const_for_fn,
+        reason = "the debug body reads the environment, which a const fn cannot"
+    )
+)]
+fn stand_in() -> Option<String> {
+    #[cfg(debug_assertions)]
+    {
+        stand_in_named(std::env::var(STAND_IN).ok())
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        None
+    }
+}
+
 fn steam_client(pace: Duration) -> Result<SteamClient> {
-    Ok(SteamClient::new(pace)?.with_notice(|wait, status| {
+    let client = SteamClient::new(pace)?.with_notice(|wait, status| {
         eprintln!(
             "\n  steam answered {status}; asking again in {}s",
             wait.as_secs()
         );
-    }))
+    });
+    Ok(match stand_in() {
+        Some(origin) => client.with_api(&origin).with_store(&origin),
+        None => client,
+    })
 }
 
 async fn run_crawl(app_id: u32, options: &CrawlOptions, pace: Duration) -> Result<()> {
@@ -4241,7 +4282,18 @@ fn elapsed(taken: Duration) -> String {
 mod tests {
     use clap::Parser as _;
 
-    use super::{Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed};
+    use super::{
+        Cli, Command, MEASURING, MEASURING_HEADING, Model, command, elapsed, stand_in_named,
+    };
+
+    /// An empty origin would send every request nowhere, so it names no stand-in.
+    #[test]
+    fn an_empty_stand_in_names_nothing() {
+        let origin = "http://127.0.0.1:9".to_owned();
+        assert_eq!(stand_in_named(Some(origin.clone())), Some(origin));
+        assert_eq!(stand_in_named(None), None);
+        assert_eq!(stand_in_named(Some(String::new())), None);
+    }
 
     /// A crawl of a million reviews runs for hours, and a figure in seconds is arithmetic
     /// the reader has to do before the number means anything.
