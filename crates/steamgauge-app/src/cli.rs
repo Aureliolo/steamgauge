@@ -4674,10 +4674,29 @@ mod tests {
 
         let dir = steamgauge_stand_ins::tempdir::Dir::new();
         let (encoder, precision) = (Encoder::default(), Precision::default());
+        // A model folder no program can make, so a build that reached for the model first fails
+        // on the folder before it could ask anybody for a file.
+        let plain = dir.path().join("plain");
+        std::fs::write(&plain, b"").unwrap();
+        let models = plain.join("models");
+        let no_capture = |result: anyhow::Result<()>| {
+            matches!(
+                result.unwrap_err().downcast_ref::<steamgauge_core::Error>(),
+                Some(steamgauge_core::Error::NoCapture { .. })
+            )
+        };
 
-        let embedded =
-            super::run_embed(5, dir.path(), 8, None, encoder, precision, Unit::Claim).await;
-        assert!(embedded.is_err());
+        let embedded = super::run_embed(
+            5,
+            dir.path(),
+            8,
+            Some(models.clone()),
+            encoder,
+            precision,
+            Unit::Claim,
+        )
+        .await;
+        assert!(no_capture(embedded));
 
         let drawn = super::run_rare_claims_by_neighbour(
             &[5],
@@ -4686,7 +4705,7 @@ mod tests {
             10,
             dir.path(),
             super::NeighbourDraw {
-                model_dir: None,
+                model_dir: Some(models),
                 encoder,
                 precision,
                 embed_batch: 8,
@@ -4694,9 +4713,9 @@ mod tests {
             },
         )
         .await;
-        assert!(drawn.is_err());
+        assert!(no_capture(drawn));
 
-        assert!(super::run_distinct(5, dir.path(), 3, 1, None).is_err());
+        assert!(no_capture(super::run_distinct(5, dir.path(), 3, 1, None)));
     }
 
     mod gold {
