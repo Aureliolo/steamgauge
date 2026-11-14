@@ -23,6 +23,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   the review again.
 - `claims::words_at` is the one way a stored span becomes text, and `claims::is_not_a_claim` the
   one test for an empty piece. Every draw, ingest and export uses both.
+- Two labels are of one claim where they name the same bytes of the same review. An index is read
+  only where a labeller's or a person's answer is filed.
 - **Labelled text is kept** in each game's `reviews.jsonl`, since a review can be edited. A later
   draw that meets an edited copy is refused. A review kept under censor marks is cut from its
   kept copy when it is drawn again. A review kept from a later capture than its draw is rebuilt

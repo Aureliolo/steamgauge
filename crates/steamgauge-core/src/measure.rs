@@ -365,14 +365,29 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
 /// span no claim covers any more is left out, and counted. The readings themselves have no such
 /// anchor, so readings cut by an older splitter are refused rather than joined by an index
 /// that no longer names the same sentence.
+type Placed<'a> = HashMap<(&'a str, u16), crate::claims::Span>;
+
 fn join_by_span<'a>(
     out_dir: &Path,
     app_id: u32,
     reference: &Path,
     labels: &'a [ClaimLabel],
-) -> Result<HashMap<(&'a str, u16), crate::claims::Span>> {
-    let ids: std::collections::HashSet<String> =
-        labels.iter().map(|label| label.review_id.clone()).collect();
+) -> Result<Placed<'a>> {
+    Ok(join_each_by_span(out_dir, app_id, reference, &[labels])?.remove(0))
+}
+
+/// [`join_by_span`] for several labellings of one game, walking its capture and kept text once.
+fn join_each_by_span<'a>(
+    out_dir: &Path,
+    app_id: u32,
+    reference: &Path,
+    labellings: &[&'a [ClaimLabel]],
+) -> Result<Vec<Placed<'a>>> {
+    let ids: std::collections::HashSet<String> = labellings
+        .iter()
+        .flat_map(|labels| labels.iter())
+        .map(|label| label.review_id.clone())
+        .collect();
     let capture = crate::claimset::spans_cut_now(out_dir, app_id, &ids)?;
     let kept =
         match crate::claimset::spans_cut_in(&crate::claimset::game_of(reference, app_id), &ids) {
@@ -381,11 +396,16 @@ fn join_by_span<'a>(
             Err(other) => return Err(other),
         };
 
-    Ok(labels
+    Ok(labellings
         .iter()
-        .filter_map(|label| {
-            let words = crate::claimset::claim_in_capture(&kept, &capture, label)?;
-            Some(((label.review_id.as_str(), label.index), words))
+        .map(|labels| {
+            labels
+                .iter()
+                .filter_map(|label| {
+                    let words = crate::claimset::claim_in_capture(&kept, &capture, label)?;
+                    Some(((label.review_id.as_str(), label.index), words))
+                })
+                .collect()
         })
         .collect())
 }
@@ -734,36 +754,46 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
     let first = read_labels(reference.join("labels.json"))?;
     // Every blind reading of these claims, newest sheet first, because a game read twice by
     // one exercise and again by another has two second opinions and both are second opinions.
-    let mut theirs: HashMap<(&str, u16), &ClaimLabel> = HashMap::new();
+    let mut theirs: HashMap<(&str, crate::claims::Span), &ClaimLabel> = HashMap::new();
     let readings: Vec<Vec<ClaimLabel>> = crate::claimset::SECOND_LABELS
         .iter()
         .map(|reading| read_labels(reference.join(reading).join("labels.json")).unwrap_or_default())
         .collect();
-    for label in readings.iter().flatten() {
-        theirs
-            .entry((label.review_id.as_str(), label.index))
-            .or_insert(label);
+    // Keyed by the claim this build reads each label at, so two readings that stored one claim
+    // with different leading bytes still meet.
+    let labellings: Vec<&[ClaimLabel]> = std::iter::once(first.as_slice())
+        .chain(readings.iter().map(Vec::as_slice))
+        .collect();
+    let mut placed = join_each_by_span(out_dir, app_id, reference, &labellings)?.into_iter();
+    let joined = placed.next().unwrap_or_default();
+    for (reading, at) in readings.iter().zip(placed) {
+        for label in reading {
+            if let Some(&now) = at.get(&(label.review_id.as_str(), label.index)) {
+                theirs
+                    .entry((label.review_id.as_str(), now))
+                    .or_insert(label);
+            }
+        }
     }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let joined = join_by_span(out_dir, app_id, reference, &first)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
-        .filter(|label| theirs.contains_key(&(label.review_id.as_str(), label.index)))
         .filter_map(|label| {
             let now = joined.get(&(label.review_id.as_str(), label.index))?;
-            Some((label.review_id.as_str(), *now))
+            theirs
+                .contains_key(&(label.review_id.as_str(), *now))
+                .then_some((label.review_id.as_str(), *now))
         })
         .collect();
     let read = readings_at(&snapshot, &wanted)?;
 
     let mut found = Ceiling::default();
     for label in &first {
-        let key = (label.review_id.as_str(), label.index);
-        let Some(other) = theirs.get(&key) else {
+        let Some(&now) = joined.get(&(label.review_id.as_str(), label.index)) else {
             continue;
         };
-        let Some(&now) = joined.get(&key) else {
+        let Some(other) = theirs.get(&(label.review_id.as_str(), now)) else {
             continue;
         };
         // Only what the model answered: a declined claim is not a wrong answer, and counting
@@ -1519,5 +1549,68 @@ mod tests {
             ],
             [6, 4, 3, 2, 2, 4, 4, 2, 2]
         );
+    }
+
+    #[test]
+    fn a_second_answer_is_scored_by_the_bytes_its_label_names() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        let both = |review, index, span, first: &str, second: &str, ambiguous: (bool, bool)| {
+            (
+                label(review, index, span, first, "praise", ambiguous.0),
+                ClaimLabel {
+                    index: index + 1,
+                    ..label(review, index, span, second, "praise", ambiguous.1)
+                },
+            )
+        };
+        let pairs = [
+            both("1", 0, (0, 16), "bugs", "bugs", (false, false)),
+            both("1", 1, (17, 37), "audio", "audio", (true, false)),
+            both("2", 0, (0, 22), "story", "story", (false, false)),
+            both("3", 0, (0, 16), "performance", "bugs", (false, false)),
+            both("6", 1, (17, 37), "bugs", "gameplay", (false, false)),
+            both("6", 0, (0, 16), "story", "story", (false, true)),
+            both("2", 1, (23, 35), "verdict", "verdict", (false, false)),
+        ];
+        let (first, second): (Vec<ClaimLabel>, Vec<ClaimLabel>) = pairs.into_iter().unzip();
+        write_labels(&reference, &first);
+        write_labels(&reference.join(crate::claimset::SECOND_LABELS[0]), &second);
+
+        let found = ceiling(out.path(), 1, &reference).unwrap();
+        assert_eq!(
+            [
+                found.compared,
+                found.labellers_agreed,
+                found.model_agreed_where_they_did,
+                found.labellers_split,
+                found.model_matched_either,
+                found.model_agreed_with_first,
+                found.model_agreed_with_second,
+                found.settled_and_clear,
+                found.model_agreed_on_the_clear,
+            ],
+            [6, 4, 3, 2, 2, 4, 4, 2, 2]
+        );
+    }
+
+    #[test]
+    fn a_second_answer_stored_with_other_leading_bytes_is_scored_for_the_same_claim() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        write_labels(
+            &reference,
+            &[label("1", 1, (17, 37), "audio", "praise", false)],
+        );
+        // The second reading stored the claim from the space in front of its words.
+        write_labels(
+            &reference.join(crate::claimset::SECOND_LABELS[0]),
+            &[label("1", 1, (16, 37), "bugs", "praise", false)],
+        );
+
+        let found = ceiling(out.path(), 1, &reference).unwrap();
+        assert_eq!((found.compared, found.labellers_split), (1, 1));
     }
 }

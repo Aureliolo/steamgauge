@@ -242,11 +242,12 @@ fn read_set(dir: &Path, reading: &str) -> Result<Option<Set>> {
 }
 
 /// What one game's labels are looked up against: where this build cuts claims, each claim as
-/// the labeller was handed it, and the second reading, both keyed by claim.
+/// the labeller was handed it by its place in the handout, and the second reading by the bytes
+/// each label names.
 type Indexed<'a> = (
     crate::claimset::CutSpans,
     std::collections::HashMap<(&'a str, u16), &'a str>,
-    std::collections::HashMap<(&'a str, u16), &'a ClaimLabel>,
+    std::collections::HashMap<(&'a str, crate::claims::Span), &'a ClaimLabel>,
 );
 
 fn indexed<'a>(
@@ -257,8 +258,21 @@ fn indexed<'a>(
 ) -> Result<Indexed<'a>> {
     let labelled: std::collections::HashSet<String> =
         first.iter().map(|label| label.review_id.clone()).collect();
+    let cut = crate::claimset::spans_cut_in(game, &labelled)?;
+    let second = second
+        .iter()
+        .map(|label| {
+            (
+                (
+                    label.review_id.as_str(),
+                    crate::claimset::claim_span(&cut, label),
+                ),
+                label,
+            )
+        })
+        .collect();
     Ok((
-        crate::claimset::spans_cut_in(game, &labelled)?,
+        cut,
         drawn
             .iter()
             .flat_map(|review| {
@@ -268,10 +282,7 @@ fn indexed<'a>(
                     .map(move |claim| ((review.id.as_str(), claim.index), claim.text.as_str()))
             })
             .collect(),
-        second
-            .iter()
-            .map(|label| ((label.review_id.as_str(), label.index), label))
-            .collect(),
+        second,
     ))
 }
 
@@ -494,7 +505,10 @@ pub fn draw(reference: &Path, asked: &Asked<'_>) -> Result<(Vec<Question>, GoldD
             let rank =
                 crate::bounded::rank(seed, "gold-blind", &format!("{app_id}#{}", label.review_id));
 
-            let read_twice = twice.get(&(label.review_id.as_str(), label.index));
+            let read_twice = twice.get(&(
+                label.review_id.as_str(),
+                crate::claimset::claim_span(&cut, label),
+            ));
             let both_said_the_same = read_twice.is_some_and(|other| other.subject == label.subject);
             found.agreed += usize::from(both_said_the_same);
 
@@ -540,6 +554,25 @@ pub fn draw(reference: &Path, asked: &Asked<'_>) -> Result<(Vec<Question>, GoldD
     let questions = assemble(blind, split, blind_wanted, &mut found);
 
     Ok((questions, found))
+}
+
+/// Each label's answer, by the claim this build cuts it at.
+fn by_claim<'a>(
+    cut: &crate::claimset::CutSpans,
+    labels: &'a [ClaimLabel],
+) -> std::collections::HashMap<(&'a str, crate::claims::Span), Answered> {
+    labels
+        .iter()
+        .map(|label| {
+            (
+                (
+                    label.review_id.as_str(),
+                    crate::claimset::claim_span(cut, label),
+                ),
+                answered(label),
+            )
+        })
+        .collect()
 }
 
 /// Draws every gold answer that differs from the first labeller's, to be judged again with
@@ -596,18 +629,17 @@ pub fn rejudge(reference: &Path, reading: &str, who: &str) -> Result<(Vec<Questi
             gold.iter().map(|label| label.review_id.clone()).collect();
         let cut = crate::claimset::spans_cut_in(&dir, &reviews)?;
         let mut shown = std::collections::HashMap::new();
-        let by_claim =
-            |labels: &[ClaimLabel]| -> std::collections::HashMap<(String, u16), Answered> {
-                labels
-                    .iter()
-                    .map(|label| ((label.review_id.clone(), label.index), answered(label)))
-                    .collect()
-            };
-        let (first, second) = (by_claim(&first), by_claim(&second));
+        let (first, second) = (by_claim(&cut, &first), by_claim(&cut, &second));
 
         for label in &gold {
-            let key = (label.review_id.clone(), label.index);
+            let key = (
+                label.review_id.as_str(),
+                crate::claimset::claim_span(&cut, label),
+            );
             let Some(labelled) = first.get(&key) else {
+                // An answer on bytes no labeller read may still be on a span this build has
+                // since stopped cutting, and the count says so.
+                found.recut += usize::from(as_written(&cut, &mut shown, label).is_none());
                 continue;
             };
             if labelled.subject == label.subject {
@@ -1837,6 +1869,186 @@ mod tests {
             ["verdict", "price"],
             "the first labeller, then the second"
         );
+    }
+
+    /// The label of claim `claim` of `THREE`, filed under `index` in another handout's numbering.
+    fn numbered(claim: u16, index: u16, subject: &str) -> serde_json::Value {
+        let mut label = label_of(214_490, THREE, claim, subject);
+        label["index"] = index.into();
+        label
+    }
+
+    #[test]
+    fn a_disagreement_is_between_two_answers_to_the_same_bytes() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(set.join("second")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("sample.json"),
+            serde_json::json!([drawn_from("r1", 214_490, "random", THREE)]).to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(1, 1, "graphics")]).to_string(),
+        )
+        .unwrap();
+        // The second reading was handed the review as two claims numbered otherwise: its index 1
+        // is the first sentence and its index 2 is the one the first labeller answered.
+        std::fs::write(
+            set.join("second").join("labels.json"),
+            serde_json::json!([numbered(0, 1, "verdict"), numbered(1, 2, "graphics")]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = draw(root.path(), &asking(0, Splits::Everywhere)).unwrap();
+        assert_eq!((found.split, found.agreed), (0, 1));
+        assert!(questions.iter().all(|question| question.shown.is_none()));
+    }
+
+    #[test]
+    fn a_second_reading_stored_with_other_leading_bytes_is_the_answer_to_the_same_claim() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(set.join("second")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("sample.json"),
+            serde_json::json!([drawn_from("r1", 214_490, "random", THREE)]).to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(1, 1, "graphics")]).to_string(),
+        )
+        .unwrap();
+        // The second reading stored the claim from the space in front of its words.
+        let mut wider = numbered(1, 1, "graphics");
+        wider["start"] = (wider["start"].as_u64().unwrap() - 1).into();
+        std::fs::write(
+            set.join("second").join("labels.json"),
+            serde_json::json!([wider]).to_string(),
+        )
+        .unwrap();
+
+        let (_, found) = draw(root.path(), &asking(0, Splits::Everywhere)).unwrap();
+        assert_eq!((found.split, found.agreed), (0, 1));
+    }
+
+    #[test]
+    fn an_answer_on_a_claim_no_labeller_read_is_not_counted_as_recut_while_it_is_still_cut() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(0, 0, "performance")]).to_string(),
+        )
+        .unwrap();
+        let mut answer = numbered(1, 1, "graphics");
+        answer["produced_by"] = "a person".into();
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::json!([answer]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
+        assert_eq!(
+            (found.recut, found.agreed, found.split, questions.len()),
+            (0, 0, 0, 0)
+        );
+    }
+
+    /// A person's answer to the second sentence of `THREE` and a second reading of it, each
+    /// stored from the space in front of its words where `wide` says so.
+    fn rejudged_with(wide_answer: bool, wide_second: bool) -> (GoldDraw, Vec<String>) {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        std::fs::create_dir_all(set.join("second")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(1, 1, "graphics")]).to_string(),
+        )
+        .unwrap();
+        let widen = |mut label: serde_json::Value, wide: bool| {
+            if wide {
+                label["start"] = (label["start"].as_u64().unwrap() - 1).into();
+            }
+            label
+        };
+        std::fs::write(
+            set.join("second").join("labels.json"),
+            serde_json::json!([widen(numbered(1, 1, "price"), wide_second)]).to_string(),
+        )
+        .unwrap();
+        let mut answer = widen(numbered(1, 1, "bugs"), wide_answer);
+        answer["produced_by"] = "a person".into();
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::json!([answer]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
+        let shown = questions
+            .iter()
+            .flat_map(|question| question.shown.iter().flatten())
+            .map(|one| one.subject.clone())
+            .collect();
+        (found, shown)
+    }
+
+    #[test]
+    fn a_gold_answer_stored_with_other_leading_bytes_is_judged_against_the_same_claim() {
+        let (found, shown) = rejudged_with(true, true);
+        assert_eq!((found.recut, found.agreed, found.split), (0, 0, 1));
+        assert_eq!(shown, ["graphics", "price"]);
+    }
+
+    #[test]
+    fn a_second_reading_stored_with_other_leading_bytes_is_shown_beside_the_first_labeller() {
+        let (found, shown) = rejudged_with(false, true);
+        assert_eq!((found.recut, found.agreed, found.split), (0, 0, 1));
+        assert_eq!(shown, ["graphics", "price"]);
+    }
+
+    #[test]
+    fn a_person_is_shown_the_labellers_answers_to_the_claim_they_judged() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(1, 1, "graphics"), numbered(2, 2, "bugs")]).to_string(),
+        )
+        .unwrap();
+        // The person judged the second sentence, filed under the index the third sentence has in
+        // the labellers' handout.
+        let mut answer = numbered(1, 2, "bugs");
+        answer["produced_by"] = "a person".into();
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::json!([answer]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
+        assert_eq!((found.agreed, found.split), (0, 1));
+        assert_eq!(questions.len(), 1);
+        assert_eq!(questions[0].claim, "The art style looks great to me.");
+        let shown: Vec<&str> = questions[0]
+            .shown
+            .iter()
+            .flatten()
+            .map(|one| one.subject.as_str())
+            .collect();
+        assert_eq!(shown, ["graphics"]);
     }
 
     #[test]

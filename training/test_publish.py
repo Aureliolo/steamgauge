@@ -85,16 +85,39 @@ def test_a_claim_read_again_twice_goes_up_once_from_the_first_reading(tmp_path: 
     for reading, subject in (("second", "story"), ("opus", "bugs")):
         (game / reading).mkdir(parents=True)
         (game / reading / "labels.json").write_text(
-            f'[{{"app_id": 7, "review_id": "r", "index": 0, "subject": "{subject}"}}]',
+            f'[{{"app_id": 7, "review_id": "r", "index": 0, "start": 0, "end": 5,'
+            f' "subject": "{subject}"}}]',
             encoding="utf-8",
         )
     (game / "opus" / "labels.json").write_text(
-        '[{"app_id": 7, "review_id": "r", "index": 0, "subject": "bugs"},'
-        ' {"app_id": 7, "review_id": "r", "index": 1, "subject": "price"}]',
+        '[{"app_id": 7, "review_id": "r", "index": 0, "start": 0, "end": 5, "subject": "bugs"},'
+        ' {"app_id": 7, "review_id": "r", "index": 1, "start": 6, "end": 9, "subject": "price"}]',
         encoding="utf-8",
     )
     _, again, _, _ = publish.read_labels(tmp_path)
     assert [(row["index"], row["subject"]) for row in again] == [(0, "story"), (1, "price")]
+
+
+def test_a_claim_read_again_under_two_indexes_goes_up_once(tmp_path: Path) -> None:
+    game = tmp_path / "7"
+    for reading, index, subject in (("second", 0, "story"), ("opus", 1, "bugs")):
+        (game / reading).mkdir(parents=True)
+        (game / reading / "labels.json").write_text(
+            f'[{{"app_id": 7, "review_id": "r", "index": {index}, "start": 0, "end": 5,'
+            f' "subject": "{subject}"}}]',
+            encoding="utf-8",
+        )
+    _, again, _, _ = publish.read_labels(tmp_path)
+    assert [(row["index"], row["subject"]) for row in again] == [(0, "story")]
+
+
+def test_a_second_label_with_no_span_stops_the_publish_with_a_message(tmp_path: Path) -> None:
+    (tmp_path / "7" / "second").mkdir(parents=True)
+    (tmp_path / "7" / "second" / "labels.json").write_text(
+        '[{"app_id": 7, "review_id": "r", "index": 0, "subject": "story"}]', encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="a row has no start; nothing can be joined back"):
+        publish.read_labels(tmp_path)
 
 
 def test_every_persons_answers_go_up_and_two_answers_to_one_claim_both_do(tmp_path: Path) -> None:
@@ -155,12 +178,20 @@ def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path: Path)
 
 
 def row(
-    subject: str, polarity: str = "praise", *, ambiguous: bool = False, index: int = 0
+    subject: str,
+    polarity: str = "praise",
+    *,
+    ambiguous: bool = False,
+    index: int = 0,
+    span: tuple[int, int] | None = None,
 ) -> dict[str, object]:
+    start, end = span or (index * 10, index * 10 + 5)
     return {
         "app_id": 1,
         "review_id": "r",
         "index": index,
+        "start": start,
+        "end": end,
         "subject": subject,
         "polarity": polarity,
         "ambiguous": ambiguous,
@@ -181,6 +212,18 @@ def test_agreement_joins_on_the_claim_and_ignores_claims_read_once() -> None:
     found = publish.agreement(first, again)
     assert found["claims"] == 2
     assert found["subject"] == 0.5
+    assert found["polarity"] == 1.0
+
+
+def test_agreement_pairs_a_second_label_with_the_first_label_of_the_same_bytes() -> None:
+    first = [
+        row("story", span=(0, 5)),
+        row("bugs", "complaint", span=(6, 9)),
+    ]
+    again = [row("story", span=(0, 5))]
+    found = publish.agreement(first, again)
+    assert found["claims"] == 1
+    assert found["subject"] == 1.0
     assert found["polarity"] == 1.0
 
 
