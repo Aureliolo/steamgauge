@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import { test as it } from 'node:test';
 import { checkedCode } from './checked.mjs';
 import { answered } from './github.mjs';
@@ -26,6 +27,7 @@ import {
 } from './notices.mjs';
 import { check as checkRuntime, imports, isWindows, place } from './runtime-dlls.mjs';
 import { fuzzedBy, macosBy, scopeOf } from './scope.mjs';
+import { heardFrom } from './stand-in-check.mjs';
 import { bump, compareVersions, inspect, nextVersion, workspaceVersion } from './version.mjs';
 
 const PRE_RELEASE_REFUSAL = /pre-release/u;
@@ -839,4 +841,38 @@ it('resetting a branch moves one that exists and makes one that does not', async
   const missing = async (method) =>
     method === 'GET' ? { body: {}, status: 404 } : { body: {}, status: 201 };
   assert.equal(await resetRef({ ask: missing, ...branch }), 'created');
+});
+
+/**
+ * A program for `heardFrom`: it connects to the stand-in where it reads one and the variable is
+ * set, to the HTTPS proxy otherwise, and to nothing where it sends no request.
+ */
+function fakeProgram(reads) {
+  const folder = mkdtempSync(join(tmpdir(), 'stand-in-check-'));
+  const file = join(folder, 'program.mjs');
+  writeFileSync(
+    file,
+    `import { connect } from 'node:net';
+const target = ${reads === 'nothing' ? 'undefined' : `(${reads === 'stand-in'} && process.env.STEAMGAUGE_STAND_IN) || process.env.HTTPS_PROXY`};
+if (target !== undefined) {
+  const { hostname, port } = new URL(target);
+  connect(Number(port), hostname).on('error', () => {}).on('close', () => process.exit(0));
+}
+`,
+  );
+  return { command: [process.execPath, file], remove: () => rmSync(folder, { recursive: true }) };
+}
+
+it('a program that asks the stand-in is heard there, and one that ignores it only by the proxy', async () => {
+  const reading = fakeProgram('stand-in');
+  assert.deepEqual(await heardFrom(reading.command), { seen: 1, standIn: 1 });
+  reading.remove();
+
+  const ignoring = fakeProgram('proxy');
+  assert.deepEqual(await heardFrom(ignoring.command), { seen: 1, standIn: 0 });
+  ignoring.remove();
+
+  const silent = fakeProgram('nothing');
+  assert.deepEqual(await heardFrom(silent.command), { seen: 0, standIn: 0 });
+  silent.remove();
 });
