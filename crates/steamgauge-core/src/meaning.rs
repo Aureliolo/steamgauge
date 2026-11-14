@@ -935,6 +935,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "bare handles probe the lock from outside, and none is taken again after one drops"
+    )]
     fn a_preparation_holds_its_lock_while_it_embeds() {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());

@@ -1405,6 +1405,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "two bare handles show which file an early handle locks, and neither is taken again"
+    )]
     fn a_fetch_that_opened_the_lock_before_a_removal_still_takes_its_turn() {
         let dir = crate::tempdir::Dir::new();
         std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();

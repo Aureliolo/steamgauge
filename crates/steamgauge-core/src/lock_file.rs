@@ -18,6 +18,10 @@ pub(crate) fn open(file: &std::path::Path) -> std::io::Result<std::fs::File> {
 #[derive(Debug)]
 pub struct FileLock(std::fs::File);
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one place a file is locked, so every lock lets go when dropped"
+)]
 impl FileLock {
     /// Locks `file` alone, made where missing, or gives `None` while another handle holds a lock
     /// on it, in this program or another.

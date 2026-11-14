@@ -1,2 +1,11 @@
 # A surname, not an identifier, and it belongs in prose where the test is explained.
 doc-valid-idents = ["McNemar", ".."]
+
+# A lock taken on a bare file lasts until its last handle closes, and a program started meanwhile
+# holds a copy of every handle. `lock_file::FileLock` lets go when dropped.
+disallowed-methods = [
+  { path = "std::fs::File::lock", reason = "lock through lock_file::FileLock, which lets go when dropped" },
+  { path = "std::fs::File::try_lock", reason = "lock through lock_file::FileLock, which lets go when dropped" },
+  { path = "std::fs::File::lock_shared", reason = "lock through lock_file::FileLock, which lets go when dropped" },
+  { path = "std::fs::File::try_lock_shared", reason = "lock through lock_file::FileLock, which lets go when dropped" },
+]
