@@ -300,8 +300,15 @@ const PROBE = `(function () {
   check('no change across an update is shown', changes.length > 0);
   check('a change across an update is shown without the share on each side',
     Array.prototype.every.call(changes, function (li) {
-      return /from \\d+\\.\\d% to \\d+\\.\\d%/.test(li.textContent);
+      return /from \\d+(\\.\\d)?% to \\d+(\\.\\d)?%/.test(li.textContent);
     }));
+  var withoutIntervals = document.body.textContent
+    .replace(/\\d+(\\.\\d)?% of the time, somewhere in \\[[^\\]]*%[^\\]]*\\]/g, '')
+    .replace(/\\d+(\\.\\d)?% \\([^()]*\\d% to [^()]*\\)/g, '')
+    .replace(/\\[[^\\]]*%[^\\]]*\\]/g, '')
+    .replace(/\\([^()]*\\d% to [^()]*\\)/g, '');
+  check('a share from 10% to 90% is written in whole points outside an interval',
+    !/(^|[^\\d.])([1-8]\\d\\.\\d|90\\.0)%/.test(withoutIntervals));
   check('an update that changed nothing does not say so',
     Array.prototype.some.call(findings, function (one) { return /Nothing changed beyond chance/.test(one.textContent); }));
 

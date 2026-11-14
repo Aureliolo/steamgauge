@@ -13,9 +13,9 @@
 use std::fmt::Write as _;
 
 use crate::{
-    figure_text::thousands,
+    figure_text::{percent, percent_range, thousands},
     read::SubjectCount,
-    report::{AppReport, Example, Report, coverage},
+    report::{AppReport, Example, Report},
     taxonomy::SHEET,
 };
 
@@ -80,6 +80,9 @@ const COLUMNS: [(&str, &str); 6] = [
 /// It is the point at which the page stops printing a number and prints "less than" instead,
 /// which is the same judgement: under it there is a rate, and there is nothing to rank.
 const TOO_SMALL_TO_RANK: f64 = 0.001;
+
+/// The page that says what each of the reader's accuracy figures measures.
+pub(crate) const ACCURACY_PAGE: &str = "https://aureliolo.github.io/steamgauge/accuracy.html";
 
 /// Renders the whole report.
 #[must_use]
@@ -452,18 +455,18 @@ fn widest_apart(out: &mut String, report: &Report) {
         let (Some(low), Some(high)) = (rates.first(), rates.last()) else {
             continue;
         };
+        if percent(high.1) == percent(low.1) {
+            continue;
+        }
         let spread = high.1 - low.1;
         if widest.is_none_or(|(found, ..)| spread > found) {
             widest = Some((spread, category.label, high.0, high.1, low.0, low.1));
         }
     }
 
-    let Some((spread, label, most, high, least, low)) = widest else {
+    let Some((_, label, most, high, least, low)) = widest else {
         return;
     };
-    if spread < TOO_SMALL_TO_RANK {
-        return;
-    }
     let _ = writeln!(
         out,
         "<p class=\"headline\">The subject these games disagree about most is \
@@ -544,7 +547,7 @@ fn facts(out: &mut String, app: &AppReport) {
             thousands(crawl.valve_total_reviews),
             crawl
                 .coverage
-                .map_or_else(String::new, |share| format!(" ({})", coverage(share)))
+                .map_or_else(String::new, |share| format!(" ({})", percent(share)))
         ),
     );
     if !crawl.review_score_desc.is_empty() {
@@ -615,7 +618,7 @@ fn headline(out: &mut String, app: &AppReport) {
 
     // Counted rather than given as a share of the top of the pile. A few dozen reviews is a
     // number a reader can hold, and the point of the sentence is that a claim about a whole
-    // corpus is being made out of a handful, which "10.0% of them" hides.
+    // corpus is being made out of a handful, which "10% of them" hides.
     out.push_str("<p class=\"headline\">\n");
     let _ = write!(
         out,
@@ -2099,7 +2102,7 @@ fn share_of(part: u64, whole: u64) -> f64 {
 }
 
 /// How a declined share stands against the usual one, in the words the page puts between them.
-/// Two shares that print alike are level: "10.0% ... below the 10.0%" reads as an easier game
+/// Two shares that print alike are level: "10% ... below the 10%" reads as an easier game
 /// when the page shows no difference.
 fn relation(share: f64, usual: f64) -> &'static str {
     if percent(share) == percent(usual) {
@@ -2263,9 +2266,11 @@ fn unmeasured_here(out: &mut String, app: &AppReport, why: &str) {
     };
     let _ = writeln!(
         out,
-        "<p class=\"warn\">{why} On {} games it never trained on, over {} labelled claims, the \
-         reader answers {} of claims and agrees with the labels on {}. Language models wrote \
-         those labels.</p>",
+        "<p class=\"warn\">{why} Out of fold over {} games, each scored by a reader that never \
+         trained on it, and over {} labelled claims, the reader answers {} of claims and agrees \
+         with the labels on {}. Language models wrote those labels. \
+         <a href=\"{ACCURACY_PAGE}\" rel=\"noopener noreferrer\" target=\"_blank\">Accuracy</a> \
+         says what each of the reader's figures measures.</p>",
         thousands(u64::from(held_out.games)),
         thousands(u64::from(held_out.claims)),
         percent(held_out.coverage),
@@ -2285,9 +2290,14 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
     else {
         return;
     };
-    let range = ceiling.interval().map_or_else(String::new, |(low, high)| {
-        format!(" ({} to {})", percent(low), percent(high))
-    });
+    let (settled_text, range) = ceiling.interval().map_or_else(
+        || (percent(settled), String::new()),
+        |(low, high)| {
+            let (rate, ends) = percent_range(settled, low, high);
+            let ends = ends.map_or_else(String::new, |(low, high)| format!(" ({low} to {high})"));
+            (rate, ends)
+        },
+    );
     let split = ceiling.where_they_split().map_or_else(String::new, |rate| {
         format!(
             " Where the two differ, on {} claims, the reader gives one of their two answers {} \
@@ -2312,7 +2322,7 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
          agreed on the subject for {}. On those the reader agrees {}{}{}.{}</p>",
         thousands(ceiling.compared),
         percent(between),
-        percent(settled),
+        settled_text,
         range,
         clear,
         split
@@ -2323,16 +2333,18 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
     let (Some(rate), Some((low, high))) = (agreement.rate(), agreement.interval()) else {
         return;
     };
+    let (rate_text, ends) = percent_range(rate, low, high);
+    let interval = ends.map_or_else(String::new, |(low, high)| {
+        format!(", somewhere in [{low}, {high}] with 95% confidence")
+    });
     let _ = writeln!(
         out,
         "<p class=\"warn\">Of the {} labelled claims the reader answered, it named the same \
-         subject as a separate labeller {} of the time, somewhere in [{}, {}] with 95% \
-         confidence. The labeller was a language model. Two models can be wrong together, \
-         most often on sarcasm and on claims between subjects.</p>",
+         subject as a separate labeller {} of the time{interval}. The labeller was a language \
+         model. Two models can be wrong together, most often on sarcasm and on claims between \
+         subjects.</p>",
         thousands(agreement.answered),
-        percent(rate),
-        percent(low),
-        percent(high)
+        rate_text,
     );
 
     // The figure above is computed over answered claims only, which is the honest way to score
@@ -2548,13 +2560,6 @@ fn nothing(reason: &str) -> String {
          <span class=\"read-aloud\">{}</span>",
         escape(reason)
     )
-}
-
-pub(crate) fn percent(rate: f64) -> String {
-    if rate > 0.0 && rate < 0.001 {
-        return "<0.1%".to_owned();
-    }
-    format!("{:.1}%", rate * 100.0)
 }
 
 fn hours(minutes: u32) -> String {
@@ -2910,28 +2915,28 @@ mod tests {
              too."
         ));
         assert!(part.contains(
-            "<li class=\"change\"><strong>Recommending the game</strong>: fell from 80.0% to \
-             60.0% of reviews</li>"
+            "<li class=\"change\"><strong>Recommending the game</strong>: fell from 80% to \
+             60% of reviews</li>"
         ));
         assert!(
-            !part.contains("from 60.0% to 70.0%"),
+            !part.contains("from 60% to 70%"),
             "a share that did not change is not said"
         );
         assert!(part.contains(
             "<li class=\"change worse\"><strong>Bugs &lt;and&gt; crashes</strong>: praise fell \
-             from 30.0% to 10.0% of reviews</li>"
+             from 30% to 10% of reviews</li>"
         ));
         assert!(part.contains(
             "<li class=\"change worse\"><strong>Bugs &lt;and&gt; crashes</strong>: complaints \
-             rose from 10.0% to 20.0% of reviews</li>"
+             rose from 10% to 20% of reviews</li>"
         ));
         assert!(part.contains(
             "<li class=\"change better\"><strong>Bugs &lt;and&gt; crashes</strong>: praise rose \
-             from 10.0% to 30.0% of reviews</li>"
+             from 10% to 30% of reviews</li>"
         ));
         assert!(part.contains(
             "<li class=\"change better\"><strong>Bugs &lt;and&gt; crashes</strong>: complaints \
-             fell from 30.0% to 10.0% of reviews</li>"
+             fell from 30% to 10% of reviews</li>"
         ));
 
         let listed: Vec<&str> = part
@@ -3011,7 +3016,7 @@ mod tests {
         let page = render(&with_months(noisy));
 
         assert!(
-            page.contains("peaking at 10.0%"),
+            page.contains("peaking at 10%"),
             "a five-review month set the scale"
         );
         assert!(page.contains("a month with fewer than 30 reviews carries no rate"));
@@ -3081,6 +3086,118 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_interval_narrower_than_a_tenth_is_left_out_of_the_sentence() {
+        let mut out = String::new();
+        agreement_note(&mut out, &measured(10_000_000, 8_000_000));
+        assert!(out.contains("80% of the time."), "{out}");
+        assert!(!out.contains("somewhere in"), "{out}");
+        let mut wide = String::new();
+        agreement_note(&mut wide, &measured(100, 80));
+        assert!(
+            wide.contains("80% of the time, somewhere in [71%, 87%] with 95% confidence."),
+            "{wide}"
+        );
+    }
+
+    #[test]
+    fn the_headline_names_the_widest_gap_among_those_that_read_differently() {
+        let mut report = two_games();
+        report.apps[0].reading.subjects[1].mention_reviews = 120;
+        report.apps[1].reading.subjects[1].mention_reviews = 124;
+        report.apps[0].reading.subjects[0].mention_reviews = 53;
+        report.apps[1].reading.subjects[0].mention_reviews = 50;
+        let page = render(&report);
+        assert!(
+            page.contains(
+                "The subject these games disagree about most is <strong>bugs and crashes</strong>"
+            ),
+            "{page}"
+        );
+        assert!(page.contains("5.3% of"), "{page}");
+        assert!(page.contains("against 5% of"), "{page}");
+    }
+
+    #[test]
+    fn a_rate_beside_an_interval_that_reads_with_a_tenth_is_written_with_one() {
+        let mut out = String::new();
+        agreement_note(&mut out, &measured(160, 140));
+        assert!(
+            out.contains("87.5% of the time, somewhere in [81.5%, 91.8%] with 95% confidence"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn an_interval_across_the_edge_of_the_whole_point_band_is_written_at_a_tenth_throughout() {
+        let mut out = String::new();
+        agreement_note(&mut out, &measured(400_000, 360_000));
+        assert!(
+            out.contains("90% of the time, somewhere in [89.9%, 90.1%] with 95% confidence"),
+            "{out}"
+        );
+        let mut low = String::new();
+        agreement_note(&mut low, &measured(400_000, 40_000));
+        assert!(
+            low.contains("10% of the time, somewhere in [9.9%, 10.1%] with 95% confidence"),
+            "{low}"
+        );
+    }
+
+    #[test]
+    fn a_ceiling_narrower_than_a_tenth_leaves_its_range_out() {
+        let ceiling = crate::measure::Ceiling {
+            compared: 10_000_000,
+            labellers_agreed: 8_000_000,
+            model_agreed_where_they_did: 6_400_000,
+            labellers_split: 0,
+            model_matched_either: 0,
+            model_agreed_with_first: 0,
+            model_agreed_with_second: 0,
+            settled_and_clear: 0,
+            model_agreed_on_the_clear: 0,
+        };
+        let mut out = String::new();
+        ceiling_note(&mut out, &ceiling);
+        assert!(out.contains("agreed on the subject for 80%."), "{out}");
+        assert!(out.contains("the reader agrees 80%."), "{out}");
+        assert!(!out.contains(" to "), "{out}");
+    }
+
+    #[test]
+    fn a_capture_that_missed_something_never_claims_all_of_it() {
+        let mut report = sample_report("ordinary text");
+        report.apps[0].crawl.valve_total_reviews = 1_000_000;
+        report.apps[0].crawl.rows_unique = 999_950;
+        report.apps[0].crawl.coverage = Some(0.999_95);
+        assert!(render(&report).contains("999,950 of the 1,000,000 Steam reports (&gt;99.9%)"));
+        report.apps[0].crawl.rows_unique = 1_000_000;
+        report.apps[0].crawl.coverage = Some(1.0);
+        assert!(render(&report).contains("1,000,000 of the 1,000,000 Steam reports (100%)"));
+    }
+
+    #[test]
+    fn the_reader_figure_of_an_unmeasured_game_says_what_it_measures() {
+        let mut out = String::new();
+        unmeasured_here(
+            &mut out,
+            &sample_report("ordinary text").apps[0],
+            "Nobody has labelled this game.",
+        );
+        assert!(
+            out.contains(
+                "Out of fold over 8 games, each scored by a reader that never trained on it, \
+                 and over 3,769 labelled claims, the reader answers 58% of claims and agrees \
+                 with the labels on 75%."
+            ),
+            "{out}"
+        );
+        assert!(
+            out.contains("href=\"https://aureliolo.github.io/steamgauge/accuracy.html\""),
+            "{out}"
+        );
+    }
+
     /// A rate the model is measured to miss most of is not a count, and a reader scanning the
     /// table has no way to tell the two apart unless the page says so.
     #[test]
@@ -3103,15 +3220,15 @@ mod tests {
             "{out}"
         );
         assert!(
-            out.contains("90.0%"),
+            out.contains("for 90%"),
             "the two labellers agreed on 360 of 400: {out}"
         );
         assert!(
-            out.contains("85.0%"),
+            out.contains("reader agrees 85%"),
             "the model agreed on 306 of those 360: {out}"
         );
         assert!(
-            out.contains("80.0%"),
+            out.contains("answers 80% of the time"),
             "it matched one of two on 32 of 40 split: {out}"
         );
         assert!(out.contains("% to "), "{out}");
@@ -3120,7 +3237,7 @@ mod tests {
             "{out}"
         );
         assert!(
-            out.contains("93.0%"),
+            out.contains("and 93% on the 300"),
             "the model agreed on 279 of those 300: {out}"
         );
 
@@ -3157,7 +3274,7 @@ mod tests {
 
         let mut out = String::new();
         how_well_this_row_is_known(&mut out, &scored(100, 4), Some(0.05));
-        assert!(out.contains("found 4.0%"), "{out}");
+        assert!(out.contains("found 4%"), "{out}");
         assert!(out.contains("100 labelled claims"), "{out}");
         assert!(
             out.contains("note warn"),
@@ -3297,7 +3414,7 @@ mod tests {
             SCRIPT.contains("hashchange"),
             "a second link to a second category would open nothing"
         );
-        // 30 of the 50 Steam ranks most helpful raise bugs, against 40.0% of the corpus. The
+        // 30 of the 50 Steam ranks most helpful raise bugs, against 40% of the corpus. The
         // reader is owed the count the claim is built on, not only the share it comes to.
         assert!(
             headline.contains("30 of the 50 reviews Steam ranks most helpful raise it"),
@@ -3375,7 +3492,7 @@ mod tests {
         let page = render(&report);
         assert!(page.contains("<h3>What they praise and complain about</h3>"));
         assert!(page.contains("<strong>Black screen on startup.</strong>"));
-        assert!(page.contains("50 reviews, 5.0% · Bugs"));
+        assert!(page.contains("50 reviews, 5% · Bugs"));
         assert!(page.contains("Also said about Performance"));
         assert!(page.contains("<q>The screen stays &lt;black&gt;.</q>"));
         assert!(!page.contains("It boots to black."));
@@ -3530,7 +3647,7 @@ mod tests {
                 .expect("the row never ends")
                 .0
                 .to_owned();
-            assert!(row.contains("100.0%"), "the share itself is missing: {row}");
+            assert!(row.contains("100%"), "the share itself is missing: {row}");
             (row.contains("warmer"), row.contains("colder"))
         };
 
@@ -3558,7 +3675,7 @@ mod tests {
         // The busiest month is also the angriest here, as it is on most games worth reporting
         // on, and naming it and its size twice in three lines reads as a mistake.
         assert!(
-            page.contains("falls furthest in that same month, when 63.3% of them recommended"),
+            page.contains("falls furthest in that same month, when 63% of them recommended"),
             "the chart's low point can only be reached with a pointer"
         );
         let note = page
@@ -3589,7 +3706,7 @@ mod tests {
         noisy[1].positive = 0;
         assert!(
             render(&with_months(noisy))
-                .contains("falls furthest in Jan 2024, when 30.0% of 100 reviews recommended"),
+                .contains("falls furthest in Jan 2024, when 30% of 100 reviews recommended"),
             "a four-review month was called the low point"
         );
     }
@@ -3644,11 +3761,11 @@ mod tests {
             "a game that does raise the subject is not marked"
         );
 
-        // Both print 4.0%, so which of them is ahead is a difference the reader cannot see.
+        // Both print 4%, so which of them is ahead is a difference the reader cannot see.
         report.apps[1].reading.subjects[1].mention_reviews = 3_999;
         let tied = performance(&matrix(&report));
         assert_eq!(
-            tied.matches("4.0%").count(),
+            tied.matches(">4%<").count(),
             2,
             "the tie is not on the page"
         );
@@ -3760,7 +3877,7 @@ mod tests {
         );
         assert!(
             claim.contains("60 of the 100 most helpful reviews")
-                && claim.contains("against 40.0% of all 2,000"),
+                && claim.contains("against 40% of all 2,000"),
             "the claim is counted over one game rather than both: {claim}"
         );
 
@@ -3841,7 +3958,7 @@ mod tests {
         assert!(table.contains("href=\"#app-7\""), "no way into a game");
         assert!(table.contains("A Game &lt;&amp; Friends&gt;"));
         assert!(table.contains(">1,000<"), "no review count: {table}");
-        assert!(table.contains(">70.0%<"), "no recommended share: {table}");
+        assert!(table.contains(">70%<"), "no recommended share: {table}");
         assert_eq!(
             table.matches("no reference set").count(),
             1,
@@ -4008,11 +4125,8 @@ mod tests {
         assert!(page.contains("Bugs and crashes"));
         assert!(page.contains("Performance"));
         // 400 of 1,000 mention bugs, 30 of the top 50 do: 60% against 40%.
-        assert!(page.contains("40.0%"), "the corpus rate is missing");
-        assert!(
-            page.contains("60.0%"),
-            "the top-of-the-pile rate is missing"
-        );
+        assert!(page.contains("40%"), "the corpus rate is missing");
+        assert!(page.contains("60%"), "the top-of-the-pile rate is missing");
         assert!(page.contains("1.5\u{d7}"), "the bias factor is missing");
         assert!(
             page.contains("On Steam"),
@@ -4178,8 +4292,8 @@ mod tests {
             .expect("the list never ends")
             .0;
         // 600 English and 400 Chinese of a thousand.
-        assert!(list.contains(">60.0%<"), "English has no share: {list}");
-        assert!(list.contains(">40.0%<"), "Chinese has no share: {list}");
+        assert!(list.contains(">60%<"), "English has no share: {list}");
+        assert!(list.contains(">40%<"), "Chinese has no share: {list}");
         assert!(list.contains(">600<") && list.contains(">400<"), "{list}");
     }
 
@@ -4237,19 +4351,6 @@ mod tests {
     }
 
     #[test]
-    fn a_rate_too_small_to_round_is_not_shown_as_zero() {
-        // 0.0% reads as "nobody said this", which is a different claim from "almost nobody".
-        assert_eq!(percent(0.0004), "<0.1%");
-        assert_eq!(percent(0.0), "0.0%");
-        assert_eq!(percent(0.1234), "12.3%");
-        assert_eq!(
-            percent(0.001),
-            "0.1%",
-            "a tenth of a percent rounds to itself"
-        );
-    }
-
-    #[test]
     fn a_subject_belongs_to_a_game_from_a_tenth_of_a_percent() {
         assert_eq!(belongs_to(&[Some(0.001), Some(0.0)]), Some(0));
         assert_eq!(belongs_to(&[Some(0.0009), Some(0.0)]), None);
@@ -4265,8 +4366,8 @@ mod tests {
         };
         let mut out = String::new();
         polarity_cell(&mut out, &category);
-        assert!(out.contains("50.0% praise"), "{out}");
-        assert!(out.contains("25.0% complaint, 25.0% both"), "{out}");
+        assert!(out.contains("50% praise"), "{out}");
+        assert!(out.contains("25% complaint, 25% both"), "{out}");
     }
 
     #[test]
@@ -4415,22 +4516,34 @@ mod tests {
             ["bugs and crashes", "performance"]
         );
         assert!(
-            matrix.contains("style=\"--heat:1.000\">50.0%"),
+            matrix.contains("style=\"--heat:1.000\">50%"),
             "half the reviews is full shade"
         );
-        assert!(matrix.contains("style=\"--heat:0.400\">8.0%"), "{matrix}");
+        assert!(matrix.contains("style=\"--heat:0.400\">8%"), "{matrix}");
     }
 
     #[test]
-    fn games_a_tenth_of_a_percent_apart_are_far_enough_apart_to_name_and_level_ones_are_not() {
+    fn games_whose_two_figures_read_alike_are_not_said_to_disagree() {
         assert!(!render(&two_games()).contains("disagree about most"));
 
         let mut report = two_games();
-        report.apps[0].reading.subjects[1].mention_reviews = 1;
-        report.apps[1].reading.subjects[1].mention_reviews = 0;
-        assert!(render(&report).contains(
-            "The subject these games disagree about most is <strong>performance</strong>"
-        ));
+        report.apps[0].reading.subjects[1].mention_reviews = 120;
+        report.apps[1].reading.subjects[1].mention_reviews = 124;
+        assert!(
+            !render(&report).contains("disagree about most"),
+            "0.120 and 0.124 both read 12%"
+        );
+
+        report.apps[1].reading.subjects[1].mention_reviews = 130;
+        let page = render(&report);
+        assert!(
+            page.contains(
+                "The subject these games disagree about most is <strong>performance</strong>"
+            ),
+            "{page}"
+        );
+        assert!(page.contains("13% of"), "{page}");
+        assert!(page.contains("against 12% of"), "{page}");
     }
 
     #[test]
@@ -4515,10 +4628,7 @@ mod tests {
         let page = render(&measured_on(vec![scored("bugs", 100, 80)]));
         let bugs = between(&page, "id=\"panel-7-bugs\"", "</tr>");
         assert!(bugs.contains("Corrected for those errors"), "{bugs}");
-        assert!(
-            bugs.contains("against the 26.7% the reader found"),
-            "{bugs}"
-        );
+        assert!(bugs.contains("against the 27% the reader found"), "{bugs}");
 
         let page = render(&measured_on(vec![scored("bugs", 100, 4)]));
         let row = |name: &str| between(&page, &format!("data-name=\"{name}\""), "</tr>").to_owned();
@@ -4713,7 +4823,7 @@ mod tests {
     #[test]
     fn the_languages_say_how_much_is_not_english_and_each_bar_is_against_the_largest() {
         let page = render(&sample_report("ordinary text"));
-        assert!(page.contains("40.0% of these reviews are not in English"));
+        assert!(page.contains("40% of these reviews are not in English"));
         let languages = between(&page, "<ul class=\"languages\">", "</ul>");
         assert!(languages.contains("English</span><span class=\"bar\" style=\"--fill:1.0000\""));
         assert!(
@@ -4734,7 +4844,7 @@ mod tests {
     fn what_was_declined_is_set_against_what_is_usually_declined() {
         let page = render(&sample_report("ordinary text"));
         assert!(
-            page.contains("level with the 10.0% it usually declines on a game it has never seen"),
+            page.contains("level with the 10% it usually declines on a game it has never seen"),
             "the same share as usual is not called unusual"
         );
 
@@ -4886,17 +4996,17 @@ mod tests {
         );
         let newcomers = between(table, "Under 2 hours</th>", "</tr>");
         assert!(
-            newcomers.contains("verdict-share colder") && newcomers.contains("40.0%"),
+            newcomers.contains("verdict-share colder") && newcomers.contains("40%"),
             "{newcomers}"
         );
         let veterans = between(table, "100 hours or more</th>", "</tr>");
         assert!(
-            veterans.contains("verdict-share warmer\">90.0%"),
+            veterans.contains("verdict-share warmer\">90%"),
             "{veterans}"
         );
         let free = between(table, "Got it free</th>", "</tr>");
         assert!(
-            free.contains("verdict-share\">70.0%"),
+            free.contains("verdict-share\">70%"),
             "a share like everyone else's is not marked: {free}"
         );
         assert!(
@@ -4908,7 +5018,7 @@ mod tests {
         assert!(
             differ.contains(
                 "<li>Reviewers with 100 hours or more played complain about amount of content \
-                 in 30.0% of their reviews, against 1.2% of everyone else.</li>"
+                 in 30% of their reviews, against 1.3% of everyone else.</li>"
             ),
             "{differ}"
         );

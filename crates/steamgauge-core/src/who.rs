@@ -11,8 +11,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    figure_text::thousands,
-    html::percent,
+    figure_text::{percent, thousands},
     moves::{WORTH_SAYING, standard_errors_apart},
     read::ReadReport,
     taxonomy::{Category, SHEET},
@@ -1262,7 +1261,7 @@ mod tests {
         assert_eq!(veterans.label, "100 hours or more");
         assert_eq!(
             veterans.sentence,
-            "Reviewers with 100 hours or more played complain about amount of content in 30.0% \
+            "Reviewers with 100 hours or more played complain about amount of content in 30% \
              of their reviews, against 2.5% of everyone else."
         );
         let newcomers = found
@@ -1272,7 +1271,7 @@ mod tests {
         assert_eq!(newcomers.said, Said::Praises);
         assert_eq!(newcomers.subject, Some("tutorial"));
         assert!(newcomers.sentence.starts_with(
-            "Reviewers with under 2 hours played praise tutorial and learning in 30.0%"
+            "Reviewers with under 2 hours played praise tutorial and learning in 30%"
         ));
         assert!(
             found
@@ -1341,8 +1340,8 @@ mod tests {
         assert_eq!(found[0].segment, "steam-deck");
         assert_eq!(
             found[0].sentence,
-            "Reviewers playing mostly on a Steam Deck complain about performance in 40.0% of \
-             their reviews, against 10.0% of reviewers playing mostly elsewhere."
+            "Reviewers playing mostly on a Steam Deck complain about performance in 40% of \
+             their reviews, against 10% of reviewers playing mostly elsewhere."
         );
     }
 
@@ -1361,8 +1360,8 @@ mod tests {
         assert_eq!(newcomers.subject, None);
         assert_eq!(
             newcomers.sentence,
-            "Reviewers with under 2 hours played recommend the game in 50.0% of their reviews, \
-             against 90.0% of everyone else."
+            "Reviewers with under 2 hours played recommend the game in 50% of their reviews, \
+             against 90% of everyone else."
         );
     }
 

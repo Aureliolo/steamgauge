@@ -17,8 +17,12 @@ sure enough and is scored on what it answers. The answers are in `reference/fron
 | The reader, standard (559M parameters) | 93% | 80.6% | 0.765 |
 | Claude Opus 5, given the same sheet | 99.3% | 85.9% | 0.860 |
 
-On all 5,029 held-out claims, the reader answers 91.6% and agrees on 81.5% of those (macro F1
-0.707).
+On all 5,029 claims of the ten held-out games, which it never saw, the reader answers 91.6% and
+agrees on 81.5% of those (macro F1 0.707).
+
+A report prints a second figure for the standard reader: it agrees with the labels on 79.3% of the
+claims it answers, out of fold over 59 games. Each game is scored by a reader trained without it.
+That figure is read from the reader's `reader.json`.
 
 Claude Opus 5 costs about 800 tokens a claim, and a large game holds millions of claims. The
 reader reads them on one graphics card, offline. The labels were written by Claude Fable 5.1 and
