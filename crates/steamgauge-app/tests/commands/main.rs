@@ -28,9 +28,15 @@ struct Ran {
     err: String,
 }
 
+/// Where every request goes that is not for a stand-in: a port on this machine nothing listens
+/// on, so it fails at once.
+const NOWHERE: &str = "http://127.0.0.1:9";
+
 /// Starts the program in `folder` with all three streams piped. The seam and data variables a
 /// developer's shell may hold are removed, so a test never reaches a stand-in or a library it
-/// did not build.
+/// did not build. Every request to a host other than this machine goes to a proxy that is not
+/// there: a build that ignores its stand-in fails its test rather than asking Steam or GitHub,
+/// and `update` can never install a real release.
 fn started(folder: &Path, args: &[&str], environment: &[(&str, &str)]) -> Child {
     let mut command = Command::new(env!("CARGO_BIN_EXE_steamgauge"));
     command
@@ -38,6 +44,10 @@ fn started(folder: &Path, args: &[&str], environment: &[(&str, &str)]) -> Child 
         .args(args)
         .env_remove("STEAMGAUGE_STAND_IN")
         .env_remove("STEAMGAUGE_DATA")
+        .env("HTTP_PROXY", NOWHERE)
+        .env("HTTPS_PROXY", NOWHERE)
+        .env("ALL_PROXY", NOWHERE)
+        .env("NO_PROXY", "127.0.0.1")
         .envs(environment.iter().copied())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

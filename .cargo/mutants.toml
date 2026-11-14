@@ -88,8 +88,4 @@ exclude_re = [
   # apart, so Linux's is left out with them.
   'src[/\\]update\.rs:\d+:\d+: replace on_this_system -> ',
   'src[/\\]ui[/\\]mcp\.rs:\d+:\d+: replace bind -> ',
-  # Not one of the mutants above: the command tests do fail this one. It is left out because
-  # under it they ask Steam and GitHub themselves, and `update` would install a newer release
-  # where the tree is behind one.
-  'src[/\\]cli\.rs:\d+:\d+: replace stand_in -> Option<String> with None$',
 ]
