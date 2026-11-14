@@ -734,22 +734,20 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
     let first = read_labels(reference.join("labels.json"))?;
     // Every blind reading of these claims, newest sheet first, because a game read twice by
     // one exercise and again by another has two second opinions and both are second opinions.
-    let mut theirs: HashMap<(&str, u16), &ClaimLabel> = HashMap::new();
+    let mut theirs: HashMap<(&str, crate::claims::Span), &ClaimLabel> = HashMap::new();
     let readings: Vec<Vec<ClaimLabel>> = crate::claimset::SECOND_LABELS
         .iter()
         .map(|reading| read_labels(reference.join(reading).join("labels.json")).unwrap_or_default())
         .collect();
     for label in readings.iter().flatten() {
-        theirs
-            .entry((label.review_id.as_str(), label.index))
-            .or_insert(label);
+        theirs.entry(label.bytes_named()).or_insert(label);
     }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
     let joined = join_by_span(out_dir, app_id, reference, &first)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
-        .filter(|label| theirs.contains_key(&(label.review_id.as_str(), label.index)))
+        .filter(|label| theirs.contains_key(&label.bytes_named()))
         .filter_map(|label| {
             let now = joined.get(&(label.review_id.as_str(), label.index))?;
             Some((label.review_id.as_str(), *now))
@@ -759,11 +757,10 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
 
     let mut found = Ceiling::default();
     for label in &first {
-        let key = (label.review_id.as_str(), label.index);
-        let Some(other) = theirs.get(&key) else {
+        let Some(other) = theirs.get(&label.bytes_named()) else {
             continue;
         };
-        let Some(&now) = joined.get(&key) else {
+        let Some(&now) = joined.get(&(label.review_id.as_str(), label.index)) else {
             continue;
         };
         // Only what the model answered: a declined claim is not a wrong answer, and counting
@@ -1501,6 +1498,50 @@ mod tests {
         let mut first = first;
         // Read once only, so not compared.
         first.push(label("7", 0, (0, 17), "audio", "praise", false));
+        write_labels(&reference, &first);
+        write_labels(&reference.join(crate::claimset::SECOND_LABELS[0]), &second);
+
+        let found = ceiling(out.path(), 1, &reference).unwrap();
+        assert_eq!(
+            [
+                found.compared,
+                found.labellers_agreed,
+                found.model_agreed_where_they_did,
+                found.labellers_split,
+                found.model_matched_either,
+                found.model_agreed_with_first,
+                found.model_agreed_with_second,
+                found.settled_and_clear,
+                found.model_agreed_on_the_clear,
+            ],
+            [6, 4, 3, 2, 2, 4, 4, 2, 2]
+        );
+    }
+
+    #[test]
+    fn a_second_answer_is_scored_by_the_bytes_its_label_names() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        let both = |review, index, span, first: &str, second: &str, ambiguous: (bool, bool)| {
+            (
+                label(review, index, span, first, "praise", ambiguous.0),
+                ClaimLabel {
+                    index: index + 1,
+                    ..label(review, index, span, second, "praise", ambiguous.1)
+                },
+            )
+        };
+        let pairs = [
+            both("1", 0, (0, 16), "bugs", "bugs", (false, false)),
+            both("1", 1, (17, 37), "audio", "audio", (true, false)),
+            both("2", 0, (0, 22), "story", "story", (false, false)),
+            both("3", 0, (0, 16), "performance", "bugs", (false, false)),
+            both("6", 1, (17, 37), "bugs", "gameplay", (false, false)),
+            both("6", 0, (0, 16), "story", "story", (false, true)),
+            both("2", 1, (23, 35), "verdict", "verdict", (false, false)),
+        ];
+        let (first, second): (Vec<ClaimLabel>, Vec<ClaimLabel>) = pairs.into_iter().unzip();
         write_labels(&reference, &first);
         write_labels(&reference.join(crate::claimset::SECOND_LABELS[0]), &second);
 

@@ -460,6 +460,16 @@ impl ReturnedClaimLabel {
     }
 }
 
+impl ClaimLabel {
+    /// The claim this label is about: its review and the bytes it covers. Two labels are of one
+    /// claim where these are equal. The index is the claim's place in the handout its labeller
+    /// answered.
+    #[must_use]
+    pub const fn bytes_named(&self) -> (&str, crate::claims::Span) {
+        (self.review_id.as_str(), (self.start, self.end))
+    }
+}
+
 /// One label as it is stored, joined back to what was drawn.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimLabel {
@@ -1705,16 +1715,17 @@ pub struct LabelledClaim {
 ///
 /// [`SECOND_LABELS`] in order, first one wins: a claim read by both is answered by the
 /// newer sheet's reading, and a claim only the older one covers is still answered.
-fn read_again(set: &Path) -> Result<std::collections::HashMap<(String, u16), ClaimLabel>> {
+fn read_again(
+    set: &Path,
+) -> Result<std::collections::HashMap<(String, crate::claims::Span), ClaimLabel>> {
     let mut again = std::collections::HashMap::new();
     for reading in SECOND_LABELS {
         let Ok(bytes) = std::fs::read(set.join(reading).join("labels.json")) else {
             continue;
         };
         for label in serde_json::from_slice::<Vec<ClaimLabel>>(&bytes)? {
-            again
-                .entry((label.review_id.clone(), label.index))
-                .or_insert(label);
+            let (review, span) = label.bytes_named();
+            again.entry((review.to_owned(), span)).or_insert(label);
         }
     }
     Ok(again)
@@ -1772,6 +1783,8 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             let Some(&(claim, at)) = text.get(&(label.review_id.as_str(), label.index)) else {
                 continue;
             };
+            let (review, span) = label.bytes_named();
+            let second = again.remove(&(review.to_owned(), span));
             found.push(LabelledClaim {
                 text: claim.to_owned(),
                 review: around
@@ -1779,7 +1792,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
                     .cloned()
                     .unwrap_or_default(),
                 review_offset: at,
-                again: again.remove(&(label.review_id.clone(), label.index)),
+                again: second,
                 label,
             });
         }
@@ -1809,6 +1822,9 @@ pub struct ExportReport {
 /// two sets at once, 108 of them under two different subjects. Exported as two rows, the model
 /// sees one claim twice an epoch and, on those 108, is taught both answers in the same pass.
 ///
+/// Two draws both handed a claim out where their labels name the same bytes of the same review.
+/// The index says nothing here: each draw numbers a review's claims by its own handout.
+///
 /// The row from the random draw is the one kept, because that is the draw every figure is
 /// measured on and the other is a teaching copy of it. The teaching label is not thrown away:
 /// where the kept row has no second answer, it becomes one. Two labellers who read the same
@@ -1816,16 +1832,13 @@ pub struct ExportReport {
 /// them, and the export already carries a column for exactly that.
 fn read_once(found: Vec<LabelledClaim>, report: &mut ExportReport) -> Vec<LabelledClaim> {
     let teaching = |one: &LabelledClaim| TEACHING_SETS.contains(&one.label.subset.as_str());
-    let mut place: std::collections::HashMap<(u32, String, u16), usize> =
+    let mut place: std::collections::HashMap<(u32, String, crate::claims::Span), usize> =
         std::collections::HashMap::new();
     let mut kept: Vec<LabelledClaim> = Vec::with_capacity(found.len());
 
     for mut claim in found {
-        let key = (
-            claim.label.app_id,
-            claim.label.review_id.clone(),
-            claim.label.index,
-        );
+        let (review, span) = claim.label.bytes_named();
+        let key = (claim.label.app_id, review.to_owned(), span);
         let Some(&at) = place.get(&key) else {
             place.insert(key, kept.len());
             kept.push(claim);
@@ -2157,8 +2170,8 @@ mod tests {
         let again = read_again(&dir).unwrap();
         // The newer reading answers the claim both hold, and the older one is not thrown away
         // for the claim it alone read.
-        assert_eq!(again[&("a".to_owned(), 0)].subject, "gameplay");
-        assert_eq!(again[&("b".to_owned(), 0)].subject, "performance");
+        assert_eq!(again[&("a".to_owned(), (0, 0))].subject, "gameplay");
+        assert_eq!(again[&("b".to_owned(), (0, 0))].subject, "performance");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -3456,6 +3469,149 @@ mod tests {
             .find(|claim| claim.label.subset == "random" && claim.label.index == 2)
             .unwrap();
         assert_eq!(sounds.review_offset, 24);
+    }
+
+    /// A review drawn as these claims, each at the bytes given and numbered in this order.
+    fn drawn_at(id: &str, subset: &str, claims: &[(&str, u32, u32)]) -> DrawnReview {
+        let mut drawn = review(id, &claims.iter().map(|c| c.0).collect::<Vec<_>>());
+        drawn.subset = subset.to_owned();
+        for (claim, &(_, start, end)) in drawn.claims.iter_mut().zip(claims) {
+            claim.start = start;
+            claim.end = end;
+        }
+        drawn
+    }
+
+    fn label_at(
+        app_id: u32,
+        index: u16,
+        subset: &str,
+        subject: &str,
+        span: (u32, u32),
+    ) -> ClaimLabel {
+        ClaimLabel {
+            start: span.0,
+            end: span.1,
+            ..a_label(app_id, "r1", index, subset, subject)
+        }
+    }
+
+    #[test]
+    fn two_draws_are_folded_only_where_they_name_the_same_bytes() {
+        let train = (1..u32::MAX)
+            .find(|&app_id| {
+                crate::measure::role(app_id, crate::measure::SPLIT_SEED)
+                    == crate::measure::Role::Train
+            })
+            .unwrap();
+        let dir = crate::tempdir::Dir::new();
+        let root = dir.path().join("reference");
+        let game = root.join(train.to_string());
+        kept(
+            &game,
+            &[(
+                "r1",
+                "Good game. I like it.\nThe music is lovely.\nBugs everywhere.",
+            )],
+        );
+        let keyword = game.join("keyword");
+        std::fs::create_dir_all(&keyword).unwrap();
+        let write = |dir: &Path, drawn: DrawnReview, labels: &[ClaimLabel]| {
+            std::fs::write(
+                dir.join("sample.json"),
+                serde_json::to_vec(&[drawn]).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(dir.join("labels.json"), serde_json::to_vec(labels).unwrap()).unwrap();
+        };
+        write(
+            &game,
+            drawn_at(
+                "r1",
+                "random",
+                &[
+                    ("Good game. I like it.", 0, 21),
+                    ("The music is lovely.", 22, 42),
+                    ("Bugs everywhere.", 43, 59),
+                ],
+            ),
+            &[
+                label_at(train, 1, "random", "graphics", (22, 42)),
+                label_at(train, 2, "random", "bugs", (43, 59)),
+            ],
+        );
+        write(
+            &keyword,
+            drawn_at(
+                "r1",
+                "keyword",
+                &[
+                    ("Good game.", 0, 10),
+                    ("I like it.", 11, 21),
+                    ("The music is lovely.", 22, 42),
+                ],
+            ),
+            &[
+                label_at(train, 1, "keyword", "verdict", (11, 21)),
+                label_at(train, 2, "keyword", "audio", (22, 42)),
+            ],
+        );
+
+        let to = dir.path().join("train.jsonl");
+        let report = export_training(&root, &to).unwrap();
+        assert_eq!(
+            (report.written, report.twice, report.recut),
+            (2, 1, 1),
+            "{report:?}"
+        );
+        let rows: Vec<serde_json::Value> = std::fs::read_to_string(&to)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let row = |text: &str| rows.iter().find(|row| row["text"] == text).unwrap();
+        assert_eq!(row("The music is lovely.")["second_subject"], "audio");
+        assert_eq!(
+            row("Bugs everywhere.")["second_subject"],
+            serde_json::Value::Null
+        );
+    }
+
+    #[test]
+    fn a_second_answer_is_found_by_the_bytes_its_label_names() {
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path().join("1");
+        let second = game.join("second");
+        std::fs::create_dir_all(&second).unwrap();
+        let write = |dir: &Path, labels: &[ClaimLabel]| {
+            std::fs::write(dir.join("labels.json"), serde_json::to_vec(labels).unwrap()).unwrap();
+        };
+        std::fs::write(
+            game.join("sample.json"),
+            serde_json::to_vec(&[drawn_at(
+                "r1",
+                "random",
+                &[
+                    ("The music is lovely.", 0, 20),
+                    ("Bugs everywhere.", 21, 37),
+                ],
+            )])
+            .unwrap(),
+        )
+        .unwrap();
+        write(&game, &[label_at(1, 1, "random", "bugs", (21, 37))]);
+        write(
+            &second,
+            &[
+                label_at(1, 0, "second", "price", (21, 37)),
+                label_at(1, 1, "second", "audio", (0, 20)),
+            ],
+        );
+
+        let found = labelled_claims(dir.path()).unwrap();
+        assert_eq!(found.len(), 1);
+        let again = found[0].again.as_ref().unwrap();
+        assert_eq!((again.index, again.subject.as_str()), (0, "price"));
     }
 
     #[test]

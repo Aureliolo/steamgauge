@@ -2881,15 +2881,17 @@ fn file_gold(
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
             Err(error) => return Err(error.into()),
         };
-    let now: std::collections::HashSet<(String, u16)> = given
+    let now: std::collections::HashSet<(String, steamgauge_core::claims::Span)> = given
         .iter()
-        .map(|label| (label.review_id.clone(), label.index))
+        .map(|label| {
+            let (review, span) = label.bytes_named();
+            (review.to_owned(), span)
+        })
         .collect();
-    given.extend(
-        before
-            .into_iter()
-            .filter(|label| !now.contains(&(label.review_id.clone(), label.index))),
-    );
+    given.extend(before.into_iter().filter(|label| {
+        let (review, span) = label.bytes_named();
+        !now.contains(&(review.to_owned(), span))
+    }));
     // The answers file is in the order the page wrote and the server merged, which moves
     // whenever an answer is given again. Filed by claim, the next commit's diff is the answers
     // that changed and nothing else.
@@ -4615,6 +4617,52 @@ mod tests {
                 held(&set, "one"),
                 [
                     (0, "graphics".to_owned(), "one".to_owned()),
+                    (1, "price".to_owned(), "one".to_owned())
+                ]
+            );
+        }
+
+        #[test]
+        fn a_later_answer_replaces_an_earlier_one_to_the_same_bytes_under_another_index() {
+            let scratch = Scratch::new("renumbered");
+            let set = a_set(&scratch.0.join("reference"));
+            ingest(&scratch, "first.json", &[answer(0, "story", "one")]).unwrap();
+
+            // The set is drawn again with its two claims numbered the other way round.
+            let sample = json!([{
+                "id": "r1", "app_id": 7, "language": "russian", "subset": "random",
+                "claims": [
+                    {"index": 0, "start": 34, "end": 61, "text": "It is worth the full price."},
+                    {"index": 1, "start": 0, "end": 33,
+                     "text": "The game runs badly on my laptop."}
+                ]
+            }]);
+            std::fs::write(set.join("sample.json"), sample.to_string()).unwrap();
+            let label = |index: u16, start: u32, end: u32| {
+                json!({
+                    "review_id": "r1", "index": index, "app_id": 7,
+                    "language": "russian", "subset": "random", "start": start, "end": end,
+                    "taxonomy": "a-sheet", "produced_by": "a-model",
+                    "subject": "performance", "polarity": "complaint", "ironic": false,
+                    "confidence": "high", "ambiguous": false, "split_wrong": false
+                })
+            };
+            std::fs::write(
+                set.join("labels.json"),
+                json!([label(0, 34, 61), label(1, 0, 33)]).to_string(),
+            )
+            .unwrap();
+
+            ingest(&scratch, "second.json", &[answer(1, "price", "one")]).unwrap();
+            assert_eq!(
+                held(&set, "one"),
+                [(1, "price".to_owned(), "one".to_owned())]
+            );
+            ingest(&scratch, "third.json", &[answer(0, "story", "one")]).unwrap();
+            assert_eq!(
+                held(&set, "one"),
+                [
+                    (0, "story".to_owned(), "one".to_owned()),
                     (1, "price".to_owned(), "one".to_owned())
                 ]
             );

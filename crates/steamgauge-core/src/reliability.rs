@@ -87,7 +87,7 @@ impl Paired {
     }
 }
 
-/// The claims two labellings share, joined by review id and claim position.
+/// The claims two labellings share, joined by review id and the bytes each label names.
 ///
 /// # Errors
 ///
@@ -103,14 +103,18 @@ pub fn paired(first: &std::path::Path, second: &std::path::Path) -> Result<Paire
     };
 
     let (left, right) = (read(first)?, read(second)?);
-    let mut theirs: HashMap<(String, u16), ClaimLabel> = right
+    let mut theirs: HashMap<(String, crate::claims::Span), ClaimLabel> = right
         .into_iter()
-        .map(|label| ((label.review_id.clone(), label.index), label))
+        .map(|label| {
+            let (review, span) = label.bytes_named();
+            ((review.to_owned(), span), label)
+        })
         .collect();
 
     let mut found = Paired::default();
     for label in left {
-        match theirs.remove(&(label.review_id.clone(), label.index)) {
+        let (review, span) = label.bytes_named();
+        match theirs.remove(&(review.to_owned(), span)) {
             Some(other) => found.both.push((label, other)),
             None => found.only_first += 1,
         }
@@ -311,8 +315,8 @@ mod tests {
             language: "english".to_owned(),
             subset: "random".to_owned(),
             produced_by: "a test".to_owned(),
-            start: 0,
-            end: 1,
+            start: u32::from(index) * 10,
+            end: u32::from(index) * 10 + 5,
             taxonomy: crate::taxonomy::sheet(),
             subject: subject.to_owned(),
             polarity: "praise".to_owned(),
@@ -428,6 +432,50 @@ mod tests {
         assert_eq!((contested.flagged, contested.flagged_agreed), (2, 1));
         assert!((contested.first_share.unwrap() - 0.25).abs() < 1e-9);
         assert!((contested.second_share.unwrap() - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn two_labellings_are_paired_by_the_bytes_their_labels_name() {
+        let dir = crate::tempdir::Dir::new();
+        let (first, second) = (
+            dir.path().join("first.json"),
+            dir.path().join("second.json"),
+        );
+        let at = |index: u16, span: (u32, u32), subject: &str| ClaimLabel {
+            start: span.0,
+            end: span.1,
+            ..label("r1", index, subject, false)
+        };
+        std::fs::write(
+            &first,
+            serde_json::to_vec(&[at(0, (0, 20), "audio"), at(1, (21, 37), "bugs")]).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            &second,
+            serde_json::to_vec(&[
+                at(1, (0, 20), "audio"),
+                at(2, (21, 37), "bugs"),
+                at(0, (40, 50), "price"),
+            ])
+            .unwrap(),
+        )
+        .unwrap();
+
+        let found = paired(&first, &second).unwrap();
+        let joined: Vec<(u32, u32, &str, &str)> = found
+            .both
+            .iter()
+            .map(|(a, b)| {
+                assert_eq!((a.start, a.end), (b.start, b.end));
+                (a.start, a.end, a.subject.as_str(), b.subject.as_str())
+            })
+            .collect();
+        assert_eq!(
+            joined,
+            [(0, 20, "audio", "audio"), (21, 37, "bugs", "bugs")]
+        );
+        assert_eq!((found.only_first, found.only_second), (0, 1));
     }
 
     #[test]

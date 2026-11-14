@@ -93,6 +93,9 @@ TEACHING_SETS = ["declined", "keyword", "retrieved", "multilingual"]
 SECOND_LABELS = ["second", "opus"]
 
 KEY = ("app_id", "review_id", "index")
+# What two labels of one claim share. Each draw numbers a review's claims by its own handout, so
+# the index tells a published row apart and never joins two labels.
+CLAIM = ("app_id", "review_id", "start", "end")
 
 # Every field a published file may carry. A field outside these stops the publish rather than
 # going up: a text or author field arriving in a later version of a format would otherwise be
@@ -156,9 +159,11 @@ def agreement(rows: list[Row], again: list[Row]) -> dict[str, float]:
     A card that carried the figures by hand was wrong within a week of being written, because
     every second reading moves them. The dataset says what its own rows say.
     """
-    first = {tuple(row[name] for name in KEY): row for row in rows}
+    first: dict[tuple[Any, ...], Row] = {}
+    for row in rows:
+        first.setdefault(tuple(row[name] for name in CLAIM), row)
     both = [
-        (first[key], row) for row in again if (key := tuple(row[name] for name in KEY)) in first
+        (first[key], row) for row in again if (key := tuple(row[name] for name in CLAIM)) in first
     ]
     if not both:
         return {"claims": 0}
@@ -517,7 +522,7 @@ def read_labels(reference: Path) -> tuple[list[Row], list[Row], list[Row], list[
         answered: set[tuple[Any, ...]] = set()
         for second in SECOND_LABELS:
             for row in load(game / second / "labels.json"):
-                if (key := tuple(row[name] for name in KEY)) not in answered:
+                if (key := tuple(row[name] for name in CLAIM)) not in answered:
                     answered.add(key)
                     again.append(row)
         app = int(game.name)
