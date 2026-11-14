@@ -175,7 +175,8 @@ fn label(
 }
 
 /// `read_library` and, in `<folder>/reference`, each game's labelled set: the drawn sample, the
-/// kept review texts, the first labeller's `labels.json` and the second's under `second`.
+/// kept review texts, the store's answer, the first labeller's `labels.json` and the second's
+/// under `second`.
 /// Returns the library and the reference folder.
 pub(crate) fn labelled(folder: &Path) -> (PathBuf, PathBuf) {
     let library = read_library(folder);
@@ -243,6 +244,12 @@ pub(crate) fn labelled(folder: &Path) -> (PathBuf, PathBuf) {
             game.join("labels.json"),
             serde_json::to_vec(&first).unwrap(),
         )
+        .unwrap();
+        // A set without the store's answer is not complete enough to export.
+        steamgauge_core::facts::Facts {
+            headset_only: false,
+        }
+        .save(&game)
         .unwrap();
         std::fs::create_dir_all(game.join("second")).unwrap();
         std::fs::write(

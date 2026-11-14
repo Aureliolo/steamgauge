@@ -5,6 +5,7 @@
 //! A call of `ran`, `ran_with` or `started` names its command as the first literal of the
 //! argument slice, so a test over the list of tested commands can read these files for it.
 
+mod answers;
 mod draws;
 mod library;
 mod tiny;
