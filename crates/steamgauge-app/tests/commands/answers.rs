@@ -282,7 +282,7 @@ fn ingest_induced_keeps_a_subject_three_reviews_support() {
             "subjects": [
                 subject("modding", &["501", "502", "503"]),
                 subject("two-only", &["501", "502"]),
-                subject("stranger", &["501", "502", "9999"]),
+                subject("stranger", &["501", "502", "503", "9999"]),
             ],
         }))
         .unwrap(),
@@ -309,7 +309,12 @@ fn ingest_induced_keeps_a_subject_three_reviews_support() {
     }
     let (_, refused) = done.out.split_once("\nrefused\n").unwrap();
     assert!(refused.contains("two-only"), "{}", done.out);
-    assert!(refused.contains("stranger"), "{}", done.out);
+    assert!(
+        refused.lines().any(|line| line.contains("stranger")
+            && line.contains("1 of its evidence names reviews not in the handout")),
+        "{}",
+        done.out
+    );
     assert!(!refused.contains("modding"), "{}", done.out);
 
     let filed: Value = serde_json::from_slice(&std::fs::read(&kept).unwrap()).unwrap();
@@ -436,6 +441,10 @@ fn export_training_writes_every_labelled_claim() {
         .filter(|row| row["app_id"] == HELD_OUT)
         .count();
     assert_eq!(of_held_out, 2);
+    assert!(
+        written.iter().all(|row| row["headset_only"] == false),
+        "each row carries its set's store facts"
+    );
 }
 
 #[test]
