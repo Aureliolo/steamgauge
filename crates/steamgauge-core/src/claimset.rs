@@ -1755,6 +1755,15 @@ fn read_again(
 ///
 /// Fails if a reference set cannot be read.
 pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
+    Ok(labelled_claims_cut(reference_root)?.0)
+}
+
+/// [`labelled_claims`], with the cut of every game that keeps its review text, by game id.
+///
+/// Each game's reviews are cut once however many sets it holds.
+fn labelled_claims_cut(
+    reference_root: &Path,
+) -> Result<(Vec<LabelledClaim>, std::collections::HashMap<u32, CutSpans>)> {
     let mut sets: Vec<std::path::PathBuf> = std::fs::read_dir(reference_root)
         .into_iter()
         .flatten()
@@ -1769,24 +1778,47 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
         .collect();
     sets.sort();
 
-    let mut found = Vec::new();
+    let mut read = Vec::with_capacity(sets.len());
+    let mut wanted: std::collections::BTreeMap<
+        u32,
+        (std::path::PathBuf, std::collections::HashSet<String>),
+    > = std::collections::BTreeMap::new();
     for set in sets {
         let labels: Vec<ClaimLabel> =
             serde_json::from_slice(&std::fs::read(set.join("labels.json"))?)?;
         let drawn: Vec<DrawnReview> =
             serde_json::from_slice(&std::fs::read(set.join("sample.json"))?)?;
-        // A set kept without its reviews' text is joined at the stored bytes.
-        let ids: std::collections::HashSet<String> =
-            drawn.iter().map(|review| review.id.clone()).collect();
-        let cut = match drawn.first() {
-            Some(first) => match spans_cut_in(&game_of(&set, first.app_id), &ids) {
-                Ok(cut) => cut,
-                Err(crate::Error::NoKeptText { .. }) => CutSpans::new(),
-                Err(other) => return Err(other),
-            },
-            None => CutSpans::new(),
-        };
-        let mut again = read_again(&set, &cut)?;
+        if let Some(first) = drawn.first() {
+            let (_, ids) = wanted.entry(first.app_id).or_insert_with(|| {
+                (
+                    game_of(&set, first.app_id),
+                    std::collections::HashSet::new(),
+                )
+            });
+            ids.extend(labels.iter().map(|label| label.review_id.clone()));
+        }
+        read.push((set, labels, drawn));
+    }
+    // A game kept without its reviews' text is joined at the stored bytes.
+    let mut cuts: std::collections::HashMap<u32, CutSpans> = std::collections::HashMap::new();
+    for (app_id, (game, ids)) in wanted {
+        match spans_cut_in(&game, &ids) {
+            Ok(cut) => {
+                cuts.insert(app_id, cut);
+            }
+            Err(crate::Error::NoKeptText { .. }) => {}
+            Err(other) => return Err(other),
+        }
+    }
+
+    let mut found = Vec::new();
+    let none = CutSpans::new();
+    for (set, labels, drawn) in read {
+        let cut = drawn
+            .first()
+            .and_then(|first| cuts.get(&first.app_id))
+            .unwrap_or(&none);
+        let mut again = read_again(&set, cut)?;
 
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
@@ -1807,7 +1839,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             let Some(&(claim, at)) = text.get(&(label.review_id.as_str(), label.index)) else {
                 continue;
             };
-            let second = again.remove(&(label.review_id.clone(), claim_span(&cut, &label)));
+            let second = again.remove(&(label.review_id.clone(), claim_span(cut, &label)));
             found.push(LabelledClaim {
                 text: claim.to_owned(),
                 review: around
@@ -1820,7 +1852,7 @@ pub fn labelled_claims(reference_root: &Path) -> Result<Vec<LabelledClaim>> {
             });
         }
     }
-    Ok(found)
+    Ok((found, cuts))
 }
 
 /// What the training export wrote, and what it would not write.
@@ -1910,24 +1942,22 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
     use std::io::Write as _;
 
     let mut report = ExportReport::default();
-    let found = labelled_claims(reference_root)?;
+    let (found, mut cuts) = labelled_claims_cut(reference_root)?;
     let mut wanted: std::collections::BTreeMap<u32, std::collections::HashSet<String>> =
         std::collections::BTreeMap::new();
     for claim in &found {
-        wanted
-            .entry(claim.label.app_id)
-            .or_default()
-            .insert(claim.label.review_id.clone());
+        if !cuts.contains_key(&claim.label.app_id) {
+            wanted
+                .entry(claim.label.app_id)
+                .or_default()
+                .insert(claim.label.review_id.clone());
+        }
     }
-    let cuts = wanted
-        .into_iter()
-        .map(|(app_id, ids)| {
-            Ok((
-                app_id,
-                spans_cut_in(&reference_root.join(app_id.to_string()), &ids)?,
-            ))
-        })
-        .collect::<Result<std::collections::HashMap<u32, CutSpans>>>()?;
+    // A labelled game that keeps no review text fails here, naming the game.
+    for (app_id, ids) in wanted {
+        let cut = spans_cut_in(&reference_root.join(app_id.to_string()), &ids)?;
+        cuts.insert(app_id, cut);
+    }
     let found = read_once(found, &mut report, &cuts);
 
     if let Some(parent) = to.parent() {

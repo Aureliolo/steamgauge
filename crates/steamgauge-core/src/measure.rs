@@ -365,14 +365,29 @@ pub fn pooled(games: &[ClaimAgreement]) -> ClaimAgreement {
 /// span no claim covers any more is left out, and counted. The readings themselves have no such
 /// anchor, so readings cut by an older splitter are refused rather than joined by an index
 /// that no longer names the same sentence.
+type Placed<'a> = HashMap<(&'a str, u16), crate::claims::Span>;
+
 fn join_by_span<'a>(
     out_dir: &Path,
     app_id: u32,
     reference: &Path,
     labels: &'a [ClaimLabel],
-) -> Result<HashMap<(&'a str, u16), crate::claims::Span>> {
-    let ids: std::collections::HashSet<String> =
-        labels.iter().map(|label| label.review_id.clone()).collect();
+) -> Result<Placed<'a>> {
+    Ok(join_each_by_span(out_dir, app_id, reference, &[labels])?.remove(0))
+}
+
+/// [`join_by_span`] for several labellings of one game, walking its capture and kept text once.
+fn join_each_by_span<'a>(
+    out_dir: &Path,
+    app_id: u32,
+    reference: &Path,
+    labellings: &[&'a [ClaimLabel]],
+) -> Result<Vec<Placed<'a>>> {
+    let ids: std::collections::HashSet<String> = labellings
+        .iter()
+        .flat_map(|labels| labels.iter())
+        .map(|label| label.review_id.clone())
+        .collect();
     let capture = crate::claimset::spans_cut_now(out_dir, app_id, &ids)?;
     let kept =
         match crate::claimset::spans_cut_in(&crate::claimset::game_of(reference, app_id), &ids) {
@@ -381,11 +396,16 @@ fn join_by_span<'a>(
             Err(other) => return Err(other),
         };
 
-    Ok(labels
+    Ok(labellings
         .iter()
-        .filter_map(|label| {
-            let words = crate::claimset::claim_in_capture(&kept, &capture, label)?;
-            Some(((label.review_id.as_str(), label.index), words))
+        .map(|labels| {
+            labels
+                .iter()
+                .filter_map(|label| {
+                    let words = crate::claimset::claim_in_capture(&kept, &capture, label)?;
+                    Some(((label.review_id.as_str(), label.index), words))
+                })
+                .collect()
         })
         .collect())
 }
@@ -741,8 +761,12 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
         .collect();
     // Keyed by the claim this build reads each label at, so two readings that stored one claim
     // with different leading bytes still meet.
-    for reading in &readings {
-        let at = join_by_span(out_dir, app_id, reference, reading)?;
+    let labellings: Vec<&[ClaimLabel]> = std::iter::once(first.as_slice())
+        .chain(readings.iter().map(Vec::as_slice))
+        .collect();
+    let mut placed = join_each_by_span(out_dir, app_id, reference, &labellings)?.into_iter();
+    let joined = placed.next().unwrap_or_default();
+    for (reading, at) in readings.iter().zip(placed) {
         for label in reading {
             if let Some(&now) = at.get(&(label.review_id.as_str(), label.index)) {
                 theirs
@@ -753,7 +777,6 @@ pub fn ceiling(out_dir: &Path, app_id: u32, reference: &Path) -> Result<Ceiling>
     }
 
     let snapshot = crate::embed::latest_snapshot(out_dir, app_id)?;
-    let joined = join_by_span(out_dir, app_id, reference, &first)?;
     let wanted: std::collections::HashSet<(&str, crate::claims::Span)> = first
         .iter()
         .filter_map(|label| {
@@ -1570,5 +1593,24 @@ mod tests {
             ],
             [6, 4, 3, 2, 2, 4, 4, 2, 2]
         );
+    }
+
+    #[test]
+    fn a_second_answer_stored_with_other_leading_bytes_is_scored_for_the_same_claim() {
+        let out = crate::tempdir::Dir::new();
+        crate::read::tests::read_corpus_of(out.path(), 1);
+        let reference = out.path().join("reference");
+        write_labels(
+            &reference,
+            &[label("1", 1, (17, 37), "audio", "praise", false)],
+        );
+        // The second reading stored the claim from the space in front of its words.
+        write_labels(
+            &reference.join(crate::claimset::SECOND_LABELS[0]),
+            &[label("1", 1, (16, 37), "bugs", "praise", false)],
+        );
+
+        let found = ceiling(out.path(), 1, &reference).unwrap();
+        assert_eq!((found.compared, found.labellers_split), (1, 1));
     }
 }

@@ -1962,6 +1962,61 @@ mod tests {
         );
     }
 
+    /// A person's answer to the second sentence of `THREE` and a second reading of it, each
+    /// stored from the space in front of its words where `wide` says so.
+    fn rejudged_with(wide_answer: bool, wide_second: bool) -> (GoldDraw, Vec<String>) {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        std::fs::create_dir_all(set.join("second")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([numbered(1, 1, "graphics")]).to_string(),
+        )
+        .unwrap();
+        let widen = |mut label: serde_json::Value, wide: bool| {
+            if wide {
+                label["start"] = (label["start"].as_u64().unwrap() - 1).into();
+            }
+            label
+        };
+        std::fs::write(
+            set.join("second").join("labels.json"),
+            serde_json::json!([widen(numbered(1, 1, "price"), wide_second)]).to_string(),
+        )
+        .unwrap();
+        let mut answer = widen(numbered(1, 1, "bugs"), wide_answer);
+        answer["produced_by"] = "a person".into();
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::json!([answer]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
+        let shown = questions
+            .iter()
+            .flat_map(|question| question.shown.iter().flatten())
+            .map(|one| one.subject.clone())
+            .collect();
+        (found, shown)
+    }
+
+    #[test]
+    fn a_gold_answer_stored_with_other_leading_bytes_is_judged_against_the_same_claim() {
+        let (found, shown) = rejudged_with(true, true);
+        assert_eq!((found.recut, found.agreed, found.split), (0, 0, 1));
+        assert_eq!(shown, ["graphics", "price"]);
+    }
+
+    #[test]
+    fn a_second_reading_stored_with_other_leading_bytes_is_shown_beside_the_first_labeller() {
+        let (found, shown) = rejudged_with(false, true);
+        assert_eq!((found.recut, found.agreed, found.split), (0, 0, 1));
+        assert_eq!(shown, ["graphics", "price"]);
+    }
+
     #[test]
     fn a_person_is_shown_the_labellers_answers_to_the_claim_they_judged() {
         let root = crate::tempdir::Dir::new();
