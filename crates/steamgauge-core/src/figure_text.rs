@@ -30,15 +30,16 @@ pub fn percent(share: f64) -> String {
 
 /// A rate with the two ends of its interval, all written at one precision.
 ///
-/// The precision is that of [`percent`] where all three lie from 10% to 90%, and a tenth where
-/// any of them does not, so an interval across 90% never reads "[90%, 90.1%]". Where the ends
+/// The precision is a tenth where [`percent`] writes a tenth for any of the three, so an
+/// interval across 90% never reads "[90%, 90.1%]", and whole points otherwise. Where the ends
 /// would read alike, all three are written to a tenth. Where they read alike even then, the
 /// interval is too narrow to say anything the rate beside it does not, and the ends are `None`
 /// with the rate as [`percent`] writes it.
 #[must_use]
 pub fn percent_range(rate: f64, low: f64, high: f64) -> (String, Option<(String, String)>) {
-    let in_whole_points = |share: f64| (0.1..=0.9).contains(&share);
-    let mut tenths = !(in_whole_points(rate) && in_whole_points(low) && in_whole_points(high));
+    let mut tenths = [rate, low, high]
+        .iter()
+        .any(|share| percent(*share).contains('.'));
     loop {
         let (first, second) = (written(low, tenths), written(high, tenths));
         if first != second {
@@ -176,5 +177,21 @@ mod tests {
         assert_eq!(range(0.8996, 0.8993, 0.9005), "90% [89.9%, 90.1%]");
         assert_eq!(range(0.5, 0.4, 0.6), "50% [40%, 60%]");
         assert_eq!(range(0.9005, 0.8, 0.95), "90.1% [80%, 95%]");
+        assert_eq!(range(0.875, 0.8143, 0.9174), "87.5% [81.4%, 91.7%]");
+    }
+
+    #[test]
+    fn an_end_that_reads_whole_does_not_force_tenths_onto_the_rest() {
+        let (rate, ends) = percent_range(0.85, 0.8, 0.9004);
+        assert_eq!(rate, "85%");
+        assert_eq!(ends, Some(("80%".to_owned(), "90%".to_owned())));
+    }
+
+    #[test]
+    fn the_rate_of_a_dropped_interval_is_written_by_the_rule_alone() {
+        assert_eq!(
+            percent_range(0.2011, 0.2010, 0.2012),
+            ("20%".to_owned(), None)
+        );
     }
 }

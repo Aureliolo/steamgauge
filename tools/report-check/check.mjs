@@ -303,6 +303,8 @@ const PROBE = `(function () {
       return /from \\d+(\\.\\d)?% to \\d+(\\.\\d)?%/.test(li.textContent);
     }));
   var withoutIntervals = document.body.textContent
+    .replace(/\\d+(\\.\\d)?% of the time, somewhere in \\[[^\\]]*%[^\\]]*\\]/g, '')
+    .replace(/\\d+(\\.\\d)?% \\([^()]*\\d% to [^()]*\\)/g, '')
     .replace(/\\[[^\\]]*%[^\\]]*\\]/g, '')
     .replace(/\\([^()]*\\d% to [^()]*\\)/g, '');
   check('a share from 10% to 90% is written in whole points outside an interval',

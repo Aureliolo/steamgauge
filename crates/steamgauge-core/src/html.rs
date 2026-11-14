@@ -3119,6 +3119,16 @@ mod tests {
     }
 
     #[test]
+    fn a_rate_beside_an_interval_that_reads_with_a_tenth_is_written_with_one() {
+        let mut out = String::new();
+        agreement_note(&mut out, &measured(160, 140));
+        assert!(
+            out.contains("87.5% of the time, somewhere in [81.5%, 91.8%] with 95% confidence"),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn an_interval_across_the_edge_of_the_whole_point_band_is_written_at_a_tenth_throughout() {
         let mut out = String::new();
         agreement_note(&mut out, &measured(400_000, 360_000));

@@ -102,7 +102,7 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
 - A share a person reads is written by `percent` in `figure_text.rs`. From 10% to 90% it reads in
   whole points. Nearer the ends it keeps a tenth, and it reads "<0.1%" or ">99.9%" short of 0 or
   100%. A rate and its interval's ends are written at one precision: a tenth where any of them
-  lies outside 10% to 90%, or where whole points make the ends read alike. Where tenths do too,
+  reads with a tenth, or where whole points make the ends read alike. Where tenths do too,
   the interval is left out. The measuring commands, the accuracy page and the one figure How it
   works quotes from it write one decimal, and
   the CSV and JSON exports and the assistants' tools give the raw value.
