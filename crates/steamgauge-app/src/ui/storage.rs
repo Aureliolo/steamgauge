@@ -868,13 +868,9 @@ mod tests {
         state.begin_crawl(7, 200, "", 0).unwrap();
         name_game_in_groups(&scratch.0, 7);
         let seven = scratch.0.join("appid=7");
-        let other = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(seven.join("writing.lock"))
+        let other = steamgauge_core::FileLock::shared(&seven.join("writing.lock"))
+            .unwrap()
             .unwrap();
-        other.try_lock_shared().unwrap();
         let before = files_of(&seven);
         let parts = game_parts(&scratch.0, 7);
 
@@ -1057,13 +1053,9 @@ mod tests {
         file(&home.join("model.onnx"), 5);
         std::fs::create_dir_all(&library).unwrap();
         writer::Choice { write: true }.save(&library).unwrap();
-        let held = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false)
-            .open(home.join("fetch.lock"))
+        let held = steamgauge_core::FileLock::alone(&home.join("fetch.lock"))
+            .unwrap()
             .unwrap();
-        held.lock().unwrap();
 
         let refused = take_away(&home, &library, true).unwrap_err();
         assert!(refused.contains("being fetched"), "{refused}");

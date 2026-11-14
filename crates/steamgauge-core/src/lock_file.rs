@@ -21,15 +21,38 @@ pub struct FileLock(std::fs::File);
 impl FileLock {
     /// Locks `file` alone, made where missing, or gives `None` while another handle holds a lock
     /// on it, in this program or another.
-    pub(crate) fn alone(file: &std::path::Path) -> std::io::Result<Option<Self>> {
+    ///
+    /// # Errors
+    ///
+    /// Fails where the file cannot be opened or the system cannot lock it.
+    pub fn alone(file: &std::path::Path) -> std::io::Result<Option<Self>> {
         let file = open(file)?;
         let taken = file.try_lock();
         Self::taken(file, taken)
     }
 
+    /// Locks `file` alone once no other handle holds a lock on it, asking every quarter second.
+    /// The first ask comes before any pause, so a free file costs no wait.
+    pub(crate) async fn alone_once_free(file: &std::path::Path) -> std::io::Result<Self> {
+        let file = open(file)?;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(Self(file)),
+                Err(std::fs::TryLockError::WouldBlock) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                }
+                Err(std::fs::TryLockError::Error(error)) => return Err(error),
+            }
+        }
+    }
+
     /// Locks `file` shared, made where missing, or gives `None` while another handle holds it
     /// alone, in this program or another.
-    pub(crate) fn shared(file: &std::path::Path) -> std::io::Result<Option<Self>> {
+    ///
+    /// # Errors
+    ///
+    /// Fails where the file cannot be opened or the system cannot lock it.
+    pub fn shared(file: &std::path::Path) -> std::io::Result<Option<Self>> {
         let file = open(file)?;
         let taken = file.try_lock_shared();
         Self::taken(file, taken)
@@ -151,6 +174,20 @@ mod tests {
             );
             drop(copy);
         }
+    }
+
+    #[tokio::test]
+    async fn a_lock_waited_for_lets_go_when_dropped_while_a_copy_of_its_handle_lives_on() {
+        let dir = crate::tempdir::Dir::new();
+        let file = dir.path().join("a.lock");
+        let held = FileLock::alone_once_free(&file).await.unwrap();
+        let copy = held.0.try_clone().unwrap();
+        drop(held);
+        assert!(
+            FileLock::alone(&file).unwrap().is_some(),
+            "the copy kept the lock"
+        );
+        drop(copy);
     }
 
     #[test]
