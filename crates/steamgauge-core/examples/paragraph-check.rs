@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 
 use steamgauge_core::{
     embed::latest_snapshot,
+    figure_text::thousands,
     model::default_cache_dir,
     report::crawl_facts,
     themes::{self, Themes},
@@ -50,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let seconds = started.elapsed().as_secs_f64();
         println!(
             "\n{title}, {} characters of brief, written in {seconds:.1} s:\n{written}\n\nkept:\n{}",
-            brief.prompt.len(),
+            thousands(brief.prompt.len() as u64),
             writer::checked(&written, &brief).unwrap_or_else(|| "(nothing)".to_owned())
         );
     }

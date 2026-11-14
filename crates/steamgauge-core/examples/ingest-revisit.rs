@@ -7,6 +7,8 @@
 //!     tools/cargo-beside-training.sh run -p steamgauge-core --example ingest-revisit -- \
 //!         <set dir> <returned dir> <labeller>
 
+use steamgauge_core::figure_text::thousands;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let [dir, from, by] = &args[..] else {
@@ -20,10 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!(
         "revisited {} moved {} unknown {} rejected {}",
-        report.accepted,
-        report.moved,
-        report.unknown.len(),
-        report.rejected.len()
+        thousands(report.accepted as u64),
+        thousands(u64::from(report.moved)),
+        thousands(report.unknown.len() as u64),
+        thousands(report.rejected.len() as u64)
     );
     Ok(())
 }

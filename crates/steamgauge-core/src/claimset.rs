@@ -14,7 +14,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::{Result, figure_text::thousands};
 
 /// One claim as it is handed to a labeller and recorded in the sample.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1687,7 +1687,7 @@ pub fn ingest(dir: &Path, from: &Path, sheet: &Sheet) -> Result<(Vec<ClaimLabel>
         return Err(crate::Error::Refused(format!(
             "none of the {} labels name a claim {} drew, so this is another set's work: \
              nothing was written. Name the set they belong to with --to.",
-            report.unknown.len(),
+            thousands(report.unknown.len() as u64),
             dir.display()
         )));
     }

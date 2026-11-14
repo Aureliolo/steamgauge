@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 
 use steamgauge_core::{
+    figure_text::thousands,
     reader::{Asked, ClaimReader},
     taxonomy::SHEET,
 };
@@ -52,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .filter(|row| only.is_none_or(|id| row.app_id == id))
         .collect();
-    println!("{} claims from {path}", rows.len());
+    println!("{} claims from {path}", thousands(rows.len() as u64));
 
     if std::env::var("SHOW_WINDOWS").is_ok() {
         for row in rows.iter().take(3) {
@@ -65,7 +66,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let windows = reader.windows_for(std::slice::from_ref(&asked));
             println!("CLAIM {:?}", row.text);
-            println!("AT {} REVIEW LEN {}", asked.at, asked.review.len());
+            println!(
+                "AT {} REVIEW LEN {}",
+                asked.at,
+                thousands(asked.review.len() as u64)
+            );
             println!("WINDOW {:?}\n", windows[0]);
         }
     }
@@ -106,9 +111,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     println!(
-        "answered {answered} of {} ({:.1}%), agreed {agreed} ({:.1}%)",
-        rows.len(),
+        "answered {} of {} ({:.1}%), agreed {} ({:.1}%)",
+        thousands(answered),
+        thousands(rows.len() as u64),
         share(answered, rows.len() as u64),
+        thousands(agreed),
         share(agreed, answered)
     );
     Ok(())

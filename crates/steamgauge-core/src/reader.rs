@@ -16,7 +16,7 @@ use ort::{session::Session, value::Tensor};
 use serde::Deserialize;
 use tokenizers::{PaddingParams, Tokenizer};
 
-use crate::{Error, Result};
+use crate::{Error, Result, figure_text::thousands};
 
 /// What a claim does about its subject.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -767,8 +767,8 @@ impl ClaimReader {
                  of text came back as {} offsets ending at {:?}. A tokenizer file saved by a \
                  trainer carries that trainer's padding and truncation, and reading a review's \
                  offsets through it gives padding rather than the review.",
-                probe.len(),
-                offsets.len(),
+                thousands(probe.len() as u64),
+                thousands(offsets.len() as u64),
                 offsets.last(),
             )));
         }

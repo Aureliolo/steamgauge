@@ -11,6 +11,7 @@ use std::{
 
 use serde::Serialize;
 use steamgauge_core::{
+    figure_text::thousands,
     newer_version::{Asked, LATEST, Opened, RELEASES, Release, version},
     release_notes::{self, Changed},
 };
@@ -229,7 +230,7 @@ fn built_on(head: &str) -> Vec<String> {
         })
         .filter(|part| !part.starts_with("NOTICE files"))
         .map(|part| match (part, crates) {
-            ("Rust crates", Some(count)) => format!("{count} Rust crates"),
+            ("Rust crates", Some(count)) => format!("{} Rust crates", thousands(count as u64)),
             _ => part.to_owned(),
         })
         .collect()

@@ -9,6 +9,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use steamgauge_core::figure_text::thousands;
+
 /// One filed claim: where it sits in its review and its subject.
 type Filed = ((u32, u32), String);
 
@@ -89,14 +91,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (subject, (reviews, terms)) in subjects {
         let mut ranked: Vec<(&String, &u64)> = terms.iter().collect();
         ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
-        println!("{subject} ({reviews} {language} reviews)");
+        println!("{subject} ({} {language} reviews)", thousands(*reviews));
         for (term, count) in ranked.into_iter().take(shown) {
             #[expect(
                 clippy::cast_precision_loss,
                 reason = "review counts are far below 2^53"
             )]
             let share = *count as f64 / *reviews as f64;
-            println!("  {share:5.1}%  {count:>6}  {term}", share = share * 100.0);
+            println!(
+                "  {share:5.1}%  {:>6}  {term}",
+                thousands(*count),
+                share = share * 100.0
+            );
         }
     }
     Ok(())

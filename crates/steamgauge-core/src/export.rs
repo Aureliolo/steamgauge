@@ -467,7 +467,7 @@ fn reviewer_columns() -> Vec<Column> {
             format!(
                 "Why the figures of the row are empty, where they are: the game page shows no \
                  figure of a kind of reviewer with fewer than {} reviews.",
-                who::ENOUGH
+                thousands(who::ENOUGH)
             ),
         ),
     ]
@@ -541,7 +541,7 @@ fn subject_columns(report: &ReadReport) -> Vec<Column> {
                 "The mention rate among the {} reviews Steam ranks most helpful over the mention \
                  rate among all: above 1, the reviews most people read raise the subject more \
                  often than reviewers do. For everyone only.",
-                report.top_helpful
+                thousands(report.top_helpful)
             ),
         ),
         column(
@@ -695,7 +695,7 @@ fn month_columns() -> Vec<Column> {
             format!(
                 "Why recommended_share is empty, where it is: the game page draws no share of a \
                  month with fewer than {} reviews.",
-                Month::ENOUGH_FOR_A_RATE
+                thousands(Month::ENOUGH_FOR_A_RATE)
             ),
         ),
     ];
@@ -1039,7 +1039,7 @@ fn unmeasured(why: &str, held_out: Option<HeldOut>) -> String {
                  it answers {} of them and names the same subject a separate labeller did {} of \
                  the time when it does. Expect this game to be near that, and treat every rate \
                  as provisional.",
-                held_out.games,
+                thousands(u64::from(held_out.games)),
                 thousands(u64::from(held_out.claims)),
                 percent(held_out.coverage),
                 percent(held_out.accuracy)
@@ -1228,9 +1228,10 @@ fn reading_the_csv(written: Written) -> String {
     );
     let _ = writeln!(
         out,
-        "A share is a decimal from 0 to 1, to {PLACES} places. An empty cell, null in the JSON, is \
+        "A share is a decimal from 0 to 1, to {} places. An empty cell, null in the JSON, is \
          a figure that does not exist, such as a share of no reviews, or one SteamGauge does not \
-         show; where it is withheld, the withheld column says why."
+         show; where it is withheld, the withheld column says why.",
+        thousands(PLACES as u64)
     );
     if written.rows >= SPREADSHEET_ROWS {
         let _ = writeln!(
@@ -2169,6 +2170,19 @@ mod tests {
             Cell::Empty,
             "too few labels to correct by"
         );
+    }
+
+    #[test]
+    fn held_out_games_over_a_thousand_carry_a_comma() {
+        let held_out = HeldOut {
+            games: 1_200,
+            claims: 5_000,
+            coverage: 0.8,
+            accuracy: 0.9,
+            macro_f1: 0.7,
+        };
+        let text = unmeasured("It was trained on.", Some(held_out));
+        assert!(text.contains("1,200 games"), "{text}");
     }
 
     #[test]

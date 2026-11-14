@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::{Context as _, Result, bail};
 use clap::{Arg, ArgAction, Command};
 use steamgauge_app::reference;
+use steamgauge_core::figure_text::thousands;
 
 use crate::PAGES;
 use crate::picker::{self, Choice};
@@ -328,7 +329,11 @@ fn entries_picker() -> String {
         .map(|(at, (names, entry, _))| Choice {
             id: at.to_string(),
             name: if names.len() > 2 {
-                format!("{} and {} more", names[0], names.len() - 1)
+                format!(
+                    "{} and {} more",
+                    names[0],
+                    thousands(names.len() as u64 - 1)
+                )
             } else {
                 listed_and(&names)
             },

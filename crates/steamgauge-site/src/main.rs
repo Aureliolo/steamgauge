@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use clap::Parser;
+use steamgauge_core::figure_text::thousands;
 
 /// Where the site is published.
 pub const SITE: &str = env!("CARGO_PKG_HOMEPAGE");
@@ -324,12 +325,19 @@ fn build(root: &Path, out: &Path, shots: &Path, report: &Path) -> Result<()> {
         }
         fs::write(&path, bytes).with_context(|| path.display().to_string())?;
     }
-    println!("built {} pages into {}", PAGES.len(), out.display());
+    println!(
+        "built {} pages into {}",
+        thousands(PAGES.len() as u64),
+        out.display()
+    );
     Ok(())
 }
 
 fn listed(problems: &[String]) -> String {
-    let mut said = format!("{} problem(s) with the site:", problems.len());
+    let mut said = format!(
+        "{} problem(s) with the site:",
+        thousands(problems.len() as u64)
+    );
     for problem in problems {
         said.push_str("\n  - ");
         said.push_str(problem);

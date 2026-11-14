@@ -5582,6 +5582,7 @@ dependencies = [
  "pulldown-cmark-to-cmark",
  "serde_json",
  "steamgauge-app",
+ "steamgauge-core",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@
 use std::fmt::Write as _;
 
 use steamgauge_app::reference;
+use steamgauge_core::figure_text::thousands;
 
 use crate::picker::{self, Choice, inline};
 use crate::{REPOSITORY, escape};
@@ -142,7 +143,8 @@ fn in_the_window() -> [String; 3] {
             .to_owned(),
         format!(
             "**Read it.** The largest reader your graphics card holds files every claim. \
-             {claims} claims took {seconds} s on an RTX 4090."
+             {claims} claims took {} s on an RTX 4090.",
+            thousands(seconds)
         ),
         "**Open a subject** to see its praise, its complaints, the words each side uses, and the \
          reviews behind every figure."
@@ -221,14 +223,16 @@ pub(crate) fn html(version: &str, picture: &Picture) -> String {
          <p class=\"note\"><a href=\"commands.html\">The command line</a> has every \
          command.</p>\n</div>\n</section>\n\
          <section class=\"step\">\n<h2 id=\"assistants\">Hand it to your AI assistant</h2>\n\
-         <p>The app is an MCP server with {tools} tools: an assistant can find, download and \
+         <p>The app is an MCP server with {} tools: an assistant can find, download and \
          read games, and ask what their players say. Paste this to yours:</p>\n\
          <pre tabindex=\"0\"><code>{}</code></pre>\n\
          <p class=\"note\"><a href=\"assistants.html\">AI assistants</a> has the setup for \
-         {assistants} assistants, and for any other.</p>\n</section>\n\
+         {} assistants, and for any other.</p>\n</section>\n\
          <p class=\"smallprint\">{}</p>\n",
         picker::commented(IN_A_TERMINAL),
+        thousands(tools as u64),
         escape(reference::PASTE),
+        thousands(assistants as u64),
         escape(SMALLPRINT)
     );
     page

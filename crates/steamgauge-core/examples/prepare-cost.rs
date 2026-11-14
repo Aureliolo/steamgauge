@@ -11,7 +11,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use steamgauge_core::{meaning, model::default_cache_dir, search_models::SearchEncoder};
+use steamgauge_core::{
+    figure_text::thousands, meaning, model::default_cache_dir, search_models::SearchEncoder,
+};
 
 /// The name of the first parent folder spelt like a game's, `appid=` and digits in any case.
 fn in_a_game_folder(snapshot: &std::path::Path) -> Option<String> {
@@ -97,14 +99,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_or(0, Duration::as_millis)
     };
     let embedded = u32::try_from(prepared.embedded)?;
+    let millis = |millis: u128| thousands(u64::try_from(millis).unwrap_or(u64::MAX));
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a rate is a positive count of claims a second"
+    )]
+    let per_second = thousands((f64::from(embedded) / wall).round() as u64);
     println!(
-        "{embedded} claims in {wall:.1} s: {:.0} a second; {batches} batches, the card held \
+        "{} claims in {wall:.1} s: {per_second} a second; {} batches, the card held \
          {:.1} s; a batch held it {} ms at the median, {} ms at the 99th percentile, {} ms at most",
-        f64::from(embedded) / wall,
+        thousands(u64::from(embedded)),
+        thousands(u64::from(batches)),
         busy.as_secs_f64(),
-        at(50),
-        at(99),
-        longest.as_millis(),
+        millis(at(50)),
+        millis(at(99)),
+        millis(longest.as_millis()),
     );
     Ok(())
 }

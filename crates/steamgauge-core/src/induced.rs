@@ -15,7 +15,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::{Result, figure_text::thousands};
 
 /// A subject that needs this many distinct reviews behind it before it is kept.
 ///
@@ -136,7 +136,10 @@ pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<
         if invented > 0 {
             refused.push(Refused {
                 id,
-                reason: format!("{invented} of its evidence names reviews not in the handout"),
+                reason: format!(
+                    "{} of its evidence names reviews not in the handout",
+                    thousands(invented as u64)
+                ),
             });
             continue;
         }
@@ -144,8 +147,9 @@ pub fn check(returned: &Returned, handout_ids: &[String]) -> (Vec<Induced>, Vec<
             refused.push(Refused {
                 id,
                 reason: format!(
-                    "{} review(s) is not enough; {ENOUGH_REVIEWS} distinct ones are needed",
-                    evidence.len()
+                    "{} review(s) is not enough; {} distinct ones are needed",
+                    thousands(evidence.len() as u64),
+                    thousands(ENOUGH_REVIEWS as u64)
                 ),
             });
             continue;

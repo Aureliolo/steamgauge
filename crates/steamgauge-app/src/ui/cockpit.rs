@@ -794,7 +794,10 @@ pub(super) async fn export_report(
     let suggested = match app_ids.as_slice() {
         [one] => steamgauge_core::report::crawl_facts(&dir, *one)
             .map_or_else(|_| format!("app-{one}"), |facts| facts.title()),
-        several => format!("{} games compared", several.len()),
+        several => format!(
+            "{} games compared",
+            steamgauge_core::figure_text::thousands(several.len() as u64)
+        ),
     };
     let mut asking = rfd::AsyncFileDialog::new()
         .set_title("Save the report")
@@ -810,7 +813,10 @@ pub(super) async fn export_report(
     let name = if app_ids.len() == 1 {
         None
     } else {
-        Some(format!("Report on {} games", app_ids.len()))
+        Some(format!(
+            "Report on {} games",
+            steamgauge_core::figure_text::thousands(app_ids.len() as u64)
+        ))
     };
     Ok(Some(app.state::<work::Work>().queue(
         &app,

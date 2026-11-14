@@ -17,7 +17,7 @@
 
 use std::collections::HashMap;
 
-use steamgauge_core::read::Depth;
+use steamgauge_core::{figure_text::thousands, read::Depth};
 
 #[derive(serde::Deserialize)]
 struct Row {
@@ -129,20 +129,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("{flagged} claims a labeller called badly split");
+    println!("{} claims a labeller called badly split", count(flagged));
     if missing > 0 {
-        println!("  {missing} carry no review text, so this build cannot re-cut them");
+        println!(
+            "  {} carry no review text, so this build cannot re-cut them",
+            count(missing)
+        );
     }
-    let judged = still + gone;
-    if judged > 0 {
-        #[expect(
-            clippy::cast_precision_loss,
-            reason = "a reference set is thousands of claims, not quadrillions"
-        )]
-        let share = |n: usize| 100.0 * n as f64 / judged as f64;
-        println!("  {still} are still one piece ({:.1}%)", share(still));
-        println!("  {gone} are cut differently now ({:.1}%)", share(gone));
-    }
+    say_judged(still, gone);
     if still > 0 {
         #[expect(
             clippy::cast_precision_loss,
@@ -150,10 +144,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )]
         let share = |n: usize| 100.0 * n as f64 / still as f64;
         println!(
-            "  of the ones still cut that way, {unreachable_by_punctuation} ({:.1}%) hold no \
-             line break and at most one comma, and {joined} ({:.1}%) join their clauses with a \
+            "  of the ones still cut that way, {} ({:.1}%) hold no \
+             line break and at most one comma, and {} ({:.1}%) join their clauses with a \
              word",
+            count(unreachable_by_punctuation),
             share(unreachable_by_punctuation),
+            count(joined),
             share(joined)
         );
     }
@@ -164,6 +160,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn count(claims: usize) -> String {
+    thousands(claims as u64)
+}
+
+/// How many of the claims called badly split are still one piece, and how many are not.
+fn say_judged(still: usize, gone: usize) {
+    let judged = still + gone;
+    if judged > 0 {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a reference set is thousands of claims, not quadrillions"
+        )]
+        let share = |n: usize| 100.0 * n as f64 / judged as f64;
+        println!(
+            "  {} are still one piece ({:.1}%)",
+            count(still),
+            share(still)
+        );
+        println!(
+            "  {} are cut differently now ({:.1}%)",
+            count(gone),
+            share(gone)
+        );
+    }
+}
+
 /// The rate one draw at a time, and the games with the most left to fix.
 fn breakdown(by_subset: HashMap<String, Tally>, by_game: HashMap<u32, (usize, usize)>) {
     table("", by_subset, 0);
@@ -171,7 +193,11 @@ fn breakdown(by_subset: HashMap<String, Tally>, by_game: HashMap<u32, (usize, us
     let mut worst: Vec<(u32, (usize, usize))> = by_game.into_iter().collect();
     worst.sort_by_key(|(_, (still, _))| std::cmp::Reverse(*still));
     for (app_id, (still, gone)) in worst.into_iter().take(8) {
-        println!("  app {app_id}: {still} still, {gone} fixed");
+        println!(
+            "  app {app_id}: {} still, {} fixed",
+            count(still),
+            count(gone)
+        );
     }
 }
 
@@ -194,10 +220,10 @@ fn table(title: &str, tallies: HashMap<String, Tally>, floor: usize) {
         let share = |n: usize| 100.0 * n as f64 / tally.seen.max(1) as f64;
         println!(
             "{name:>12} {:>7} {:>9} ({:>4.1}%) {:>9} ({:>4.1}%)",
-            tally.seen,
-            tally.flagged,
+            count(tally.seen),
+            count(tally.flagged),
             share(tally.flagged),
-            tally.still,
+            count(tally.still),
             share(tally.still),
         );
     }

@@ -1413,17 +1413,17 @@ fn run_ingest_induced(
     let (kept, refused) = steamgauge_core::induced::check(&returned, &ids);
     println!("app          {app_id}");
     println!("induced by   {}", returned.induced_by);
-    println!("handout      {} reviews", ids.len());
+    println!("handout      {} reviews", thousands(ids.len() as u64));
     println!(
         "kept         {} of {} subjects",
-        kept.len(),
-        returned.subjects.len()
+        thousands(kept.len() as u64),
+        thousands(returned.subjects.len() as u64)
     );
     for subject in &kept {
         println!(
             "  {:<24} {:>3} reviews  {}",
             subject.id,
-            subject.evidence.len(),
+            thousands(subject.evidence.len() as u64),
             subject.label
         );
     }
@@ -1466,15 +1466,16 @@ fn run_report(app_ids: &[u32], out: &Path, to: &Path, examples: usize, seed: u64
     std::fs::write(to, page.as_bytes())?;
 
     println!("report      {}", to.display());
-    println!("  games      {}", report.apps.len());
-    println!("  size       {} KB", page.len() / 1024);
+    println!("  games      {}", thousands(report.apps.len() as u64));
+    println!("  size       {} KB", thousands(page.len() as u64 / 1024));
     for app in &report.apps {
         let quoted: usize = app.examples.iter().map(|(_, e)| e.len()).sum();
         println!(
-            "  {:<10} {} reviews, {} claims, {quoted} quoted",
+            "  {:<10} {} reviews, {} claims, {} quoted",
             app.app_id(),
             thousands(app.reading.reviews),
-            thousands(app.reading.claims)
+            thousands(app.reading.claims),
+            thousands(quoted as u64)
         );
     }
     println!(
@@ -1702,9 +1703,9 @@ fn run_sample_claims(app_ids: &[u32], out: &Path, how: &Draw<'_>) -> Result<()> 
         all_batches += report.batches;
         println!(
             "{app_id:<9} {:>4} reviews  {:>5} claims  {:>3} batches  {:.2} per review",
-            report.reviews,
-            report.claims,
-            report.batches,
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.batches as u64),
             report.per_review()
         );
     }
@@ -1712,16 +1713,20 @@ fn run_sample_claims(app_ids: &[u32], out: &Path, how: &Draw<'_>) -> Result<()> 
     let mut ranked: Vec<(String, usize)> = languages.into_iter().collect();
     ranked.sort_by_key(|(name, count)| (std::cmp::Reverse(*count), name.clone()));
 
-    println!("\ngames        {}", app_ids.len());
-    println!("drawn        {all_reviews} reviews");
-    println!("claims       {all_claims}");
-    println!("batches      {all_batches} under {}", to.display());
+    println!("\ngames        {}", thousands(app_ids.len() as u64));
+    println!("drawn        {} reviews", thousands(all_reviews as u64));
+    println!("claims       {}", thousands(all_claims as u64));
+    println!(
+        "batches      {} under {}",
+        thousands(all_batches as u64),
+        to.display()
+    );
     println!(
         "languages    {}",
         ranked
             .iter()
             .take(8)
-            .map(|(name, count)| format!("{name} {count}"))
+            .map(|(name, count)| format!("{name} {}", thousands(*count as u64)))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -1783,11 +1788,16 @@ fn run_export_review_facts(from: &Path, captures: &Path, to: &Path) -> Result<()
         }
     }
     std::fs::write(to, lines)?;
-    println!("{written} labelled reviews -> {}", to.display());
+    println!(
+        "{} labelled reviews -> {}",
+        thousands(written as u64),
+        to.display()
+    );
     if missing > 0 {
         println!(
-            "{missing} labelled reviews are not in this machine's captures: their facts and \
-             fingerprints are not written, and their labels cannot be checked against a text"
+            "{} labelled reviews are not in this machine's captures: their facts and \
+             fingerprints are not written, and their labels cannot be checked against a text",
+            thousands(missing as u64)
         );
     }
     Ok(())
@@ -1795,33 +1805,37 @@ fn run_export_review_facts(from: &Path, captures: &Path, to: &Path) -> Result<()
 
 fn run_export_training(from: &Path, to: &Path) -> Result<()> {
     let report = steamgauge_core::claimset::export_training(from, to)?;
-    println!("{} labelled claims -> {}", report.written, to.display());
+    println!(
+        "{} labelled claims -> {}",
+        thousands(report.written as u64),
+        to.display()
+    );
     if report.no_claim > 0 {
         println!(
             "{} rows held back for carrying no claim: an option nobody ticked, or a piece \
              with no word in it",
-            report.no_claim
+            thousands(report.no_claim as u64)
         );
     }
     if report.twice > 0 {
         println!(
             "{} claims two draws both handed out, folded into one row: the random draw's \
              answer, with the other kept beside it as a second reading",
-            report.twice
+            thousands(report.twice as u64)
         );
     }
     if report.recut > 0 {
         println!(
             "{} rows held back for naming bytes this build cuts no claim at: what they were \
              written about is not something the reader will ever be handed",
-            report.recut
+            thousands(report.recut as u64)
         );
     }
     if report.measured_on > 0 {
         println!(
             "{} teaching rows held back for sitting on {}, which the model is measured on \
              and never trains on",
-            report.measured_on,
+            thousands(report.measured_on as u64),
             report
                 .measured_on_games
                 .iter()
@@ -1886,7 +1900,10 @@ fn run_declined(
             steamgauge_core::claimset::write_set(&dir.join("declined"), &drawn, batch_size)?;
         println!(
             "{:<10} {:>4} reviews {:>5} claims {:>3} batches",
-            app_id, report.reviews, report.claims, report.batches
+            app_id,
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.batches as u64)
         );
         reviews += report.reviews;
         asked += report.claims;
@@ -1896,7 +1913,12 @@ fn run_declined(
     if asked == 0 {
         anyhow::bail!("no declined claim to draw; read these games with a current reader first");
     }
-    println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
+    println!(
+        "\ndrawn      {:>4} reviews {:>5} claims {:>3} batches",
+        thousands(reviews as u64),
+        thousands(asked as u64),
+        thousands(batches as u64)
+    );
     println!(
         "\nThese are claims the reader declined, so they are harder than a random claim and\n\
          the labeller is told nothing about that. Ingest each with `steamgauge ingest-claims\n\
@@ -1935,7 +1957,10 @@ fn run_export_pool(
         )?;
         println!(
             "{:<10} {:>5} reviews {:>6} claims  {:>4} reviews already labelled",
-            app_id, report.reviews, report.claims, report.labelled
+            app_id,
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.labelled as u64)
         );
         total.reviews += report.reviews;
         total.claims += report.claims;
@@ -1944,8 +1969,8 @@ fn run_export_pool(
     std::io::Write::flush(&mut file)?;
     println!(
         "\n{} reviews {} claims -> {}",
-        total.reviews,
-        total.claims,
+        thousands(total.reviews as u64),
+        thousands(total.claims as u64),
         to.display()
     );
     Ok(())
@@ -1993,7 +2018,10 @@ fn run_rare_claims_by_keyword(
             steamgauge_core::claimset::write_set(&dir.join("keyword"), &draw.drawn, batch_size)?;
         println!(
             "{:<10} {:>4} reviews {:>5} claims {:>3} batches",
-            app_id, report.reviews, report.claims, report.batches
+            app_id,
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.batches as u64)
         );
         reviews += report.reviews;
         asked += report.claims;
@@ -2003,13 +2031,18 @@ fn run_rare_claims_by_keyword(
     if asked == 0 {
         anyhow::bail!("no keyword matched a claim; read these games with a current reader first");
     }
-    println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
+    println!(
+        "\ndrawn      {:>4} reviews {:>5} claims {:>3} batches",
+        thousands(reviews as u64),
+        thousands(asked as u64),
+        thousands(batches as u64)
+    );
     println!(
         "\nwhat each subject's keywords matched, before the labeller has said whether any of it \
          is right:"
     );
     for (subject, count) in &by_subject {
-        println!("  {subject:<16} {count:>5}");
+        println!("  {subject:<16} {:>5}", thousands(*count as u64));
     }
     println!(
         "\nA keyword says where a subject tends to be written about and never what it means, so\n\
@@ -2042,7 +2075,7 @@ fn reader_size(asked: Option<&str>) -> Result<&'static steamgauge_core::reader::
         }
         Some(card) => format!(
             "a {} GB card{}",
-            card.bytes / 1_000_000_000,
+            thousands(card.bytes / 1_000_000_000),
             if card.shared {
                 ", shared with the processor"
             } else {
@@ -2087,24 +2120,23 @@ async fn fetch_reader(size: &steamgauge_core::reader::Size, model_dir: &Path) ->
             return;
         }
         shown = (progress.file.to_owned(), step);
-        #[expect(clippy::cast_precision_loss, reason = "a download is under a gigabyte")]
-        let mb = |bytes: u64| bytes as f64 / 1e6;
-        match progress.total {
-            Some(total) => eprintln!(
-                "  {:<14} {:>6.0} / {:.0} MB",
-                progress.file,
-                mb(progress.downloaded),
-                mb(total)
-            ),
-            None => eprintln!(
-                "  {:<14} {:>6.0} MB",
-                progress.file,
-                mb(progress.downloaded)
-            ),
-        }
+        eprintln!(
+            "{}",
+            reader_progress_line(progress.file, progress.downloaded, progress.total)
+        );
     })
     .await?;
     Ok(())
+}
+
+/// One line of a reader download: the file, and its megabytes so far out of all of them where
+/// the total is known.
+fn reader_progress_line(file: &str, downloaded: u64, total: Option<u64>) -> String {
+    let mb = |bytes: u64| thousands((bytes + 500_000) / 1_000_000);
+    match total {
+        Some(total) => format!("  {file:<14} {:>6} / {} MB", mb(downloaded), mb(total)),
+        None => format!("  {file:<14} {:>6} MB", mb(downloaded)),
+    }
 }
 
 /// The reader a read uses, fetched where it is not here yet, with the store asked about each
@@ -2360,7 +2392,10 @@ fn run_revisit(
         };
         println!(
             "{:<20} {:>4} reviews {:>5} claims {:>3} batches",
-            named, set.report.reviews, set.report.claims, set.report.batches
+            named,
+            thousands(set.report.reviews as u64),
+            thousands(set.report.claims as u64),
+            thousands(set.report.batches as u64)
         );
         reviews += set.report.reviews;
         claims += set.report.claims;
@@ -2368,13 +2403,15 @@ fn run_revisit(
     }
 
     println!(
-        "\ndrawn      {reviews:>4} reviews {claims:>5} claims over {} games",
-        games.len()
+        "\ndrawn      {:>4} reviews {:>5} claims over {} games",
+        thousands(reviews as u64),
+        thousands(claims as u64),
+        thousands(games.len() as u64)
     );
     if drawn.cleared > 0 {
         println!(
             "cleared    {} sets this draw no longer asks about",
-            drawn.cleared
+            thousands(drawn.cleared as u64)
         );
     }
     println!(
@@ -2487,9 +2524,11 @@ fn run_gold(
         println!(
             "acceptable {} gold answers the reader gave another subject for, over {} games, \
              asked whether that subject would also do; {} it answered the same are not asked",
-            found.split, found.games, found.agreed
+            thousands(found.split as u64),
+            thousands(found.games as u64),
+            thousands(found.agreed as u64)
         );
-        print_recut(found.recut);
+        print_recut(&mut std::io::stdout(), found.recut)?;
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
@@ -2508,9 +2547,10 @@ fn run_gold(
             "rejudge    {} gold answers differ from the first labeller's, shown with both \
              labellers' answers, the person's own and the sheet's rule for each; {} agree \
              and are not asked",
-            found.split, found.agreed
+            thousands(found.split as u64),
+            thousands(found.agreed as u64)
         );
-        print_recut(found.recut);
+        print_recut(&mut std::io::stdout(), found.recut)?;
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
@@ -2535,17 +2575,20 @@ fn run_gold(
     }
     let page = steamgauge_core::gold::render(&questions, &found, person);
 
-    say_what_was_drawn(&found, reading);
+    say_what_was_drawn(&found, reading)?;
 
     deliver(page, delivery)
 }
 
 /// What a draw turned out to be, in the order a person reads it: what they are being asked,
 /// then what was held back from them and why.
-fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
+fn say_what_was_drawn(
+    found: &steamgauge_core::gold::GoldDraw,
+    reading: &str,
+) -> std::io::Result<()> {
     let languages = &found.languages;
     let boundaries = &found.boundaries;
-    println!("games      {} held out", found.games);
+    println!("games      {} held out", thousands(found.games as u64));
     if !languages.is_empty() {
         println!(
             "languages  {} only, so every figure from this is about {} rather than the corpus",
@@ -2553,15 +2596,18 @@ fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
             languages.join(" and ")
         );
     }
-    println!("blind      {} claims, no answer shown", found.blind);
+    println!(
+        "blind      {} claims, no answer shown",
+        thousands(found.blind as u64)
+    );
     println!(
         "settled    {} of them are claims both labellers already answered the same way, drawn \
          in their own proportion and scored apart afterwards",
-        found.settled
+        thousands(found.settled as u64)
     );
     println!(
         "split      {} claims the `{reading}` reading answered differently, asked first",
-        found.split
+        thousands(found.split as u64)
     );
     if !boundaries.is_empty() {
         println!(
@@ -2571,41 +2617,45 @@ fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
                 .map(|(left, right)| format!("{left}/{right}"))
                 .collect::<Vec<_>>()
                 .join(", "),
-            found.elsewhere
+            thousands(found.elsewhere as u64)
         );
     }
     println!(
         "contested  {} of those had neither labeller hedging, which is where an hour buys most",
-        found.contested_sure
+        thousands(found.contested_sure as u64)
     );
     println!(
         "agreed     {} claims both labellers already answered the same way",
-        found.agreed
+        thousands(found.agreed as u64)
     );
     if found.declined > 0 {
         println!(
             "held back  {} template options the reviewer left blank, which no adjudicator can \
              answer and which the current splitter would never have cut",
-            found.declined
+            thousands(found.declined as u64)
         );
     }
-    print_recut(found.recut);
+    print_recut(&mut std::io::stdout(), found.recut)?;
     if found.mistagged > 0 {
         println!(
             "mistagged  {} claims are written in a script their Steam language tag does not \
              use, which the language filter reads and a person cannot",
-            found.mistagged
+            thousands(found.mistagged as u64)
         );
     }
+    Ok(())
 }
 
-fn print_recut(recut: usize) {
+fn print_recut(out: &mut impl std::io::Write, recut: usize) -> std::io::Result<()> {
     if recut > 0 {
-        println!(
-            "recut      {recut} labels name bytes this build cuts no claim at, so what they \
-             were written about is not something anybody would be handed now"
-        );
+        writeln!(
+            out,
+            "recut      {} labels name bytes this build cuts no claim at, so what they \
+             were written about is not something anybody would be handed now",
+            thousands(recut as u64)
+        )?;
     }
+    Ok(())
 }
 
 /// Writes the page, or serves it and writes every answer as it is made.
@@ -2625,7 +2675,8 @@ fn deliver(page: String, delivery: Delivery<'_>) -> Result<()> {
             let already = steamgauge_core::serve::answers_held(&answers);
             if already > 0 {
                 println!(
-                    "answers    {already} already on disk, and the page picks up where they end"
+                    "answers    {} already on disk, and the page picks up where they end",
+                    thousands(already as u64)
                 );
             }
             println!(
@@ -2660,15 +2711,17 @@ fn answered_this_sheet<'a>(stamps: impl Iterator<Item = Option<&'a str>>) -> Res
     }
     if stale > 0 {
         anyhow::bail!(
-            "{stale} of these answers were given against sheet `{was}` and this build's is \
+            "{} of these answers were given against sheet `{was}` and this build's is \
              `{sheet}`. They answer different wording, so merging them would file one as the \
-             other. Draw the page again and re-ask them."
+             other. Draw the page again and re-ask them.",
+            thousands(stale as u64)
         );
     }
     if unstamped > 0 {
         println!(
-            "unstamped  {unstamped} answers predate the page recording which sheet they \
-             answered, so nothing can check them against this one"
+            "unstamped  {} answers predate the page recording which sheet they \
+             answered, so nothing can check them against this one",
+            thousands(unstamped as u64)
         );
     }
     Ok(())
@@ -2792,9 +2845,9 @@ fn adjudicate_one_game(
 
     let mut gold: Vec<steamgauge_core::claimset::ClaimLabel> = Vec::new();
     let mut agreed = 0;
-    let mut unplaced = 0;
-    let mut declined = 0;
-    let mut recut = 0;
+    let mut unplaced = 0_u64;
+    let mut declined = 0_u64;
+    let mut recut = 0_u64;
     for answer in rows {
         if said
             .get(&(answer.review_id.as_str(), answer.index))
@@ -2844,23 +2897,32 @@ fn adjudicate_one_game(
         });
     }
     if unplaced > 0 {
-        println!("{app_id:>9}  {unplaced} answers name a claim this set does not have");
+        println!(
+            "{app_id:>9}  {} answers name a claim this set does not have",
+            thousands(unplaced)
+        );
     }
     if declined > 0 {
         println!(
-            "{app_id:>9}  {declined} answers are on a template option its author left blank, \
-             refused"
+            "{app_id:>9}  {} answers are on a template option its author left blank, \
+             refused",
+            thousands(declined)
         );
     }
     if recut > 0 {
         println!(
-            "{app_id:>9}  {recut} answers name a span this build does not cut a claim at, refused"
+            "{app_id:>9}  {} answers name a span this build does not cut a claim at, refused",
+            thousands(recut)
         );
     }
 
     let given = gold.len();
     let held = file_gold(dir, by, gold)?;
-    println!("{app_id:>9}  {given} adjudicated, {held} held for {by}");
+    println!(
+        "{app_id:>9}  {} adjudicated, {} held for {by}",
+        thousands(given as u64),
+        thousands(held as u64)
+    );
     Ok((given, agreed))
 }
 
@@ -2923,7 +2985,7 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
         println!(
             "unfinished {} answers have a subject or a polarity but not both; the page still \
              asks them",
-            unfinished.len()
+            thousands(unfinished.len() as u64)
         );
     }
 
@@ -2966,17 +3028,18 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
         println!(
             "removed    {} answers nothing will ever score, from {}: on a blank template \
              option, on a claim the set does not have, or on a span this build cuts no claim at",
-            useless.len(),
+            thousands(useless.len() as u64),
             from.display()
         );
     }
 
-    println!("\ngold       {written} claims by {by}");
+    println!("\ngold       {} claims by {by}", thousands(written as u64));
     let rejudged = answers.iter().filter(|answer| answer.rejudged).count();
     if rejudged > 0 {
         println!(
-            "rejudged   {rejudged} of them were answered again with the labellers' answers and \
-             the sheet's rule in view, and that answer is the one filed"
+            "rejudged   {} of them were answered again with the labellers' answers and \
+             the sheet's rule in view, and that answer is the one filed",
+            thousands(rejudged as u64)
         );
     }
     #[expect(
@@ -2985,7 +3048,8 @@ fn run_ingest_gold(from: &Path, reference: &Path) -> Result<()> {
     )]
     let share = agreed as f64 / written.max(1) as f64;
     println!(
-        "agreement  {agreed} of them ({:.1}%) match the labeller already on record",
+        "agreement  {} of them ({:.1}%) match the labeller already on record",
+        thousands(agreed as u64),
         share * 100.0
     );
     println!(
@@ -3039,8 +3103,10 @@ fn keep_judged(judged: &[Adjudicated], reference: &Path, by: &str) -> Result<()>
         no += rows.iter().filter(|row| !row.acceptable).count();
     }
     println!(
-        "acceptable {yes} of the reader's other subjects would also do and {no} would not, \
-         filed beside the gold labels by {by}; the labels are unchanged"
+        "acceptable {} of the reader's other subjects would also do and {} would not, \
+         filed beside the gold labels by {by}; the labels are unchanged",
+        thousands(yes as u64),
+        thousands(no as u64)
     );
     Ok(())
 }
@@ -3052,11 +3118,14 @@ fn run_ingest_revisit(app_id: u32, from: &Path, by: &str, to: Option<PathBuf>) -
     let dir = to.unwrap_or_else(|| steamgauge_core::claimset::default_reference_dir(app_id));
     let report = steamgauge_core::claimset::ingest_revisit(&dir, from, by.trim())?;
     println!("app        {app_id}");
-    println!("revisited  {} claims", report.accepted);
-    println!("moved      {} of them to another subject", report.moved);
+    println!("revisited  {} claims", thousands(report.accepted as u64));
+    println!(
+        "moved      {} of them to another subject",
+        thousands(u64::from(report.moved))
+    );
     for (what, which) in [("unknown", &report.unknown), ("rejected", &report.rejected)] {
         if !which.is_empty() {
-            println!("{what}    {} claims", which.len());
+            println!("{what}    {} claims", thousands(which.len() as u64));
             for one in which.iter().take(5) {
                 println!("  {one}");
             }
@@ -3113,7 +3182,7 @@ fn run_second_opinion(
                 "{} already holds {} labelled reviews this draw leaves out; draw with the seed \
                  and at least the share it was drawn with, or name another reading with --into",
                 target.display(),
-                already.len() - answered.len()
+                thousands((already.len() - answered.len()) as u64)
             );
         }
         let report = steamgauge_core::claimset::write_set_handing_out(
@@ -3125,15 +3194,25 @@ fn run_second_opinion(
         let kept = if answered.is_empty() {
             String::new()
         } else {
-            format!("  ({} reviews already read)", answered.len())
+            format!(
+                "  ({} reviews already read)",
+                thousands(answered.len() as u64)
+            )
         };
         println!(
             "{app_id:<9} {:>4} reviews  {:>5} claims  {:>3} batches{kept}",
-            report.reviews, report.claims, report.batches
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.batches as u64)
         );
     }
 
-    println!("\ndrawn        {reviews} reviews, {claims} claims, {batches} batches");
+    println!(
+        "\ndrawn        {} reviews, {} claims, {} batches",
+        thousands(reviews as u64),
+        thousands(claims as u64),
+        thousands(batches as u64)
+    );
     println!(
         "\nHand these to a different labeller from the one that did the first pass, and give \
          it\nthe same sheet and nothing else. A second opinion that can see the first is not a\n\
@@ -3169,7 +3248,10 @@ fn run_distinct(
     ranked.sort_by_key(|(name, count)| (std::cmp::Reverse(*count), *name));
 
     println!("app          {app_id}");
-    println!("drawn        {} reviews, least alike first", drawn.len());
+    println!(
+        "drawn        {} reviews, least alike first",
+        thousands(drawn.len() as u64)
+    );
     if let (Some(first), Some(last)) = (drawn.first(), drawn.last()) {
         println!(
             "novelty      {:.2} down to {:.2}",
@@ -3182,7 +3264,7 @@ fn run_distinct(
         ranked
             .iter()
             .take(6)
-            .map(|(name, count)| format!("{name} {count}"))
+            .map(|(name, count)| format!("{name} {}", thousands(*count as u64)))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -3278,11 +3360,11 @@ fn run_ceiling(app_ids: &[u32], out: &Path, reference: &Path) -> Result<()> {
             "{:>9} {:<11} {:>7} {:>10} {:>8}  {} of {}",
             app_id,
             was.as_str(),
-            found.compared,
+            thousands(found.compared),
             pct(found.between_labellers()),
             pct(found.against_the_settled()),
             pct(found.where_they_split()),
-            found.labellers_split
+            thousands(found.labellers_split)
         );
         if let Some(slot) = pooled.iter_mut().find(|(which, _, _)| *which == was) {
             slot.1.extend(&found);
@@ -3324,17 +3406,17 @@ fn print_ceiling_block(
 
     println!(
         "\n{} games the model {}, {} claims read twice and answered",
-        games,
+        thousands(games as u64),
         match was {
             Role::HeldOut => "never saw",
             Role::Validation => "chose its threshold on",
             Role::Train => "trained on",
         },
-        found.compared
+        thousands(found.compared)
     );
     println!(
         "  the two labellers reached the same subject on {} of them, {}",
-        found.labellers_agreed,
+        thousands(found.labellers_agreed),
         pct(found.between_labellers())
     );
     println!(
@@ -3346,7 +3428,7 @@ fn print_ceiling_block(
     );
     println!(
         "  on the {} they split, it lands on one of their two answers {}",
-        found.labellers_split,
+        thousands(found.labellers_split),
         pct(found.where_they_split())
     );
 }
@@ -3379,7 +3461,9 @@ fn run_compare_labels(
             let split = field
                 .commonest_split
                 .as_ref()
-                .map_or_else(String::new, |(a, b, count)| format!("{a} / {b} ({count})"));
+                .map_or_else(String::new, |(a, b, count)| {
+                    format!("{a} / {b} ({})", thousands(*count))
+                });
             let row = format!(
                 "  {:<14} {:>9} {:>8}   {split}",
                 field.field,
@@ -3537,7 +3621,9 @@ fn run_measure_claims(
                     .map_or_else(|| "-".to_owned(), |v| format!("{v:.2}")),
                 subject
                     .mistaken_for
-                    .map_or_else(String::new, |(label, count)| format!("{label} ({count})"))
+                    .map_or_else(String::new, |(label, count)| {
+                        format!("{label} ({})", thousands(count))
+                    })
             );
         }
         every.push(found);
@@ -3567,7 +3653,7 @@ fn print_pooled(every: &[steamgauge_core::measure::ClaimAgreement]) {
     let answered = (found.matched > 0).then(|| found.answered as f64 / found.matched as f64);
     println!(
         "\npooled over {} games: {} labelled claims, {} answered ({}), {} agreement, macro F1 {}",
-        every.len(),
+        thousands(every.len() as u64),
         thousands(found.matched),
         thousands(found.answered),
         pct(answered),
@@ -3656,20 +3742,25 @@ fn run_ingest_claims(
     ranked.sort_by_key(|(name, count)| (std::cmp::Reverse(*count), *name));
 
     println!("app          {app_id}");
-    println!("accepted     {} claims", report.accepted);
+    println!("accepted     {} claims", thousands(report.accepted as u64));
     if report.kept > 0 {
         println!(
             "kept         {} labels already in the set, for claims these files do not answer",
-            report.kept
+            thousands(report.kept as u64)
         );
     }
-    println!("contested    {contested}");
-    println!("mis-split    {miscut}");
+    println!("contested    {}", thousands(contested as u64));
+    println!("mis-split    {}", thousands(miscut as u64));
     println!(
         "polarity     {}",
         ["praise", "complaint", "neutral"]
             .iter()
-            .map(|name| format!("{name} {}", polarity.get(name).copied().unwrap_or(0)))
+            .map(|name| {
+                format!(
+                    "{name} {}",
+                    thousands(polarity.get(name).copied().unwrap_or(0) as u64)
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -3678,7 +3769,7 @@ fn run_ingest_claims(
         ranked
             .iter()
             .take(6)
-            .map(|(name, count)| format!("{name} {count}"))
+            .map(|(name, count)| format!("{name} {}", thousands(*count as u64)))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -3686,7 +3777,10 @@ fn run_ingest_claims(
     if !report.is_clean() {
         println!("\nnot clean:");
         if !report.missing.is_empty() {
-            println!("  {} claims drawn but never labelled", report.missing.len());
+            println!(
+                "  {} claims drawn but never labelled",
+                thousands(report.missing.len() as u64)
+            );
             for one in report.missing.iter().take(8) {
                 println!("    {one}");
             }
@@ -3694,13 +3788,13 @@ fn run_ingest_claims(
         if !report.unknown.is_empty() {
             println!(
                 "  {} labels naming a claim nobody drew",
-                report.unknown.len()
+                thousands(report.unknown.len() as u64)
             );
         }
         if !report.rejected.is_empty() {
             println!(
                 "  {} labels the sheet does not offer",
-                report.rejected.len()
+                thousands(report.rejected.len() as u64)
             );
             for one in report.rejected.iter().take(8) {
                 println!("    {one}");
@@ -3759,10 +3853,11 @@ async fn load_encoder(
             let _ = write!(
                 err,
                 "\r    {} MB{}   ",
-                progress.downloaded / 1_048_576,
-                progress
-                    .total
-                    .map_or(String::new(), |t| format!(" of {} MB", t / 1_048_576))
+                thousands(progress.downloaded / 1_048_576),
+                progress.total.map_or(String::new(), |t| format!(
+                    " of {} MB",
+                    thousands(t / 1_048_576)
+                ))
             );
             let _ = err.flush();
         }
@@ -3808,9 +3903,12 @@ async fn run_rare_claims_by_neighbour(
     let (queries, against) = neighbours.queries_per_subject();
     eprintln!("searching with the labelled claims of each rare subject:");
     for (subject, count) in queries {
-        eprintln!("  {subject:<16} {count:>5}");
+        eprintln!("  {subject:<16} {:>5}", thousands(count as u64));
     }
-    eprintln!("  and {against} labelled claims of the common subjects voting against");
+    eprintln!(
+        "  and {} labelled claims of the common subjects voting against",
+        thousands(against as u64)
+    );
 
     let (mut reviews, mut asked, mut batches) = (0, 0, 0);
     let mut by_subject: std::collections::BTreeMap<&str, (usize, f32, f32)> =
@@ -3861,9 +3959,9 @@ async fn run_rare_claims_by_neighbour(
         println!(
             "{:<10} {:>4} reviews {:>5} claims {:>3} batches, from {} claims read",
             app_id,
-            report.reviews,
-            report.claims,
-            report.batches,
+            thousands(report.reviews as u64),
+            thousands(report.claims as u64),
+            thousands(report.batches as u64),
             thousands(found.claims_seen)
         );
         reviews += report.reviews;
@@ -3874,36 +3972,52 @@ async fn run_rare_claims_by_neighbour(
     if asked == 0 {
         anyhow::bail!("nothing drawn; read these games with a current reader first");
     }
-    println!("\ndrawn      {reviews:>4} reviews {asked:>5} claims {batches:>3} batches");
-    say_margins(&by_subject, reference);
+    println!(
+        "\ndrawn      {:>4} reviews {:>5} claims {:>3} batches",
+        thousands(reviews as u64),
+        thousands(asked as u64),
+        thousands(batches as u64)
+    );
+    say_margins(&mut std::io::stdout(), &by_subject, reference)?;
     Ok(())
 }
 
 /// What a neighbour draw found for each rare subject across every game drawn, and how to read
 /// it.
-fn say_margins(by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>, reference: &Path) {
-    println!(
+fn say_margins(
+    out: &mut impl std::io::Write,
+    by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
+    reference: &Path,
+) -> std::io::Result<()> {
+    writeln!(
+        out,
         "\nwhat was drawn for each subject, and by what margin over the nearest common subject.\n\
          The narrowest is the figure to read: below zero, the game barely holds the subject,\n\
          and those labels will mostly say `gameplay`"
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "  {:<16} {:>6} {:>8} {:>10}",
         "subject", "drawn", "widest", "narrowest"
-    );
+    )?;
     for (subject, (count, widest, narrowest)) in by_subject {
         if *count == 0 {
-            println!("  {subject:<16} {count:>6}");
+            writeln!(out, "  {subject:<16} {:>6}", thousands(*count as u64))?;
         } else {
-            println!("  {subject:<16} {count:>6} {widest:>+8.3} {narrowest:>+10.3}");
+            writeln!(
+                out,
+                "  {subject:<16} {:>6} {widest:>+8.3} {narrowest:>+10.3}",
+                thousands(*count as u64)
+            )?;
         }
     }
-    println!(
+    writeln!(
+        out,
         "\nA neighbour is a candidate and the labeller decides. Ingest each with `steamgauge\n\
          ingest-claims <app id> --from <dir> --by <model> --to {}/<app id>/retrieved`.\n\
          Every row lands as subset `retrieved`, which trains the model and measures nothing.",
         reference.display()
-    );
+    )
 }
 
 async fn run_embed(
@@ -3952,9 +4066,12 @@ async fn run_embed(
             .dedupe_rate()
             .map_or_else(|| "n/a".to_owned(), |r| format!("{:.1}%", r * 100.0))
     );
-    println!("  dimensions     {}", report.dim);
+    println!("  dimensions     {}", thousands(report.dim as u64));
     println!("  elapsed        {}", elapsed(report.elapsed));
-    println!("  size           {} MB", report.bytes / 1_048_576);
+    println!(
+        "  size           {} MB",
+        thousands(report.bytes / 1_048_576)
+    );
     println!("  embeddings     {}", report.path.display());
     println!("\njoin to the capture on sha256(review) = text_sha256");
     Ok(())
@@ -4091,7 +4208,7 @@ fn steam_client(pace: Duration) -> Result<SteamClient> {
     let client = SteamClient::new(pace)?.with_notice(|wait, status| {
         eprintln!(
             "\n  steam answered {status}; asking again in {}s",
-            wait.as_secs()
+            thousands(wait.as_secs())
         );
     });
     Ok(match stand_in() {
@@ -4111,8 +4228,8 @@ async fn run_crawl(app_id: u32, options: &CrawlOptions, pace: Duration) -> Resul
     let report = crawl(&client, app_id, options, |progress| {
         let line = format!(
             "  shard {}/{}  {} of {} reviews",
-            progress.shards_done,
-            progress.shards_total,
+            thousands(progress.shards_done as u64),
+            thousands(progress.shards_total as u64),
             thousands(progress.unique),
             thousands(progress.valve_total)
         );
@@ -4146,7 +4263,7 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
             let _ = write!(
                 err,
                 "\r  page {}  {} reviews   ",
-                progress.pages,
+                thousands(u64::from(progress.pages)),
                 thousands(progress.rows)
             );
             let _ = err.flush();
@@ -4162,7 +4279,7 @@ async fn run_sweep(app_id: u32, out: &Path, pace: Duration) -> Result<()> {
         "  since        {}",
         steamgauge_core::time::day(report.watermark)
     );
-    println!("  pages        {}", report.pages);
+    println!("  pages        {}", thousands(u64::from(report.pages)));
     println!(
         "  fetched      {} reviews, {} new and {} edited",
         thousands(report.rows),
@@ -4219,8 +4336,8 @@ fn print_report(report: &CrawlReport) {
     if report.resumed {
         println!("  mode         resumed an unfinished crawl");
     }
-    println!("  shards       {}", report.shards);
-    println!("  pages        {}", report.pages);
+    println!("  shards       {}", thousands(report.shards as u64));
+    println!("  pages        {}", thousands(u64::from(report.pages)));
     println!("  unique       {}", thousands(report.unique));
     println!(
         "  duplicates   {} (this run)",
@@ -4244,7 +4361,7 @@ fn print_report(report: &CrawlReport) {
     if report.shards_restarted > 0 {
         println!(
             "  restarted    {} (steam stopped serving early; walked again)",
-            report.shards_restarted
+            thousands(report.shards_restarted as u64)
         );
     }
 
@@ -4253,7 +4370,7 @@ fn print_report(report: &CrawlReport) {
             "\nwarning: {} window(s) stayed short of Valve's own count after every attempt \
              and were left unfinished rather than counted. Run the same command again to \
              walk them.",
-            report.shards_short
+            thousands(report.shards_short as u64)
         );
     } else if !report.complete {
         eprintln!(
@@ -4274,9 +4391,9 @@ fn elapsed(taken: Duration) -> String {
     }
     let (hours, minutes, seconds) = (seconds / 3600, (seconds % 3600) / 60, seconds % 60);
     if hours > 0 {
-        format!("{hours}h {minutes:02}m {seconds:02}s")
+        format!("{}h {minutes:02}m {seconds:02}s", thousands(hours))
     } else {
-        format!("{minutes}m {seconds:02}s")
+        format!("{}m {seconds:02}s", thousands(minutes))
     }
 }
 
@@ -4469,6 +4586,136 @@ mod tests {
         assert!(super::drop_answers(&from, &[(7, "r1".to_owned(), 0)]).is_err());
         assert_eq!(std::fs::read_to_string(&from).unwrap(), before);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A person watching a download reads megabytes to the nearest one, with thousands marked.
+    #[test]
+    fn a_reader_download_line_gives_whole_megabytes_out_of_the_total() {
+        use super::reader_progress_line;
+
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_499_999, Some(1_118_206_465)),
+            "  model.onnx          1 / 1,118 MB"
+        );
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_500_000, Some(235_277_157)),
+            "  model.onnx          2 / 235 MB"
+        );
+        assert_eq!(
+            reader_progress_line("reader.json", 2_068, None),
+            "  reader.json         0 MB"
+        );
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_234_000_000, None),
+            "  model.onnx      1,234 MB"
+        );
+    }
+
+    /// A folder that cannot be made fails the fetch before any request, so nothing reaches the
+    /// network and the failure is the caller's to see.
+    #[tokio::test]
+    async fn a_reader_that_cannot_be_put_in_place_fails_the_fetch() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let file = dir.path().join("a-file");
+        std::fs::write(&file, b"").unwrap();
+        let size = steamgauge_core::reader::Size::named("small").unwrap();
+
+        let fetched = super::fetch_reader(size, &file.join("reader")).await;
+
+        assert!(fetched.is_err());
+    }
+
+    /// A line is said only when something was cut away.
+    #[test]
+    fn labels_on_spans_no_longer_cut_are_said_only_when_there_are_some() {
+        let said = |recut| {
+            let mut out = Vec::new();
+            super::print_recut(&mut out, recut).unwrap();
+            String::from_utf8(out).unwrap()
+        };
+        assert_eq!(said(0), "");
+        assert!(
+            said(1).starts_with("recut      1 labels name bytes this build cuts no claim at"),
+            "{}",
+            said(1)
+        );
+        assert!(said(12_345).starts_with("recut      12,345 labels"));
+    }
+
+    /// A subject with nothing drawn has no margin to show.
+    #[test]
+    fn the_margins_of_a_neighbour_draw_are_shown_for_each_subject_that_has_any() {
+        let by_subject = std::collections::BTreeMap::from([
+            ("audio", (0_usize, f32::NEG_INFINITY, f32::INFINITY)),
+            ("modding", (1_234_usize, 0.5, -0.125)),
+        ]);
+        let mut out = Vec::new();
+        super::say_margins(&mut out, &by_subject, std::path::Path::new("sets")).unwrap();
+        let said = String::from_utf8(out).unwrap();
+        let lines: Vec<&str> = said.lines().collect();
+
+        assert!(
+            lines.contains(&"  subject           drawn   widest  narrowest"),
+            "{said}"
+        );
+        assert!(lines.contains(&"  audio                 0"), "{said}");
+        assert!(
+            lines.contains(&"  modding           1,234   +0.500     -0.125"),
+            "{said}"
+        );
+        assert!(said.contains("--to sets/<app id>/retrieved"), "{said}");
+    }
+
+    /// A game that was never crawled has nothing to embed or draw from, and the command says so
+    /// before it reaches for a model, which on a first run is a download.
+    #[tokio::test]
+    async fn a_game_with_no_capture_fails_before_any_model_is_fetched() {
+        use steamgauge_core::{Encoder, model::Precision, taxonomy::Unit};
+
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let (encoder, precision) = (Encoder::default(), Precision::default());
+        // A model folder no program can make, so a build that reached for the model first fails
+        // on the folder before it could ask anybody for a file.
+        let plain = dir.path().join("plain");
+        std::fs::write(&plain, b"").unwrap();
+        let models = plain.join("models");
+        let no_capture = |result: anyhow::Result<()>| {
+            matches!(
+                result.unwrap_err().downcast_ref::<steamgauge_core::Error>(),
+                Some(steamgauge_core::Error::NoCapture { .. })
+            )
+        };
+
+        let embedded = super::run_embed(
+            5,
+            dir.path(),
+            8,
+            Some(models.clone()),
+            encoder,
+            precision,
+            Unit::Claim,
+        )
+        .await;
+        assert!(no_capture(embedded));
+
+        let drawn = super::run_rare_claims_by_neighbour(
+            &[5],
+            dir.path(),
+            10,
+            10,
+            dir.path(),
+            super::NeighbourDraw {
+                model_dir: Some(models),
+                encoder,
+                precision,
+                embed_batch: 8,
+                only: Vec::new(),
+            },
+        )
+        .await;
+        assert!(no_capture(drawn));
+
+        assert!(no_capture(super::run_distinct(5, dir.path(), 3, 1, None)));
     }
 
     mod gold {

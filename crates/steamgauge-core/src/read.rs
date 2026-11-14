@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error, Result,
+    figure_text::thousands,
     reader::{Asked, ClaimReader, Polarity, Provenance, Reading},
     taxonomy::SHEET,
 };
@@ -714,7 +715,10 @@ pub fn recount_corpus(
                 "this build takes {app_id} apart into {} claims, {} of them unanswered, \
                      where the reading counted {} and {}; the readings no longer name this \
                      build's claims, so read the game again",
-                counted.claims, counted.unclassified, earlier.claims, earlier.unclassified_claims
+                thousands(counted.claims),
+                thousands(counted.unclassified),
+                thousands(earlier.claims),
+                thousands(earlier.unclassified_claims)
             )));
         }
         counted.finish(app_id, &options, provenance)
