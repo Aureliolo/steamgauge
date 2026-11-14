@@ -461,7 +461,7 @@ impl ReturnedClaimLabel {
 }
 
 /// One label as it is stored, joined back to what was drawn.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimLabel {
     pub review_id: String,
     pub index: u16,
@@ -474,8 +474,9 @@ pub struct ClaimLabel {
     /// the sheet it was written against, boundary rules and all, and `revisit` is how the ones
     /// predating a clarification are found again. Which splitter cut the claim is not recorded:
     /// the label names the bytes, and whether this build still cuts a claim there is answered
-    /// by asking the corpus rather than by comparing two version strings.
-    #[serde(default)]
+    /// by asking the corpus rather than by comparing two version strings. Empty on a label from
+    /// before labels recorded their sheet, and then left out of the file.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub taxonomy: String,
     /// Which labeller wrote it. A set labelled by two models is not one set: they disagree
     /// with each other about as often as they disagree with the truth, and pooling them
@@ -993,6 +994,8 @@ pub type CutSpans = std::collections::HashMap<String, Cut>;
 /// a label either falls off its claim or, worse, lands on another one. So the text a review
 /// was drawn from is kept with its labels, one JSON object a line in review id order, and
 /// everything that asks what a label names reads it here rather than from a capture.
+///
+/// A review drawn before its text was kept is rebuilt from its samples ([`crate::drawn_text`]).
 pub const REVIEWS: &str = "reviews.jsonl";
 
 /// One review as it read when it was drawn.
@@ -2101,6 +2104,20 @@ mod tests {
                 .collect(),
             asked: None,
         }
+    }
+
+    #[test]
+    fn a_label_with_no_sheet_is_written_without_a_taxonomy_key() {
+        let mut label = a_label(1, "1", 0, "random", "gameplay");
+        label.taxonomy = String::new();
+        let written = serde_json::to_string(&label).unwrap();
+        assert!(!written.contains("taxonomy"), "{written}");
+        assert_eq!(serde_json::from_str::<ClaimLabel>(&written).unwrap(), label);
+
+        label.taxonomy = "a-sheet".to_owned();
+        let written = serde_json::to_string(&label).unwrap();
+        assert!(written.contains("\"taxonomy\":\"a-sheet\""), "{written}");
+        assert_eq!(serde_json::from_str::<ClaimLabel>(&written).unwrap(), label);
     }
 
     #[test]
