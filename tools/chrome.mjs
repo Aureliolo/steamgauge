@@ -45,6 +45,8 @@ const START_LIMIT_MS = 90_000;
 
 // What the page calls when it goes hidden, on every document it loads.
 const HIDDEN = 'steamgaugeCheckWentHidden';
+// Set on a page about to be reloaded, so the page that replaces it is told from it.
+const LEFT = 'steamgaugeCheckLeftForReload';
 
 /// Starts Chrome on the page, in a profile of its own, and waits for it to say which port it
 /// listens on. Throws with whatever Chrome said if it dies first.
@@ -209,7 +211,23 @@ async function connect(url) {
   await send('Runtime.enable', {});
   await send('Page.addScriptToEvaluateOnNewDocument', { source: watch });
   await send('Runtime.evaluate', { expression: watch });
-  return { asked, evaluate, send, socket };
+  // Page.reload answers once the reload has begun, while a command can still reach the page
+  // being left. A step run there writes into a page on its way out, and the new page never
+  // sees it. A mark left on the old page tells the two apart.
+  const reload = async () => {
+    await evaluate(`window.${LEFT} = true`);
+    await send('Page.reload', { ignoreCache: true });
+    for (let attempt = 0; attempt < 400; attempt += 1) {
+      // biome-ignore lint/performance/noAwaitInLoops: each poll must finish before the next is sent, since the loop waits for the page to change.
+      const there = await evaluate(`window.${LEFT} !== true && document.readyState !== 'loading'`);
+      if (there.result?.result?.value === true) {
+        return;
+      }
+      await sleep(25);
+    }
+    throw new Error('the page was never replaced by its reload');
+  };
+  return { asked, evaluate, reload, send, socket };
 }
 
 export { browser, connect, debuggerUrl, open, sleep };

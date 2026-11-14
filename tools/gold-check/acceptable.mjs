@@ -68,7 +68,13 @@ const PROBE = `(function () {
 
 const RELOADED = `(function () {
   var at = Number(/^(\\d+) of/.exec(document.querySelector('header.bar .count').textContent)[1]);
-  return at === 3 ? [] : ['a reload starts at question ' + at + ' rather than the first unanswered one'];
+  var stored = Object.keys(localStorage).map(function (k) {
+    try { return k + ' (' + Object.keys(JSON.parse(localStorage.getItem(k) || '{}')).length + ')'; }
+    catch (e) { return k; }
+  });
+  return at === 3 ? [] : ['a reload starts at question ' + at +
+    ' rather than the first unanswered one, with the browser holding ' +
+    (stored.join(', ') || 'nothing')];
 })()`;
 
 const file = resolve(process.argv[2] ?? 'sample-acceptable-gold.html');
@@ -77,13 +83,13 @@ const chrome = await open(page, { prefix: 'steamgauge-acceptable-check-' });
 
 let failed = true;
 try {
-  const { socket, send, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
-  await send('Page.reload', { ignoreCache: true });
+  const { socket, evaluate, ready, reload } = await connect(await debuggerUrl(chrome.port));
+  await reload();
   await ready();
   const wrong = (await evaluate(PROBE)).result?.result?.value ?? [
     'the page could not be driven at all',
   ];
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
   const again = (await evaluate(RELOADED)).result?.result?.value ?? [
     'the page could not be read after a reload',

@@ -615,11 +615,11 @@ const chrome = await open(page, { prefix: 'steamgauge-report-check-' });
 
 let failed = true;
 try {
-  const { socket, send, asked, evaluate } = await connect(await debuggerUrl(chrome.port));
+  const { socket, send, asked, evaluate, reload } = await connect(await debuggerUrl(chrome.port));
   // Loaded once already by the launch, before anything could watch it, so it is loaded again
   // with the network being listened to.
   await send('Network.enable', {});
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   for (let attempt = 0; attempt < 80; attempt += 1) {
     // biome-ignore lint/performance/noAwaitInLoops: a poll waits for the page to change, so each must finish before the next.
     const ready = await evaluate(

@@ -98,7 +98,7 @@ const ANSWERED = `(function () {
 const chrome = await open(served, { prefix: 'steamgauge-gold-served-' });
 let failed = true;
 try {
-  const { socket, send, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
+  const { socket, send, evaluate, ready, reload } = await connect(await debuggerUrl(chrome.port));
   await send('Network.enable', {});
   if (!(await ready())) {
     throw new Error('the served page never became answerable');
@@ -132,7 +132,7 @@ try {
   // The promise that matters: a browser that remembers nothing still picks up the work,
   // because the file is the copy and this is only a cache.
   await evaluate(FORGET);
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   if (!(await ready())) {
     throw new Error('the served page never became answerable again');
   }

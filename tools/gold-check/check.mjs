@@ -301,7 +301,10 @@ const TAKE = `(function () {
 const RELOADED = `(function () {
   var wrong = [];
   var kept = Object.keys(localStorage).filter(function (k) { return k.indexOf('steamgauge-gold') === 0; });
-  if (kept.length !== 1) { return ['answers did not survive a reload']; }
+  if (kept.length !== 1) {
+    return ['answers did not survive a reload, with the browser holding ' +
+      (Object.keys(localStorage).join(', ') || 'nothing')];
+  }
   var held = JSON.parse(localStorage.getItem(kept[0]) || '{}');
   if (Object.keys(held).length < 2) { wrong.push('answers were lost across a reload'); }
   var shown = document.querySelector('header.bar .count');
@@ -393,9 +396,11 @@ const chrome = await open(page, { prefix: 'steamgauge-gold-check-' });
 
 let failed = true;
 try {
-  const { socket, send, asked, evaluate, ready } = await connect(await debuggerUrl(chrome.port));
+  const { socket, send, asked, evaluate, ready, reload } = await connect(
+    await debuggerUrl(chrome.port),
+  );
   await send('Network.enable', {});
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
 
   const fetched = asked.filter((url) => url !== page);
@@ -405,10 +410,10 @@ try {
   const taken = (await evaluate(TAKE)).result?.result?.value ?? [
     'taking an answer could not be driven',
   ];
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
   const marks = (await evaluate(MARKS)).result?.result?.value ?? ['the marks could not be read'];
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
 
   const answer = await evaluate(PROBE);
@@ -419,12 +424,12 @@ try {
 
   // Reloading is what a reader does after closing the tab, and it is the whole reason the
   // answers are kept at all.
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
   const again = (await evaluate(RELOADED)).result?.result?.value ?? [];
 
   const saved = (await evaluate(EMPTIED)).result?.result?.value ?? null;
-  await send('Page.reload', { ignoreCache: true });
+  await reload();
   await ready();
   const restored = saved
     ? ((await evaluate(restoring(saved))).result?.result?.value ?? [
