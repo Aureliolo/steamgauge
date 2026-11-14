@@ -620,7 +620,11 @@ mod tests {
         let plain = &found[1];
         assert_eq!(plain.text_sha256, crate::embed::sha256_hex("Fine."));
         assert_eq!(
-            (plain.text_bytes, plain.censored.len(), plain.other_words.len()),
+            (
+                plain.text_bytes,
+                plain.censored.len(),
+                plain.other_words.len()
+            ),
             (5, 0, 0)
         );
     }
