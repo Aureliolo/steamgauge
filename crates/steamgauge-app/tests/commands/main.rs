@@ -8,6 +8,7 @@
 mod answers;
 mod draws;
 mod library;
+mod outside;
 mod tiny;
 
 #[cfg(windows)]
@@ -86,4 +87,116 @@ fn ran_with(folder: &Path, args: &[&str], environment: &[(&str, &str)]) -> Ran {
 fn ran(folder: &Path, args: &[&str]) -> Ran {
     assert!(!args.is_empty(), "no argument would open the window");
     ran_with(folder, args, &[])
+}
+
+/// The commands a test in this folder starts.
+const TESTED: &[&str] = &[
+    "brief",
+    "ceiling",
+    "clients",
+    "compare-labels",
+    "connect",
+    "crawl",
+    "declined",
+    "disconnect",
+    "export-data",
+    "export-pool",
+    "export-review-facts",
+    "export-training",
+    "gold",
+    "ingest-claims",
+    "ingest-gold",
+    "ingest-induced",
+    "ingest-revisit",
+    "mcp",
+    "measure-claims",
+    "rare-claims",
+    "read",
+    "recount",
+    "report",
+    "revisit",
+    "sample-claims",
+    "second-opinion",
+    "store-facts",
+    "sweep",
+    "update",
+];
+
+/// The commands no test starts, each with why.
+const UNTESTED: &[(&str, &str)] = &[
+    (
+        "embed",
+        "its encoder is a pinned download checked by hash, and the core tests `embed_corpus` on a tiny graph",
+    ),
+    (
+        "distinct",
+        "it reads the vectors only `embed` writes, and the core tests `diverse::handout`",
+    ),
+];
+
+/// The first literal of the argument slice of every `ran(`, `ran_with(` and `started(` call in
+/// `source`, which has no whitespace.
+fn started_commands(source: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    for call in ["ran(", "ran_with(", "started("] {
+        for (at, _) in source.match_indices(call) {
+            let rest = &source[at + call.len()..];
+            let Some(slice) = rest.find(",&[\"") else {
+                continue;
+            };
+            let name = &rest[slice + 4..];
+            if let Some(end) = name.find('"') {
+                found.push(&name[..end]);
+            }
+        }
+    }
+    found
+}
+
+#[test]
+fn every_command_has_a_test_or_a_reason() {
+    let names = std::thread::Builder::new()
+        .stack_size(steamgauge_app::CLI_STACK)
+        .spawn(|| {
+            steamgauge_app::reference::command()
+                .get_subcommands()
+                .map(|command| command.get_name().to_owned())
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+    let untested: Vec<&str> = UNTESTED.iter().map(|(name, _)| *name).collect();
+    assert_eq!(untested, ["embed", "distinct"]);
+    assert!(
+        UNTESTED.iter().all(|(_, why)| !why.is_empty()),
+        "an untested command needs its reason"
+    );
+    let held: std::collections::BTreeSet<String> = TESTED
+        .iter()
+        .chain(&untested)
+        .map(|name| (*name).to_owned())
+        .collect();
+    assert_eq!(held.len(), TESTED.len() + untested.len(), "in both lists");
+    assert_eq!(
+        names, held,
+        "the parser's commands against TESTED and UNTESTED"
+    );
+
+    let source: String = [
+        include_str!("library.rs"),
+        include_str!("draws.rs"),
+        include_str!("answers.rs"),
+        include_str!("outside.rs"),
+    ]
+    .concat()
+    .split_whitespace()
+    .collect();
+    let started = started_commands(&source);
+    for name in TESTED {
+        assert!(
+            started.contains(name),
+            "`{name}` is in TESTED and no test starts it"
+        );
+    }
 }
