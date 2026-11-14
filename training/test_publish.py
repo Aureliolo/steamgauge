@@ -190,7 +190,8 @@ def labelled(
 ) -> str:
     return (
         f'{{"app_id": 7, "review_id": "{review_id}", "index": {index}, "start": {start},'
-        f' "end": {end}, "subject": "bugs", "polarity": "praise", "produced_by": "{by}"}}'
+        f' "end": {end}, "subject": "bugs", "polarity": "praise", "ambiguous": false,'
+        f' "confidence": "high", "produced_by": "{by}"}}'
     )
 
 
@@ -263,6 +264,35 @@ def test_a_label_whose_bytes_hold_other_words_is_left_out_and_counted(tmp_path: 
     assert "other_words" not in facts[0]
     card = (staging / f"{publish.DATASET}.md").read_text(encoding="utf-8")
     assert "2 labels on 2 reviews are not published." in card
+
+
+def test_a_label_with_more_bytes_than_its_words_goes_up_at_the_words(tmp_path: Path) -> None:
+    _, staging = stage(
+        tmp_path,
+        [labelled("r", 0, 12)],
+        [{"review_id": "r", "tidied": [[0, 12, 0, 11]]}],
+        second=[labelled("r", 0, 12, index=1)],
+    )
+
+    spans = [
+        (row["start"], row["end"])
+        for name in ("claims.jsonl", "second-labels.jsonl")
+        for row in lines_of(staging / name)
+    ]
+    assert spans == [(0, 11), (0, 11)]
+    assert "tidied" not in lines_of(staging / "review-facts.jsonl")[0]
+
+
+def test_the_censor_runs_of_a_review_go_up_with_its_facts() -> None:
+    fact: dict[str, object] = {"review_id": "r", "text_sha256": "x", "censored": [[13, 4]]}
+
+    _, facts, _ = publish.publishable(([labelled_row("r")], [], [], []), [fact])
+
+    assert facts == [fact]
+
+
+def labelled_row(review_id: str) -> dict[str, object]:
+    return {"app_id": 7, "review_id": review_id, "index": 0, "start": 0, "end": 4}
 
 
 def test_a_gold_answer_and_its_judgement_are_left_out_together() -> None:

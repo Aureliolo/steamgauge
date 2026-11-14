@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 
 use crate::Result;
 use crate::capture::ReviewFacts;
-use crate::claims::{censored_runs, holds_words, same_words};
-use crate::claimset::{ClaimLabel, DrawnClaim, DrawnReview, REVIEWS, kept_reviews};
+use crate::claims::{censored_runs, holds_words, same_words, words_at};
+use crate::claimset::{
+    ClaimLabel, Cut, CutSpans, DrawnClaim, DrawnReview, REVIEWS, kept_reviews, reads_at,
+};
 
 /// What [`restore`] did to a game.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -176,7 +178,9 @@ pub(crate) fn label_files(game: &Path) -> Result<Vec<LabelFile>> {
 ///
 /// A label names bytes of the kept text, so that is the text a reader must be able to recover.
 /// A review with no kept text is left out. The `other_words` of each fact are the bytes of every
-/// label whose claim the kept text does not hold there, sorted and once each.
+/// label that [`reads_at`] refuses, sorted and once each. The `tidied` are the labels it takes
+/// at other bytes than the claim was drawn at, with the words' own bytes beside them: the
+/// training export writes those words, so they are what a published label should cut.
 ///
 /// # Errors
 ///
@@ -189,16 +193,40 @@ pub fn kept_facts<S: std::hash::BuildHasher>(
         Err(crate::Error::NoKeptText { .. }) => HashMap::new(),
         other => other?,
     };
+    // The same test the training export and the gold draw use, so a label is published exactly
+    // where they would use it.
+    let cuts: CutSpans = kept
+        .iter()
+        .map(|(id, review)| {
+            let cut = Cut {
+                text: review.text.clone(),
+                ..Cut::default()
+            };
+            (id.clone(), cut)
+        })
+        .collect();
     let mut listed: HashMap<String, BTreeSet<(u32, u32)>> = HashMap::new();
+    let mut tidied: HashMap<String, BTreeSet<(u32, u32, u32, u32)>> = HashMap::new();
     for file in label_files(game)? {
         for (label, claim) in &file.labels {
-            if let (Some(claim), Some(review)) = (claim, kept.get(&label.review_id))
-                && !holds_words(&review.text, label.start, label.end, &claim.text)
-            {
+            let (Some(claim), Some(review)) = (claim, kept.get(&label.review_id)) else {
+                continue;
+            };
+            let drawn_at = (claim.start, claim.end);
+            let at = (label.start, label.end);
+            if !reads_at(&cuts, label, &claim.text, drawn_at) {
                 listed
                     .entry(label.review_id.clone())
                     .or_default()
-                    .insert((label.start, label.end));
+                    .insert(at);
+            } else if drawn_at != at
+                && let Some(words) = words_at(&review.text, label.start, label.end)
+                && words != at
+            {
+                tidied
+                    .entry(label.review_id.clone())
+                    .or_default()
+                    .insert((at.0, at.1, words.0, words.1));
             }
         }
     }
@@ -210,6 +238,10 @@ pub fn kept_facts<S: std::hash::BuildHasher>(
             fact.text_bytes = review.text.len();
             fact.censored = censored_runs(&review.text);
             fact.other_words = listed
+                .remove(&fact.review_id)
+                .map(|spans| spans.into_iter().collect())
+                .unwrap_or_default();
+            fact.tidied = tidied
                 .remove(&fact.review_id)
                 .map(|spans| spans.into_iter().collect())
                 .unwrap_or_default();
@@ -660,6 +692,56 @@ mod tests {
         let found = kept_facts(game, facts_of(&["1"])).unwrap();
 
         assert_eq!(found[0].other_words, [(5, 14), (12, 20)]);
+        assert_eq!(found[0].tidied, [], "labels drawn at their own bytes are not recut");
+    }
+
+    /// A game keeping `kept` for review `1`, whose sample drew `handed` at `drawn` and whose one
+    /// label names `label`.
+    fn a_game_with_one_label(
+        game: &Path,
+        kept: &str,
+        handed: &str,
+        drawn: (u32, u32),
+        label: (u32, u32),
+    ) -> Vec<ReviewFacts> {
+        keep(game, &[("1", kept)]);
+        put(
+            &game.join("sample.json"),
+            &a_sample(&[("1", vec![claim(0, drawn.0, drawn.1, handed)])]),
+        );
+        put(
+            &game.join("labels.json"),
+            &serde_json::to_vec(&[a_label("1", 0, label.0, label.1)]).unwrap(),
+        );
+        kept_facts(game, facts_of(&["1"])).unwrap()
+    }
+
+    #[test]
+    fn a_label_on_more_words_than_its_claim_was_drawn_with_is_listed() {
+        let dir = crate::tempdir::Dir::new();
+        let found = a_game_with_one_label(
+            dir.path(),
+            "Bugs everywhere and it crashes.",
+            "Bugs everywhere",
+            (0, 15),
+            (0, 31),
+        );
+        assert_eq!(found[0].other_words, [(0, 31)]);
+        assert_eq!(found[0].tidied, []);
+    }
+
+    #[test]
+    fn a_label_with_a_comma_after_its_words_is_published_at_the_words() {
+        let dir = crate::tempdir::Dir::new();
+        let found = a_game_with_one_label(dir.path(), "Fun to Play,", "Fun to Play", (0, 11), (0, 12));
+        assert_eq!(found[0].other_words, []);
+        let (_, _, start, end) = found[0].tidied[0];
+        assert_eq!(
+            &"Fun to Play,"[usize::try_from(start).unwrap()..usize::try_from(end).unwrap()],
+            "Fun to Play",
+            "the published bytes cut the words the training export writes"
+        );
+        assert_eq!(found[0].tidied, [(0, 12, 0, 11)]);
     }
 
     #[test]

@@ -148,6 +148,9 @@ REVIEW_FIELDS = {
     "text_bytes",
     "censored",
 }
+# What `export-review-facts` writes beside the published fields, for this script to act on. The
+# kept text decides which labels go up and at which bytes, and neither list goes up itself.
+UNPUBLISHED_FACTS = {"other_words", "tidied"}
 
 
 def kappa(pairs: list[tuple[str, str]]) -> float:
@@ -590,19 +593,31 @@ def publishable(read: Labels, reviews: list[Row]) -> tuple[Labels, list[Row], li
 
     A label goes up only where its review has facts, and its bytes are not among the facts'
     `other_words`, since the kept text does not hold the words its labeller read there. A
-    judgement goes with its gold answer. A review with no label left has its facts left out too,
-    and `other_words` is never published.
+    judgement goes with its gold answer. A review with no label left has its facts left out too.
+    A label whose bytes carry more than its words (the facts' `tidied`) goes up at the words, as
+    the training export reads it. Neither list is ever published.
     """
     rows, again, gold, acceptable = read
     spans = {
         fact["review_id"]: {tuple(span) for span in fact.get("other_words", ())} for fact in reviews
+    }
+    words = {
+        (fact["review_id"], *span[:2]): span[2:]
+        for fact in reviews
+        for span in map(tuple, fact.get("tidied", ()))
     }
 
     def left_out(label: Row) -> bool:
         listed = spans.get(label["review_id"])
         return listed is None or (label.get("start"), label.get("end")) in listed
 
-    kept = [[label for label in group if not left_out(label)] for group in (rows, again, gold)]
+    def at_words(label: Row) -> Row:
+        found = words.get((label["review_id"], label.get("start"), label.get("end")))
+        return label if found is None else {**label, "start": found[0], "end": found[1]}
+
+    kept = [
+        [at_words(label) for label in group if not left_out(label)] for group in (rows, again, gold)
+    ]
     lost = [label for group in (rows, again, gold) for label in group if left_out(label)]
     answers_gone = {
         (label.get("app_id"), label["review_id"], label.get("index"), label.get("produced_by"))
@@ -622,7 +637,7 @@ def publishable(read: Labels, reviews: list[Row]) -> tuple[Labels, list[Row], li
     ]
     published = {label["review_id"] for group in kept for label in group}
     facts = [
-        {name: value for name, value in fact.items() if name != "other_words"}
+        {name: value for name, value in fact.items() if name not in UNPUBLISHED_FACTS}
         for fact in reviews
         if fact["review_id"] in published
     ]
@@ -880,7 +895,7 @@ def _check_rows(read: Labels, reviews: list[Row]) -> None:
         (again, LABEL_FIELDS, "second labels"),
         (gold, LABEL_FIELDS, "gold answers"),
         (acceptable, JUDGEMENT_FIELDS, "judgements"),
-        (reviews, REVIEW_FIELDS | {"other_words"}, "review facts"),
+        (reviews, REVIEW_FIELDS | UNPUBLISHED_FACTS, "review facts"),
     ):
         checked(found, fields, f"the {what}")
     # A label written before labels recorded their sheet holds either nothing or an empty

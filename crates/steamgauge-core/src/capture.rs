@@ -992,8 +992,13 @@ pub struct ReviewFacts {
     /// character and its length, in characters. The web API returns those words.
     pub censored: Vec<(u32, u32)>,
     /// The `start` and `end` of each label on the review whose words the kept text does not hold
-    /// at those bytes. Such a label is not published, and neither is this list.
+    /// at its bytes, as the training export reads them. Such a label is not published, and
+    /// neither is this list.
     pub other_words: Vec<(u32, u32)>,
+    /// Each label on the review whose bytes carry more than its words (a bullet, a tag, a comma
+    /// after the last word): its `start` and `end`, then those of the words. A published label
+    /// names the words. This list is not published either.
+    pub tidied: Vec<(u32, u32, u32, u32)>,
 }
 
 /// The [`ReviewFacts`] of the reviews named, from the copy of each that counts.
@@ -1095,6 +1100,7 @@ pub fn facts_for<S: std::hash::BuildHasher + Sync>(
                     text_bytes: text.len(),
                     censored: Vec::new(),
                     other_words: Vec::new(),
+                    tidied: Vec::new(),
                 },
             ));
         }
@@ -1507,7 +1513,7 @@ mod tests {
             crate::embed::sha256_hex("Crashes on launch. ünïcode")
         );
         assert_eq!(one.text_bytes, "Crashes on launch. ünïcode".len());
-        assert!(one.censored.is_empty() && one.other_words.is_empty());
+        assert!(one.censored.is_empty() && one.other_words.is_empty() && one.tidied.is_empty());
         let written = serde_json::to_string(one).unwrap();
         for private in ["Crashes", "76561198000000000", "9000", "400"] {
             assert!(
