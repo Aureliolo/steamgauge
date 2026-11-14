@@ -73,6 +73,44 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+; How long a held file is waited for, in rounds of STEAMGAUGE_PATIENCE_STEP milliseconds: a
+; minute, for the setup program and the uninstaller alike.
+!define STEAMGAUGE_PATIENCE_ROUNDS 240
+!define STEAMGAUGE_PATIENCE_STEP 250
+
+; The rounds an uninstall has waited so far. Everything it removes shares the one minute, so
+; several held files cannot add up to several.
+Var SteamGaugeWaited
+
+; Removes a file or a folder with all in it. A process the uninstaller has just ended still holds
+; its program and DLLs until Windows has torn it down, and a scanner may be reading a program
+; just written, so a removal that fails is tried again until it works or the patience runs out.
+; What is still held then is handed to Windows to remove at the next restart, which sets the
+; reboot flag NSIS_HOOK_POSTUNINSTALL reports. The uninstaller's log names each path once,
+; however often it was tried.
+!macro SteamGaugeRemove path
+  ${Do}
+    ${If} ${FileExists} "${path}\*"
+      RMDir /r "${path}"
+    ${Else}
+      Delete "${path}"
+    ${EndIf}
+    SetDetailsPrint none
+    ${IfNot} ${FileExists} "${path}"
+    ${OrIf} $SteamGaugeWaited >= ${STEAMGAUGE_PATIENCE_ROUNDS}
+      ${Break}
+    ${EndIf}
+    IntOp $SteamGaugeWaited $SteamGaugeWaited + 1
+    Sleep ${STEAMGAUGE_PATIENCE_STEP}
+  ${Loop}
+  SetDetailsPrint both
+  ${If} ${FileExists} "${path}\*"
+    RMDir /r /REBOOTOK "${path}"
+  ${ElseIf} ${FileExists} "${path}"
+    Delete /REBOOTOK "${path}"
+  ${EndIf}
+!macroend
+
 ; Tauri's setup program copies the program over the installed one, and when that copy fails in a
 ; silent install it carries on: the new libraries land beside the old program and the setup
 ; reports success. A file that can be neither written nor moved, held by a scanner reading a
@@ -98,7 +136,7 @@ FunctionEnd
       ${Break}
     ${EndIf}
     IntOp $R9 $R9 + 1
-    ${If} $R9 >= 240
+    ${If} $R9 >= ${STEAMGAUGE_PATIENCE_ROUNDS}
       FindFirst $R4 $R3 "$INSTDIR\replaced\$R7\*"
       ${DoWhile} $R3 != ""
         ${If} $R3 != "."
@@ -113,7 +151,7 @@ FunctionEnd
       SetErrorLevel 5
       Abort "$INSTDIR\${MAINBINARYNAME}.exe or a DLL beside it is held open by another program and cannot be replaced."
     ${EndIf}
-    Sleep 250
+    Sleep ${STEAMGAUGE_PATIENCE_STEP}
   ${Loop}
 !macroend
 
@@ -128,8 +166,10 @@ FunctionEnd
 !macroend
 
 ; An assistant may still run a copy an install moved aside. Uninstalling closes it as Tauri's check
-; closes the installed one, and then the folder can go.
-!macro NSIS_HOOK_POSTUNINSTALL
+; closes the installed one. That check stops the uninstall where the person refuses or the copy
+; cannot be ended, so it runs before anything is removed: the entry in Apps is still there to
+; uninstall from again.
+!macro NSIS_HOOK_PREUNINSTALL
   FindFirst $R4 $R5 "$INSTDIR\replaced\*"
   ${DoWhile} $R5 != ""
     ${If} ${FileExists} "$INSTDIR\replaced\$R5\${MAINBINARYNAME}.exe"
@@ -138,6 +178,27 @@ FunctionEnd
     FindNext $R4 $R5
   ${Loop}
   FindClose $R4
-  RMDir /r "$INSTDIR\replaced"
-  RMDir "$INSTDIR"
+!macroend
+
+; By now the entry in Apps is gone, so a folder left here can never be uninstalled again. Where
+; a file was held past the patience, the folder is handed to Windows with it and the uninstall
+; says so. Windows takes a removal at the next restart from an administrator alone. From one the
+; uninstall ends with Windows' own code for a restart being needed, 3010, and from anyone else
+; with 5, the folder being theirs to delete.
+!macro NSIS_HOOK_POSTUNINSTALL
+  !insertmacro SteamGaugeRemove "$INSTDIR\replaced"
+  ${If} ${RebootFlag}
+    RMDir /REBOOTOK "$INSTDIR"
+    UserInfo::GetAccountType
+    Pop $R5
+    ${If} $R5 == "Admin"
+      DetailPrint "Another program holds files in $INSTDIR open. Windows removes them at the next restart."
+      SetErrorLevel 3010
+    ${Else}
+      DetailPrint "Another program holds files in $INSTDIR open. Close it, then delete the folder."
+      SetErrorLevel 5
+    ${EndIf}
+  ${Else}
+    RMDir "$INSTDIR"
+  ${EndIf}
 !macroend

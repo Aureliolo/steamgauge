@@ -859,11 +859,12 @@ Section Uninstall
 
   ; Delete the app directory and its content from disk
   ; Copy main executable
-  Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  ; SteamGauge: the program and the DLLs among the resources may still be held by what was just ended.
+  !insertmacro SteamGaugeRemove "$INSTDIR\${MAINBINARYNAME}.exe"
 
   ; Delete resources
   {{#each resources}}
-    Delete "$INSTDIR\\{{this.[1]}}"
+    !insertmacro SteamGaugeRemove "$INSTDIR\\{{this.[1]}}"
   {{/each}}
 
   ; Delete external binaries

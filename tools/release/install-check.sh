@@ -274,19 +274,23 @@ case "${target}" in
     # replaces it; past the setup's minute of patience, it stops with an error and copies nothing,
     # rather than leaving new libraries beside the old program. A PowerShell that holds the program
     # open, sharing it for reading alone, stands in for the scanner. The installed program is
-    # marked first, so whether it was replaced can be told from its bytes.
+    # marked first, so whether it was replaced can be told from its bytes. The stand-in says when
+    # it holds the file by writing a file of its own: a DLL a running program has loaded cannot
+    # be written before it is held either, so trying to write tells nothing.
     hold() {
-      powershell -NoProfile -Command "\$held = [IO.File]::Open('$(cygpath -w "${program}")', 'Open', 'Read', 'Read'); Start-Sleep $1; \$held.Close()" &
+      local file="$1" held waited=0
+      held="$(mktemp -u)"
+      powershell -NoProfile -Command "\$ErrorActionPreference = 'Stop'; \$held = [IO.File]::Open('$(cygpath -w "${file}")', 'Open', 'Read', 'Read'); Set-Content '$(cygpath -w "${held}")' held; Start-Sleep $2; \$held.Close()" &
       holder=$!
-      local waited=0
-      while { : >> "${program}"; } 2>/dev/null; do
+      until [[ -e "${held}" ]]; do
         if [[ "${waited}" -ge 30 ]]; then
-          echo "The stand-in for a scanner did not hold the program within 30 seconds." >&2
+          echo "The stand-in for a scanner did not hold ${file} within 30 seconds." >&2
           exit 1
         fi
         sleep 1
         waited=$((waited + 1))
       done
+      rm -f "${held}"
     }
     # Nothing but the stand-in may hold the program, so a write refused here is not the setup's to
     # answer for. Either way, what held it is named.
@@ -298,7 +302,7 @@ case "${target}" in
       fi
     }
     mark
-    hold 10
+    hold "${program}" 10
     step "Installing silently over a program unwritable for ten seconds" "${setup}" //S
     wait "${holder}"
     if [[ "$(sha256sum "${program}" | cut -d' ' -f1)" != "${shipped}" ]]; then
@@ -308,7 +312,7 @@ case "${target}" in
     echo "The setup program waited for the program to be writable and replaced it."
     mark
     marked="$(sha256sum "${program}" | cut -d' ' -f1)"
-    hold 90
+    hold "${program}" 90
     echo "::group::Installing silently over a program unwritable past the setup's patience"
     refused=0
     "${setup}" //S || refused=$?
@@ -330,27 +334,41 @@ case "${target}" in
     fi
     # The uninstall a quiet uninstaller such as winget runs is the one the setup program
     # registered, so that is the one checked, and then run, with an assistant still running a
-    # copy an install moved aside, which uninstalling closes and removes too.
+    # copy an install moved aside, which uninstalling closes and removes too. The uninstaller asks
+    # Windows what holds each program and waits for that to end, but not what holds the DLLs
+    # beside it. So a stand-in holds a DLL moved aside and the installed one for ten seconds, as a
+    # scanner would or a copy just ended that Windows has not torn down yet, and the uninstaller
+    # has to wait for both to remove the folder.
     same "The quiet uninstall the setup program registered" \
       "$(powershell_value "(Get-ItemProperty '${entry}').QuietUninstallString")" "\"${folder}\\uninstall.exe\" /S"
     assistant
     step "Installing silently with an assistant's copy running" "${setup}" //S
-    test -d "${home}/replaced" || { echo "Installing moved nothing aside from the assistant's copy." >&2; exit 1; }
-    step "Uninstalling silently" "${home}/uninstall.exe" //S
+    moved=("${home}"/replaced/*/DirectML.dll)
+    test -f "${moved[0]}" || { echo "Installing moved nothing aside from the assistant's copy." >&2; exit 1; }
+    hold "${moved[0]}" 10
+    holding_moved="${holder}"
+    hold "${home}/DirectML.dll" 10
+    step "Uninstalling silently with two DLLs held for ten seconds" "${home}/uninstall.exe" //S
     # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
     # the files are gone; and it removes the files before the entry in Apps, so both are waited
     # for, or the entry is read in the moment between them.
     for _ in $(seq 60); do
       listed="$(powershell_value "Test-Path '${entry}'")"
-      [[ -e "${home}/steamgauge.exe" || -e "${home}/replaced" || "${listed}" != False ]] || break
+      [[ -e "${home}" || "${listed}" != False ]] || break
       sleep 2
     done
+    wait "${holding_moved}" "${holder}"
     same "What runs from ${folder} after uninstalling" "$(started_from assistants)$(started_from window)" ""
-    same "Whether uninstalling left ${home}" "$(there "${home}")" no
     # The input each assistant's copy was given, which outlives the copy.
     jobs -p | xargs -r kill 2>/dev/null || true
     if [[ -e "${home}/steamgauge.exe" ]]; then
       echo "Uninstalling left ${home}/steamgauge.exe behind." >&2
+      ls -laR "${home}" >&2
+      exit 1
+    fi
+    if [[ -e "${home}" ]]; then
+      echo "Uninstalling left ${home} behind." >&2
+      ls -laR "${home}" >&2
       exit 1
     fi
     same "Whether uninstalling left its entry in Apps" "$(powershell_value "Test-Path '${entry}'")" False
