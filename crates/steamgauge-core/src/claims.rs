@@ -701,26 +701,42 @@ fn without_markup(piece: &str) -> String {
 /// Whether the bytes of `text` from `start` to `end` are the claim `handed`.
 ///
 /// A form's claim is handed out as its heading and its answer, so the words are sought in order.
-/// A censor mark in them stands for any one character ([`same_words`]). Words of the claim's own
-/// length are compared as bytes. False where the span is empty, runs past the text or starts or
-/// ends inside a character.
+/// A censor mark in them stands for any one character ([`same_words`]), and white space of any
+/// kind parts two words. False where the span is empty, runs past the text or starts or ends
+/// inside a character.
 pub(crate) fn holds_words(text: &str, start: u32, end: u32, handed: &str) -> bool {
+    bytes_at(text, start, end).is_some_and(|bytes| {
+        if bytes == handed {
+            return true;
+        }
+        let clean = without_markup(bytes);
+        let mut written = clean.split_whitespace();
+        handed
+            .split_whitespace()
+            .all(|word| written.any(|own| same_words(word, own)))
+    })
+}
+
+/// Whether the bytes of `text` from `start` to `end` are the claim `handed` and hold no word
+/// it lacks.
+///
+/// A claim drawn again under a finer cut can be the first words of the claim a label names, and
+/// [`holds_words`] alone would take it for that claim.
+pub(crate) fn holds_only_words(text: &str, start: u32, end: u32, handed: &str) -> bool {
+    holds_words(text, start, end, handed)
+        && bytes_at(text, start, end).is_some_and(|bytes| {
+            without_markup(bytes).split_whitespace().count() == handed.split_whitespace().count()
+        })
+}
+
+/// The bytes of `text` from `start` to `end`, or `None` where the span is empty, runs past the
+/// text or starts or ends inside a character.
+fn bytes_at(text: &str, start: u32, end: u32) -> Option<&str> {
     let (Ok(start), Ok(end)) = (usize::try_from(start), usize::try_from(end)) else {
-        return false;
+        return None;
     };
-    // `is_char_boundary` is false past the end of the text, so a span running past it ends here.
-    if start >= end || !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-        return false;
-    }
-    let bytes = &text[start..end];
-    if bytes.len() == handed.len() {
-        return bytes == handed;
-    }
-    let clean = without_markup(bytes);
-    let mut written = clean.split_whitespace();
-    handed
-        .split_whitespace()
-        .all(|word| written.any(|own| same_words(word, own)))
+    // `get` is `None` past the end of the text and inside a character.
+    (start < end).then(|| text.get(start..end)).flatten()
 }
 
 /// Whether a terminator sits inside a web address, where "?" starts a query string and "."
@@ -2563,5 +2579,42 @@ mod tests {
     fn an_empty_span_holds_no_claim() {
         assert!(!holds_words("Good.", 2, 2, ""));
         assert!(holds_words("Good.", 0, 1, "G"));
+    }
+
+    #[test]
+    fn a_line_break_where_a_space_was_handed_out_holds_the_same_words() {
+        assert!(holds_words("Great\ngame.", 0, 11, "Great game."));
+        assert!(!holds_words("Great\ngame.", 0, 11, "Great gave."));
+    }
+
+    #[test]
+    fn the_first_words_of_a_claim_are_not_the_claim_alone() {
+        let review = "Bugs everywhere and it crashes.";
+        assert!(holds_words(review, 0, 31, "Bugs everywhere"));
+        assert!(!holds_only_words(review, 0, 31, "Bugs everywhere"));
+        assert!(holds_only_words(
+            review,
+            0,
+            31,
+            "Bugs everywhere and it crashes."
+        ));
+        assert!(holds_only_words(
+            "[b]Bugs[/b] everywhere.",
+            0,
+            23,
+            "Bugs everywhere."
+        ));
+        assert!(!holds_only_words(
+            review,
+            0,
+            40,
+            "Bugs everywhere and it crashes."
+        ));
+        assert!(!holds_only_words(
+            review,
+            0,
+            31,
+            "Bugs everywhere and it crashed."
+        ));
     }
 }

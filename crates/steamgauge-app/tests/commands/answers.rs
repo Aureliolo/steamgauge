@@ -372,8 +372,7 @@ fn ingest_gold_says_which_answers_name_a_claim_the_set_does_not_have() {
     );
     assert_eq!(done.code, 0, "{}", done.err);
     for line in [
-        "       27  1 answers name a claim this set does not have, or one whose words the kept \
-         review does not hold at its bytes",
+        "       27  1 answers name a claim this set does not have",
         "gold       1 claims by one",
     ] {
         assert!(has_line(&done.out, line), "{line}\n{}", done.out);
@@ -698,7 +697,7 @@ fn export_training_counts_a_label_whose_words_are_not_at_its_bytes() {
 }
 
 #[test]
-fn ingest_gold_refuses_an_answer_whose_words_are_not_at_the_label_s_bytes() {
+fn ingest_gold_files_an_answer_on_the_words_the_page_showed() {
     let dir = Dir::new();
     let (_, reference) = labelled(dir.path());
     let answers = dir.path().join("answers.json");
@@ -717,40 +716,30 @@ fn ingest_gold_refuses_an_answer_whose_words_are_not_at_the_label_s_bytes() {
     )
     .unwrap();
 
-    let ingest = || {
-        ran(
-            dir.path(),
-            &[
-                "ingest-gold",
-                "--from",
-                text(&answers),
-                "--reference",
-                text(&reference),
-            ],
-        )
-    };
-    let clean = ingest();
-    assert_eq!(clean.code, 0, "{}", clean.err);
-    assert!(!clean.out.contains("answers name a claim"), "{}", clean.out);
-
+    // The page shows the kept text at the label's bytes, so the answer is about those words
+    // even where the labeller was handed others.
     hand_out_other_words(&reference, HELD_OUT, "2701");
-    let done = ingest();
-    assert_eq!(done.code, 0, "{}", done.err);
-    let refused = "27  1 answers name a claim this set does not have, or one whose words the \
-                   kept review does not hold at its bytes";
-    assert!(
-        has_fields(&done.out, &refused.split_whitespace().collect::<Vec<_>>()),
-        "{}",
-        done.out
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-gold",
+            "--from",
+            text(&answers),
+            "--reference",
+            text(&reference),
+        ],
     );
+    assert_eq!(done.code, 0, "{}", done.err);
+    assert!(!done.out.contains("answers name a claim"), "{}", done.out);
     assert!(
         has_fields(
             &done.out,
-            &["27", "0", "adjudicated,", "1", "held", "for", "one"]
+            &["27", "1", "adjudicated,", "1", "held", "for", "one"]
         ),
         "{}",
         done.out
     );
+    assert_eq!(array(&answers).len(), 1, "the answer left its file");
 }
 
 #[test]

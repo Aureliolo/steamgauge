@@ -743,7 +743,7 @@ pub fn draw_revisit(
                             .get(&(review.id.as_str(), claim.index))
                             .is_some_and(|label| {
                                 cut_at(cut, label).is_some()
-                                    && reads_at(cut, label, &claim.text)
+                                    && reads_at(cut, label, &claim.text, (claim.start, claim.end))
                                     && questions.iter().any(|question| {
                                         question.asks(review.app_id, label, &claim.text)
                                     })
@@ -1176,17 +1176,29 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
 }
 
 /// Whether the review's kept text holds `handed`, the words a labeller was given, at the bytes
-/// the label names.
+/// the label names. `drawn_at` is where the handout drew them.
 ///
 /// A label is joined to its words by the index in a handout and to its place by bytes. Where
 /// the review was edited after its draw, or the set was drawn again under another cut, the two
-/// name different claims, and a row, a question or an answer built from both is about neither.
-/// False where the review has no kept text. The words are compared as a labeller was handed
-/// them: markup skipped, and a censor mark standing for any one character.
+/// name different claims, and a row or a question built from both is about neither. False
+/// where the review has no kept text. The words are compared as a labeller was handed them:
+/// markup skipped, and a censor mark standing for any one character. A claim drawn at other
+/// bytes than the label names must hold every word there, since a claim drawn again under a
+/// finer cut can be the first words of the label's.
 #[must_use]
-pub fn reads_at(cut: &CutSpans, label: &ClaimLabel, handed: &str) -> bool {
+pub fn reads_at(
+    cut: &CutSpans,
+    label: &ClaimLabel,
+    handed: &str,
+    drawn_at: crate::claims::Span,
+) -> bool {
     cut.get(label.review_id.as_str()).is_some_and(|review| {
-        crate::claims::holds_words(&review.text, label.start, label.end, handed)
+        let holds = if drawn_at == (label.start, label.end) {
+            crate::claims::holds_words
+        } else {
+            crate::claims::holds_only_words
+        };
+        holds(&review.text, label.start, label.end, handed)
     })
 }
 
@@ -1735,6 +1747,8 @@ pub struct LabelledClaim {
     /// measurable error attributed to the model.
     pub review: String,
     pub review_offset: usize,
+    /// The bytes the handout drew the claim at.
+    pub drawn_at: crate::claims::Span,
 }
 
 /// What a second labeller said about the claims of one set, from whichever reading holds each.
@@ -1839,13 +1853,13 @@ fn labelled_claims_cut(
         // The claim, and where it starts in the review around it. Searching for the text
         // instead would find the first copy of "Great game." in a review that says it twice,
         // and centre the window on the wrong half of the review.
-        let mut text: std::collections::HashMap<(&str, u16), (&str, usize)> =
+        let mut text: std::collections::HashMap<(&str, u16), (&DrawnClaim, usize)> =
             std::collections::HashMap::new();
         let mut around: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
         for review in &drawn {
             let mut at = 0;
             for claim in &review.claims {
-                text.insert((review.id.as_str(), claim.index), (claim.text.as_str(), at));
+                text.insert((review.id.as_str(), claim.index), (claim, at));
                 at += claim.text.len() + 1;
             }
             around.insert(review.id.as_str(), rejoined(review));
@@ -1857,7 +1871,8 @@ fn labelled_claims_cut(
             };
             let second = again.remove(&(label.review_id.clone(), claim_span(cut, &label)));
             found.push(LabelledClaim {
-                text: claim.to_owned(),
+                text: claim.text.clone(),
+                drawn_at: (claim.start, claim.end),
                 review: around
                     .get(label.review_id.as_str())
                     .cloned()
@@ -2019,7 +2034,7 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
         }
         if !cuts
             .get(&label.app_id)
-            .is_some_and(|cut| reads_at(cut, label, &claim.text))
+            .is_some_and(|cut| reads_at(cut, label, &claim.text, claim.drawn_at))
         {
             report.other_words += 1;
             continue;
@@ -2357,6 +2372,7 @@ mod tests {
             text: "The combat is superb.".to_owned(),
             review: "The combat is superb.".to_owned(),
             review_offset: 0,
+            drawn_at: (0, 21),
             again: again.map(|subject| ClaimLabel {
                 subject: subject.to_owned(),
                 ..a_label(1, "r1", 0, "second", subject)
@@ -3808,6 +3824,7 @@ mod tests {
             text: "The combat is superb.".to_owned(),
             review: "The combat is superb.".to_owned(),
             review_offset: 0,
+            drawn_at: (0, 21),
             again: None,
             label: a_label(1, "r1", 0, subset, subject),
         };
@@ -3902,18 +3919,51 @@ mod tests {
     #[test]
     fn words_handed_out_without_their_markup_still_read_at_their_bytes() {
         let cut = cut_of("[b]Great[/b] game.");
-        assert!(reads_at(&cut, &on(0, 18), "Great game."));
-        assert!(!reads_at(&cut, &on(0, 18), "Great fun."));
-        assert!(!reads_at(&cut, &on(0, 40), "Great game."));
-        assert!(!reads_at(&CutSpans::new(), &on(0, 18), "Great game."));
+        assert!(reads_at(&cut, &on(0, 18), "Great game.", (0, 18)));
+        assert!(!reads_at(&cut, &on(0, 18), "Great fun.", (0, 18)));
+        assert!(!reads_at(&cut, &on(0, 40), "Great game.", (0, 40)));
+        assert!(!reads_at(
+            &CutSpans::new(),
+            &on(0, 18),
+            "Great game.",
+            (0, 18)
+        ));
     }
 
     #[test]
     fn a_censored_claim_handed_out_without_its_markup_reads_at_plain_words() {
         let cut = cut_of("Damn [i]good[/i].");
         let hearts = "\u{2665}\u{2665}\u{2665}\u{2665}";
-        assert!(reads_at(&cut, &on(0, 17), &format!("{hearts} good.")));
-        assert!(!reads_at(&cut, &on(0, 17), &format!("{hearts} fine.")));
+        assert!(reads_at(
+            &cut,
+            &on(0, 17),
+            &format!("{hearts} good."),
+            (0, 17)
+        ));
+        assert!(!reads_at(
+            &cut,
+            &on(0, 17),
+            &format!("{hearts} fine."),
+            (0, 17)
+        ));
+    }
+
+    #[test]
+    fn a_claim_drawn_again_as_the_first_words_of_a_label_does_not_read_at_its_bytes() {
+        let cut = cut_of("Bugs everywhere and it crashes. The music is lovely.");
+        let bugs = on(0, 31);
+        assert!(
+            !reads_at(&cut, &bugs, "Bugs everywhere", (0, 15)),
+            "a finer cut drew the first words alone"
+        );
+        assert!(
+            reads_at(&cut, &bugs, "Bugs everywhere", (0, 31)),
+            "a claim drawn at the label's bytes may leave words out, as a form's does"
+        );
+        assert!(
+            reads_at(&cut, &bugs, "Bugs everywhere and it crashes.", (0, 33)),
+            "a claim drawn at other bytes that holds every word is the label's"
+        );
     }
 
     #[test]
