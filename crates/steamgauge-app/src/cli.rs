@@ -1831,6 +1831,7 @@ fn run_export_training(from: &Path, to: &Path) -> Result<()> {
             thousands(report.recut as u64)
         );
     }
+    print_other_words(&mut std::io::stdout(), report.other_words)?;
     if report.measured_on > 0 {
         println!(
             "{} teaching rows held back for sitting on {}, which the model is measured on \
@@ -2636,6 +2637,7 @@ fn say_what_was_drawn(
         );
     }
     print_recut(&mut std::io::stdout(), found.recut)?;
+    print_other_words(&mut std::io::stdout(), found.other_words)?;
     if found.mistagged > 0 {
         println!(
             "mistagged  {} claims are written in a script their Steam language tag does not \
@@ -2653,6 +2655,19 @@ fn print_recut(out: &mut impl std::io::Write, recut: usize) -> std::io::Result<(
             "recut      {} labels name bytes this build cuts no claim at, so what they \
              were written about is not something anybody would be handed now",
             thousands(recut as u64)
+        )?;
+    }
+    Ok(())
+}
+
+fn print_other_words(out: &mut impl std::io::Write, other_words: usize) -> std::io::Result<()> {
+    if other_words > 0 {
+        writeln!(
+            out,
+            "{} rows held back because the kept review does not hold their words at the bytes \
+             the label names: the review was edited after its draw, or the set was drawn again \
+             under another cut",
+            thousands(other_words as u64)
         )?;
     }
     Ok(())

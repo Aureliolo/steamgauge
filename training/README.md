@@ -109,7 +109,8 @@ Every run writes `runs/<id>/`, the only evidence a published figure has:
   the held-out set. `export.py --lines-from` writes them into `reader.json`.
 - **Out-of-game answers.** Every training claim is answered by a model that never saw its game.
 - **`export-training` runs right before training.** It holds back labels at spans this build no
-  longer cuts, and teaching rows from games outside training.
+  longer cuts, and teaching rows from games outside training. It also holds back a label whose
+  words are not at its bytes in the kept text.
 - **Duplicate claims.** A second copy of a claim becomes that claim's second answer.
 - **`--card-share`** rests after each batch, and `--card-memory` holds the run to a size.
 - **`--cuda-graphs`** replays the passes so the card does not wait on Python.

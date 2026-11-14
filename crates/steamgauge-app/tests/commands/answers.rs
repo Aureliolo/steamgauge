@@ -646,6 +646,102 @@ fn export_training_writes_every_labelled_claim() {
     );
 }
 
+/// Hands review `id` of game `app_id` out as other words than its kept text holds at its label.
+fn hand_out_other_words(reference: &Path, app_id: u32, id: &str) {
+    let sample = reference.join(app_id.to_string()).join("sample.json");
+    let mut drawn: Vec<Value> = array(&sample);
+    for review in &mut drawn {
+        if review["id"] == id {
+            review["claims"][0]["text"] = json!("Nothing the review says.");
+        }
+    }
+    std::fs::write(&sample, serde_json::to_vec(&drawn).unwrap()).unwrap();
+}
+
+#[test]
+fn export_training_counts_a_label_whose_words_are_not_at_its_bytes() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let to = dir.path().join("training").join("claims.jsonl");
+    let export = || {
+        ran(
+            dir.path(),
+            &[
+                "export-training",
+                "--from",
+                text(&reference),
+                "--to",
+                text(&to),
+            ],
+        )
+    };
+    let clean = export();
+    assert_eq!(clean.code, 0, "{}", clean.err);
+    assert!(
+        !clean.out.contains("does not hold their words"),
+        "{}",
+        clean.out
+    );
+
+    hand_out_other_words(&reference, TRAINED, "501");
+    let done = export();
+    assert_eq!(done.code, 0, "{}", done.err);
+    let written = format!("5 labelled claims -> {}", to.display());
+    let held = "1 rows held back because the kept review does not hold their words at the bytes \
+                the label names: the review was edited after its draw, or the set was drawn \
+                again under another cut";
+    for line in [written.as_str(), held] {
+        assert!(has_line(&done.out, line), "{line}\n{}", done.out);
+    }
+    assert!(rows(&to).iter().all(|row| row["review_id"] != "501"));
+}
+
+#[test]
+fn ingest_gold_files_an_answer_on_the_words_the_page_showed() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let answers = dir.path().join("answers.json");
+    std::fs::write(
+        &answers,
+        serde_json::to_vec(&[json!({
+            "app_id": HELD_OUT,
+            "review_id": "2701",
+            "index": 0,
+            "subject": "bugs",
+            "polarity": "complaint",
+            "sheet": steamgauge_core::taxonomy::sheet(),
+            "by": "one",
+        })])
+        .unwrap(),
+    )
+    .unwrap();
+
+    // The page shows the kept text at the label's bytes, so the answer is about those words
+    // even where the labeller was handed others.
+    hand_out_other_words(&reference, HELD_OUT, "2701");
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-gold",
+            "--from",
+            text(&answers),
+            "--reference",
+            text(&reference),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    assert!(!done.out.contains("answers name a claim"), "{}", done.out);
+    assert!(
+        has_fields(
+            &done.out,
+            &["27", "1", "adjudicated,", "1", "held", "for", "one"]
+        ),
+        "{}",
+        done.out
+    );
+    assert_eq!(array(&answers).len(), 1, "the answer left its file");
+}
+
 #[test]
 fn export_review_facts_writes_the_labelled_reviews_alone() {
     let dir = Dir::new();

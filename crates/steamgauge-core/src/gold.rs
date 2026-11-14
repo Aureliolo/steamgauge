@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Error, Result,
-    claimset::{ClaimLabel, DrawnReview},
+    claimset::{ClaimLabel, DrawnClaim, DrawnReview},
     measure::{Role, SPLIT_SEED, role},
     taxonomy::SHEET,
 };
@@ -136,6 +136,10 @@ pub struct GoldDraw {
     /// words are still in the review and the label is not wrong about them, but there is no
     /// claim there any more to adjudicate and no reading that could be joined to the answer.
     pub recut: usize,
+    /// Claims held back because the kept text does not hold the words their labeller was handed
+    /// at the bytes the label names: a review edited after its draw, or a set drawn again under
+    /// another cut.
+    pub other_words: usize,
     /// Claims held back because they are written in a script the language they are tagged
     /// with does not use. The language filter reads Steam's tag, which is the reviewer's
     /// account setting and not the text: a review tagged English and written in Hangul was
@@ -159,22 +163,25 @@ impl GoldDraw {
     ///
     /// Nothing anybody can adjudicate is not a hard question, it is a broken one. It costs
     /// the person the same time as a real claim and the answer it collects is worth nothing
-    /// either way. Three shapes: a template option its author left blank, a claim written in
-    /// a script its tag does not use where a language was asked for, and a span this build
-    /// cuts no claim at.
+    /// either way. Four shapes: a template option its author left blank, a claim written in
+    /// a script its tag does not use where a language was asked for, a span this build cuts no
+    /// claim at, and a span whose kept words are not the ones the labeller was handed.
     fn holds_back(
         &mut self,
         label: &ClaimLabel,
-        text: &str,
+        handed: &DrawnClaim,
         by_language: bool,
         cut: &crate::claimset::CutSpans,
     ) -> bool {
+        let text = handed.text.as_str();
         if crate::claims::is_not_a_claim(text) {
             self.declined += 1;
         } else if by_language && written_in_another_script(&label.language, text) {
             self.mistagged += 1;
         } else if !still_cut(cut, label) {
             self.recut += 1;
+        } else if !crate::claimset::reads_at(cut, label, text, (handed.start, handed.end)) {
+            self.other_words += 1;
         } else {
             return false;
         }
@@ -246,7 +253,7 @@ fn read_set(dir: &Path, reading: &str) -> Result<Option<Set>> {
 /// each label names.
 type Indexed<'a> = (
     crate::claimset::CutSpans,
-    std::collections::HashMap<(&'a str, u16), &'a str>,
+    std::collections::HashMap<(&'a str, u16), &'a DrawnClaim>,
     std::collections::HashMap<(&'a str, crate::claims::Span), &'a ClaimLabel>,
 );
 
@@ -279,7 +286,7 @@ fn indexed<'a>(
                 review
                     .claims
                     .iter()
-                    .map(move |claim| ((review.id.as_str(), claim.index), claim.text.as_str()))
+                    .map(move |claim| ((review.id.as_str(), claim.index), claim))
             })
             .collect(),
         second,
@@ -477,10 +484,10 @@ pub fn draw(reference: &Path, asked: &Asked<'_>) -> Result<(Vec<Question>, GoldD
             if !languages.is_empty() && !languages.iter().any(|one| one == &label.language) {
                 continue;
             }
-            let Some(text) = handed.get(&(label.review_id.as_str(), label.index)) else {
+            let Some(was_handed) = handed.get(&(label.review_id.as_str(), label.index)) else {
                 continue;
             };
-            if found.holds_back(label, text, !languages.is_empty(), &cut) {
+            if found.holds_back(label, was_handed, !languages.is_empty(), &cut) {
                 continue;
             }
             let Some((claim, before, after)) = as_written(&cut, &mut shown, label) else {
@@ -998,6 +1005,16 @@ mod tests {
         .unwrap();
     }
 
+    /// Claim 0 of a handout, `text` drawn at the bytes `start` to `end`.
+    fn handed(text: &str, start: u32, end: u32) -> DrawnClaim {
+        DrawnClaim {
+            index: 0,
+            start,
+            end,
+            text: text.to_owned(),
+        }
+    }
+
     /// Where this build cuts claim `index` of `text`.
     fn span_of(text: &str, index: usize) -> (usize, usize) {
         let (at, _) = &crate::claims::claims_of(text)[index];
@@ -1432,8 +1449,9 @@ mod tests {
         );
 
         let mut draw = GoldDraw::default();
-        assert!(draw.holds_back(&label(2, 18), "Too hard for me.", false, &cut(&[(2, 33)])));
-        assert!(!draw.holds_back(&label(2, 18), "Too hard for me.", false, &cut(&[(2, 18)])));
+        let too_hard = handed("Too hard for me.", 2, 18);
+        assert!(draw.holds_back(&label(2, 18), &too_hard, false, &cut(&[(2, 33)])));
+        assert!(!draw.holds_back(&label(2, 18), &too_hard, false, &cut(&[(2, 18)])));
         assert_eq!(
             (draw.recut, draw.declined, draw.mistagged),
             (1, 0, 0),
@@ -1636,6 +1654,33 @@ mod tests {
     }
 
     #[test]
+    fn a_label_whose_words_are_not_at_its_bytes_is_not_put_in_front_of_anybody() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(&set).unwrap();
+        let review = "The music is lovely. Bugs everywhere.";
+        kept(&set, &[("r1", review)]);
+        std::fs::write(
+            set.join("sample.json"),
+            serde_json::json!([drawn_from("r1", 214_490, "random", review)]).to_string(),
+        )
+        .unwrap();
+        // Index 1 is "Bugs everywhere." in the sample, and the label names the first sentence.
+        let mut label = label_of(214_490, review, 0, "audio");
+        label["index"] = 1.into();
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([label]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = draw(root.path(), &asking(10, Splits::HeldOut)).unwrap();
+
+        assert!(questions.is_empty(), "{questions:?}");
+        assert_eq!((found.other_words, found.recut), (1, 0));
+    }
+
+    #[test]
     fn a_question_shows_the_review_with_its_own_line_breaks() {
         let root = crate::tempdir::Dir::new();
         let set = root.path().join("214490");
@@ -1677,9 +1722,10 @@ mod tests {
             },
         )]);
         let mut found = GoldDraw::default();
-        assert!(!found.holds_back(&label, hangul, false, &cut));
-        assert!(found.holds_back(&label, hangul, true, &cut));
-        assert!(found.holds_back(&label, hangul, true, &cut));
+        let claim = handed(hangul, 0, end);
+        assert!(!found.holds_back(&label, &claim, false, &cut));
+        assert!(found.holds_back(&label, &claim, true, &cut));
+        assert!(found.holds_back(&label, &claim, true, &cut));
         assert_eq!(found.mistagged, 2);
     }
 
@@ -2219,7 +2265,7 @@ mod tests {
 
         let set = root.path().join("reference").join("7");
         std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
-        let claim = |index: u16, start: u32, end: u32, text: &str| crate::claimset::DrawnClaim {
+        let claim = |index: u16, start: u32, end: u32, text: &str| DrawnClaim {
             index,
             start,
             end,

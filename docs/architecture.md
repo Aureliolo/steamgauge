@@ -30,7 +30,8 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   kept copy when it is drawn again. A review kept from a later capture than its draw is rebuilt
   from its samples by `restore-drawn-text`, and left as kept where that cannot be done whole.
 - **After a splitter change**, labels at spans the build no longer cuts are left out of
-  measurement and training, and counted. The library is then read again.
+  measurement and training, and counted. A label whose words the kept text does not hold at its
+  bytes is left out the same way, under its own count. The library is then read again.
 
 ## Downloading
 
