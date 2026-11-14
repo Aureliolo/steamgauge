@@ -85,9 +85,8 @@ Var SteamGaugeWaited
 ; Removes a file or a folder with all in it. A process the uninstaller has just ended still holds
 ; its program and DLLs until Windows has torn it down, and a scanner may be reading a program
 ; just written, so a removal that fails is tried again until it works or the patience runs out.
-; What is still held then is handed to Windows to remove at the next restart, which sets the
-; reboot flag NSIS_HOOK_POSTUNINSTALL reports. The uninstaller's log names each path once,
-; however often it was tried.
+; What is still held then is left for NSIS_HOOK_POSTUNINSTALL to hand to the next sign-in. The
+; uninstaller's log names each path once, however often it was tried.
 !macro SteamGaugeRemove path
   ${Do}
     ${If} ${FileExists} "${path}\*"
@@ -104,20 +103,22 @@ Var SteamGaugeWaited
     Sleep ${STEAMGAUGE_PATIENCE_STEP}
   ${Loop}
   SetDetailsPrint both
-  ${If} ${FileExists} "${path}\*"
-    RMDir /r /REBOOTOK "${path}"
-  ${ElseIf} ${FileExists} "${path}"
-    Delete /REBOOTOK "${path}"
-  ${EndIf}
 !macroend
+
+; The value under the person's RunOnce key that finishes an uninstall at their next sign-in.
+!define STEAMGAUGE_RUNONCE_KEY "Software\Microsoft\Windows\CurrentVersion\RunOnce"
+!define STEAMGAUGE_RUNONCE_VALUE "SteamGauge uninstall"
 
 ; Tauri's setup program copies the program over the installed one, and when that copy fails in a
 ; silent install it carries on: the new libraries land beside the old program and the setup
 ; reports success. A file that can be neither written nor moved, held by a scanner reading a
 ; program just written or a process that has not yet let go, is waited out for up to a minute,
 ; and one held longer stops the install with an error, with whatever was moved aside put back,
-; rather than leaving two versions side by side.
+; rather than leaving two versions side by side. An uninstall that left held files behind has
+; told the next sign-in to remove them, which would take this install's program with them, so
+; that is called off first.
 !macro NSIS_HOOK_PREINSTALL
+  DeleteRegValue HKCU "${STEAMGAUGE_RUNONCE_KEY}" "${STEAMGAUGE_RUNONCE_VALUE}"
   !insertmacro SteamGaugeCloseTheWindow
   RMDir /r "$INSTDIR\replaced"
   System::Call 'ole32::CoCreateGuid(g .R7)'
@@ -181,24 +182,19 @@ Var SteamGaugeWaited
 !macroend
 
 ; By now the entry in Apps is gone, so a folder left here can never be uninstalled again. Where
-; a file was held past the patience, the folder is handed to Windows with it and the uninstall
-; says so. Windows takes a removal at the next restart from an administrator alone. From one the
-; uninstall ends with Windows' own code for a restart being needed, 3010, and from anyone else
-; with 5, the folder being theirs to delete.
+; the program, a DLL or a copy moved aside was held past the patience, the person's next sign-in
+; removes them and then the folder, by which time whatever held them has ended. Windows takes a
+; removal at the next restart from an administrator alone, and this uninstaller runs as the
+; person, so the command goes under their RunOnce key. conhost --headless runs it with no
+; window. It removes nothing unless it can enter the folder, and only the files named here.
 !macro NSIS_HOOK_POSTUNINSTALL
   !insertmacro SteamGaugeRemove "$INSTDIR\replaced"
-  ${If} ${RebootFlag}
-    RMDir /REBOOTOK "$INSTDIR"
-    UserInfo::GetAccountType
-    Pop $R5
-    ${If} $R5 == "Admin"
-      DetailPrint "Another program holds files in $INSTDIR open. Windows removes them at the next restart."
-      SetErrorLevel 3010
-    ${Else}
-      DetailPrint "Another program holds files in $INSTDIR open. Close it, then delete the folder."
-      SetErrorLevel 5
-    ${EndIf}
-  ${Else}
-    RMDir "$INSTDIR"
+  RMDir "$INSTDIR"
+  ${If} ${FileExists} "$INSTDIR\replaced"
+  ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+  ${OrIf} ${FileExists} "$INSTDIR\*.dll"
+    WriteRegStr HKCU "${STEAMGAUGE_RUNONCE_KEY}" "${STEAMGAUGE_RUNONCE_VALUE}" '"$SYSDIR\conhost.exe" --headless cmd /c cd /d "$INSTDIR" && (rd /s /q replaced & del /q ${MAINBINARYNAME}.exe *.dll & cd .. & rd "$INSTDIR")'
+    DetailPrint "Another program holds files in $INSTDIR open. The folder is removed at the next sign-in."
+    SetErrorLevel 5
   ${EndIf}
 !macroend
