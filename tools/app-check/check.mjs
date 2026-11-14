@@ -87,6 +87,16 @@ const PROBE = `(async function () {
   var last = function (command) { var all = called(command); return all[all.length - 1]; };
   var rows = function () { return Array.prototype.slice.call(document.querySelectorAll('#library-rows tr')); };
   var go = function (name) { document.querySelector('[data-go="' + name + '"]').click(); return pause(250); };
+  var opensAccuracy = async function (link) {
+    var opened = called('plugin:opener|open_url').length;
+    var saved = called('save_settings').length;
+    var at = location.href;
+    link.click();
+    await pause();
+    return called('plugin:opener|open_url').length === opened + 1 &&
+      last('plugin:opener|open_url').args.url === 'https://aureliolo.github.io/steamgauge/accuracy.html' &&
+      called('save_settings').length === saved && location.href === at;
+  };
   var fits = function () { var stage = document.getElementById('stage'); return stage.scrollWidth <= stage.clientWidth + 1; };
 
   await pause(400);
@@ -153,6 +163,8 @@ const PROBE = `(async function () {
     document.querySelectorAll('#models a.accuracy-link').length === 2 &&
     /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#models').textContent) &&
     $('#models a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
+  check('the cockpit\\'s accuracy link does not open the accuracy page through the opener',
+    await opensAccuracy($('#models a.accuracy-link')));
   check('a newer release goes unmentioned', /v2 is out/.test($('#models').textContent));
   check('a download still to come does not say its size', /1\\.3 GB download/.test($('#models').textContent));
   check('a model not here is not offered for download now',
@@ -623,12 +635,15 @@ const PROBE = `(async function () {
   check('turning off preparing every game for search is not saved', last('save_settings').args.searchEveryGame === false);
   var sizes = document.querySelectorAll('#reader-sizes input');
   check('settings do not offer both readers', sizes.length === 2);
-  check('the larger reader does not read 93.4% agreement at 80% coverage',
-    /Standard reader[\\s\\S]*93\\.4% agreement at 80% coverage\\./.test($('#reader-sizes').textContent) &&
-    /Faster\\. 78% agreement at 80% coverage\\./.test($('#reader-sizes').textContent));
+  check('the larger reader does not read 93.4% agreement at 80% coverage on 10 held-out games',
+    /Standard reader[\\s\\S]*93\\.4% agreement at 80% coverage on 10 held-out games\\. Accuracy/.test($('#reader-sizes').textContent) &&
+    /Faster\\. A 244 MB download, the first time it reads\\. 78% agreement at 80% coverage on 10 held-out games\\. Accuracy/.test($('#reader-sizes').textContent));
   check('each reader size in settings does not link to the accuracy page',
     document.querySelectorAll('#reader-sizes a.accuracy-link').length === 2 &&
     $('#reader-sizes a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
+  check('settings\\' accuracy link does not open the accuracy page, or also picks the reader',
+    await opensAccuracy(document.querySelectorAll('#reader-sizes a.accuracy-link')[0]) &&
+    $('#reader-sizes input:checked').value === 'standard');
   check('the recommended reader is not marked', /Recommended/.test($('#reader-sizes').textContent));
   check('the reader in use is not the one chosen', $('#reader-sizes input:checked').value === 'standard');
   check('the card behind the recommendation goes unnamed', /RTX 4090/.test($('#reader-machine').textContent));
@@ -688,6 +703,8 @@ const PROBE = `(async function () {
     document.querySelectorAll('#model-rooms a.accuracy-link').length === 2 &&
     /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#model-rooms').textContent) &&
     $('#model-rooms a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
+  check('storage\\'s accuracy link does not open the accuracy page through the opener',
+    await opensAccuracy($('#model-rooms a.accuracy-link')));
   check('the library\\'s place goes unsaid', /AppData/.test($('#storage-library').textContent));
   var earlierRow = function () {
     return Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {

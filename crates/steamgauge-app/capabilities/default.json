@@ -12,6 +12,7 @@
         { "url": "https://store.steampowered.com/*" },
         { "url": "https://github.com/Aureliolo/steamgauge/releases/tag/v[0-9]*" },
         { "url": "https://aureliolo.github.io/steamgauge/" },
+        { "url": "https://aureliolo.github.io/steamgauge/accuracy.html" },
         { "url": "https://github.com/Aureliolo/steamgauge" },
         { "url": "https://github.com/Aureliolo/steamgauge/issues/new/choose" },
         { "url": "https://github.com/Aureliolo/steamgauge/security/policy" }

@@ -10,10 +10,14 @@ let options = null;
 const SIZE_TITLE = { small: 'Small reader', standard: 'Standard reader' };
 
 /* What sets a size apart: its agreement on the claims it is surest of, as the cockpit and Storage
-   give it too. */
-function sizeAbout(option) {
-  const agreement = `${share.format(option.agreement)} agreement at 80% coverage.`;
-  return option.name === 'small' ? `Faster. ${agreement}` : agreement;
+   give it too. It ends the line, so the way to what that figure measures follows it. */
+function sizeAbout(option, lines) {
+  if (option.agreement === undefined) {
+    return [lines.join(' ')];
+  }
+  const said = [option.name === 'small' ? 'Faster.' : '', ...lines];
+  said.push(`${share.format(option.agreement)} agreement at 80% coverage on 10 held-out games.`);
+  return [said.filter(Boolean).join(' '), ' ', accuracyLink()];
 }
 
 const EVERY = { 1: 'Every hour', 6: 'Every six hours', 24: 'Once a day', 168: 'Once a week' };
@@ -39,7 +43,6 @@ function reason(found) {
 
 function sizeCard(found, option) {
   const title = SIZE_TITLE[option.name] ?? option.name;
-  const about = option.agreement === undefined ? '' : sizeAbout(option);
   const input = make('input');
   input.type = 'radio';
   input.name = 'reader-size';
@@ -55,7 +58,7 @@ function sizeCard(found, option) {
       ? make('span', 'pill good', 'On this computer')
       : null,
   );
-  const lines = [about];
+  const lines = [];
   if (!option.published) {
     lines.push('Not published yet.');
   } else if (!option.runs_here) {
@@ -75,7 +78,7 @@ function sizeCard(found, option) {
       'span',
       'size-body',
       make('span', 'size-title', make('strong', null, title), pills),
-      make('span', 'size-about', lines.join(' '), ...(about ? [' ', accuracyLink()] : [])),
+      make('span', 'size-about', ...sizeAbout(option, lines)),
     ),
   );
   return label;

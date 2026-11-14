@@ -507,6 +507,16 @@ mod tests {
     }
 
     #[test]
+    fn the_window_may_open_the_accuracy_page_its_figures_link_to() {
+        let accuracy = include_str!("../../ui/common.js")
+            .split_once("export const ACCURACY_PAGE = '")
+            .and_then(|(_, rest)| rest.split_once('\''))
+            .map(|(address, _)| address)
+            .unwrap();
+        assert!(may_open(accuracy), "{accuracy}");
+    }
+
+    #[test]
     fn the_about_page_may_open_its_own_addresses_and_nothing_beside_them() {
         let about = super::about_from(
             &steamgauge_core::newer_version::Asked::default(),
