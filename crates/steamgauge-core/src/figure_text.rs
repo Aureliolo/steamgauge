@@ -182,8 +182,8 @@ mod tests {
 
     #[test]
     fn an_end_that_reads_whole_does_not_force_tenths_onto_the_rest() {
-        let (rate, ends) = percent_range(0.85, 0.8, 0.9004);
-        assert_eq!(rate, "85%");
+        let (rate, ends) = percent_range(0.855, 0.8, 0.9004);
+        assert_eq!(rate, "86%");
         assert_eq!(ends, Some(("80%".to_owned(), "90%".to_owned())));
     }
 
