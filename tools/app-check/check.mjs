@@ -90,6 +90,47 @@ const PROBE = `(async function () {
   var fits = function () { var stage = document.getElementById('stage'); return stage.scrollWidth <= stage.clientWidth + 1; };
 
   await pause(400);
+  // The window's one formatter, asked of the page's own module, row for row of the core's tests
+  // of \`figure_text::percent\` and \`percent_range\`.
+  var common = await import('/common.js');
+  var shareRows = [
+    [0, '0%'], [0.0001, '<0.1%'], [0.001, '0.1%'], [0.0045, '0.5%'], [0.0125, '1.3%'], [0.09, '9%'],
+    [0.0995, '10%'], [0.1, '10%'], [0.105, '11%'], [0.1234, '12%'], [0.145, '15%'], [0.9, '90%'],
+    [0.9005, '90.1%'], [0.934, '93.4%'], [0.999, '99.9%'], [0.9995, '>99.9%'], [1, '100%'],
+    [-0.2, '0%'], [1.2, '100%'], [0.5, '50%'], [0.3, '30%'], [0.0999, '10%'], [0.8999, '90%'],
+    [0.9989, '99.9%'], [0.9991, '>99.9%'], [0.00099, '<0.1%'], [0.054, '5.4%'], [0.9501, '95%'],
+    [0.99996, '>99.9%'], [0.0004, '<0.1%'], [null, '–'], [undefined, '–'], [NaN, '–'],
+  ];
+  var misread = shareRows
+    .map(function (row) { return [row[0], common.share.format(row[0]), row[1]]; })
+    .filter(function (row) { return row[1] !== row[2]; })
+    .map(function (row) { return row[0] + ' reads ' + row[1] + ' not ' + row[2]; });
+  check('a share is not written by the core\\'s rule: ' + misread.join(', '), misread.length === 0);
+  var rangeRows = [
+    [0.3, 0.27, 0.33, '30%', '27%', '33%'],
+    [0.2025, 0.201, 0.204, '20.3%', '20.1%', '20.4%'],
+    [0.8, 0.7996, 0.8004, '80%', null, null],
+    [0.2, 0.199752, 0.200248, '20%', null, null],
+    [0.0001, 0.0001, 0.0002, '<0.1%', null, null],
+    [0.9, 0.89907, 0.90093, '90%', '89.9%', '90.1%'],
+    [0.1, 0.09907, 0.10093, '10%', '9.9%', '10.1%'],
+    [0.8996, 0.8993, 0.9005, '90%', '89.9%', '90.1%'],
+    [0.5, 0.4, 0.6, '50%', '40%', '60%'],
+    [0.9005, 0.8, 0.95, '90.1%', '80%', '95%'],
+    [0.875, 0.8143, 0.9174, '87.5%', '81.4%', '91.7%'],
+    [0.855, 0.8, 0.9004, '86%', '80%', '90%'],
+    [0.2011, 0.201, 0.2012, '20%', null, null],
+  ];
+  var misrange = rangeRows
+    .map(function (row) {
+      var got = common.shareRange(row[0], row[1], row[2]);
+      return [row.slice(0, 3).join('/'), JSON.stringify(got), JSON.stringify([row[3], row[4] === null ? null : [row[4], row[5]]])];
+    })
+    .filter(function (row) { return row[1] !== row[2]; })
+    .map(function (row) { return row[0] + ' reads ' + row[1] + ' not ' + row[2]; });
+  check('a rate and its interval are not written by the core\\'s rule: ' + misrange.join(', '), misrange.length === 0);
+  check('a share the window is not sent does not read as a dash beside an interval',
+    JSON.stringify(common.shareRange(null, 0.1, 0.2)) === '["–",null]');
   check('the app does not open on the cockpit', shown('cockpit'));
   check('the cockpit is not the page marked in the rail',
     $('[data-go="cockpit"]').getAttribute('aria-current') === 'page');
@@ -108,6 +149,10 @@ const PROBE = `(async function () {
   check('a complaint that rose is not marked as bad news', $('#moves .move.complaint.up') !== null);
   check('a share recommending that fell is not marked as bad news', $('#moves .move.recommended.down') !== null);
   check('the cockpit does not list the models', $('#models').children.length === 4);
+  check('the cockpit does not link the readers\\' agreement to the accuracy page',
+    document.querySelectorAll('#models a.accuracy-link').length === 2 &&
+    /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#models').textContent) &&
+    $('#models a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('a newer release goes unmentioned', /v2 is out/.test($('#models').textContent));
   check('a download still to come does not say its size', /1\\.3 GB download/.test($('#models').textContent));
   check('a model not here is not offered for download now',
@@ -539,6 +584,11 @@ const PROBE = `(async function () {
   await pause();
   // Added up, performance is raised by 4,600 of 20,000 reviews and story by 4,500.
   check('counting every review the same does not let the larger game decide', firstSubject() === 'Performance');
+  check('a group\\'s rate with an interval narrower than a tenth does not stand alone',
+    $('#group-rows tr:first-child td.cell .rate').textContent === '23%' &&
+    $('#group-rows tr:first-child td.cell').querySelector('small') === null);
+  check('a group\\'s interval wider than a tenth does not read in whole points',
+    /^\\d+% to \\d+%$/.test($('#group-rows tr:nth-child(2) td.cell').querySelector('small').textContent));
   check('a subject nobody raises is in the group', !/VR/.test($('#group-rows').textContent));
   check('a subject does not say how many of the games raise it', /2 of 2/.test($('#group-rows').textContent));
   check('a group\\'s figures do not fit their page', fits());
@@ -573,6 +623,12 @@ const PROBE = `(async function () {
   check('turning off preparing every game for search is not saved', last('save_settings').args.searchEveryGame === false);
   var sizes = document.querySelectorAll('#reader-sizes input');
   check('settings do not offer both readers', sizes.length === 2);
+  check('the larger reader does not read 93.4% agreement at 80% coverage',
+    /Standard reader[\\s\\S]*93\\.4% agreement at 80% coverage\\./.test($('#reader-sizes').textContent) &&
+    /Faster\\. 78% agreement at 80% coverage\\./.test($('#reader-sizes').textContent));
+  check('each reader size in settings does not link to the accuracy page',
+    document.querySelectorAll('#reader-sizes a.accuracy-link').length === 2 &&
+    $('#reader-sizes a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('the recommended reader is not marked', /Recommended/.test($('#reader-sizes').textContent));
   check('the reader in use is not the one chosen', $('#reader-sizes input:checked').value === 'standard');
   check('the card behind the recommendation goes unnamed', /RTX 4090/.test($('#reader-machine').textContent));
@@ -628,6 +684,10 @@ const PROBE = `(async function () {
     document.querySelectorAll('#game-rooms .room').length === 3 &&
     /Alpha/.test(document.querySelector('#game-rooms .room').textContent));
   check('storage does not list the models', document.querySelectorAll('#model-rooms .room').length === 4);
+  check('storage does not link the readers\\' agreement to the accuracy page',
+    document.querySelectorAll('#model-rooms a.accuracy-link').length === 2 &&
+    /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#model-rooms').textContent) &&
+    $('#model-rooms a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('the library\\'s place goes unsaid', /AppData/.test($('#storage-library').textContent));
   var earlierRow = function () {
     return Array.prototype.find.call(document.querySelectorAll('#parts .part-row'), function (row) {
@@ -755,6 +815,26 @@ const PROBE = `(async function () {
   check('a game\\'s page does not say what changed since it was last seen', shown('game-since') &&
     /^Since you last looked, on .*: 1,520 new reviews\\.$/.test($('#game-since p').textContent) &&
     $('#game-since .since-move.complaint.up') !== null && $('#game-since').classList.contains('moved'));
+  check('what moved since does not read 12% and 24%',
+    $('#game-since .move-from') !== null && $('#game-since .move-from').textContent === '12%' &&
+    $('#game-since .move-to').textContent === '24%');
+  check('a theme of 250 reviews in 20,000 does not read one decimal, and one of 1,200 whole points',
+    /^250 reviews, 1\\.3% · /.test($('#said-complaint li:nth-child(2) .said-count').textContent) &&
+    /^1,200 reviews, 6% · /.test($('#said-praise .said-count').textContent) &&
+    /^700 reviews, 3\\.5% · /.test($('#said-complaint .said-count').textContent));
+  check('a game whose capture is not whole reads as the whole of Steam\\'s total',
+    /Coverage\\s*>99\\.9%/.test($('#game-facts').textContent));
+  check('a language held in a handful of reviews does not read as under a tenth',
+    /English 75%, German <0\\.1%/.test($('#languages').textContent));
+  check('the figure measured on other games does not say what it measures',
+    /No one has labelled this game\\. Out of fold over 10 games, each scored by a reader that never trained on it, and over 5,080 labelled claims, the reader answers 98% of claims and agrees with the labels on 78%\\. Accuracy says what each of the reader’s figures measures\\.$/.test(
+      $('#topics-footnote').textContent));
+  var opened = called('plugin:opener|open_url').length;
+  if ($('#topics-footnote a')) { $('#topics-footnote a').click(); }
+  await pause();
+  check('the accuracy figure does not link to the accuracy page through the opener',
+    called('plugin:opener|open_url').length === opened + 1 &&
+    last('plugin:opener|open_url').args.url === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('looking at a game\\'s page is not recorded', called('looked').some(function (call) { return call.args.appId === 1; }));
   check('a prepared game does not name what its players praise and complain about', shown('said-most') &&
     shown('said-sides') && !shown('said-offer') &&
@@ -949,6 +1029,17 @@ const PROBE = `(async function () {
   check('a gap chance could make is marked', !/More praise/.test($('#who-rows tr').textContent) &&
     document.querySelectorAll('#who-rows tr')[1].querySelector('.who-marks') === null);
   check('a share is drawn without where it would likely fall', document.querySelectorAll('#who-rows .range').length === 4);
+  var intervalTitles = Array.prototype.map.call(document.querySelectorAll('#who-rows td.cell'), function (cell) {
+    return cell.title; });
+  check('an interval wider than a tenth, with ends that read alike in whole points, does not read in tenths',
+    intervalTitles.some(function (title) { return /^\\d[\\d,]* reviews raise it, likely between 20\\.1% and 20\\.4% of reviews like these$/.test(title); }));
+  check('an interval narrower than a tenth is not left out in favour of the rate',
+    intervalTitles.indexOf('2,000,000 reviews raise it, likely 20% of reviews like these') !== -1 &&
+    Array.prototype.some.call(document.querySelectorAll('#who-rows td.cell'), function (cell) {
+      return cell.title.indexOf('2,000,000') === 0 && cell.querySelector('.rate').textContent === '20%'; }));
+  check('the interval of any other share does not read in whole points',
+    intervalTitles.filter(function (title) { return !/20\\.1%|^2,000,000/.test(title); }).every(function (title) {
+      return /likely between \\d+% and \\d+% of/.test(title); }) && intervalTitles.length === 4);
   check('the timeline does not follow the kind chosen', /Aug 2025: 60 reviews/.test($('#timeline-svg').textContent));
   // That kind's timeline runs from July to September 2025, which holds one of Alpha's updates.
   check('the updates are not marked on one kind\\'s timeline',
@@ -999,6 +1090,9 @@ const PROBE = `(async function () {
   await pause(300);
   check('a game where no kind of reviewer differs does not say so',
     shown('who') && shown('who-pick') && shown('who-none') && !shown('who-differ'));
+  check('a measured agreement with an interval too narrow to print does not read without a bracket',
+    /agrees with the labels on 80% of the 10,000,000 claims it answered\\. Accuracy says what each/.test(
+      $('#topics-footnote').textContent) && $('#topics-footnote a') !== null);
   check('a game not prepared for search by meaning does not offer to find what its players say',
     shown('said-most') && !shown('said-sides') && shown('said-offer') &&
     /^Prepare this game$/.test($('#said-find').textContent.trim()) &&

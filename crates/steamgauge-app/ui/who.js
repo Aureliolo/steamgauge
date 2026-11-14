@@ -5,7 +5,7 @@
    by the core, by the rule what moved is held to: too wide for chance and wide enough to act on.
    A kind with too few reviews is offered no figure at all. */
 
-import { button, el, invoke, make, tenth as percent, set, whole } from './common.js';
+import { button, el, invoke, make, set, share, shareRange, whole } from './common.js';
 
 /* Differences listed before the rest wait behind a button. */
 const FINDINGS_SHOWN = 6;
@@ -185,7 +185,7 @@ function mark(gap, more, less, tone) {
     return null;
   }
   const pill = make('span', gap.z > 0 ? `pill ${tone}` : 'pill', gap.z > 0 ? more : less);
-  pill.title = `${percent.format(gap.share)} against ${percent.format(gap.against)}`;
+  pill.title = `${share.format(gap.share)} against ${share.format(gap.against)}`;
   return pill;
 }
 
@@ -209,24 +209,25 @@ function figuresCell(figures, widest, corrected, marks) {
   range.style.left = across(figures.low);
   range.style.width = across(figures.high - figures.low);
   const shown = marks.filter(Boolean);
+  const [rate, ends] = shareRange(figures.rate, figures.low, figures.high);
   const td = make(
     'td',
     'cell',
-    make('span', 'rate', percent.format(figures.rate)),
-    corrected === null
-      ? null
-      : make('span', 'corrected', `≈ ${percent.format(corrected)} of claims`),
+    make('span', 'rate', rate),
+    corrected === null ? null : make('span', 'corrected', `≈ ${share.format(corrected)} of claims`),
     make('span', 'who-track', bar, range),
     make(
       'small',
       null,
-      `${percent.format(figures.praising)} praise it, ${percent.format(figures.complaining)} complain`,
+      `${share.format(figures.praising)} praise it, ${share.format(figures.complaining)} complain`,
     ),
     shown.length > 0 ? make('span', 'who-marks', ...shown) : null,
   );
   td.title =
     `${whole.format(figures.raised)} reviews raise it, ` +
-    `likely between ${percent.format(figures.low)} and ${percent.format(figures.high)} of reviews like these`;
+    (ends
+      ? `likely between ${ends[0]} and ${ends[1]} of reviews like these`
+      : `likely ${rate} of reviews like these`);
   return td;
 }
 
@@ -238,7 +239,7 @@ function head(side) {
     make(
       'small',
       null,
-      `${whole.format(side.reviews)} reviews, ${percent.format(side.recommending)} recommend it`,
+      `${whole.format(side.reviews)} reviews, ${share.format(side.recommending)} recommend it`,
     ),
   );
   th.scope = 'col';
@@ -262,8 +263,8 @@ function drawBeside(view) {
   set(
     el('who-note'),
     `${these.who} wrote ${whole.format(these.reviews)} of these reviews. ` +
-      `${percent.format(these.recommending)} recommend the game, against ` +
-      `${percent.format(others.recommending)} of ${against}` +
+      `${share.format(these.recommending)} recommend the game, against ` +
+      `${share.format(others.recommending)} of ${against}` +
       (recommended.clear ? ', beyond chance. ' : '. ') +
       `The timeline and the table count their reviews alone, beside ${against}.`,
   );

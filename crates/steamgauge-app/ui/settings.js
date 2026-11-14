@@ -1,7 +1,7 @@
 /* How the app runs on this computer: which reader reads every review, how much of the graphics
    card it takes, and what happens on its own. */
 
-import { el, invoke, make, page, roundShare, set, size } from './common.js';
+import { accuracyLink, el, invoke, make, page, set, share, size } from './common.js';
 import { showNewer } from './newer.js';
 
 let shown = null;
@@ -12,7 +12,7 @@ const SIZE_TITLE = { small: 'Small reader', standard: 'Standard reader' };
 /* What sets a size apart: its agreement on the claims it is surest of, as the cockpit and Storage
    give it too. */
 function sizeAbout(option) {
-  const agreement = `${Math.round(option.agreement * 100)}% agreement at 80% coverage.`;
+  const agreement = `${share.format(option.agreement)} agreement at 80% coverage.`;
   return option.name === 'small' ? `Faster. ${agreement}` : agreement;
 }
 
@@ -75,7 +75,7 @@ function sizeCard(found, option) {
       'span',
       'size-body',
       make('span', 'size-title', make('strong', null, title), pills),
-      make('span', 'size-about', lines.join(' ')),
+      make('span', 'size-about', lines.join(' '), ...(about ? [' ', accuracyLink()] : [])),
     ),
   );
   return label;
@@ -104,7 +104,7 @@ function setUpSettings() {
         input.name = 'gpu-share';
         input.value = String(value);
         input.checked = Math.abs(value - shown.gpu_share) < 1e-9;
-        return make('label', 'option', input, value === 1 ? 'All of it' : roundShare.format(value));
+        return make('label', 'option', input, value === 1 ? 'All of it' : share.format(value));
       }),
     );
     el('gpu-setting').hidden = options.on_processor;

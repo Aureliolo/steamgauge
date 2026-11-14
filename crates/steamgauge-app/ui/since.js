@@ -2,18 +2,7 @@
    page. Every share is of the reviews read since the look, set against the twelve months before
    it. Which changes are wider than chance is decided by the core, never here. */
 
-import {
-  button,
-  day,
-  el,
-  invoke,
-  make,
-  monthName,
-  roundShare,
-  set,
-  when,
-  whole,
-} from './common.js';
+import { button, day, el, invoke, make, monthName, set, share, when, whole } from './common.js';
 
 /* Games listed before the rest are counted instead. */
 const GAMES_SHOWN = 6;
@@ -61,9 +50,9 @@ function figures(shift) {
   return make(
     'span',
     'since-figures',
-    make('span', 'move-from', roundShare.format(shift.before)),
+    make('span', 'move-from', share.format(shift.before)),
     make('span', 'move-arrow', '→'),
-    make('span', 'move-to', roundShare.format(shift.recent)),
+    make('span', 'move-to', share.format(shift.recent)),
   );
 }
 

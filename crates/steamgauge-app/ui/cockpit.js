@@ -12,8 +12,9 @@ import {
   make,
   monthName,
   page,
-  roundShare,
+  roleLine,
   set,
+  share,
   showing,
   size,
   whole,
@@ -450,9 +451,9 @@ function figures(shift, from, to) {
     make(
       'div',
       'move-figures',
-      make('span', 'move-from', roundShare.format(shift.before)),
+      make('span', 'move-from', share.format(shift.before)),
       make('span', 'move-arrow', '→'),
-      make('span', 'move-to', roundShare.format(shift.recent)),
+      make('span', 'move-to', share.format(shift.recent)),
     ),
     make('span', 'move-when', `${monthName(from)} to ${monthName(to)}`),
   ];
@@ -542,7 +543,7 @@ function modelItem(model) {
       model.name,
       model.release ? make('span', 'tag', model.release) : null,
     ),
-    make('span', 'quiet', `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.`),
+    make('span', 'quiet', ...roleLine(model.role)),
     modelWhere(model),
     model.newer
       ? make('span', 'newer', `${model.newer} is out. It comes with the next SteamGauge update.`)
@@ -562,10 +563,7 @@ function drawMachine(found) {
   el('machine-facts').replaceChildren(
     fact('Graphics card', machine.card ?? (memory ? 'Unnamed' : 'None reported'), memory),
     fact('Reader', machine.reader === 'standard' ? 'Standard' : 'Small'),
-    fact(
-      'Card time',
-      machine.on_processor ? 'Processor only' : roundShare.format(machine.gpu_share),
-    ),
+    fact('Card time', machine.on_processor ? 'Processor only' : share.format(machine.gpu_share)),
     fact(
       'Models',
       here === published.length
