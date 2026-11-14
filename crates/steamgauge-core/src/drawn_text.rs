@@ -181,7 +181,10 @@ pub(crate) fn label_files(game: &Path) -> Result<Vec<LabelFile>> {
 /// # Errors
 ///
 /// Fails if a sample, a label file or the kept text cannot be read.
-pub fn kept_facts(game: &Path, facts: HashMap<String, ReviewFacts>) -> Result<Vec<ReviewFacts>> {
+pub fn kept_facts<S: std::hash::BuildHasher>(
+    game: &Path,
+    facts: HashMap<String, ReviewFacts, S>,
+) -> Result<Vec<ReviewFacts>> {
     let kept = match kept_reviews(game) {
         Err(crate::Error::NoKeptText { .. }) => HashMap::new(),
         other => other?,
@@ -235,7 +238,7 @@ pub fn restore(game: &Path) -> Result<Restored> {
         }
     }
     let mut kept = match kept_reviews(game) {
-        Err(crate::Error::NoKeptText { .. }) => std::collections::HashMap::new(),
+        Err(crate::Error::NoKeptText { .. }) => HashMap::new(),
         other => other?,
     };
 
@@ -616,8 +619,10 @@ mod tests {
         assert_eq!(first.votes_up, 4, "the rest of the facts stay");
         let plain = &found[1];
         assert_eq!(plain.text_sha256, crate::embed::sha256_hex("Fine."));
-        assert_eq!((plain.text_bytes, plain.censored.len()), (5, 0));
-        assert!(plain.other_words.is_empty());
+        assert_eq!(
+            (plain.text_bytes, plain.censored.len(), plain.other_words.len()),
+            (5, 0, 0)
+        );
     }
 
     #[test]
