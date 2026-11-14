@@ -791,13 +791,12 @@ fn export_review_facts_leaves_out_a_review_with_no_kept_text_and_says_so() {
     let kept = reference
         .join(TRAINED.to_string())
         .join(steamgauge_core::claimset::REVIEWS);
-    let without: String = std::fs::read_to_string(&kept)
-        .unwrap()
+    let all = std::fs::read_to_string(&kept).unwrap();
+    let without: Vec<&str> = all
         .lines()
         .filter(|line| !line.contains("\"503\""))
-        .map(|line| format!("{line}\n"))
         .collect();
-    std::fs::write(&kept, without).unwrap();
+    std::fs::write(&kept, without.join("\n") + "\n").unwrap();
     let to = dir.path().join("facts.jsonl");
     let done = ran(
         dir.path(),
@@ -815,8 +814,9 @@ fn export_review_facts_leaves_out_a_review_with_no_kept_text_and_says_so() {
     let line = format!("5 labelled reviews -> {}", to.display());
     assert!(has_line(&done.out, &line), "{line}\n{}", done.out);
     assert!(
-        done.out
-            .contains("\n1 labelled reviews are not in this machine's captures or have no kept text"),
+        done.out.contains(
+            "\n1 labelled reviews are not in this machine's captures or have no kept text"
+        ),
         "{}",
         done.out
     );
