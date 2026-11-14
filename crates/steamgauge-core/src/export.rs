@@ -24,7 +24,7 @@ use serde::ser::{Serialize, SerializeMap as _, Serializer};
 use crate::{
     Error, Result,
     figure_text::{percent, percent_range, thousands},
-    html::language_name,
+    html::{ACCURACY_PAGE, language_name},
     measure::ClaimAgreement,
     read::{Month, ReadReport},
     reader::{HeldOut, Polarity, Reading},
@@ -987,14 +987,15 @@ fn trust(measurement: &Measurement, held_out: Option<HeldOut>) -> String {
     match measurement {
         Measurement::Measured(found) => match (found.rate(), found.interval()) {
             (Some(rate), Some((low, high))) => {
-                let between = percent_range(low, high).map_or_else(String::new, |(low, high)| {
+                let (rate_text, ends) = percent_range(rate, low, high);
+                let between = ends.map_or_else(String::new, |(low, high)| {
                     format!(", somewhere between {low} and {high}")
                 });
                 let mut said = format!(
                     "Where this game has been labelled, the model named the same subject a \
                      separate labeller did {} of the time on the {} claims it answered{between}. \
                      That is agreement with another model, not accuracy.",
-                    percent(rate),
+                    rate_text,
                     thousands(found.answered),
                 );
                 if found.unjoined > 0 {
@@ -1038,7 +1039,8 @@ fn unmeasured(why: &str, held_out: Option<HeldOut>) -> String {
                 "{why} Out of fold over {} games, each scored by a reader that never trained on \
                  it, and over {} labelled claims, it answers {} of them and names the same \
                  subject a separate labeller did {} of the time when it does. Expect this game \
-                 to be near that, and treat every rate as provisional.",
+                 to be near that, and treat every rate as provisional. {ACCURACY_PAGE} says \
+                 what each of the reader's figures measures.",
                 thousands(u64::from(held_out.games)),
                 thousands(u64::from(held_out.claims)),
                 percent(held_out.coverage),
@@ -2205,6 +2207,22 @@ mod tests {
     }
 
     #[test]
+    fn trust_writes_an_interval_across_the_edge_of_the_whole_point_band_at_a_tenth() {
+        let said = trust(
+            &Measurement::Measured(Box::new(ClaimAgreement {
+                answered: 400_000,
+                agreed: 360_000,
+                ..agreement(Vec::new())
+            })),
+            None,
+        );
+        assert!(
+            said.contains("did 90% of the time on the 400,000 claims it answered, somewhere between 89.9% and 90.1%."),
+            "{said}"
+        );
+    }
+
+    #[test]
     fn how_far_to_trust_it_is_said_as_the_game_page_says_it() {
         let held_out = HeldOut {
             games: 8,
@@ -2251,6 +2269,7 @@ mod tests {
              1,234 labelled claims, it answers 80% of them and names the same subject a \
              separate labeller did 90%"
         ));
+        assert!(learned.contains(ACCURACY_PAGE), "{learned}");
         let unlabelled = trust(&Measurement::Unlabelled, None);
         assert_eq!(
             unlabelled,

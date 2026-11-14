@@ -28,17 +28,27 @@ pub fn percent(share: f64) -> String {
     written(share, false)
 }
 
-/// Both ends of an interval, each as [`percent`] writes it.
+/// A rate with the two ends of its interval, all written at one precision.
 ///
-/// Where the two would read alike, both are written to a tenth. Where they read alike even
-/// then, the interval is too narrow to say anything the rate beside it does not, and the answer
-/// is `None`.
+/// The precision is that of [`percent`] where all three lie from 10% to 90%, and a tenth where
+/// any of them does not, so an interval across 90% never reads "[90%, 90.1%]". Where the ends
+/// would read alike, all three are written to a tenth. Where they read alike even then, the
+/// interval is too narrow to say anything the rate beside it does not, and the ends are `None`
+/// with the rate as [`percent`] writes it.
 #[must_use]
-pub fn percent_range(low: f64, high: f64) -> Option<(String, String)> {
-    [false, true].into_iter().find_map(|tenths| {
+pub fn percent_range(rate: f64, low: f64, high: f64) -> (String, Option<(String, String)>) {
+    let in_whole_points = |share: f64| (0.1..=0.9).contains(&share);
+    let mut tenths = !(in_whole_points(rate) && in_whole_points(low) && in_whole_points(high));
+    loop {
         let (first, second) = (written(low, tenths), written(high, tenths));
-        (first != second).then_some((first, second))
-    })
+        if first != second {
+            return (written(rate, tenths), Some((first, second)));
+        }
+        if tenths {
+            return (percent(rate), None);
+        }
+        tenths = true;
+    }
 }
 
 /// The rule behind [`percent`], with the tenth forced where `tenths` is set.
@@ -142,15 +152,29 @@ mod tests {
 
     #[test]
     fn an_interval_keeps_its_tenths_only_where_its_ends_would_read_alike() {
-        assert_eq!(
-            percent_range(0.27, 0.33),
-            Some(("27%".to_owned(), "33%".to_owned()))
-        );
-        assert_eq!(
-            percent_range(0.201, 0.204),
-            Some(("20.1%".to_owned(), "20.4%".to_owned()))
-        );
-        assert_eq!(percent_range(0.199_752, 0.200_248), None);
-        assert_eq!(percent_range(0.0001, 0.0002), None);
+        let range = |rate, low, high| {
+            let (rate, ends) = percent_range(rate, low, high);
+            (rate, ends.map(|(low, high)| format!("[{low}, {high}]")))
+        };
+        let some = |rate: &str, ends: &str| (rate.to_owned(), Some(ends.to_owned()));
+        assert_eq!(range(0.3, 0.27, 0.33), some("30%", "[27%, 33%]"));
+        assert_eq!(range(0.2025, 0.201, 0.204), some("20.3%", "[20.1%, 20.4%]"));
+        assert_eq!(range(0.8, 0.7996, 0.8004), ("80%".to_owned(), None));
+        assert_eq!(range(0.2, 0.199_752, 0.200_248), ("20%".to_owned(), None));
+        assert_eq!(range(0.0001, 0.0001, 0.0002), ("<0.1%".to_owned(), None));
+    }
+
+    #[test]
+    fn an_interval_across_an_edge_of_the_whole_point_band_is_written_at_a_tenth_throughout() {
+        let range = |rate, low, high| {
+            let (rate, ends) = percent_range(rate, low, high);
+            let (low, high) = ends.expect("a wide interval");
+            format!("{rate} [{low}, {high}]")
+        };
+        assert_eq!(range(0.9, 0.899_07, 0.900_93), "90% [89.9%, 90.1%]");
+        assert_eq!(range(0.1, 0.099_07, 0.100_93), "10% [9.9%, 10.1%]");
+        assert_eq!(range(0.8996, 0.8993, 0.9005), "90% [89.9%, 90.1%]");
+        assert_eq!(range(0.5, 0.4, 0.6), "50% [40%, 60%]");
+        assert_eq!(range(0.9005, 0.8, 0.95), "90.1% [80%, 95%]");
     }
 }

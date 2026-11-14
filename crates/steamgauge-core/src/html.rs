@@ -82,7 +82,7 @@ const COLUMNS: [(&str, &str); 6] = [
 const TOO_SMALL_TO_RANK: f64 = 0.001;
 
 /// The page that says what each of the reader's accuracy figures measures.
-const ACCURACY_PAGE: &str = "https://aureliolo.github.io/steamgauge/accuracy.html";
+pub(crate) const ACCURACY_PAGE: &str = "https://aureliolo.github.io/steamgauge/accuracy.html";
 
 /// Renders the whole report.
 #[must_use]
@@ -455,6 +455,9 @@ fn widest_apart(out: &mut String, report: &Report) {
         let (Some(low), Some(high)) = (rates.first(), rates.last()) else {
             continue;
         };
+        if percent(high.1) == percent(low.1) {
+            continue;
+        }
         let spread = high.1 - low.1;
         if widest.is_none_or(|(found, ..)| spread > found) {
             widest = Some((spread, category.label, high.0, high.1, low.0, low.1));
@@ -464,9 +467,6 @@ fn widest_apart(out: &mut String, report: &Report) {
     let Some((_, label, most, high, least, low)) = widest else {
         return;
     };
-    if percent(high) == percent(low) {
-        return;
-    }
     let _ = writeln!(
         out,
         "<p class=\"headline\">The subject these games disagree about most is \
@@ -2290,10 +2290,14 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
     else {
         return;
     };
-    let range = ceiling
-        .interval()
-        .and_then(|(low, high)| percent_range(low, high))
-        .map_or_else(String::new, |(low, high)| format!(" ({low} to {high})"));
+    let (settled_text, range) = ceiling.interval().map_or_else(
+        || (percent(settled), String::new()),
+        |(low, high)| {
+            let (rate, ends) = percent_range(settled, low, high);
+            let ends = ends.map_or_else(String::new, |(low, high)| format!(" ({low} to {high})"));
+            (rate, ends)
+        },
+    );
     let split = ceiling.where_they_split().map_or_else(String::new, |rate| {
         format!(
             " Where the two differ, on {} claims, the reader gives one of their two answers {} \
@@ -2318,7 +2322,7 @@ fn ceiling_note(out: &mut String, ceiling: &crate::measure::Ceiling) {
          agreed on the subject for {}. On those the reader agrees {}{}{}.{}</p>",
         thousands(ceiling.compared),
         percent(between),
-        percent(settled),
+        settled_text,
         range,
         clear,
         split
@@ -2329,7 +2333,8 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
     let (Some(rate), Some((low, high))) = (agreement.rate(), agreement.interval()) else {
         return;
     };
-    let interval = percent_range(low, high).map_or_else(String::new, |(low, high)| {
+    let (rate_text, ends) = percent_range(rate, low, high);
+    let interval = ends.map_or_else(String::new, |(low, high)| {
         format!(", somewhere in [{low}, {high}] with 95% confidence")
     });
     let _ = writeln!(
@@ -2339,7 +2344,7 @@ fn agreement_note(out: &mut String, agreement: &crate::measure::ClaimAgreement) 
          model. Two models can be wrong together, most often on sarcasm and on claims between \
          subjects.</p>",
         thousands(agreement.answered),
-        percent(rate),
+        rate_text,
     );
 
     // The figure above is computed over answered claims only, which is the honest way to score
@@ -3092,6 +3097,40 @@ mod tests {
         assert!(
             wide.contains("80% of the time, somewhere in [71%, 87%] with 95% confidence."),
             "{wide}"
+        );
+    }
+
+    #[test]
+    fn the_headline_names_the_widest_gap_among_those_that_read_differently() {
+        let mut report = two_games();
+        report.apps[0].reading.subjects[1].mention_reviews = 120;
+        report.apps[1].reading.subjects[1].mention_reviews = 124;
+        report.apps[0].reading.subjects[0].mention_reviews = 53;
+        report.apps[1].reading.subjects[0].mention_reviews = 50;
+        let page = render(&report);
+        assert!(
+            page.contains(
+                "The subject these games disagree about most is <strong>bugs and crashes</strong>"
+            ),
+            "{page}"
+        );
+        assert!(page.contains("5.3% of"), "{page}");
+        assert!(page.contains("against 5% of"), "{page}");
+    }
+
+    #[test]
+    fn an_interval_across_the_edge_of_the_whole_point_band_is_written_at_a_tenth_throughout() {
+        let mut out = String::new();
+        agreement_note(&mut out, &measured(400_000, 360_000));
+        assert!(
+            out.contains("90% of the time, somewhere in [89.9%, 90.1%] with 95% confidence"),
+            "{out}"
+        );
+        let mut low = String::new();
+        agreement_note(&mut low, &measured(400_000, 40_000));
+        assert!(
+            low.contains("10% of the time, somewhere in [9.9%, 10.1%] with 95% confidence"),
+            "{low}"
         );
     }
 
