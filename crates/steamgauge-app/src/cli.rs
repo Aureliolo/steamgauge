@@ -2120,19 +2120,23 @@ async fn fetch_reader(size: &steamgauge_core::reader::Size, model_dir: &Path) ->
             return;
         }
         shown = (progress.file.to_owned(), step);
-        let mb = |bytes: u64| thousands((bytes + 500_000) / 1_000_000);
-        match progress.total {
-            Some(total) => eprintln!(
-                "  {:<14} {:>6} / {} MB",
-                progress.file,
-                mb(progress.downloaded),
-                mb(total)
-            ),
-            None => eprintln!("  {:<14} {:>6} MB", progress.file, mb(progress.downloaded)),
-        }
+        eprintln!(
+            "{}",
+            reader_progress_line(progress.file, progress.downloaded, progress.total)
+        );
     })
     .await?;
     Ok(())
+}
+
+/// One line of a reader download: the file, and its megabytes so far out of all of them where
+/// the total is known.
+fn reader_progress_line(file: &str, downloaded: u64, total: Option<u64>) -> String {
+    let mb = |bytes: u64| thousands((bytes + 500_000) / 1_000_000);
+    match total {
+        Some(total) => format!("  {file:<14} {:>6} / {} MB", mb(downloaded), mb(total)),
+        None => format!("  {file:<14} {:>6} MB", mb(downloaded)),
+    }
 }
 
 /// The reader a read uses, fetched where it is not here yet, with the store asked about each
@@ -2524,7 +2528,7 @@ fn run_gold(
             thousands(found.games as u64),
             thousands(found.agreed as u64)
         );
-        print_recut(found.recut);
+        print_recut(&mut std::io::stdout(), found.recut)?;
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
@@ -2546,7 +2550,7 @@ fn run_gold(
             thousands(found.split as u64),
             thousands(found.agreed as u64)
         );
-        print_recut(found.recut);
+        print_recut(&mut std::io::stdout(), found.recut)?;
         return deliver(
             steamgauge_core::gold::render(&questions, &found, person),
             delivery,
@@ -2571,14 +2575,17 @@ fn run_gold(
     }
     let page = steamgauge_core::gold::render(&questions, &found, person);
 
-    say_what_was_drawn(&found, reading);
+    say_what_was_drawn(&found, reading)?;
 
     deliver(page, delivery)
 }
 
 /// What a draw turned out to be, in the order a person reads it: what they are being asked,
 /// then what was held back from them and why.
-fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
+fn say_what_was_drawn(
+    found: &steamgauge_core::gold::GoldDraw,
+    reading: &str,
+) -> std::io::Result<()> {
     let languages = &found.languages;
     let boundaries = &found.boundaries;
     println!("games      {} held out", thousands(found.games as u64));
@@ -2628,7 +2635,7 @@ fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
             thousands(found.declined as u64)
         );
     }
-    print_recut(found.recut);
+    print_recut(&mut std::io::stdout(), found.recut)?;
     if found.mistagged > 0 {
         println!(
             "mistagged  {} claims are written in a script their Steam language tag does not \
@@ -2636,16 +2643,19 @@ fn say_what_was_drawn(found: &steamgauge_core::gold::GoldDraw, reading: &str) {
             thousands(found.mistagged as u64)
         );
     }
+    Ok(())
 }
 
-fn print_recut(recut: usize) {
+fn print_recut(out: &mut impl std::io::Write, recut: usize) -> std::io::Result<()> {
     if recut > 0 {
-        println!(
+        writeln!(
+            out,
             "recut      {} labels name bytes this build cuts no claim at, so what they \
              were written about is not something anybody would be handed now",
             thousands(recut as u64)
-        );
+        )?;
     }
+    Ok(())
 }
 
 /// Writes the page, or serves it and writes every answer as it is made.
@@ -3968,38 +3978,46 @@ async fn run_rare_claims_by_neighbour(
         thousands(asked as u64),
         thousands(batches as u64)
     );
-    say_margins(&by_subject, reference);
+    say_margins(&mut std::io::stdout(), &by_subject, reference)?;
     Ok(())
 }
 
 /// What a neighbour draw found for each rare subject across every game drawn, and how to read
 /// it.
-fn say_margins(by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>, reference: &Path) {
-    println!(
+fn say_margins(
+    out: &mut impl std::io::Write,
+    by_subject: &std::collections::BTreeMap<&str, (usize, f32, f32)>,
+    reference: &Path,
+) -> std::io::Result<()> {
+    writeln!(
+        out,
         "\nwhat was drawn for each subject, and by what margin over the nearest common subject.\n\
          The narrowest is the figure to read: below zero, the game barely holds the subject,\n\
          and those labels will mostly say `gameplay`"
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "  {:<16} {:>6} {:>8} {:>10}",
         "subject", "drawn", "widest", "narrowest"
-    );
+    )?;
     for (subject, (count, widest, narrowest)) in by_subject {
         if *count == 0 {
-            println!("  {subject:<16} {:>6}", thousands(*count as u64));
+            writeln!(out, "  {subject:<16} {:>6}", thousands(*count as u64))?;
         } else {
-            println!(
+            writeln!(
+                out,
                 "  {subject:<16} {:>6} {widest:>+8.3} {narrowest:>+10.3}",
                 thousands(*count as u64)
-            );
+            )?;
         }
     }
-    println!(
+    writeln!(
+        out,
         "\nA neighbour is a candidate and the labeller decides. Ingest each with `steamgauge\n\
          ingest-claims <app id> --from <dir> --by <model> --to {}/<app id>/retrieved`.\n\
          Every row lands as subset `retrieved`, which trains the model and measures nothing.",
         reference.display()
-    );
+    )
 }
 
 async fn run_embed(
@@ -4568,6 +4586,117 @@ mod tests {
         assert!(super::drop_answers(&from, &[(7, "r1".to_owned(), 0)]).is_err());
         assert_eq!(std::fs::read_to_string(&from).unwrap(), before);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A person watching a download reads megabytes to the nearest one, with thousands marked.
+    #[test]
+    fn a_reader_download_line_gives_whole_megabytes_out_of_the_total() {
+        use super::reader_progress_line;
+
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_499_999, Some(1_118_206_465)),
+            "  model.onnx          1 / 1,118 MB"
+        );
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_500_000, Some(235_277_157)),
+            "  model.onnx          2 / 235 MB"
+        );
+        assert_eq!(
+            reader_progress_line("reader.json", 2_068, None),
+            "  reader.json         0 MB"
+        );
+        assert_eq!(
+            reader_progress_line("model.onnx", 1_234_000_000, None),
+            "  model.onnx      1,234 MB"
+        );
+    }
+
+    /// A folder that cannot be made fails the fetch before any request, so nothing reaches the
+    /// network and the failure is the caller's to see.
+    #[tokio::test]
+    async fn a_reader_that_cannot_be_put_in_place_fails_the_fetch() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let file = dir.path().join("a-file");
+        std::fs::write(&file, b"").unwrap();
+        let size = steamgauge_core::reader::Size::named("small").unwrap();
+
+        let fetched = super::fetch_reader(size, &file.join("reader")).await;
+
+        assert!(fetched.is_err());
+    }
+
+    /// A line is said only when something was cut away.
+    #[test]
+    fn labels_on_spans_no_longer_cut_are_said_only_when_there_are_some() {
+        let said = |recut| {
+            let mut out = Vec::new();
+            super::print_recut(&mut out, recut).unwrap();
+            String::from_utf8(out).unwrap()
+        };
+        assert_eq!(said(0), "");
+        assert!(
+            said(1).starts_with("recut      1 labels name bytes this build cuts no claim at"),
+            "{}",
+            said(1)
+        );
+        assert!(said(12_345).starts_with("recut      12,345 labels"));
+    }
+
+    /// A subject with nothing drawn has no margin to show.
+    #[test]
+    fn the_margins_of_a_neighbour_draw_are_shown_for_each_subject_that_has_any() {
+        let by_subject = std::collections::BTreeMap::from([
+            ("audio", (0_usize, f32::NEG_INFINITY, f32::INFINITY)),
+            ("modding", (1_234_usize, 0.5, -0.125)),
+        ]);
+        let mut out = Vec::new();
+        super::say_margins(&mut out, &by_subject, std::path::Path::new("sets")).unwrap();
+        let said = String::from_utf8(out).unwrap();
+        let lines: Vec<&str> = said.lines().collect();
+
+        assert!(
+            lines.contains(&"  subject           drawn   widest  narrowest"),
+            "{said}"
+        );
+        assert!(lines.contains(&"  audio                 0"), "{said}");
+        assert!(
+            lines.contains(&"  modding           1,234   +0.500     -0.125"),
+            "{said}"
+        );
+        assert!(said.contains("--to sets/<app id>/retrieved"), "{said}");
+    }
+
+    /// A game that was never crawled has nothing to embed or draw from, and the command says so
+    /// before it reaches for a model, which on a first run is a download.
+    #[tokio::test]
+    async fn a_game_with_no_capture_fails_before_any_model_is_fetched() {
+        use steamgauge_core::{Encoder, model::Precision, taxonomy::Unit};
+
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let (encoder, precision) = (Encoder::default(), Precision::default());
+
+        let embedded =
+            super::run_embed(5, dir.path(), 8, None, encoder, precision, Unit::Claim).await;
+        assert!(embedded.is_err());
+
+        let drawn = super::run_rare_claims_by_neighbour(
+            &[5],
+            dir.path(),
+            10,
+            10,
+            dir.path(),
+            super::NeighbourDraw {
+                model_dir: None,
+                encoder,
+                precision,
+                embed_batch: 8,
+                only: Vec::new(),
+            },
+        )
+        .await;
+        assert!(drawn.is_err());
+
+        assert!(super::run_distinct(5, dir.path(), 3, 1, None).is_err());
     }
 
     mod gold {

@@ -137,6 +137,47 @@ fn ingest_claims_files_what_came_back_under_its_labeller() {
         assert_eq!(label["produced_by"], "a-model");
         assert_eq!(label["taxonomy"], steamgauge_core::taxonomy::sheet());
     }
+    assert!(!done.out.contains("not clean"), "{}", done.out);
+}
+
+#[test]
+fn ingest_claims_says_what_the_returned_files_leave_out_or_cannot_place() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let set = reference.join(TRAINED.to_string());
+    std::fs::remove_file(set.join("labels.json")).unwrap();
+    let from = returned_folder(
+        dir.path(),
+        "returned",
+        &[
+            returned("501", "bugs", "complaint"),
+            returned("502", "not-a-subject", "praise"),
+            returned("9999", "bugs", "complaint"),
+        ],
+    );
+
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-claims",
+            "5",
+            "--from",
+            text(&from),
+            "--by",
+            "a-model",
+            "--to",
+            text(&set),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    for line in [
+        "not clean:",
+        "  3 claims drawn but never labelled",
+        "  1 labels naming a claim nobody drew",
+        "  1 labels the sheet does not offer",
+    ] {
+        assert!(has_line(&done.out, line), "{line}\n{}", done.out);
+    }
 }
 
 #[test]
@@ -196,6 +237,50 @@ fn ingest_revisit_replaces_only_what_was_asked() {
     ] {
         assert_eq!(subject_of(&filed, review), subject, "{review}");
     }
+    assert!(
+        !done.out.contains("unknown") && !done.out.contains("rejected"),
+        "{}",
+        done.out
+    );
+}
+
+#[test]
+fn ingest_revisit_names_the_answers_it_cannot_place() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let set = reference.join(TRAINED.to_string());
+    let from = returned_folder(
+        dir.path(),
+        "answers",
+        &[
+            returned("501", "performance", "complaint"),
+            returned("9999", "bugs", "complaint"),
+            returned("503", "not-a-subject", "complaint"),
+        ],
+    );
+
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-revisit",
+            "5",
+            "--from",
+            text(&from),
+            "--by",
+            "a-model",
+            "--to",
+            text(&set),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    for line in [
+        "revisited  1 claims",
+        "unknown    1 claims",
+        "  9999#0",
+        "rejected    1 claims",
+    ] {
+        assert!(has_line(&done.out, line), "{line}\n{}", done.out);
+    }
 }
 
 #[test]
@@ -250,6 +335,97 @@ fn ingest_gold_files_a_persons_answer_through_the_program() {
     assert_eq!(filed[0]["review_id"], "2701");
     assert_eq!(filed[0]["produced_by"], "one");
     assert_eq!(filed[0]["subject"], "bugs");
+    assert!(!done.out.contains("answers name a claim"), "{}", done.out);
+}
+
+#[test]
+fn ingest_gold_says_which_answers_name_a_claim_the_set_does_not_have() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let answer = |review: &str| {
+        json!({
+            "app_id": HELD_OUT,
+            "review_id": review,
+            "index": 0,
+            "subject": "bugs",
+            "polarity": "complaint",
+            "sheet": steamgauge_core::taxonomy::sheet(),
+            "by": "one",
+        })
+    };
+    let answers = dir.path().join("answers.json");
+    std::fs::write(
+        &answers,
+        serde_json::to_vec(&[answer("2701"), answer("9998")]).unwrap(),
+    )
+    .unwrap();
+
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-gold",
+            "--from",
+            text(&answers),
+            "--reference",
+            text(&reference),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    for line in [
+        "       27  1 answers name a claim this set does not have",
+        "gold       1 claims by one",
+    ] {
+        assert!(has_line(&done.out, line), "{line}\n{}", done.out);
+    }
+    let left: Vec<Value> = array(&answers);
+    assert_eq!(left.len(), 1, "the answer nothing will score is removed");
+    assert_eq!(left[0]["review_id"], "2701");
+}
+
+#[test]
+fn ingest_gold_files_whether_the_readers_other_subject_would_do() {
+    let dir = Dir::new();
+    let (_, reference) = labelled(dir.path());
+    let judgement = |review: &str, offered: &str, acceptable: bool| {
+        json!({
+            "app_id": HELD_OUT,
+            "review_id": review,
+            "index": 0,
+            "offered": offered,
+            "acceptable": acceptable,
+            "sheet": steamgauge_core::taxonomy::sheet(),
+            "by": "one",
+        })
+    };
+    let answers = dir.path().join("answers.json");
+    std::fs::write(
+        &answers,
+        serde_json::to_vec(&[
+            judgement("2701", "performance", true),
+            judgement("2702", "audio", false),
+            judgement("2702", "graphics", true),
+        ])
+        .unwrap(),
+    )
+    .unwrap();
+
+    let done = ran(
+        dir.path(),
+        &[
+            "ingest-gold",
+            "--from",
+            text(&answers),
+            "--reference",
+            text(&reference),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    let line = "acceptable 2 of the reader's other subjects would also do and 1 would not, \
+                filed beside the gold labels by one; the labels are unchanged";
+    assert!(has_line(&done.out, line), "{line}\n{}", done.out);
+    let set = reference.join(HELD_OUT.to_string());
+    let kept = steamgauge_core::gold::acceptable_in(&set, "one");
+    assert_eq!(kept.len(), 3);
 }
 
 #[test]
@@ -384,6 +560,29 @@ fn measure_claims_scores_what_the_reader_answered() {
         "{}",
         done.out
     );
+    assert!(!done.out.contains("pooled over"), "{}", done.out);
+}
+
+#[test]
+fn measure_claims_pools_the_games_it_is_given() {
+    let dir = Dir::new();
+    let (library, reference) = labelled(dir.path());
+    let done = ran(
+        dir.path(),
+        &[
+            "measure-claims",
+            "5",
+            "27",
+            "--out",
+            text(&library),
+            "--reference",
+            text(&reference),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    let line = "pooled over 2 games: 6 labelled claims, 5 answered (83.3%), 100.0% agreement, \
+                macro F1 0.667";
+    assert!(has_line(&done.out, line), "{line}\n{}", done.out);
 }
 
 #[test]
