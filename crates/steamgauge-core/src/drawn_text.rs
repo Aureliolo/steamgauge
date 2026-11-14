@@ -342,6 +342,43 @@ mod tests {
         );
     }
 
+    #[test]
+    fn claims_apart_stay_apart_and_overlapping_claims_join() {
+        assert_eq!(
+            runs_written(&[claim(0, 3, 8, "Good."), claim(1, 10, 15, "Fine.")]),
+            Some(vec![(3, "Good.".to_owned()), (10, "Fine.".to_owned())])
+        );
+        assert_eq!(
+            runs_written(&[claim(0, 3, 8, "Good."), claim(1, 6, 11, "d. Ok")]),
+            Some(vec![(3, "Good. Ok".to_owned())])
+        );
+    }
+
+    #[test]
+    fn the_sums_of_two_games_add_field_by_field() {
+        let mut total = Restored {
+            rebuilt: 2,
+            left_as_kept: 3,
+            no_kept_text: 4,
+            labels_moved: 5,
+        };
+        total += Restored {
+            rebuilt: 3,
+            left_as_kept: 4,
+            no_kept_text: 5,
+            labels_moved: 6,
+        };
+        assert_eq!(
+            total,
+            Restored {
+                rebuilt: 5,
+                left_as_kept: 7,
+                no_kept_text: 9,
+                labels_moved: 11,
+            }
+        );
+    }
+
     fn a_label(review_id: &str, index: u16, start: u32, end: u32) -> ClaimLabel {
         ClaimLabel {
             review_id: review_id.to_owned(),
@@ -471,12 +508,17 @@ mod tests {
             .unwrap()
             .replace("\"taxonomy\": \"x\"", "\"taxonomy\": \"\"");
         put(&game.join("labels.json"), with_empty_key.as_bytes());
-        for set in ["second", "gold/ann", "keyword"] {
+        for set in ["second", "gold/ann"] {
             put(
                 &game.join(set).join("labels.json"),
                 &serde_json::to_vec_pretty(std::slice::from_ref(&moved)).unwrap(),
             );
         }
+        // Not in the pretty form a restore writes, so a file rewritten with nothing moved shows.
+        put(
+            &game.join("keyword").join("labels.json"),
+            &serde_json::to_vec(std::slice::from_ref(&moved)).unwrap(),
+        );
         game
     }
 

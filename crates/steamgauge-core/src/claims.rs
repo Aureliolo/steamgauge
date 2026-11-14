@@ -702,14 +702,14 @@ fn without_markup(piece: &str) -> String {
 ///
 /// A form's claim is handed out as its heading and its answer, so the words are sought in order.
 /// A censor mark in them stands for any one character ([`same_words`]). Words of the claim's own
-/// length are compared as bytes. False where the span runs past the text or starts or ends inside
-/// a character.
+/// length are compared as bytes. False where the span is empty, runs past the text or starts or
+/// ends inside a character.
 pub(crate) fn holds_words(text: &str, start: u32, end: u32, handed: &str) -> bool {
     let (Ok(start), Ok(end)) = (usize::try_from(start), usize::try_from(end)) else {
         return false;
     };
     // `is_char_boundary` is false past the end of the text, so a span running past it ends here.
-    if start > end || !text.is_char_boundary(start) || !text.is_char_boundary(end) {
+    if start >= end || !text.is_char_boundary(start) || !text.is_char_boundary(end) {
         return false;
     }
     let bytes = &text[start..end];
@@ -2557,5 +2557,11 @@ mod tests {
         assert!(!holds_words("ünï good.", 1, 9, "nï good."));
         assert!(!holds_words("ünï good.", 0, 4, "ün"));
         assert!(holds_words("ünï good.", 0, 5, "ünï"));
+    }
+
+    #[test]
+    fn an_empty_span_holds_no_claim() {
+        assert!(!holds_words("Good.", 2, 2, ""));
+        assert!(holds_words("Good.", 0, 1, "G"));
     }
 }
