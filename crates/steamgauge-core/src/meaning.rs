@@ -362,18 +362,13 @@ pub fn prepare(
     let _writing = crate::lock_file::writing_in(snapshot)?;
     let dir = snapshot.join(DIR);
     std::fs::create_dir_all(&dir)?;
-    let alone = crate::lock_file::open(&dir.join(PREPARATION_LOCK))?;
-    match alone.try_lock() {
-        Ok(()) => {}
-        Err(std::fs::TryLockError::WouldBlock) => {
-            return Err(Error::Refused(
-                "Another job is preparing this download for search, in this program or another. \
-                 Try again once it ends."
-                    .to_owned(),
-            ));
-        }
-        Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
-    }
+    let Some(_alone) = crate::FileLock::alone(&dir.join(PREPARATION_LOCK))? else {
+        return Err(Error::Refused(
+            "Another job is preparing this download for search, in this program or another. \
+             Try again once it ends."
+                .to_owned(),
+        ));
+    };
     // A reading replaced since the parts were written is carried on from rather than thrown
     // away: a claim is the bytes it covers, so a vector keyed by those bytes is still its
     // vector, and only what the new reading added is missing.
@@ -914,8 +909,9 @@ mod tests {
         write_sidecar(&dir.path().join(DIR), &other).unwrap();
         let record = std::fs::read(dir.path().join(DIR).join(SIDECAR)).unwrap();
 
-        let running = crate::lock_file::open(&dir.path().join(DIR).join(PREPARATION_LOCK)).unwrap();
-        running.try_lock().unwrap();
+        let running = crate::FileLock::alone(&dir.path().join(DIR).join(PREPARATION_LOCK))
+            .unwrap()
+            .unwrap();
         let refused = prepare(
             dir.path(),
             |_| panic!("a refused preparation embeds nothing"),
@@ -939,6 +935,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "bare handles probe the lock from outside, and none is taken again after one drops"
+    )]
     fn a_preparation_holds_its_lock_while_it_embeds() {
         let dir = crate::tempdir::Dir::new();
         game(dir.path());

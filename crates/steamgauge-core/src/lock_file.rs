@@ -10,6 +10,77 @@ pub(crate) fn open(file: &std::path::Path) -> std::io::Result<std::fs::File> {
         .open(file)
 }
 
+/// A lock on a file, let go when dropped.
+///
+/// Dropping it lets go even while another handle to the same open file lives on. A program
+/// started on macOS or Linux holds a copy of every open handle until it has loaded, and a lock
+/// left to the closing of the last handle would outlast this one by that long.
+#[derive(Debug)]
+pub struct FileLock(std::fs::File);
+
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one place a file is locked, so every lock lets go when dropped"
+)]
+impl FileLock {
+    /// Locks `file` alone, made where missing, or gives `None` while another handle holds a lock
+    /// on it, in this program or another.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the file cannot be opened or the system cannot lock it.
+    pub fn alone(file: &std::path::Path) -> std::io::Result<Option<Self>> {
+        let file = open(file)?;
+        let taken = file.try_lock();
+        Self::taken(file, taken)
+    }
+
+    /// Locks `file` alone once no other handle holds a lock on it, asking every quarter second.
+    /// The first ask comes before any pause, so a free file costs no wait.
+    pub(crate) async fn alone_once_free(file: &std::path::Path) -> std::io::Result<Self> {
+        let file = open(file)?;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(Self(file)),
+                Err(std::fs::TryLockError::WouldBlock) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                }
+                Err(std::fs::TryLockError::Error(error)) => return Err(error),
+            }
+        }
+    }
+
+    /// Locks `file` shared, made where missing, or gives `None` while another handle holds it
+    /// alone, in this program or another.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the file cannot be opened or the system cannot lock it.
+    pub fn shared(file: &std::path::Path) -> std::io::Result<Option<Self>> {
+        let file = open(file)?;
+        let taken = file.try_lock_shared();
+        Self::taken(file, taken)
+    }
+
+    fn taken(
+        file: std::fs::File,
+        taken: Result<(), std::fs::TryLockError>,
+    ) -> std::io::Result<Option<Self>> {
+        match taken {
+            Ok(()) => Ok(Some(Self(file))),
+            Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+            Err(std::fs::TryLockError::Error(error)) => Err(error),
+        }
+    }
+}
+
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        // Where the release fails, the system still lets go once the last handle closes.
+        let _ = self.0.unlock();
+    }
+}
+
 /// The file a job that writes in a game's folder locks shared meanwhile, its own clean-up
 /// included, and a removal the person asks for locks alone. It stays.
 pub(crate) const WRITING_LOCK: &str = "writing.lock";
@@ -27,7 +98,7 @@ fn game_id(name: &std::ffi::OsStr) -> Option<&str> {
 /// # Errors
 ///
 /// [`crate::Error::Refused`] while the game's files are being removed.
-pub(crate) fn writing_in(path: &std::path::Path) -> crate::Result<Option<std::fs::File>> {
+pub(crate) fn writing_in(path: &std::path::Path) -> crate::Result<Option<FileLock>> {
     let Some((game, id)) = path
         .ancestors()
         .find_map(|ancestor| Some((ancestor, game_id(ancestor.file_name()?)?)))
@@ -37,14 +108,12 @@ pub(crate) fn writing_in(path: &std::path::Path) -> crate::Result<Option<std::fs
     if !game.is_dir() {
         return Ok(None);
     }
-    let file = open(&game.join(WRITING_LOCK))?;
-    match file.try_lock_shared() {
-        Ok(()) => Ok(Some(file)),
-        Err(std::fs::TryLockError::WouldBlock) => Err(crate::Error::Refused(format!(
+    let held = FileLock::shared(&game.join(WRITING_LOCK))?.ok_or_else(|| {
+        crate::Error::Refused(format!(
             "app {id}: its files are being removed. Try again once that ends."
-        ))),
-        Err(std::fs::TryLockError::Error(error)) => Err(error.into()),
-    }
+        ))
+    })?;
+    Ok(Some(held))
 }
 
 #[cfg(test)]
@@ -92,6 +161,37 @@ mod tests {
         let said = refusal(writing_in(&dir.path().join("appid=7")));
         assert!(said.contains("being removed"), "{said}");
         drop(removal);
+    }
+
+    /// The copy stands for the one a program started at that moment holds until it has loaded.
+    #[test]
+    fn a_lock_lets_go_when_dropped_while_a_copy_of_its_handle_lives_on() {
+        let dir = crate::tempdir::Dir::new();
+        let file = dir.path().join("a.lock");
+        for take in [FileLock::alone, FileLock::shared] {
+            let held = take(&file).unwrap().unwrap();
+            let copy = held.0.try_clone().unwrap();
+            drop(held);
+            assert!(
+                FileLock::alone(&file).unwrap().is_some(),
+                "the copy kept the lock"
+            );
+            drop(copy);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_lock_waited_for_lets_go_when_dropped_while_a_copy_of_its_handle_lives_on() {
+        let dir = crate::tempdir::Dir::new();
+        let file = dir.path().join("a.lock");
+        let held = FileLock::alone_once_free(&file).await.unwrap();
+        let copy = held.0.try_clone().unwrap();
+        drop(held);
+        assert!(
+            FileLock::alone(&file).unwrap().is_some(),
+            "the copy kept the lock"
+        );
+        drop(copy);
     }
 
     #[test]

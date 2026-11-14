@@ -825,24 +825,21 @@ const CRAWL_LOCK: &str = "crawl.lock";
 /// # Errors
 ///
 /// [`crate::Error::Refused`] while a job writes in the game.
-pub fn lock_for_removal(out_dir: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
+pub fn lock_for_removal(out_dir: &std::path::Path, app_id: u32) -> Result<crate::FileLock> {
     let game = out_dir.join(format!("appid={app_id}"));
     std::fs::create_dir_all(&game)?;
     take_lock(&game.join(crate::lock_file::WRITING_LOCK), app_id)
 }
 
 /// Takes the lock on `file`, or refuses where another handle holds it, in this program or another.
-/// The system lets go when the file is dropped or the program ends.
-fn take_lock(file: &std::path::Path, app_id: u32) -> Result<std::fs::File> {
-    let file = crate::lock_file::open(file)?;
-    match file.try_lock() {
-        Ok(()) => Ok(file),
-        Err(std::fs::TryLockError::WouldBlock) => Err(crate::Error::Refused(format!(
+/// It lets go when what it returns is dropped or the program ends.
+fn take_lock(file: &std::path::Path, app_id: u32) -> Result<crate::FileLock> {
+    crate::FileLock::alone(file)?.ok_or_else(|| {
+        crate::Error::Refused(format!(
             "app {app_id}: another job is writing to its download, in this program or another. \
              Try again once it ends."
-        ))),
-        Err(std::fs::TryLockError::Error(error)) => Err(error.into()),
-    }
+        ))
+    })
 }
 
 /// Deletes what sweeps that never finished left behind. Each sweep writes a file named for when
@@ -2622,13 +2619,7 @@ mod tests {
         );
         let server = stand_in::Server::new(edits(one_new_review(), 3));
         let before = std::fs::read(dir.join("crawl.json")).unwrap();
-        let other = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(dir.join(SWEEP_LOCK))
-            .unwrap();
-        other.try_lock().unwrap();
+        let other = lock_held_by_another_program(&dir.join(SWEEP_LOCK));
         for _ in 0..2 {
             let refused = sweeping(&server, APP, out.path()).await;
             assert!(
@@ -2830,13 +2821,7 @@ mod tests {
             &json!({"snapshot_unix": WATERMARK, "rows_unique": 2}),
         );
         let server = stand_in::Server::new(edits(one_new_review(), 3));
-        let other = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(dir.join(SWEEP_LOCK))
-            .unwrap();
-        other.try_lock().unwrap();
+        let _other = lock_held_by_another_program(&dir.join(SWEEP_LOCK));
         std::fs::remove_file(dir.join("crawl.json")).unwrap();
         std::fs::create_dir(dir.join("crawl.json")).unwrap();
         let refused = sweeping(&server, APP, out.path()).await;
@@ -3321,15 +3306,8 @@ mod tests {
     }
 
     /// The lock on `file` that another program holds, taken on a handle of the test's own.
-    fn lock_held_by_another_program(file: &std::path::Path) -> std::fs::File {
-        let other = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(file)
-            .unwrap();
-        other.try_lock().unwrap();
-        other
+    fn lock_held_by_another_program(file: &std::path::Path) -> crate::FileLock {
+        crate::FileLock::alone(file).unwrap().unwrap()
     }
 
     /// `inner`, except that the store's answer about the game's name sets `asked` and then waits

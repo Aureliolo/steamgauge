@@ -66,6 +66,9 @@ How the parts of SteamGauge fit and the rules they keep, for anyone changing it.
   Every writer of `crawl.json` sets its own fields and keeps the rest.
   A crawl and a name lookup read and write it under the sweep's lock, and are refused while
   another job holds it.
+  Every lock file a job takes, here and in a model's or a preparation's folder, is let go as its
+  job ends, even while a program started meanwhile still
+  holds a copy of the open lock file, as one does on macOS and Linux until it has loaded.
 - Developer posts come from `ISteamNews/GetNewsForApp`, titles and dates only, in
   `announcements.json`. `updates::is_update` decides which are updates.
 - Whether the store lists a game as VR-only is kept in `game.json`, and the labeller and reader

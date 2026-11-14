@@ -426,12 +426,9 @@ pub fn remove_fetched(dir: &Path) -> Result<bool> {
     if !dir.is_dir() {
         return Ok(true);
     }
-    let lock = crate::lock_file::open(&dir.join(FETCH_LOCK))?;
-    match lock.try_lock() {
-        Ok(()) => {}
-        Err(std::fs::TryLockError::WouldBlock) => return Ok(false),
-        Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
-    }
+    let Some(_lock) = crate::FileLock::alone(&dir.join(FETCH_LOCK))? else {
+        return Ok(false);
+    };
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         if entry.file_name() == FETCH_LOCK {
@@ -446,23 +443,12 @@ pub fn remove_fetched(dir: &Path) -> Result<bool> {
     Ok(true)
 }
 
-/// Waits for this folder's turn. The handle is the lock, let go when it is dropped or its
-/// program ends.
+/// Waits for this folder's turn, let go when what it returns is dropped or its program ends.
 ///
-/// The lock is asked for before the first pause, so a free folder costs no wait. The file is
-/// never truncated or removed: a fetch that opened it before a removal would lock a file no
-/// later fetch can see.
-async fn turn(dir: &Path) -> Result<std::fs::File> {
-    let file = crate::lock_file::open(&dir.join(FETCH_LOCK))?;
-    loop {
-        match file.try_lock() {
-            Ok(()) => return Ok(file),
-            Err(std::fs::TryLockError::WouldBlock) => {
-                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            }
-            Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
-        }
-    }
+/// The file is never truncated or removed: a fetch that opened it before a removal would lock a
+/// file no later fetch can see.
+async fn turn(dir: &Path) -> Result<crate::FileLock> {
+    Ok(crate::FileLock::alone_once_free(&dir.join(FETCH_LOCK)).await?)
 }
 
 /// Fetches one pinned file from a Hugging Face repository unless the copy on disk already
@@ -1203,13 +1189,9 @@ mod tests {
     async fn a_fetch_waits_while_another_program_holds_the_folder() {
         let dir = crate::tempdir::Dir::new();
         let (server, source) = hub(GRAPH);
-        let held = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false)
-            .open(dir.path().join(FETCH_LOCK))
+        let held = crate::FileLock::alone(&dir.path().join(FETCH_LOCK))
+            .unwrap()
             .unwrap();
-        held.lock().unwrap();
 
         let waiting = tokio::time::timeout(
             std::time::Duration::from_millis(300),
@@ -1357,8 +1339,9 @@ mod tests {
         let dir = crate::tempdir::Dir::new();
         std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
         std::fs::write(dir.path().join("model.partial"), b"half").unwrap();
-        let held = crate::lock_file::open(&dir.path().join(FETCH_LOCK)).unwrap();
-        held.lock().unwrap();
+        let held = crate::FileLock::alone(&dir.path().join(FETCH_LOCK))
+            .unwrap()
+            .unwrap();
 
         assert!(!remove_fetched(dir.path()).unwrap());
         assert!(dir.path().join("model.onnx").is_file());
@@ -1422,6 +1405,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "two bare handles show which file an early handle locks, and neither is taken again"
+    )]
     fn a_fetch_that_opened_the_lock_before_a_removal_still_takes_its_turn() {
         let dir = crate::tempdir::Dir::new();
         std::fs::write(dir.path().join("model.onnx"), GRAPH).unwrap();
@@ -1478,13 +1465,9 @@ mod tests {
     #[tokio::test]
     async fn a_fetch_dropped_while_it_waits_for_its_turn_writes_nothing() {
         let dir = crate::tempdir::Dir::new();
-        let holder = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false)
-            .open(dir.path().join(FETCH_LOCK))
+        let holder = crate::FileLock::alone(&dir.path().join(FETCH_LOCK))
+            .unwrap()
             .unwrap();
-        holder.lock().unwrap();
         let server = stand_in::Server::new(|_| stand_in::Answer::body(GRAPH));
         let source = Source {
             hub: server.origin().leak(),

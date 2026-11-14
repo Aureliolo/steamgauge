@@ -60,6 +60,7 @@ pub use api::{DEFAULT_PACE, Listing, Page, QuerySummary, SteamClient};
 pub use capture::CaptureWriter;
 pub use crawl::{CrawlOptions, CrawlReport, Progress, StopReason, crawl};
 pub use embed::{DEFAULT_BATCH_SIZE, EmbedReport, Embedder, embed_corpus};
+pub use lock_file::FileLock;
 pub use measure::{ClaimAgreement, SubjectAgreement, agreement};
 pub use model::{Encoder, Precision};
 pub use query::{ReviewQuery, SortOrder};
