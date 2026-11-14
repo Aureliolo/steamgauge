@@ -136,6 +136,10 @@ pub struct GoldDraw {
     /// words are still in the review and the label is not wrong about them, but there is no
     /// claim there any more to adjudicate and no reading that could be joined to the answer.
     pub recut: usize,
+    /// Claims held back because the kept text does not hold the words their labeller was handed
+    /// at the bytes the label names: a review edited after its draw, or a set drawn again under
+    /// another cut.
+    pub other_words: usize,
     /// Claims held back because they are written in a script the language they are tagged
     /// with does not use. The language filter reads Steam's tag, which is the reviewer's
     /// account setting and not the text: a review tagged English and written in Hangul was
@@ -159,9 +163,9 @@ impl GoldDraw {
     ///
     /// Nothing anybody can adjudicate is not a hard question, it is a broken one. It costs
     /// the person the same time as a real claim and the answer it collects is worth nothing
-    /// either way. Three shapes: a template option its author left blank, a claim written in
-    /// a script its tag does not use where a language was asked for, and a span this build
-    /// cuts no claim at.
+    /// either way. Four shapes: a template option its author left blank, a claim written in
+    /// a script its tag does not use where a language was asked for, a span this build cuts no
+    /// claim at, and a span whose kept words are not the ones the labeller was handed.
     fn holds_back(
         &mut self,
         label: &ClaimLabel,
@@ -175,6 +179,8 @@ impl GoldDraw {
             self.mistagged += 1;
         } else if !still_cut(cut, label) {
             self.recut += 1;
+        } else if !crate::claimset::reads_at(cut, label, text) {
+            self.other_words += 1;
         } else {
             return false;
         }
@@ -1633,6 +1639,33 @@ mod tests {
         let (questions, found) = draw(root.path(), &asking(100, Splits::HeldOut)).unwrap();
         assert!(questions.is_empty(), "{questions:?}");
         assert_eq!(found.recut, 1);
+    }
+
+    #[test]
+    fn a_label_whose_words_are_not_at_its_bytes_is_not_put_in_front_of_anybody() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(&set).unwrap();
+        let review = "The music is lovely. Bugs everywhere.";
+        kept(&set, &[("r1", review)]);
+        std::fs::write(
+            set.join("sample.json"),
+            serde_json::json!([drawn_from("r1", 214_490, "random", review)]).to_string(),
+        )
+        .unwrap();
+        // Index 1 is "Bugs everywhere." in the sample, and the label names the first sentence.
+        let mut label = label_of(214_490, review, 0, "audio");
+        label["index"] = 1.into();
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([label]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = draw(root.path(), &asking(10, Splits::HeldOut)).unwrap();
+
+        assert!(questions.is_empty(), "{questions:?}");
+        assert_eq!((found.other_words, found.recut), (1, 0));
     }
 
     #[test]

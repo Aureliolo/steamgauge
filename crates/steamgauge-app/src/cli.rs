@@ -1831,6 +1831,7 @@ fn run_export_training(from: &Path, to: &Path) -> Result<()> {
             thousands(report.recut as u64)
         );
     }
+    print_other_words(&mut std::io::stdout(), report.other_words)?;
     if report.measured_on > 0 {
         println!(
             "{} teaching rows held back for sitting on {}, which the model is measured on \
@@ -2636,6 +2637,7 @@ fn say_what_was_drawn(
         );
     }
     print_recut(&mut std::io::stdout(), found.recut)?;
+    print_other_words(&mut std::io::stdout(), found.other_words)?;
     if found.mistagged > 0 {
         println!(
             "mistagged  {} claims are written in a script their Steam language tag does not \
@@ -2653,6 +2655,19 @@ fn print_recut(out: &mut impl std::io::Write, recut: usize) -> std::io::Result<(
             "recut      {} labels name bytes this build cuts no claim at, so what they \
              were written about is not something anybody would be handed now",
             thousands(recut as u64)
+        )?;
+    }
+    Ok(())
+}
+
+fn print_other_words(out: &mut impl std::io::Write, other_words: usize) -> std::io::Result<()> {
+    if other_words > 0 {
+        writeln!(
+            out,
+            "{} rows held back because the kept review does not hold their words at the bytes \
+             the label names: the review was edited after its draw, or the set was drawn again \
+             under another cut",
+            thousands(other_words as u64)
         )?;
     }
     Ok(())
@@ -2872,6 +2887,16 @@ fn adjudicate_one_game(
             useless.push(answer.key());
             continue;
         }
+        // The labeller's words are the sample's claim at the index, and the label's place is its
+        // bytes. Where the kept text reads other words there, the answer is about neither.
+        if !said
+            .get(&(answer.review_id.as_str(), answer.index))
+            .is_some_and(|text| steamgauge_core::claimset::reads_at(cut, was, text))
+        {
+            unplaced += 1;
+            useless.push(answer.key());
+            continue;
+        }
         agreed += usize::from(was.subject == answer.subject);
         gold.push(steamgauge_core::claimset::ClaimLabel {
             review_id: answer.review_id.clone(),
@@ -2898,7 +2923,8 @@ fn adjudicate_one_game(
     }
     if unplaced > 0 {
         println!(
-            "{app_id:>9}  {} answers name a claim this set does not have",
+            "{app_id:>9}  {} answers name a claim this set does not have, or one whose words \
+             the kept review does not hold at its bytes",
             thousands(unplaced)
         );
     }
@@ -4826,6 +4852,35 @@ mod tests {
             assert!(
                 held(&set, "one").is_empty(),
                 "an answer on a span this build no longer cuts was filed"
+            );
+        }
+
+        #[test]
+        fn an_answer_is_not_filed_on_a_label_whose_words_are_not_at_its_bytes() {
+            let scratch = Scratch::new("other-words");
+            let set = a_set(&scratch.0.join("reference"));
+            let label = |index: u16, start: u32, end: u32| {
+                json!({
+                    "review_id": "r1", "index": index, "app_id": 7,
+                    "language": "russian", "subset": "random", "start": start, "end": end,
+                    "taxonomy": "a-sheet", "produced_by": "a-model",
+                    "subject": "performance", "polarity": "complaint", "ironic": false,
+                    "confidence": "high", "ambiguous": false, "split_wrong": false
+                })
+            };
+            // Index 1 is "It is worth the full price." in the sample, and its label names the
+            // first sentence.
+            std::fs::write(
+                set.join("labels.json"),
+                json!([label(0, 0, 33), label(1, 0, 33)]).to_string(),
+            )
+            .unwrap();
+
+            ingest(&scratch, "other.json", &[answer(1, "price", "one")]).unwrap();
+
+            assert!(
+                held(&set, "one").is_empty(),
+                "an answer was filed on the first sentence"
             );
         }
 

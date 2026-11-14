@@ -743,6 +743,7 @@ pub fn draw_revisit(
                             .get(&(review.id.as_str(), claim.index))
                             .is_some_and(|label| {
                                 cut_at(cut, label).is_some()
+                                    && reads_at(cut, label, &claim.text)
                                     && questions.iter().any(|question| {
                                         question.asks(review.app_id, label, &claim.text)
                                     })
@@ -1172,6 +1173,21 @@ pub fn cut_at(cut: &CutSpans, label: &ClaimLabel) -> Option<crate::claims::Span>
     let review = cut.get(label.review_id.as_str())?;
     let words = crate::claims::words_at(&review.text, label.start, label.end)?;
     review.spans.contains(&words).then_some(words)
+}
+
+/// Whether the review's kept text holds `handed`, the words a labeller was given, at the bytes
+/// the label names.
+///
+/// A label is joined to its words by the index in a handout and to its place by bytes. Where
+/// the review was edited after its draw, or the set was drawn again under another cut, the two
+/// name different claims, and a row, a question or an answer built from both is about neither.
+/// False where the review has no kept text. The words are compared as a labeller was handed
+/// them: markup skipped, and a censor mark standing for any one character.
+#[must_use]
+pub fn reads_at(cut: &CutSpans, label: &ClaimLabel, handed: &str) -> bool {
+    cut.get(label.review_id.as_str()).is_some_and(|review| {
+        crate::claims::holds_words(&review.text, label.start, label.end, handed)
+    })
 }
 
 /// The bytes that name a label's claim.
@@ -1866,6 +1882,10 @@ pub struct ExportReport {
     pub measured_on_games: std::collections::BTreeSet<u32>,
     /// Rows naming bytes this build cuts no claim at.
     pub recut: usize,
+    /// Rows whose words the kept text does not hold at the label's bytes: a review edited after
+    /// its draw and left as kept, or a set drawn again under another cut. A censor mark handed
+    /// out stands for any one character.
+    pub other_words: usize,
     /// Claims two draws both handed out, folded into one row carrying both answers.
     pub twice: usize,
 }
@@ -1934,6 +1954,8 @@ fn read_once(
 /// Training must not learn them either, so the export joins each label to the cut the splitter
 /// produces now.
 ///
+/// A row is written only where the kept text reads the labeller's words at the label's bytes.
+///
 /// # Errors
 ///
 /// Fails if a reference set cannot be read, a labelled game keeps no review text, or the
@@ -1993,6 +2015,13 @@ pub fn export_training(reference_root: &Path, to: &Path) -> Result<ExportReport>
             .is_none_or(|cut| cut_at(cut, label).is_none())
         {
             report.recut += 1;
+            continue;
+        }
+        if !cuts
+            .get(&label.app_id)
+            .is_some_and(|cut| reads_at(cut, label, &claim.text))
+        {
+            report.other_words += 1;
             continue;
         }
         let headset_only = *facts.entry(label.app_id).or_insert_with(|| {
@@ -3831,6 +3860,88 @@ mod tests {
         let report = export_training(&dir.path().join("reference"), &to).unwrap();
         assert_eq!((report.written, report.no_claim, report.recut), (1, 1, 1));
         assert_eq!(std::fs::read_to_string(&to).unwrap().lines().count(), 1);
+    }
+
+    /// Review `1` of game 1 in `dir`, kept as "The music is lovely. Bugs everywhere." and drawn
+    /// as two claims numbered 0 and 1, with one label that has index 1 and the bytes of the
+    /// first sentence.
+    fn a_set_whose_label_names_the_other_sentence(dir: &Path) -> std::path::PathBuf {
+        let set = dir.join("reference").join("1");
+        kept(&set, &[("1", "The music is lovely. Bugs everywhere.")]);
+        write_set(
+            &set,
+            &[review("1", &["The music is lovely.", "Bugs everywhere."])],
+            0,
+        )
+        .unwrap();
+        let mut label = a_label(1, "1", 1, "random", "audio");
+        label.end = 20;
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::to_vec(&[label]).unwrap(),
+        )
+        .unwrap();
+        set
+    }
+
+    #[test]
+    fn the_export_holds_back_a_label_whose_words_are_not_at_its_bytes() {
+        let dir = crate::tempdir::Dir::new();
+        a_set_whose_label_names_the_other_sentence(dir.path());
+
+        let to = dir.path().join("train.jsonl");
+        let report = export_training(&dir.path().join("reference"), &to).unwrap();
+
+        assert_eq!(
+            (report.written, report.other_words, report.recut),
+            (0, 1, 0)
+        );
+        assert_eq!(std::fs::read_to_string(&to).unwrap(), "");
+    }
+
+    #[test]
+    fn words_handed_out_without_their_markup_still_read_at_their_bytes() {
+        let cut = cut_of("[b]Great[/b] game.");
+        assert!(reads_at(&cut, &on(0, 18), "Great game."));
+        assert!(!reads_at(&cut, &on(0, 18), "Great fun."));
+        assert!(!reads_at(&cut, &on(0, 40), "Great game."));
+        assert!(!reads_at(&CutSpans::new(), &on(0, 18), "Great game."));
+    }
+
+    #[test]
+    fn a_censored_claim_handed_out_without_its_markup_reads_at_plain_words() {
+        let cut = cut_of("Damn [i]good[/i].");
+        let hearts = "\u{2665}\u{2665}\u{2665}\u{2665}";
+        assert!(reads_at(&cut, &on(0, 17), &format!("{hearts} good.")));
+        assert!(!reads_at(&cut, &on(0, 17), &format!("{hearts} fine.")));
+    }
+
+    #[test]
+    fn a_revisit_asks_no_label_whose_words_are_not_at_its_bytes() {
+        let dir = crate::tempdir::Dir::new();
+        let set = a_set_whose_label_names_the_other_sentence(dir.path());
+        let cut = cut_of("The music is lovely. Bugs everywhere.");
+        let bugs = Question {
+            words: vec!["bugs".to_owned()],
+            ..Question::default()
+        };
+
+        assert!(
+            draw_revisit(&set, std::slice::from_ref(&bugs), &cut)
+                .unwrap()
+                .is_empty()
+        );
+
+        let mut label = a_label(1, "1", 1, "random", "audio");
+        label.start = 21;
+        label.end = 37;
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::to_vec(&[label]).unwrap(),
+        )
+        .unwrap();
+        let asked = draw_revisit(&set, &[bugs], &cut).unwrap();
+        assert_eq!(asked[0].asked, Some(vec![1]));
     }
 
     #[test]
