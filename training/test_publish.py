@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import pytest
@@ -73,6 +74,11 @@ def test_the_writer_is_pinned_and_read_from_the_tool_itself() -> None:
 
 def test_only_the_named_fields_are_published() -> None:
     publish.checked([{"review_id": "1", "subject": "bugs"}], publish.LABEL_FIELDS, "labels")
+    publish.checked(
+        [{"review_id": "1", "text_sha256": "x", "censored": [[13, 4]]}],
+        publish.REVIEW_FIELDS,
+        "review facts",
+    )
     for leak in ("text", "review", "author_steamid", "author", "splitter"):
         with pytest.raises(SystemExit):
             publish.checked([{"review_id": "1", leak: "x"}], publish.LABEL_FIELDS, "labels")
@@ -146,11 +152,13 @@ def test_the_card_credits_each_person_by_the_name_they_gave_beside_their_handle(
     agreed: dict[str, float] = {"claims": 0}
     names = {"one": "Ann One", "two": "Bo Two"}
     alone = publish.dataset_card(
-        1, 1, agreed, labelled_by=publish.Credits(gold={"one": 200}, names=names)
+        publish.Counts(1, 1), agreed, labelled_by=publish.Credits(gold={"one": 200}, names=names)
     )
     assert "200 claims labelled by one person, Ann One (`one`)." in alone
     card = publish.dataset_card(
-        1, 1, agreed, labelled_by=publish.Credits(gold={"two": 580, "one": 200}, names=names)
+        publish.Counts(1, 1),
+        agreed,
+        labelled_by=publish.Credits(gold={"two": 580, "one": 200}, names=names),
     )
     assert "780 answers from 2 people" in card
     assert "Bo Two (`two`, 580), Ann One (`one`, 200)" in card
@@ -175,6 +183,120 @@ def test_a_gold_labeller_with_no_name_to_credit_is_not_published(tmp_path: Path)
     staging.mkdir()
     with pytest.raises(SystemExit, match="for stranger"):
         publish.stage_dataset(str(game.parent), str(facts), staging, str(people))
+
+
+def labelled(
+    review_id: str, start: int = 0, end: int = 4, index: int = 0, by: str = "a model"
+) -> str:
+    return (
+        f'{{"app_id": 7, "review_id": "{review_id}", "index": {index}, "start": {start},'
+        f' "end": {end}, "subject": "bugs", "polarity": "praise", "produced_by": "{by}"}}'
+    )
+
+
+def stage(
+    tmp_path: Path,
+    first: list[str],
+    facts: list[dict[str, object]],
+    second: list[str] | None = None,
+) -> tuple[list[tuple[str, Path]], Path]:
+    game = tmp_path / "claims" / "7"
+    game.mkdir(parents=True)
+    (game / "labels.json").write_text(f"[{','.join(first)}]", encoding="utf-8")
+    if second:
+        (game / "second").mkdir()
+        (game / "second" / "labels.json").write_text(f"[{','.join(second)}]", encoding="utf-8")
+    facts_file = tmp_path / "review-facts.jsonl"
+    facts_file.write_text(
+        "".join(json.dumps({"app_id": 7, "created": 1, **fact}) + "\n" for fact in facts),
+        encoding="utf-8",
+    )
+    people = tmp_path / "people.json"
+    people.write_text("{}", encoding="utf-8")
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    staged = publish.stage_dataset(str(game.parent), str(facts_file), staging, str(people))
+    return staged, staging
+
+
+def lines_of(path: Path) -> list[dict[str, object]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_labels_on_a_review_with_no_facts_are_left_out_and_counted_on_the_card(
+    tmp_path: Path,
+) -> None:
+    staged, staging = stage(
+        tmp_path,
+        [labelled("r"), labelled("gone"), labelled("lost")],
+        [{"review_id": "r"}],
+        second=[labelled("gone", index=1)],
+    )
+
+    assert [name for name, _ in staged][-4:-1] == [
+        "acceptable.jsonl",
+        "review-facts.jsonl",
+        "fetch_text.py",
+    ]
+    assert len(lines_of(staging / "claims.jsonl")) == 1
+    assert lines_of(staging / "second-labels.jsonl") == []
+    assert not (staging / "reviews.jsonl").exists()
+    card = (staging / f"{publish.DATASET}.md").read_text(encoding="utf-8")
+    assert "3 labels on 2 reviews are not published." in card
+
+
+def test_a_label_whose_bytes_hold_other_words_is_left_out_and_counted(tmp_path: Path) -> None:
+    listed = [[0, 4]]
+    _, staging = stage(
+        tmp_path,
+        [labelled("r"), labelled("r", 5, 9, 1), labelled("s")],
+        [
+            {"review_id": "r", "other_words": listed},
+            {"review_id": "s", "other_words": listed},
+        ],
+    )
+
+    claims = lines_of(staging / "claims.jsonl")
+    assert [(row["start"], row["end"]) for row in claims] == [(5, 9)]
+    facts = lines_of(staging / "review-facts.jsonl")
+    assert [fact["review_id"] for fact in facts] == ["r"]
+    assert "other_words" not in facts[0]
+    card = (staging / f"{publish.DATASET}.md").read_text(encoding="utf-8")
+    assert "2 labels on 2 reviews are not published." in card
+
+
+def test_a_gold_answer_and_its_judgement_are_left_out_together() -> None:
+    def answer(review_id: str, by: str, start: int = 0, end: int = 4) -> dict[str, object]:
+        return {
+            "app_id": 7,
+            "review_id": review_id,
+            "index": 0,
+            "start": start,
+            "end": end,
+            "produced_by": by,
+        }
+
+    def judged(review_id: str, by: str) -> dict[str, object]:
+        return {"app_id": 7, "review_id": review_id, "index": 0, "by": by, "acceptable": True}
+
+    gold = [answer("r", "one"), answer("r", "two", 5, 9), answer("s", "one")]
+    acceptable = [judged("r", "one"), judged("r", "two"), judged("s", "one")]
+    facts: list[dict[str, object]] = [
+        {"review_id": "r", "other_words": [[0, 4]]},
+        {"review_id": "s"},
+    ]
+
+    (_, _, kept, judgements), reviews, lost = publish.publishable(([], [], gold, acceptable), facts)
+
+    assert [(row["review_id"], row["produced_by"]) for row in kept] == [("r", "two"), ("s", "one")]
+    assert [(row["review_id"], row["by"]) for row in judgements] == [("r", "two"), ("s", "one")]
+    assert [row["review_id"] for row in reviews] == ["r", "s"]
+    assert [(row["review_id"], row["produced_by"]) for row in lost] == [("r", "one")]
+
+
+def test_a_publication_with_every_label_left_out_stops(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="every label is left out"):
+        stage(tmp_path, [labelled("gone")], [{"review_id": "r"}])
 
 
 def row(
@@ -229,8 +351,7 @@ def test_agreement_pairs_a_second_label_with_the_first_label_of_the_same_bytes()
 
 def test_the_card_carries_what_the_rows_say() -> None:
     card = publish.dataset_card(
-        10,
-        2,
+        publish.Counts(10, 2, 3),
         {
             "claims": 4,
             "subject": 0.75,
@@ -240,10 +361,11 @@ def test_the_card_carries_what_the_rows_say() -> None:
             "ambiguous": 0.5,
             "contested_kappa": 0.4,
         },
-        reviews=3,
         labelled_by=publish.Credits(labellers={"model-a": 7, "model-b": 3}),
     )
     assert "10 claims from 3 Steam reviews of 2 games" in card
+    assert "Run the `fetch_text.py` of the tag the files come from." in card
+    assert "are not published" not in card
     assert "4 claims have a second label" in card
     assert "| `subject` | 75% | 0.70 |" in card
     assert "| `ambiguous` | 50% | 0.40 |" in card

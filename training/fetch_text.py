@@ -9,7 +9,9 @@ cut out at the byte offsets its label names.
 
 A review deleted since it was labelled cannot be fetched, and one edited since no longer
 matches its fingerprint: the labels of both are left out and counted, never cut out of a
-text they were not written against. Standard library only.
+text they were not written against. Where Steam's store had censored a word, the web API
+returns the word. It is censored again first, since the labels were written against the
+censored text. Standard library only.
 """
 
 from __future__ import annotations
@@ -40,6 +42,9 @@ PARAMETERS = {
     "filter": 1,
     "num_per_page": 100,
 }
+
+# What Steam's store shows in place of each character of a word its filter objected to.
+CENSOR_MARK = "♥"
 
 type Row = dict[str, Any]
 type Page = Callable[[int, Row], Row]
@@ -147,13 +152,31 @@ def rows(path: Path) -> list[Row]:
         return [json.loads(line) for line in lines if line.strip()]
 
 
+def censored_again(text: str, runs: Iterable[tuple[int, int]]) -> str:
+    """Return `text` with a censor mark over each character `runs` names, as the store showed it."""
+    marked = list(text)
+    for first, length in runs:
+        marked[first : first + length] = CENSOR_MARK * len(marked[first : first + length])
+    return "".join(marked)
+
+
+def cut_out(raw: bytes, start: int, end: int) -> str | None:
+    """Return the text of the bytes, or None where they end past `raw` or inside a character."""
+    if end > len(raw):
+        return None
+    try:
+        return raw[start:end].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 def joined(
     claims: list[Row], facts: list[Row], texts: dict[str, str]
 ) -> tuple[list[Row], dict[str, int]]:
     """Return every claim whose review came back unchanged, with its text, and what was left out."""
     by_review = {row["review_id"]: row for row in facts}
     out: list[Row] = []
-    left = {"deleted": 0, "edited": 0, "no facts": 0}
+    left = {"deleted": 0, "edited": 0, "no facts": 0, "holds no such bytes": 0}
     for claim in claims:
         review = by_review.get(claim["review_id"])
         if review is None:
@@ -163,11 +186,15 @@ def joined(
         if text is None:
             left["deleted"] += 1
             continue
-        raw = text.encode("utf-8")
+        raw = censored_again(text, review.get("censored", ())).encode("utf-8")
         if hashlib.sha256(raw).hexdigest() != review["text_sha256"]:
             left["edited"] += 1
             continue
-        out.append({**claim, "text": raw[claim["start"] : claim["end"]].decode("utf-8")})
+        words = cut_out(raw, claim["start"], claim["end"])
+        if words is None:
+            left["holds no such bytes"] += 1
+            continue
+        out.append({**claim, "text": words})
     return out, left
 
 
@@ -180,7 +207,7 @@ def main() -> None:
     args = parser.parse_args()
 
     data = Path(args.data)
-    facts = rows(data / "reviews.jsonl")
+    facts = rows(data / "review-facts.jsonl")
     claims = rows(data / args.claims)
     wanted: dict[int, dict[str, int]] = defaultdict(dict)
     labelled = {claim["review_id"] for claim in claims}

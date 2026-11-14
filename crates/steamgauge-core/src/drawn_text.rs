@@ -5,11 +5,12 @@
 //! over words the web API gives plain, and a later capture can hold an edit. No capture from the
 //! day of a draw is left, so the draw's text is rebuilt from the samples and the kept text.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use crate::Result;
-use crate::claims::{holds_words, same_words};
+use crate::capture::ReviewFacts;
+use crate::claims::{censored_runs, holds_words, same_words};
 use crate::claimset::{ClaimLabel, DrawnClaim, DrawnReview, REVIEWS, kept_reviews};
 
 /// What [`restore`] did to a game.
@@ -168,6 +169,52 @@ pub(crate) fn label_files(game: &Path) -> Result<Vec<LabelFile>> {
         });
     }
     Ok(files)
+}
+
+/// The `facts` of the reviews `game` keeps text for, ordered by review id as text, each with the
+/// fingerprint, length and censor marks of its kept text.
+///
+/// A label names bytes of the kept text, so that is the text a reader must be able to recover.
+/// A review with no kept text is left out. The `other_words` of each fact are the bytes of every
+/// label whose claim the kept text does not hold there, sorted and once each.
+///
+/// # Errors
+///
+/// Fails if a sample, a label file or the kept text cannot be read.
+pub fn kept_facts(game: &Path, facts: HashMap<String, ReviewFacts>) -> Result<Vec<ReviewFacts>> {
+    let kept = match kept_reviews(game) {
+        Err(crate::Error::NoKeptText { .. }) => HashMap::new(),
+        other => other?,
+    };
+    let mut listed: HashMap<String, BTreeSet<(u32, u32)>> = HashMap::new();
+    for file in label_files(game)? {
+        for (label, claim) in &file.labels {
+            if let (Some(claim), Some(review)) = (claim, kept.get(&label.review_id))
+                && !holds_words(&review.text, label.start, label.end, &claim.text)
+            {
+                listed
+                    .entry(label.review_id.clone())
+                    .or_default()
+                    .insert((label.start, label.end));
+            }
+        }
+    }
+    let mut found: Vec<ReviewFacts> = facts
+        .into_values()
+        .filter_map(|mut fact| {
+            let review = kept.get(&fact.review_id)?;
+            fact.text_sha256 = crate::embed::sha256_hex(&review.text);
+            fact.text_bytes = review.text.len();
+            fact.censored = censored_runs(&review.text);
+            fact.other_words = listed
+                .remove(&fact.review_id)
+                .map(|spans| spans.into_iter().collect())
+                .unwrap_or_default();
+            Some(fact)
+        })
+        .collect();
+    found.sort_by(|left, right| left.review_id.cmp(&right.review_id));
+    Ok(found)
 }
 
 /// Puts every review of `game` whose kept text does not hold its claims back to the text it was
@@ -520,6 +567,90 @@ mod tests {
             &serde_json::to_vec(std::slice::from_ref(&moved)).unwrap(),
         );
         game
+    }
+
+    fn keep(game: &Path, texts: &[(&str, &str)]) {
+        let mut body = String::new();
+        for (id, text) in texts {
+            let review = crate::claimset::KeptReview {
+                review_id: (*id).to_owned(),
+                language: "english".to_owned(),
+                text: (*text).to_owned(),
+            };
+            body.push_str(&serde_json::to_string(&review).unwrap());
+            body.push('\n');
+        }
+        put(&game.join(REVIEWS), body.as_bytes());
+    }
+
+    fn facts_of(ids: &[&str]) -> HashMap<String, ReviewFacts> {
+        ids.iter()
+            .map(|id| {
+                let fact = ReviewFacts {
+                    review_id: (*id).to_owned(),
+                    text_sha256: crate::embed::sha256_hex("The story is damn boring."),
+                    text_bytes: 25,
+                    votes_up: 4,
+                    ..ReviewFacts::default()
+                };
+                ((*id).to_owned(), fact)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn review_facts_take_their_fingerprint_from_the_kept_text() {
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path();
+        let kept = format!("The story is {} boring.", marks(4));
+        keep(game, &[("1", &kept), ("10", "Fine."), ("2", "Fine.")]);
+
+        let found = kept_facts(game, facts_of(&["3", "2", "1", "10"])).unwrap();
+
+        let ids: Vec<&str> = found.iter().map(|fact| fact.review_id.as_str()).collect();
+        assert_eq!(ids, ["1", "10", "2"], "review ids ordered as text");
+        let first = &found[0];
+        assert_eq!(first.text_sha256, crate::embed::sha256_hex(&kept));
+        assert_eq!(first.text_bytes, 33);
+        assert_eq!(first.censored, [(13, 4)]);
+        assert_eq!(first.votes_up, 4, "the rest of the facts stay");
+        let plain = &found[1];
+        assert_eq!(plain.text_sha256, crate::embed::sha256_hex("Fine."));
+        assert_eq!((plain.text_bytes, plain.censored.len()), (5, 0));
+        assert!(plain.other_words.is_empty());
+    }
+
+    #[test]
+    fn review_facts_list_the_labels_whose_words_the_kept_text_does_not_hold() {
+        let dir = crate::tempdir::Dir::new();
+        let game = dir.path();
+        keep(game, &[("1", "Good game. Bad port.")]);
+        let claims = vec![claim(0, 0, 10, "Good game."), claim(1, 11, 20, "Bad port.")];
+        put(
+            &game.join("sample.json"),
+            &a_sample(&[("1", claims.clone())]),
+        );
+        put(
+            &game.join("second").join("sample.json"),
+            &a_sample(&[("1", vec![claims[0].clone()])]),
+        );
+        let labels = [
+            a_label("1", 1, 12, 20),
+            a_label("1", 0, 5, 14),
+            a_label("1", 7, 0, 4),
+        ];
+        put(
+            &game.join("labels.json"),
+            &serde_json::to_vec(&labels).unwrap(),
+        );
+        put(
+            &game.join("second").join("labels.json"),
+            &serde_json::to_vec(&[a_label("1", 0, 0, 10)]).unwrap(),
+        );
+
+        let found = kept_facts(game, facts_of(&["1"])).unwrap();
+
+        assert_eq!(found[0].other_words, [(5, 14), (12, 20)]);
     }
 
     #[test]

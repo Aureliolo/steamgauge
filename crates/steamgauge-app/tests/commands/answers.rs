@@ -766,6 +766,11 @@ fn export_review_facts_writes_the_labelled_reviews_alone() {
     assert_eq!(written.len(), 6);
     assert_eq!(written[0]["app_id"], TRAINED);
     assert_eq!(written[0]["review_id"], "501");
+    assert_eq!(
+        (&written[0]["censored"], &written[0]["other_words"]),
+        (&json!([]), &json!([])),
+        "a review kept as drawn has no marks and no label on other words"
+    );
     assert!(
         !written
             .iter()

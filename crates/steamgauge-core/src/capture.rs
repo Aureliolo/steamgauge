@@ -963,7 +963,7 @@ pub fn reviews_for<S: std::hash::BuildHasher + Sync>(
 /// fingerprint is what lets anybody who fetches the review from Steam know whether it is still
 /// the text the labels were written against, since a review edited since may have moved every
 /// byte offset a label names.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "Steam's own fields, kept as Steam names them"
@@ -985,9 +985,15 @@ pub struct ReviewFacts {
     pub primarily_steam_deck: bool,
     /// Shown on the review itself. The account's other playtimes are not.
     pub playtime_at_review_minutes: u32,
-    /// SHA-256 of the review text as UTF-8, the bytes every label's offsets count.
+    /// SHA-256 of the kept review text as UTF-8, the bytes every label's offsets count.
     pub text_sha256: String,
     pub text_bytes: usize,
+    /// Where Steam's store had censored the kept text: each run of censor marks as its first
+    /// character and its length, in characters. The web API returns those words.
+    pub censored: Vec<(u32, u32)>,
+    /// The `start` and `end` of each label on the review whose words the kept text does not hold
+    /// at those bytes. Such a label is not published, and neither is this list.
+    pub other_words: Vec<(u32, u32)>,
 }
 
 /// The [`ReviewFacts`] of the reviews named, from the copy of each that counts.
@@ -1087,6 +1093,8 @@ pub fn facts_for<S: std::hash::BuildHasher + Sync>(
                     playtime_at_review_minutes: count(playtime).unwrap_or(0),
                     text_sha256: crate::embed::sha256_hex(text),
                     text_bytes: text.len(),
+                    censored: Vec::new(),
+                    other_words: Vec::new(),
                 },
             ));
         }
@@ -1499,6 +1507,7 @@ mod tests {
             crate::embed::sha256_hex("Crashes on launch. ünïcode")
         );
         assert_eq!(one.text_bytes, "Crashes on launch. ünïcode".len());
+        assert!(one.censored.is_empty() && one.other_words.is_empty());
         let written = serde_json::to_string(one).unwrap();
         for private in ["Crashes", "76561198000000000", "9000", "400"] {
             assert!(
