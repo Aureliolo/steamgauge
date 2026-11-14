@@ -2,7 +2,7 @@
    every model by size, and the way to give room back. Every part says what removing it costs,
    and anything that costs hours to redo asks once more, on the page, before it goes. */
 
-import { button, el, invoke, make, page, set, setPath, size } from './common.js';
+import { button, el, invoke, make, page, roleLine, set, setPath, size } from './common.js';
 
 /* The parts in the order a person weighs them: what they came for first, what rebuilds itself
    last. `everywhere` is the action offered across every game at once, where one is safe. */
@@ -295,7 +295,7 @@ function setUpStorage({ openGame }) {
             make(
               'span',
               'quiet small',
-              `${model.role.charAt(0).toUpperCase()}${model.role.slice(1)}.${downloaded ? '' : ' Not downloaded.'}`,
+              ...roleLine(model.role, downloaded ? '' : ' Not downloaded.'),
             ),
           ),
           make('span', 'room-size', downloaded ? size(model.bytes) : '–'),

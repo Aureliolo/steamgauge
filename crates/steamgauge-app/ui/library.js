@@ -13,8 +13,8 @@ import {
   make,
   nothing,
   page,
-  roundShare,
   set,
+  share,
   showing,
   verdictPill,
   whole,
@@ -63,7 +63,7 @@ function latelyOf(moved) {
     make(
       'small',
       null,
-      `${roundShare.format(moved.shift.before)} → ${roundShare.format(moved.shift.recent)}`,
+      `${share.format(moved.shift.before)} → ${share.format(moved.shift.recent)}`,
     ),
   );
 }
@@ -383,10 +383,7 @@ function setUpLibrary({ openGame, openFinder, compare }) {
             : null,
         ),
       ),
-      labelled(
-        'Recommending',
-        make('td', 'num', row.recommended === null ? nothing : roundShare.format(row.recommended)),
-      ),
+      labelled('Recommending', make('td', 'num', share.format(row.recommended))),
       labelled(
         'Updated',
         make('td', 'num quiet', day.format(new Date((row.updated ?? row.downloaded) * 1000))),

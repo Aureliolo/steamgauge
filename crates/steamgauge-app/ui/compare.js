@@ -11,8 +11,8 @@ import {
   make,
   nothing,
   page,
-  roundShare,
   set,
+  share,
   thin,
   whole,
 } from './common.js';
@@ -31,7 +31,7 @@ function cellNote(subject, raised, enough) {
   }
   const praising = (subject.praised + subject.mixed) / Math.max(raised, 1);
   const complaining = (subject.criticised + subject.mixed) / Math.max(raised, 1);
-  const split = `${roundShare.format(praising)} praise, ${roundShare.format(complaining)} complain`;
+  const split = `${share.format(praising)} praise, ${share.format(complaining)} complain`;
   return enough
     ? split
     : `${split}, from ${whole.format(raised)} ${raised === 1 ? 'review' : 'reviews'}`;
@@ -58,7 +58,7 @@ function compareCell(game, id, widest) {
   const td = make(
     'td',
     'cell',
-    make('span', 'rate', roundShare.format(mentionRate(game, id))),
+    make('span', 'rate', share.format(mentionRate(game, id))),
     bar,
     make('small', null, cellNote(subject, raised, enough)),
   );
@@ -136,9 +136,7 @@ function setUpCompare({ openGame }) {
             'small',
             null,
             `${whole.format(game.reviews)} ${game.language ? `${language(game.language)} ` : ''}reviews` +
-              (game.recommended === null
-                ? ''
-                : `, ${roundShare.format(game.recommended)} recommending`),
+              (game.recommended === null ? '' : `, ${share.format(game.recommended)} recommending`),
           ),
           button('Remove', 'link quiet small', () => {
             chosen = chosen.filter((id) => id !== game.app_id);

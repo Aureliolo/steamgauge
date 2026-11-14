@@ -11,8 +11,9 @@ import {
   language,
   make,
   page,
-  roundShare,
   set,
+  share,
+  shareRange,
   thin,
   whole,
 } from './common.js';
@@ -123,6 +124,7 @@ function setUpGroup({ openSubject }) {
 
     const most = subject.most === null ? null : names.get(subject.most);
     const split = leaning(subject);
+    const [rate, ends] = shareRange(figures.rate, figures.low, figures.high);
     const row = make(
       'tr',
       null,
@@ -130,13 +132,9 @@ function setUpGroup({ openSubject }) {
       make(
         'td',
         'cell',
-        make('span', 'rate', roundShare.format(figures.rate)),
+        make('span', 'rate', rate),
         bar(figures, split, widest),
-        make(
-          'small',
-          null,
-          `${roundShare.format(figures.low)} to ${roundShare.format(figures.high)}`,
-        ),
+        ends ? make('small', null, `${ends[0]} to ${ends[1]}`) : null,
       ),
       make('td', 'cell', lean(split)),
       make(
@@ -158,7 +156,7 @@ function setUpGroup({ openSubject }) {
           'li',
           null,
           button(names.get(game.app_id), 'link', () => openSubject(game.app_id, subject.id)),
-          make('span', 'rate', roundShare.format(game.rate)),
+          make('span', 'rate', share.format(game.rate)),
           make(
             'small',
             null,
@@ -195,7 +193,7 @@ function splitNote(game) {
     return '';
   }
   if (game.raised >= ENOUGH_TO_LEAN || thin.shown) {
-    return `, ${roundShare.format(game.praising)} praise, ${roundShare.format(game.complaining)} complain`;
+    return `, ${share.format(game.praising)} praise, ${share.format(game.complaining)} complain`;
   }
   return ', too few to split';
 }
@@ -238,8 +236,8 @@ function leaning(subject) {
    it lean, with the interval drawn across it. */
 function bar(figures, split, widest) {
   const track = make('span', 'interval-track');
-  const share = make('span', split.withheld === undefined ? 'split' : 'split plain');
-  share.style.width = `${(100 * figures.rate) / widest}%`;
+  const fill = make('span', split.withheld === undefined ? 'split' : 'split plain');
+  fill.style.width = `${(100 * figures.rate) / widest}%`;
   if (split.withheld === undefined) {
     const mixed = split.mixed ?? 0;
     for (const [side, part] of [
@@ -249,13 +247,13 @@ function bar(figures, split, widest) {
     ]) {
       const piece = make('i', side);
       piece.style.width = `${100 * Math.max(part, 0)}%`;
-      share.append(piece);
+      fill.append(piece);
     }
   }
   const interval = make('span', 'interval');
   interval.style.left = `${(100 * figures.low) / widest}%`;
   interval.style.width = `${(100 * (figures.high - figures.low)) / widest}%`;
-  track.append(share, interval);
+  track.append(fill, interval);
   return track;
 }
 
@@ -266,9 +264,9 @@ function lean(split) {
   return make(
     'span',
     null,
-    make('span', 'praise-text', `${roundShare.format(split.praising)} praise`),
+    make('span', 'praise-text', `${share.format(split.praising)} praise`),
     ', ',
-    make('span', 'complaint-text', `${roundShare.format(split.complaining)} complain`),
+    make('span', 'complaint-text', `${share.format(split.complaining)} complain`),
     split.note ? make('small', null, split.note) : null,
   );
 }

@@ -281,7 +281,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
   const games = [
     {
       app_id: 1,
-      coverage: 0.95,
+      coverage: 0.999_96,
       downloaded: now - 40 * Day,
       groups: [],
       name: 'Alpha',
@@ -299,7 +299,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
         moves: [
           {
             label: 'Performance',
-            shift: shift(0.12, 0.31, 9.1),
+            shift: shift(0.12, 0.24, 9.1),
             side: 'complaint',
             subject: 'performance',
           },
@@ -562,7 +562,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       bytes: 1_127_000_000,
       key: 'standard',
       name: 'Standard reader',
-      role: '84% agreement at 80% coverage on 10 held-out games',
+      role: '93.4% agreement at 80% coverage on 10 held-out games',
       used: true,
     },
     {
@@ -634,9 +634,23 @@ const STUB_DELTA_SEARCH = /delta/iu;
       corpus_reviews: game.reviews,
       held_out: { accuracy: 0.78, claims: 5080, coverage: 0.98, games: 10 },
       language: game.read.language,
-      languages: [{ name: 'english', reviews: 15_000, share: 0.75 }],
+      languages: [
+        { name: 'english', reviews: 15_000, share: 0.75 },
+        { name: 'german', reviews: 8, share: 0.0004 },
+      ],
       learned: false,
-      measured: null,
+      // Beta is labelled, with so many claims answered that its interval is too narrow to print.
+      measured:
+        appId === 2
+          ? {
+              agreement: 0.8,
+              answered: 10_000_000,
+              declined: 0,
+              high: 0.8004,
+              low: 0.7996,
+              unjoined: 0,
+            }
+          : null,
       model: 'intfloat/multilingual-e5-large-instruct',
       months: calendar,
       name: game.name,
@@ -689,6 +703,10 @@ const STUB_DELTA_SEARCH = /delta/iu;
     const against = second ? second.reviews : rest;
     // Counts written for everyone else, scaled to whoever the first kind is set beside.
     const scaled = (count) => Math.round((count * against) / 12_300);
+    // The 100-hours reviewers' figures with an interval narrower than a point, which the window
+    // writes by the core's rule. Every other kind keeps the plain figures.
+    const narrowed = (kind, plain, over) =>
+      kind.id === '100-hours-or-more' ? { ...plain, ...over } : plain;
     return {
       months: [
         { label: '2025-07', name: 'Jul 2025', positive: 0.84, reviews: 45 },
@@ -727,13 +745,17 @@ const STUB_DELTA_SEARCH = /delta/iu;
           others_corrected: null,
           praise: gap(0.107, 0.07, 3.1),
           raised: gap(0.37, 0.24, 13.0),
-          these: figures({
-            raised: 1000,
-            reviews: first.reviews,
-            praised: 150,
-            criticised: 700,
-            mixed: 140,
-          }),
+          these: narrowed(
+            first,
+            figures({
+              raised: 1000,
+              reviews: first.reviews,
+              praised: 150,
+              criticised: 700,
+              mixed: 140,
+            }),
+            { high: 0.204, low: 0.201, rate: 0.2025 },
+          ),
           these_corrected: null,
         },
         {
@@ -750,13 +772,17 @@ const STUB_DELTA_SEARCH = /delta/iu;
           others_corrected: null,
           praise: gap(0.12, 0.13, -0.9),
           raised: gap(0.15, 0.15, 0.2),
-          these: figures({
-            raised: 400,
-            reviews: first.reviews,
-            praised: 300,
-            criticised: 50,
-            mixed: 20,
-          }),
+          these: narrowed(
+            first,
+            figures({
+              raised: 400,
+              reviews: first.reviews,
+              praised: 300,
+              criticised: 50,
+              mixed: 20,
+            }),
+            { high: 0.200_248, low: 0.199_752, raised: 2_000_000, rate: 0.2 },
+          ),
           these_corrected: null,
         },
         {
@@ -1197,7 +1223,9 @@ const STUB_DELTA_SEARCH = /delta/iu;
         const raised = sum((one) => one.mention_reviews);
         const reviews = found.reduce((total, game) => total + game.reviews, 0);
         const pooled = raised / reviews;
-        const pooledSpread = 1.96 * Math.sqrt((pooled * (1 - pooled)) / reviews);
+        // Performance is raised by so many reviews that its interval is narrower than a tenth.
+        const pooledSpread =
+          id === 'performance' ? 0.000_02 : 1.96 * Math.sqrt((pooled * (1 - pooled)) / reviews);
         const [most] = shares.filter((game) => game.rate > 0).sort((a, b) => b.rate - a.rate);
         return {
           each_game: {
@@ -1317,7 +1345,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
             name: 'Standard reader',
             newer: 'v2',
             release: 'v1',
-            role: '84% agreement at 80% coverage on 10 held-out games',
+            role: '93.4% agreement at 80% coverage on 10 held-out games',
             used: true,
           },
           {
@@ -1419,7 +1447,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
           times: 1,
         },
         {
-          agreement: 0.8443,
+          agreement: 0.934,
           bytes_left: fresh ? 1_127_000_000 : 0,
           download_bytes: 1_127_000_000,
           name: 'standard',

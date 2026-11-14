@@ -5,6 +5,7 @@ import { setUpAbout } from './about.js';
 import { setUpAssistants } from './assistants.js';
 import { setUpCockpit } from './cockpit.js';
 import {
+  accuracyLink,
   art,
   bcp47,
   day,
@@ -21,9 +22,9 @@ import {
   roughly,
   set,
   share,
+  shareRange,
   showing,
   size,
-  tenth,
   tiles,
   verdictPill,
   whole,
@@ -468,7 +469,7 @@ function countedLine(found) {
   }
   parts.push(`${whole.format(found.claims)} claims`);
   if (found.positive_baseline !== null) {
-    parts.push(`${tenth.format(found.positive_baseline)} recommending the game`);
+    parts.push(`${share.format(found.positive_baseline)} recommending the game`);
   }
   return `${parts.join(', ')}. `;
 }
@@ -484,33 +485,38 @@ function trustLine(found) {
   const why = found.learned
     ? `The reader trained on this game's labels, so nothing here is scored against them.`
     : 'No one has labelled this game.';
+  const measures = [' ', accuracyLink(), ' says what each of the reader’s figures measures.'];
   if (measured === null) {
     if (!heldOut) {
-      return why;
+      return [why];
     }
     /* Most games anyone opens are in exactly this position. The reader does have a
        measurement, about other games, and the wording has to say so. */
-    return (
-      `${why} On ${heldOut.games} games it never trained on, the reader answers ` +
-      `${share.format(heldOut.coverage)} of claims and agrees with the labels on ` +
-      `${share.format(heldOut.accuracy)}.`
-    );
+    return [
+      `${why} Out of fold over ${whole.format(heldOut.games)} games, each scored by a reader ` +
+        `that never trained on it, and over ${whole.format(heldOut.claims)} labelled claims, ` +
+        `the reader answers ${share.format(heldOut.coverage)} of claims and agrees with the ` +
+        `labels on ${share.format(heldOut.accuracy)}.`,
+      ...measures,
+    ];
   }
   if (measured.agreement === null) {
-    return 'The reader declined every labelled claim on this game, so nothing here is measured.';
+    return ['The reader declined every labelled claim on this game, so nothing here is measured.'];
   }
-  return (
+  const [agreement, ends] = shareRange(measured.agreement, measured.low, measured.high);
+  return [
     'Where this game is labelled, the reader agrees with the labels on ' +
-    `${share.format(measured.agreement)} of the ${whole.format(measured.answered)} claims it ` +
-    `answered (${share.format(measured.low)} to ${share.format(measured.high)}).` +
-    /* A label names a span of a review, and a splitter that has since learned to cut
+      `${agreement} of the ${whole.format(measured.answered)} claims it answered` +
+      (ends ? ` (${ends[0]} to ${ends[1]}).` : '.') +
+      /* A label names a span of a review, and a splitter that has since learned to cut
        that review differently leaves the label naming nothing, and so does a review edited
        or removed since. */
-    (measured.unjoined > 0
-      ? ` ${whole.format(measured.unjoined)} more labelled claims are left out, because ` +
-        'this build splits their reviews differently or the reviews have changed.'
-      : '')
-  );
+      (measured.unjoined > 0
+        ? ` ${whole.format(measured.unjoined)} more labelled claims are left out, because ` +
+          'this build splits their reviews differently or the reviews have changed.'
+        : ''),
+    ...measures,
+  ];
 }
 
 function biasClass(bias) {
@@ -549,7 +555,7 @@ function topicRow(subject, widest) {
   const rate = make(
     'td',
     'rate',
-    make('span', 'rate-value', subject.rate === null ? nothing : share.format(subject.rate)),
+    make('span', 'rate-value', share.format(subject.rate)),
     make('span', 'rate-track', bar),
   );
 
@@ -635,9 +641,8 @@ function drawTopics(found) {
       ? `The reader left ${share.format(unread)} of claims unfiled, and filed nothing from ` +
         `${whole.format(found.silent_reviews)} reviews.`
       : 'Every row opens onto the claims behind it.',
-    trust,
   ];
-  set(el('topics-footnote'), notes.join(' '));
+  el('topics-footnote').replaceChildren(`${notes.join(' ')} `, ...trust);
 
   const rows = el('topic-rows');
   rows.replaceChildren();

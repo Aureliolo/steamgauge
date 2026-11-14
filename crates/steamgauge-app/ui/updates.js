@@ -2,7 +2,7 @@
    weeks after it. The core decides what an update is and what changed across it. This draws
    what it is told. Titles come from Steam and are always set as text. */
 
-import { day, el, invoke, make, openOutside, set, tenth, whole } from './common.js';
+import { day, el, invoke, make, openOutside, set, share, whole } from './common.js';
 import { chosenKind } from './who.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -242,9 +242,9 @@ function either(compared, worse) {
   const cell = make(
     'span',
     null,
-    make('span', 'was', tenth.format(compared.before)),
+    make('span', 'was', share.format(compared.before)),
     make('span', 'arrow', '→'),
-    make('span', 'now', tenth.format(compared.after)),
+    make('span', 'now', share.format(compared.after)),
   );
   if (compared.change) {
     cell.className = `changed ${(compared.after > compared.before) === (worse === 'up') ? 'worse' : 'better'}`;

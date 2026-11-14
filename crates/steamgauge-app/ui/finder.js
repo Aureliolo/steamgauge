@@ -11,8 +11,8 @@ import {
   make,
   page,
   roughly,
-  roundShare,
   set,
+  share,
   verdictPill,
   whole,
 } from './common.js';
@@ -197,7 +197,7 @@ async function lookUp(appId) {
     ['Reviews', whole.format(found.reviews), 'Steam will serve'],
     [
       'Recommending',
-      total > 0 ? roundShare.format(found.positive / total) : '–',
+      share.format(found.positive / total),
       `${whole.format(found.positive)} of ${whole.format(total)}`,
     ],
   ]);

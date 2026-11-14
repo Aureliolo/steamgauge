@@ -3337,9 +3337,11 @@ figure.timeline .update-line.chosen {
   color: var(--bad);
 }
 
-.byline a {
+.byline a,
+a.accuracy-link {
   font-weight: 550;
   color: var(--accent);
+  text-underline-offset: 3px;
 }
 
 .paging {

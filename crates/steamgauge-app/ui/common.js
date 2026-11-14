@@ -14,6 +14,44 @@ function shortMonths(format) {
   return { format: (date) => threeLetters(format.format(date)) };
 }
 
+/* A share as the core writes it (`figure_text::percent`). `Intl` does the rounding, a half up on
+   the value's shortest decimal text, which is what the core rounds. Whole points sit between 10%
+   and 90%, a tenth elsewhere, and a share short of 0 or 1 never reads as either. */
+const percentFormats = new Map();
+function percentFormat(digits) {
+  if (!percentFormats.has(digits)) {
+    percentFormats.set(
+      digits,
+      new Intl.NumberFormat(LOCALE, { maximumFractionDigits: digits, style: 'percent' }),
+    );
+  }
+  return percentFormats.get(digits);
+}
+
+/* The text of a share and whether it reads with a tenth. The locale's decimal mark is not looked
+   for, so the answer holds if the window's locale ever writes a comma. */
+function written(value, tenths) {
+  if (value <= 0) {
+    return { text: '0%', tenth: false };
+  }
+  if (value >= 1) {
+    return { text: '100%', tenth: false };
+  }
+  if (value < 0.001) {
+    return { text: '<0.1%', tenth: true };
+  }
+  if (value > 0.999) {
+    return { text: '>99.9%', tenth: true };
+  }
+  const format = percentFormat(!tenths && value >= 0.1 && value <= 0.9 ? 0 : 1);
+  return {
+    text: format.format(value),
+    tenth: format.formatToParts(value).some((part) => part.type === 'fraction'),
+  };
+}
+
+const missing = (value) => value === null || value === undefined || Number.isNaN(value);
+
 let thinShown = false;
 
 const pages = new Map();
@@ -66,12 +104,6 @@ export const el = (id) => document.querySelector(`#${id}`);
 export const LOCALE = 'en-GB';
 
 export const whole = new Intl.NumberFormat(LOCALE);
-export const share = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2, style: 'percent' });
-export const tenth = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1, style: 'percent' });
-export const roundShare = new Intl.NumberFormat(LOCALE, {
-  maximumFractionDigits: 0,
-  style: 'percent',
-});
 export const day = shortMonths(
   new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }),
 );
@@ -86,6 +118,32 @@ export const when = shortMonths(
 
 // A cell with no number behind it, drawn as the report draws one.
 export const nothing = '–';
+
+/* A share the window is not sent, or one that is not a number, reads as a dash and never as 0%. */
+export const share = {
+  format: (value) => (missing(value) ? nothing : written(value, false).text),
+};
+
+/* A rate with the two ends of its interval, all at one precision as `figure_text::percent_range`
+   writes them. That is a tenth where any of the three reads with one, or where whole points make
+   the ends read alike. Where tenths read alike too, the interval says nothing the rate beside it
+   does not, and the ends are null. The rate is always the text returned here. */
+export function shareRange(rate, low, high) {
+  if (missing(rate) || missing(low) || missing(high)) {
+    return [share.format(rate), null];
+  }
+  const ends = (forced) => [written(low, forced).text, written(high, forced).text];
+  const [firstWhole, secondWhole] = ends(false);
+  const tenths =
+    [rate, low, high].some((value) => written(value, false).tenth) || firstWhole === secondWhole;
+  const [first, second] = ends(tenths);
+  return first === second
+    ? [share.format(rate), null]
+    : [written(rate, tenths).text, [first, second]];
+}
+
+/* What each figure of the reader's accuracy measures is written on this page. */
+export const ACCURACY_PAGE = 'https://aureliolo.github.io/steamgauge/accuracy.html';
 
 /* Below this many reviews raising a subject, how they split between praise and complaint is a
    handful of opinions, so it is withheld unless the person asks for it. The core's
@@ -322,6 +380,26 @@ export function openOutside(url) {
   } else {
     invoke('plugin:opener|open_url', { url });
   }
+}
+
+/* The way to the accuracy page from a figure that says how well the reader agrees. */
+export function accuracyLink(label = 'Accuracy') {
+  const link = make('a', 'accuracy-link', label);
+  link.href = ACCURACY_PAGE;
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    openOutside(ACCURACY_PAGE);
+  });
+  return link;
+}
+
+/* A reader's role as a sentence, with the way to the accuracy page after the ones that state an
+   agreement. `after` is whatever else the line says. */
+export function roleLine(role, after = '') {
+  return [
+    `${role.charAt(0).toUpperCase()}${role.slice(1)}.${after}`,
+    ...(role.includes('agreement') ? [' ', accuracyLink()] : []),
+  ];
 }
 
 /* Steam's language codes are its own. The ones a browser needs for hyphenation and font
