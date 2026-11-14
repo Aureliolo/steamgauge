@@ -678,8 +678,10 @@ enum Command {
     ///
     /// Everything Steam shows about a review except its words and its author: language, dates,
     /// whether it recommends, its votes, how it was bought, and the playtime shown on it. And
-    /// the SHA-256 of the text the labels were written against, so anyone who fetches the review
-    /// from Steam can tell whether it is still that text.
+    /// the SHA-256 of the kept review text, the bytes every label's offsets count, so anyone who
+    /// fetches the review from Steam can tell whether it is still that text. And where Steam's
+    /// store had censored that text, which the web API returns uncensored. A review with no kept
+    /// text is not written.
     ExportReviewFacts {
         /// Where the claim reference sets live. Every review any label names is written.
         #[arg(long, default_value = "reference/claims")]
@@ -1788,10 +1790,9 @@ fn run_export_review_facts(from: &Path, captures: &Path, to: &Path) -> Result<()
         }
         let snapshot = steamgauge_core::embed::latest_snapshot(captures, app_id)?;
         let found = steamgauge_core::capture::facts_for(&snapshot, &wanted)?;
-        missing += wanted.len() - found.len();
-        let mut facts: Vec<_> = found.values().collect();
-        facts.sort_by(|a, b| a.review_id.cmp(&b.review_id));
-        for facts in facts {
+        let kept = steamgauge_core::drawn_text::kept_facts(&from.join(app_id.to_string()), found)?;
+        missing += wanted.len() - kept.len();
+        for facts in &kept {
             lines.push_str(&serde_json::to_string(&Line { app_id, facts })?);
             lines.push('\n');
             written += 1;
@@ -1805,8 +1806,9 @@ fn run_export_review_facts(from: &Path, captures: &Path, to: &Path) -> Result<()
     );
     if missing > 0 {
         println!(
-            "{} labelled reviews are not in this machine's captures: their facts and \
-             fingerprints are not written, and their labels cannot be checked against a text",
+            "{} labelled reviews are not in this machine's captures or have no kept text: \
+             their facts and fingerprints are not written, and their labels cannot be checked \
+             against a text",
             thousands(missing as u64)
         );
     }

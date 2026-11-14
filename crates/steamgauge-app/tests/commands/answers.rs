@@ -766,10 +766,59 @@ fn export_review_facts_writes_the_labelled_reviews_alone() {
     assert_eq!(written.len(), 6);
     assert_eq!(written[0]["app_id"], TRAINED);
     assert_eq!(written[0]["review_id"], "501");
+    assert_eq!(
+        (&written[0]["censored"], &written[0]["other_words"]),
+        (&json!([]), &json!([])),
+        "a review kept as drawn has no marks and no label on other words"
+    );
     assert!(
         !written
             .iter()
             .any(|row| row["app_id"] == TRAINED && row["review_id"] == "505"),
         "505 names no label"
     );
+    assert!(
+        !done.out.contains("are not in this machine's captures"),
+        "{}",
+        done.out
+    );
+}
+
+#[test]
+fn export_review_facts_leaves_out_a_review_with_no_kept_text_and_says_so() {
+    let dir = Dir::new();
+    let (library, reference) = labelled(dir.path());
+    let kept = reference
+        .join(TRAINED.to_string())
+        .join(steamgauge_core::claimset::REVIEWS);
+    let all = std::fs::read_to_string(&kept).unwrap();
+    let without: Vec<&str> = all
+        .lines()
+        .filter(|line| !line.contains("\"503\""))
+        .collect();
+    std::fs::write(&kept, format!("{}\n", without.join("\n"))).unwrap();
+    let to = dir.path().join("facts.jsonl");
+    let done = ran(
+        dir.path(),
+        &[
+            "export-review-facts",
+            "--from",
+            text(&reference),
+            "--out",
+            text(&library),
+            "--to",
+            text(&to),
+        ],
+    );
+    assert_eq!(done.code, 0, "{}", done.err);
+    let line = format!("5 labelled reviews -> {}", to.display());
+    assert!(has_line(&done.out, &line), "{line}\n{}", done.out);
+    assert!(
+        done.out.contains(
+            "\n1 labelled reviews are not in this machine's captures or have no kept text"
+        ),
+        "{}",
+        done.out
+    );
+    assert!(!rows(&to).iter().any(|row| row["review_id"] == "503"));
 }

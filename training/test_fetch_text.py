@@ -18,12 +18,14 @@ from fetch_text import (
     PATIENCE,
     fetch,
     joined,
+    main,
     next_wait,
     steam_page,
     windows,
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from types import TracebackType
 
     import pytest
@@ -144,4 +146,86 @@ def test_a_claim_is_cut_from_its_text_by_bytes_and_only_from_the_text_it_was_lab
 
     assert [row["text"] for row in out] == ["Then the claim."]
     assert out[0]["subject"] == "x"
-    assert left == {"deleted": 1, "edited": 1, "no facts": 1}
+    assert left == {"deleted": 1, "edited": 1, "no facts": 1, "holds no such bytes": 0}
+
+
+CENSORED_TEXT = "The story is ♥♥♥♥ boring. Loud."
+PLAIN_TEXT = "The story is damn boring. Loud."
+CENSORED_CLAIMS = [
+    {"review_id": "1", "index": 0, "start": 0, "end": 33},
+    {"review_id": "1", "index": 1, "start": 34, "end": 39},
+]
+
+
+def censored_fact(runs: list[list[int]]) -> Row:
+    return {
+        "review_id": "1",
+        "app_id": 7,
+        "created": 5,
+        "text_sha256": fingerprint(CENSORED_TEXT),
+        "censored": runs,
+    }
+
+
+def test_censored_words_are_censored_again_before_a_claim_is_cut() -> None:
+    out, left = joined(CENSORED_CLAIMS, [censored_fact([[13, 4]])], {"1": PLAIN_TEXT})
+
+    assert [row["text"] for row in out] == ["The story is ♥♥♥♥ boring.", "Loud."]
+    assert left["edited"] == 0
+
+
+def test_a_text_that_differs_beyond_its_censor_marks_is_still_left_out() -> None:
+    out, left = joined(CENSORED_CLAIMS, [censored_fact([[13, 3]])], {"1": PLAIN_TEXT})
+
+    assert out == []
+    assert left["edited"] == 2
+
+
+def test_a_censored_run_past_the_end_of_the_text_is_no_error() -> None:
+    out, left = joined(CENSORED_CLAIMS, [censored_fact([[13, 4]])], {"1": "Short now."})
+
+    assert out == []
+    assert left["edited"] == 2
+
+
+def test_a_label_that_cannot_be_cut_is_left_out_and_counted() -> None:
+    text = "ünï good."
+    claims = [
+        {"review_id": "2", "start": 1, "end": 11},
+        {"review_id": "2", "start": 0, "end": 40},
+        {"review_id": "2", "start": 6, "end": 11},
+    ]
+    facts = [{"review_id": "2", "text_sha256": fingerprint(text)}]
+
+    out, left = joined(claims, facts, {"2": text})
+
+    assert [row["text"] for row in out] == ["good."]
+    assert left["holds no such bytes"] == 2
+
+
+def test_the_facts_are_read_from_review_facts_jsonl(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "claims.jsonl").write_text(
+        "".join(json.dumps(claim) + "\n" for claim in CENSORED_CLAIMS), encoding="utf-8"
+    )
+    (tmp_path / "review-facts.jsonl").write_text(
+        json.dumps(censored_fact([[13, 4]])) + "\n", encoding="utf-8"
+    )
+
+    def plain(_app: int, _wanted: dict[str, int]) -> dict[str, str]:
+        return {"1": PLAIN_TEXT}
+
+    monkeypatch.setattr("fetch_text.fetch", plain)
+    written = tmp_path / "out.jsonl"
+    monkeypatch.setattr(
+        "sys.argv", ["fetch_text.py", "--data", str(tmp_path), "--to", str(written)]
+    )
+
+    main()
+
+    rows = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    assert [row["text"] for row in rows] == [
+        "The story is ♥♥♥♥ boring.",
+        "Loud.",
+    ]

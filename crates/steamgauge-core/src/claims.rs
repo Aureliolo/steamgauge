@@ -57,6 +57,24 @@ pub(crate) fn same_words(marked: &str, plain: &str) -> bool {
     }) && plain.next().is_none()
 }
 
+/// Each run of censor marks in `text`: the number of its first character and its length, both in
+/// characters, in order.
+///
+/// A reader who holds the words and not the kept text puts the marks back from these, since the
+/// labels' bytes count in the text with the marks in.
+pub(crate) fn censored_runs(text: &str) -> Vec<(u32, u32)> {
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for (at, _) in text.chars().enumerate().filter(|(_, ch)| *ch == CENSORED) {
+        match runs.last_mut() {
+            Some((first, length)) if *first + *length == at => *length += 1,
+            _ => runs.push((at, 1)),
+        }
+    }
+    runs.into_iter()
+        .filter_map(|(at, length)| Some((u32::try_from(at).ok()?, u32::try_from(length).ok()?)))
+        .collect()
+}
+
 /// How many boxes make a template rather than a turn of phrase. Two could be somebody typing
 /// a checkmark to agree with themselves. Three is a form.
 const BOXES_OF_A_TEMPLATE: usize = 3;
@@ -2506,6 +2524,14 @@ mod tests {
     #[test]
     fn a_review_of_only_a_face_has_no_claims() {
         assert_eq!(claims_of("(\u{256F}\u{00B0}\u{25A1}\u{00B0})"), []);
+    }
+
+    #[test]
+    fn censor_marks_are_listed_by_character() {
+        let marks = "\u{2665}";
+        let text = format!("The story is {} boring. ünï{marks}", marks.repeat(4));
+        assert_eq!(censored_runs(&text), [(13, 4), (29, 1)]);
+        assert_eq!(censored_runs("No marks."), []);
     }
 
     #[test]
