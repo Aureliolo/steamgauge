@@ -297,12 +297,13 @@ pub(super) fn reader_name(size: &steamgauge_core::reader::Size) -> String {
     })
 }
 
-/// A size's agreement with the labels, and what it was measured on: the claims of the ten games
+/// A size's agreement with the labels, and what it was measured on: the claims of the games
 /// held out of training, each size answering the 80% it is surest of.
 fn agreement_at_80(share: f64) -> String {
     format!(
-        "{} agreement at 80% coverage on 10 held-out games",
-        steamgauge_core::figure_text::percent(share)
+        "{} agreement at 80% coverage on {} held-out games",
+        steamgauge_core::figure_text::percent(share),
+        steamgauge_core::reader::AGREEMENT_GAMES
     )
 }
 
@@ -322,6 +323,8 @@ pub(super) struct SizeOption {
     pub name: &'static str,
     /// Its agreement with the benchmark labels on the 80% of claims it is surest of.
     pub agreement: f64,
+    /// How many held-out games that agreement was measured on.
+    pub agreement_games: usize,
     /// The whole download, and what of it is still to fetch.
     pub download_bytes: u64,
     pub bytes_left: u64,
@@ -380,6 +383,7 @@ pub(super) fn reader_options(app: AppHandle) -> ReaderOptions {
                 SizeOption {
                     name: size.name,
                     agreement: size.agreement,
+                    agreement_games: steamgauge_core::reader::AGREEMENT_GAMES,
                     download_bytes: size.published.total_bytes(),
                     bytes_left: size.left_to_fetch(&size.home()),
                     published,

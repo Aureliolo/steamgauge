@@ -555,14 +555,14 @@ const STUB_DELTA_SEARCH = /delta/iu;
       bytes: 0,
       key: 'small',
       name: 'Small reader',
-      role: 'faster, 78% agreement at 80% coverage on 10 held-out games',
+      role: 'faster, 78% agreement at 80% coverage on 12 held-out games',
       used: false,
     },
     {
       bytes: 1_127_000_000,
       key: 'standard',
       name: 'Standard reader',
-      role: '93.4% agreement at 80% coverage on 10 held-out games',
+      role: '93.4% agreement at 80% coverage on 12 held-out games',
       used: true,
     },
     {
@@ -1335,7 +1335,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
             name: 'Small reader',
             newer: null,
             release: 'v1',
-            role: 'faster, 78% agreement at 80% coverage on 10 held-out games',
+            role: 'faster, 78% agreement at 80% coverage on 12 held-out games',
             used: false,
           },
           {
@@ -1345,7 +1345,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
             name: 'Standard reader',
             newer: 'v2',
             release: 'v1',
-            role: '93.4% agreement at 80% coverage on 10 held-out games',
+            role: '93.4% agreement at 80% coverage on 12 held-out games',
             used: true,
           },
           {
@@ -1438,6 +1438,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
       sizes: [
         {
           agreement: 0.7814,
+          agreement_games: 12,
           bytes_left: 244_000_000,
           download_bytes: 244_000_000,
           name: 'small',
@@ -1448,6 +1449,7 @@ const STUB_DELTA_SEARCH = /delta/iu;
         },
         {
           agreement: 0.934,
+          agreement_games: 12,
           bytes_left: fresh ? 1_127_000_000 : 0,
           download_bytes: 1_127_000_000,
           name: 'standard',

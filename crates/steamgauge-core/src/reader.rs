@@ -460,6 +460,10 @@ const STANDARD_FILES: [crate::model::Asset; 3] = [
     },
 ];
 
+/// How many games the claims behind every size's `agreement` come from: the games held out of
+/// training that `reference/frontier-key.json` labels.
+pub const AGREEMENT_GAMES: usize = 10;
+
 /// The sizes, smallest first.
 ///
 /// `needs` is measured with `steamgauge read 920210`, 117,664 claims, on `DirectML` at the
@@ -1260,6 +1264,17 @@ pub(crate) mod tests {
                 size.name
             );
         }
+    }
+
+    #[test]
+    fn the_agreement_games_are_the_games_the_benchmark_labels() {
+        let key: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../reference/frontier-key.json")).unwrap();
+        let games: std::collections::BTreeSet<u64> = key
+            .iter()
+            .map(|claim| claim["app_id"].as_u64().unwrap())
+            .collect();
+        assert_eq!(games.len(), AGREEMENT_GAMES);
     }
 
     #[test]
