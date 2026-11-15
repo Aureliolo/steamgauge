@@ -103,8 +103,10 @@ Var SteamGaugeLeft
   SetDetailsPrint both
 !macroend
 
-; Deletes the file at $R5. A folder or a link there is not what the installer wrote, so it is
-; left as it is: $R9 is then not 0.
+; Deletes the file at $R5. A folder there, or a link to one, is not what the installer wrote,
+; so it is left as it is: $R9 is then not 0. A link to a file goes as the link. The reparse
+; point attribute does not tell a link here, since Windows sets it on a file it has compressed
+; too.
 !macro SteamGaugeRemoveFileOnce
   StrCpy $R6 0
   Push $R5
@@ -112,8 +114,8 @@ Var SteamGaugeLeft
   ${If} $R8 = -1
     StrCpy $R9 0
   ${Else}
-    ; The folder and the reparse point attributes.
-    IntOp $R9 $R8 & 0x410
+    ; The folder attribute.
+    IntOp $R9 $R8 & 0x10
     ${If} $R9 = 0
       Delete $R5
       ${IfThen} ${FileExists} $R5 ${|} StrCpy $R6 1 ${|}
@@ -134,6 +136,75 @@ Var SteamGaugeLeft
     DetailPrint "$R5 is not the file SteamGauge installed, so it stays."
   ${EndIf}
 !macroend
+
+; Removes all that is in the folder on the stack: a file as it is, a link as the link, and a
+; real folder with all that is in it. NSIS's own RMDir /r enters a link to a folder and empties
+; what it points at, which is someone else's.
+!macro SteamGaugeEmptyFunction un
+  Function ${un}SteamGaugeEmpty
+    Exch $0
+    Push $1
+    Push $2
+    Push $3
+    FindFirst $1 $2 "$0\*"
+    ${DoWhile} $2 != ""
+      ${If} $2 != "."
+      ${AndIf} $2 != ".."
+        Push "$0\$2"
+        System::Call 'kernel32::GetFileAttributesW(w s) i .r3'
+        ; The folder and the reparse point attributes: a folder with both is a link to one.
+        IntOp $3 $3 & 0x410
+        ${If} $3 = 0x10
+          Push "$0\$2"
+          Call ${un}SteamGaugeEmpty
+          RMDir "$0\$2"
+        ${ElseIf} $3 = 0x410
+          RMDir "$0\$2"
+        ${Else}
+          Delete "$0\$2"
+        ${EndIf}
+      ${EndIf}
+      FindNext $1 $2
+    ${Loop}
+    FindClose $1
+    Pop $3
+    Pop $2
+    Pop $1
+    Pop $0
+  FunctionEnd
+!macroend
+!insertmacro SteamGaugeEmptyFunction ""
+!insertmacro SteamGaugeEmptyFunction "un."
+
+; Names in the log every file left in the folder on the stack, and counts it.
+Function un.SteamGaugeNameLeft
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  FindFirst $1 $2 "$0\*"
+  ${DoWhile} $2 != ""
+    ${If} $2 != "."
+    ${AndIf} $2 != ".."
+      Push "$0\$2"
+      System::Call 'kernel32::GetFileAttributesW(w s) i .r3'
+      IntOp $3 $3 & 0x410
+      ${If} $3 = 0x10
+        Push "$0\$2"
+        Call un.SteamGaugeNameLeft
+      ${Else}
+        DetailPrint "$0\$2 could not be removed."
+        IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
+      ${EndIf}
+    ${EndIf}
+    FindNext $1 $2
+  ${Loop}
+  FindClose $1
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
 
 ; Runs a macro for each folder an install moved files aside into, its name in $R5. Those are
 ; the real folders with a GUID's name in a real folder replaced. A link is never entered: what
@@ -158,7 +229,12 @@ Var SteamGaugeLeft
 !macroend
 
 !macro SteamGaugeRemoveOneMovedAside
-  Delete "$INSTDIR\replaced\$R5\*"
+  Push "$INSTDIR\replaced\$R5"
+  !ifdef __UNINSTALL__
+    Call un.SteamGaugeEmpty
+  !else
+    Call SteamGaugeEmpty
+  !endif
   RMDir "$INSTDIR\replaced\$R5"
   ${IfThen} ${FileExists} "$INSTDIR\replaced\$R5" ${|} StrCpy $R6 1 ${|}
 !macroend
@@ -171,17 +247,12 @@ Var SteamGaugeLeft
   RMDir "$INSTDIR\replaced"
 !macroend
 
+; A folder moved aside that is still there holds something that would not go, so it counts
+; whatever the walk finds to name in it.
 !macro SteamGaugeNameOneMovedAside
-  FindFirst $R6 $R7 "$INSTDIR\replaced\$R5\*"
-  ${DoWhile} $R7 != ""
-    ${If} $R7 != "."
-    ${AndIf} $R7 != ".."
-      DetailPrint "$INSTDIR\replaced\$R5\$R7 could not be removed."
-      IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
-    ${EndIf}
-    FindNext $R6 $R7
-  ${Loop}
-  FindClose $R6
+  IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
+  Push "$INSTDIR\replaced\$R5"
+  Call un.SteamGaugeNameLeft
 !macroend
 
 !macro SteamGaugeEndOneMovedAside
