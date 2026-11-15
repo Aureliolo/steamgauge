@@ -336,19 +336,20 @@ case "${target}" in
     # registered, so that is the one checked, and then run, with an assistant still running a
     # copy an install moved aside, which uninstalling closes and removes too. The uninstaller asks
     # Windows what holds each program and waits for that to end, but not what holds the DLLs
-    # beside it. So a stand-in holds a DLL moved aside and the installed one for ten seconds, as a
-    # scanner would or a copy just ended that Windows has not torn down yet, and the uninstaller
-    # has to wait for both to remove the folder.
+    # beside it. So a stand-in holds the installed DLL for ten seconds and a DLL moved aside for
+    # twenty, as a scanner would or a copy just ended that Windows has not torn down yet. The
+    # uninstaller removes the installed files first and what was moved aside last, so it has to
+    # wait for the one and then still for the other to remove the folder.
     same "The quiet uninstall the setup program registered" \
       "$(powershell_value "(Get-ItemProperty '${entry}').QuietUninstallString")" "\"${folder}\\uninstall.exe\" /S"
     assistant
     step "Installing silently with an assistant's copy running" "${setup}" //S
     moved=("${home}"/replaced/*/DirectML.dll)
     test -f "${moved[0]}" || { echo "Installing moved nothing aside from the assistant's copy." >&2; exit 1; }
-    hold "${moved[0]}" 10
-    holding_moved="${holder}"
     hold "${home}/DirectML.dll" 10
-    step "Uninstalling silently with two DLLs held for ten seconds" "${home}/uninstall.exe" //S
+    holding_installed="${holder}"
+    hold "${moved[0]}" 20
+    step "Uninstalling silently with two DLLs held" "${home}/uninstall.exe" //S
     # NSIS's uninstaller copies itself to %TEMP% and carries on from there, so it returns before
     # the files are gone; and it removes the files before the entry in Apps, so both are waited
     # for, or the entry is read in the moment between them.
@@ -357,7 +358,7 @@ case "${target}" in
       [[ -e "${home}" || "${listed}" != False ]] || break
       sleep 2
     done
-    wait "${holding_moved}" "${holder}"
+    wait "${holding_installed}" "${holder}"
     same "What runs from ${folder} after uninstalling" "$(started_from assistants)$(started_from window)" ""
     # The input each assistant's copy was given, which outlives the copy.
     jobs -p | xargs -r kill 2>/dev/null || true

@@ -85,8 +85,9 @@ Var SteamGaugeWaited
 ; Removes a file or a folder with all in it. A process the uninstaller has just ended still holds
 ; its program and DLLs until Windows has torn it down, and a scanner may be reading a program
 ; just written, so a removal that fails is tried again until it works or the patience runs out.
-; What is still held then is left for NSIS_HOOK_POSTUNINSTALL to hand to the next sign-in. The
-; uninstaller's log names each path once, however often it was tried.
+; What is still held then stays, and the uninstall ends with 5, the code the setup program gives
+; for a held program. The uninstaller's log names each path once, however often it was tried,
+; and a file left behind once more. NSIS_HOOK_POSTUNINSTALL names what is left in a folder.
 !macro SteamGaugeRemove path
   ${Do}
     ${If} ${FileExists} "${path}\*"
@@ -103,22 +104,21 @@ Var SteamGaugeWaited
     Sleep ${STEAMGAUGE_PATIENCE_STEP}
   ${Loop}
   SetDetailsPrint both
+  ${If} ${FileExists} "${path}"
+    ${IfNot} ${FileExists} "${path}\*"
+      DetailPrint "${path} is still held open by another program."
+    ${EndIf}
+    SetErrorLevel 5
+  ${EndIf}
 !macroend
-
-; The value under the person's RunOnce key that finishes an uninstall at their next sign-in.
-!define STEAMGAUGE_RUNONCE_KEY "Software\Microsoft\Windows\CurrentVersion\RunOnce"
-!define STEAMGAUGE_RUNONCE_VALUE "SteamGauge uninstall"
 
 ; Tauri's setup program copies the program over the installed one, and when that copy fails in a
 ; silent install it carries on: the new libraries land beside the old program and the setup
 ; reports success. A file that can be neither written nor moved, held by a scanner reading a
 ; program just written or a process that has not yet let go, is waited out for up to a minute,
 ; and one held longer stops the install with an error, with whatever was moved aside put back,
-; rather than leaving two versions side by side. An uninstall that left held files behind has
-; told the next sign-in to remove them, which would take this install's program with them, so
-; that is called off first.
+; rather than leaving two versions side by side.
 !macro NSIS_HOOK_PREINSTALL
-  DeleteRegValue HKCU "${STEAMGAUGE_RUNONCE_KEY}" "${STEAMGAUGE_RUNONCE_VALUE}"
   !insertmacro SteamGaugeCloseTheWindow
   RMDir /r "$INSTDIR\replaced"
   System::Call 'ole32::CoCreateGuid(g .R7)'
@@ -181,20 +181,33 @@ Var SteamGaugeWaited
   FindClose $R4
 !macroend
 
-; By now the entry in Apps is gone, so a folder left here can never be uninstalled again. Where
-; the program, a DLL or a copy moved aside was held past the patience, the person's next sign-in
-; removes them and then the folder, by which time whatever held them has ended. Windows takes a
-; removal at the next restart from an administrator alone, and this uninstaller runs as the
-; person, so the command goes under their RunOnce key. conhost --headless runs it with no
-; window. It removes nothing unless it can enter the folder, and only the files named here.
+; By now the entry in Apps is gone, so a folder left here can never be uninstalled again, and
+; only the person can finish: the log names each file of a copy moved aside that is still held
+; and says what to do. Windows takes a removal at the next restart from an administrator alone,
+; and this uninstaller runs as the person. A file of another program's in the folder is not
+; SteamGauge's to remove or to report, so the folder stays with it and the uninstall succeeds.
 !macro NSIS_HOOK_POSTUNINSTALL
   !insertmacro SteamGaugeRemove "$INSTDIR\replaced"
+  FindFirst $R4 $R5 "$INSTDIR\replaced\*"
+  ${DoWhile} $R5 != ""
+    ${If} $R5 != "."
+    ${AndIf} $R5 != ".."
+      FindFirst $R6 $R7 "$INSTDIR\replaced\$R5\*"
+      ${DoWhile} $R7 != ""
+        ${If} $R7 != "."
+        ${AndIf} $R7 != ".."
+          DetailPrint "$INSTDIR\replaced\$R5\$R7 is still held open by another program."
+        ${EndIf}
+        FindNext $R6 $R7
+      ${Loop}
+      FindClose $R6
+    ${EndIf}
+    FindNext $R4 $R5
+  ${Loop}
+  FindClose $R4
   RMDir "$INSTDIR"
-  ${If} ${FileExists} "$INSTDIR\replaced"
-  ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
-  ${OrIf} ${FileExists} "$INSTDIR\*.dll"
-    WriteRegStr HKCU "${STEAMGAUGE_RUNONCE_KEY}" "${STEAMGAUGE_RUNONCE_VALUE}" '"$SYSDIR\conhost.exe" --headless cmd /c cd /d "$INSTDIR" && (rd /s /q replaced & del /q ${MAINBINARYNAME}.exe *.dll & cd .. & rd "$INSTDIR")'
-    DetailPrint "Another program holds files in $INSTDIR open. The folder is removed at the next sign-in."
-    SetErrorLevel 5
+  GetErrorLevel $R5
+  ${If} $R5 = 5
+    DetailPrint "Close the program that holds them, then delete $INSTDIR."
   ${EndIf}
 !macroend
