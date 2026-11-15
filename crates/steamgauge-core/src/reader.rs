@@ -1278,6 +1278,68 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn the_pages_name_as_many_held_out_games_as_the_benchmark_labels() {
+        const WORDS: [&str; 21] = [
+            "no",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+            "twenty",
+        ];
+        let count = WORDS
+            .get(AGREEMENT_GAMES)
+            .expect("the pages write the count of held-out games in words");
+        for (page, text) in [
+            (
+                "docs/accuracy.md",
+                include_str!("../../../docs/accuracy.md"),
+            ),
+            (
+                "docs/how-it-works.md",
+                include_str!("../../../docs/how-it-works.md"),
+            ),
+            (
+                "reference/reader-sizes.json",
+                include_str!("../../../reference/reader-sizes.json"),
+            ),
+        ] {
+            let words: Vec<&str> = text.split_whitespace().collect();
+            let named: Vec<&str> = words
+                .windows(3)
+                .filter_map(|three| match three {
+                    [word, "held-out", games] if games.starts_with("games") => Some(*word),
+                    [word, "games", "held"] => Some(*word),
+                    _ => None,
+                })
+                .filter(|word| WORDS.contains(word) || word.parse::<usize>().is_ok())
+                .collect();
+            assert!(!named.is_empty(), "{page} names no count of held-out games");
+            for word in named {
+                assert!(
+                    word == *count || word.parse() == Ok(AGREEMENT_GAMES),
+                    "{page} names {word} held-out games"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn small_capitals_are_read_as_the_letters_they_are() {
         assert_eq!(
             SMALL_CAPITALS.len(),
