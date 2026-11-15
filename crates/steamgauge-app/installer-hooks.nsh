@@ -82,21 +82,18 @@ FunctionEnd
 ; several held files cannot add up to several.
 Var SteamGaugeWaited
 
-; Removes a file or a folder with all in it. A process the uninstaller has just ended still holds
-; its program and DLLs until Windows has torn it down, and a scanner may be reading a program
-; just written, so a removal that fails is tried again until it works or the patience runs out.
-; What is still held then stays, and the uninstall ends with 5, the code the setup program gives
-; for a held program. The uninstaller's log names each path once, however often it was tried,
-; and a file left behind once more. NSIS_HOOK_POSTUNINSTALL names what is left in a folder.
-!macro SteamGaugeRemove path
+; How many of SteamGauge's own files an uninstall could not remove.
+Var SteamGaugeLeft
+
+; Runs a removal until it leaves $R6 0, having removed all it is for, or the patience runs out.
+; A process the uninstaller has just ended still holds its program and DLLs until Windows has
+; torn it down, and a scanner may be reading a program just written, so a removal that fails is
+; tried again. The uninstaller's log shows the first try alone.
+!macro SteamGaugePatiently remove
   ${Do}
-    ${If} ${FileExists} "${path}\*"
-      RMDir /r "${path}"
-    ${Else}
-      Delete "${path}"
-    ${EndIf}
+    !insertmacro ${remove}
     SetDetailsPrint none
-    ${IfNot} ${FileExists} "${path}"
+    ${If} $R6 = 0
     ${OrIf} $SteamGaugeWaited >= ${STEAMGAUGE_PATIENCE_ROUNDS}
       ${Break}
     ${EndIf}
@@ -104,11 +101,92 @@ Var SteamGaugeWaited
     Sleep ${STEAMGAUGE_PATIENCE_STEP}
   ${Loop}
   SetDetailsPrint both
-  ${If} ${FileExists} "${path}"
-    ${IfNot} ${FileExists} "${path}\*"
-      DetailPrint "${path} is still held open by another program."
+!macroend
+
+; Deletes the file at $R5. A folder or a link there is not what the installer wrote, so it is
+; left as it is: $R9 is then not 0.
+!macro SteamGaugeRemoveFileOnce
+  StrCpy $R6 0
+  Push $R5
+  System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
+  ${If} $R8 = -1
+    StrCpy $R9 0
+  ${Else}
+    ; The folder and the reparse point attributes.
+    IntOp $R9 $R8 & 0x410
+    ${If} $R9 = 0
+      Delete $R5
+      ${IfThen} ${FileExists} $R5 ${|} StrCpy $R6 1 ${|}
     ${EndIf}
-    SetErrorLevel 5
+  ${EndIf}
+!macroend
+
+; Removes a file the installer wrote, patiently, and names it in the log where it stays.
+; Windows refuses a file another program holds, a program still running and a file the person
+; may not delete in much the same way, so the log does not say which.
+!macro SteamGaugeRemoveFile path
+  StrCpy $R5 "${path}"
+  !insertmacro SteamGaugePatiently SteamGaugeRemoveFileOnce
+  ${If} $R6 = 1
+    DetailPrint "$R5 could not be removed."
+    IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
+  ${ElseIf} $R9 <> 0
+    DetailPrint "$R5 is not the file SteamGauge installed, so it stays."
+  ${EndIf}
+!macroend
+
+; Runs a macro for each folder an install moved files aside into, its name in $R5. Those are
+; the real folders with a GUID's name in a real folder replaced. A link is never entered: what
+; it points at is someone else's.
+!macro SteamGaugeMovedAside each
+  Push "$INSTDIR\replaced"
+  System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
+  IntOp $R9 $R8 & 0x410
+  ${If} $R9 = 0x10
+    FindFirst $R4 $R5 "$INSTDIR\replaced\{*"
+    ${DoWhile} $R5 != ""
+      Push "$INSTDIR\replaced\$R5"
+      System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
+      IntOp $R9 $R8 & 0x410
+      ${If} $R9 = 0x10
+        !insertmacro ${each}
+      ${EndIf}
+      FindNext $R4 $R5
+    ${Loop}
+    FindClose $R4
+  ${EndIf}
+!macroend
+
+!macro SteamGaugeRemoveOneMovedAside
+  Delete "$INSTDIR\replaced\$R5\*"
+  RMDir "$INSTDIR\replaced\$R5"
+  ${IfThen} ${FileExists} "$INSTDIR\replaced\$R5" ${|} StrCpy $R6 1 ${|}
+!macroend
+
+; Removes what installs moved aside, then replaced itself where nothing else is in it. Where
+; replaced is a link to a folder, the link goes and the folder it points at is untouched.
+!macro SteamGaugeRemoveMovedAsideOnce
+  StrCpy $R6 0
+  !insertmacro SteamGaugeMovedAside SteamGaugeRemoveOneMovedAside
+  RMDir "$INSTDIR\replaced"
+!macroend
+
+!macro SteamGaugeNameOneMovedAside
+  FindFirst $R6 $R7 "$INSTDIR\replaced\$R5\*"
+  ${DoWhile} $R7 != ""
+    ${If} $R7 != "."
+    ${AndIf} $R7 != ".."
+      DetailPrint "$INSTDIR\replaced\$R5\$R7 could not be removed."
+      IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
+    ${EndIf}
+    FindNext $R6 $R7
+  ${Loop}
+  FindClose $R6
+!macroend
+
+!macro SteamGaugeEndOneMovedAside
+  ${If} ${FileExists} "$INSTDIR\replaced\$R5\${MAINBINARYNAME}.exe"
+    !insertmacro CheckIfAppIsRunning "$INSTDIR\replaced\$R5\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   ${EndIf}
 !macroend
 
@@ -120,7 +198,7 @@ Var SteamGaugeWaited
 ; rather than leaving two versions side by side.
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro SteamGaugeCloseTheWindow
-  RMDir /r "$INSTDIR\replaced"
+  !insertmacro SteamGaugeRemoveMovedAsideOnce
   System::Call 'ole32::CoCreateGuid(g .R7)'
   StrCpy $R9 0
   ${Do}
@@ -171,43 +249,27 @@ Var SteamGaugeWaited
 ; cannot be ended, so it runs before anything is removed: the entry in Apps is still there to
 ; uninstall from again.
 !macro NSIS_HOOK_PREUNINSTALL
-  FindFirst $R4 $R5 "$INSTDIR\replaced\*"
-  ${DoWhile} $R5 != ""
-    ${If} ${FileExists} "$INSTDIR\replaced\$R5\${MAINBINARYNAME}.exe"
-      !insertmacro CheckIfAppIsRunning "$INSTDIR\replaced\$R5\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
-    ${EndIf}
-    FindNext $R4 $R5
-  ${Loop}
-  FindClose $R4
+  !insertmacro SteamGaugeMovedAside SteamGaugeEndOneMovedAside
 !macroend
 
 ; By now the entry in Apps is gone, so a folder left here can never be uninstalled again, and
-; only the person can finish: the log names each file of a copy moved aside that is still held
-; and says what to do. Windows takes a removal at the next restart from an administrator alone,
-; and this uninstaller runs as the person. A file of another program's in the folder is not
-; SteamGauge's to remove or to report, so the folder stays with it and the uninstall succeeds.
+; only the person can finish: the log names each file of SteamGauge's that stayed and says what
+; to do, and the uninstall ends with 5, the code the setup program gives for a held program.
+; Windows takes a removal at the next restart from an administrator alone, and this uninstaller
+; runs as the person. A setup program that uninstalls before it installs runs the uninstaller
+; where it is (`_?=`), or with /UPDATE, and stops on any code but 0. It waits for and moves
+; aside what is left itself, so for it the leftovers are logged and the code stays 0. A file of
+; another program's in the folder is not SteamGauge's to remove or to report, so the folder
+; stays with it and the uninstall succeeds.
 !macro NSIS_HOOK_POSTUNINSTALL
-  !insertmacro SteamGaugeRemove "$INSTDIR\replaced"
-  FindFirst $R4 $R5 "$INSTDIR\replaced\*"
-  ${DoWhile} $R5 != ""
-    ${If} $R5 != "."
-    ${AndIf} $R5 != ".."
-      FindFirst $R6 $R7 "$INSTDIR\replaced\$R5\*"
-      ${DoWhile} $R7 != ""
-        ${If} $R7 != "."
-        ${AndIf} $R7 != ".."
-          DetailPrint "$INSTDIR\replaced\$R5\$R7 is still held open by another program."
-        ${EndIf}
-        FindNext $R6 $R7
-      ${Loop}
-      FindClose $R6
-    ${EndIf}
-    FindNext $R4 $R5
-  ${Loop}
-  FindClose $R4
+  !insertmacro SteamGaugePatiently SteamGaugeRemoveMovedAsideOnce
+  !insertmacro SteamGaugeMovedAside SteamGaugeNameOneMovedAside
   RMDir "$INSTDIR"
-  GetErrorLevel $R5
-  ${If} $R5 = 5
-    DetailPrint "Close the program that holds them, then delete $INSTDIR."
+  ${If} $SteamGaugeLeft > 0
+    DetailPrint "Close any program using them or check their permissions, then delete $INSTDIR."
+    ${If} $UpdateMode <> 1
+    ${AndIf} $EXEDIR != $INSTDIR
+      SetErrorLevel 5
+    ${EndIf}
   ${EndIf}
 !macroend
