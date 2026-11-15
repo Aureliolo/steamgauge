@@ -139,7 +139,9 @@ Var SteamGaugeLeft
 
 ; Removes all that is in the folder on the stack: a file as it is, a link as the link, and a
 ; real folder with all that is in it. NSIS's own RMDir /r enters a link to a folder and empties
-; what it points at, which is someone else's.
+; what it points at, which is someone else's. The folder comes with the \\?\ prefix, and every
+; path is read and removed by Windows' own calls: without the prefix Windows drops the dots and
+; spaces a name ends in, and a link named `...` is read as the folder it is in.
 !macro SteamGaugeEmptyFunction un
   Function ${un}SteamGaugeEmpty
     Exch $0
@@ -157,11 +159,16 @@ Var SteamGaugeLeft
         ${If} $3 = 0x10
           Push "$0\$2"
           Call ${un}SteamGaugeEmpty
-          RMDir "$0\$2"
-        ${ElseIf} $3 = 0x410
-          RMDir "$0\$2"
+        ${EndIf}
+        ; Windows removes nothing that is read-only.
+        Push "$0\$2"
+        System::Call 'kernel32::SetFileAttributesW(w s, i 0x80)'
+        Push "$0\$2"
+        ${If} $3 = 0x10
+        ${OrIf} $3 = 0x410
+          System::Call 'kernel32::RemoveDirectoryW(w s)'
         ${Else}
-          Delete "$0\$2"
+          System::Call 'kernel32::DeleteFileW(w s)'
         ${EndIf}
       ${EndIf}
       FindNext $1 $2
@@ -176,7 +183,9 @@ Var SteamGaugeLeft
 !insertmacro SteamGaugeEmptyFunction ""
 !insertmacro SteamGaugeEmptyFunction "un."
 
-; Names in the log every file left in the folder on the stack, and counts it.
+; Names in the log all that is left in the folder on the stack, and counts it: each file and
+; link, and each folder with nothing left in it to name. The folder comes with the \\?\ prefix,
+; which the log leaves out.
 Function un.SteamGaugeNameLeft
   Exch $0
   Push $1
@@ -190,10 +199,16 @@ Function un.SteamGaugeNameLeft
       System::Call 'kernel32::GetFileAttributesW(w s) i .r3'
       IntOp $3 $3 & 0x410
       ${If} $3 = 0x10
+        StrCpy $3 $SteamGaugeLeft
         Push "$0\$2"
         Call un.SteamGaugeNameLeft
       ${Else}
-        DetailPrint "$0\$2 could not be removed."
+        StrCpy $3 "no folder"
+      ${EndIf}
+      ${If} $3 == $SteamGaugeLeft
+      ${OrIf} $3 == "no folder"
+        StrCpy $3 "$0\$2" "" 4
+        DetailPrint "$3 could not be removed."
         IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
       ${EndIf}
     ${EndIf}
@@ -208,15 +223,23 @@ FunctionEnd
 
 ; Runs a macro for each folder an install moved files aside into, its name in $R5. Those are
 ; the real folders with a GUID's name in a real folder replaced. A link is never entered: what
-; it points at is someone else's.
+; it points at is someone else's. $R7 is replaced with the \\?\ prefix, under which Windows
+; takes each name as it is written.
 !macro SteamGaugeMovedAside each
-  Push "$INSTDIR\replaced"
+  StrCpy $R7 $INSTDIR 2
+  ${If} $R7 == "\\"
+    StrCpy $R7 $INSTDIR "" 2
+    StrCpy $R7 "\\?\UNC\$R7\replaced"
+  ${Else}
+    StrCpy $R7 "\\?\$INSTDIR\replaced"
+  ${EndIf}
+  Push $R7
   System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
   IntOp $R9 $R8 & 0x410
   ${If} $R9 = 0x10
-    FindFirst $R4 $R5 "$INSTDIR\replaced\{*"
+    FindFirst $R4 $R5 "$R7\{*"
     ${DoWhile} $R5 != ""
-      Push "$INSTDIR\replaced\$R5"
+      Push "$R7\$R5"
       System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
       IntOp $R9 $R8 & 0x410
       ${If} $R9 = 0x10
@@ -229,14 +252,17 @@ FunctionEnd
 !macroend
 
 !macro SteamGaugeRemoveOneMovedAside
-  Push "$INSTDIR\replaced\$R5"
+  Push "$R7\$R5"
   !ifdef __UNINSTALL__
     Call un.SteamGaugeEmpty
   !else
     Call SteamGaugeEmpty
   !endif
-  RMDir "$INSTDIR\replaced\$R5"
-  ${IfThen} ${FileExists} "$INSTDIR\replaced\$R5" ${|} StrCpy $R6 1 ${|}
+  Push "$R7\$R5"
+  System::Call 'kernel32::RemoveDirectoryW(w s)'
+  Push "$R7\$R5"
+  System::Call 'kernel32::GetFileAttributesW(w s) i .R8'
+  ${IfThen} $R8 <> -1 ${|} StrCpy $R6 1 ${|}
 !macroend
 
 ; Removes what installs moved aside, then replaced itself where nothing else is in it. Where
@@ -247,12 +273,16 @@ FunctionEnd
   RMDir "$INSTDIR\replaced"
 !macroend
 
-; A folder moved aside that is still there holds something that would not go, so it counts
-; whatever the walk finds to name in it.
+; A folder moved aside that is still there with nothing in it to name is named itself: a
+; running program's working folder is one.
 !macro SteamGaugeNameOneMovedAside
-  IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
-  Push "$INSTDIR\replaced\$R5"
+  StrCpy $R6 $SteamGaugeLeft
+  Push "$R7\$R5"
   Call un.SteamGaugeNameLeft
+  ${If} $R6 == $SteamGaugeLeft
+    DetailPrint "$INSTDIR\replaced\$R5 could not be removed."
+    IntOp $SteamGaugeLeft $SteamGaugeLeft + 1
+  ${EndIf}
 !macroend
 
 !macro SteamGaugeEndOneMovedAside
