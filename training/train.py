@@ -1914,14 +1914,14 @@ def train_epoch(training: Training, epoch: int) -> None:
             # What the run holds on the card, which on Windows it also holds of the machine's
             # memory: the figure to read when the machine runs short, beside the step it ran
             # short at.
-            card_note = (
+            reserved_note = (
                 f" card {torch.cuda.memory_reserved() / GIGABYTE:.1f} GB"
                 if device == "cuda"
                 else ""
             )
             print(
                 f"  epoch {epoch + 1:,} step {taken:,}/{training.per_epoch:,} "
-                f"loss {running.item() / (step + 1):.4f}{card_note}",
+                f"loss {running.item() / (step + 1):.4f}{reserved_note}",
                 flush=True,
             )
 
