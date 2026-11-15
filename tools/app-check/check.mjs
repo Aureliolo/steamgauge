@@ -161,7 +161,7 @@ const PROBE = `(async function () {
   check('the cockpit does not list the models', $('#models').children.length === 4);
   check('the cockpit does not link the readers\\' agreement to the accuracy page',
     document.querySelectorAll('#models a.accuracy-link').length === 2 &&
-    /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#models').textContent) &&
+    /93\\.4% agreement at 80% coverage on 12 held-out games\\./.test($('#models').textContent) &&
     $('#models a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('the cockpit\\'s accuracy link does not open the accuracy page through the opener',
     await opensAccuracy($('#models a.accuracy-link')));
@@ -635,9 +635,9 @@ const PROBE = `(async function () {
   check('turning off preparing every game for search is not saved', last('save_settings').args.searchEveryGame === false);
   var sizes = document.querySelectorAll('#reader-sizes input');
   check('settings do not offer both readers', sizes.length === 2);
-  check('the larger reader does not read 93.4% agreement at 80% coverage on 10 held-out games',
-    /Standard reader[\\s\\S]*93\\.4% agreement at 80% coverage on 10 held-out games\\. Accuracy/.test($('#reader-sizes').textContent) &&
-    /Faster\\. A 244 MB download, the first time it reads\\. 78% agreement at 80% coverage on 10 held-out games\\. Accuracy/.test($('#reader-sizes').textContent));
+  check('the larger reader does not read 93.4% agreement at 80% coverage on 12 held-out games',
+    /Standard reader[\\s\\S]*93\\.4% agreement at 80% coverage on 12 held-out games\\. Accuracy/.test($('#reader-sizes').textContent) &&
+    /Faster\\. A 244 MB download, the first time it reads\\. 78% agreement at 80% coverage on 12 held-out games\\. Accuracy/.test($('#reader-sizes').textContent));
   check('each reader size in settings does not link to the accuracy page',
     document.querySelectorAll('#reader-sizes a.accuracy-link').length === 2 &&
     $('#reader-sizes a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
@@ -701,7 +701,7 @@ const PROBE = `(async function () {
   check('storage does not list the models', document.querySelectorAll('#model-rooms .room').length === 4);
   check('storage does not link the readers\\' agreement to the accuracy page',
     document.querySelectorAll('#model-rooms a.accuracy-link').length === 2 &&
-    /93\\.4% agreement at 80% coverage on 10 held-out games\\./.test($('#model-rooms').textContent) &&
+    /93\\.4% agreement at 80% coverage on 12 held-out games\\./.test($('#model-rooms').textContent) &&
     $('#model-rooms a.accuracy-link').href === 'https://aureliolo.github.io/steamgauge/accuracy.html');
   check('storage\\'s accuracy link does not open the accuracy page through the opener',
     await opensAccuracy($('#model-rooms a.accuracy-link')));

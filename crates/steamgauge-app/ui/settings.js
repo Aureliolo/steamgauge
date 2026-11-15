@@ -16,7 +16,9 @@ function sizeAbout(option, lines) {
     return [lines.join(' ')];
   }
   const said = [option.name === 'small' ? 'Faster.' : '', ...lines];
-  said.push(`${share.format(option.agreement)} agreement at 80% coverage on 10 held-out games.`);
+  said.push(
+    `${share.format(option.agreement)} agreement at 80% coverage on ${option.agreement_games} held-out games.`,
+  );
   return [said.filter(Boolean).join(' '), ' ', accuracyLink()];
 }
 

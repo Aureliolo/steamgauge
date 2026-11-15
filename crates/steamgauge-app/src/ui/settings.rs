@@ -297,18 +297,18 @@ pub(super) fn reader_name(size: &steamgauge_core::reader::Size) -> String {
     })
 }
 
-/// A size's agreement with the labels, and what it was measured on: the claims of the ten games
+/// A size's agreement with the labels, and what it was measured on: the claims of the games
 /// held out of training, each size answering the 80% it is surest of.
-fn agreement_at_80(share: f64) -> String {
+fn agreement_at_80(share: f64, games: usize) -> String {
     format!(
-        "{} agreement at 80% coverage on 10 held-out games",
+        "{} agreement at 80% coverage on {games} held-out games",
         steamgauge_core::figure_text::percent(share)
     )
 }
 
 /// What sets a reader size apart from the others, as the window lists it beside the name.
 pub(super) fn reader_role(size: &steamgauge_core::reader::Size) -> String {
-    let agreement = agreement_at_80(size.agreement);
+    let agreement = agreement_at_80(size.agreement, steamgauge_core::reader::AGREEMENT_GAMES);
     if size.name == steamgauge_core::reader::SIZES[0].name {
         format!("faster, {agreement}")
     } else {
@@ -322,6 +322,8 @@ pub(super) struct SizeOption {
     pub name: &'static str,
     /// Its agreement with the benchmark labels on the 80% of claims it is surest of.
     pub agreement: f64,
+    /// How many held-out games that agreement was measured on.
+    pub agreement_games: usize,
     /// The whole download, and what of it is still to fetch.
     pub download_bytes: u64,
     pub bytes_left: u64,
@@ -380,6 +382,7 @@ pub(super) fn reader_options(app: AppHandle) -> ReaderOptions {
                 SizeOption {
                     name: size.name,
                     agreement: size.agreement,
+                    agreement_games: steamgauge_core::reader::AGREEMENT_GAMES,
                     download_bytes: size.published.total_bytes(),
                     bytes_left: size.left_to_fetch(&size.home()),
                     published,
@@ -401,17 +404,18 @@ mod tests {
         let [small, standard] = steamgauge_core::reader::SIZES else {
             panic!("the sizes are two");
         };
+        let games = steamgauge_core::reader::AGREEMENT_GAMES;
         assert_eq!(
             reader_role(small),
-            "faster, 78% agreement at 80% coverage on 10 held-out games"
+            format!("faster, 78% agreement at 80% coverage on {games} held-out games")
         );
         assert_eq!(
             reader_role(standard),
-            "84% agreement at 80% coverage on 10 held-out games"
+            format!("84% agreement at 80% coverage on {games} held-out games")
         );
         assert_eq!(
-            agreement_at_80(0.934),
-            "93.4% agreement at 80% coverage on 10 held-out games"
+            agreement_at_80(0.934, 12),
+            "93.4% agreement at 80% coverage on 12 held-out games"
         );
     }
 

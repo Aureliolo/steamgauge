@@ -460,6 +460,10 @@ const STANDARD_FILES: [crate::model::Asset; 3] = [
     },
 ];
 
+/// How many games the claims behind every size's `agreement` come from: the games held out of
+/// training that `reference/frontier-key.json` labels.
+pub const AGREEMENT_GAMES: usize = 10;
+
 /// The sizes, smallest first.
 ///
 /// `needs` is measured with `steamgauge read 920210`, 117,664 claims, on `DirectML` at the
@@ -1259,6 +1263,79 @@ pub(crate) mod tests {
                 "{}",
                 size.name
             );
+        }
+    }
+
+    #[test]
+    fn the_agreement_games_are_the_games_the_benchmark_labels() {
+        let key: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../reference/frontier-key.json")).unwrap();
+        let games: std::collections::BTreeSet<u64> = key
+            .iter()
+            .map(|claim| claim["app_id"].as_u64().unwrap())
+            .collect();
+        assert_eq!(games.len(), AGREEMENT_GAMES);
+    }
+
+    #[test]
+    fn the_pages_name_as_many_held_out_games_as_the_benchmark_labels() {
+        const WORDS: [&str; 21] = [
+            "no",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+            "twenty",
+        ];
+        let count = WORDS
+            .get(AGREEMENT_GAMES)
+            .expect("the pages write the count of held-out games in words");
+        for (page, text) in [
+            (
+                "docs/accuracy.md",
+                include_str!("../../../docs/accuracy.md"),
+            ),
+            (
+                "docs/how-it-works.md",
+                include_str!("../../../docs/how-it-works.md"),
+            ),
+            (
+                "reference/reader-sizes.json",
+                include_str!("../../../reference/reader-sizes.json"),
+            ),
+        ] {
+            let words: Vec<&str> = text.split_whitespace().collect();
+            let named: Vec<&str> = words
+                .windows(3)
+                .filter_map(|three| match three {
+                    [word, "held-out", games] if games.starts_with("games") => Some(*word),
+                    [word, "games", "held"] => Some(*word),
+                    _ => None,
+                })
+                .filter(|word| WORDS.contains(word) || word.parse::<usize>().is_ok())
+                .collect();
+            assert!(!named.is_empty(), "{page} names no count of held-out games");
+            for word in named {
+                assert!(
+                    word == *count || word.parse() == Ok(AGREEMENT_GAMES),
+                    "{page} names {word} held-out games"
+                );
+            }
         }
     }
 
