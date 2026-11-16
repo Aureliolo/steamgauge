@@ -67,6 +67,11 @@
       "description": "Held below 0.9. The prebuilt 0.9.0, 0.9.1 and 0.9.2 panic on their first HTTPS request, for want of a rustls crypto provider, and the notices need that request: about.toml takes the licence of every crate published without one from its repository at the commit it was published from. Measured 2026-09-26: all three on Windows, and 0.9.2 on Linux, which is the build CI runs.",
       "matchPackageNames": ["EmbarkStudios/cargo-about"],
       "allowedVersions": "<0.9"
+    },
+    {
+      "description": "Held below 0.18 while Tauri builds on gtk 0.18. rfd 0.18's GTK dialogues need gtk-sys 0.19, both link GTK 3, and Cargo allows one crate per linked library, so no lock resolves. Raise it once Tauri moves to gtk 0.19.",
+      "matchPackageNames": ["rfd"],
+      "allowedVersions": "<0.18"
     }
   ],
   "pip_requirements": {

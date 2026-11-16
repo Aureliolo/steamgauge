@@ -840,7 +840,7 @@ impl ClaimReader {
                 cols,
                 ids[part.start * cols..part.end * cols].to_vec(),
                 mask[part.start * cols..part.end * cols].to_vec(),
-                languages.get(part.clone()).unwrap_or(&[]),
+                languages.get(part).unwrap_or(&[]),
             )?);
         }
         Ok(readings)
@@ -973,8 +973,7 @@ impl Encoder {
                 offsets[at] = self
                     .whole
                     .encode(asked[at].review, false)
-                    .map(|encoded| encoded.get_offsets().to_vec())
-                    .unwrap_or_default();
+                    .map_or_default(|encoded| encoded.get_offsets().to_vec());
             }
         }
         asked

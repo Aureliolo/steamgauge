@@ -483,8 +483,8 @@ fn subject_row(
         positive: share_of(subject.positive_mentions, subject.mention_reviews),
         corrected: corrected_share(agreement, &subject.id, subject.claims, found.claims),
         found: agreement.and_then(|measured| measured.found(&subject.id)),
-        praised_terms: said.map(|said| said.praised.clone()).unwrap_or_default(),
-        criticised_terms: said.map(|said| said.criticised.clone()).unwrap_or_default(),
+        praised_terms: said.map_or_default(|said| said.praised.clone()),
+        criticised_terms: said.map_or_default(|said| said.criticised.clone()),
     }
 }
 

@@ -169,10 +169,7 @@ fn assistants() -> Vec<Assistant> {
                     client.macos, client.linux, client.windows
                 )
             };
-            let then = client
-                .then
-                .map(|then| format!(" {then}"))
-                .unwrap_or_default();
+            let then = client.then.map_or_default(|then| format!(" {then}"));
             let does = match &client.runs {
                 Some(runs) => format!("Runs `{runs}`"),
                 None => format!("Writes {files}"),
@@ -519,8 +516,7 @@ fn tool_card(text: &mut String, tool: &reference::Tool) {
     text.push_str("\n\n");
     let required: Vec<&str> = tool.input["required"]
         .as_array()
-        .map(|names| names.iter().filter_map(|name| name.as_str()).collect())
-        .unwrap_or_default();
+        .map_or_default(|names| names.iter().filter_map(|name| name.as_str()).collect());
     let Some(properties) = tool.input["properties"].as_object() else {
         return;
     };
@@ -646,7 +642,7 @@ fn commands() -> Result<String> {
                     .trim()
                     .trim_start_matches("steamgauge ")
                     .replace(" [OPTIONS]", "");
-                let about = sub.get_about().map(ToString::to_string).unwrap_or_default();
+                let about = sub.get_about().map_or_default(ToString::to_string);
                 text.push_str(&wrap(
                     &format!("`{usage}`: {}", full_stop(&prose(&about))),
                     "- ",

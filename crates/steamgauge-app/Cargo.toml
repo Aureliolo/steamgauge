@@ -16,6 +16,16 @@ publish.workspace = true
 OriginalFilename = "steamgauge.exe"
 InternalName = "steamgauge"
 
+[features]
+default = []
+coreml = ["steamgauge-core/coreml"]
+cuda = ["steamgauge-core/cuda"]
+# The window's pages served from inside the binary, with no developer tools. Every build that
+# ships has it; without it Tauri treats the build as development.
+custom-protocol = ["tauri/custom-protocol"]
+directml = ["steamgauge-core/directml"]
+webgpu = ["steamgauge-core/webgpu"]
+
 [lib]
 name = "steamgauge_app"
 path = "src/lib.rs"
@@ -47,7 +57,9 @@ jsonc-parser = { version = "=0.34.0", features = ["cst", "serde"] }
 # Desktop notifications, sent from the core's side so the window gains no permission. Tauri's own
 # notification plugin wraps this crate and drops the click on every desktop system.
 notify-rust = "=4.19.0"
-rfd = { version = "=0.18.0", default-features = false, features = ["gtk3"] }
+# Below 0.18 while Tauri builds on gtk 0.18: rfd 0.18's GTK dialogues need gtk-sys 0.19, and only
+# one crate in a build may link GTK.
+rfd = { version = "=0.17.2", default-features = false, features = ["gtk3"] }
 # The Model Context Protocol server MCP clients steer the app through, on a local socket (a named
 # pipe on Windows) that only this user can reach. `steamgauge mcp` serves the client on its
 # standard input and output and is itself a client of the open app.
@@ -72,16 +84,6 @@ steamgauge-stand-ins.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
-
-[features]
-default = []
-coreml = ["steamgauge-core/coreml"]
-cuda = ["steamgauge-core/cuda"]
-# The window's pages served from inside the binary, with no developer tools. Every build that
-# ships has it; without it Tauri treats the build as development.
-custom-protocol = ["tauri/custom-protocol"]
-directml = ["steamgauge-core/directml"]
-webgpu = ["steamgauge-core/webgpu"]
 
 [lints]
 workspace = true

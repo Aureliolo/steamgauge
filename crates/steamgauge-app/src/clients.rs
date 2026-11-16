@@ -130,8 +130,7 @@ fn on_the_search_path(name: &str) -> Option<PathBuf> {
         vec![String::new()]
     };
     let folders = std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .unwrap_or_default()
+        .map_or_default(|path| std::env::split_paths(&path).collect::<Vec<_>>())
         .into_iter()
         .chain(dirs::home_dir().map(|home| home.join(".local").join("bin")));
     for folder in folders.filter(|folder| folder.is_absolute()) {

@@ -14,12 +14,6 @@ cargo-fuzz = true
 [package.metadata.cargo-machete]
 ignored = ["ort", "arbitrary", "libloading"]
 
-# A workspace of its own. The product's workspace never builds, tests, lints or ships this
-# crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have. One
-# workspace would also unify features: the load-dynamic above would reach the product's ort.
-[workspace]
-members = ["."]
-
 [[bin]]
 bench = false
 doc = false
@@ -170,6 +164,12 @@ invalid_rust_codeblocks = "warn"
 private_intra_doc_links = "warn"
 redundant_explicit_links = "warn"
 unescaped_backticks = "warn"
+
+# A workspace of its own. The product's workspace never builds, tests, lints or ships this
+# crate, and libFuzzer needs a sanitiser-capable compiler the product's gates do not have. One
+# workspace would also unify features: the load-dynamic above would reach the product's ort.
+[workspace]
+members = ["."]
 
 # The product workspace's patch, for the same reason as there.
 [patch.crates-io]

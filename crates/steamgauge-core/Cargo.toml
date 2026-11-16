@@ -9,6 +9,24 @@ repository.workspace = true
 license.workspace = true
 publish.workspace = true
 
+# GPU backends are opt-in at build time so the default binary needs no vendor runtime to
+# start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
+# tens of megabytes rather than the ~750 MB a bundled CUDA runtime would cost.
+[features]
+default = ["prebuilt-onnx-runtime", "self-update"]
+coreml = ["ort/coreml"]
+cuda = ["ort/cuda"]
+directml = ["ort/directml"]
+# ONNX Runtime as ort's build script downloads it, over OpenSSL on Linux, and copies beside the
+# binary. The fuzz harness builds the core without it and loads the runtime at run time instead,
+# so its image fetches nothing it never runs.
+prebuilt-onnx-runtime = ["ort/copy-dylibs", "ort/download-binaries", "ort/tls-native"]
+# The app's own update. The fuzz harness builds the core without it: it fuzzes what reads review
+# text, and aws-lc, which Sigstore's verification runs on, does not build under OSS-Fuzz's
+# compiler flags.
+self-update = ["dep:flate2", "dep:rustix", "dep:sigstore-verify", "dep:tar"]
+webgpu = ["ort/webgpu"]
+
 # Its refusal of a snapshot in the library has tests, which an example runs only when asked.
 [[example]]
 name = "prepare-cost"
@@ -50,24 +68,6 @@ tar = { version = "=0.4.46", default-features = false, optional = true }
 
 [target."cfg(windows)".dependencies]
 winreg = "=0.56.0"
-
-# GPU backends are opt-in at build time so the default binary needs no vendor runtime to
-# start. DirectML is the broad one: it reaches NVIDIA, AMD and Intel through DX12, and adds
-# tens of megabytes rather than the ~750 MB a bundled CUDA runtime would cost.
-[features]
-default = ["prebuilt-onnx-runtime", "self-update"]
-coreml = ["ort/coreml"]
-cuda = ["ort/cuda"]
-directml = ["ort/directml"]
-# ONNX Runtime as ort's build script downloads it, over OpenSSL on Linux, and copies beside the
-# binary. The fuzz harness builds the core without it and loads the runtime at run time instead,
-# so its image fetches nothing it never runs.
-prebuilt-onnx-runtime = ["ort/copy-dylibs", "ort/download-binaries", "ort/tls-native"]
-# The app's own update. The fuzz harness builds the core without it: it fuzzes what reads review
-# text, and aws-lc, which Sigstore's verification runs on, does not build under OSS-Fuzz's
-# compiler flags.
-self-update = ["dep:flate2", "dep:rustix", "dep:sigstore-verify", "dep:tar"]
-webgpu = ["ort/webgpu"]
 
 [lints]
 workspace = true

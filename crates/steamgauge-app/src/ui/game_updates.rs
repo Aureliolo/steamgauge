@@ -52,8 +52,7 @@ pub(super) fn game_updates(app: AppHandle, app_id: u32) -> GameUpdates {
     GameUpdates {
         asked: kept.as_ref().map(|kept| kept.asked),
         updates: kept
-            .map(|kept| kept.updates())
-            .unwrap_or_default()
+            .map_or_default(|kept| kept.updates())
             .into_iter()
             .map(|update| UpdateOut {
                 month: steamgauge_core::time::year_month(update.posted),
@@ -112,9 +111,7 @@ pub(super) async fn before_after(
     tauri::async_runtime::spawn_blocking(move || {
         let snapshot = embed::latest_snapshot(&dir, app_id).map_err(text)?;
         let reading = read_report(&snapshot)?;
-        let all = updates::kept(&dir, app_id)
-            .map(|kept| kept.updates())
-            .unwrap_or_default();
+        let all = updates::kept(&dir, app_id).map_or_default(|kept| kept.updates());
         let update = all
             .iter()
             .find(|update| update.gid == gid)

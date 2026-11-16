@@ -108,8 +108,7 @@ impl Settings {
         file(app)
             .and_then(|path| std::fs::read(path).ok())
             .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
-            .map(Self::checked)
-            .unwrap_or_default()
+            .map_or_default(Self::checked)
     }
 
     /// A share outside the offered ones is the nearest offered one, so a hand-edited file can

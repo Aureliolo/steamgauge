@@ -239,12 +239,10 @@ pub fn kept_facts<S: std::hash::BuildHasher>(
             fact.censored = censored_runs(&review.text);
             fact.other_words = listed
                 .remove(&fact.review_id)
-                .map(|spans| spans.into_iter().collect())
-                .unwrap_or_default();
+                .map_or_default(|spans| spans.into_iter().collect());
             fact.tidied = tidied
                 .remove(&fact.review_id)
-                .map(|spans| spans.into_iter().collect())
-                .unwrap_or_default();
+                .map_or_default(|spans| spans.into_iter().collect());
             Some(fact)
         })
         .collect();

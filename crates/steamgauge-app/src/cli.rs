@@ -976,7 +976,7 @@ pub(crate) fn command() -> clap::Command {
             .map(|sub| {
                 (
                     sub.get_name().to_owned(),
-                    sub.get_about().map(ToString::to_string).unwrap_or_default(),
+                    sub.get_about().map_or_default(ToString::to_string),
                 )
             })
             .collect::<Vec<_>>()

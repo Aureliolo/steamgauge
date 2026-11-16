@@ -393,9 +393,7 @@ pub fn embed_corpus(
         dim: embedder.dimensions(),
         device: embedder.device(),
         elapsed: started.elapsed(),
-        bytes: std::fs::metadata(&path)
-            .map(|m| m.len())
-            .unwrap_or_default(),
+        bytes: std::fs::metadata(&path).map_or_default(|m| m.len()),
         path,
     })
 }
