@@ -15,7 +15,7 @@ use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceExt as _,
     handler::server::common::schema_for_type,
     model::{
-        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, EmptyObject,
+        CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
         GetPromptRequestParams, GetPromptResponse, Implementation, JsonObject, ListPromptsResult,
         ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool,
         ToolAnnotations,
@@ -133,6 +133,23 @@ async fn off_thread_trying<R: Send + 'static>(
 ) -> Result<R, String> {
     off_thread(work).await?
 }
+
+/// The arguments of a tool that takes none.
+mod nothing {
+    #![expect(
+        clippy::empty_enums,
+        reason = "serde's derive for a struct with no fields writes an enum with no variants"
+    )]
+
+    #[derive(serde::Deserialize, schemars::JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    #[expect(
+        clippy::empty_structs_with_brackets,
+        reason = "a tool without arguments is sent the object {}, which a unit struct would not accept"
+    )]
+    pub(super) struct Nothing {}
+}
+use nothing::Nothing;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -535,19 +552,19 @@ fn entries() -> Vec<Entry> {
             "library",
             Looks,
             "The games kept, each with how far it has got (downloaded, read), and where the library folder is.",
-            |app, EmptyObject {}| off_thread(move || super::library(app)),
+            |app, Nothing {}| off_thread(move || super::library(app)),
         ),
         tool(
             "games",
             Looks,
             "Every game kept, with its figures, its latest change and whether Steam has new reviews for it.",
-            |app, EmptyObject {}| cockpit::games(app),
+            |app, Nothing {}| cockpit::games(app),
         ),
         tool(
             "overview",
             Looks,
             "The cockpit: what changed since the person last looked, what is running, what needs a look and what this machine reads with.",
-            |app, EmptyObject {}| cockpit::overview(app),
+            |app, Nothing {}| cockpit::overview(app),
         ),
         tool(
             "look_up",
@@ -654,7 +671,7 @@ fn entries() -> Vec<Entry> {
             "writer_offer",
             Looks,
             "Whether a paragraph is written when a game is prepared, and what the writer would take to download and run on this machine.",
-            |app, EmptyObject {}| off_thread(move || super::writer_offer(app)),
+            |app, Nothing {}| off_thread(move || super::writer_offer(app)),
         ),
         tool(
             "choose_writer",
@@ -718,7 +735,7 @@ fn entries() -> Vec<Entry> {
             "groups",
             Looks,
             "The groups the person sorts their games into.",
-            |app, EmptyObject {}| off_thread(move || cockpit::groups(app)),
+            |app, Nothing {}| off_thread(move || cockpit::groups(app)),
         ),
         tool(
             "group_reading",
@@ -774,7 +791,7 @@ fn entries() -> Vec<Entry> {
             "clear_finished",
             Changes,
             "Takes every finished job off the board.",
-            |app, EmptyObject {}| {
+            |app, Nothing {}| {
                 off_thread(move || work::clear_finished(app.clone(), app.state::<work::Work>()))
             },
         ),
@@ -804,7 +821,7 @@ fn entries() -> Vec<Entry> {
             "settings",
             Looks,
             "The app's settings: the share of the graphics card a read may take, reader size, first-reading language, checks and library folder. Also the MCP clients on this computer and how assistants reach the app.",
-            |app, EmptyObject {}| off_thread(move || settings::settings(app)),
+            |app, Nothing {}| off_thread(move || settings::settings(app)),
         ),
         tool(
             "save_settings",
@@ -822,7 +839,7 @@ fn entries() -> Vec<Entry> {
             "new_http_token",
             Changes,
             "Draws a new token for the HTTP server and returns the settings with it. Clients holding the old token are shut out.",
-            |app, EmptyObject {}| off_thread_trying(move || settings::new_http_token(app)),
+            |app, Nothing {}| off_thread_trying(move || settings::new_http_token(app)),
         ),
         tool(
             "connect_client",
@@ -844,13 +861,13 @@ fn entries() -> Vec<Entry> {
             "reader_options",
             Looks,
             "The reader sizes this machine can read with, what each costs to download, and the room left for them.",
-            |app, EmptyObject {}| off_thread(move || settings::reader_options(app)),
+            |app, Nothing {}| off_thread(move || settings::reader_options(app)),
         ),
         tool(
             "storage",
             Looks,
             "What the library and the models take on disk, game by game and part by part, and the room left on each drive.",
-            |app, EmptyObject {}| async move { Ok::<_, String>(storage::storage(app).await) },
+            |app, Nothing {}| async move { Ok::<_, String>(storage::storage(app).await) },
         ),
         tool(
             "free_room",
@@ -874,43 +891,43 @@ fn entries() -> Vec<Entry> {
             "newer_version",
             Looks,
             "The newer SteamGauge release last heard of, if there is one.",
-            |app, EmptyObject {}| off_thread(move || newer::newer_version(app)),
+            |app, Nothing {}| off_thread(move || newer::newer_version(app)),
         ),
         tool(
             "about",
             Looks,
             "This copy's version, whether its build was checked on install, and the version it was updated from. Also the newest release GitHub last named, who makes SteamGauge, what it is built on and where it is published.",
-            |app, EmptyObject {}| off_thread(move || newer::about(app)),
+            |app, Nothing {}| off_thread(move || newer::about(app)),
         ),
         tool(
             "whats_new",
             Looks,
             "What each release up to the newest changes, as the About page lists it. With no newer release, it gives the changes since the version this copy was updated from. Asks GitHub's releases API.",
-            |app, EmptyObject {}| newer::whats_new(app),
+            |app, Nothing {}| newer::whats_new(app),
         ),
         tool(
             "saw_what_changed",
             Changes,
             "Records that the person has seen what changed in the last update, so the sidebar stops pointing at it.",
-            |app, EmptyObject {}| off_thread_trying(move || newer::saw_what_changed(app)),
+            |app, Nothing {}| off_thread_trying(move || newer::saw_what_changed(app)),
         ),
         tool(
             "open_notices",
             Looks,
             "Opens the licences and notices of the open-source software SteamGauge is built on, in the system's text viewer.",
-            |app, EmptyObject {}| off_thread_trying(move || newer::open_notices(app)),
+            |app, Nothing {}| off_thread_trying(move || newer::open_notices(app)),
         ),
         tool(
             "check_for_updates",
             Changes,
             "Asks GitHub now for the newest SteamGauge release and returns what `about` returns.",
-            |app, EmptyObject {}| newer::check_for_updates(app),
+            |app, Nothing {}| newer::check_for_updates(app),
         ),
         tool(
             "update_state",
             Looks,
             "Where an update of SteamGauge stands, or what keeps this copy from updating itself.",
-            |app, EmptyObject {}| {
+            |app, Nothing {}| {
                 off_thread(move || update::update_state(app.state::<update::Updating>()))
             },
         ),
@@ -918,7 +935,7 @@ fn entries() -> Vec<Entry> {
             "update_now",
             Changes,
             "Updates SteamGauge to the newest release once its build provenance verifies, then restarts it. The next call reaches the new version.",
-            |app, EmptyObject {}| {
+            |app, Nothing {}| {
                 off_thread(move || update::update_now(app.clone(), app.state::<update::Updating>()))
             },
         ),
@@ -926,7 +943,7 @@ fn entries() -> Vec<Entry> {
             "show_update_file",
             Changes,
             "Opens the system's file manager at a verified update the app could not install, so the person can install it by hand.",
-            |app, EmptyObject {}| {
+            |app, Nothing {}| {
                 off_thread_trying(move || update::show_update_file(app.state::<update::Updating>()))
             },
         ),
@@ -1308,6 +1325,24 @@ mod tests {
                 entry.tool.name
             );
         }
+    }
+
+    #[test]
+    fn a_tool_without_arguments_offers_the_empty_object_alone() {
+        let entries = entries();
+        let library = entries
+            .iter()
+            .find(|entry| entry.tool.name == "library")
+            .expect("the library tool");
+        assert_eq!(
+            serde_json::Value::Object((*library.tool.input_schema).clone()),
+            serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "title": "Nothing",
+                "type": "object",
+            })
+        );
     }
 
     #[test]
