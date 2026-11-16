@@ -516,8 +516,7 @@ fn british(text: &str) -> String {
             let mut letters = british.chars();
             letters
                 .next()
-                .map(|first| first.to_uppercase().chain(letters).collect())
-                .unwrap_or_default()
+                .map_or_default(|first| first.to_uppercase().chain(letters).collect())
         } else {
             british.to_owned()
         }

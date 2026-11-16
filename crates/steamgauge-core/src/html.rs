@@ -1164,8 +1164,7 @@ fn category_row(out: &mut String, app: &AppReport, category: &SubjectCount, wide
         .examples
         .iter()
         .find(|(id, _)| *id == category.id)
-        .map(|(_, quoted)| quoted.as_slice())
-        .unwrap_or_default();
+        .map_or_default(|(_, quoted)| quoted.as_slice());
     let has_examples = !examples.is_empty();
     let panel = format!("panel-{}-{}", app.app_id(), category.id);
 
@@ -1192,7 +1191,7 @@ fn category_row(out: &mut String, app: &AppReport, category: &SubjectCount, wide
         out,
         "<th scope=\"row\"><span class=\"name\">{}{}{}</span></th>",
         escape(&category.label),
-        measured.map(thinly_measured).unwrap_or_default(),
+        measured.map_or_default(thinly_measured),
         if has_examples {
             "<span class=\"chevron\" aria-hidden=\"true\"></span>"
         } else {

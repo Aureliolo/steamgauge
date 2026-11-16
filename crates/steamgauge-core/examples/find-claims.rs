@@ -72,8 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         thousands(reviews as u64),
         thousands(claims as u64),
         only.as_deref()
-            .map(|one| format!(", language {one}"))
-            .unwrap_or_default()
+            .map_or_default(|one| format!(", language {one}"))
     );
     #[expect(
         clippy::cast_precision_loss,

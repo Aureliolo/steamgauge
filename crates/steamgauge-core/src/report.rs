@@ -490,7 +490,7 @@ fn build_one(app_id: u32, options: &ReportOptions) -> Result<AppReport> {
             // of a million reviews will almost never contain one of the fifty most-helpful,
             // and what those fifty said about a subject next to what everyone said is the
             // whole argument in miniature.
-            let drawn_here = drawn.get(subject.id).map(Vec::as_slice).unwrap_or_default();
+            let drawn_here = drawn.get(subject.id).map_or_default(Vec::as_slice);
             for claim in drawn_here
                 .iter()
                 .filter(|claim| top_ids.contains(&claim.review_id))

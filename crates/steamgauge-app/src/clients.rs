@@ -130,8 +130,7 @@ fn on_the_search_path(name: &str) -> Option<PathBuf> {
         vec![String::new()]
     };
     let folders = std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .unwrap_or_default()
+        .map_or_default(|path| std::env::split_paths(&path).collect::<Vec<_>>())
         .into_iter()
         .chain(dirs::home_dir().map(|home| home.join(".local").join("bin")));
     for folder in folders.filter(|folder| folder.is_absolute()) {
@@ -1675,6 +1674,18 @@ fn write_in_place(file: &Path, text: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_program_is_found_on_the_search_path_and_a_missing_one_is_not() {
+        // Cargo is on the search path wherever these tests run, since it is what runs them.
+        let cargo = on_the_search_path("cargo").expect("cargo is on the search path");
+        assert!(cargo.is_file(), "{}", cargo.display());
+        assert_eq!(
+            cargo.file_stem().and_then(|stem| stem.to_str()),
+            Some("cargo")
+        );
+        assert_eq!(on_the_search_path("steamgauge-no-such-program"), None);
+    }
 
     struct Scratch(PathBuf);
 

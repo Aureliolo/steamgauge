@@ -89,7 +89,7 @@ jobs:
           cp Cargo.lock fuzz/Cargo.lock
           cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
       # The training scripts are Python, with every rule ruff has on (`training/ruff.toml`).
-      - run: pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check training
+      - run: pipx run ruff==0.17.5 check training && pipx run ruff==0.17.5 format --check training
       # The release tools pick a version that can never be reused and write what each release
       # says it changed, and otherwise run only when a release is cut.
       - run: node --test tools/release/release.test.mjs
@@ -336,8 +336,8 @@ jobs:
       - name: Install Vale
         env:
           # renovate: datasource=github-release-attachments depName=errata-ai/vale versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          VALE_TAG: v3.26.0
-          VALE_SHA256: 22aa69a556558e4a9dfc63c17030777383d8d3c48dcdfad655fa98e839d666ed
+          VALE_TAG: v3.27.0
+          VALE_SHA256: c80d62f6bce87b81843ac5b512a26e63213927b957adba0a64fc594570da2000
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/vale.tar.gz"
@@ -474,8 +474,8 @@ jobs:
       - name: Install cargo-machete
         env:
           # renovate: datasource=github-release-attachments depName=bnjbvr/cargo-machete versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-          CARGO_MACHETE_TAG: v0.9.2
-          CARGO_MACHETE_SHA256: d8e3968ed6cbff33c65889434721a9f99972d345aad673890f42d48f62c380ce
+          CARGO_MACHETE_TAG: v0.10.1
+          CARGO_MACHETE_SHA256: caa097f9d93e624e6e36045df6f3bf672d6021376dbd414fcd1f594e4b576139
         run: |
           set -euo pipefail
           name="cargo-machete-${CARGO_MACHETE_TAG}-x86_64-unknown-linux-musl"
@@ -508,7 +508,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check spelling
-        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+        uses: crate-ci/typos@276087d9a4f06398b3e04825487805e2d7375888 # v1.52.2
 
   # No em dash anywhere. The ONNX Runtime notices are Microsoft's text, shipped in every archive
   # byte for byte, and are the one file that may carry one.
@@ -640,9 +640,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Lint
-        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 lint
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.2 lint
       - name: Check the format
-        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 format --check
+        run: git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.2 format --check
 
   # JavaScript, CSS and JSON, held by Biome to every rule biome.jsonc does not turn off, and to its
   # format. Biome is the exact version tools/package.json pins.

@@ -178,9 +178,7 @@ impl Site<'_> {
             None => (destination, None),
         };
         let path = self.file(folder, path)?;
-        let fragment = anchor
-            .map(|anchor| format!("#{anchor}"))
-            .unwrap_or_default();
+        let fragment = anchor.map_or_default(|anchor| format!("#{anchor}"));
         if let Some(page) = PAGES
             .iter()
             .find(|page| page.markdown() == Some(path.as_str()))

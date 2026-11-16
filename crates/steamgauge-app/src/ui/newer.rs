@@ -175,8 +175,7 @@ fn installed() -> Detail {
                 name: "Updates",
                 value: letters
                     .next()
-                    .map(|first| first.to_uppercase().chain(letters).collect())
-                    .unwrap_or_default(),
+                    .map_or_default(|first| first.to_uppercase().chain(letters).collect()),
             }
         }
     }
@@ -302,8 +301,7 @@ fn about_from(
         built_on: notices
             .as_deref()
             .and_then(notices_head)
-            .map(|head| built_on(&head))
-            .unwrap_or_default(),
+            .map_or_default(|head| built_on(&head)),
         notices: notices.is_some(),
         by_itself,
     }
@@ -342,7 +340,7 @@ pub(super) fn open_notices(app: AppHandle) -> Result<(), String> {
 )]
 pub(super) fn about(app: AppHandle) -> About {
     let dir = dir(&app);
-    let asked = dir.as_deref().map(Asked::load).unwrap_or_default();
+    let asked = dir.as_deref().map_or_default(Asked::load);
     let opened = dir.as_deref().and_then(Opened::load);
     about_from(
         &asked,

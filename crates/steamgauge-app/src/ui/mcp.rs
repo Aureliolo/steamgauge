@@ -134,13 +134,22 @@ async fn off_thread_trying<R: Send + 'static>(
     off_thread(work).await?
 }
 
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[expect(
-    clippy::empty_structs_with_brackets,
-    reason = "a tool without arguments is sent the object {}, which a unit struct would not accept"
-)]
-struct Nothing {}
+/// The arguments of a tool that takes none.
+mod nothing {
+    #![expect(
+        clippy::empty_enums,
+        reason = "serde's derive for a struct with no fields writes an enum with no variants"
+    )]
+
+    #[derive(serde::Deserialize, schemars::JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    #[expect(
+        clippy::empty_structs_with_brackets,
+        reason = "a tool without arguments is sent the object {}, which a unit struct would not accept"
+    )]
+    pub(super) struct Nothing {}
+}
+use nothing::Nothing;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1316,6 +1325,24 @@ mod tests {
                 entry.tool.name
             );
         }
+    }
+
+    #[test]
+    fn a_tool_without_arguments_offers_the_empty_object_alone() {
+        let entries = entries();
+        let library = entries
+            .iter()
+            .find(|entry| entry.tool.name == "library")
+            .expect("the library tool");
+        assert_eq!(
+            serde_json::Value::Object((*library.tool.input_schema).clone()),
+            serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "title": "Nothing",
+                "type": "object",
+            })
+        );
     }
 
     #[test]
