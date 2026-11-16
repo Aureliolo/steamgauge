@@ -73,9 +73,9 @@ jobs:
       # The .deb is linted on Debian and the .rpm linted and installed on Fedora, each pinned by
       # digest so the check is the same each run.
       # renovate: datasource=docker depName=debian
-      DEBIAN_IMAGE: debian:13@sha256:2dc419c6d7fe3dad0a2f9fd469c34cc90b0f9ba642d8fde837fe3d7d34a0e7f1
+      DEBIAN_IMAGE: debian:13@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
       # renovate: datasource=docker depName=fedora
-      FEDORA_IMAGE: fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
+      FEDORA_IMAGE: fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4
 
     steps:
       - name: Checkout
@@ -97,8 +97,8 @@ jobs:
         if: runner.os == 'Linux' && env.CHECKS == 'true'
         env:
           # renovate: datasource=github-release-attachments depName=goreleaser/nfpm versioning=semver
-          NFPM_TAG: v2.48.0
-          NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
+          NFPM_TAG: v2.49.0
+          NFPM_SHA256: 2afaa5ffb5e3493402e31e7c67a5a1fb42133e3f66fc315ca0051934125561c7
         run: |
           set -euo pipefail
           archive="${RUNNER_TEMP}/nfpm.tar.gz"

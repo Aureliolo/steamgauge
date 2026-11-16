@@ -17,7 +17,7 @@ cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --workspace
 cargo test --locked --workspace
-pipx run ruff==0.17.3 check training && pipx run ruff==0.17.3 format --check training
+pipx run ruff==0.17.5 check training && pipx run ruff==0.17.5 format --check training
 bash -c "cd training && python -m pytest -q"
 bash -c "cd training && pipx run pyright==1.1.414 --pythonpath .venv/Scripts/python.exe ."
 node --test tools/release/release.test.mjs
@@ -40,7 +40,7 @@ npx markdownlint-cli2                                              # .markdownli
 git ls-files -z '*.sh' | xargs -0 shellcheck --enable=all
 git ls-files -z '*Dockerfile' | xargs -0 hadolint --failure-threshold style
 npx --prefix tools biome ci .                                     # JavaScript, CSS, JSON: biome.jsonc
-git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.9.9 lint     # and `format --check`
+git ls-files -z '*.toml' | xargs -0 pipx run tombi==1.11.2 lint     # and `format --check`
 git ls-files -z '*.yml' '*.yaml' | xargs -0 yamllint --strict       # .yamllint.yaml
 git ls-files '*.ps1' '*.psd1' | % { Invoke-ScriptAnalyzer $_ -Settings ./PSScriptAnalyzerSettings.psd1 }   # in pwsh
 ```

@@ -23,7 +23,7 @@ ort = { version = "=2.0.0-rc.15", default-features = false, features = ["api-31"
 parquet = "=60.1.0"
 percent-encoding = "=2.3.2"
 reqwest = { version = "=0.13.5", default-features = false, features = ["gzip", "http2", "json", "rustls-no-provider"] }
-rusqlite = { version = "=0.41.1", features = ["bundled"] }
+rusqlite = { version = "=0.43.0", features = ["bundled"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["logging", "ring", "std", "tls12"] }
 semver = "=1.0.28"
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -32,7 +32,7 @@ sha2 = "=0.11.1"
 # An update is installed only where Sigstore verifies the release's build provenance. The trust
 # root comes through TUF over the client this crate makes, so no TLS of Sigstore's own is built;
 # its signature checks run on aws-lc.
-sigstore-verify = { version = "=0.15.1", default-features = false, features = ["aws-lc-rs", "tuf"], optional = true }
+sigstore-verify = { version = "=0.16.0", default-features = false, features = ["aws-lc-rs", "tuf"], optional = true }
 thiserror = "=2.0.21"
 tokenizers = { version = "=0.23.2", default-features = false, features = ["onig"] }
 tokio = { version = "=1.54.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
@@ -44,7 +44,7 @@ steamgauge-stand-ins.workspace = true
 # A macOS app bundle and a Linux archive are unpacked from the verified file and moved into
 # place with a rename, which on macOS exchanges the two bundles in one step.
 [target."cfg(unix)".dependencies]
-flate2 = { version = "=1.1.10", optional = true }
+flate2 = { version = "=1.1.11", optional = true }
 rustix = { version = "=1.1.6", features = ["fs"], optional = true }
 tar = { version = "=0.4.46", default-features = false, optional = true }
 

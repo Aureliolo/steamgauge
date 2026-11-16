@@ -54,7 +54,7 @@ test = false
 [dependencies]
 arbitrary = "=1.5.0"
 libfuzzer-sys = "=0.4.13"
-libloading = "=0.9.0"
+libloading = "=0.9.1"
 # Loaded at run time rather than linked. The prebuilt ONNX Runtime the product links wants a
 # newer glibc and libstdc++ than OSS-Fuzz's Ubuntu 20.04 image has, and no target here runs a
 # model, so nothing is ever loaded.
