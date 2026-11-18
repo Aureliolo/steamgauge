@@ -1308,6 +1308,23 @@ async fn know_the_game(
         .map_err(text)
 }
 
+/// What a read of one game is told: the library, the language to count, the share of the card it
+/// may take, and the flag that ends it.
+fn read_options(
+    out_dir: &std::path::Path,
+    language: Option<String>,
+    card_share: f64,
+    stop: Arc<AtomicBool>,
+) -> steamgauge_core::read::ReadOptions {
+    steamgauge_core::read::ReadOptions {
+        out_dir: out_dir.to_path_buf(),
+        language,
+        card_share,
+        stop,
+        ..steamgauge_core::read::ReadOptions::default()
+    }
+}
+
 async fn read(
     app: &AppHandle,
     id: u64,
@@ -1331,13 +1348,7 @@ async fn read(
     let model_dir = size.home();
     unless_stopped(&stop, fetch_reader(app, id, size)).await?;
     know_the_game(app, id, app_id, &out_dir).await?;
-    let options = steamgauge_core::read::ReadOptions {
-        out_dir: out_dir.clone(),
-        language,
-        card_share: settings.gpu_share,
-        stop,
-        ..steamgauge_core::read::ReadOptions::default()
-    };
+    let options = read_options(&out_dir, language, settings.gpu_share, stop);
     let telling = app.clone();
     tell(
         app,
@@ -1402,9 +1413,20 @@ async fn read(
 /// The reader on this computer that answered a reading, known by the lines it draws: a recount
 /// adds up what that reader declined, so no other reader will do.
 fn answering_reader(lines: &str) -> Option<steamgauge_core::reader::Provenance> {
-    steamgauge_core::reader::SIZES
-        .iter()
-        .filter_map(|size| steamgauge_core::reader::Provenance::load(&size.home()).ok())
+    answering_reader_among(
+        steamgauge_core::reader::SIZES
+            .iter()
+            .map(steamgauge_core::reader::Size::home),
+        lines,
+    )
+}
+
+fn answering_reader_among(
+    homes: impl Iterator<Item = std::path::PathBuf>,
+    lines: &str,
+) -> Option<steamgauge_core::reader::Provenance> {
+    homes
+        .filter_map(|home| steamgauge_core::reader::Provenance::load(&home).ok())
         .find(|provenance| provenance.lines_fingerprint == lines)
 }
 
@@ -1692,6 +1714,14 @@ async fn check(app: &AppHandle, id: u64) -> Result<Ended, String> {
     Ok(Ended::said("Checked every game against Steam."))
 }
 
+/// What a report is told: the library to read the games from.
+fn report_options(out_dir: std::path::PathBuf) -> steamgauge_core::report::ReportOptions {
+    steamgauge_core::report::ReportOptions {
+        out_dir,
+        ..steamgauge_core::report::ReportOptions::default()
+    }
+}
+
 async fn export(
     app: &AppHandle,
     id: u64,
@@ -1703,10 +1733,7 @@ async fn export(
     tell(app, id, "Writing the report", Unit::Games, 0.0, Some(games));
     let written = to.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let options = steamgauge_core::report::ReportOptions {
-            out_dir: dir,
-            ..steamgauge_core::report::ReportOptions::default()
-        };
+        let options = report_options(dir);
         let report = steamgauge_core::report::build(&app_ids, &options).map_err(text)?;
         if stop.load(Ordering::Relaxed) {
             return Err("stopped".to_owned());
@@ -2180,6 +2207,37 @@ mod tests {
         );
         assert!(!job(&work, own).background);
         assert_eq!(work.jobs().len(), 1);
+    }
+
+    #[test]
+    fn a_read_is_told_the_library_the_language_the_share_of_the_card_and_the_flag_that_ends_it() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let options = read_options(
+            std::path::Path::new("library"),
+            Some("english".to_owned()),
+            0.5,
+            Arc::clone(&stop),
+        );
+        assert_eq!(options.out_dir, std::path::Path::new("library"));
+        assert_eq!(options.language.as_deref(), Some("english"));
+        assert!((options.card_share - 0.5).abs() < f64::EPSILON);
+        assert!(Arc::ptr_eq(&options.stop, &stop));
+    }
+
+    #[test]
+    fn a_report_is_told_the_library_to_read_its_games_from() {
+        let options = report_options(std::path::PathBuf::from("library"));
+        assert_eq!(options.out_dir, std::path::Path::new("library"));
+    }
+
+    #[test]
+    fn a_task_the_app_asks_for_twice_stays_the_apps_own() {
+        let work = Work::default();
+        let own = put(&work, Task::Update { app_id: 7 }, true);
+        assert_eq!(put(&work, Task::Update { app_id: 7 }, true), own);
+        let now = job(&work, own);
+        assert!(now.background);
+        assert_eq!(now.note.as_deref(), Some(WAITS_FOR_YOURS));
     }
 
     #[test]
@@ -2855,5 +2913,194 @@ mod tests {
                 assert_eq!(held_now(&work), Vec::<u32>::new(), "{a:?} then {b:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_count_that_goes_backwards_in_one_step_starts_the_measurement_again() {
+        let start = Instant::now();
+        let mut meter = Meter::new("Downloading", 100.0, start);
+        assert_eq!(
+            meter.note("Downloading", 50.0, start + Duration::from_secs(2)),
+            None
+        );
+        let rate = meter
+            .note("Downloading", 150.0, start + Duration::from_secs(3))
+            .unwrap();
+        assert!((rate - 100.0).abs() < 1e-9, "{rate}");
+    }
+
+    #[test]
+    fn a_count_that_has_not_moved_for_a_second_has_a_rate_of_nothing() {
+        let start = Instant::now();
+        let mut meter = Meter::new("Downloading", 100.0, start);
+        assert_eq!(
+            meter.note("Downloading", 100.0, start + Duration::from_secs(2)),
+            Some(0.0)
+        );
+    }
+
+    #[test]
+    fn a_rate_is_the_count_gained_over_the_seconds_it_took() {
+        let start = Instant::now();
+        let mut meter = Meter::new("Downloading", 0.0, start);
+        let rate = meter
+            .note("Downloading", 100.0, start + Duration::from_secs(2))
+            .unwrap();
+        assert!((rate - 50.0).abs() < 1e-9, "{rate}");
+    }
+
+    /// A library with a download of `app_id`, its crawl record naming it `name`.
+    fn crawled(library: &std::path::Path, app_id: u32, name: &str) {
+        let snapshot = library.join(format!("appid={app_id}")).join("snapshot=1");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        std::fs::write(snapshot.join("shard-0000.parquet"), b"x").unwrap();
+        std::fs::write(
+            snapshot.join("crawl.json"),
+            serde_json::json!({
+                "app_id": app_id, "name": name, "review_score_desc": "", "rows_unique": 0,
+                "valve_total_reviews": 0, "valve_total_positive": 0,
+                "valve_total_negative": 0, "snapshot_unix": 1, "shards": 1,
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_game_is_named_by_its_crawl_and_by_the_store_where_the_crawl_has_none() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let (named, unnamed, unknown) = (4_000_000_001, 4_000_000_002, 4_000_000_003);
+        crawled(dir.path(), named, "Portal");
+        crawled(dir.path(), unnamed, "");
+        store_names().insert(unnamed, Some("From the store".to_owned()));
+        store_names().insert(named, Some("Not this".to_owned()));
+        let name = |app_id| name_in(dir.path(), &read(app_id));
+        assert_eq!(name(named).as_deref(), Some("Portal"));
+        assert_eq!(name(unnamed).as_deref(), Some("From the store"));
+        assert_eq!(name(unknown), None);
+        assert_eq!(
+            name_in(dir.path(), &Task::Check).as_deref(),
+            Some("Your library")
+        );
+    }
+
+    #[test]
+    fn a_saved_file_is_offered_only_for_a_finished_export_of_that_very_job() {
+        let work = Work::default();
+        let report = put(&work, report_to(&[7], "first.html"), false);
+        let data = put(
+            &work,
+            Task::ExportData {
+                app_id: 8,
+                to: std::path::PathBuf::from("second"),
+            },
+            false,
+        );
+        let download = put(&work, Task::Download { app_id: 9 }, false);
+        set_state(&work, data, State::Done);
+        set_state(&work, download, State::Done);
+        assert_eq!(work.saved(report), None, "it is still waiting");
+        assert_eq!(work.saved(download), None, "it is no export");
+        assert_eq!(work.saved(99), None, "no job has that number");
+        set_state(&work, report, State::Done);
+        assert_eq!(
+            work.saved(data),
+            Some(std::path::PathBuf::from("second")),
+            "not the first export that is done"
+        );
+        assert_eq!(
+            work.saved(report),
+            Some(std::path::PathBuf::from("first.html"))
+        );
+    }
+
+    fn report_to(app_ids: &[u32], to: &str) -> Task {
+        Task::Export {
+            app_ids: app_ids.to_vec(),
+            to: std::path::PathBuf::from(to),
+        }
+    }
+
+    fn steam_at(server: &steamgauge_stand_ins::stand_in::Server) -> steamgauge_core::SteamClient {
+        steamgauge_core::SteamClient::new(Duration::ZERO)
+            .unwrap()
+            .with_api(&server.origin())
+    }
+
+    #[tokio::test]
+    async fn the_updates_of_a_game_are_refreshed_with_nothing_to_say_when_steam_answers() {
+        use steamgauge_stand_ins::stand_in::{Answer, Server};
+        let server = Server::new(|_| {
+            Answer::json(&serde_json::json!({"appnews": {"appid": 7, "newsitems": [], "count": 0}}))
+        });
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let said = refresh_updates(&steam_at(&server), 7, dir.path()).await;
+        assert_eq!(said, "");
+    }
+
+    #[tokio::test]
+    async fn the_updates_of_a_game_steam_will_not_list_are_said_so_in_a_sentence() {
+        use steamgauge_stand_ins::stand_in::{Answer, Server};
+        let server = Server::new(|_| Answer::json(&serde_json::json!({})));
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let said = refresh_updates(&steam_at(&server), 7, dir.path()).await;
+        assert!(
+            said.starts_with(" Steam did not list its updates: "),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn any_size_reads_on_a_processor_and_only_the_sizes_a_card_holds_on_a_card() {
+        use steamgauge_core::{card::Card, reader::SIZES};
+        let (smallest, largest) = (&SIZES[0], &SIZES[SIZES.len() - 1]);
+        assert!(largest.needs > smallest.needs);
+        assert!(runs_here(largest, None, true), "no card is reported");
+        let small_card = Some(Card {
+            bytes: 0,
+            shared: false,
+        });
+        assert!(
+            runs_here(largest, small_card, false),
+            "a card the build cannot use"
+        );
+        assert!(runs_here(smallest, small_card, true));
+        assert!(!runs_here(largest, small_card, true));
+    }
+
+    fn reader_record(dir: &std::path::Path, lines: &str, run: &str) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(
+            dir.join("reader.json"),
+            serde_json::json!({
+                "subjects": [], "threshold": 0.5, "max_tokens": 8, "context": false,
+                "mark": false, "prefix": false, "headset_marker": false, "trained_from": "",
+                "data_fingerprint": "", "lines_fingerprint": lines, "run_id": run, "name": run,
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn the_reader_that_answered_a_reading_is_the_one_drawing_the_same_lines() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let (first, second, gone) = (
+            dir.path().join("first"),
+            dir.path().join("second"),
+            dir.path().join("gone"),
+        );
+        reader_record(&first, "lines-a", "run-a");
+        reader_record(&second, "lines-b", "run-b");
+        let among = |lines| {
+            answering_reader_among(
+                [gone.clone(), first.clone(), second.clone()].into_iter(),
+                lines,
+            )
+            .map(|provenance| provenance.run_id)
+        };
+        assert_eq!(among("lines-b").as_deref(), Some("run-b"));
+        assert_eq!(among("lines-a").as_deref(), Some("run-a"));
+        assert_eq!(among("lines-c"), None);
     }
 }

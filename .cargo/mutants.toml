@@ -87,6 +87,16 @@ exclude_re = [
   'src[/\\]ui[/\\]update\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(folders|set|show_update_file|tidy|update|update_now|update_state)( ->| with|$)',
   'src[/\\]ui[/\\]who\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(who_wrote)( ->| with|$)',
   'src[/\\]ui[/\\]work\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(bar|check|clear|clear_finished|download|export|export_data|fetch_for_prepare|fetch_model|fetch_reader|finish|know_the_game|let_go_of_search_models|name_from_store|name_of|Work::note|open_report|prepare|progress|queue|queue_as|queue_background|read|recount|run|send|start|steam|stop_job|tell|update|work|write_paragraph)( ->| with|$)',
+  # What the machine and the network answer, which a test cannot stand in for. The release
+  # check asks the Hub's own address for each repository's newest release, and the reader on
+  # this computer is where `size.home()` puts it, so a test sees whatever this machine holds.
+  # What is decided from those answers (`Releases::newer`, `run_in`, `answering_reader_among`) is
+  # tested and stays mutated.
+  'src[/\\]ui[/\\]cockpit\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(Releases::fetch|reader_run)( ->| with|$)',
+  'src[/\\]ui[/\\]work\.rs:\d+:\d+: replace answering_reader -> ',
+  # A Windows path begins with a drive prefix and no other path does, so the arm that names the
+  # drive by its letter is never entered by the run, which tests Linux's paths.
+  'src[/\\]ui[/\\]storage\.rs:\d+:\d+: delete match arm Some\(std::path::Component::Prefix\(prefix\)\) in drive_name$',
   # One body per platform, chosen when the program is built. The run compiles Linux's, so the
   # others are never built and a mutant of one passes untouched. A name cannot tell the bodies
   # apart, so Linux's is left out with them.
