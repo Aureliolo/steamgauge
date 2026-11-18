@@ -804,9 +804,9 @@ pub fn offered(reference: &Path, library: &Path, who: &str) -> Result<(Vec<Quest
             if judged.contains(&(label.review_id.clone(), label.index, said.clone())) {
                 continue;
             }
+            // The span came from `cut`, so the review shown beside it always holds it.
             let Some((claim, before, after)) = shown_at(&cut, &mut shown, &label.review_id, span)
             else {
-                found.recut += 1;
                 continue;
             };
             questions.push(Question {

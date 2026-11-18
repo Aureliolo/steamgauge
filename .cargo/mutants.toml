@@ -99,10 +99,5 @@ exclude_re = [
   # refusal is a real permission error from the system and the retry asks for an administrator's
   # password, so a test run as any one user takes only one of the two ways. The package
   # manager's answer next to it (`after_package_manager`) is tested and stays mutated.
-  'src[/\\]update\.rs:\d+:\d+: (replace match guard error\.kind\(\) == std::io::ErrorKind::PermissionDenied with (true|false)|replace == with != |delete ! )in put_in_place$',
-  # The review shown beside a claim is built from the same cuts a claim's span is taken from, so
-  # a span `claim_in_capture` returns is always found there and this second count of a claim
-  # that was cut again is never reached. Pinned to its line so that the first count in the same
-  # function, which is tested, stays mutated.
-  'src[/\\]gold\.rs:809:29: replace \+= with [*-]= in offered$',
+  'src[/\\]update\.rs:\d+:\d+: (replace match guard error\.kind\(\) == std::io::ErrorKind::PermissionDenied with (true|false) |replace == with != |delete ! )in put_in_place$',
 ]
