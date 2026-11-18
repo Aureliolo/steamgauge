@@ -11,8 +11,8 @@
 # all 24 of them after each mutant takes its build from about 7 s to 33 s.
 additional_cargo_args = ["--tests"]
 
-# The workspace's mutants profile: the test profile without debug information, which an app
-# mutant's test programs otherwise spend most of their rebuild linking.
+# The workspace's mutants profile: the test profile without debug information. It takes an app
+# mutant's build on CI from 26 to 134 s down to 9 to 20 s, and its tests run about twice as fast.
 profile = "mutants"
 
 # A mutant that makes a rest sleep for ever, or a loop never end, is stopped here and counted

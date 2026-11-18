@@ -150,10 +150,10 @@ jobs:
           path: mutants.out/
           if-no-files-found: ignore
 
-  # About 6,100 mutants of the two crates at some twenty seconds each, two at a time on four
-  # cores, is about seventeen hours on one runner, so they are dealt out over twenty, round robin
-  # so that a slow file is spread across all of them: a shard is some 300 mutants, under an hour.
-  # A shard nearing its two hours is the sign to deal them over more.
+  # About 6,400 mutants of the two crates, two at a time on four cores, are dealt out over twenty
+  # runners, round robin so that a slow file is spread across all of them. A shard is some 320
+  # mutants and takes 50 to 80 minutes. A shard nearing its two hours is the sign to deal them
+  # over more.
   shard:
     # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
     # without one.
