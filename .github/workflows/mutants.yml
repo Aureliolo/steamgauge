@@ -107,8 +107,9 @@ jobs:
 
       # cargo-mutants builds in a copy of the tree, and handed this target directory it starts
       # from the dependencies already built here, or restored by the cache, rather than from none.
+      # The profile is the one .cargo/mutants.toml builds every mutant with.
       - name: Build the tests
-        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --no-run
+        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --profile mutants --no-run
 
       # The checkout is the merge of the pull request into its base, so the three-dot diff from
       # the base is exactly what the pull request changes.
@@ -149,10 +150,10 @@ jobs:
           path: mutants.out/
           if-no-files-found: ignore
 
-  # About 6,100 mutants of the two crates at some twenty seconds each, two at a time on four
-  # cores, is about seventeen hours on one runner, so they are dealt out over twenty, round robin
-  # so that a slow file is spread across all of them: a shard is some 300 mutants, under an hour.
-  # A shard nearing its two hours is the sign to deal them over more.
+  # About 6,400 mutants of the two crates, two at a time on four cores, are dealt out over twenty
+  # runners, round robin so that a slow file is spread across all of them. A shard is some 320
+  # mutants and takes 50 to 80 minutes. A shard nearing its two hours is the sign to deal them
+  # over more.
   shard:
     # GitHub adds the shard to the name, and a pull request, where the job is skipped, shows it
     # without one.
@@ -203,7 +204,7 @@ jobs:
           "${RUNNER_TEMP}/cargo-mutants" mutants --version
 
       - name: Build the tests
-        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --no-run
+        run: cargo test --locked --tests -p steamgauge-core -p steamgauge-app --profile mutants --no-run
 
       # Survivors and timeouts are what the report job gathers; anything else, a baseline that
       # fails or a tree that does not build, fails the shard. Incremental, as for a pull request.

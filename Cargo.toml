@@ -145,6 +145,12 @@ unescaped_backticks = "warn"
 strip = true
 lto = "thin"
 
+# What cargo-mutants builds each mutant with (.cargo/mutants.toml). A mutant needs only whether
+# its tests pass, which debug information does not change.
+[profile.mutants]
+inherits = "test"
+debug = "none"
+
 # jieba-rs's dictionary comes through include-flate, whose latest release builds on zstd 0.13, a
 # line with no fix for RUSTSEC-2026-0391 or the zstd-safe 7 advisories; its main is on zstd 0.14.
 # The fuzz workspace carries the same patch.
