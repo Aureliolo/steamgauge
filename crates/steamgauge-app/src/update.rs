@@ -389,9 +389,12 @@ mod tests {
 
     #[test]
     fn a_file_that_changed_after_it_was_downloaded_is_not_installed() {
-        assert!(unchanged("ab12", "ab12").is_ok());
+        unchanged("ab12", "ab12").unwrap();
         let stopped = unchanged("ab12", "cd34").unwrap_err();
-        assert_eq!(stopped.why, "the file changed on disk after it was downloaded");
+        assert_eq!(
+            stopped.why,
+            "the file changed on disk after it was downloaded"
+        );
     }
 
     /// How a process that ended with `code` reports it.

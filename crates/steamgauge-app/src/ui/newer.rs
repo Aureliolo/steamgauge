@@ -598,9 +598,11 @@ mod tests {
     #[test]
     fn the_system_is_named_by_its_operating_system_and_processor() {
         let told = super::system();
-        let (os, arch) = told.split_once(", ").expect("the system is told as `os, arch`");
+        let (os, arch) = told
+            .split_once(", ")
+            .expect("the system is told as `os, arch`");
         assert!(["Windows", "macOS", "Linux"].contains(&os), "{os}");
-        assert!(!arch.is_empty());
+        assert_ne!(arch, "");
     }
 
     /// A notices file in a folder of its own, removed on drop.
@@ -631,7 +633,10 @@ mod tests {
         let dir = steamgauge_stand_ins::tempdir::Dir::new();
         let file = dir.path().join(super::NOTICES);
         std::fs::write(&file, "x".repeat(40_000)).unwrap();
-        assert_eq!(super::notices_head(&file).map(|head| head.len()), Some(16 << 10));
+        assert_eq!(
+            super::notices_head(&file).map(|head| head.len()),
+            Some(16 << 10)
+        );
         std::fs::write(&file, "1. Rust crates\n").unwrap();
         assert_eq!(
             super::notices_head(&file).as_deref(),

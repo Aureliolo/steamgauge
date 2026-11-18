@@ -197,10 +197,7 @@ fn clients_here() -> Vec<Client> {
 }
 
 /// The clients found in `folders`, each with where it stands against `launch`.
-fn clients_in(
-    folders: &crate::clients::Folders,
-    launch: &crate::clients::Launch,
-) -> Vec<Client> {
+fn clients_in(folders: &crate::clients::Folders, launch: &crate::clients::Launch) -> Vec<Client> {
     use crate::clients::{CLIENTS, State, state};
 
     CLIENTS
@@ -489,7 +486,10 @@ mod tests {
         std::fs::create_dir_all(folders.config.join("Claude")).unwrap();
         let found = clients_in(&folders, &launch);
         assert_eq!(
-            found.iter().map(|client| client.id.as_str()).collect::<Vec<_>>(),
+            found
+                .iter()
+                .map(|client| client.id.as_str())
+                .collect::<Vec<_>>(),
             ["claude-desktop"]
         );
         assert_eq!(found[0].name, "Claude Desktop");
