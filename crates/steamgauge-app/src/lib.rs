@@ -51,3 +51,26 @@ pub fn run() -> anyhow::Result<()> {
     }
     ui::run()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panic_with_a_literal_message_is_reported_with_it() {
+        let payload: Box<dyn std::any::Any + Send> = Box::new("out of room");
+        assert_eq!(panic_message(&*payload), "out of room");
+    }
+
+    #[test]
+    fn a_panic_with_a_formatted_message_is_reported_with_it() {
+        let payload: Box<dyn std::any::Any + Send> = Box::new(String::from("3 games"));
+        assert_eq!(panic_message(&*payload), "3 games");
+    }
+
+    #[test]
+    fn a_panic_with_no_message_is_said_to_have_none() {
+        let payload: Box<dyn std::any::Any + Send> = Box::new(7_u8);
+        assert_eq!(panic_message(&*payload), "no message");
+    }
+}

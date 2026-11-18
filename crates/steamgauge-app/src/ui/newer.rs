@@ -596,6 +596,56 @@ mod tests {
     }
 
     #[test]
+    fn the_system_is_named_by_its_operating_system_and_processor() {
+        let told = super::system();
+        let (os, arch) = told
+            .split_once(", ")
+            .expect("the system is told as `os, arch`");
+        assert!(["Windows", "macOS", "Linux"].contains(&os), "{os}");
+        assert_ne!(arch, "");
+    }
+
+    /// A notices file in a folder of its own, removed on drop.
+    struct Notices(std::path::PathBuf);
+
+    impl Drop for Notices {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    #[test]
+    fn the_notices_are_found_beside_the_program() {
+        let beside = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join(super::NOTICES);
+        let _ = std::fs::remove_file(&beside);
+        assert_eq!(super::notices_file(), None);
+        std::fs::write(&beside, "notices").unwrap();
+        let _removed = Notices(beside.clone());
+        assert_eq!(super::notices_file(), Some(beside));
+    }
+
+    #[test]
+    fn only_the_start_of_the_notices_is_read() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let file = dir.path().join(super::NOTICES);
+        std::fs::write(&file, "x".repeat(40_000)).unwrap();
+        assert_eq!(
+            super::notices_head(&file).map(|head| head.len()),
+            Some(16 << 10)
+        );
+        std::fs::write(&file, "1. Rust crates\n").unwrap();
+        assert_eq!(
+            super::notices_head(&file).as_deref(),
+            Some("1. Rust crates\n")
+        );
+        assert_eq!(super::notices_head(&dir.path().join("missing")), None);
+    }
+
+    #[test]
     fn a_copy_tells_what_changed_only_since_a_version_it_was_updated_from() {
         let opened = |version: &str, from: Option<&str>| steamgauge_core::newer_version::Opened {
             version: version.to_owned(),

@@ -81,7 +81,7 @@ exclude_re = [
   'src[/\\]ui[/\\]mcp_http\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(follow|local_data|new_token|reach|serve)( ->| with|$)',
   'src[/\\]ui[/\\]mod\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(art|art_bytes|choose_meaning|choose_writer|claims_behind|induced|library|look_up|meaning_offer|read_offer|reading|search_by_meaning|search_game|writer_offer)( ->| with|$)',
   'src[/\\]ui[/\\]newer\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(about|ask_in_background|check_for_updates|check_on_opening|check_when_due|dir|newer_version|open_notices|remember_opening|saw_what_changed|verified|whats_new)( ->| with|$)',
-  'src[/\\]ui[/\\]settings\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(connect_client|disconnect_client|file|load|new_http_token|reader_options|save|save_settings|settings)( ->| with|$)',
+  'src[/\\]ui[/\\]settings\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(clients_here|connect_client|disconnect_client|file|load|new_http_token|reader_options|save|save_settings|settings)( ->| with|$)',
   'src[/\\]ui[/\\]since\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(after_background_read|baseline|lately|looked|notify|open_game|remember|since_last_look)( ->| with|$)',
   'src[/\\]ui[/\\]storage\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(free_room|measure|remove_model|storage)( ->| with|$)',
   'src[/\\]ui[/\\]update\.rs:\d+:\d+: .*\b(in|replace) (\w+::)?(folders|set|show_update_file|tidy|update|update_now|update_state)( ->| with|$)',
@@ -92,4 +92,12 @@ exclude_re = [
   # apart, so Linux's is left out with them.
   'src[/\\]update\.rs:\d+:\d+: replace on_this_system -> ',
   'src[/\\]ui[/\\]mcp\.rs:\d+:\d+: replace bind -> ',
+  # The window's server holds the app's handle, which no test can build, and answers what
+  # `server_config` gives it unchanged. `server_config` is tested and stays mutated.
+  'src[/\\]ui[/\\]mcp\.rs:\d+:\d+: replace <impl ServerHandler for Server>::get_info -> ',
+  # Putting a new macOS app over the old one, where the account may not write beside it: the
+  # refusal is a real permission error from the system and the retry asks for an administrator's
+  # password, so a test run as any one user takes only one of the two ways. The package
+  # manager's answer next to it (`after_package_manager`) is tested and stays mutated.
+  'src[/\\]update\.rs:\d+:\d+: (replace match guard error\.kind\(\) == std::io::ErrorKind::PermissionDenied with (true|false) |replace == with != |delete ! )in put_in_place$',
 ]

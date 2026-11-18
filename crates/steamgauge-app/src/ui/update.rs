@@ -201,3 +201,21 @@ async fn update(app: &AppHandle, updating: &Updating) -> Result<(), Stop> {
 const fn bytes(count: u64) -> f64 {
     count as f64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_byte_count_is_shown_as_the_number_it_is() {
+        assert!((bytes(1_234_567) - 1_234_567.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn the_update_under_way_is_the_one_told() {
+        let updating = Updating::default();
+        assert_eq!(updating.current(), None);
+        *updating.now.lock().unwrap() = Some(Progress::Verifying);
+        assert_eq!(updating.current(), Some(Progress::Verifying));
+    }
+}

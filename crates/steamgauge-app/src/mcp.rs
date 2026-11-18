@@ -183,12 +183,118 @@ pub(crate) async fn bridge() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
     use super::*;
 
     #[test]
     fn the_rendezvous_is_in_the_apps_own_folder() {
         let local = Path::new("local").join(IDENTIFIER);
         assert_eq!(rendezvous(&local), local.join("mcp-socket"));
+    }
+
+    #[test]
+    fn the_local_data_folder_is_named_for_the_app() {
+        assert_eq!(
+            local_data().unwrap().file_name(),
+            Some(std::ffi::OsStr::new(IDENTIFIER))
+        );
+    }
+
+    /// An app that answers nothing but who it is, on a socket in `local` that takes every
+    /// connection made to it. The count is how many it has taken.
+    fn open_for_every_connection(local: &Path) -> Arc<AtomicUsize> {
+        use interprocess::local_socket::{ListenerOptions, traits::tokio::Listener as _};
+
+        struct Open;
+        impl ServerHandler for Open {
+            fn get_info(&self) -> ServerConfig {
+                crate::ui::mcp_server_config()
+            }
+        }
+
+        #[cfg(windows)]
+        let written = format!(
+            "steamgauge-bridge-test-{}",
+            local.file_name().unwrap().to_string_lossy()
+        );
+        #[cfg(not(windows))]
+        let written = local.join("socket").to_string_lossy().into_owned();
+        std::fs::write(rendezvous(local), &written).unwrap();
+        let listener = ListenerOptions::new()
+            .name(socket_name(&written).unwrap())
+            .create_tokio()
+            .unwrap();
+        let taken = Arc::new(AtomicUsize::new(0));
+        let counting = Arc::clone(&taken);
+        tokio::spawn(async move {
+            while let Ok(stream) = listener.accept().await {
+                counting.fetch_add(1, Ordering::SeqCst);
+                tokio::spawn(async move {
+                    if let Ok(running) = Open.serve(stream).await {
+                        let _ = running.waiting().await;
+                    }
+                });
+            }
+        });
+        taken
+    }
+
+    #[tokio::test]
+    async fn a_connection_that_was_closed_is_replaced_by_a_new_one() {
+        let local = steamgauge_stand_ins::tempdir::Dir::new();
+        let taken = open_for_every_connection(local.path());
+        let bridge = Bridge::new(local.path().to_owned());
+        assert!(bridge.app().await.is_some());
+        bridge
+            .app
+            .lock()
+            .await
+            .as_ref()
+            .unwrap()
+            .cancellation_token()
+            .cancel();
+        assert!(bridge.app().await.is_some());
+        assert_eq!(taken.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn a_connection_still_open_is_kept_for_the_next_call() {
+        let local = steamgauge_stand_ins::tempdir::Dir::new();
+        let taken = open_for_every_connection(local.path());
+        let bridge = Bridge::new(local.path().to_owned());
+        assert!(bridge.app().await.is_some());
+        assert!(bridge.app().await.is_some());
+        assert_eq!(taken.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn the_bridge_tells_a_client_it_is_steamgauge() {
+        let (server_end, client_end) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let running = Bridge::new(PathBuf::new())
+                .serve(server_end)
+                .await
+                .expect("the server starts");
+            let _ = running.waiting().await;
+        });
+        let client = rmcp::service::serve_client_with_lifecycle(
+            (),
+            client_end,
+            rmcp::service::ClientLifecycleMode::Initialize,
+        )
+        .await
+        .expect("the handshake succeeds");
+        let told = client.peer_info().expect("the server introduced itself");
+        assert_eq!(
+            told.server_info.as_ref().map(|info| info.name.as_str()),
+            Some("steamgauge")
+        );
+        client.cancel().await.expect("the client closes");
+        server.await.expect("the server ends");
     }
 
     #[test]

@@ -165,6 +165,36 @@ mod tests {
     }
 
     #[test]
+    fn a_copy_of_a_kept_model_shares_its_slot() {
+        let kept: Kept<u32> = Kept::default();
+        let copy = kept.clone();
+        copy.lock().unwrap().get(Path::new("a"), |_| Ok(1)).unwrap();
+        assert!(kept.lock().unwrap().0.model.is_some());
+    }
+
+    #[test]
+    fn a_free_slot_is_handed_over_without_waiting() {
+        let kept: Kept<u32> = Kept::default();
+        assert!(kept.try_lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn a_model_let_go_is_gone() {
+        let kept: Kept<u32> = Kept::default();
+        kept.lock().unwrap().get(Path::new("a"), |_| Ok(1)).unwrap();
+        kept.let_go();
+        assert!(kept.0.lock().unwrap().model.is_none());
+    }
+
+    #[test]
+    fn a_model_is_idle_from_when_its_use_ends() {
+        let kept: Kept<u32> = Kept::default();
+        kept.0.lock().unwrap().used = Instant::now().checked_sub(IDLE).unwrap();
+        drop(kept.lock().unwrap());
+        assert!(kept.0.lock().unwrap().used.elapsed() < IDLE);
+    }
+
+    #[test]
     fn somebody_else_holding_it_is_told_rather_than_waited_for() {
         let kept: Kept<u32> = Kept::default();
         let _held = kept.lock().unwrap();

@@ -193,9 +193,8 @@ pub(super) fn new_token(app: &AppHandle) -> Result<(), String> {
 
 /// Whether a request carries the token, compared in time that does not depend on how much of it
 /// was right.
-fn carries(request: &Request<Incoming>, token: &str) -> bool {
-    let Some(given) = request
-        .headers()
+fn carries(headers: &header::HeaderMap, token: &str) -> bool {
+    let Some(given) = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
@@ -265,7 +264,7 @@ async fn serve(
                 let service = Arc::clone(&service);
                 let token = Arc::clone(&token);
                 async move {
-                    Ok::<_, Infallible>(if carries(&request, &token) {
+                    Ok::<_, Infallible>(if carries(request.headers(), &token) {
                         service.handle(request).await
                     } else {
                         refused()
@@ -292,6 +291,41 @@ mod tests {
         assert!(!same(b"abce", b"abcd"));
         assert!(!same(b"abc", b"abcd"));
         assert!(!same(b"", b"abcd"));
+    }
+
+    #[test]
+    fn two_wrong_bytes_never_make_up_for_each_other() {
+        assert!(!same(b"xy", b"yx"));
+    }
+
+    fn bearing(value: &str) -> header::HeaderMap {
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_str(value).unwrap(),
+        );
+        headers
+    }
+
+    #[test]
+    fn a_request_carries_the_token_when_it_bears_it() {
+        assert!(carries(&bearing("Bearer abcd"), "abcd"));
+    }
+
+    #[test]
+    fn a_request_with_another_token_or_none_does_not_carry_it() {
+        assert!(!carries(&bearing("Bearer abce"), "abcd"));
+        assert!(!carries(&bearing("abcd"), "abcd"));
+        assert!(!carries(&header::HeaderMap::new(), "abcd"));
+    }
+
+    #[tokio::test]
+    async fn a_request_without_the_token_is_answered_unauthorised_with_the_reason() {
+        let answer = refused();
+        assert_eq!(answer.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(answer.headers()[header::WWW_AUTHENTICATE], "Bearer");
+        let body = answer.into_body().collect().await.unwrap().to_bytes();
+        assert!(String::from_utf8_lossy(&body).contains("carries its token"));
     }
 
     #[test]

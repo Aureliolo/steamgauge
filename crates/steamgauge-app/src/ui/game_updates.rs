@@ -133,3 +133,68 @@ pub(super) async fn before_after(
     .await
     .map_err(text)?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every test here reads and writes the one kept walk, so they take turns.
+    static TURN: Mutex<()> = Mutex::new(());
+
+    /// A snapshot folder holding only a reading's file, with the walk kept for the file and time
+    /// `kept_for` names. The walk holds no reviews, so it is told apart by its address.
+    fn kept_walk(
+        kept_for: impl FnOnce(&Path) -> (PathBuf, Option<SystemTime>),
+    ) -> (steamgauge_stand_ins::tempdir::Dir, Arc<[Dated]>) {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        std::fs::write(dir.path().join("reading.json"), "{}").unwrap();
+        let held: Arc<[Dated]> = Vec::new().into();
+        let (path, when) = kept_for(dir.path());
+        *WALKED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some((path, when, Arc::clone(&held)));
+        (dir, held)
+    }
+
+    fn written(snapshot: &Path) -> Option<SystemTime> {
+        std::fs::metadata(snapshot.join("reading.json"))
+            .unwrap()
+            .modified()
+            .ok()
+    }
+
+    fn served_from_the_kept_walk(
+        kept_for: impl FnOnce(&Path) -> (PathBuf, Option<SystemTime>),
+    ) -> bool {
+        let _turn = TURN
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let (dir, held) = kept_walk(kept_for);
+        dated(dir.path(), None).is_ok_and(|walk| Arc::ptr_eq(&walk, &held))
+    }
+
+    #[test]
+    fn a_game_asked_again_with_its_reading_unchanged_is_not_walked_again() {
+        assert!(served_from_the_kept_walk(|snapshot| (
+            snapshot.join("reading.json"),
+            written(snapshot)
+        )));
+    }
+
+    #[test]
+    fn a_game_whose_reading_was_written_since_is_walked_again() {
+        assert!(!served_from_the_kept_walk(|snapshot| (
+            snapshot.join("reading.json"),
+            Some(SystemTime::UNIX_EPOCH)
+        )));
+    }
+
+    #[test]
+    fn another_game_is_walked_rather_than_served_from_the_last() {
+        assert!(!served_from_the_kept_walk(|snapshot| (
+            snapshot.join("elsewhere.json"),
+            written(snapshot)
+        )));
+    }
+}
