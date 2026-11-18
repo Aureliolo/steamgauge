@@ -25,6 +25,11 @@ ignoreUntil = 2027-03-27
 reason = "paste 1.0.15 is unmaintained; no vulnerability is reported. It is a proc-macro dependency of tokenizers 0.23.2, the newest stable release, so it runs only inside the compiler and none of its code is in the binary. tokenizers 1.0 drops it and is only at 1.0.0-rc.2."
 
 [[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = 2027-01-18
+reason = "chrono 0.4 is unmaintained; no vulnerability is reported and no release fixes it. No steamgauge crate depends on it directly. arrow-array and parquet 60.1.0 and rmcp 3.11.0, each the newest release, require it with no feature to turn it off, so it leaves the graph only when they move to jiff or time."
+
+[[IgnoredVulns]]
 id = "RUSTSEC-2026-0370"
 ignoreUntil = 2027-01-17
 reason = "zvariant 5.15.0 is unmaintained as a standalone crate; no vulnerability is reported. Its code moved into zbus 6.0.0 as the wire module. It is compiled only for Linux, under zbus 5.19.0, which notify-rust 4.18.2, tauri-plugin-opener 2.7.0 and tauri-plugin-single-instance 2.5.3 use for D-Bus; it is absent from the Windows and macOS graphs. Each of those is its newest release and requires zbus ^5, as do the tauri-plugin-opener and tauri-plugin-single-instance 3.0 alphas, so it leaves the graph when they move to zbus 6."
