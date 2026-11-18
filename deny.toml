@@ -28,6 +28,7 @@ ignore = [
   { id = "RUSTSEC-2026-0370", reason = "zvariant 5.15.0 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
   { id = "RUSTSEC-2026-0371", reason = "zbus_names 4.3.4 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
   { id = "RUSTSEC-2026-0372", reason = "zvariant_derive 5.15.0 is unmaintained, folded into zbus 6, under zbus 5 on Linux only. Evidence and expiry in osv-scanner.toml." },
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained and required by arrow, parquet and rmcp at their newest releases. Evidence and expiry in osv-scanner.toml." },
 ]
 
 [licenses]

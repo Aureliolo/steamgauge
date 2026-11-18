@@ -14,6 +14,7 @@ unused-ignored-advisory = "deny"
 # Evidence and expiry in ../osv-scanner.toml, which CI's deny job holds this list to.
 ignore = [
   { id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is unmaintained and runs only inside the compiler. Evidence and expiry in osv-scanner.toml." },
+  { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained and required by the core's arrow and parquet at their newest releases. Evidence and expiry in osv-scanner.toml." },
 ]
 
 [licenses]
