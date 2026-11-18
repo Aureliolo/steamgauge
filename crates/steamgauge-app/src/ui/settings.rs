@@ -188,19 +188,29 @@ pub(super) struct Client {
 }
 
 fn clients_here() -> Vec<Client> {
-    use crate::clients::{CLIENTS, Folders, Launch, State, state};
+    use crate::clients::{Folders, Launch};
 
     let (Ok(folders), Ok(launch)) = (Folders::of_this_user(), Launch::this_copy()) else {
         return Vec::new();
     };
+    clients_in(&folders, &launch)
+}
+
+/// The clients found in `folders`, each with where it stands against `launch`.
+fn clients_in(
+    folders: &crate::clients::Folders,
+    launch: &crate::clients::Launch,
+) -> Vec<Client> {
+    use crate::clients::{CLIENTS, State, state};
+
     CLIENTS
         .iter()
         .filter_map(|client| {
-            let state = state(client, &folders, &launch);
+            let state = state(client, folders, launch);
             (state != State::Absent).then(|| Client {
                 id: client.id.to_owned(),
                 name: client.name.to_owned(),
-                file: (client.file)(&folders).display().to_string(),
+                file: (client.file)(folders).display().to_string(),
                 state,
                 then: client.then.map(str::to_owned),
             })
@@ -435,6 +445,57 @@ mod tests {
             SHARES.contains(&checked(f64::NAN)),
             "a share that is not a number still lands on one offered"
         );
+    }
+
+    #[test]
+    fn a_port_is_kept_from_the_first_one_that_is_not_the_systems() {
+        let checked = |http_port| {
+            Settings {
+                http_port,
+                ..Settings::default()
+            }
+            .checked()
+            .http_port
+        };
+        assert_eq!(checked(1023), HTTP_PORT);
+        assert_eq!(checked(1024), 1024);
+    }
+
+    #[test]
+    fn a_reader_is_named_with_its_size_capitalised() {
+        let [small, standard] = steamgauge_core::reader::SIZES else {
+            panic!("the sizes are two");
+        };
+        assert_eq!(reader_name(small), "Small reader");
+        assert_eq!(reader_name(standard), "Standard reader");
+    }
+
+    #[test]
+    fn only_the_clients_found_on_the_computer_are_listed() {
+        let home = steamgauge_stand_ins::tempdir::Dir::new();
+        let folders = crate::clients::Folders {
+            home: home.path().join("home"),
+            config: home.path().join("config"),
+            local: home.path().join("local"),
+            variable: |_| None,
+            program: |_| None,
+            system: crate::clients::System::this(),
+        };
+        let launch = crate::clients::Launch {
+            program: "steamgauge".to_owned(),
+            args: vec!["mcp".to_owned()],
+        };
+        assert!(clients_in(&folders, &launch).is_empty());
+        std::fs::create_dir_all(folders.config.join("Claude")).unwrap();
+        let found = clients_in(&folders, &launch);
+        assert_eq!(
+            found.iter().map(|client| client.id.as_str()).collect::<Vec<_>>(),
+            ["claude-desktop"]
+        );
+        assert_eq!(found[0].name, "Claude Desktop");
+        assert_eq!(found[0].state, crate::clients::State::Installed);
+        assert!(found[0].file.ends_with("claude_desktop_config.json"));
+        assert!(found[0].then.is_some());
     }
 
     #[test]

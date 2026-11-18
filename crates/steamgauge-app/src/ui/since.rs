@@ -419,4 +419,88 @@ mod tests {
         assert_eq!(mid_sentence("VR and headsets"), "VR and headsets");
         assert_eq!(mid_sentence("Overall verdict"), "the game as a whole");
     }
+
+    #[test]
+    fn a_single_capital_letter_in_a_subject_is_not_an_acronym() {
+        assert_eq!(mid_sentence("Part A and B"), "part a and b");
+        assert_eq!(mid_sentence("DLC and VR"), "DLC and VR");
+    }
+
+    #[test]
+    fn a_share_that_stays_level_is_called_less() {
+        let (title, _) = words(
+            "Alpha",
+            &moved(Side::Praise, "Story", shift(0.2, 0.2, 0.0)),
+            400,
+        );
+        assert_eq!(title, "Alpha: less praise for story");
+    }
+
+    /// A library holding one game's snapshot with a reading of `reviews` reviews.
+    fn library_with_a_reading(app_id: u32, reviews: u64) -> steamgauge_stand_ins::tempdir::Dir {
+        let library = steamgauge_stand_ins::tempdir::Dir::new();
+        let snapshot = library
+            .path()
+            .join(format!("appid={app_id}"))
+            .join("snapshot=100");
+        std::fs::create_dir_all(&snapshot).unwrap();
+        std::fs::write(snapshot.join("shard-0.parquet"), b"rows").unwrap();
+        let reading = serde_json::json!({
+            "app_id": app_id, "reviews": reviews, "corpus_reviews": reviews, "language": null,
+            "depth": "deep", "batch_size": 8, "claims": 0, "forward_passes": 0,
+            "unclassified_claims": 0, "silent_reviews": 0, "claimless_reviews": 0,
+            "positive": 0, "top_helpful": 0, "model": "m", "trained_on": "labels-a",
+            "read_with": "run-a", "reader": "Reader", "read_by_rule": "lines-a",
+            "usual_declined": null, "held_out": null, "context": false, "threshold": 0.5,
+            "device": "cpu", "captured_unix": 0, "read_unix": 0, "subjects": [], "said": [],
+            "languages": [], "unread_languages": [], "strict_languages": [], "months": [],
+            "who": [],
+        });
+        std::fs::write(
+            snapshot.join("reading.json"),
+            serde_json::to_vec(&reading).unwrap(),
+        )
+        .unwrap();
+        library
+    }
+
+    #[test]
+    fn a_games_latest_reading_is_the_one_found_for_it() {
+        let library = library_with_a_reading(7, 5);
+        assert_eq!(
+            reading_of(library.path(), 7).map(|reading| reading.reviews),
+            Some(5)
+        );
+        assert!(reading_of(library.path(), 8).is_none());
+    }
+
+    #[test]
+    fn a_removed_game_leaves_its_looks_and_nothing_else_behind() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let mut looks = LastSeen::default();
+        looks.page_seen(1, Seen::of(5, 100, None));
+        looks.page_seen(2, Seen::of(6, 200, None));
+        looks.save(dir.path()).unwrap();
+        forget(dir.path(), 1).unwrap();
+        let kept = LastSeen::load(dir.path());
+        assert!(kept.latest(1).is_none());
+        assert!(kept.latest(2).is_some());
+    }
+
+    #[test]
+    fn a_removed_game_that_was_only_told_about_is_forgotten_too() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        let mut looks = LastSeen::default();
+        looks.tell(3, "bugs:complaint");
+        looks.save(dir.path()).unwrap();
+        forget(dir.path(), 3).unwrap();
+        assert!(!LastSeen::load(dir.path()).told.contains_key(&3));
+    }
+
+    #[test]
+    fn a_game_never_looked_at_is_forgotten_without_writing_a_record() {
+        let dir = steamgauge_stand_ins::tempdir::Dir::new();
+        forget(dir.path(), 9).unwrap();
+        assert!(!dir.path().join("last-seen.json").exists());
+    }
 }

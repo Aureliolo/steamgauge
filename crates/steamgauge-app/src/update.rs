@@ -228,11 +228,7 @@ pub(crate) async fn run(
     tell(Step::Verifying);
     let mut file = held(&path).map_err(Stop::new)?;
     let sha256 = self_update::sha256_of(&mut file).map_err(Stop::new)?;
-    if sha256 != fetched.sha256 {
-        return Err(Stop::new(
-            "the file changed on disk after it was downloaded",
-        ));
-    }
+    unchanged(&sha256, &fetched.sha256)?;
     let root = self_update::trusted_root(&http, &origins, &folders.tuf)
         .await
         .map_err(Stop::new)?;
@@ -257,6 +253,33 @@ pub(crate) async fn run(
     tell(Step::Installing);
     file.seek(SeekFrom::Start(0)).map_err(Stop::new)?;
     put_in_place(&install, &path, file, version, reopen)
+}
+
+/// The file read back from the disk must be the one whose digest was taken as it was written.
+fn unchanged(on_disk: &str, downloaded: &str) -> Result<(), Stop> {
+    if on_disk == downloaded {
+        Ok(())
+    } else {
+        Err(Stop::new(
+            "the file changed on disk after it was downloaded",
+        ))
+    }
+}
+
+/// What the package manager's exit means for the update. A failed install leaves the verified
+/// file at `path` to be installed by hand.
+fn after_package_manager(status: std::process::ExitStatus, path: &Path) -> Result<Then, Stop> {
+    let shown = |why: String| Stop {
+        why,
+        file: Some(path.to_owned()),
+    };
+    if self_update::install::declined(status.code()) {
+        return Err(shown("the password prompt was closed".to_owned()));
+    }
+    if !status.success() {
+        return Err(shown(format!("the package manager stopped with {status}")));
+    }
+    Ok(Then::Restart)
 }
 
 /// Installs the verified file `held` from `path` the way `install` says. Where a setup program
@@ -317,13 +340,7 @@ fn put_in_place(
                     "no password prompt is available to install it as root ({error})"
                 ))
             })?;
-            if self_update::install::declined(status.code()) {
-                return Err(shown("the password prompt was closed".to_owned()));
-            }
-            if !status.success() {
-                return Err(shown(format!("the package manager stopped with {status}")));
-            }
-            Ok(Then::Restart)
+            after_package_manager(status, path)
         }
         #[cfg(unix)]
         Install::LinuxArchive { dir } => {
@@ -368,6 +385,50 @@ mod tests {
             include_str!("../installer-hooks.nsh").contains(&format!("FindWindow $R0 \"{class}\"")),
             "{class}"
         );
+    }
+
+    #[test]
+    fn a_file_that_changed_after_it_was_downloaded_is_not_installed() {
+        assert!(unchanged("ab12", "ab12").is_ok());
+        let stopped = unchanged("ab12", "cd34").unwrap_err();
+        assert_eq!(stopped.why, "the file changed on disk after it was downloaded");
+    }
+
+    /// How a process that ended with `code` reports it.
+    fn ended_with(code: i32) -> std::process::ExitStatus {
+        #[cfg(unix)]
+        {
+            std::os::unix::process::ExitStatusExt::from_raw(code << 8)
+        }
+        #[cfg(windows)]
+        {
+            std::os::windows::process::ExitStatusExt::from_raw(code.cast_unsigned())
+        }
+    }
+
+    #[test]
+    fn a_package_manager_that_installed_it_has_the_app_restart() {
+        let path = Path::new("steamgauge.deb");
+        assert_eq!(
+            after_package_manager(ended_with(0), path).unwrap(),
+            Then::Restart
+        );
+    }
+
+    #[test]
+    fn a_package_manager_that_failed_leaves_the_file_to_install_by_hand() {
+        let path = Path::new("steamgauge.deb");
+        let stopped = after_package_manager(ended_with(100), path).unwrap_err();
+        assert!(stopped.why.starts_with("the package manager stopped with"));
+        assert_eq!(stopped.file.as_deref(), Some(path));
+    }
+
+    #[test]
+    fn a_closed_password_prompt_is_said_so_and_leaves_the_file() {
+        let path = Path::new("steamgauge.deb");
+        let stopped = after_package_manager(ended_with(126), path).unwrap_err();
+        assert_eq!(stopped.why, "the password prompt was closed");
+        assert_eq!(stopped.file.as_deref(), Some(path));
     }
 
     #[test]

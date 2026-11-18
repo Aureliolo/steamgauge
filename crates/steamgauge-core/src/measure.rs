@@ -1441,6 +1441,35 @@ mod tests {
     }
 
     #[test]
+    fn a_claim_the_readings_hold_no_row_for_is_counted_unjoined() {
+        let out = crate::tempdir::Dir::new();
+        let snapshot = crate::read::tests::read_corpus_of(out.path(), 1);
+        crate::read::tests::write_readings(
+            &snapshot.join("readings.parquet"),
+            &[(
+                "1",
+                "Bugs everywhere.",
+                (0, 16),
+                Some("bugs"),
+                "complaint",
+                None,
+            )],
+        );
+        let reference = out.path().join("reference");
+        write_labels(
+            &reference,
+            &[
+                label("1", 0, (0, 16), "bugs", "complaint", false),
+                label("1", 1, (17, 37), "audio", "complaint", false),
+            ],
+        );
+
+        let found = agreement(out.path(), 1, &reference).unwrap();
+        assert_eq!((found.matched, found.unjoined), (1, 1));
+        assert_eq!((found.answered, found.agreed), (1, 1));
+    }
+
+    #[test]
     fn a_label_is_scored_against_the_reading_of_its_words_in_an_edited_capture() {
         let out = crate::tempdir::Dir::new();
         crate::read::tests::read_corpus_of(out.path(), 1);

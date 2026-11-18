@@ -3164,6 +3164,24 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_subjects_positive_share_is_its_recommending_reviews_over_all_raising_it() {
+        let subject = |mention_reviews, positive_mentions| SubjectCount {
+            id: "bugs".to_owned(),
+            label: "Bugs".to_owned(),
+            mention_reviews,
+            primary_reviews: 0,
+            claims: 0,
+            praised: 0,
+            criticised: 0,
+            mixed: 0,
+            top_mention_reviews: 0,
+            positive_mentions,
+        };
+        assert_eq!(subject(0, 0).positive_share(), None);
+        assert_eq!(subject(8, 2).positive_share(), Some(0.25));
+    }
+
+    #[test]
     fn a_rate_needs_reviews_to_be_a_rate_of() {
         let month = |reviews, positive| Month {
             label: "2024-03".to_owned(),

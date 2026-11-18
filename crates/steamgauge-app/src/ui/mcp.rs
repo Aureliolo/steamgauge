@@ -61,6 +61,11 @@ impl Effect {
             .read_only(self == Self::Looks)
             .destructive(self == Self::Removes)
     }
+
+    /// Whether the page on screen has to draw itself again after the tool ran.
+    fn steers(self) -> bool {
+        self != Self::Looks
+    }
 }
 
 type Answer = Pin<Box<dyn Future<Output = Result<Vec<ContentBlock>, String>> + Send>>;
@@ -964,6 +969,10 @@ fn entries() -> Vec<Entry> {
 
 static TOOLS: LazyLock<Vec<Entry>> = LazyLock::new(entries);
 
+fn tool_called(name: &str) -> Option<&'static Entry> {
+    TOOLS.iter().find(|entry| entry.tool.name == name)
+}
+
 /// One client's server: what it answers is the app's, so every client is served the same app.
 #[derive(Clone)]
 pub(super) struct Server {
@@ -1046,14 +1055,14 @@ impl ServerHandler for Server {
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        let Some(entry) = TOOLS.iter().find(|entry| entry.tool.name == request.name) else {
+        let Some(entry) = tool_called(&request.name) else {
             return Err(ErrorData::invalid_params(
                 format!("SteamGauge has no tool called {}", request.name),
                 None,
             ));
         };
         let answer = (entry.call)(self.app.clone(), request.arguments.unwrap_or_default()).await;
-        if entry.effect != Effect::Looks {
+        if entry.effect.steers() {
             // The page on screen draws itself again, so the person sees what was done.
             let _ = self.app.emit("steered", ());
         }
@@ -1380,6 +1389,82 @@ mod tests {
             ..show(Page::Subject)
         };
         assert_eq!(subject.missing(), Some("subject"));
+        let search = Show {
+            app_id: Some(10),
+            ..show(Page::Search)
+        };
+        assert_eq!(search.missing(), Some("query"));
+        let empty = Show {
+            app_ids: Some(Vec::new()),
+            ..show(Page::Compare)
+        };
+        assert_eq!(empty.missing(), Some("app_ids"));
+    }
+
+    #[test]
+    fn a_page_given_what_it_needs_misses_nothing() {
+        let show = |page| Show {
+            page,
+            app_id: Some(10),
+            app_ids: Some(vec![10, 20]),
+            group: Some("Co-op".to_owned()),
+            subject: Some("story".to_owned()),
+            side: None,
+            query: Some("dragons".to_owned()),
+        };
+        for page in [
+            Page::Game,
+            Page::Compare,
+            Page::Group,
+            Page::Subject,
+            Page::Search,
+        ] {
+            assert_eq!(show(page).missing(), None);
+        }
+    }
+
+    #[test]
+    fn the_reference_marks_each_tool_as_the_server_does() {
+        let marked = reference();
+        for entry in entries() {
+            let tool = marked
+                .iter()
+                .find(|tool| tool.name == entry.tool.name)
+                .expect("every tool is in the reference");
+            assert_eq!(tool.read_only, entry.effect == Effect::Looks);
+            assert_eq!(tool.destructive, entry.effect == Effect::Removes);
+        }
+    }
+
+    #[test]
+    fn the_server_introduces_itself_with_its_tools_prompts_and_instructions() {
+        let config = server_config();
+        assert_eq!(config.server_info.name, "steamgauge");
+        assert_eq!(config.instructions.as_deref(), Some(INSTRUCTIONS));
+        assert!(config.capabilities.tools.is_some());
+        assert!(config.capabilities.prompts.is_some());
+    }
+
+    #[test]
+    fn a_call_finds_the_tool_it_names_and_none_it_does_not() {
+        let first = entries()
+            .first()
+            .map(|entry| entry.tool.name.to_string())
+            .unwrap();
+        let last = entries()
+            .last()
+            .map(|entry| entry.tool.name.to_string())
+            .unwrap();
+        assert_eq!(tool_called(&first).unwrap().tool.name, first);
+        assert_eq!(tool_called(&last).unwrap().tool.name, last);
+        assert!(tool_called("no such tool").is_none());
+    }
+
+    #[test]
+    fn only_a_tool_that_looks_leaves_the_page_as_it_was() {
+        assert!(!Effect::Looks.steers());
+        assert!(Effect::Changes.steers());
+        assert!(Effect::Removes.steers());
     }
 
     #[test]

@@ -2008,6 +2008,38 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_answer_on_a_span_this_build_does_not_cut_is_counted_though_a_labeller_answered_it() {
+        let root = crate::tempdir::Dir::new();
+        let set = root.path().join("214490");
+        std::fs::create_dir_all(answers_of(&set, "one")).unwrap();
+        kept(&set, &[("r1", THREE)]);
+        let whole_review = |subject: &str| {
+            let mut label = label_of(214_490, THREE, 0, subject);
+            label["start"] = 0.into();
+            label["end"] = THREE.len().into();
+            label
+        };
+        std::fs::write(
+            set.join("labels.json"),
+            serde_json::json!([whole_review("bugs")]).to_string(),
+        )
+        .unwrap();
+        let mut answer = whole_review("content");
+        answer["produced_by"] = "a person".into();
+        std::fs::write(
+            answers_of(&set, "one").join("labels.json"),
+            serde_json::json!([answer]).to_string(),
+        )
+        .unwrap();
+
+        let (questions, found) = rejudge(root.path(), "second", "one").unwrap();
+        assert_eq!(
+            (found.recut, found.agreed, found.split, questions.len()),
+            (1, 0, 0, 0)
+        );
+    }
+
     /// A person's answer to the second sentence of `THREE` and a second reading of it, each
     /// stored from the space in front of its words where `wide` says so.
     fn rejudged_with(wide_answer: bool, wide_second: bool) -> (GoldDraw, Vec<String>) {
